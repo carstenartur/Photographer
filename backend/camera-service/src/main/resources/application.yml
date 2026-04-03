@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: camera-service
+  profiles:
+    active: default
+
+camera:
+  mock:
+    enabled: true
+    delay-ms: 50
+  ccapi:
+    base-url: http://192.168.1.2:8080
+
+logging:
+  level:
+    root: INFO
+    com.photographer.focusstack.camera: DEBUG
