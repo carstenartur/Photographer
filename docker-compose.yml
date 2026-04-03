@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-focusstack}
+      POSTGRES_USER: ${POSTGRES_USER:-focusstack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-focusstack}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - focusstack
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-focusstack}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - dev-infra
+      - full
+
+  camera-service:
+    build:
+      context: .
+      dockerfile: docker/camera-service/Dockerfile
+    ports:
+      - "${CAMERA_SERVICE_PORT:-8080}:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-focusstack}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-focusstack}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-focusstack}
+      CAMERA_MOCK_ENABLED: ${CAMERA_MOCK_ENABLED:-true}
+    volumes:
+      - image-storage:/app/images
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - focusstack
+    profiles:
+      - full
+
+  analysis-service:
+    build:
+      context: .
+      dockerfile: docker/analysis-service/Dockerfile
+    ports:
+      - "${ANALYSIS_SERVICE_PORT:-8081}:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+    volumes:
+      - image-storage:/app/images
+    networks:
+      - focusstack
+    profiles:
+      - full
+
+  # Uncomment once the frontend-web module is created
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/frontend/Dockerfile
+  #   ports:
+  #     - "${FRONTEND_PORT:-3000}:80"
+  #   depends_on:
+  #     - camera-service
+  #     - analysis-service
+  #   networks:
+  #     - focusstack
+  #   profiles:
+  #     - full
+
+volumes:
+  postgres-data:
+  image-storage:
+
+networks:
+  focusstack:
+    driver: bridge
