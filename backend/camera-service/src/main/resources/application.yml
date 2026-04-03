@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: camera-service
+  profiles:
+    active: default
+  datasource:
+    url: jdbc:h2:mem:focusstack
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        search:
+          backend:
+            type: lucene
+            directory:
+              type: local-heap
+
+camera:
+  mock:
+    enabled: true
+    delay-ms: 50
+  ccapi:
+    base-url: http://192.168.1.2:8080
+
+logging:
+  level:
+    root: INFO
+    com.photographer.focusstack.camera: DEBUG
