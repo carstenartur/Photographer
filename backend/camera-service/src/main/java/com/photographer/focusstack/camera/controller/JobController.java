@@ -1,7 +1,7 @@
 package com.photographer.focusstack.camera.controller;
 
-import com.canon.focusstack.common.model.StackingJob;
-import com.canon.focusstack.common.model.StackingParameters;
+import com.photographer.focusstack.common.model.StackingJob;
+import com.photographer.focusstack.common.model.StackingParameters;
 import com.photographer.focusstack.camera.service.StackingJobService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

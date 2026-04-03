@@ -1,11 +1,11 @@
 package com.photographer.focusstack.camera.service;
 
-import com.canon.focusstack.common.camera.CameraBackend;
-import com.canon.focusstack.common.camera.CaptureResult;
-import com.canon.focusstack.common.camera.FocusCommand;
-import com.canon.focusstack.common.model.JobStatus;
-import com.canon.focusstack.common.model.StackingJob;
-import com.canon.focusstack.common.model.StackingParameters;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.model.JobStatus;
+import com.photographer.focusstack.common.model.StackingJob;
+import com.photographer.focusstack.common.model.StackingParameters;
 import com.photographer.focusstack.camera.exception.CameraException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,11 +1,11 @@
 package com.photographer.focusstack.camera.backend;
 
-import com.canon.focusstack.common.camera.CameraInfo;
-import com.canon.focusstack.common.camera.CameraState;
-import com.canon.focusstack.common.camera.CaptureResult;
-import com.canon.focusstack.common.camera.FocusCommand;
-import com.canon.focusstack.common.camera.LiveViewFrame;
-import com.canon.focusstack.common.camera.Operation;
+import com.photographer.focusstack.common.camera.CameraInfo;
+import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.camera.Operation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

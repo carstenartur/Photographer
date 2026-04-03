@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.canon.focusstack</groupId>
+        <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
@@ -13,8 +13,8 @@
     <artifactId>common-api</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
-    <name>Canon Focus Stack - Common API</name>
-    <description>Shared interfaces and models for Canon Focus Stack</description>
+    <name>Focus Stack - Common API</name>
+    <description>Shared interfaces and models for Focus Stack</description>
 
     <dependencies>
         <dependency>

@@ -1,6 +1,6 @@
 package com.photographer.focusstack.camera.service;
 
-import com.canon.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.camera.exception.CameraNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

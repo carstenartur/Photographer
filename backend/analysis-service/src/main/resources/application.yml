@@ -12,4 +12,4 @@ spring:
 logging:
   level:
     root: INFO
-    com.canon.focusstack.analysis: DEBUG
+    com.photographer.focusstack.analysis: DEBUG

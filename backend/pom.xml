@@ -11,13 +11,13 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.canon.focusstack</groupId>
+    <groupId>com.photographer.focusstack</groupId>
     <artifactId>canon-focus-stack-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Canon Focus Stack - Parent</name>
-    <description>Parent POM for Canon Focus Stack backend modules</description>
+    <name>Focus Stack - Parent</name>
+    <description>Parent POM for Focus Stack backend modules</description>
 
     <modules>
         <module>common-api</module>

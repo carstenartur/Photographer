@@ -1,11 +1,11 @@
 package com.photographer.focusstack.camera.controller;
 
-import com.canon.focusstack.common.camera.CameraBackend;
-import com.canon.focusstack.common.camera.CameraState;
-import com.canon.focusstack.common.camera.CaptureResult;
-import com.canon.focusstack.common.camera.FocusCommand;
-import com.canon.focusstack.common.camera.LiveViewFrame;
-import com.canon.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

@@ -1,6 +1,6 @@
 package com.photographer.focusstack.camera.config;
 
-import com.canon.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.camera.backend.CanonCcapiBackend;
 import com.photographer.focusstack.camera.backend.MockCameraBackend;
 import org.springframework.beans.factory.annotation.Value;
