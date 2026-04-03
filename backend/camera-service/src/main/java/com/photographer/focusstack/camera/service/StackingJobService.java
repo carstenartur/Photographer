@@ -1,5 +1,7 @@
 package com.photographer.focusstack.camera.service;
 
+import com.photographer.focusstack.camera.entity.StackingJobEntity;
+import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -25,12 +27,13 @@ public class StackingJobService {
     private static final Logger log = LoggerFactory.getLogger(StackingJobService.class);
 
     private final CameraBackend cameraBackend;
-    private final ConcurrentHashMap<String, StackingJob> jobs = new ConcurrentHashMap<>();
+    private final StackingJobRepository repository;
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
-    public StackingJobService(CameraBackend cameraBackend) {
+    public StackingJobService(CameraBackend cameraBackend, StackingJobRepository repository) {
         this.cameraBackend = cameraBackend;
+        this.repository = repository;
     }
 
     public StackingJob createJob(String cameraProfileId, StackingParameters parameters) {
@@ -39,7 +42,7 @@ public class StackingJobService {
                 id, cameraProfileId, JobStatus.CREATED,
                 null, null, parameters, new ArrayList<>()
         );
-        jobs.put(id, job);
+        repository.save(StackingJobEntity.fromRecord(job));
         return job;
     }
 
@@ -57,7 +60,7 @@ public class StackingJobService {
                 job.id(), job.cameraProfileId(), JobStatus.RUNNING,
                 Instant.now(), null, job.parameters(), new ArrayList<>(job.frames())
         );
-        jobs.put(id, running);
+        repository.save(StackingJobEntity.fromRecord(running));
 
         executeStacking(running);
     }
@@ -72,7 +75,7 @@ public class StackingJobService {
                 job.id(), job.cameraProfileId(), JobStatus.PAUSED,
                 job.startedAt(), null, job.parameters(), job.frames()
         );
-        jobs.put(id, paused);
+        repository.save(StackingJobEntity.fromRecord(paused));
     }
 
     public void cancelJob(String id) {
@@ -85,19 +88,19 @@ public class StackingJobService {
                 job.id(), job.cameraProfileId(), JobStatus.CANCELLED,
                 job.startedAt(), Instant.now(), job.parameters(), job.frames()
         );
-        jobs.put(id, cancelled);
+        repository.save(StackingJobEntity.fromRecord(cancelled));
     }
 
     public StackingJob getJob(String id) {
-        StackingJob job = jobs.get(id);
-        if (job == null) {
-            throw new CameraException("Job not found: " + id);
-        }
-        return job;
+        return repository.findById(id)
+                .map(StackingJobEntity::toRecord)
+                .orElseThrow(() -> new CameraException("Job not found: " + id));
     }
 
     public List<StackingJob> getAllJobs() {
-        return new ArrayList<>(jobs.values());
+        return repository.findAll().stream()
+                .map(StackingJobEntity::toRecord)
+                .toList();
     }
 
     private void executeStacking(StackingJob job) {
@@ -125,7 +128,7 @@ public class StackingJobService {
                         id, job.cameraProfileId(), JobStatus.RUNNING,
                         job.startedAt(), null, params, new ArrayList<>(frames)
                 );
-                jobs.put(id, updated);
+                repository.save(StackingJobEntity.fromRecord(updated));
 
                 log.debug("Job {}: captured frame {} at focus position {}",
                         id, i, result.focusPosition());
@@ -135,7 +138,7 @@ public class StackingJobService {
                     id, job.cameraProfileId(), JobStatus.COMPLETED,
                     job.startedAt(), Instant.now(), params, frames
             );
-            jobs.put(id, completed);
+            repository.save(StackingJobEntity.fromRecord(completed));
             log.info("Stacking job {} completed with {} frames", id, frames.size());
 
         } catch (Exception e) {
@@ -144,7 +147,7 @@ public class StackingJobService {
                     id, job.cameraProfileId(), JobStatus.FAILED,
                     job.startedAt(), Instant.now(), params, frames
             );
-            jobs.put(id, failed);
+            repository.save(StackingJobEntity.fromRecord(failed));
         }
     }
 }

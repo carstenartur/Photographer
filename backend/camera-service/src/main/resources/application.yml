@@ -6,6 +6,13 @@ spring:
     name: camera-service
   profiles:
     active: default
+  datasource:
+    url: jdbc:h2:mem:focusstack
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
 
 camera:
   mock:
