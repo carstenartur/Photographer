@@ -8,7 +8,6 @@ import {
 } from '../api/cameraApi';
 
 const EMPTY_FORM = {
-  id: '',
   name: '',
   backendType: 'mock',
   host: '',

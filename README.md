@@ -15,7 +15,8 @@ subject has moved or the entire depth of field has been covered.
 | Feature | Description |
 |---|---|
 | **Canon CCAPI support** | Control compatible Canon cameras over Wi-Fi using the official Camera Control API. |
-| **Browser UI** | Responsive React front-end for live preview, capture control, and stack review. || **Live View preview** | Real-time MJPEG stream from the camera displayed in the browser. |
+| **Browser UI** | Responsive React front-end for live preview, capture control, and stack review. |
+| **Live View preview** | Real-time MJPEG stream from the camera displayed in the browser. |
 | **Adaptive focus stacking** | Automatically steps through the focus range, analysing sharpness to decide the next position. |
 | **Movement-aware capture stop** | Detects subject or camera movement and halts the sequence to avoid blurred frames. |
 | **Dockerized local deployment** | Single `docker compose up` to run the full stack on any machine. |
