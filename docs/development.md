@@ -21,9 +21,11 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 
 ```
 /
-├── frontend-web/          # React / Vite / TailwindCSS
-├── camera-service/        # Spring Boot – camera orchestration
-├── analysis-service/      # Spring Boot – image analysis
+├── frontend-web/          # React / Vite (JSX)
+├── backend/
+│   ├── common-api/        # Shared interfaces and models
+│   ├── camera-service/    # Spring Boot – camera orchestration
+│   └── analysis-service/  # Spring Boot – image analysis
 ├── docs/                  # Documentation
 ├── scripts/               # Helper scripts
 ├── fixtures/              # Sample images for tests & demos
@@ -38,13 +40,9 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 ### Java services
 
 ```bash
-# camera-service
-cd camera-service
-./mvnw clean verify
-
-# analysis-service
-cd analysis-service
-./mvnw clean verify
+# From repository root
+cd backend
+mvn clean verify
 ```
 
 ### Frontend
@@ -54,7 +52,6 @@ cd frontend-web
 npm install
 npm run build      # Production build → dist/
 npm run lint       # ESLint
-npm run typecheck  # TypeScript type checking
 ```
 
 ---
@@ -75,10 +72,10 @@ In separate terminals:
 
 ```bash
 # Terminal 1
-cd camera-service && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+cd backend/camera-service && mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 # Terminal 2
-cd analysis-service && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+cd backend/analysis-service && mvn spring-boot:run -Dspring-boot.run.profiles=dev
 
 # Terminal 3
 cd frontend-web && npm run dev
@@ -93,21 +90,19 @@ The frontend dev server runs at [http://localhost:5173](http://localhost:5173).
 ### Unit Tests
 
 ```bash
-# Java
-cd camera-service && ./mvnw test
-cd analysis-service && ./mvnw test
+# Java (from repository root)
+cd backend && mvn test
 
 # Frontend
-cd frontend-web && npm test
+cd frontend-web && npm run lint
 ```
 
 ### Integration Tests
 
-Integration tests use Testcontainers to spin up PostgreSQL and the mock camera.
+Integration tests use Testcontainers to spin up PostgreSQL.
 
 ```bash
-cd camera-service && ./mvnw verify -Pintegration
-cd analysis-service && ./mvnw verify -Pintegration
+cd backend && mvn verify
 ```
 
 ### End-to-End Tests

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# seed-demo-data.sh — Populate the database with sample sessions and copy
-# example frames into the storage volume for demo / development purposes.
+# seed-demo-data.sh — Populate the database with sample profiles and jobs
+# for demo / development purposes.
 #
 # Usage:
 #   ./scripts/seed-demo-data.sh
@@ -19,7 +19,7 @@ DB_PASSWORD="${DB_PASSWORD:-focusstack}"
 export PGPASSWORD="$DB_PASSWORD"
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Canon Focus Stack — Seed Demo Data              ║"
+echo "║  Focus Stack — Seed Demo Data                    ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
@@ -31,54 +31,69 @@ fi
 
 echo "▸ Connecting to PostgreSQL at ${DB_HOST}:${DB_PORT}/${DB_NAME}..."
 
-# ── 2. Insert sample sessions ───────────────────────────────────────────────
-echo "▸ Inserting sample capture sessions..."
+# ── 2. Insert sample camera profiles ────────────────────────────────────────
+echo "▸ Inserting sample camera profiles..."
 
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -q <<'SQL'
--- Demo session 1: completed macro stack
-INSERT INTO capture_session (id, name, status, near_focus, far_focus, step_size, created_at, completed_at)
+INSERT INTO camera_profiles (id, name, backend_type, host, default_step_size, max_frames, movement_threshold)
 VALUES (
-  'demo-001',
-  'Demo — Flower macro',
-  'COMPLETED',
-  400, 800, 20,
-  NOW() - INTERVAL '1 hour',
-  NOW() - INTERVAL '58 minutes'
+  'demo-cam-001',
+  'Demo — Mock Camera',
+  'mock',
+  'localhost',
+  10, 50, 0.02
 ) ON CONFLICT (id) DO NOTHING;
 
--- Demo session 2: stopped due to movement
-INSERT INTO capture_session (id, name, status, near_focus, far_focus, step_size, created_at, completed_at)
+INSERT INTO camera_profiles (id, name, backend_type, host, default_step_size, max_frames, movement_threshold)
 VALUES (
-  'demo-002',
-  'Demo — Insect (movement detected)',
-  'STOPPED',
-  350, 700, 15,
-  NOW() - INTERVAL '30 minutes',
-  NOW() - INTERVAL '28 minutes'
-) ON CONFLICT (id) DO NOTHING;
-
--- Demo session 3: in-progress (for UI testing)
-INSERT INTO capture_session (id, name, status, near_focus, far_focus, step_size, created_at)
-VALUES (
-  'demo-003',
-  'Demo — Coin stack',
-  'CREATED',
-  500, 900, 25,
-  NOW()
+  'demo-cam-002',
+  'Demo — Canon G5X',
+  'canon-ccapi',
+  '192.168.1.42',
+  5, 30, 0.015
 ) ON CONFLICT (id) DO NOTHING;
 SQL
 
-echo "  ✔ Sessions inserted."
+echo "  ✔ Camera profiles inserted."
 
-# ── 3. Copy sample frames ───────────────────────────────────────────────────
+# ── 3. Insert sample stacking jobs ──────────────────────────────────────────
+echo "▸ Inserting sample stacking jobs..."
+
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -q <<'SQL'
+INSERT INTO stacking_jobs (id, camera_profile_id, status, started_at, completed_at,
+  param_start_position, param_step_size, param_max_frames,
+  param_abort_threshold, param_motion_detection_enabled, param_quality_mode,
+  captured_frame_ids)
+VALUES (
+  'demo-job-001',
+  'demo-cam-001',
+  'COMPLETED',
+  NOW() - INTERVAL '1 hour',
+  NOW() - INTERVAL '58 minutes',
+  0, 10, 20, 0.05, true, 'BALANCED',
+  'frame-001,frame-002,frame-003,frame-004,frame-005'
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO stacking_jobs (id, camera_profile_id, status,
+  param_start_position, param_step_size, param_max_frames,
+  param_abort_threshold, param_motion_detection_enabled, param_quality_mode,
+  captured_frame_ids)
+VALUES (
+  'demo-job-002',
+  'demo-cam-001',
+  'CREATED',
+  0, 5, 30, 0.03, true, 'MAXIMUM_QUALITY',
+  ''
+) ON CONFLICT (id) DO NOTHING;
+SQL
+
+echo "  ✔ Stacking jobs inserted."
+
+# ── 4. Copy sample frames ───────────────────────────────────────────────────
 FIXTURES_DIR="$PROJECT_ROOT/fixtures/sample-stacks"
-STORAGE_DIR="$PROJECT_ROOT/storage"
 
 if [ -d "$FIXTURES_DIR" ] && [ "$(ls -A "$FIXTURES_DIR" 2>/dev/null | grep -v .gitkeep)" ]; then
-  echo "▸ Copying sample frames to storage..."
-  mkdir -p "$STORAGE_DIR/sessions/demo-001"
-  cp "$FIXTURES_DIR"/*.jpg "$STORAGE_DIR/sessions/demo-001/" 2>/dev/null || true
-  echo "  ✔ Frames copied."
+  echo "▸ Sample frames found in $FIXTURES_DIR"
 else
   echo "  ⓘ No sample frames found in $FIXTURES_DIR — skipping file copy."
   echo "    Add .jpg files to fixtures/sample-stacks/ to include demo frames."
@@ -86,4 +101,4 @@ fi
 
 echo ""
 echo "✔ Demo data seeded successfully."
-echo "  Open http://localhost:3000 to view the demo sessions."
+echo "  Open http://localhost:3000 to view the demo data."

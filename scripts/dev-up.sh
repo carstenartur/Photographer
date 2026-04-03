@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-up.sh — Start development infrastructure (PostgreSQL, mock camera).
+# dev-up.sh — Start development infrastructure (PostgreSQL).
 #
 # Usage:
 #   ./scripts/dev-up.sh          Start in foreground
@@ -16,26 +16,24 @@ if [[ "${1:-}" == "-d" ]]; then
 fi
 
 echo "╔══════════════════════════════════════════════════╗"
-echo "║  Canon Focus Stack — Development Infrastructure  ║"
+echo "║  Focus Stack — Development Infrastructure        ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
 cd "$PROJECT_ROOT"
 
-echo "▸ Starting PostgreSQL and mock camera..."
+echo "▸ Starting PostgreSQL..."
 docker compose \
   -f docker-compose.yml \
-  --profile dev-infra \
   up --build $DETACH \
-  postgres mock-camera
+  postgres
 
 echo ""
 echo "✔ Infrastructure is ready."
 echo ""
 echo "  PostgreSQL:   localhost:5432  (focusstack / focusstack)"
-echo "  Mock Camera:  localhost:9080"
 echo ""
 echo "Next steps:"
-echo "  cd camera-service   && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev"
-echo "  cd analysis-service && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev"
-echo "  cd frontend-web     && npm run dev"
+echo "  cd backend/camera-service   && mvn spring-boot:run -Dspring-boot.run.profiles=dev"
+echo "  cd backend/analysis-service && mvn spring-boot:run -Dspring-boot.run.profiles=dev"
+echo "  cd frontend-web             && npm run dev"

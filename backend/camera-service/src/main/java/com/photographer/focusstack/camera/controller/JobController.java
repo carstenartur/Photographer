@@ -48,9 +48,9 @@ public class JobController {
     }
 
     @PostMapping("/{id}/start")
-    public ResponseEntity<Void> startJob(@PathVariable String id) {
-        jobService.startJob(id);
-        return ResponseEntity.accepted().build();
+    public ResponseEntity<StackingJob> startJob(@PathVariable String id) {
+        StackingJob running = jobService.startJob(id);
+        return ResponseEntity.accepted().body(running);
     }
 
     @PostMapping("/{id}/pause")

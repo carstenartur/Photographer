@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getJob, startJob, pauseJob, cancelJob } from '../api/jobApi';
 
@@ -6,6 +6,8 @@ export default function JobDetail() {
   const { id } = useParams();
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const logEndRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -14,6 +16,46 @@ export default function JobDetail() {
       .catch(() => { if (!cancelled) setError('Failed to load job.'); });
     return () => { cancelled = true; };
   }, [id]);
+
+  // Auto-refresh while job is RUNNING
+  useEffect(() => {
+    if (!job || (job.status !== 'RUNNING' && job.status !== 'CREATED')) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await getJob(id);
+        setJob(data);
+        if (data.status !== 'RUNNING' && data.status !== 'CREATED') {
+          clearInterval(interval);
+        }
+      } catch { /* ignore refresh errors */ }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [id, job?.status]);
+
+  // WebSocket for real-time logs
+  useEffect(() => {
+    let ws;
+    try {
+      const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8080')
+        .replace(/^http/, 'ws') + '/ws/sockjs';
+      // Simple WebSocket for log streaming — falls back gracefully
+      ws = new WebSocket(wsUrl.replace('/sockjs', ''));
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.jobId === id) {
+            setLogs((prev) => [...prev.slice(-200), msg]);
+          }
+        } catch { /* ignore non-JSON */ }
+      };
+      ws.onerror = () => { /* WebSocket optional — polling works as fallback */ };
+    } catch { /* WebSocket not available */ }
+    return () => { if (ws) ws.close(); };
+  }, [id]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
 
   async function refreshJob() {
     try {
@@ -52,7 +94,9 @@ export default function JobDetail() {
   }
 
   const frames = job.frames || [];
-  const analysis = job.analysis || [];
+  const params = job.parameters || {};
+  const maxFrames = params.maxFrames || 0;
+  const progress = maxFrames > 0 ? Math.round((frames.length / maxFrames) * 100) : 0;
 
   return (
     <div className="page">
@@ -61,16 +105,16 @@ export default function JobDetail() {
       </Link>
 
       <div className="page-header">
-        <h1>Job {job.id}</h1>
-        <span className={`badge badge-${job.status || 'unknown'}`}>
-          {job.status || 'unknown'}
+        <h1>Job {job.id.substring(0, 8)}…</h1>
+        <span className={`badge badge-${(job.status || 'UNKNOWN').toLowerCase()}`}>
+          {job.status || 'UNKNOWN'}
         </span>
       </div>
 
       {error && <p className="error">{error}</p>}
 
       <section className="detail-actions">
-        {(job.status === 'pending' || job.status === 'paused') && (
+        {(job.status === 'CREATED' || job.status === 'PAUSED') && (
           <button
             className="btn btn-primary"
             onClick={() => handleAction(startJob)}
@@ -78,12 +122,12 @@ export default function JobDetail() {
             Start
           </button>
         )}
-        {job.status === 'running' && (
+        {job.status === 'RUNNING' && (
           <button className="btn" onClick={() => handleAction(pauseJob)}>
             Pause
           </button>
         )}
-        {(job.status === 'running' || job.status === 'paused') && (
+        {(job.status === 'RUNNING' || job.status === 'PAUSED') && (
           <button
             className="btn btn-danger"
             onClick={() => handleAction(cancelJob)}
@@ -101,31 +145,39 @@ export default function JobDetail() {
         <div className="progress-bar-container">
           <div
             className="progress-bar"
-            style={{
-              width: `${job.max_frames ? Math.round(((job.frames_captured || 0) / job.max_frames) * 100) : 0}%`,
-            }}
+            style={{ width: `${progress}%` }}
           />
         </div>
         <p>
-          {job.frames_captured ?? 0} / {job.max_frames ?? '?'} frames captured
+          {frames.length} / {maxFrames || '?'} frames captured ({progress}%)
         </p>
       </section>
 
       <section className="detail-section">
         <h2>Parameters</h2>
         <dl className="params">
-          <dt>Camera</dt>
-          <dd>{job.camera_id || job.camera_name || '—'}</dd>
+          <dt>Camera Profile</dt>
+          <dd>{job.cameraProfileId || '—'}</dd>
           <dt>Step Size</dt>
-          <dd>{job.step_size ?? '—'}</dd>
+          <dd>{params.stepSize ?? '—'}</dd>
           <dt>Max Frames</dt>
-          <dd>{job.max_frames ?? '—'}</dd>
-          <dt>Motion Threshold</dt>
-          <dd>{job.motion_threshold ?? '—'}</dd>
-          <dt>Created</dt>
+          <dd>{params.maxFrames ?? '—'}</dd>
+          <dt>Abort Threshold</dt>
+          <dd>{params.abortThreshold ?? '—'}</dd>
+          <dt>Motion Detection</dt>
+          <dd>{params.motionDetectionEnabled != null ? String(params.motionDetectionEnabled) : '—'}</dd>
+          <dt>Quality Mode</dt>
+          <dd>{params.qualityMode ?? '—'}</dd>
+          <dt>Started</dt>
           <dd>
-            {job.created_at
-              ? new Date(job.created_at).toLocaleString()
+            {job.startedAt
+              ? new Date(job.startedAt).toLocaleString()
+              : '—'}
+          </dd>
+          <dt>Completed</dt>
+          <dd>
+            {job.completedAt
+              ? new Date(job.completedAt).toLocaleString()
               : '—'}
           </dd>
         </dl>
@@ -136,59 +188,35 @@ export default function JobDetail() {
         {frames.length === 0 ? (
           <p className="empty">No frames captured yet.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Filename</th>
-                <th>Focus Position</th>
-                <th>Captured At</th>
-              </tr>
-            </thead>
-            <tbody>
-              {frames.map((frame, i) => (
-                <tr key={frame.id || i}>
-                  <td>{i + 1}</td>
-                  <td>{frame.filename || frame.path || '—'}</td>
-                  <td>{frame.focus_position ?? '—'}</td>
-                  <td>
-                    {frame.captured_at
-                      ? new Date(frame.captured_at).toLocaleString()
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="frame-grid">
+            {frames.map((frameId, i) => (
+              <div key={frameId} className="frame-item">
+                <span className="frame-index">#{i + 1}</span>
+                <span className="frame-id">{frameId}</span>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
       <section className="detail-section">
-        <h2>Analysis Results ({analysis.length})</h2>
-        {analysis.length === 0 ? (
-          <p className="empty">No analysis results yet.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Frame</th>
-                <th>Sharpness</th>
-                <th>Contrast</th>
-                <th>Motion Detected</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analysis.map((a, i) => (
-                <tr key={a.id || i}>
-                  <td>{a.frame_index ?? i + 1}</td>
-                  <td>{a.sharpness?.toFixed(4) ?? '—'}</td>
-                  <td>{a.contrast?.toFixed(4) ?? '—'}</td>
-                  <td>{a.motion_detected != null ? String(a.motion_detected) : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <h2>Server Log</h2>
+        <div className="log-panel">
+          {logs.length === 0 ? (
+            <p className="empty">No log messages yet. Logs stream in real-time when a job is running.</p>
+          ) : (
+            logs.map((entry, i) => (
+              <div key={i} className={`log-entry log-${(entry.level || 'INFO').toLowerCase()}`}>
+                <span className="log-time">
+                  {new Date(entry.timestamp).toLocaleTimeString()}
+                </span>
+                <span className="log-level">[{entry.level}]</span>
+                <span className="log-msg">{entry.message}</span>
+              </div>
+            ))
+          )}
+          <div ref={logEndRef} />
+        </div>
       </section>
     </div>
   );

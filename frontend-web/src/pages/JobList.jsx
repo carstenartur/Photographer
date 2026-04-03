@@ -4,10 +4,12 @@ import { getAllJobs, createJob, startJob, pauseJob, cancelJob } from '../api/job
 import { getAllCameras } from '../api/cameraApi';
 
 const EMPTY_FORM = {
-  camera_id: '',
-  step_size: 10,
-  max_frames: 50,
-  motion_threshold: 0.02,
+  cameraProfileId: '',
+  stepSize: 10,
+  maxFrames: 50,
+  abortThreshold: 0.02,
+  motionDetectionEnabled: true,
+  qualityMode: 'BALANCED',
 };
 
 export default function JobList() {
@@ -45,10 +47,15 @@ export default function JobList() {
     setError(null);
     try {
       await createJob({
-        ...form,
-        step_size: Number(form.step_size),
-        max_frames: Number(form.max_frames),
-        motion_threshold: Number(form.motion_threshold),
+        cameraProfileId: form.cameraProfileId,
+        parameters: {
+          startPosition: 0,
+          stepSize: Number(form.stepSize),
+          maxFrames: Number(form.maxFrames),
+          abortThreshold: Number(form.abortThreshold),
+          motionDetectionEnabled: form.motionDetectionEnabled,
+          qualityMode: form.qualityMode,
+        },
       });
       setForm(EMPTY_FORM);
       setShowForm(false);
@@ -69,7 +76,8 @@ export default function JobList() {
   }
 
   function handleChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   }
 
   return (
@@ -92,8 +100,8 @@ export default function JobList() {
           <label>
             Camera Profile
             <select
-              name="camera_id"
-              value={form.camera_id}
+              name="cameraProfileId"
+              value={form.cameraProfileId}
               onChange={handleChange}
               required
             >
@@ -108,33 +116,50 @@ export default function JobList() {
           <label>
             Step Size
             <input
-              name="step_size"
+              name="stepSize"
               type="number"
               min="1"
-              value={form.step_size}
+              value={form.stepSize}
               onChange={handleChange}
             />
           </label>
           <label>
             Max Frames
             <input
-              name="max_frames"
+              name="maxFrames"
               type="number"
               min="1"
-              value={form.max_frames}
+              value={form.maxFrames}
               onChange={handleChange}
             />
           </label>
           <label>
-            Motion Threshold
+            Abort Threshold
             <input
-              name="motion_threshold"
+              name="abortThreshold"
               type="number"
               step="0.001"
               min="0"
-              value={form.motion_threshold}
+              value={form.abortThreshold}
               onChange={handleChange}
             />
+          </label>
+          <label>
+            Quality Mode
+            <select name="qualityMode" value={form.qualityMode} onChange={handleChange}>
+              <option value="FAST">Fast</option>
+              <option value="BALANCED">Balanced</option>
+              <option value="MAXIMUM_QUALITY">Maximum Quality</option>
+            </select>
+          </label>
+          <label className="checkbox-label">
+            <input
+              name="motionDetectionEnabled"
+              type="checkbox"
+              checked={form.motionDetectionEnabled}
+              onChange={handleChange}
+            />
+            Enable Motion Detection
           </label>
           <button type="submit" className="btn btn-primary">
             Create
@@ -152,7 +177,7 @@ export default function JobList() {
               <th>Camera</th>
               <th>Status</th>
               <th>Frames</th>
-              <th>Created</th>
+              <th>Started</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -160,22 +185,22 @@ export default function JobList() {
             {jobs.map((job) => (
               <tr key={job.id}>
                 <td>
-                  <Link to={`/jobs/${job.id}`}>{job.id}</Link>
+                  <Link to={`/jobs/${job.id}`}>{job.id.substring(0, 8)}…</Link>
                 </td>
-                <td>{job.camera_id || job.camera_name || '—'}</td>
+                <td>{job.cameraProfileId || '—'}</td>
                 <td>
-                  <span className={`badge badge-${job.status || 'unknown'}`}>
-                    {job.status || 'unknown'}
+                  <span className={`badge badge-${(job.status || 'UNKNOWN').toLowerCase()}`}>
+                    {job.status || 'UNKNOWN'}
                   </span>
                 </td>
-                <td>{job.frames_captured ?? '—'}</td>
+                <td>{job.frames ? job.frames.length : 0}</td>
                 <td>
-                  {job.created_at
-                    ? new Date(job.created_at).toLocaleString()
+                  {job.startedAt
+                    ? new Date(job.startedAt).toLocaleString()
                     : '—'}
                 </td>
                 <td className="action-cell">
-                  {(job.status === 'pending' || job.status === 'paused') && (
+                  {(job.status === 'CREATED' || job.status === 'PAUSED') && (
                     <button
                       className="btn btn-small btn-primary"
                       onClick={() => handleAction(job.id, startJob)}
@@ -183,7 +208,7 @@ export default function JobList() {
                       Start
                     </button>
                   )}
-                  {job.status === 'running' && (
+                  {job.status === 'RUNNING' && (
                     <button
                       className="btn btn-small"
                       onClick={() => handleAction(job.id, pauseJob)}
@@ -191,7 +216,7 @@ export default function JobList() {
                       Pause
                     </button>
                   )}
-                  {(job.status === 'running' || job.status === 'paused') && (
+                  {(job.status === 'RUNNING' || job.status === 'PAUSED') && (
                     <button
                       className="btn btn-small btn-danger"
                       onClick={() => handleAction(job.id, cancelJob)}

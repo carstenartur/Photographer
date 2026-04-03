@@ -13,8 +13,10 @@ interfaces. The repository layout is:
 ```
 /
 ├── frontend-web/        # React single-page application
-├── camera-service/      # Spring Boot service — camera orchestration
-├── analysis-service/    # Java service — image analysis & stacking
+├── backend/
+│   ├── common-api/      # Shared interfaces and models
+│   ├── camera-service/  # Spring Boot service — camera orchestration
+│   └── analysis-service/# Java service — image analysis & stacking
 ├── docker-compose.yml   # Full-stack composition
 ├── docs/                # Documentation
 ├── scripts/             # Developer & CI helper scripts
@@ -29,9 +31,9 @@ interfaces. The repository layout is:
 
 | | |
 |---|---|
-| **Language** | TypeScript |
-| **Framework** | React 18, Vite, TailwindCSS |
-| **Port** | 3000 |
+| **Language** | JavaScript (JSX) |
+| **Framework** | React 19, Vite |
+| **Port** | 3000 (Docker) / 5173 (dev) |
 
 Responsibilities:
 - Display the Live View MJPEG stream proxied through camera-service.

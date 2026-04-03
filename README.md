@@ -15,8 +15,7 @@ subject has moved or the entire depth of field has been covered.
 | Feature | Description |
 |---|---|
 | **Canon CCAPI support** | Control compatible Canon cameras over Wi-Fi using the official Camera Control API. |
-| **Browser UI** | Responsive React front-end for live preview, capture control, and stack review. |
-| **Live View preview** | Real-time MJPEG stream from the camera displayed in the browser. |
+| **Browser UI** | Responsive React front-end for live preview, capture control, and stack review. || **Live View preview** | Real-time MJPEG stream from the camera displayed in the browser. |
 | **Adaptive focus stacking** | Automatically steps through the focus range, analysing sharpness to decide the next position. |
 | **Movement-aware capture stop** | Detects subject or camera movement and halts the sequence to avoid blurred frames. |
 | **Dockerized local deployment** | Single `docker compose up` to run the full stack on any machine. |
@@ -95,7 +94,7 @@ Canon Focus Stack follows a **multi-service** architecture:
 
 | Service | Tech | Role |
 |---|---|---|
-| **frontend-web** | React 18, Vite, TailwindCSS | Browser UI: Live View, capture controls, stack gallery. |
+| **frontend-web** | React 19, Vite | Browser UI: Live View, capture controls, stack gallery. |
 | **camera-service** | Java 21, Spring Boot 3 | Orchestrates CCAPI calls, manages capture sequences, streams Live View. |
 | **analysis-service** | Java 21, OpenCV | Sharpness analysis, movement detection, optional Fiji stack merging. |
 | **storage** | PostgreSQL 16, local Docker volumes | Metadata in Postgres; raw frames on a shared volume. |
@@ -107,14 +106,14 @@ For a deeper dive, see [docs/architecture.md](docs/architecture.md).
 ## Development
 
 ```bash
-# Start infrastructure (Postgres, mock camera) in Docker
+# Start infrastructure (Postgres) in Docker
 ./scripts/dev-up.sh
 
 # Run camera-service locally
-cd camera-service && ./mvnw spring-boot:run
+cd backend/camera-service && mvn spring-boot:run
 
 # Run analysis-service locally
-cd analysis-service && ./mvnw spring-boot:run
+cd backend/analysis-service && mvn spring-boot:run
 
 # Run frontend-web locally
 cd frontend-web && npm install && npm run dev

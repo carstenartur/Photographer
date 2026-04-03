@@ -16,7 +16,7 @@ For **development mode** you will also need:
 | Tool | Minimum Version |
 |---|---|
 | Java (JDK) | 21 |
-| Maven | 3.9 (or use the included `mvnw` wrapper) |
+| Maven | 3.9+ | For building Java services |
 | Node.js | 20 LTS |
 | npm | 10 |
 
@@ -88,15 +88,15 @@ This launches PostgreSQL and the mock camera in Docker.
 ### 2. Start camera-service
 
 ```bash
-cd camera-service
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+cd backend/camera-service
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 ### 3. Start analysis-service
 
 ```bash
-cd analysis-service
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+cd backend/analysis-service
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 ### 4. Start frontend-web

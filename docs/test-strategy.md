@@ -43,7 +43,7 @@ real-hardware behaviour.
 |---|---|---|
 | camera-service | JUnit 5, AssertJ | Mockito |
 | analysis-service | JUnit 5, AssertJ | Mockito |
-| frontend-web | Vitest, React Testing Library | msw (Mock Service Worker) |
+| frontend-web | ESLint | — |
 
 ### Conventions
 
@@ -55,12 +55,11 @@ real-hardware behaviour.
 ### Running
 
 ```bash
-# Java
-cd camera-service && ./mvnw test
-cd analysis-service && ./mvnw test
+# Java (from repository root)
+cd backend && mvn test
 
 # Frontend
-cd frontend-web && npm test
+cd frontend-web && npm run lint
 ```
 
 ---
@@ -106,8 +105,7 @@ alongside the services during integration tests.
 ### Running
 
 ```bash
-cd camera-service && ./mvnw verify -Pintegration
-cd analysis-service && ./mvnw verify -Pintegration
+cd backend && mvn verify
 ```
 
 ### End-to-End Tests
@@ -120,9 +118,9 @@ Full-stack E2E tests exercise the entire system through the browser.
 
 This script:
 
-1. Starts all services via `docker compose -f docker-compose.test.yml up`.
+1. Starts all services via `docker compose up`.
 2. Waits for health checks to pass.
-3. Runs Playwright tests against `http://localhost:3000`.
+3. Runs API smoke tests against `http://localhost:8080`.
 4. Tears down the stack and reports results.
 
 ---
@@ -184,14 +182,11 @@ release notes. Automated reporting is a future goal.
 ### Reporting
 
 - Java: JaCoCo generates reports during `mvn verify`.
-- Frontend: Vitest with `--coverage` using `@vitest/coverage-v8`.
+- Frontend: ESLint for code quality.
 
 ```bash
 # View Java coverage
-open camera-service/target/site/jacoco/index.html
-
-# View frontend coverage
-cd frontend-web && npm run test -- --coverage
+open backend/camera-service/target/site/jacoco/index.html
 ```
 
 ---

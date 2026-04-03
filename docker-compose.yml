@@ -16,9 +16,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    profiles:
-      - dev-infra
-      - full
 
   camera-service:
     build:
@@ -39,8 +36,6 @@ services:
         condition: service_healthy
     networks:
       - focusstack
-    profiles:
-      - full
 
   analysis-service:
     build:
@@ -54,23 +49,18 @@ services:
       - image-storage:/app/images
     networks:
       - focusstack
-    profiles:
-      - full
 
-  # Uncomment once the frontend-web module is created
-  # frontend:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/frontend/Dockerfile
-  #   ports:
-  #     - "${FRONTEND_PORT:-3000}:80"
-  #   depends_on:
-  #     - camera-service
-  #     - analysis-service
-  #   networks:
-  #     - focusstack
-  #   profiles:
-  #     - full
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - camera-service
+      - analysis-service
+    networks:
+      - focusstack
 
 volumes:
   postgres-data:

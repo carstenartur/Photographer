@@ -8,12 +8,13 @@ import {
 } from '../api/cameraApi';
 
 const EMPTY_FORM = {
+  id: '',
   name: '',
-  backend_type: 'mock',
+  backendType: 'mock',
   host: '',
-  step_size: 10,
-  max_frames: 50,
-  motion_threshold: 0.02,
+  defaultStepSize: 10,
+  maxFrames: 50,
+  movementThreshold: 0.02,
 };
 
 export default function CameraList() {
@@ -48,10 +49,13 @@ export default function CameraList() {
     setError(null);
     try {
       await createCamera({
-        ...form,
-        step_size: Number(form.step_size),
-        max_frames: Number(form.max_frames),
-        motion_threshold: Number(form.motion_threshold),
+        id: form.id || crypto.randomUUID(),
+        name: form.name,
+        backendType: form.backendType,
+        host: form.host,
+        defaultStepSize: Number(form.defaultStepSize),
+        maxFrames: Number(form.maxFrames),
+        movementThreshold: Number(form.movementThreshold),
       });
       setForm(EMPTY_FORM);
       setShowForm(false);
@@ -116,8 +120,8 @@ export default function CameraList() {
           <label>
             Backend Type
             <select
-              name="backend_type"
-              value={form.backend_type}
+              name="backendType"
+              value={form.backendType}
               onChange={handleChange}
             >
               <option value="mock">Mock</option>
@@ -131,36 +135,37 @@ export default function CameraList() {
               value={form.host}
               onChange={handleChange}
               placeholder="192.168.1.100"
+              required
             />
           </label>
           <label>
             Step Size
             <input
-              name="step_size"
+              name="defaultStepSize"
               type="number"
               min="1"
-              value={form.step_size}
+              value={form.defaultStepSize}
               onChange={handleChange}
             />
           </label>
           <label>
             Max Frames
             <input
-              name="max_frames"
+              name="maxFrames"
               type="number"
               min="1"
-              value={form.max_frames}
+              value={form.maxFrames}
               onChange={handleChange}
             />
           </label>
           <label>
             Motion Threshold
             <input
-              name="motion_threshold"
+              name="movementThreshold"
               type="number"
               step="0.001"
               min="0"
-              value={form.motion_threshold}
+              value={form.movementThreshold}
               onChange={handleChange}
             />
           </label>
@@ -178,16 +183,16 @@ export default function CameraList() {
             <div key={cam.id} className="card">
               <h3>{cam.name}</h3>
               <p>
-                <strong>Type:</strong> {cam.backend_type}
+                <strong>Type:</strong> {cam.backendType}
               </p>
               <p>
                 <strong>Host:</strong> {cam.host || '—'}
               </p>
               <p>
-                <strong>Step Size:</strong> {cam.step_size}
+                <strong>Step Size:</strong> {cam.defaultStepSize}
               </p>
               <p>
-                <strong>Max Frames:</strong> {cam.max_frames}
+                <strong>Max Frames:</strong> {cam.maxFrames}
               </p>
               <div className="card-actions">
                 <button
