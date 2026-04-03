@@ -5,23 +5,51 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.KeywordField;
 
 @Entity
+@Indexed
 @Table(name = "camera_profiles")
 public class CameraProfileEntity {
 
     @Id
+    @NotBlank
     private String id;
 
     @Column(nullable = false)
+    @NotBlank
+    @Size(min = 1, max = 255)
+    @FullTextField(analyzer = "standard")
     private String name;
 
     @Column(nullable = false)
+    @NotBlank
+    @KeywordField
     private String backendType;
 
+    @NotBlank
+    @FullTextField(analyzer = "standard")
     private String host;
+
+    @Positive
+    @Min(1)
+    @Max(100)
     private int defaultStepSize;
+
+    @Positive
+    @Min(1)
+    @Max(1000)
     private int maxFrames;
+
+    @Min(0)
+    @Max(1)
     private double movementThreshold;
 
     public CameraProfileEntity() {

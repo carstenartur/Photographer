@@ -17,6 +17,10 @@
     <name>Focus Stack - Camera Service</name>
     <description>Camera control service for focus stacking</description>
 
+    <properties>
+        <hibernate-search.version>7.2.1.Final</hibernate-search.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -33,6 +37,16 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.search</groupId>
+            <artifactId>hibernate-search-mapper-orm</artifactId>
+            <version>${hibernate-search.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.search</groupId>
+            <artifactId>hibernate-search-backend-lucene</artifactId>
+            <version>${hibernate-search.version}</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

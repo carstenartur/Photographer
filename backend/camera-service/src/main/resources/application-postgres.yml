@@ -10,3 +10,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        search:
+          backend:
+            type: lucene
+            directory:
+              type: local-filesystem
+              root: ${SEARCH_INDEX_DIR:./data/search-index}

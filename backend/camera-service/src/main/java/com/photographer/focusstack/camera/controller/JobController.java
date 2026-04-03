@@ -2,6 +2,8 @@ package com.photographer.focusstack.camera.controller;
 
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
+import com.photographer.focusstack.camera.entity.StackingJobEntity;
+import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.StackingJobService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -21,9 +24,11 @@ import java.util.List;
 public class JobController {
 
     private final StackingJobService jobService;
+    private final SearchService searchService;
 
-    public JobController(StackingJobService jobService) {
+    public JobController(StackingJobService jobService, SearchService searchService) {
         this.jobService = jobService;
+        this.searchService = searchService;
     }
 
     @GetMapping
@@ -57,6 +62,23 @@ public class JobController {
     @PostMapping("/{id}/cancel")
     public ResponseEntity<Void> cancelJob(@PathVariable String id) {
         jobService.cancelJob(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<StackingJob>> searchJobs(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "20") int maxResults) {
+        List<StackingJob> results = searchService.searchStackingJobs(q, maxResults)
+                .stream()
+                .map(StackingJobEntity::toRecord)
+                .toList();
+        return ResponseEntity.ok(results);
+    }
+
+    @PostMapping("/reindex")
+    public ResponseEntity<Void> reindex() {
+        searchService.reindexAll();
         return ResponseEntity.ok().build();
     }
 

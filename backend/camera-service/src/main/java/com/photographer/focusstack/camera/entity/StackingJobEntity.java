@@ -10,6 +10,13 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.KeywordField;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,29 +24,46 @@ import java.util.Arrays;
 import java.util.List;
 
 @Entity
+@Indexed
 @Table(name = "stacking_jobs")
 public class StackingJobEntity {
 
     @Id
+    @NotBlank
     private String id;
 
     @Column(nullable = false)
+    @NotBlank
+    @KeywordField
     private String cameraProfileId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull
+    @KeywordField
     private JobStatus status;
 
     private Instant startedAt;
     private Instant completedAt;
 
+    @Min(0)
     private int paramStartPosition;
+
+    @Positive
     private int paramStepSize;
+
+    @Positive
+    @Max(1000)
     private int paramMaxFrames;
+
+    @Min(0)
+    @Max(1)
     private double paramAbortThreshold;
+
     private boolean paramMotionDetectionEnabled;
 
     @Enumerated(EnumType.STRING)
+    @KeywordField
     private QualityMode paramQualityMode;
 
     @Column(length = 10000)

@@ -4,6 +4,7 @@ import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,9 @@ class CameraControllerTest {
 
     @MockitoBean
     private CameraBackend cameraBackend;
+
+    @MockitoBean
+    private SearchService searchService;
 
     @Test
     void listProfiles_returnsOk() throws Exception {

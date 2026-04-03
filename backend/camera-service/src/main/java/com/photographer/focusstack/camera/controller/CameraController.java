@@ -6,6 +6,8 @@ import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.camera.entity.CameraProfileEntity;
+import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -27,10 +30,13 @@ public class CameraController {
 
     private final CameraProfileService profileService;
     private final CameraBackend cameraBackend;
+    private final SearchService searchService;
 
-    public CameraController(CameraProfileService profileService, CameraBackend cameraBackend) {
+    public CameraController(CameraProfileService profileService, CameraBackend cameraBackend,
+                            SearchService searchService) {
         this.profileService = profileService;
         this.cameraBackend = cameraBackend;
+        this.searchService = searchService;
     }
 
     @GetMapping
@@ -58,6 +64,17 @@ public class CameraController {
     public ResponseEntity<Void> deleteProfile(@PathVariable String id) {
         profileService.deleteProfile(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<CameraProfile>> searchProfiles(
+            @RequestParam String q,
+            @RequestParam(defaultValue = "20") int maxResults) {
+        List<CameraProfile> results = searchService.searchCameraProfiles(q, maxResults)
+                .stream()
+                .map(CameraProfileEntity::toRecord)
+                .toList();
+        return ResponseEntity.ok(results);
     }
 
     @GetMapping("/{id}/status")
