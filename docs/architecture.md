@@ -222,7 +222,7 @@ plugin list on next startup.
 
 | Name | Class | Description |
 |---|---|---|
-| `sharpness` | `DefaultSharpnessPlugin` | Laplacian-variance sharpness score via ImageJ (with pixel-diff fallback) |
+| `sharpness` | `DefaultSharpnessPlugin` | Laplacian-variance sharpness score via ImageJ (with `SharpnessAnalyzer` fallback on raw grayscale bytes) |
 
 ### Mock Camera Failure Simulation
 

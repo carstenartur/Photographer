@@ -171,7 +171,7 @@ public class StackingJobService {
 
                 // Cache frame data for later export
                 if (result.imageData() != null && result.imageData().length > 0) {
-                    frameDataStore.put(result.imageId(), result.imageData());
+                    frameDataStore.put(result.imageId(), result.fileName(), result.imageData());
                 }
 
                 // --- Analysis phase ---

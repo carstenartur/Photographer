@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
@@ -18,12 +19,13 @@ public class MockCameraBackend implements CameraBackend {
 
     /**
      * After this many captures, all subsequent calls to {@link #capture()} will
-     * block for 30 seconds to simulate a network timeout. 0 = disabled.
+     * block for {@value SIMULATED_TIMEOUT_MS} ms to simulate a network timeout.
+     * 0 = disabled.
      */
     private final int simulateTimeoutAfterFrames;
 
     /**
-     * After this many captures, {@link #capture()} throws a {@link RuntimeException}
+     * After this many captures, {@link #capture()} throws a {@link CameraException}
      * to simulate a Wi-Fi disconnect / camera connection drop. 0 = disabled.
      */
     private final int simulateDisconnectAfterFrames;
@@ -55,7 +57,7 @@ public class MockCameraBackend implements CameraBackend {
      * Full constructor with all failure-simulation parameters.
      *
      * @param delayMs                      artificial delay per operation (ms)
-     * @param simulateTimeoutAfterFrames   block indefinitely after N captures (0 = off)
+     * @param simulateTimeoutAfterFrames   block for {@value SIMULATED_TIMEOUT_MS} ms after N captures (0 = off)
      * @param simulateDisconnectAfterFrames throw after N captures (0 = off)
      * @param simulateEmptyFrameAt         return empty image at capture N (0 = off)
      * @param simulateMovementAt           return movement-like image at capture N (0 = off)
@@ -111,9 +113,9 @@ public class MockCameraBackend implements CameraBackend {
             }
         }
 
-        // Disconnect simulation: throw after threshold
+        // Disconnect simulation: throw CameraException after threshold
         if (simulateDisconnectAfterFrames > 0 && captureIndex > simulateDisconnectAfterFrames) {
-            throw new RuntimeException(
+            throw new CameraException(
                     "Simulated Wi-Fi disconnect after frame " + simulateDisconnectAfterFrames);
         }
 

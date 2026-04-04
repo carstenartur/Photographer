@@ -39,7 +39,7 @@ public class DefaultSharpnessPlugin implements AnalysisPlugin {
             engine = "ImageJ/" + imageJProcessor.getVersion();
         } else {
             score  = sharpnessAnalyzer.calculateSharpness(imageData);
-            engine = "pixel-diff";
+            engine = "laplacian-variance";
         }
         return new AnalysisPluginResult(
                 name(), score, "sharpness",

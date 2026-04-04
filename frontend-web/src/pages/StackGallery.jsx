@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import { useEffect, useRef, useState } from 'react';
 import { getAllJobs } from '../api/jobApi';
 
@@ -8,10 +9,12 @@ export default function StackGallery() {
   const [completedJobs, setCompletedJobs] = useState([]);
   const [error, setError]                 = useState(null);
   const [selectedJob, setSelectedJob]     = useState(null);
-  const [mergedImage, setMergedImage]     = useState(null); // data-URL of merged PNG
+  const [mergedImage, setMergedImage]     = useState(null); // object URL of merged PNG
   const [merging, setMerging]             = useState(false);
   const [sliderPos, setSliderPos]         = useState(50); // percent 0–100
   const sliderRef = useRef(null);
+  // Track the current object URL so we can revoke it when replacing or unmounting
+  const mergedImageUrlRef = useRef(null);
 
   useEffect(() => {
     getAllJobs()
@@ -19,10 +22,29 @@ export default function StackGallery() {
       .catch(() => setError('Failed to load jobs.'));
   }, []);
 
+  // Revoke the previous merged image object URL to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (mergedImageUrlRef.current) {
+        URL.revokeObjectURL(mergedImageUrlRef.current);
+        mergedImageUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  function setMergedImageUrl(blob) {
+    if (mergedImageUrlRef.current) {
+      URL.revokeObjectURL(mergedImageUrlRef.current);
+    }
+    const url = blob ? URL.createObjectURL(blob) : null;
+    mergedImageUrlRef.current = url;
+    setMergedImage(url);
+  }
+
   // ── Merge stack via analysis-service ────────────────────────────────────────
   async function handleMergeStack(job) {
     setError(null);
-    setMergedImage(null);
+    setMergedImageUrl(null);
     setSelectedJob(job);
     setMerging(true);
     try {
@@ -32,37 +54,30 @@ export default function StackGallery() {
       );
       if (cachedRes.ok) {
         const blob = await cachedRes.blob();
-        setMergedImage(URL.createObjectURL(blob));
+        setMergedImageUrl(blob);
         setMerging(false);
         return;
       }
 
-      // No cache — we need the actual frame data. Build a FormData with synthetic
-      // PNG blobs (one per frame ID). The frames are identified by ID; their raw
-      // bytes must come from the camera-service export endpoint.
+      // No cache — fetch the export ZIP and unpack it with JSZip
       const exportRes = await fetch(`${CAMERA_BASE}/jobs/${job.id}/export`);
       if (!exportRes.ok) {
         throw new Error(`Export failed: ${exportRes.statusText}`);
       }
 
-      // The export returns a ZIP. We load it via JSZip if available, otherwise
-      // fall back to a direct merge-stack call with a placeholder frame set.
-      const formData = new FormData();
-      const zipBlob  = await exportRes.blob();
+      const zipArrayBuffer = await exportRes.arrayBuffer();
+      const zip     = await JSZip.loadAsync(zipArrayBuffer);
+      const entries = Object.values(zip.files).filter((f) => !f.dir);
 
-      if (typeof window.JSZip !== 'undefined') {
-        const zip     = await window.JSZip.loadAsync(zipBlob);
-        const entries = Object.values(zip.files).filter((f) => !f.dir);
-        for (const entry of entries) {
-          const bytes = await entry.async('blob');
-          formData.append('frames', bytes, entry.name);
-        }
-      } else {
-        // Fallback: send the ZIP as a single "frame" — the server will error, but
-        // this path only triggers when JSZip is absent (not bundled).
-        formData.append('frames', zipBlob, 'archive.zip');
+      if (entries.length < 2) {
+        throw new Error('At least 2 frames are required for merging');
       }
-      formData.append('jobId', job.id);
+
+      const formData = new FormData();
+      for (const entry of entries) {
+        const bytes = await entry.async('blob');
+        formData.append('frames', bytes, entry.name);
+      }
 
       const mergeRes = await fetch(`${ANALYSIS_BASE}/analysis/merge-stack?jobId=${job.id}`, {
         method: 'POST',
@@ -73,7 +88,7 @@ export default function StackGallery() {
         throw new Error(`Merge failed: ${mergeRes.status} ${body}`);
       }
       const mergedBlob = await mergeRes.blob();
-      setMergedImage(URL.createObjectURL(mergedBlob));
+      setMergedImageUrl(mergedBlob);
     } catch (err) {
       setError(`Merge error: ${err.message}`);
     } finally {
@@ -101,7 +116,8 @@ export default function StackGallery() {
       a.href         = url;
       a.download     = `job-${jobId.substring(0, 8)}-frames.zip`;
       a.click();
-      URL.revokeObjectURL(url);
+      // Delay revocation to give the browser time to initiate the download
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       setError(`Download error: ${err.message}`);
     }
@@ -115,10 +131,14 @@ export default function StackGallery() {
     setSliderPos((x / rect.width) * 100);
   }
 
+  // First frame image is served by the new /frames/{frameId}/image endpoint
   const firstFrameId = selectedJob?.frames?.[0];
-  // Use a placeholder gradient as "before" frame when no real image URL is available
   const beforeStyle  = firstFrameId
-    ? { backgroundImage: `url(${CAMERA_BASE}/jobs/${selectedJob.id}/frames/${firstFrameId}/image)`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    ? {
+        backgroundImage: `url(${CAMERA_BASE}/jobs/${selectedJob.id}/frames/${firstFrameId}/image)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
     : { background: 'linear-gradient(135deg, #1e3a5f, #0f172a)' };
 
   return (
@@ -202,7 +222,7 @@ export default function StackGallery() {
               setSliderPos((x / rect.width) * 100);
             }}
           >
-            {/* "Before" — first captured frame */}
+            {/* "Before" — first captured frame served by /frames/{frameId}/image */}
             <div className="ba-before" style={beforeStyle} />
 
             {/* "After" — merged result, clipped to the right of the slider */}
@@ -234,8 +254,8 @@ export default function StackGallery() {
             <button
               className="btn btn-secondary"
               onClick={() => {
+                setMergedImageUrl(null);
                 setSelectedJob(null);
-                setMergedImage(null);
               }}
             >
               Close

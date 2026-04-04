@@ -32,10 +32,10 @@ public class StackMergeController {
 
     private final StackMerger stackMerger;
 
-    /** Maximum number of merge results to keep in memory (oldest are evicted first). */
+    /** Maximum number of merge results to keep in memory (least recently accessed is evicted). */
     private static final int MAX_CACHED_RESULTS = 50;
 
-    /** In-memory LRU cache: jobId → merged PNG bytes. */
+    /** In-memory LRU cache: jobId → merged PNG bytes. Evicts the least recently accessed entry when full. */
     @SuppressWarnings("serial")
     private final Map<String, byte[]> mergeResultCache = java.util.Collections.synchronizedMap(
             new java.util.LinkedHashMap<>(MAX_CACHED_RESULTS, 0.75f, true) {

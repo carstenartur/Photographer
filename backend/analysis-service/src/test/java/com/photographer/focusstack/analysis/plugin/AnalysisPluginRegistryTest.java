@@ -65,6 +65,24 @@ class AnalysisPluginRegistryTest {
     }
 
     @Test
+    void duplicatePluginNames_throwsIllegalStateException() {
+        // Two plugins with the same name should cause startup failure with a clear message
+        AnalysisPlugin duplicate1 = new AnalysisPlugin() {
+            @Override public String name() { return "sharpness"; }
+            @Override public AnalysisPluginResult analyze(byte[] d, AnalysisContext c) { return null; }
+        };
+        AnalysisPlugin duplicate2 = new AnalysisPlugin() {
+            @Override public String name() { return "sharpness"; }
+            @Override public AnalysisPluginResult analyze(byte[] d, AnalysisContext c) { return null; }
+        };
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> new AnalysisPluginRegistry(List.of(duplicate1, duplicate2)));
+        assertTrue(ex.getMessage().contains("sharpness"),
+                "Exception message should identify the duplicate plugin name");
+    }
+
+    @Test
     void analysisContext_getOrDefault_returnsDefaultWhenKeyAbsent() {
         AnalysisContext ctx = AnalysisContext.empty();
         assertEquals("default", ctx.getOrDefault("missingKey", "default"));

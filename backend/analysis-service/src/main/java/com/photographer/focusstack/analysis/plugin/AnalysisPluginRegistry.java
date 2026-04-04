@@ -5,10 +5,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -26,10 +26,36 @@ public class AnalysisPluginRegistry {
     private final Map<String, AnalysisPlugin> plugins;
 
     public AnalysisPluginRegistry(List<AnalysisPlugin> pluginList) {
-        this.plugins = pluginList.stream()
-                .collect(Collectors.toUnmodifiableMap(AnalysisPlugin::name, Function.identity()));
+        this.plugins = buildPluginMap(pluginList);
         log.info("AnalysisPluginRegistry: {} plugin(s) registered: {}",
                 plugins.size(), plugins.keySet());
+    }
+
+    private static Map<String, AnalysisPlugin> buildPluginMap(List<AnalysisPlugin> pluginList) {
+        Map<String, List<AnalysisPlugin>> byName = pluginList.stream()
+                .collect(Collectors.groupingBy(AnalysisPlugin::name,
+                        LinkedHashMap::new, Collectors.toList()));
+
+        List<Map.Entry<String, List<AnalysisPlugin>>> duplicates = byName.entrySet().stream()
+                .filter(e -> e.getValue().size() > 1)
+                .toList();
+
+        if (!duplicates.isEmpty()) {
+            String details = duplicates.stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .map(e -> "'" + e.getKey() + "' registered by: " + e.getValue().stream()
+                            .map(p -> p.getClass().getName())
+                            .sorted()
+                            .collect(Collectors.joining(", ")))
+                    .collect(Collectors.joining("; "));
+            throw new IllegalStateException(
+                    "Duplicate AnalysisPlugin name(s) detected — each plugin must have a unique name. "
+                    + details);
+        }
+
+        Map<String, AnalysisPlugin> result = new LinkedHashMap<>();
+        byName.forEach((name, list) -> result.put(name, list.get(0)));
+        return Collections.unmodifiableMap(result);
     }
 
     /** Returns all registered plugins (unmodifiable). */

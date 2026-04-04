@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
@@ -108,7 +109,7 @@ class MockCameraBackendTest {
     void simulateDisconnect_throwsAfterThreshold() {
         MockCameraBackend sim = new MockCameraBackend(0, 0, 1, 0, 0);
         sim.capture(); // capture 1 — should succeed
-        assertThrows(RuntimeException.class, sim::capture,
-                "Second capture should throw to simulate disconnect");
+        assertThrows(CameraException.class, sim::capture,
+                "Second capture should throw CameraException to simulate disconnect");
     }
 }
