@@ -14,6 +14,7 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 | npm | 10+ | Bundled with Node.js 20 |
 | Docker | 24+ | For infrastructure and integration tests |
 | Docker Compose | 2.20+ | Multi-service orchestration |
+| RAM | 4 GB minimum | 8 GB recommended for integration tests |
 
 ---
 
@@ -99,10 +100,41 @@ cd frontend-web && npm run lint
 
 ### Integration Tests
 
-Integration tests use Testcontainers to spin up PostgreSQL.
+Integration tests use **Testcontainers** to manage PostgreSQL containers and
+run via the **maven-failsafe-plugin** in the `verify` phase. Test class names
+end with `IT` (e.g., `CameraServiceIT`).
+
+**Requirements:** Docker must be running. Minimum 4 GB RAM available.
 
 ```bash
+# Unit tests + integration tests (default)
 cd backend && mvn verify
+
+# Skip integration tests
+cd backend && mvn verify -DskipITs=true
+```
+
+#### Memory Settings
+
+JVM memory is pre-configured in the parent POM:
+- **Surefire** (unit tests): `-Xmx512m`
+- **Failsafe** (integration tests): `-Xmx1g`
+
+To override for resource-constrained environments:
+
+```bash
+MAVEN_OPTS="-Xmx512m" mvn verify -Dfailsafe.argLine="-Xmx512m -Djava.awt.headless=true"
+```
+
+#### Docker-Based ITs (Optional)
+
+Tests tagged `@Tag("docker")` build Docker images from the project Dockerfiles
+and are **excluded by default** (they require network access and take 5–15 min):
+
+```bash
+# Run only Docker-based ITs
+cd backend && mvn verify -pl analysis-service \
+  -Dfailsafe.groups=docker -Dfailsafe.excludedGroups=
 ```
 
 ### End-to-End Tests

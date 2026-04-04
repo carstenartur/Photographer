@@ -19,10 +19,11 @@ COPY backend/analysis-service/src backend/analysis-service/src
 # Build common-api and analysis-service
 RUN mvn -B -f backend/pom.xml clean package -pl common-api,analysis-service -am -DskipTests
 
-# Stage 2: Runtime
+# Stage 2: Runtime with headless AWT support for ImageJ
 FROM eclipse-temurin:21-jre-alpine
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN apk add --no-cache fontconfig freetype ttf-dejavu \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
@@ -33,4 +34,4 @@ USER appuser
 
 EXPOSE 8081
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Djava.awt.headless=true", "-jar", "app.jar"]

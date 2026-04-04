@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class AnalysisServiceIntegrationTest {
+class AnalysisServiceIT {
 
     @Autowired
     private TestRestTemplate restTemplate;
