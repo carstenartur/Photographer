@@ -35,8 +35,6 @@ class CanonCcapiBackendTest {
 
     @Test
     void getInfo_returnsDeviceInfoFromCcapi() {
-        String json = "{\"productname\":\"Canon PowerShot G5 X Mark II\"," +
-                "\"serialnumber\":\"SN12345\",\"firmwareversion\":\"1.1.0\"}";
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/deviceinformation"),
                 eq(CanonCcapiBackend.DeviceInformation.class)))
@@ -131,6 +129,29 @@ class CanonCcapiBackendTest {
     }
 
     @Test
+    void capture_reportsFocusPositionFromLastSetFocus() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 5));
+        CaptureResult result = backend.capture();
+
+        assertEquals(5, result.focusPosition());
+    }
+
+    @Test
+    void setFocus_accumulatesFocusPositionAcrossMultipleCalls() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 10));
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 5));
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 3));
+
+        CaptureResult result = backend.capture();
+        // 0 + 10 + 5 - 3 = 12
+        assertEquals(12, result.focusPosition());
+    }
+
+    @Test
     void capture_throwsCameraExceptionOnNetworkError() {
         when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
                 .thenThrow(new ResourceAccessException("timeout"));
@@ -218,9 +239,44 @@ class CanonCcapiBackendTest {
 
         CameraState state = backend.getState();
 
+        // Storage call succeeded (returned null without throwing) → connected=true
         assertTrue(state.connected());
-        assertEquals(100, state.batteryLevel()); // default
-        assertEquals(0L, state.storageAvailable()); // default
+        assertEquals(100, state.batteryLevel()); // default when battery fails
+        assertEquals(0L, state.storageAvailable()); // null storage → default
+    }
+
+    @Test
+    void getState_connectedFalseWhenBothEndpointsFail() {
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
+                eq(CanonCcapiBackend.BatteryStatus.class)))
+                .thenThrow(new ResourceAccessException("timeout"));
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/storage"),
+                eq(CanonCcapiBackend.StorageStatus.class)))
+                .thenThrow(new ResourceAccessException("timeout"));
+
+        CameraState state = backend.getState();
+
+        assertFalse(state.connected());
+    }
+
+    @Test
+    void getState_reportsFocusPositionFromLastSetFocus() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
+                eq(CanonCcapiBackend.BatteryStatus.class)))
+                .thenReturn(new CanonCcapiBackend.BatteryStatus("high"));
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/storage"),
+                eq(CanonCcapiBackend.StorageStatus.class)))
+                .thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 7));
+        CameraState state = backend.getState();
+
+        assertEquals(7, state.currentFocusPosition());
     }
 
     // ── parseBatteryLevel ─────────────────────────────────────────────────────
@@ -233,6 +289,10 @@ class CanonCcapiBackendTest {
         "empty,   0",
         "75,     75",
         "100,   100",
+        "'high ',  80",   // trailing whitespace
+        "' HIGH ', 80",  // leading/trailing whitespace + uppercase
+        "150,   100",    // clamped to 100
+        "-5,      0",    // clamped to 0
     })
     void parseBatteryLevel_mapsStringsCorrectly(String input, int expected) {
         assertEquals(expected, CanonCcapiBackend.parseBatteryLevel(input));

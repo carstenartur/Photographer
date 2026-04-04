@@ -15,7 +15,8 @@ spring:
             type: lucene
             directory:
               type: local-filesystem
-              root: /app/data/search-index
+              # Configure this path via env var and mount it to persistent storage in Docker/Kubernetes.
+              root: ${HIBERNATE_SEARCH_INDEX_ROOT:/app/data/search-index}
 
 analysis:
   service:

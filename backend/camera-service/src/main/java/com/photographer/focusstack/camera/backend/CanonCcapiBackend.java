@@ -19,6 +19,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Canon CCAPI backend implementation for Canon PowerShot cameras (e.g. G5 X Mark II,
@@ -54,6 +55,13 @@ public class CanonCcapiBackend implements CameraBackend {
 
     private final String baseUrl;
     private final RestTemplate restTemplate;
+
+    /**
+     * Tracks the last commanded focus position so it can be reported in
+     * {@link #capture()} and {@link #getState()} (CCAPI does not expose the
+     * current focus step value directly).
+     */
+    private final AtomicInteger focusPosition = new AtomicInteger(0);
 
     public CanonCcapiBackend(String baseUrl, RestTemplate restTemplate) {
         this.baseUrl = baseUrl;
@@ -106,7 +114,7 @@ public class CanonCcapiBackend implements CameraBackend {
                     "capture-" + imageId + ".jpg",
                     PATH_SHUTTER,
                     Instant.now(),
-                    0,
+                    focusPosition.get(),
                     0L,
                     null // images are stored on the camera card and downloaded separately
             );
@@ -118,7 +126,7 @@ public class CanonCcapiBackend implements CameraBackend {
     @Override
     public void setFocus(FocusCommand command) {
         try {
-            // CCAPI manual focus drive: map step size (1–3) to CCAPI kind suffix
+            // CCAPI manual focus drive: map step size (<=1 -> "1", <=5 -> "2", else -> "3") to CCAPI kind suffix
             String stepKind = toMfDriveKind(command.steps());
             String direction = command.direction() == FocusCommand.Direction.NEAR ? "near" : "far";
             String kind = direction + stepKind; // e.g. "near1", "far2"
@@ -126,6 +134,10 @@ public class CanonCcapiBackend implements CameraBackend {
                     baseUrl + PATH_MF_DRIVE,
                     Map.of("kind", kind),
                     String.class);
+            // Update tracked position: NEAR decrements, FAR increments
+            int delta = command.direction() == FocusCommand.Direction.NEAR
+                    ? -command.steps() : command.steps();
+            focusPosition.addAndGet(delta);
         } catch (RestClientException e) {
             throw new CameraException("Failed to set focus: " + e.getMessage(), e);
         }
@@ -135,12 +147,14 @@ public class CanonCcapiBackend implements CameraBackend {
     public CameraState getState() {
         int batteryLevel = 100;
         long storageAvailable = 0L;
+        boolean connected = false;
         try {
             BatteryStatus battery = restTemplate.getForObject(
                     baseUrl + PATH_BATTERY, BatteryStatus.class);
             if (battery != null && battery.level() != null) {
                 batteryLevel = parseBatteryLevel(battery.level());
             }
+            connected = true;
         } catch (RestClientException e) {
             log.debug("CCAPI battery status unavailable: {}", e.getMessage());
         }
@@ -150,11 +164,12 @@ public class CanonCcapiBackend implements CameraBackend {
             if (storage != null && storage.spaceBytes() != null) {
                 storageAvailable = storage.spaceBytes();
             }
+            connected = true;
         } catch (RestClientException e) {
             log.debug("CCAPI storage status unavailable: {}", e.getMessage());
         }
         return new CameraState(
-                true, batteryLevel, storageAvailable, 0,
+                connected, batteryLevel, storageAvailable, focusPosition.get(),
                 "auto", "auto", "auto", false
         );
     }
@@ -182,19 +197,20 @@ public class CanonCcapiBackend implements CameraBackend {
     /**
      * Parses a CCAPI battery level string ("high", "middle", "low", "empty")
      * or a numeric percentage string ("80") into an integer 0–100.
-     * Returns 100 for null or unrecognised input.
+     * Returns 100 for null or unrecognised input. Trims whitespace before parsing.
      */
     static int parseBatteryLevel(String level) {
         if (level == null) {
             return 100;
         }
-        return switch (level.toLowerCase()) {
+        String normalized = level.trim().toLowerCase();
+        return switch (normalized) {
             case "high"   -> 80;
             case "middle" -> 50;
             case "low"    -> 20;
             case "empty"  -> 0;
             default -> {
-                try { yield Integer.parseInt(level.trim()); }
+                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }
                 catch (NumberFormatException e) { yield 100; }
             }
         };
