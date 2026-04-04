@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/focusstack}
+    username: ${SPRING_DATASOURCE_USERNAME:focusstack}
+    password: ${SPRING_DATASOURCE_PASSWORD:focusstack}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        search:
+          backend:
+            type: lucene
+            directory:
+              type: local-filesystem
+              # Configure this path via env var and mount it to persistent storage in Docker/Kubernetes.
+              root: ${HIBERNATE_SEARCH_INDEX_ROOT:/app/data/search-index}
+
+analysis:
+  service:
+    enabled: ${ANALYSIS_SERVICE_ENABLED:true}
+    url: ${ANALYSIS_SERVICE_URL:http://analysis-service:8081}
+
+logging:
+  level:
+    root: INFO
+    com.photographer.focusstack.camera: DEBUG
