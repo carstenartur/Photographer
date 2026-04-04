@@ -50,14 +50,36 @@ public class MockCameraBackend implements CameraBackend {
         simulateDelay();
         int pos = focusPosition.getAndIncrement();
         String imageId = UUID.randomUUID().toString();
+        // Generate synthetic image data that varies with focus position
+        // to simulate sharpness changes across the focus sweep.
+        byte[] imageData = generateSyntheticImage(pos);
         return new CaptureResult(
                 imageId,
                 "IMG_" + pos + ".jpg",
                 "/mock/captures/" + imageId + ".jpg",
                 Instant.now(),
                 pos,
-                1024L * 1024
+                imageData.length,
+                imageData
         );
+    }
+
+    /** Creates a 64×64 pixel synthetic image whose sharpness peaks at focus position 50. */
+    private byte[] generateSyntheticImage(int focusPosition) {
+        int w = 64, h = 64;
+        byte[] data = new byte[w * h];
+        // Sharpness peak at position 50; simulate edge contrast declining away from peak
+        double distFromPeak = Math.abs(focusPosition - 50.0);
+        double sharpnessFactor = Math.max(0.1, 1.0 - distFromPeak / 100.0);
+        int stride = Math.max(1, (int) (4.0 / sharpnessFactor));
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                // Checkerboard pattern; tighter = sharper
+                boolean bright = ((x / stride + y / stride) % 2 == 0);
+                data[y * w + x] = (byte) (bright ? 220 : 30);
+            }
+        }
+        return data;
     }
 
     @Override

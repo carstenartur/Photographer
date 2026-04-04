@@ -1,7 +1,13 @@
 package com.photographer.focusstack.analysis.service;
 
+import com.photographer.focusstack.analysis.strategy.MotionDetectionStrategy;
+import com.photographer.focusstack.analysis.strategy.OpticalFlowStrategy;
+import com.photographer.focusstack.analysis.strategy.PixelDiffStrategy;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.model.StackingParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,16 +16,24 @@ import java.util.UUID;
 @Service
 public class StackingAdvisor {
 
+    private static final Logger log = LoggerFactory.getLogger(StackingAdvisor.class);
+
     private final SharpnessAnalyzer sharpnessAnalyzer;
-    private final MotionDetector motionDetector;
     private final InformationGainEstimator informationGainEstimator;
+    private final MotionDetectionStrategy motionDetectionStrategy;
 
     public StackingAdvisor(SharpnessAnalyzer sharpnessAnalyzer,
                            MotionDetector motionDetector,
-                           InformationGainEstimator informationGainEstimator) {
+                           InformationGainEstimator informationGainEstimator,
+                           ImageJProcessor imageJProcessor,
+                           @Value("${analysis.motion.strategy:optical-flow}") String strategyName) {
         this.sharpnessAnalyzer = sharpnessAnalyzer;
-        this.motionDetector = motionDetector;
         this.informationGainEstimator = informationGainEstimator;
+        this.motionDetectionStrategy = "pixel-diff".equalsIgnoreCase(strategyName)
+                ? new PixelDiffStrategy(motionDetector)
+                : new OpticalFlowStrategy(imageJProcessor, motionDetector);
+        log.info("StackingAdvisor initialized with '{}' motion detection strategy",
+                this.motionDetectionStrategy.name());
     }
 
     /**
@@ -34,7 +48,7 @@ public class StackingAdvisor {
 
         MotionDetector.MotionResult motionResult;
         if (params.motionDetectionEnabled() && previousFrame != null) {
-            motionResult = motionDetector.detectMotion(imageData, previousFrame);
+            motionResult = motionDetectionStrategy.detect(imageData, previousFrame, 0.15);
         } else {
             motionResult = new MotionDetector.MotionResult(0.0, false, 0.15);
         }

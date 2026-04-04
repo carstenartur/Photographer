@@ -73,7 +73,8 @@ public class CanonCcapiBackend implements CameraBackend {
                     "/ccapi/capture",
                     Instant.now(),
                     0,
-                    0L
+                    0L,
+                    null // CCAPI stores images on camera card; download separately
             );
         } catch (RestClientException e) {
             throw new CameraException("Failed to capture image: " + e.getMessage(), e);

@@ -95,7 +95,7 @@ class CameraControllerTest {
         when(profileService.getProfile("cam-1")).thenReturn(profile);
         when(cameraBackend.capture()).thenReturn(
                 new CaptureResult("img-1", "IMG_0.jpg", "/mock/captures/img-1.jpg",
-                        Instant.now(), 0, 1024L));
+                        Instant.now(), 0, 1024L, null));
 
         mockMvc.perform(post("/api/cameras/cam-1/capture"))
                 .andExpect(status().isOk())

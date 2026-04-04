@@ -16,7 +16,9 @@ class StackingAdvisorTest {
     private final StackingAdvisor advisor = new StackingAdvisor(
             new SharpnessAnalyzer(),
             new MotionDetector(),
-            new InformationGainEstimator()
+            new InformationGainEstimator(),
+            new ImageJProcessor(),
+            "pixel-diff"  // use pixel-diff strategy for unit tests (no ImageJ file decoding needed)
     );
 
     @Test
