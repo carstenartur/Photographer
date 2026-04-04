@@ -100,6 +100,9 @@ public class AnalysisController {
     public ResponseEntity<SharpnessMap> sharpnessMap(
             @RequestPart("image") MultipartFile image,
             @RequestParam(value = "blockSize", defaultValue = "64") int blockSize) throws IOException {
+        if (blockSize < 16) {
+            return ResponseEntity.badRequest().build();
+        }
         SharpnessMap map = imageJProcessor.createSharpnessMap(image.getBytes(), blockSize);
         return ResponseEntity.ok(map);
     }

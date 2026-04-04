@@ -17,7 +17,7 @@ import java.io.IOException;
 
 /**
  * Image processing engine backed by ImageJ (headless).
- * Provides real image analysis capabilities for JPEG, PNG, and TIFF images
+ * Provides real image analysis capabilities for JPEG, PNG, and BMP images
  * using the ImageJ library in headless mode.
  * <p>
  * Uses ImageJ's {@link ImageProcessor} directly (ByteProcessor, FloatProcessor)
@@ -36,10 +36,10 @@ public class ImageJProcessor {
     }
 
     /**
-     * Calculates sharpness of an actual image file (JPEG, PNG, TIFF) using ImageJ
+     * Calculates sharpness of an actual image file (JPEG, PNG, BMP) using ImageJ
      * Laplacian variance method.
      *
-     * @param imageFileBytes raw bytes of an image file (JPEG, PNG, TIFF, BMP)
+     * @param imageFileBytes raw bytes of an image file (JPEG, PNG, BMP)
      * @return normalized sharpness score 0.0 - 1.0
      */
     public double calculateSharpness(byte[] imageFileBytes) {
@@ -151,9 +151,11 @@ public class ImageJProcessor {
 
     /**
      * Checks if the given byte array represents a recognized image file format.
+     * Only formats supported by {@link javax.imageio.ImageIO} are recognized:
+     * JPEG, PNG, and BMP. TIFF is not supported without additional plugins.
      *
      * @param data raw bytes to check
-     * @return true if the data appears to be a JPEG, PNG, BMP, or TIFF image
+     * @return true if the data appears to be a JPEG, PNG, or BMP image
      */
     public boolean isImageFile(byte[] data) {
         if (data == null || data.length < 4) {
@@ -169,10 +171,6 @@ public class ImageJProcessor {
         }
         // BMP: 42 4D
         if (data[0] == 0x42 && data[1] == 0x4D) {
-            return true;
-        }
-        // TIFF: 49 49 or 4D 4D
-        if ((data[0] == 0x49 && data[1] == 0x49) || (data[0] == 0x4D && data[1] == 0x4D)) {
             return true;
         }
         return false;

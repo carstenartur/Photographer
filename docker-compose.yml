@@ -45,7 +45,7 @@ services:
       - "${ANALYSIS_SERVICE_PORT:-8081}:8081"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-      JAVA_OPTS: "-Djava.awt.headless=true"
+      JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
     volumes:
       - image-storage:/app/images
     networks:

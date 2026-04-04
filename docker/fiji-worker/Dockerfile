@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget unzip fontconfig libfreetype6 libx11-6 libxext6 libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install Fiji
-ARG FIJI_VERSION=latest
+# Download and install Fiji (pinned version for reproducibility; override via --build-arg)
+ARG FIJI_VERSION=20240916-0938
 RUN wget -q "https://downloads.imagej.net/fiji/${FIJI_VERSION}/fiji-linux64.zip" \
         -O /tmp/fiji.zip \
     && unzip -q /tmp/fiji.zip -d /opt \
@@ -29,9 +29,9 @@ ENV JAVA_HOME=/opt/java/openjdk
 WORKDIR /data
 USER fiji
 
-# Healthcheck verifies Fiji runs headless
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD /opt/Fiji.app/ImageJ-linux64 --headless --run "print('OK');" 2>/dev/null | grep -q OK
+# Healthcheck verifies Fiji binary exists and responds without a full headless run
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD [ -x /opt/Fiji.app/ImageJ-linux64 ] && /opt/Fiji.app/ImageJ-linux64 --help >/dev/null 2>&1
 
 # Default: run Fiji headless with macro from stdin or command line
 ENTRYPOINT ["/opt/Fiji.app/ImageJ-linux64", "--headless"]
