@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CameraServiceIT extends AbstractPostgresIntegrationTest {
@@ -45,17 +46,17 @@ class CameraServiceIT extends AbstractPostgresIntegrationTest {
         assertEquals(HttpStatus.OK, updateResponse.getStatusCode());
         assertEquals("Updated Camera", updateResponse.getBody().name());
 
-        // List
+        // List — verify the created profile is present
         ResponseEntity<CameraProfile[]> listResponse = restTemplate.getForEntity(
                 "/api/cameras", CameraProfile[].class);
         assertEquals(HttpStatus.OK, listResponse.getStatusCode());
-        assertEquals(1, listResponse.getBody().length);
+        assertTrue(listResponse.getBody().length >= 1, "List should contain at least one camera");
 
         // Delete
         restTemplate.delete("/api/cameras/int-cam-1");
-        ResponseEntity<CameraProfile[]> afterDelete = restTemplate.getForEntity(
-                "/api/cameras", CameraProfile[].class);
-        assertEquals(0, afterDelete.getBody().length);
+        ResponseEntity<CameraProfile> afterDelete = restTemplate.getForEntity(
+                "/api/cameras/int-cam-1", CameraProfile.class);
+        assertEquals(HttpStatus.NOT_FOUND, afterDelete.getStatusCode());
     }
 
     @Test

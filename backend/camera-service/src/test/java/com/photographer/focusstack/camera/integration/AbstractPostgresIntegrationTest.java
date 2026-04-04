@@ -3,14 +3,16 @@ package com.photographer.focusstack.camera.integration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Shared base class for camera-service integration tests that need PostgreSQL.
- * Uses a single static Testcontainers PostgreSQL container that is reused
- * across all test classes extending this base, avoiding the overhead of
- * starting a separate container per test class.
+ * Uses a single static Testcontainers PostgreSQL container that is started once
+ * and reused across all test classes extending this base, avoiding the overhead
+ * of starting a separate container per test class.
+ *
+ * <p>This uses the <em>singleton container pattern</em>: the container is
+ * started in a static initializer block and stays running for the JVM
+ * lifetime. Testcontainers' Ryuk reaper handles cleanup after the JVM exits.</p>
  *
  * <h3>Resource Requirements</h3>
  * <ul>
@@ -19,13 +21,14 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *   <li>Testcontainers Ryuk container for automatic cleanup</li>
  * </ul>
  */
-@Testcontainers
 abstract class AbstractPostgresIntegrationTest {
 
-    @Container
-    static final PostgreSQLContainer<?> postgres =
-            new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withReuse(true);
+    static final PostgreSQLContainer<?> postgres;
+
+    static {
+        postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+        postgres.start();
+    }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
