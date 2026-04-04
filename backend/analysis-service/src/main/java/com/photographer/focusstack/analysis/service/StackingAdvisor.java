@@ -1,7 +1,13 @@
 package com.photographer.focusstack.analysis.service;
 
+import com.photographer.focusstack.analysis.strategy.MotionDetectionStrategy;
+import com.photographer.focusstack.analysis.strategy.OpticalFlowStrategy;
+import com.photographer.focusstack.analysis.strategy.PixelDiffStrategy;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.model.StackingParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,31 +16,46 @@ import java.util.UUID;
 @Service
 public class StackingAdvisor {
 
+    private static final Logger log = LoggerFactory.getLogger(StackingAdvisor.class);
+
     private final SharpnessAnalyzer sharpnessAnalyzer;
-    private final MotionDetector motionDetector;
     private final InformationGainEstimator informationGainEstimator;
+    private final MotionDetectionStrategy motionDetectionStrategy;
+    private final ImageJProcessor imageJProcessor;
 
     public StackingAdvisor(SharpnessAnalyzer sharpnessAnalyzer,
                            MotionDetector motionDetector,
-                           InformationGainEstimator informationGainEstimator) {
+                           InformationGainEstimator informationGainEstimator,
+                           ImageJProcessor imageJProcessor,
+                           @Value("${analysis.motion.strategy:optical-flow}") String strategyName) {
         this.sharpnessAnalyzer = sharpnessAnalyzer;
-        this.motionDetector = motionDetector;
         this.informationGainEstimator = informationGainEstimator;
+        this.imageJProcessor = imageJProcessor;
+        this.motionDetectionStrategy = "pixel-diff".equalsIgnoreCase(strategyName)
+                ? new PixelDiffStrategy(motionDetector)
+                : new OpticalFlowStrategy(imageJProcessor, motionDetector);
+        log.info("StackingAdvisor initialized with '{}' motion detection strategy",
+                this.motionDetectionStrategy.name());
     }
 
     /**
      * Analyzes a frame and makes a continue/stop recommendation.
+     *
+     * <p>For decodable image files (JPEG, PNG, BMP) the sharpness is computed via
+     * {@link ImageJProcessor} which decodes the image properly before applying the
+     * Laplacian kernel.  For raw/synthetic byte arrays (e.g. unit-test data) the
+     * fallback {@link SharpnessAnalyzer} is used.
      */
     public AnalysisResult analyzeFrame(byte[] imageData,
                                        byte[] previousFrame,
                                        List<AnalysisResult> history,
                                        StackingParameters params) {
-        double sharpnessScore = sharpnessAnalyzer.calculateSharpness(imageData);
+        double sharpnessScore = computeSharpness(imageData);
         double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);
 
         MotionDetector.MotionResult motionResult;
         if (params.motionDetectionEnabled() && previousFrame != null) {
-            motionResult = motionDetector.detectMotion(imageData, previousFrame);
+            motionResult = motionDetectionStrategy.detect(imageData, previousFrame, 0.15);
         } else {
             motionResult = new MotionDetector.MotionResult(0.0, false, 0.15);
         }
@@ -87,5 +108,18 @@ public class StackingAdvisor {
 
     private double estimateSharpRegion(double sharpnessScore) {
         return Math.min(1.0, sharpnessScore * 1.2);
+    }
+
+    /**
+     * Computes a sharpness score for the given byte array.
+     * Uses {@link ImageJProcessor} for decodable image files (JPEG/PNG/BMP), which
+     * correctly decodes the image before applying the Laplacian kernel.
+     * Falls back to {@link SharpnessAnalyzer} for raw/synthetic byte arrays.
+     */
+    private double computeSharpness(byte[] imageData) {
+        if (imageData != null && imageJProcessor.isImageFile(imageData)) {
+            return imageJProcessor.calculateSharpness(imageData);
+        }
+        return sharpnessAnalyzer.calculateSharpness(imageData);
     }
 }
