@@ -96,12 +96,19 @@ public class AnalysisController {
                 result.motionScore(), result.motionDetected(), result.threshold()));
     }
 
+    /**
+     * Computes a block-wise sharpness map of an uploaded image.
+     *
+     * @param image     the image file to analyze
+     * @param blockSize the block size in pixels (minimum 16)
+     */
     @PostMapping(value = "/sharpness-map", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<SharpnessMap> sharpnessMap(
+    public ResponseEntity<?> sharpnessMap(
             @RequestPart("image") MultipartFile image,
             @RequestParam(value = "blockSize", defaultValue = "64") int blockSize) throws IOException {
         if (blockSize < 16) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "blockSize must be at least 16"));
         }
         SharpnessMap map = imageJProcessor.createSharpnessMap(image.getBytes(), blockSize);
         return ResponseEntity.ok(map);
