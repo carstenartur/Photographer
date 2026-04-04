@@ -12,6 +12,37 @@ const EMPTY_FORM = {
   qualityMode: 'BALANCED',
 };
 
+/**
+ * Quality preset definitions.
+ * Each preset pre-fills the form fields for a specific capture style.
+ */
+const PRESETS = {
+  FAST: {
+    label: '⚡ Fast',
+    stepSize: 20,
+    maxFrames: 15,
+    abortThreshold: 0.05,
+    motionDetectionEnabled: true,
+    qualityMode: 'FAST',
+  },
+  BALANCED: {
+    label: '⚖️ Balanced',
+    stepSize: 10,
+    maxFrames: 50,
+    abortThreshold: 0.02,
+    motionDetectionEnabled: true,
+    qualityMode: 'BALANCED',
+  },
+  MAXIMUM_QUALITY: {
+    label: '🔬 Max Quality',
+    stepSize: 3,
+    maxFrames: 120,
+    abortThreshold: 0.005,
+    motionDetectionEnabled: true,
+    qualityMode: 'MAXIMUM_QUALITY',
+  },
+};
+
 export default function JobList() {
   const [searchParams] = useSearchParams();
   const [jobs, setJobs] = useState([]);
@@ -80,6 +111,19 @@ export default function JobList() {
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   }
 
+  function applyPreset(key) {
+    const preset = PRESETS[key];
+    if (!preset) return;
+    setForm((prev) => ({
+      ...prev,
+      stepSize: preset.stepSize,
+      maxFrames: preset.maxFrames,
+      abortThreshold: preset.abortThreshold,
+      motionDetectionEnabled: preset.motionDetectionEnabled,
+      qualityMode: preset.qualityMode,
+    }));
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -97,6 +141,26 @@ export default function JobList() {
       {showForm && (
         <form className="form-card" onSubmit={handleCreate}>
           <h2>New Job</h2>
+
+          {/* Quality presets */}
+          <div style={{ marginBottom: '1rem' }}>
+            <p style={{ margin: '0 0 0.5rem', fontSize: '0.875rem', color: '#94a3b8' }}>
+              Presets
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {Object.entries(PRESETS).map(([key, preset]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`btn btn-small ${form.qualityMode === key ? 'btn-primary' : 'btn-secondary'}`}
+                  onClick={() => applyPreset(key)}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <label>
             Camera Profile
             <select

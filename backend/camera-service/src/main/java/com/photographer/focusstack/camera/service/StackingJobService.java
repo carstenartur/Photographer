@@ -42,6 +42,7 @@ public class StackingJobService {
     private final AnalysisClient analysisClient;
     private final FocusStepStrategy stepStrategy;
     private final TaskExecutor taskExecutor;
+    private final FrameDataStore frameDataStore;
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
@@ -49,12 +50,14 @@ public class StackingJobService {
                               StackingJobRepository repository,
                               SimpMessagingTemplate messagingTemplate,
                               AnalysisClient analysisClient,
+                              FrameDataStore frameDataStore,
                               @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
                               @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
         this.cameraBackend = cameraBackend;
         this.repository = repository;
         this.messagingTemplate = messagingTemplate;
         this.analysisClient = analysisClient;
+        this.frameDataStore = frameDataStore;
         this.taskExecutor = taskExecutor;
         this.stepStrategy = "linear".equalsIgnoreCase(stepStrategyName)
                 ? new LinearStepStrategy()
@@ -165,6 +168,11 @@ public class StackingJobService {
 
                 CaptureResult result = cameraBackend.capture();
                 frames.add(result.imageId());
+
+                // Cache frame data for later export
+                if (result.imageData() != null && result.imageData().length > 0) {
+                    frameDataStore.put(result.imageId(), result.fileName(), result.imageData());
+                }
 
                 // --- Analysis phase ---
                 AnalysisResult analysisResult = null;

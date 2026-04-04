@@ -18,7 +18,16 @@ jobs:
       packages: write
     strategy:
       matrix:
-        service: [camera-service, analysis-service]
+        include:
+          - service: camera-service
+            context: .
+            dockerfile: docker/camera-service/Dockerfile
+          - service: analysis-service
+            context: .
+            dockerfile: docker/analysis-service/Dockerfile
+          - service: frontend-web
+            context: .
+            dockerfile: docker/frontend/Dockerfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,8 +53,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: docker/${{ matrix.service }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

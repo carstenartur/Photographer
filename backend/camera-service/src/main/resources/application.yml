@@ -25,6 +25,11 @@ camera:
   mock:
     enabled: true
     delay-ms: 50
+    # Failure simulation (0 = disabled):
+    simulate-timeout-after-frames: 0      # block for 30 s after N captures
+    simulate-disconnect-after-frames: 0   # throw after N captures
+    simulate-empty-frame-at: 0            # return empty image at capture N
+    simulate-movement-at: 0               # return movement-like image at capture N
   ccapi:
     base-url: http://192.168.1.2:8080
   focus:

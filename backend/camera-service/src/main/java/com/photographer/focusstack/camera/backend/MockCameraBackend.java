@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
@@ -15,10 +16,62 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MockCameraBackend implements CameraBackend {
 
     private final long delayMs;
-    private final AtomicInteger focusPosition = new AtomicInteger(0);
 
+    /**
+     * After this many captures, all subsequent calls to {@link #capture()} will
+     * block for {@value SIMULATED_TIMEOUT_MS} ms to simulate a network timeout.
+     * 0 = disabled.
+     */
+    private final int simulateTimeoutAfterFrames;
+
+    /**
+     * After this many captures, {@link #capture()} throws a {@link CameraException}
+     * to simulate a Wi-Fi disconnect / camera connection drop. 0 = disabled.
+     */
+    private final int simulateDisconnectAfterFrames;
+
+    /**
+     * The capture at this 1-based index returns an empty (zero-byte) image to
+     * simulate a transmission error. 0 = disabled.
+     */
+    private final int simulateEmptyFrameAt;
+
+    /**
+     * The capture at this 1-based index returns a dramatically different image to
+     * simulate unexpected subject movement between frames. 0 = disabled.
+     */
+    private final int simulateMovementAt;
+
+    private final AtomicInteger focusPosition = new AtomicInteger(0);
+    private final AtomicInteger captureCount  = new AtomicInteger(0);
+
+    /** Duration to block (in ms) when simulating a network timeout. */
+    private static final long SIMULATED_TIMEOUT_MS = 30_000;
+
+    /** Standard constructor — no failure simulation. */
     public MockCameraBackend(long delayMs) {
-        this.delayMs = delayMs;
+        this(delayMs, 0, 0, 0, 0);
+    }
+
+    /**
+     * Full constructor with all failure-simulation parameters.
+     *
+     * @param delayMs                      artificial delay per operation (ms)
+     * @param simulateTimeoutAfterFrames   block for {@value SIMULATED_TIMEOUT_MS} ms after N captures (0 = off)
+     * @param simulateDisconnectAfterFrames throw after N captures (0 = off)
+     * @param simulateEmptyFrameAt         return empty image at capture N (0 = off)
+     * @param simulateMovementAt           return movement-like image at capture N (0 = off)
+     */
+    public MockCameraBackend(long delayMs,
+                             int simulateTimeoutAfterFrames,
+                             int simulateDisconnectAfterFrames,
+                             int simulateEmptyFrameAt,
+                             int simulateMovementAt) {
+        this.delayMs                      = delayMs;
+        this.simulateTimeoutAfterFrames   = simulateTimeoutAfterFrames;
+        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;
+        this.simulateEmptyFrameAt         = simulateEmptyFrameAt;
+        this.simulateMovementAt           = simulateMovementAt;
     }
 
     @Override
@@ -48,11 +101,42 @@ public class MockCameraBackend implements CameraBackend {
     @Override
     public CaptureResult capture() {
         simulateDelay();
+
+        int captureIndex = captureCount.incrementAndGet(); // 1-based
+
+        // Timeout simulation: block for 30 s after threshold
+        if (simulateTimeoutAfterFrames > 0 && captureIndex > simulateTimeoutAfterFrames) {
+            try {
+                Thread.sleep(SIMULATED_TIMEOUT_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        // Disconnect simulation: throw CameraException after threshold
+        if (simulateDisconnectAfterFrames > 0 && captureIndex > simulateDisconnectAfterFrames) {
+            throw new CameraException(
+                    "Simulated Wi-Fi disconnect after frame " + simulateDisconnectAfterFrames);
+        }
+
         int pos = focusPosition.getAndIncrement();
         String imageId = UUID.randomUUID().toString();
-        // Generate synthetic image data that varies with focus position
-        // to simulate sharpness changes across the focus sweep.
-        byte[] imageData = generateSyntheticImage(pos);
+
+        // Empty frame simulation
+        if (simulateEmptyFrameAt > 0 && captureIndex == simulateEmptyFrameAt) {
+            return new CaptureResult(
+                    imageId, "IMG_EMPTY_" + pos + ".jpg", "/mock/captures/" + imageId + ".jpg",
+                    Instant.now(), pos, 0, new byte[0]);
+        }
+
+        // Movement simulation: produce a drastically different (noise-like) image
+        byte[] imageData;
+        if (simulateMovementAt > 0 && captureIndex == simulateMovementAt) {
+            imageData = generateMovementImage();
+        } else {
+            imageData = generateSyntheticImage(pos);
+        }
+
         return new CaptureResult(
                 imageId,
                 "IMG_" + pos + ".jpg",
@@ -85,6 +169,20 @@ public class MockCameraBackend implements CameraBackend {
                 boolean bright = ((x / stride + y / stride) % 2 == 0);
                 data[y * w + x] = (byte) (bright ? 220 : 30);
             }
+        }
+        return data;
+    }
+
+    /**
+     * Generates a pseudo-random noise image to simulate sudden subject movement.
+     * The high-frequency variation will trigger the motion detector.
+     */
+    private byte[] generateMovementImage() {
+        int w = 64, h = 64;
+        byte[] data = new byte[w * h];
+        for (int i = 0; i < data.length; i++) {
+            // XOR-based noise pattern — maximally different from a checkerboard
+            data[i] = (byte) ((i * 0x6B + 0xA5) & 0xFF);
         }
         return data;
     }
