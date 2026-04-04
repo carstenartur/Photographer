@@ -16,9 +16,10 @@ import com.photographer.focusstack.common.model.StackingParameters;
 import com.photographer.focusstack.camera.exception.CameraException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -40,6 +41,7 @@ public class StackingJobService {
     private final SimpMessagingTemplate messagingTemplate;
     private final AnalysisClient analysisClient;
     private final FocusStepStrategy stepStrategy;
+    private final TaskExecutor taskExecutor;
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
@@ -47,11 +49,13 @@ public class StackingJobService {
                               StackingJobRepository repository,
                               SimpMessagingTemplate messagingTemplate,
                               AnalysisClient analysisClient,
+                              @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
                               @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
         this.cameraBackend = cameraBackend;
         this.repository = repository;
         this.messagingTemplate = messagingTemplate;
         this.analysisClient = analysisClient;
+        this.taskExecutor = taskExecutor;
         this.stepStrategy = "linear".equalsIgnoreCase(stepStrategyName)
                 ? new LinearStepStrategy()
                 : new AdaptiveStepStrategy();
@@ -89,7 +93,10 @@ public class StackingJobService {
         repository.save(StackingJobEntity.fromRecord(running));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "RUNNING"));
 
-        executeStackingAsync(running);
+        // Submit the capture loop to the task executor so it runs on a Spring-managed
+        // thread pool. This avoids the @Async self-invocation proxy issue while still
+        // keeping the request thread free.
+        taskExecutor.execute(() -> executeStackingAsync(running));
         return running;
     }
 
@@ -133,7 +140,6 @@ public class StackingJobService {
                 .toList();
     }
 
-    @Async
     void executeStackingAsync(StackingJob job) {
         String id = job.id();
         List<String> frames = new ArrayList<>(job.frames());

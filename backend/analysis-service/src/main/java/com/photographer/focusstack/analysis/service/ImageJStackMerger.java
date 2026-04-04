@@ -64,6 +64,11 @@ public class ImageJStackMerger implements StackMerger {
             if (width == 0) {
                 width = bp.getWidth();
                 height = bp.getHeight();
+            } else if (bp.getWidth() != width || bp.getHeight() != height) {
+                throw new IllegalArgumentException(
+                        "All decodable frames must have identical dimensions; frame " + i
+                                + " was " + bp.getWidth() + "×" + bp.getHeight()
+                                + " but expected " + width + "×" + height);
             }
             decoded[i] = bp;
         }

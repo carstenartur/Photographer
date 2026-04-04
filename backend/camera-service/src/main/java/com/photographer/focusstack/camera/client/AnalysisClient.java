@@ -8,14 +8,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * HTTP client for the analysis-service {@code /api/analysis/analyze} endpoint.
@@ -23,6 +26,11 @@ import java.util.Optional;
  * <p>If the analysis-service URL is not configured or the service is unreachable,
  * all methods return {@link Optional#empty()} so that camera-service can continue
  * in "dumb linear" mode without analysis feedback.
+ *
+ * <p>Uses Spring's auto-configured {@link RestClient.Builder} so Boot-level HTTP
+ * client settings apply. Connect and read timeouts are controlled by the
+ * {@code analysis.service.connect-timeout-ms} and {@code analysis.service.read-timeout-ms}
+ * properties (defaults: 3 s and 10 s respectively).
  */
 @Component
 public class AnalysisClient {
@@ -33,21 +41,35 @@ public class AnalysisClient {
     private final ObjectMapper objectMapper;
     private final boolean enabled;
 
+    /** Tracks whether a warning has already been emitted for the current connection failure. */
+    private final AtomicBoolean warnedAboutFailure = new AtomicBoolean(false);
+
     public AnalysisClient(
+            RestClient.Builder restClientBuilder,
             @Value("${analysis.service.url:}") String analysisUrl,
             @Value("${analysis.service.enabled:false}") boolean enabled,
+            @Value("${analysis.service.connect-timeout-ms:3000}") int connectTimeoutMs,
+            @Value("${analysis.service.read-timeout-ms:10000}") int readTimeoutMs,
             ObjectMapper objectMapper) {
 
         this.objectMapper = objectMapper;
         boolean urlConfigured = analysisUrl != null && !analysisUrl.isBlank();
         this.enabled = enabled && urlConfigured;
-        this.restClient = urlConfigured
-                ? RestClient.builder().baseUrl(analysisUrl).build()
-                : RestClient.builder().build();
 
-        if (this.enabled) {
-            log.info("Analysis client enabled, pointing to {}", analysisUrl);
+        if (urlConfigured) {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
+            factory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+
+            this.restClient = restClientBuilder
+                    .baseUrl(analysisUrl)
+                    .requestFactory(factory)
+                    .build();
+            log.info("Analysis client {} (url={}, connect={}ms, read={}ms)",
+                    this.enabled ? "enabled" : "configured but disabled",
+                    analysisUrl, connectTimeoutMs, readTimeoutMs);
         } else {
+            this.restClient = restClientBuilder.build();
             log.info("Analysis client disabled – camera-service will run in linear mode");
         }
     }
@@ -92,9 +114,15 @@ public class AnalysisClient {
                     .retrieve()
                     .body(AnalysisResult.class);
 
+            // Service responded successfully — reset the "warned" flag
+            warnedAboutFailure.set(false);
             return Optional.ofNullable(result);
         } catch (RestClientException e) {
-            log.warn("Analysis-service unreachable, continuing in linear mode: {}", e.getMessage());
+            if (warnedAboutFailure.compareAndSet(false, true)) {
+                log.warn("Analysis-service unreachable, continuing in linear mode: {}", e.getMessage());
+            } else {
+                log.debug("Analysis-service still unreachable: {}", e.getMessage());
+            }
             return Optional.empty();
         } catch (Exception e) {
             log.error("Unexpected error calling analysis-service: {}", e.getMessage(), e);

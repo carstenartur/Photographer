@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.time.Instant;
@@ -40,8 +41,10 @@ class StackingJobServiceTest {
 
     @BeforeEach
     void setUp() {
+        // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
-                cameraBackend, repository, messagingTemplate, analysisClient, "adaptive");
+                cameraBackend, repository, messagingTemplate, analysisClient,
+                new SyncTaskExecutor(), "adaptive");
     }
 
     @Test

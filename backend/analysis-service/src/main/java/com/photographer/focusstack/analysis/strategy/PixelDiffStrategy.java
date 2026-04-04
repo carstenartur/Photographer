@@ -18,7 +18,7 @@ public class PixelDiffStrategy implements MotionDetectionStrategy {
 
     @Override
     public MotionDetector.MotionResult detect(byte[] current, byte[] previous, double threshold) {
-        return delegate.detectMotion(current, previous);
+        return delegate.detectMotion(current, previous, threshold);
     }
 
     @Override

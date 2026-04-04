@@ -21,6 +21,7 @@ public class StackingAdvisor {
     private final SharpnessAnalyzer sharpnessAnalyzer;
     private final InformationGainEstimator informationGainEstimator;
     private final MotionDetectionStrategy motionDetectionStrategy;
+    private final ImageJProcessor imageJProcessor;
 
     public StackingAdvisor(SharpnessAnalyzer sharpnessAnalyzer,
                            MotionDetector motionDetector,
@@ -29,6 +30,7 @@ public class StackingAdvisor {
                            @Value("${analysis.motion.strategy:optical-flow}") String strategyName) {
         this.sharpnessAnalyzer = sharpnessAnalyzer;
         this.informationGainEstimator = informationGainEstimator;
+        this.imageJProcessor = imageJProcessor;
         this.motionDetectionStrategy = "pixel-diff".equalsIgnoreCase(strategyName)
                 ? new PixelDiffStrategy(motionDetector)
                 : new OpticalFlowStrategy(imageJProcessor, motionDetector);
@@ -38,12 +40,17 @@ public class StackingAdvisor {
 
     /**
      * Analyzes a frame and makes a continue/stop recommendation.
+     *
+     * <p>For decodable image files (JPEG, PNG, BMP) the sharpness is computed via
+     * {@link ImageJProcessor} which decodes the image properly before applying the
+     * Laplacian kernel.  For raw/synthetic byte arrays (e.g. unit-test data) the
+     * fallback {@link SharpnessAnalyzer} is used.
      */
     public AnalysisResult analyzeFrame(byte[] imageData,
                                        byte[] previousFrame,
                                        List<AnalysisResult> history,
                                        StackingParameters params) {
-        double sharpnessScore = sharpnessAnalyzer.calculateSharpness(imageData);
+        double sharpnessScore = computeSharpness(imageData);
         double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);
 
         MotionDetector.MotionResult motionResult;
@@ -101,5 +108,18 @@ public class StackingAdvisor {
 
     private double estimateSharpRegion(double sharpnessScore) {
         return Math.min(1.0, sharpnessScore * 1.2);
+    }
+
+    /**
+     * Computes a sharpness score for the given byte array.
+     * Uses {@link ImageJProcessor} for decodable image files (JPEG/PNG/BMP), which
+     * correctly decodes the image before applying the Laplacian kernel.
+     * Falls back to {@link SharpnessAnalyzer} for raw/synthetic byte arrays.
+     */
+    private double computeSharpness(byte[] imageData) {
+        if (imageData != null && imageJProcessor.isImageFile(imageData)) {
+            return imageJProcessor.calculateSharpness(imageData);
+        }
+        return sharpnessAnalyzer.calculateSharpness(imageData);
     }
 }

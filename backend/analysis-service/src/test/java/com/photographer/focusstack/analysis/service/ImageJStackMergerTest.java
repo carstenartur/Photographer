@@ -59,9 +59,16 @@ class ImageJStackMergerTest {
         // A single valid frame and one empty frame (non-decodable)
         byte[] merged = merger.merge(List.of(frame, new byte[0]));
         assertNotNull(merged);
-        // With one invalid frame the merger should still produce output
-        assertTrue(merged.length > 0 || merged.length == 0,
-                "Merger should handle partially invalid frames gracefully");
+        assertTrue(merged.length > 0,
+                "Merger should produce non-empty output when at least one frame is decodable");
+    }
+
+    @Test
+    void mergeThrowsOnDimensionMismatch() throws IOException {
+        byte[] frame64 = createCheckerboardPng(64, 64, 4);
+        byte[] frame32 = createCheckerboardPng(32, 32, 4);
+        assertThrows(IllegalArgumentException.class, () -> merger.merge(List.of(frame64, frame32)),
+                "Merger should reject frames with different dimensions");
     }
 
     @Test
