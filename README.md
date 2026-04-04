@@ -45,8 +45,8 @@ The following Canon cameras expose CCAPI and have been tested:
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-org>/canon-focus-stack.git
-cd canon-focus-stack
+git clone https://github.com/carstenartur/Photographer.git
+cd Photographer
 
 # Start all services (camera-service, analysis-service, frontend-web, PostgreSQL)
 docker compose up --build
@@ -79,11 +79,11 @@ Canon Focus Stack follows a **multi-service** architecture:
 │  (React/Vite)  │                  │  (Spring Boot)    │               │  Camera   │
 └────────────────┘                  └────────┬─────────┘               └───────────┘
                                              │
-                                             │ gRPC / HTTP
+                                             │ REST (HTTP)
                                              ▼
                                    ┌──────────────────┐
                                    │ analysis-service  │
-                                   │ (Java / OpenCV)   │
+                                   │ (Java / ImageJ headless) │
                                    └────────┬─────────┘
                                              │
                                              ▼
@@ -97,7 +97,7 @@ Canon Focus Stack follows a **multi-service** architecture:
 |---|---|---|
 | **frontend-web** | React 19, Vite | Browser UI: Live View, capture controls, stack gallery. |
 | **camera-service** | Java 21, Spring Boot 3 | Orchestrates CCAPI calls, manages capture sequences, streams Live View. |
-| **analysis-service** | Java 21, OpenCV | Sharpness analysis, movement detection, optional Fiji stack merging. |
+| **analysis-service** | Java 21, ImageJ headless | Sharpness analysis, movement detection, optional Fiji stack merging. |
 | **storage** | PostgreSQL 16, local Docker volumes | Metadata in Postgres; raw frames on a shared volume. |
 
 For a deeper dive, see [docs/architecture.md](docs/architecture.md).
@@ -127,25 +127,33 @@ and contribution guidelines.
 
 ## Roadmap
 
-### Milestone 1 — Foundation
+### ✅ Milestone 1 — Foundation
 - Project scaffolding (monorepo, CI, Docker Compose)
 - Mock CCAPI camera server
 - Basic Spring Boot camera-service with Live View proxy
 
-### Milestone 2 — Core Capture
+### ✅ Milestone 2 — Core Capture
 - Focus-step sweep with configurable range and step size
 - Per-frame sharpness analysis (Laplacian variance)
 - Adaptive step algorithm that narrows around peak sharpness
 
-### Milestone 3 — Intelligence
-- Movement detection (frame-diff + optical flow)
+### ✅ Milestone 3 — Intelligence
+- Movement detection (frame-diff + optical flow via ImageJ)
 - Auto-stop on movement or full-range coverage
-- Headless Fiji integration for final stack merge
+- Headless ImageJ integration for final stack merge
 
 ### Milestone 4 — Polish & Extensibility
-- Stack gallery with before/after comparison
-- Export & sharing workflows
-- Plugin API for third-party analysis modules
+- ✅ Stack gallery with before/after comparison
+- ✅ Export & sharing workflows (ZIP download, merged PNG download)
+- ✅ Plugin API for third-party analysis modules
+- ✅ MockCameraBackend failure simulation (timeout, disconnect, empty frame, movement)
+- ✅ Preset quality modes (Fast / Balanced / Maximum Quality)
+
+### Milestone 5 — Future Work
+- Real Canon CCAPI integration with hardware-in-the-loop tests
+- GPU-accelerated stack analysis (CUDA/OpenCL via JVM bindings)
+- Multi-camera support (parallel capture from multiple bodies)
+- RAW image support (Canon CR3 / CR2 via LibRaw)
 
 ---
 

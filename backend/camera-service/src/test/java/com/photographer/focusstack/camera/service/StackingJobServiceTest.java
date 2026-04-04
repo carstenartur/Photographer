@@ -44,7 +44,7 @@ class StackingJobServiceTest {
         // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
                 cameraBackend, repository, messagingTemplate, analysisClient,
-                new SyncTaskExecutor(), "adaptive");
+                new FrameDataStore(), new SyncTaskExecutor(), "adaptive");
     }
 
     @Test

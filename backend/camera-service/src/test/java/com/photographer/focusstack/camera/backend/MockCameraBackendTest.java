@@ -9,9 +9,7 @@ import com.photographer.focusstack.common.camera.Operation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class MockCameraBackendTest {
 
@@ -75,5 +73,42 @@ class MockCameraBackendTest {
         for (Operation op : Operation.values()) {
             assertTrue(backend.supports(op));
         }
+    }
+
+    // ── Failure simulation tests ──────────────────────────────────────────────
+
+    @Test
+    void simulateEmptyFrame_returnsZeroByteImageAtSpecifiedCapture() {
+        MockCameraBackend sim = new MockCameraBackend(0, 0, 0, 2, 0);
+        CaptureResult first  = sim.capture(); // capture 1 — normal
+        CaptureResult second = sim.capture(); // capture 2 — empty
+
+        assertTrue(first.imageData().length > 0, "First frame should have data");
+        assertEquals(0, second.imageData().length, "Second frame should be empty");
+        assertEquals(0, second.fileSize(), "Empty frame should report fileSize 0");
+    }
+
+    @Test
+    void simulateMovement_returnsDistinctImageAtSpecifiedCapture() {
+        MockCameraBackend sim = new MockCameraBackend(0, 0, 0, 0, 2);
+        byte[] normal    = sim.capture().imageData(); // capture 1
+        byte[] movement  = sim.capture().imageData(); // capture 2 — simulated movement
+
+        assertNotNull(movement);
+        assertTrue(movement.length > 0);
+        // The movement image should differ from the normal checkerboard image
+        boolean differs = false;
+        for (int i = 0; i < Math.min(normal.length, movement.length); i++) {
+            if (normal[i] != movement[i]) { differs = true; break; }
+        }
+        assertTrue(differs, "Movement frame should differ from normal frame");
+    }
+
+    @Test
+    void simulateDisconnect_throwsAfterThreshold() {
+        MockCameraBackend sim = new MockCameraBackend(0, 0, 1, 0, 0);
+        sim.capture(); // capture 1 — should succeed
+        assertThrows(RuntimeException.class, sim::capture,
+                "Second capture should throw to simulate disconnect");
     }
 }

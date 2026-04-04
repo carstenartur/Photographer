@@ -186,3 +186,54 @@ in each service's `application.yml` and overridden in `docker-compose.yml`.
   adding an authentication layer.
 - CCAPI communication is unencrypted HTTP on the local Wi-Fi network. Use a
   dedicated or isolated network for camera control.
+
+
+---
+
+## Plugin API (analysis-service)
+
+The analysis-service exposes a lightweight plugin system for third-party analysis
+algorithms.
+
+### Interface
+
+```java
+public interface AnalysisPlugin {
+    String name();                                                       // unique, URL-safe name
+    AnalysisPluginResult analyze(byte[] imageData, AnalysisContext ctx); // returns score + metadata
+}
+```
+
+### Registration
+
+Any Spring bean implementing `AnalysisPlugin` is automatically collected by
+`AnalysisPluginRegistry` via `@Autowired List<AnalysisPlugin>`. No manual
+registration is required — add a `@Component` class and it will appear in the
+plugin list on next startup.
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET`  | `/api/analysis/plugins` | Lists all registered plugins by name |
+| `POST` | `/api/analysis/plugins/{name}/analyze` | Runs the named plugin on an uploaded image |
+
+### Bundled Plugins
+
+| Name | Class | Description |
+|---|---|---|
+| `sharpness` | `DefaultSharpnessPlugin` | Laplacian-variance sharpness score via ImageJ (with pixel-diff fallback) |
+
+### Mock Camera Failure Simulation
+
+`MockCameraBackend` supports the following configuration flags for testing error
+scenarios without real hardware:
+
+| Property | Default | Description |
+|---|---|---|
+| `camera.mock.simulate-timeout-after-frames` | `0` | Block for 30 s after N captures (simulates network timeout) |
+| `camera.mock.simulate-disconnect-after-frames` | `0` | Throw after N captures (simulates Wi-Fi disconnect) |
+| `camera.mock.simulate-empty-frame-at` | `0` | Return empty image at capture N (simulates transmission error) |
+| `camera.mock.simulate-movement-at` | `0` | Return noise-like image at capture N (simulates subject movement) |
+
+Set any flag to `0` to disable it.

@@ -17,8 +17,13 @@ public class CameraServiceConfig {
     @Bean
     @ConditionalOnProperty(name = "camera.mock.enabled", havingValue = "true", matchIfMissing = true)
     public CameraBackend mockCameraBackend(
-            @Value("${camera.mock.delay-ms:50}") long delayMs) {
-        return new MockCameraBackend(delayMs);
+            @Value("${camera.mock.delay-ms:50}") long delayMs,
+            @Value("${camera.mock.simulate-timeout-after-frames:0}") int simulateTimeoutAfterFrames,
+            @Value("${camera.mock.simulate-disconnect-after-frames:0}") int simulateDisconnectAfterFrames,
+            @Value("${camera.mock.simulate-empty-frame-at:0}") int simulateEmptyFrameAt,
+            @Value("${camera.mock.simulate-movement-at:0}") int simulateMovementAt) {
+        return new MockCameraBackend(delayMs, simulateTimeoutAfterFrames,
+                simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
     }
 
     @Bean
