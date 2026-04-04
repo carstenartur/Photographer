@@ -43,6 +43,9 @@ public class MockCameraBackend implements CameraBackend {
     private final AtomicInteger focusPosition = new AtomicInteger(0);
     private final AtomicInteger captureCount  = new AtomicInteger(0);
 
+    /** Duration to block (in ms) when simulating a network timeout. */
+    private static final long SIMULATED_TIMEOUT_MS = 30_000;
+
     /** Standard constructor — no failure simulation. */
     public MockCameraBackend(long delayMs) {
         this(delayMs, 0, 0, 0, 0);
@@ -102,7 +105,7 @@ public class MockCameraBackend implements CameraBackend {
         // Timeout simulation: block for 30 s after threshold
         if (simulateTimeoutAfterFrames > 0 && captureIndex > simulateTimeoutAfterFrames) {
             try {
-                Thread.sleep(30_000);
+                Thread.sleep(SIMULATED_TIMEOUT_MS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

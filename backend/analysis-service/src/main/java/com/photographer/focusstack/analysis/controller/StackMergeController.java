@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * REST endpoint for merging a focus-stack sequence into a single all-in-focus image.
@@ -33,8 +32,18 @@ public class StackMergeController {
 
     private final StackMerger stackMerger;
 
-    /** In-memory cache: jobId → merged PNG bytes. */
-    private final ConcurrentHashMap<String, byte[]> mergeResultCache = new ConcurrentHashMap<>();
+    /** Maximum number of merge results to keep in memory (oldest are evicted first). */
+    private static final int MAX_CACHED_RESULTS = 50;
+
+    /** In-memory LRU cache: jobId → merged PNG bytes. */
+    @SuppressWarnings("serial")
+    private final Map<String, byte[]> mergeResultCache = java.util.Collections.synchronizedMap(
+            new java.util.LinkedHashMap<>(MAX_CACHED_RESULTS, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
+                    return size() > MAX_CACHED_RESULTS;
+                }
+            });
 
     public StackMergeController(StackMerger stackMerger) {
         this.stackMerger = stackMerger;
