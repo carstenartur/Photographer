@@ -87,19 +87,29 @@ public class ImageJStackMerger implements StackMerger {
         }
 
         // Build output: for each pixel pick the frame with the highest |Laplacian|
+        // Track whether any valid frame was found for pixel composition
+        boolean anyValidFrame = false;
+        for (ByteProcessor dp : decoded) {
+            if (dp != null) { anyValidFrame = true; break; }
+        }
+        if (!anyValidFrame) {
+            log.error("All frames failed to decode — cannot produce merged output");
+            return new byte[0];
+        }
+
         ByteProcessor output = new ByteProcessor(width, height);
         for (int p = 0; p < width * height; p++) {
-            int bestFrame = 0;
+            int bestFrame = -1;
             float bestResponse = -1f;
             for (int i = 0; i < frames.size(); i++) {
+                if (decoded[i] == null) continue; // skip undecodable frames
                 float response = Math.abs(laplacianMaps[i][p]);
                 if (response > bestResponse) {
                     bestResponse = response;
                     bestFrame = i;
                 }
             }
-            // Sample the pixel value from the best frame
-            int value = (decoded[bestFrame] != null)
+            int value = bestFrame >= 0
                     ? (decoded[bestFrame].get(p % width, p / width) & 0xFF)
                     : 0;
             output.set(p % width, p / width, value);

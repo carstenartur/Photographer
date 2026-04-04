@@ -64,6 +64,13 @@ public class MockCameraBackend implements CameraBackend {
         );
     }
 
+    /**
+     * Maximum checkerboard square size (pixels) used in the synthetic image generator.
+     * At the sharpness peak the stride is {@code MAX_CHECKERBOARD_STRIDE / sharpnessFactor},
+     * so a smaller stride (tighter pattern) represents a sharper image.
+     */
+    private static final double MAX_CHECKERBOARD_STRIDE = 4.0;
+
     /** Creates a 64×64 pixel synthetic image whose sharpness peaks at focus position 50. */
     private byte[] generateSyntheticImage(int focusPosition) {
         int w = 64, h = 64;
@@ -71,10 +78,10 @@ public class MockCameraBackend implements CameraBackend {
         // Sharpness peak at position 50; simulate edge contrast declining away from peak
         double distFromPeak = Math.abs(focusPosition - 50.0);
         double sharpnessFactor = Math.max(0.1, 1.0 - distFromPeak / 100.0);
-        int stride = Math.max(1, (int) (4.0 / sharpnessFactor));
+        int stride = Math.max(1, (int) (MAX_CHECKERBOARD_STRIDE / sharpnessFactor));
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
-                // Checkerboard pattern; tighter = sharper
+                // Checkerboard pattern; tighter (smaller stride) = sharper
                 boolean bright = ((x / stride + y / stride) % 2 == 0);
                 data[y * w + x] = (byte) (bright ? 220 : 30);
             }

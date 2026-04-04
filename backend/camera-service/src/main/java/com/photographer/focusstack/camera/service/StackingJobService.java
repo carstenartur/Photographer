@@ -202,11 +202,10 @@ public class StackingJobService {
 
                 // --- Adaptive step computation ---
                 int nextStep = stepStrategy.nextStepSize(analysisHistory, params.stepSize());
-                cameraBackend.setFocus(
-                        new FocusCommand(FocusCommand.Direction.FAR, nextStep));
-
                 log.debug("Job {}: captured frame {} at focus position {}, next step={}",
                         id, i, result.focusPosition(), nextStep);
+                cameraBackend.setFocus(
+                        new FocusCommand(FocusCommand.Direction.FAR, nextStep));
 
                 StackingJob updated = new StackingJob(
                         id, job.cameraProfileId(), JobStatus.RUNNING,
