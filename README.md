@@ -2,7 +2,7 @@
 
 **Adaptive Focus Stacking over Wi-Fi for Canon cameras with live analysis and browser-based control**
 
-Canon Focus Stack automates focus-stacking workflows for Canon cameras equipped
+Focus Stack automates focus-stacking workflows for cameras equipped
 with CCAPI (Camera Control API). A browser-based UI lets you frame the shot with
 Live View, configure a focus sweep, and launch an adaptive capture sequence that
 analyses each frame in real time—stopping automatically when it detects the
