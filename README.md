@@ -1,4 +1,4 @@
-# Canon Focus Stack
+# Focus Stack
 
 **Adaptive Focus Stacking over Wi-Fi for Canon cameras with live analysis and browser-based control**
 
