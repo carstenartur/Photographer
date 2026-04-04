@@ -45,8 +45,20 @@ services:
       - "${ANALYSIS_SERVICE_PORT:-8081}:8081"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      JAVA_OPTS: "-Djava.awt.headless=true"
     volumes:
       - image-storage:/app/images
+    networks:
+      - focusstack
+
+  fiji-worker:
+    build:
+      context: .
+      dockerfile: docker/fiji-worker/Dockerfile
+    profiles:
+      - fiji
+    volumes:
+      - image-storage:/data/input
     networks:
       - focusstack
 

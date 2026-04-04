@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.controller;
 
+import com.photographer.focusstack.analysis.service.ImageJProcessor;
 import com.photographer.focusstack.analysis.service.MotionDetector;
 import com.photographer.focusstack.analysis.service.SharpnessAnalyzer;
 import com.photographer.focusstack.analysis.service.StackingAdvisor;
@@ -31,16 +32,24 @@ class AnalysisControllerTest {
     @MockBean
     private StackingAdvisor stackingAdvisor;
 
+    @MockBean
+    private ImageJProcessor imageJProcessor;
+
     @Test
     void healthEndpointShouldReturnUp() throws Exception {
+        when(imageJProcessor.getVersion()).thenReturn("1.54j");
+
         mockMvc.perform(get("/api/analysis/health"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("UP"));
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.imageJVersion").value("1.54j"))
+                .andExpect(jsonPath("$.engine").value("ImageJ"));
     }
 
     @Test
     void sharpnessEndpointShouldReturnScore() throws Exception {
         when(sharpnessAnalyzer.calculateSharpness(any(byte[].class))).thenReturn(0.75);
+        when(imageJProcessor.isImageFile(any(byte[].class))).thenReturn(false);
 
         MockMultipartFile image = new MockMultipartFile(
                 "image", "test.raw", "application/octet-stream", new byte[100]);
@@ -51,9 +60,23 @@ class AnalysisControllerTest {
     }
 
     @Test
+    void sharpnessEndpointShouldUseImageJForRealImages() throws Exception {
+        when(imageJProcessor.isImageFile(any(byte[].class))).thenReturn(true);
+        when(imageJProcessor.calculateSharpness(any(byte[].class))).thenReturn(0.85);
+
+        MockMultipartFile image = new MockMultipartFile(
+                "image", "test.jpg", "image/jpeg", new byte[100]);
+
+        mockMvc.perform(multipart("/api/analysis/sharpness").file(image))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sharpnessScore").value(0.85));
+    }
+
+    @Test
     void motionEndpointShouldReturnResult() throws Exception {
         when(motionDetector.detectMotion(any(byte[].class), any(byte[].class)))
                 .thenReturn(new MotionDetector.MotionResult(0.3, true, 0.15));
+        when(imageJProcessor.isImageFile(any(byte[].class))).thenReturn(false);
 
         MockMultipartFile current = new MockMultipartFile(
                 "currentFrame", "current.raw", "application/octet-stream", new byte[100]);
