@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * and the REST endpoints with actual image files.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ImageJIntegrationTest {
+class ImageJIT {
 
     @Autowired
     private TestRestTemplate restTemplate;

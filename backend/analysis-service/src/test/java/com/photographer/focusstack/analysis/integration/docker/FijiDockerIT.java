@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.integration.docker;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * This test builds the fiji-worker Docker image and runs ImageJ macros
  * headlessly to verify the container is properly configured.
  */
+@Tag("docker")
 @Testcontainers
 class FijiDockerIT {
 

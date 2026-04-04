@@ -1,7 +1,7 @@
 package com.photographer.focusstack.analysis.integration.docker;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>
  * Requires Docker to be available. The test is skipped in environments without Docker.
  */
+@Tag("docker")
 @Testcontainers
 class AnalysisServiceDockerIT {
 
