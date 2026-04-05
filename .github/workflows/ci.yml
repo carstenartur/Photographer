@@ -13,9 +13,6 @@ jobs:
   java-build:
     name: Java Build & Test
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     env:
       MAVEN_OPTS: "-Xmx1g"
     steps:
@@ -28,10 +25,10 @@ jobs:
           java-version: "21"
           distribution: temurin
           cache: maven
-          cache-dependency-path: backend/pom.xml
+          cache-dependency-path: pom.xml
 
       - name: Build and verify (unit + Testcontainers integration tests)
-        run: mvn -B clean verify
+        run: mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true
 
   frontend-build:
     name: Frontend Build & Lint
@@ -67,11 +64,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build camera-service image
-        run: docker build -f docker/camera-service/Dockerfile -t camera-service:test .
-
-      - name: Build analysis-service image
-        run: docker build -f docker/analysis-service/Dockerfile -t analysis-service:test .
-
-      - name: Build frontend image
-        run: docker build -f docker/frontend/Dockerfile -t frontend-web:test .
+      - name: Build Docker image
+        run: docker build -f Dockerfile -t focusstack:test .
