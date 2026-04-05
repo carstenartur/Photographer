@@ -14,6 +14,16 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * started in a static initializer block and stays running for the JVM
  * lifetime. Testcontainers' Ryuk reaper handles cleanup after the JVM exits.</p>
  *
+ * <p>The DDL strategy is set to {@code update} rather than {@code create-drop}
+ * to prevent {@code @DataJpaTest} slice contexts (e.g. {@link StackingJobRepositoryIT},
+ * {@link CameraProfileRepositoryIT}) from dropping the tables that the full
+ * {@code @SpringBootTest} contexts (e.g. {@link ValidationIT}, {@link CameraServiceIT})
+ * rely on. Both context types share the same singleton Testcontainers container.
+ * With {@code create-drop}, the slice contexts DROP all tables—including the
+ * {@code users} table—causing authentication failures in subsequently re-used
+ * {@code @SpringBootTest} contexts. Schema drift is not a concern here because
+ * Testcontainers starts a fresh database container for every Maven build.</p>
+ *
  * <h3>Resource Requirements</h3>
  * <ul>
  *   <li>Docker must be running</li>
@@ -36,6 +46,6 @@ abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
     }
 }
