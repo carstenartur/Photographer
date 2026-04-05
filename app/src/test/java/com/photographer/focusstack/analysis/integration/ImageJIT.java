@@ -2,6 +2,7 @@ package com.photographer.focusstack.analysis.integration;
 
 import com.photographer.focusstack.analysis.service.ImageJProcessor;
 import com.photographer.focusstack.common.analysis.SharpnessMap;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -36,6 +37,11 @@ class ImageJIT {
 
     @Autowired
     private ImageJProcessor imageJProcessor;
+
+    @BeforeEach
+    void setUpAuth() {
+        restTemplate = restTemplate.withBasicAuth("admin", "admin");
+    }
 
     @Test
     void imageJProcessorBeanShouldBeAvailable() {

@@ -1,6 +1,7 @@
 package com.photographer.focusstack.camera.integration;
 
 import com.photographer.focusstack.common.model.CameraProfile;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,11 @@ class CameraServiceIT extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @BeforeEach
+    void setUpAuth() {
+        restTemplate = restTemplate.withBasicAuth("admin", "admin");
+    }
 
     @Test
     void cameraProfileCrudLifecycle() {

@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.integration;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,11 @@ class AnalysisServiceIT {
 
     @Autowired
     private TestRestTemplate restTemplate;
+
+    @BeforeEach
+    void setUpAuth() {
+        restTemplate = restTemplate.withBasicAuth("admin", "admin");
+    }
 
     @Test
     void sharpnessEndpoint() {

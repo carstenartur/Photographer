@@ -46,6 +46,11 @@ analysis:
     # or 'pixel-diff' (raw byte comparison, faster but less accurate for compressed images)
     strategy: optical-flow
 
+focusstack:
+  security:
+    # Change this via environment variable FOCUSSTACK_SECURITY_ADMIN_PASSWORD in production
+    admin-password: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:admin}
+
 logging:
   level:
     root: INFO

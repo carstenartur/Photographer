@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.security.UserRepository;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CameraController.class)
+@WithMockUser
 class CameraControllerTest {
 
     @Autowired
@@ -42,6 +45,9 @@ class CameraControllerTest {
 
     @MockitoBean
     private SearchService searchService;
+
+    @MockitoBean
+    private UserRepository userRepository;
 
     @Test
     void listProfiles_returnsOk() throws Exception {
