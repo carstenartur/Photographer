@@ -11,7 +11,7 @@ import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.analysis.SharpnessMap;
 import com.photographer.focusstack.common.model.QualityMode;
 import com.photographer.focusstack.common.model.StackingParameters;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

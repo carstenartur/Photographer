@@ -253,7 +253,7 @@ public class StackingJobService {
         message.put("event", event);
         message.put("jobId", jobId);
         message.put("timestamp", Instant.now().toString());
-        messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/progress", message);
+        messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/progress", (Object) message);
     }
 
     private void sendJobLog(String jobId, String level, String text) {
@@ -263,6 +263,6 @@ public class StackingJobService {
                 "jobId", jobId,
                 "timestamp", Instant.now().toString()
         );
-        messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/logs", message);
+        messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/logs", (Object) message);
     }
 }
