@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/focusstack}
+    username: ${SPRING_DATASOURCE_USERNAME:focusstack}
+    password: ${SPRING_DATASOURCE_PASSWORD:focusstack}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        search:
+          backend:
+            type: lucene
+            directory:
+              type: local-filesystem
+              root: ${HIBERNATE_SEARCH_INDEX_ROOT:/app/data/search-index}
+
+focusstack:
+  camera:
+    mock-enabled: ${CAMERA_MOCK_ENABLED:true}
+    ccapi-base-url: ${CAMERA_CCAPI_BASE_URL:http://192.168.1.2:8080}
+  storage:
+    images-dir: ${FOCUSSTACK_STORAGE_IMAGES_DIR:/app/data/images}
+    search-index-dir: ${FOCUSSTACK_STORAGE_SEARCH_INDEX_DIR:/app/data/search-index}
+  security:
+    admin-username: ${FOCUSSTACK_SECURITY_ADMIN_USERNAME:admin}
+    admin-password: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:changeme}
+
+# Legacy camera-service properties
+camera:
+  mock:
+    enabled: ${CAMERA_MOCK_ENABLED:true}
+  ccapi:
+    base-url: ${CAMERA_CCAPI_BASE_URL:http://192.168.1.2:8080}
+
+logging:
+  level:
+    root: INFO
+    com.photographer.focusstack: DEBUG

@@ -1,0 +1,65 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: focusstack
+  profiles:
+    active: default
+  datasource:
+    url: jdbc:h2:mem:focusstack
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        search:
+          backend:
+            type: lucene
+            directory:
+              type: local-heap
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# Focus Stack application configuration
+focusstack:
+  camera:
+    ccapi-base-url: http://192.168.1.2:8080
+    mock-enabled: true
+    connection-timeout: 3s
+    focus-step-strategy: adaptive
+  storage:
+    images-dir: ./data/images
+    search-index-dir: ./data/search-index
+    max-disk-usage-bytes: 10737418240  # 10 GB
+  security:
+    admin-username: admin
+    admin-password: changeme
+
+# Legacy camera-service properties (still read by CameraServiceConfig)
+camera:
+  mock:
+    enabled: true
+    delay-ms: 50
+    simulate-timeout-after-frames: 0
+    simulate-disconnect-after-frames: 0
+    simulate-empty-frame-at: 0
+    simulate-movement-at: 0
+  ccapi:
+    base-url: http://192.168.1.2:8080
+  focus:
+    step-strategy: adaptive
+
+# Analysis configuration
+analysis:
+  motion:
+    strategy: optical-flow
+
+logging:
+  level:
+    root: INFO
+    com.photographer.focusstack: DEBUG
