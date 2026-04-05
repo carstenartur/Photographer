@@ -31,7 +31,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <hibernate-search.version>7.2.1.Final</hibernate-search.version>
-        <testcontainers.version>1.20.4</testcontainers.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <springdoc.version>2.8.6</springdoc.version>
         <imagej.version>1.54j</imagej.version>
     </properties>
