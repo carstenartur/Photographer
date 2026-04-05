@@ -17,73 +17,34 @@ services:
       timeout: 5s
       retries: 5
 
-  camera-service:
+  focusstack:
     build:
       context: .
-      dockerfile: docker/camera-service/Dockerfile
+      dockerfile: Dockerfile
     ports:
-      - "${CAMERA_SERVICE_PORT:-8080}:8080"
+      - "${APP_PORT:-8080}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-focusstack}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-focusstack}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-focusstack}
+      FOCUSSTACK_SECURITY_ADMIN_PASSWORD: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:?Set FOCUSSTACK_SECURITY_ADMIN_PASSWORD in .env}
       CAMERA_MOCK_ENABLED: ${CAMERA_MOCK_ENABLED:-true}
-      ANALYSIS_SERVICE_ENABLED: ${ANALYSIS_SERVICE_ENABLED:-true}
-      ANALYSIS_SERVICE_URL: ${ANALYSIS_SERVICE_URL:-http://analysis-service:8081}
+      JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
     volumes:
       - image-storage:/app/images
       - search-index:/app/data/search-index
     depends_on:
       postgres:
         condition: service_healthy
-      analysis-service:
-        condition: service_healthy
-    networks:
-      - focusstack
-
-  analysis-service:
-    build:
-      context: .
-      dockerfile: docker/analysis-service/Dockerfile
-    ports:
-      - "${ANALYSIS_SERVICE_PORT:-8081}:8081"
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-      JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true"
-    volumes:
-      - image-storage:/app/images
     networks:
       - focusstack
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/api/analysis/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/analysis/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
-
-  fiji-worker:
-    build:
-      context: .
-      dockerfile: docker/fiji-worker/Dockerfile
-    profiles:
-      - fiji
-    volumes:
-      - image-storage:/data/input
-    networks:
-      - focusstack
-
-  frontend:
-    build:
-      context: .
-      dockerfile: docker/frontend/Dockerfile
-    ports:
-      - "${FRONTEND_PORT:-3000}:80"
-    depends_on:
-      - camera-service
-      - analysis-service
-    networks:
-      - focusstack
 
 volumes:
   postgres-data:

@@ -1,0 +1,65 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: focusstack
+  profiles:
+    active: default
+  datasource:
+    url: jdbc:h2:mem:focusstack
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        search:
+          backend:
+            type: lucene
+            directory:
+              type: local-heap
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+camera:
+  mock:
+    enabled: true
+    delay-ms: 50
+    # Failure simulation (0 = disabled):
+    simulate-timeout-after-frames: 0      # block for 30 s after N captures
+    simulate-disconnect-after-frames: 0   # throw after N captures
+    simulate-empty-frame-at: 0            # return empty image at capture N
+    simulate-movement-at: 0              # return movement-like image at capture N
+  ccapi:
+    base-url: http://192.168.1.2:8080
+  focus:
+    # Step strategy: 'adaptive' (gradient-based narrowing) or 'linear' (fixed steps)
+    step-strategy: adaptive
+
+analysis:
+  motion:
+    # Motion detection strategy: 'optical-flow' (ImageJ-decoded pixel diff, accurate)
+    # or 'pixel-diff' (raw byte comparison, faster but less accurate for compressed images)
+    strategy: optical-flow
+
+focusstack:
+  security:
+    # Change this via environment variable FOCUSSTACK_SECURITY_ADMIN_PASSWORD in production
+    admin-password: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:admin}
+  storage:
+    images-dir: ${FOCUSSTACK_STORAGE_IMAGES_DIR:./data/images}
+    search-index-dir: ${FOCUSSTACK_STORAGE_SEARCH_INDEX_DIR:./data/search-index}
+    max-disk-usage-bytes: ${FOCUSSTACK_STORAGE_MAX_DISK_USAGE_BYTES:10737418240}
+  camera:
+    ccapi-base-url: ${FOCUSSTACK_CAMERA_CCAPI_BASE_URL:http://192.168.1.2:8080}
+    mock-enabled: ${FOCUSSTACK_CAMERA_MOCK_ENABLED:true}
+    connection-timeout: ${FOCUSSTACK_CAMERA_CONNECTION_TIMEOUT:10s}
+
+logging:
+  level:
+    root: INFO
+    com.photographer.focusstack: DEBUG
