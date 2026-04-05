@@ -1,6 +1,6 @@
 package com.photographer.focusstack.camera.service;
 
-import com.photographer.focusstack.camera.client.AnalysisClient;
+import com.photographer.focusstack.analysis.service.StackingAdvisor;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.camera.strategy.AdaptiveStepStrategy;
@@ -39,7 +39,7 @@ public class StackingJobService {
     private final CameraBackend cameraBackend;
     private final StackingJobRepository repository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final AnalysisClient analysisClient;
+    private final StackingAdvisor stackingAdvisor;
     private final FocusStepStrategy stepStrategy;
     private final TaskExecutor taskExecutor;
     private final FrameDataStore frameDataStore;
@@ -49,14 +49,14 @@ public class StackingJobService {
     public StackingJobService(CameraBackend cameraBackend,
                               StackingJobRepository repository,
                               SimpMessagingTemplate messagingTemplate,
-                              AnalysisClient analysisClient,
+                              StackingAdvisor stackingAdvisor,
                               FrameDataStore frameDataStore,
                               @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
                               @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
         this.cameraBackend = cameraBackend;
         this.repository = repository;
         this.messagingTemplate = messagingTemplate;
-        this.analysisClient = analysisClient;
+        this.stackingAdvisor = stackingAdvisor;
         this.frameDataStore = frameDataStore;
         this.taskExecutor = taskExecutor;
         this.stepStrategy = "linear".equalsIgnoreCase(stepStrategyName)
@@ -177,10 +177,9 @@ public class StackingJobService {
                 // --- Analysis phase ---
                 AnalysisResult analysisResult = null;
                 if (result.imageData() != null) {
-                    analysisResult = analysisClient
+                    analysisResult = stackingAdvisor
                             .analyzeFrame(result.imageData(), previousFrameData,
-                                    analysisHistory, params)
-                            .orElse(null);
+                                    analysisHistory, params);
                 }
                 previousFrameData = result.imageData();
 

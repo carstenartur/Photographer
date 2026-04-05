@@ -1,6 +1,6 @@
 package com.photographer.focusstack.camera.service;
 
-import com.photographer.focusstack.camera.client.AnalysisClient;
+import com.photographer.focusstack.analysis.service.StackingAdvisor;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
@@ -32,7 +32,7 @@ class StackingJobServiceTest {
     @Mock private CameraBackend cameraBackend;
     @Mock private StackingJobRepository repository;
     @Mock private SimpMessagingTemplate messagingTemplate;
-    @Mock private AnalysisClient analysisClient;
+    @Mock private StackingAdvisor stackingAdvisor;
 
     private StackingJobService service;
 
@@ -43,7 +43,7 @@ class StackingJobServiceTest {
     void setUp() {
         // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
-                cameraBackend, repository, messagingTemplate, analysisClient,
+                cameraBackend, repository, messagingTemplate, stackingAdvisor,
                 new FrameDataStore(), new SyncTaskExecutor(), "adaptive");
     }
 
@@ -54,9 +54,11 @@ class StackingJobServiceTest {
     }
 
     @Test
-    void captureLoopShouldCompleteAllFramesWhenAnalysisDisabled() throws InterruptedException {
-        // Analysis client returns empty (disabled mode)
-        when(analysisClient.analyzeFrame(any(), any(), any(), any())).thenReturn(Optional.empty());
+    void captureLoopShouldCompleteAllFramesWhenAdvisorRecommendsContinue() throws InterruptedException {
+        AnalysisResult continueResult = new AnalysisResult(
+                "r1", 0.5, 0.4, false, 0.0, 0.3, true);
+        when(stackingAdvisor.analyzeFrame(any(), any(), any(), any()))
+                .thenReturn(continueResult);
 
         when(cameraBackend.capture()).thenReturn(
                 new CaptureResult("img-1", "IMG_0.jpg", "/mock/img1.jpg",
@@ -86,9 +88,9 @@ class StackingJobServiceTest {
         AnalysisResult stopResult = new AnalysisResult(
                 "r2", 0.4, 0.3, true, 0.8, 0.0, false); // motion detected
 
-        when(analysisClient.analyzeFrame(any(), any(), any(), any()))
-                .thenReturn(Optional.of(continueResult))
-                .thenReturn(Optional.of(stopResult));
+        when(stackingAdvisor.analyzeFrame(any(), any(), any(), any()))
+                .thenReturn(continueResult)
+                .thenReturn(stopResult);
 
         when(cameraBackend.capture()).thenReturn(
                 new CaptureResult("img-1", "IMG_0.jpg", "/mock/img1.jpg",
@@ -126,8 +128,8 @@ class StackingJobServiceTest {
 
         service.executeStackingAsync(job);
 
-        // Analysis client should never be called when imageData is null
-        verify(analysisClient, never()).analyzeFrame(any(), any(), any(), any());
+        // Advisor should never be called when imageData is null
+        verify(stackingAdvisor, never()).analyzeFrame(any(), any(), any(), any());
         verify(repository, atLeastOnce()).save(argThat(e -> e.getStatus() == JobStatus.COMPLETED));
     }
 

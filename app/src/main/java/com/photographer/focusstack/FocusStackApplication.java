@@ -1,12 +1,12 @@
-package com.photographer.focusstack.analysis;
+package com.photographer.focusstack;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class AnalysisServiceApplication {
+public class FocusStackApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AnalysisServiceApplication.class, args);
+        SpringApplication.run(FocusStackApplication.class, args);
     }
 }

@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: camera-service
+    name: focusstack
   profiles:
     active: default
   datasource:
@@ -20,6 +20,10 @@ spring:
             type: lucene
             directory:
               type: local-heap
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 camera:
   mock:
@@ -29,7 +33,7 @@ camera:
     simulate-timeout-after-frames: 0      # block for 30 s after N captures
     simulate-disconnect-after-frames: 0   # throw after N captures
     simulate-empty-frame-at: 0            # return empty image at capture N
-    simulate-movement-at: 0               # return movement-like image at capture N
+    simulate-movement-at: 0              # return movement-like image at capture N
   ccapi:
     base-url: http://192.168.1.2:8080
   focus:
@@ -37,13 +41,12 @@ camera:
     step-strategy: adaptive
 
 analysis:
-  service:
-    # Set to true and provide the URL to enable live per-frame analysis.
-    # When disabled, camera-service runs in linear mode without analysis feedback.
-    enabled: false
-    url: http://analysis-service:8081
+  motion:
+    # Motion detection strategy: 'optical-flow' (ImageJ-decoded pixel diff, accurate)
+    # or 'pixel-diff' (raw byte comparison, faster but less accurate for compressed images)
+    strategy: optical-flow
 
 logging:
   level:
     root: INFO
-    com.photographer.focusstack.camera: DEBUG
+    com.photographer.focusstack: DEBUG
