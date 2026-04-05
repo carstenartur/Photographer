@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -64,6 +65,7 @@ class CameraControllerTest {
         when(profileService.createProfile(any())).thenReturn(profile);
 
         mockMvc.perform(post("/api/cameras")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(profile)))
                 .andExpect(status().isCreated())
@@ -103,7 +105,8 @@ class CameraControllerTest {
                 new CaptureResult("img-1", "IMG_0.jpg", "/mock/captures/img-1.jpg",
                         Instant.now(), 0, 1024L, null));
 
-        mockMvc.perform(post("/api/cameras/cam-1/capture"))
+        mockMvc.perform(post("/api/cameras/cam-1/capture")
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.imageId").value("img-1"));
     }

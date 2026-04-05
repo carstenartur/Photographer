@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -60,7 +61,7 @@ class AnalysisControllerTest {
         MockMultipartFile image = new MockMultipartFile(
                 "image", "test.raw", "application/octet-stream", new byte[100]);
 
-        mockMvc.perform(multipart("/api/analysis/sharpness").file(image))
+        mockMvc.perform(multipart("/api/analysis/sharpness").file(image).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sharpnessScore").value(0.75));
     }
@@ -73,7 +74,7 @@ class AnalysisControllerTest {
         MockMultipartFile image = new MockMultipartFile(
                 "image", "test.jpg", "image/jpeg", new byte[100]);
 
-        mockMvc.perform(multipart("/api/analysis/sharpness").file(image))
+        mockMvc.perform(multipart("/api/analysis/sharpness").file(image).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sharpnessScore").value(0.85));
     }
@@ -89,7 +90,7 @@ class AnalysisControllerTest {
         MockMultipartFile previous = new MockMultipartFile(
                 "previousFrame", "previous.raw", "application/octet-stream", new byte[100]);
 
-        mockMvc.perform(multipart("/api/analysis/motion").file(current).file(previous))
+        mockMvc.perform(multipart("/api/analysis/motion").file(current).file(previous).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.motionDetected").value(true))
                 .andExpect(jsonPath("$.motionScore").value(0.3));
@@ -104,7 +105,7 @@ class AnalysisControllerTest {
         MockMultipartFile image = new MockMultipartFile(
                 "image", "test.raw", "application/octet-stream", new byte[100]);
 
-        mockMvc.perform(multipart("/api/analysis/analyze").file(image))
+        mockMvc.perform(multipart("/api/analysis/analyze").file(image).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sharpnessScore").value(0.8))
                 .andExpect(jsonPath("$.recommendContinue").value(true));
