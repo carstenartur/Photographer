@@ -18,6 +18,11 @@ spring:
               # Configure this path via env var and mount it to persistent storage in Docker/Kubernetes.
               root: ${HIBERNATE_SEARCH_INDEX_ROOT:/app/data/search-index}
 
+focusstack:
+  storage:
+    images-dir: ${FOCUSSTACK_STORAGE_IMAGES_DIR:/app/images}
+    search-index-dir: ${FOCUSSTACK_STORAGE_SEARCH_INDEX_DIR:/app/data/search-index}
+
 camera:
   mock:
     enabled: ${CAMERA_MOCK_ENABLED:true}

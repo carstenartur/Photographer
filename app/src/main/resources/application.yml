@@ -50,6 +50,14 @@ focusstack:
   security:
     # Change this via environment variable FOCUSSTACK_SECURITY_ADMIN_PASSWORD in production
     admin-password: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:admin}
+  storage:
+    images-dir: ${FOCUSSTACK_STORAGE_IMAGES_DIR:./data/images}
+    search-index-dir: ${FOCUSSTACK_STORAGE_SEARCH_INDEX_DIR:./data/search-index}
+    max-disk-usage-bytes: ${FOCUSSTACK_STORAGE_MAX_DISK_USAGE_BYTES:10737418240}
+  camera:
+    ccapi-base-url: ${FOCUSSTACK_CAMERA_CCAPI_BASE_URL:http://192.168.1.2:8080}
+    mock-enabled: ${FOCUSSTACK_CAMERA_MOCK_ENABLED:true}
+    connection-timeout: ${FOCUSSTACK_CAMERA_CONNECTION_TIMEOUT:10s}
 
 logging:
   level:
