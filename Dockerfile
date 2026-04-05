@@ -1,10 +1,5 @@
-# Stage 1: Build — Maven + Node (frontend-maven-plugin needs Node for React build)
+# Stage 1: Build — Maven (frontend-maven-plugin manages its own Node for React build)
 FROM maven:3.9-eclipse-temurin-21 AS build
-
-# Install Node.js for frontend-maven-plugin
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    nodejs npm \
-    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -35,7 +30,7 @@ RUN apk add --no-cache fontconfig freetype ttf-dejavu \
 
 WORKDIR /app
 
-COPY --from=build /app/app/target/app-*.jar app.jar
+COPY --from=build /app/app/target/focusstack.jar app.jar
 
 RUN chown -R appuser:appgroup /app
 USER appuser
