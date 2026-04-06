@@ -5,7 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureTestRestTemplate
 class CameraServiceIT extends AbstractPostgresIntegrationTest {
 
     @Autowired
@@ -60,8 +62,8 @@ class CameraServiceIT extends AbstractPostgresIntegrationTest {
 
         // Delete
         restTemplate.delete("/api/cameras/int-cam-1");
-        ResponseEntity<CameraProfile> afterDelete = restTemplate.getForEntity(
-                "/api/cameras/int-cam-1", CameraProfile.class);
+        ResponseEntity<String> afterDelete = restTemplate.getForEntity(
+                "/api/cameras/int-cam-1", String.class);
         assertEquals(HttpStatus.NOT_FOUND, afterDelete.getStatusCode());
     }
 
