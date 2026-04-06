@@ -45,7 +45,7 @@ jobs:
         if: always()
         run: |
           # Install common-api so the site/report goals can resolve the dependency
-          mvn install --no-transfer-progress -DskipTests -pl common-api -am -Djava.awt.headless=true
+          mvn install --no-transfer-progress -DskipTests -pl common-api -Djava.awt.headless=true
           mvn site --no-transfer-progress -DskipTests -DgenerateReports=false -pl app
           mvn surefire-report:report --no-transfer-progress -DskipTests -pl app
           # Plugin 3.5.5 writes standalone reports to target/reports/surefire.html;
