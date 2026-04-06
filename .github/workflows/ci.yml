@@ -44,7 +44,9 @@ jobs:
       - name: Generate test HTML reports
         if: always()
         run: |
-          mvn site --no-transfer-progress -DskipTests -DgenerateReports=false -pl common-api,app -am
+          # Install common-api so the site/report goals can resolve the dependency
+          mvn install --no-transfer-progress -DskipTests -pl common-api -am -Djava.awt.headless=true
+          mvn site --no-transfer-progress -DskipTests -DgenerateReports=false -pl app
           mvn surefire-report:report --no-transfer-progress -DskipTests -pl app
           # Plugin 3.5.5 writes standalone reports to target/reports/surefire.html;
           # copy into the site directory that gets deployed to GitHub Pages
