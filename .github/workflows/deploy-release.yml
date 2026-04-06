@@ -64,7 +64,7 @@ jobs:
             NEXT_PATCH=$((patch + 1))
             echo "suggested_next=${major}.${minor}.${NEXT_PATCH}-SNAPSHOT" >> $GITHUB_OUTPUT
           else
-            echo "::error::Current version $CURRENT is not a SNAPSHOT version"
+            echo "::error::Current version $CURRENT is not a SNAPSHOT version. This usually means a previous release did not complete the version bump. Please create a PR to set the version back to a SNAPSHOT (e.g., run: mvn versions:set -DnewVersion=X.Y.Z-SNAPSHOT) and merge it before retrying."
             exit 1
           fi
 

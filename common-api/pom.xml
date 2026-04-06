@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.0</version>
+        <version>0.1.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>common-api</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
 
     <name>Focus Stack - Common API</name>
     <description>Shared interfaces and models for Focus Stack</description>
