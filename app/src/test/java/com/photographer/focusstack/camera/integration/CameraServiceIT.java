@@ -62,8 +62,8 @@ class CameraServiceIT extends AbstractPostgresIntegrationTest {
 
         // Delete
         restTemplate.delete("/api/cameras/int-cam-1");
-        ResponseEntity<CameraProfile> afterDelete = restTemplate.getForEntity(
-                "/api/cameras/int-cam-1", CameraProfile.class);
+        ResponseEntity<String> afterDelete = restTemplate.getForEntity(
+                "/api/cameras/int-cam-1", String.class);
         assertEquals(HttpStatus.NOT_FOUND, afterDelete.getStatusCode());
     }
 
