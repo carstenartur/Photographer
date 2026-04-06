@@ -5,10 +5,10 @@
 ### Full build (unit + integration tests) — **must pass before finishing work**
 
 ```bash
-export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64
-export PATH=$JAVA_HOME/bin:$PATH
 mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true
 ```
+
+> **Note:** Requires Java 21. If `JAVA_HOME` is not set, configure it for your environment (e.g., `export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64` on Ubuntu with Temurin).
 
 This runs:
 - **Unit tests** via `maven-surefire-plugin` (`*Test.java`)
