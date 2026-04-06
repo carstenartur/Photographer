@@ -34,6 +34,8 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <springdoc.version>2.8.6</springdoc.version>
         <imagej.version>1.54j</imagej.version>
+        <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
+        <argLine/>
     </properties>
 
     <dependencyManagement>
@@ -83,7 +85,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration>
-                        <argLine>-Xmx512m -Djava.awt.headless=true</argLine>
+                        <argLine>-Xmx512m -Djava.awt.headless=true @{argLine}</argLine>
                         <excludedGroups>docker</excludedGroups>
                     </configuration>
                 </plugin>
@@ -91,7 +93,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
-                        <argLine>-Xmx1g -Djava.awt.headless=true</argLine>
+                        <argLine>-Xmx1g -Djava.awt.headless=true @{argLine}</argLine>
                         <excludedGroups>docker</excludedGroups>
                     </configuration>
                 </plugin>

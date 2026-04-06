@@ -1,5 +1,12 @@
 # Focus Stack
 
+[![CI](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/coverage/badge.json)](https://carstenartur.github.io/Photographer/coverage/)
+[![Tests](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/tests/badge.json)](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
+[![GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?style=flat-square)](https://github.com/carstenartur/Photographer/releases)
+
 **Adaptive Focus Stacking over Wi-Fi for Canon cameras with live analysis and browser-based control**
 
 Focus Stack automates focus-stacking workflows for cameras equipped
