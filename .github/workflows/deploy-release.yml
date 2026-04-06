@@ -408,6 +408,15 @@ jobs:
         run: |
           echo "::notice::Dry run mode - would build and push Docker image ${{ env.IMAGE_NAME }}:${{ inputs.release_version }}"
 
+      # 14b. Clean working directory before version bump
+      - name: Clean working directory
+        run: |
+          # Remove all untracked files and directories (build artifacts from Maven/frontend)
+          # Keep .github/ and release_notes.md (needed for PR body in step 16)
+          git checkout -- .
+          git clean -fd -e .github/ -e release_notes.md
+          echo "Working directory cleaned"
+
       # 15. Bump to next SNAPSHOT version
       - name: Bump to next SNAPSHOT version
         run: |
@@ -431,14 +440,18 @@ jobs:
           NEXT_VERSION_BRANCH="release/prepare-next-${NEXT_VERSION}"
           git checkout -b "${NEXT_VERSION_BRANCH}"
 
-          # Commit all changes (excluding workflow files)
-          git add -A -- ':!.github/workflows/'
+          # Only stage pom.xml changes (not build artifacts from the Maven build)
+          git add pom.xml '**/pom.xml' -- ':!.github/workflows/'
           git commit -m "Prepare for next development iteration ${NEXT_VERSION}"
 
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             echo "::notice::Dry run mode - would push branch ${NEXT_VERSION_BRANCH} and create PR"
           else
-            # Push the branch
+            # Push the branch (idempotent: delete stale remote branch first if it exists)
+            if git ls-remote --exit-code --heads origin "${NEXT_VERSION_BRANCH}" >/dev/null 2>&1; then
+              echo "Deleting stale remote branch ${NEXT_VERSION_BRANCH} from a previous run"
+              git push origin ":refs/heads/${NEXT_VERSION_BRANCH}"
+            fi
             git push origin "${NEXT_VERSION_BRANCH}"
 
             # Create PR body
