@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraServiceConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.config</a> &gt; <span class="el_source">CameraServiceConfig.java</span></div><h1>CameraServiceConfig.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.config;
+
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.camera.backend.CanonCcapiBackend;
+import com.photographer.focusstack.camera.backend.MockCameraBackend;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.web.client.RestTemplate;
+
+@Configuration
+<span class="fc" id="L15">public class CameraServiceConfig {</span>
+
+    @Bean
+    @ConditionalOnProperty(name = &quot;camera.mock.enabled&quot;, havingValue = &quot;true&quot;, matchIfMissing = true)
+    public CameraBackend mockCameraBackend(
+            @Value(&quot;${camera.mock.delay-ms:50}&quot;) long delayMs,
+            @Value(&quot;${camera.mock.simulate-timeout-after-frames:0}&quot;) int simulateTimeoutAfterFrames,
+            @Value(&quot;${camera.mock.simulate-disconnect-after-frames:0}&quot;) int simulateDisconnectAfterFrames,
+            @Value(&quot;${camera.mock.simulate-empty-frame-at:0}&quot;) int simulateEmptyFrameAt,
+            @Value(&quot;${camera.mock.simulate-movement-at:0}&quot;) int simulateMovementAt) {
+<span class="fc" id="L25">        return new MockCameraBackend(delayMs, simulateTimeoutAfterFrames,</span>
+                simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = &quot;camera.mock.enabled&quot;, havingValue = &quot;false&quot;)
+    public CameraBackend canonCcapiBackend(
+            @Value(&quot;${camera.ccapi.base-url:http://192.168.1.2:8080}&quot;) String baseUrl) {
+<span class="nc" id="L33">        return new CanonCcapiBackend(baseUrl, new RestTemplate());</span>
+    }
+
+    /**
+     * Dedicated thread pool for capture-loop tasks. Using a named bean avoids
+     * ambiguity with the WebSocket executor beans and ensures capture jobs run
+     * on a properly sized, named thread pool rather than the shared async executor.
+     */
+    @Bean(&quot;stackingJobTaskExecutor&quot;)
+    public TaskExecutor stackingJobTaskExecutor() {
+<span class="fc" id="L43">        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();</span>
+<span class="fc" id="L44">        executor.setCorePoolSize(2);</span>
+<span class="fc" id="L45">        executor.setMaxPoolSize(5);</span>
+<span class="fc" id="L46">        executor.setQueueCapacity(10);</span>
+<span class="fc" id="L47">        executor.setThreadNamePrefix(&quot;stacking-job-&quot;);</span>
+<span class="fc" id="L48">        executor.initialize();</span>
+<span class="fc" id="L49">        return executor;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

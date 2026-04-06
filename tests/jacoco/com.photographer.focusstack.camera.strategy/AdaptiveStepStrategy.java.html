@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdaptiveStepStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.strategy</a> &gt; <span class="el_source">AdaptiveStepStrategy.java</span></div><h1>AdaptiveStepStrategy.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.strategy;
+
+import com.photographer.focusstack.common.analysis.AnalysisResult;
+
+import java.util.List;
+
+/**
+ * A gradient-based adaptive {@link FocusStepStrategy}.
+ *
+ * &lt;h3&gt;Algorithm&lt;/h3&gt;
+ * &lt;ol&gt;
+ *   &lt;li&gt;&lt;b&gt;Far from peak&lt;/b&gt; – sharpness is still increasing → keep full step size.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Approaching peak&lt;/b&gt; – sharpness gradient is slowing → halve the step.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Past peak&lt;/b&gt; – sharpness is decreasing → use a quarter step to find the
+ *       exact peak and stay near it.&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;p&gt;The minimum step size is 1 regardless of the multiplier.
+ */
+<span class="fc" id="L20">public class AdaptiveStepStrategy implements FocusStepStrategy {</span>
+
+    /**
+     * Gradient ratio below which we consider sharpness to be plateauing.
+     * When {@code gradient / prevSharpness &lt; PLATEAU_RATIO}, steps are halved.
+     */
+    private static final double PLATEAU_RATIO = 0.05;
+
+    /**
+     * Step multiplier applied when sharpness is decreasing after the peak.
+     */
+    private static final double POST_PEAK_MULTIPLIER = 0.25;
+
+    /**
+     * Step multiplier applied when sharpness is plateauing (near the peak).
+     */
+    private static final double NEAR_PEAK_MULTIPLIER = 0.5;
+
+    @Override
+    public int nextStepSize(List&lt;AnalysisResult&gt; history, int baseStepSize) {
+<span class="fc bfc" id="L40" title="All 4 branches covered.">        if (history == null || history.size() &lt; 2) {</span>
+            // Not enough data yet; use full step size
+<span class="fc" id="L42">            return baseStepSize;</span>
+        }
+
+<span class="fc" id="L45">        AnalysisResult latest = history.get(history.size() - 1);</span>
+<span class="fc" id="L46">        AnalysisResult previous = history.get(history.size() - 2);</span>
+
+<span class="fc" id="L48">        double currentSharpness = latest.sharpnessScore();</span>
+<span class="fc" id="L49">        double previousSharpness = previous.sharpnessScore();</span>
+
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">        if (previousSharpness &lt;= 0) {</span>
+<span class="nc" id="L52">            return baseStepSize;</span>
+        }
+
+<span class="fc" id="L55">        double gradient = currentSharpness - previousSharpness;</span>
+<span class="fc" id="L56">        double relativeGradient = gradient / previousSharpness;</span>
+
+        double multiplier;
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (gradient &lt; 0) {</span>
+            // Sharpness is falling — we have passed the peak; narrow steps significantly
+<span class="fc" id="L61">            multiplier = POST_PEAK_MULTIPLIER;</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        } else if (relativeGradient &lt; PLATEAU_RATIO) {</span>
+            // Sharpness is barely increasing — we are near the plateau/peak; narrow steps
+<span class="fc" id="L64">            multiplier = NEAR_PEAK_MULTIPLIER;</span>
+        } else {
+            // Sharpness is still rising noticeably — keep full steps
+<span class="fc" id="L67">            multiplier = 1.0;</span>
+        }
+
+<span class="fc" id="L70">        int adaptedStep = (int) Math.max(1, Math.round(baseStepSize * multiplier));</span>
+<span class="fc" id="L71">        return adaptedStep;</span>
+    }
+
+    @Override
+    public String name() {
+<span class="fc" id="L76">        return &quot;adaptive&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackingAdvisor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.service</a> &gt; <span class="el_source">StackingAdvisor.java</span></div><h1>StackingAdvisor.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.service;
+
+import com.photographer.focusstack.analysis.strategy.MotionDetectionStrategy;
+import com.photographer.focusstack.analysis.strategy.OpticalFlowStrategy;
+import com.photographer.focusstack.analysis.strategy.PixelDiffStrategy;
+import com.photographer.focusstack.common.analysis.AnalysisResult;
+import com.photographer.focusstack.common.model.StackingParameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class StackingAdvisor {
+
+<span class="fc" id="L19">    private static final Logger log = LoggerFactory.getLogger(StackingAdvisor.class);</span>
+
+    private final SharpnessAnalyzer sharpnessAnalyzer;
+    private final InformationGainEstimator informationGainEstimator;
+    private final MotionDetectionStrategy motionDetectionStrategy;
+    private final ImageJProcessor imageJProcessor;
+
+    public StackingAdvisor(SharpnessAnalyzer sharpnessAnalyzer,
+                           MotionDetector motionDetector,
+                           InformationGainEstimator informationGainEstimator,
+                           ImageJProcessor imageJProcessor,
+<span class="fc" id="L30">                           @Value(&quot;${analysis.motion.strategy:optical-flow}&quot;) String strategyName) {</span>
+<span class="fc" id="L31">        this.sharpnessAnalyzer = sharpnessAnalyzer;</span>
+<span class="fc" id="L32">        this.informationGainEstimator = informationGainEstimator;</span>
+<span class="fc" id="L33">        this.imageJProcessor = imageJProcessor;</span>
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        this.motionDetectionStrategy = &quot;pixel-diff&quot;.equalsIgnoreCase(strategyName)</span>
+<span class="fc" id="L35">                ? new PixelDiffStrategy(motionDetector)</span>
+<span class="fc" id="L36">                : new OpticalFlowStrategy(imageJProcessor, motionDetector);</span>
+<span class="fc" id="L37">        log.info(&quot;StackingAdvisor initialized with '{}' motion detection strategy&quot;,</span>
+<span class="fc" id="L38">                this.motionDetectionStrategy.name());</span>
+<span class="fc" id="L39">    }</span>
+
+    /**
+     * Analyzes a frame and makes a continue/stop recommendation.
+     *
+     * &lt;p&gt;For decodable image files (JPEG, PNG, BMP) the sharpness is computed via
+     * {@link ImageJProcessor} which decodes the image properly before applying the
+     * Laplacian kernel.  For raw/synthetic byte arrays (e.g. unit-test data) the
+     * fallback {@link SharpnessAnalyzer} is used.
+     */
+    public AnalysisResult analyzeFrame(byte[] imageData,
+                                       byte[] previousFrame,
+                                       List&lt;AnalysisResult&gt; history,
+                                       StackingParameters params) {
+<span class="fc" id="L53">        double sharpnessScore = computeSharpness(imageData);</span>
+<span class="fc" id="L54">        double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);</span>
+
+        MotionDetector.MotionResult motionResult;
+<span class="fc bfc" id="L57" title="All 4 branches covered.">        if (params.motionDetectionEnabled() &amp;&amp; previousFrame != null) {</span>
+<span class="fc" id="L58">            motionResult = motionDetectionStrategy.detect(imageData, previousFrame, 0.15);</span>
+        } else {
+<span class="fc" id="L60">            motionResult = new MotionDetector.MotionResult(0.0, false, 0.15);</span>
+        }
+
+        // Build a preliminary result for gain estimation
+<span class="fc" id="L64">        AnalysisResult preliminary = new AnalysisResult(</span>
+<span class="fc" id="L65">                UUID.randomUUID().toString(),</span>
+                sharpnessScore,
+                sharpRegionPercentage,
+<span class="fc" id="L68">                motionResult.motionDetected(),</span>
+<span class="fc" id="L69">                motionResult.motionScore(),</span>
+                0.0,
+                true
+        );
+
+<span class="fc" id="L74">        double infoGain = informationGainEstimator.estimateGain(history, preliminary);</span>
+
+<span class="fc" id="L76">        boolean recommendContinue = shouldContinue(</span>
+                infoGain, motionResult, history, params);
+
+<span class="fc" id="L79">        return new AnalysisResult(</span>
+<span class="fc" id="L80">                preliminary.imageId(),</span>
+                sharpnessScore,
+                sharpRegionPercentage,
+<span class="fc" id="L83">                motionResult.motionDetected(),</span>
+<span class="fc" id="L84">                motionResult.motionScore(),</span>
+                infoGain,
+                recommendContinue
+        );
+    }
+
+    private boolean shouldContinue(double infoGain,
+                                   MotionDetector.MotionResult motionResult,
+                                   List&lt;AnalysisResult&gt; history,
+                                   StackingParameters params) {
+        // Abort if max frames reached
+<span class="pc bpc" id="L95" title="1 of 4 branches missed.">        if (history != null &amp;&amp; history.size() &gt;= params.maxFrames()) {</span>
+<span class="fc" id="L96">            return false;</span>
+        }
+        // Abort if motion detected
+<span class="fc bfc" id="L99" title="All 2 branches covered.">        if (motionResult.motionDetected()) {</span>
+<span class="fc" id="L100">            return false;</span>
+        }
+        // Abort if information gain below threshold
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (infoGain &lt; params.abortThreshold()) {</span>
+<span class="nc" id="L104">            return false;</span>
+        }
+<span class="fc" id="L106">        return true;</span>
+    }
+
+    private double estimateSharpRegion(double sharpnessScore) {
+<span class="fc" id="L110">        return Math.min(1.0, sharpnessScore * 1.2);</span>
+    }
+
+    /**
+     * Computes a sharpness score for the given byte array.
+     * Uses {@link ImageJProcessor} for decodable image files (JPEG/PNG/BMP), which
+     * correctly decodes the image before applying the Laplacian kernel.
+     * Falls back to {@link SharpnessAnalyzer} for raw/synthetic byte arrays.
+     */
+    private double computeSharpness(byte[] imageData) {
+<span class="pc bpc" id="L120" title="2 of 4 branches missed.">        if (imageData != null &amp;&amp; imageJProcessor.isImageFile(imageData)) {</span>
+<span class="nc" id="L121">            return imageJProcessor.calculateSharpness(imageData);</span>
+        }
+<span class="fc" id="L123">        return sharpnessAnalyzer.calculateSharpness(imageData);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

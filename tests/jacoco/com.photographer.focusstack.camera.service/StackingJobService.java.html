@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackingJobService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.service</a> &gt; <span class="el_source">StackingJobService.java</span></div><h1>StackingJobService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.service;
+
+import com.photographer.focusstack.analysis.service.StackingAdvisor;
+import com.photographer.focusstack.camera.entity.StackingJobEntity;
+import com.photographer.focusstack.camera.repository.StackingJobRepository;
+import com.photographer.focusstack.camera.strategy.AdaptiveStepStrategy;
+import com.photographer.focusstack.camera.strategy.FocusStepStrategy;
+import com.photographer.focusstack.camera.strategy.LinearStepStrategy;
+import com.photographer.focusstack.common.analysis.AnalysisResult;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.model.JobStatus;
+import com.photographer.focusstack.common.model.StackingJob;
+import com.photographer.focusstack.common.model.StackingParameters;
+import com.photographer.focusstack.camera.exception.CameraException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class StackingJobService {
+
+<span class="fc" id="L37">    private static final Logger log = LoggerFactory.getLogger(StackingJobService.class);</span>
+
+    private final CameraBackend cameraBackend;
+    private final StackingJobRepository repository;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final StackingAdvisor stackingAdvisor;
+    private final FocusStepStrategy stepStrategy;
+    private final TaskExecutor taskExecutor;
+    private final FrameDataStore frameDataStore;
+<span class="fc" id="L46">    private final Set&lt;String&gt; cancelledJobs = ConcurrentHashMap.newKeySet();</span>
+<span class="fc" id="L47">    private final Set&lt;String&gt; pausedJobs = ConcurrentHashMap.newKeySet();</span>
+
+    public StackingJobService(CameraBackend cameraBackend,
+                              StackingJobRepository repository,
+                              SimpMessagingTemplate messagingTemplate,
+                              StackingAdvisor stackingAdvisor,
+                              FrameDataStore frameDataStore,
+                              @Qualifier(&quot;stackingJobTaskExecutor&quot;) TaskExecutor taskExecutor,
+<span class="fc" id="L55">                              @Value(&quot;${camera.focus.step-strategy:adaptive}&quot;) String stepStrategyName) {</span>
+<span class="fc" id="L56">        this.cameraBackend = cameraBackend;</span>
+<span class="fc" id="L57">        this.repository = repository;</span>
+<span class="fc" id="L58">        this.messagingTemplate = messagingTemplate;</span>
+<span class="fc" id="L59">        this.stackingAdvisor = stackingAdvisor;</span>
+<span class="fc" id="L60">        this.frameDataStore = frameDataStore;</span>
+<span class="fc" id="L61">        this.taskExecutor = taskExecutor;</span>
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        this.stepStrategy = &quot;linear&quot;.equalsIgnoreCase(stepStrategyName)</span>
+<span class="nc" id="L63">                ? new LinearStepStrategy()</span>
+<span class="fc" id="L64">                : new AdaptiveStepStrategy();</span>
+<span class="fc" id="L65">        log.info(&quot;StackingJobService initialized with '{}' step strategy&quot;, this.stepStrategy.name());</span>
+<span class="fc" id="L66">    }</span>
+
+    public StackingJob createJob(String cameraProfileId, StackingParameters parameters) {
+<span class="fc" id="L69">        String id = UUID.randomUUID().toString();</span>
+<span class="fc" id="L70">        StackingJob job = new StackingJob(</span>
+                id, cameraProfileId, JobStatus.CREATED,
+                null, null, parameters, new ArrayList&lt;&gt;()
+        );
+<span class="fc" id="L74">        repository.save(StackingJobEntity.fromRecord(job));</span>
+<span class="fc" id="L75">        return job;</span>
+    }
+
+    /**
+     * Validates and transitions the job to RUNNING synchronously, then delegates
+     * the capture loop to an async method. This ensures validation errors (not
+     * found, invalid state) propagate to the caller before returning 202.
+     */
+    public StackingJob startJob(String id) {
+<span class="nc" id="L84">        StackingJob job = getJob(id);</span>
+<span class="nc bnc" id="L85" title="All 4 branches missed.">        if (job.status() != JobStatus.CREATED &amp;&amp; job.status() != JobStatus.PAUSED) {</span>
+<span class="nc" id="L86">            throw new CameraException(&quot;Job cannot be started in state: &quot; + job.status());</span>
+        }
+
+<span class="nc" id="L89">        cancelledJobs.remove(id);</span>
+<span class="nc" id="L90">        pausedJobs.remove(id);</span>
+
+<span class="nc" id="L92">        StackingJob running = new StackingJob(</span>
+<span class="nc" id="L93">                job.id(), job.cameraProfileId(), JobStatus.RUNNING,</span>
+<span class="nc" id="L94">                Instant.now(), null, job.parameters(), new ArrayList&lt;&gt;(job.frames())</span>
+        );
+<span class="nc" id="L96">        repository.save(StackingJobEntity.fromRecord(running));</span>
+<span class="nc" id="L97">        sendJobEvent(id, &quot;STATUS_CHANGED&quot;, Map.of(&quot;status&quot;, &quot;RUNNING&quot;));</span>
+
+        // Submit the capture loop to the task executor so it runs on a Spring-managed
+        // thread pool. This avoids the @Async self-invocation proxy issue while still
+        // keeping the request thread free.
+<span class="nc" id="L102">        taskExecutor.execute(() -&gt; executeStackingAsync(running));</span>
+<span class="nc" id="L103">        return running;</span>
+    }
+
+    public void pauseJob(String id) {
+<span class="nc" id="L107">        StackingJob job = getJob(id);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (job.status() != JobStatus.RUNNING) {</span>
+<span class="nc" id="L109">            throw new CameraException(&quot;Job cannot be paused in state: &quot; + job.status());</span>
+        }
+<span class="nc" id="L111">        pausedJobs.add(id);</span>
+<span class="nc" id="L112">        StackingJob paused = new StackingJob(</span>
+<span class="nc" id="L113">                job.id(), job.cameraProfileId(), JobStatus.PAUSED,</span>
+<span class="nc" id="L114">                job.startedAt(), null, job.parameters(), job.frames()</span>
+        );
+<span class="nc" id="L116">        repository.save(StackingJobEntity.fromRecord(paused));</span>
+<span class="nc" id="L117">        sendJobEvent(id, &quot;STATUS_CHANGED&quot;, Map.of(&quot;status&quot;, &quot;PAUSED&quot;));</span>
+<span class="nc" id="L118">    }</span>
+
+    public void cancelJob(String id) {
+<span class="fc" id="L121">        StackingJob job = getJob(id);</span>
+<span class="pc bpc" id="L122" title="2 of 4 branches missed.">        if (job.status() == JobStatus.COMPLETED || job.status() == JobStatus.FAILED) {</span>
+<span class="nc" id="L123">            throw new CameraException(&quot;Job cannot be cancelled in state: &quot; + job.status());</span>
+        }
+<span class="fc" id="L125">        cancelledJobs.add(id);</span>
+<span class="fc" id="L126">        StackingJob cancelled = new StackingJob(</span>
+<span class="fc" id="L127">                job.id(), job.cameraProfileId(), JobStatus.CANCELLED,</span>
+<span class="fc" id="L128">                job.startedAt(), Instant.now(), job.parameters(), job.frames()</span>
+        );
+<span class="fc" id="L130">        repository.save(StackingJobEntity.fromRecord(cancelled));</span>
+<span class="fc" id="L131">        sendJobEvent(id, &quot;STATUS_CHANGED&quot;, Map.of(&quot;status&quot;, &quot;CANCELLED&quot;));</span>
+<span class="fc" id="L132">    }</span>
+
+    public StackingJob getJob(String id) {
+<span class="fc" id="L135">        return repository.findById(id)</span>
+<span class="fc" id="L136">                .map(StackingJobEntity::toRecord)</span>
+<span class="pc" id="L137">                .orElseThrow(() -&gt; new CameraException(&quot;Job not found: &quot; + id));</span>
+    }
+
+    public List&lt;StackingJob&gt; getAllJobs() {
+<span class="fc" id="L141">        return repository.findAll().stream()</span>
+<span class="fc" id="L142">                .map(StackingJobEntity::toRecord)</span>
+<span class="fc" id="L143">                .toList();</span>
+    }
+
+    void executeStackingAsync(StackingJob job) {
+<span class="fc" id="L147">        String id = job.id();</span>
+<span class="fc" id="L148">        List&lt;String&gt; frames = new ArrayList&lt;&gt;(job.frames());</span>
+<span class="fc" id="L149">        List&lt;AnalysisResult&gt; analysisHistory = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L150">        StackingParameters params = job.parameters();</span>
+<span class="fc" id="L151">        byte[] previousFrameData = null;</span>
+
+        try {
+<span class="fc" id="L154">            cameraBackend.setFocus(</span>
+<span class="fc" id="L155">                    new FocusCommand(FocusCommand.Direction.FAR, params.startPosition()));</span>
+<span class="fc" id="L156">            sendJobLog(id, &quot;INFO&quot;, &quot;Starting capture at focus position &quot; + params.startPosition());</span>
+<span class="fc" id="L157">            log.info(&quot;Job {}: starting with '{}' step strategy&quot;, id, stepStrategy.name());</span>
+
+<span class="fc bfc" id="L159" title="All 2 branches covered.">            for (int i = 0; i &lt; params.maxFrames(); i++) {</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">                if (cancelledJobs.contains(id)) {</span>
+<span class="nc" id="L161">                    sendJobLog(id, &quot;INFO&quot;, &quot;Job cancelled at frame &quot; + i);</span>
+<span class="nc" id="L162">                    return;</span>
+                }
+<span class="pc bpc" id="L164" title="1 of 2 branches missed.">                if (pausedJobs.contains(id)) {</span>
+<span class="nc" id="L165">                    sendJobLog(id, &quot;INFO&quot;, &quot;Job paused at frame &quot; + i);</span>
+<span class="nc" id="L166">                    return;</span>
+                }
+
+<span class="fc" id="L169">                CaptureResult result = cameraBackend.capture();</span>
+<span class="fc" id="L170">                frames.add(result.imageId());</span>
+
+                // Cache frame data for later export
+<span class="pc bpc" id="L173" title="1 of 4 branches missed.">                if (result.imageData() != null &amp;&amp; result.imageData().length &gt; 0) {</span>
+<span class="fc" id="L174">                    frameDataStore.put(result.imageId(), result.fileName(), result.imageData());</span>
+                }
+
+                // --- Analysis phase ---
+<span class="fc" id="L178">                AnalysisResult analysisResult = null;</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">                if (result.imageData() != null) {</span>
+<span class="fc" id="L180">                    analysisResult = stackingAdvisor</span>
+<span class="fc" id="L181">                            .analyzeFrame(result.imageData(), previousFrameData,</span>
+                                    analysisHistory, params);
+                }
+<span class="fc" id="L184">                previousFrameData = result.imageData();</span>
+
+<span class="fc" id="L186">                Map&lt;String, Object&gt; frameEvent = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L187">                frameEvent.put(&quot;frameIndex&quot;, i);</span>
+<span class="fc" id="L188">                frameEvent.put(&quot;totalFrames&quot;, params.maxFrames());</span>
+<span class="fc" id="L189">                frameEvent.put(&quot;imageId&quot;, result.imageId());</span>
+<span class="fc" id="L190">                frameEvent.put(&quot;focusPosition&quot;, result.focusPosition());</span>
+<span class="fc bfc" id="L191" title="All 2 branches covered.">                if (analysisResult != null) {</span>
+<span class="fc" id="L192">                    frameEvent.put(&quot;sharpnessScore&quot;, analysisResult.sharpnessScore());</span>
+<span class="fc" id="L193">                    frameEvent.put(&quot;motionDetected&quot;, analysisResult.motionDetected());</span>
+<span class="fc" id="L194">                    frameEvent.put(&quot;recommendContinue&quot;, analysisResult.recommendContinue());</span>
+<span class="fc" id="L195">                    frameEvent.put(&quot;newInformationGain&quot;, analysisResult.newInformationGain());</span>
+<span class="fc" id="L196">                    analysisHistory.add(analysisResult);</span>
+                }
+
+<span class="fc" id="L199">                sendJobEvent(id, &quot;FRAME_CAPTURED&quot;, frameEvent);</span>
+<span class="fc" id="L200">                sendJobLog(id, &quot;DEBUG&quot;, String.format(</span>
+                        &quot;Captured frame %d/%d at focus position %d%s&quot;,
+<span class="fc" id="L202">                        i + 1, params.maxFrames(), result.focusPosition(),</span>
+<span class="fc bfc" id="L203" title="All 2 branches covered.">                        analysisResult != null</span>
+<span class="fc" id="L204">                                ? String.format(&quot; (sharpness=%.3f)&quot;, analysisResult.sharpnessScore())</span>
+<span class="fc" id="L205">                                : &quot;&quot;));</span>
+
+                // --- Early-stop check ---
+<span class="fc bfc" id="L208" title="All 4 branches covered.">                if (analysisResult != null &amp;&amp; !analysisResult.recommendContinue()) {</span>
+<span class="fc" id="L209">                    sendJobLog(id, &quot;INFO&quot;, String.format(</span>
+                            &quot;Analysis recommends stopping after frame %d (motion=%b, gain=%.3f)&quot;,
+<span class="fc" id="L211">                            i + 1, analysisResult.motionDetected(), analysisResult.newInformationGain()));</span>
+<span class="fc" id="L212">                    log.info(&quot;Job {}: early stop after frame {} on analysis recommendation&quot;, id, i);</span>
+<span class="fc" id="L213">                    break;</span>
+                }
+
+                // --- Adaptive step computation ---
+<span class="fc" id="L217">                int nextStep = stepStrategy.nextStepSize(analysisHistory, params.stepSize());</span>
+<span class="fc" id="L218">                log.debug(&quot;Job {}: captured frame {} at focus position {}, next step={}&quot;,</span>
+<span class="fc" id="L219">                        id, i, result.focusPosition(), nextStep);</span>
+<span class="fc" id="L220">                cameraBackend.setFocus(</span>
+                        new FocusCommand(FocusCommand.Direction.FAR, nextStep));
+
+<span class="fc" id="L223">                StackingJob updated = new StackingJob(</span>
+<span class="fc" id="L224">                        id, job.cameraProfileId(), JobStatus.RUNNING,</span>
+<span class="fc" id="L225">                        job.startedAt(), null, params, new ArrayList&lt;&gt;(frames)</span>
+                );
+<span class="fc" id="L227">                repository.save(StackingJobEntity.fromRecord(updated));</span>
+            }
+
+<span class="fc" id="L230">            StackingJob completed = new StackingJob(</span>
+<span class="fc" id="L231">                    id, job.cameraProfileId(), JobStatus.COMPLETED,</span>
+<span class="fc" id="L232">                    job.startedAt(), Instant.now(), params, frames</span>
+            );
+<span class="fc" id="L234">            repository.save(StackingJobEntity.fromRecord(completed));</span>
+<span class="fc" id="L235">            sendJobEvent(id, &quot;SEQUENCE_COMPLETED&quot;, Map.of(&quot;totalFrames&quot;, frames.size()));</span>
+<span class="fc" id="L236">            sendJobLog(id, &quot;INFO&quot;, &quot;Job completed with &quot; + frames.size() + &quot; frames&quot;);</span>
+<span class="fc" id="L237">            log.info(&quot;Stacking job {} completed with {} frames&quot;, id, frames.size());</span>
+
+<span class="nc" id="L239">        } catch (Exception e) {</span>
+<span class="nc" id="L240">            log.error(&quot;Stacking job {} failed: {}&quot;, id, e.getMessage(), e);</span>
+<span class="nc" id="L241">            StackingJob failed = new StackingJob(</span>
+<span class="nc" id="L242">                    id, job.cameraProfileId(), JobStatus.FAILED,</span>
+<span class="nc" id="L243">                    job.startedAt(), Instant.now(), params, frames</span>
+            );
+<span class="nc" id="L245">            repository.save(StackingJobEntity.fromRecord(failed));</span>
+<span class="nc" id="L246">            sendJobEvent(id, &quot;ERROR&quot;, Map.of(&quot;message&quot;, e.getMessage()));</span>
+<span class="nc" id="L247">            sendJobLog(id, &quot;ERROR&quot;, &quot;Job failed: &quot; + e.getMessage());</span>
+<span class="fc" id="L248">        }</span>
+<span class="fc" id="L249">    }</span>
+
+    private void sendJobEvent(String jobId, String event, Map&lt;String, Object&gt; data) {
+<span class="fc" id="L252">        Map&lt;String, Object&gt; message = new HashMap&lt;&gt;(data);</span>
+<span class="fc" id="L253">        message.put(&quot;event&quot;, event);</span>
+<span class="fc" id="L254">        message.put(&quot;jobId&quot;, jobId);</span>
+<span class="fc" id="L255">        message.put(&quot;timestamp&quot;, Instant.now().toString());</span>
+<span class="fc" id="L256">        messagingTemplate.convertAndSend(&quot;/topic/jobs/&quot; + jobId + &quot;/progress&quot;, (Object) message);</span>
+<span class="fc" id="L257">    }</span>
+
+    private void sendJobLog(String jobId, String level, String text) {
+<span class="fc" id="L260">        Map&lt;String, Object&gt; message = Map.of(</span>
+                &quot;level&quot;, level,
+                &quot;message&quot;, text,
+                &quot;jobId&quot;, jobId,
+<span class="fc" id="L264">                &quot;timestamp&quot;, Instant.now().toString()</span>
+        );
+<span class="fc" id="L266">        messagingTemplate.convertAndSend(&quot;/topic/jobs/&quot; + jobId + &quot;/logs&quot;, (Object) message);</span>
+<span class="fc" id="L267">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
