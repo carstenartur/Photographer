@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnalysisController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.controller</a> &gt; <span class="el_source">AnalysisController.java</span></div><h1>AnalysisController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.controller;
+
+import com.photographer.focusstack.analysis.dto.AnalyzeRequest;
+import com.photographer.focusstack.analysis.dto.MotionResponse;
+import com.photographer.focusstack.analysis.dto.SharpnessResponse;
+import com.photographer.focusstack.analysis.service.ImageJProcessor;
+import com.photographer.focusstack.analysis.service.MotionDetector;
+import com.photographer.focusstack.analysis.service.SharpnessAnalyzer;
+import com.photographer.focusstack.analysis.service.StackingAdvisor;
+import com.photographer.focusstack.common.analysis.AnalysisResult;
+import com.photographer.focusstack.common.analysis.SharpnessMap;
+import com.photographer.focusstack.common.model.QualityMode;
+import com.photographer.focusstack.common.model.StackingParameters;
+import tools.jackson.databind.ObjectMapper;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Map;
+
+@RestController
+@RequestMapping(&quot;/api/analysis&quot;)
+public class AnalysisController {
+
+    private final SharpnessAnalyzer sharpnessAnalyzer;
+    private final MotionDetector motionDetector;
+    private final StackingAdvisor stackingAdvisor;
+    private final ImageJProcessor imageJProcessor;
+    private final ObjectMapper objectMapper;
+
+    public AnalysisController(SharpnessAnalyzer sharpnessAnalyzer,
+                              MotionDetector motionDetector,
+                              StackingAdvisor stackingAdvisor,
+                              ImageJProcessor imageJProcessor,
+<span class="fc" id="L38">                              ObjectMapper objectMapper) {</span>
+<span class="fc" id="L39">        this.sharpnessAnalyzer = sharpnessAnalyzer;</span>
+<span class="fc" id="L40">        this.motionDetector = motionDetector;</span>
+<span class="fc" id="L41">        this.stackingAdvisor = stackingAdvisor;</span>
+<span class="fc" id="L42">        this.imageJProcessor = imageJProcessor;</span>
+<span class="fc" id="L43">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L44">    }</span>
+
+    @PostMapping(value = &quot;/analyze&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity&lt;AnalysisResult&gt; analyze(
+            @RequestPart(&quot;image&quot;) MultipartFile image,
+            @RequestPart(value = &quot;previousFrame&quot;, required = false) MultipartFile previousFrame,
+            @RequestPart(value = &quot;request&quot;, required = false) String requestJson) throws IOException {
+
+<span class="fc" id="L52">        byte[] imageData = image.getBytes();</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">        byte[] prevData = previousFrame != null ? previousFrame.getBytes() : null;</span>
+
+        AnalyzeRequest request;
+<span class="pc bpc" id="L56" title="1 of 2 branches missed.">        if (requestJson != null) {</span>
+<span class="nc" id="L57">            request = objectMapper.readValue(requestJson, AnalyzeRequest.class);</span>
+        } else {
+<span class="fc" id="L59">            request = new AnalyzeRequest(</span>
+                    new StackingParameters(0, 1, 30, 0.05, true, QualityMode.BALANCED),
+<span class="fc" id="L61">                    Collections.emptyList());</span>
+        }
+
+<span class="fc" id="L64">        AnalysisResult result = stackingAdvisor.analyzeFrame(</span>
+<span class="fc" id="L65">                imageData, prevData, request.history(), request.parameters());</span>
+
+<span class="fc" id="L67">        return ResponseEntity.ok(result);</span>
+    }
+
+    @PostMapping(value = &quot;/sharpness&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity&lt;SharpnessResponse&gt; sharpness(
+            @RequestPart(&quot;image&quot;) MultipartFile image) throws IOException {
+<span class="fc" id="L73">        byte[] data = image.getBytes();</span>
+        double score;
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (imageJProcessor.isImageFile(data)) {</span>
+<span class="fc" id="L76">            score = imageJProcessor.calculateSharpness(data);</span>
+        } else {
+<span class="fc" id="L78">            score = sharpnessAnalyzer.calculateSharpness(data);</span>
+        }
+<span class="fc" id="L80">        return ResponseEntity.ok(new SharpnessResponse(score));</span>
+    }
+
+    @PostMapping(value = &quot;/motion&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity&lt;MotionResponse&gt; motion(
+            @RequestPart(&quot;currentFrame&quot;) MultipartFile currentFrame,
+            @RequestPart(&quot;previousFrame&quot;) MultipartFile previousFrame) throws IOException {
+<span class="fc" id="L87">        byte[] currentData = currentFrame.getBytes();</span>
+<span class="fc" id="L88">        byte[] previousData = previousFrame.getBytes();</span>
+        MotionDetector.MotionResult result;
+<span class="pc bpc" id="L90" title="1 of 4 branches missed.">        if (imageJProcessor.isImageFile(currentData) &amp;&amp; imageJProcessor.isImageFile(previousData)) {</span>
+<span class="fc" id="L91">            result = imageJProcessor.detectMotion(currentData, previousData, 0.15);</span>
+        } else {
+<span class="fc" id="L93">            result = motionDetector.detectMotion(currentData, previousData);</span>
+        }
+<span class="fc" id="L95">        return ResponseEntity.ok(new MotionResponse(</span>
+<span class="fc" id="L96">                result.motionScore(), result.motionDetected(), result.threshold()));</span>
+    }
+
+    /**
+     * Computes a block-wise sharpness map of an uploaded image.
+     *
+     * @param image     the image file to analyze
+     * @param blockSize the block size in pixels (minimum 16)
+     */
+    @PostMapping(value = &quot;/sharpness-map&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity&lt;?&gt; sharpnessMap(
+            @RequestPart(&quot;image&quot;) MultipartFile image,
+            @RequestParam(value = &quot;blockSize&quot;, defaultValue = &quot;64&quot;) int blockSize) throws IOException {
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (blockSize &lt; 16) {</span>
+<span class="nc" id="L110">            return ResponseEntity.badRequest()</span>
+<span class="nc" id="L111">                    .body(Map.of(&quot;error&quot;, &quot;blockSize must be at least 16&quot;));</span>
+        }
+<span class="fc" id="L113">        SharpnessMap map = imageJProcessor.createSharpnessMap(image.getBytes(), blockSize);</span>
+<span class="fc" id="L114">        return ResponseEntity.ok(map);</span>
+    }
+
+    @GetMapping(&quot;/health&quot;)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; health() {
+<span class="fc" id="L119">        return ResponseEntity.ok(Map.of(</span>
+                &quot;status&quot;, &quot;UP&quot;,
+                &quot;service&quot;, &quot;analysis-service&quot;,
+<span class="fc" id="L122">                &quot;imageJVersion&quot;, imageJProcessor.getVersion(),</span>
+                &quot;engine&quot;, &quot;ImageJ&quot;));
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
