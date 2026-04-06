@@ -47,11 +47,24 @@ jobs:
       - name: Generate test HTML reports and coverage data
         if: always()
         run: |
-          mvn site surefire-report:report --no-transfer-progress -DskipTests -DgenerateReports=false -pl common-api,app -am -Djava.awt.headless=true
-          # Plugin 3.5.5 writes standalone reports to target/reports/surefire.html;
-          # copy into the site directory that gets deployed to GitHub Pages
-          if [ -f app/target/reports/surefire.html ]; then
-            cp app/target/reports/surefire.html app/target/site/surefire-report.html
+          mvn site surefire-report:report --no-transfer-progress -DskipTests -pl common-api,app -am -Djava.awt.headless=true
+          # Copy the generated Surefire HTML report into the site directory that gets
+          # deployed to GitHub Pages. The exact source path can vary with Maven/plugin
+          # configuration, so prefer the canonical site output and fall back to other
+          # known report locations when present.
+          report_source=""
+          for candidate in \
+            app/target/site/surefire-report.html \
+            app/target/reports/surefire.html \
+            app/target/site/surefire.html
+          do
+            if [ -f "$candidate" ]; then
+              report_source="$candidate"
+              break
+            fi
+          done
+          if [ -n "$report_source" ] && [ "$report_source" != "app/target/site/surefire-report.html" ]; then
+            cp "$report_source" app/target/site/surefire-report.html
           fi
           # Inject build metadata so the report always differs from the previous deploy
           if [ -f app/target/site/surefire-report.html ]; then
