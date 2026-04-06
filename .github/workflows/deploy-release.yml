@@ -341,8 +341,7 @@ jobs:
           echo "Creating GitHub release for v${{ inputs.release_version }}..."
           gh release create "v${{ inputs.release_version }}" \
             --title "Release ${{ inputs.release_version }}" \
-            --notes-file release_notes.md \
-            --generate-notes
+            --notes-file release_notes.md
 
       - name: Dry run - Skip GitHub Release
         if: ${{ inputs.dry_run }}
