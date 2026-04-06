@@ -13,6 +13,9 @@ jobs:
   java-build:
     name: Java Build & Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     env:
       MAVEN_OPTS: "-Xmx1g"
     steps:
@@ -30,9 +33,154 @@ jobs:
       - name: Build and verify (unit + Testcontainers integration tests)
         run: mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true
 
+      - name: Publish test results
+        uses: dorny/test-reporter@v3
+        if: always()
+        continue-on-error: true
+        with:
+          name: Maven Tests
+          path: '**/target/surefire-reports/TEST-*.xml,**/target/failsafe-reports/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+          max-annotations: '50'
+
+      - name: Generate test HTML reports and coverage data
+        if: always()
+        run: |
+          mvn site surefire-report:report --no-transfer-progress -DskipTests -DgenerateReports=false -pl common-api,app -am -Djava.awt.headless=true
+          # Plugin 3.5.5 writes standalone reports to target/reports/surefire.html;
+          # copy into the site directory that gets deployed to GitHub Pages
+          if [ -f app/target/reports/surefire.html ]; then
+            cp app/target/reports/surefire.html app/target/site/surefire-report.html
+          fi
+          # Inject build metadata so the report always differs from the previous deploy
+          if [ -f app/target/site/surefire-report.html ]; then
+            sed -i "s|</body>|<!-- Build: ${{ github.sha }} $(date -u +%Y-%m-%dT%H:%M:%SZ) --></body>|" app/target/site/surefire-report.html
+          fi
+
+      - name: Generate badge JSON files
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET
+          import json, os, glob
+
+          COVERAGE_GREEN_THRESHOLD  = 80  # % >= this -> brightgreen
+          COVERAGE_YELLOW_THRESHOLD = 60  # % >= this -> yellow, else red
+
+          # --- Coverage badge ---
+          try:
+              covered, missed = 0, 0
+              for jacoco_file in glob.glob('**/target/site/jacoco/jacoco.xml', recursive=True):
+                  tree = ET.parse(jacoco_file)
+                  root = tree.getroot()
+                  # Use findall (direct children only) to avoid double-counting
+                  # from nested package/class/method counters
+                  instruction_counter = next(
+                      (counter for counter in root.findall('counter')
+                       if counter.get('type') == 'INSTRUCTION'),
+                      None
+                  )
+                  if instruction_counter is not None:
+                      covered += int(instruction_counter.get('covered', 0))
+                      missed  += int(instruction_counter.get('missed', 0))
+              total = covered + missed
+              pct   = round(covered / total * 100) if total > 0 else 0
+              if pct >= COVERAGE_GREEN_THRESHOLD:
+                  color = 'brightgreen'
+              elif pct >= COVERAGE_YELLOW_THRESHOLD:
+                  color = 'yellow'
+              else:
+                  color = 'red'
+              badge = {"schemaVersion": 1, "label": "coverage", "message": f"{pct}%", "color": color}
+          except Exception as e:
+              print(f"Coverage badge generation failed: {e}")
+              badge = {"schemaVersion": 1, "label": "coverage", "message": "unknown", "color": "lightgrey"}
+          os.makedirs('app/target/site/jacoco', exist_ok=True)
+          with open('app/target/site/jacoco/badge.json', 'w') as f:
+              json.dump(badge, f)
+
+          # --- Tests badge ---
+          try:
+              files = (glob.glob('**/target/surefire-reports/TEST-*.xml', recursive=True) +
+                       glob.glob('**/target/failsafe-reports/TEST-*.xml', recursive=True))
+              total_tests = total_failures = total_errors = 0
+              for path in files:
+                  root = ET.parse(path).getroot()
+                  total_tests    += int(root.get('tests',    0))
+                  total_failures += int(root.get('failures', 0))
+                  total_errors   += int(root.get('errors',   0))
+              failed = total_failures + total_errors
+              passed = total_tests - failed
+              if failed > 0:
+                  msg, color = f"{failed}/{total_tests} failed", "red"
+              else:
+                  msg, color = f"{passed} passed", "brightgreen"
+              badge = {"schemaVersion": 1, "label": "tests", "message": msg, "color": color}
+          except Exception as e:
+              print(f"Tests badge generation failed: {e}")
+              badge = {"schemaVersion": 1, "label": "tests", "message": "unknown", "color": "lightgrey"}
+          os.makedirs('app/target/site', exist_ok=True)
+          with open('app/target/site/badge.json', 'w') as f:
+              json.dump(badge, f)
+          EOF
+
+      - name: Upload site artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: site-reports
+          path: app/target/site/
+          retention-days: 1
+
+  deploy-reports:
+    name: Deploy Reports to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: java-build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - name: Download site artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: site-reports
+          path: site/
+
+      - name: Deploy test report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          destination_dir: tests
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy Surefire test report ${{ github.sha }}'
+
+      - name: Deploy coverage report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site/jacoco
+          destination_dir: coverage
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy JaCoCo coverage report'
+
+      - name: Report URLs
+        run: |
+          echo "### 📊 Reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📋 [View Test Report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/tests/surefire-report.html)" >> $GITHUB_STEP_SUMMARY
+          echo "📈 [View Coverage Report](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/coverage/)" >> $GITHUB_STEP_SUMMARY
+
   frontend-build:
     name: Frontend Build & Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: frontend-web
@@ -60,6 +208,8 @@ jobs:
     name: Docker Build Smoke Test
     runs-on: ubuntu-latest
     needs: [java-build, frontend-build]
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
