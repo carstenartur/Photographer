@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.2</version>
+        <version>0.1.3-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>app</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.3-SNAPSHOT</version>
 
     <name>Focus Stack - App</name>
     <description>Unified Spring Boot application combining camera and analysis services</description>
