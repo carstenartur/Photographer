@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getJob, startJob, pauseJob, cancelJob } from '../api/jobApi';
+import PreviewPanel from '../components/PreviewPanel';
 
 export default function JobDetail() {
   const { id } = useParams();
@@ -153,6 +154,8 @@ export default function JobDetail() {
         </p>
       </section>
 
+      <PreviewPanel jobId={id} isRunning={job.status === 'RUNNING'} frames={frames} />
+
       <section className="detail-section">
         <h2>Parameters</h2>
         <dl className="params">
@@ -188,13 +191,28 @@ export default function JobDetail() {
         {frames.length === 0 ? (
           <p className="empty">No frames captured yet.</p>
         ) : (
-          <div className="frame-grid">
-            {frames.map((frameId, i) => (
-              <div key={frameId} className="frame-item">
-                <span className="frame-index">#{i + 1}</span>
-                <span className="frame-id">{frameId}</span>
-              </div>
-            ))}
+          <div className="frame-thumb-grid">
+            {frames.map((frameId, i) => {
+              const imgUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/jobs/${id}/frames/${frameId}/image`;
+              return (
+                <div key={frameId} className="frame-thumb-card">
+                  <img
+                    src={imgUrl}
+                    alt={`Frame #${i + 1}`}
+                    className="frame-thumb-img"
+                    loading="lazy"
+                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                  />
+                  <div className="frame-thumb-placeholder" style={{ display: 'none' }}>
+                    No image data
+                  </div>
+                  <div className="frame-thumb-label">
+                    <span className="frame-index">#{i + 1}</span>
+                    <span className="frame-id">{frameId.substring(0, 8)}…</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.service;
 
+import com.photographer.focusstack.analysis.service.StackMerger;
 import com.photographer.focusstack.analysis.service.StackingAdvisor;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,10 +38,14 @@ public class StackingJobService {
 
     private static final Logger log = LoggerFactory.getLogger(StackingJobService.class);
 
+    /** Maximum number of frames to include in a progressive stack merge preview. */
+    private static final int MAX_PREVIEW_MERGE_FRAMES = 20;
+
     private final CameraBackend cameraBackend;
     private final StackingJobRepository repository;
     private final SimpMessagingTemplate messagingTemplate;
     private final StackingAdvisor stackingAdvisor;
+    private final StackMerger stackMerger;
     private final FocusStepStrategy stepStrategy;
     private final TaskExecutor taskExecutor;
     private final FrameDataStore frameDataStore;
@@ -50,6 +56,7 @@ public class StackingJobService {
                               StackingJobRepository repository,
                               SimpMessagingTemplate messagingTemplate,
                               StackingAdvisor stackingAdvisor,
+                              StackMerger stackMerger,
                               FrameDataStore frameDataStore,
                               @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
                               @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
@@ -57,6 +64,7 @@ public class StackingJobService {
         this.repository = repository;
         this.messagingTemplate = messagingTemplate;
         this.stackingAdvisor = stackingAdvisor;
+        this.stackMerger = stackMerger;
         this.frameDataStore = frameDataStore;
         this.taskExecutor = taskExecutor;
         this.stepStrategy = "linear".equalsIgnoreCase(stepStrategyName)
@@ -147,6 +155,7 @@ public class StackingJobService {
         String id = job.id();
         List<String> frames = new ArrayList<>(job.frames());
         List<AnalysisResult> analysisHistory = new ArrayList<>();
+        List<byte[]> capturedFrameData = new ArrayList<>();
         StackingParameters params = job.parameters();
         byte[] previousFrameData = null;
 
@@ -172,7 +181,14 @@ public class StackingJobService {
                 // Cache frame data for later export
                 if (result.imageData() != null && result.imageData().length > 0) {
                     frameDataStore.put(result.imageId(), result.fileName(), result.imageData());
+                    capturedFrameData.add(result.imageData());
                 }
+
+                // --- Send camera preview frame ---
+                sendPreviewFrame(id, result.imageData(), i);
+
+                // --- Progressive stack merge preview ---
+                sendStackPreview(id, capturedFrameData, i);
 
                 // --- Analysis phase ---
                 AnalysisResult analysisResult = null;
@@ -245,6 +261,66 @@ public class StackingJobService {
             repository.save(StackingJobEntity.fromRecord(failed));
             sendJobEvent(id, "ERROR", Map.of("message", e.getMessage()));
             sendJobLog(id, "ERROR", "Job failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Sends the latest camera frame as a base64-encoded preview via WebSocket.
+     */
+    private void sendPreviewFrame(String jobId, byte[] imageData, int frameIndex) {
+        if (imageData == null || imageData.length == 0) return;
+        try {
+            String base64 = Base64.getEncoder().encodeToString(imageData);
+            Map<String, Object> preview = Map.of(
+                    "type", "camera",
+                    "frameIndex", frameIndex,
+                    "imageBase64", base64,
+                    "timestamp", Instant.now().toString()
+            );
+            messagingTemplate.convertAndSend(
+                    "/topic/jobs/" + jobId + "/preview", (Object) preview);
+        } catch (Exception e) {
+            log.debug("Failed to send camera preview for job {}: {}", jobId, e.getMessage());
+        }
+    }
+
+    /**
+     * Produces a progressive stack-merged preview from captured frames so far
+     * and sends it as a base64-encoded image via WebSocket.
+     * Uses at most {@value MAX_PREVIEW_MERGE_FRAMES} evenly-spaced frames for performance.
+     */
+    private void sendStackPreview(String jobId, List<byte[]> capturedFrameData, int frameIndex) {
+        if (capturedFrameData.size() < 2) return;
+        try {
+            // Sample frames evenly if there are too many for quick merging
+            List<byte[]> framesToMerge;
+            if (capturedFrameData.size() <= MAX_PREVIEW_MERGE_FRAMES) {
+                framesToMerge = capturedFrameData;
+            } else {
+                framesToMerge = new ArrayList<>();
+                double step = (double) capturedFrameData.size() / MAX_PREVIEW_MERGE_FRAMES;
+                for (int i = 0; i < MAX_PREVIEW_MERGE_FRAMES; i++) {
+                    framesToMerge.add(capturedFrameData.get((int) (i * step)));
+                }
+                // Always include the latest frame
+                framesToMerge.add(capturedFrameData.get(capturedFrameData.size() - 1));
+            }
+
+            byte[] merged = stackMerger.merge(framesToMerge);
+            if (merged != null && merged.length > 0) {
+                String base64 = Base64.getEncoder().encodeToString(merged);
+                Map<String, Object> preview = Map.of(
+                        "type", "stack",
+                        "frameIndex", frameIndex,
+                        "framesUsed", framesToMerge.size(),
+                        "imageBase64", base64,
+                        "timestamp", Instant.now().toString()
+                );
+                messagingTemplate.convertAndSend(
+                        "/topic/jobs/" + jobId + "/preview", (Object) preview);
+            }
+        } catch (Exception e) {
+            log.debug("Failed to send stack preview for job {}: {}", jobId, e.getMessage());
         }
     }
 

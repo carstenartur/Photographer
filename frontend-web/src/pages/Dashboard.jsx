@@ -24,7 +24,7 @@ export default function Dashboard() {
   }, []);
 
   const recentJobs = [...jobs]
-    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    .sort((a, b) => new Date(b.startedAt || b.completedAt || 0) - new Date(a.startedAt || a.completedAt || 0))
     .slice(0, 5);
 
   return (
@@ -49,9 +49,23 @@ export default function Dashboard() {
           <div className="card">
             <h3>Active</h3>
             <p className="card-value">
-              {jobs.filter((j) => j.status === 'running').length}
+              {jobs.filter((j) => j.status === 'RUNNING').length}
             </p>
             <p className="card-label">jobs running</p>
+          </div>
+          <div className="card">
+            <h3>Completed</h3>
+            <p className="card-value">
+              {jobs.filter((j) => j.status === 'COMPLETED').length}
+            </p>
+            <p className="card-label">jobs finished</p>
+          </div>
+          <div className="card">
+            <h3>Frames</h3>
+            <p className="card-value">
+              {jobs.reduce((sum, j) => sum + (j.frames || []).length, 0)}
+            </p>
+            <p className="card-label">total captured</p>
           </div>
         </div>
       </section>
@@ -77,30 +91,43 @@ export default function Dashboard() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Camera</th>
                 <th>Status</th>
-                <th>Created</th>
+                <th>Frames</th>
+                <th>Quality</th>
+                <th>Started</th>
               </tr>
             </thead>
             <tbody>
-              {recentJobs.map((job) => (
-                <tr key={job.id}>
-                  <td>
-                    <Link to={`/jobs/${job.id}`}>{job.id}</Link>
-                  </td>
-                  <td>{job.camera_id || job.camera_name || '—'}</td>
-                  <td>
-                    <span className={`badge badge-${job.status || 'unknown'}`}>
-                      {job.status || 'unknown'}
-                    </span>
-                  </td>
-                  <td>
-                    {job.created_at
-                      ? new Date(job.created_at).toLocaleString()
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
+              {recentJobs.map((job) => {
+                const params = job.parameters || {};
+                const frameCount = (job.frames || []).length;
+                const maxFrames = params.maxFrames || '?';
+                return (
+                  <tr key={job.id}>
+                    <td>
+                      <Link to={`/jobs/${job.id}`}>
+                        {job.id.substring(0, 8)}…
+                      </Link>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge badge-${(job.status || 'UNKNOWN').toLowerCase()}`}
+                      >
+                        {job.status || 'UNKNOWN'}
+                      </span>
+                    </td>
+                    <td>
+                      {frameCount} / {maxFrames}
+                    </td>
+                    <td>{params.qualityMode || '—'}</td>
+                    <td>
+                      {job.startedAt
+                        ? new Date(job.startedAt).toLocaleString()
+                        : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -3,6 +3,7 @@ package com.photographer.focusstack.analysis.service;
 import com.photographer.focusstack.analysis.strategy.MotionDetectionStrategy;
 import com.photographer.focusstack.analysis.strategy.OpticalFlowStrategy;
 import com.photographer.focusstack.analysis.strategy.PixelDiffStrategy;
+import com.photographer.focusstack.analysis.strategy.StructuralSimilarityStrategy;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.model.StackingParameters;
 import org.slf4j.Logger;
@@ -27,13 +28,15 @@ public class StackingAdvisor {
                            MotionDetector motionDetector,
                            InformationGainEstimator informationGainEstimator,
                            ImageJProcessor imageJProcessor,
-                           @Value("${analysis.motion.strategy:optical-flow}") String strategyName) {
+                           @Value("${analysis.motion.strategy:structural-similarity}") String strategyName) {
         this.sharpnessAnalyzer = sharpnessAnalyzer;
         this.informationGainEstimator = informationGainEstimator;
         this.imageJProcessor = imageJProcessor;
-        this.motionDetectionStrategy = "pixel-diff".equalsIgnoreCase(strategyName)
-                ? new PixelDiffStrategy(motionDetector)
-                : new OpticalFlowStrategy(imageJProcessor, motionDetector);
+        this.motionDetectionStrategy = switch (strategyName.toLowerCase()) {
+            case "pixel-diff" -> new PixelDiffStrategy(motionDetector);
+            case "optical-flow" -> new OpticalFlowStrategy(imageJProcessor, motionDetector);
+            default -> new StructuralSimilarityStrategy(imageJProcessor, motionDetector);
+        };
         log.info("StackingAdvisor initialized with '{}' motion detection strategy",
                 this.motionDetectionStrategy.name());
     }
@@ -95,7 +98,8 @@ public class StackingAdvisor {
         if (history != null && history.size() >= params.maxFrames()) {
             return false;
         }
-        // Abort if motion detected
+        // Abort if motion detected (the structural-similarity strategy is
+        // blur-invariant, so a positive here represents real subject motion)
         if (motionResult.motionDetected()) {
             return false;
         }

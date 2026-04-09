@@ -177,6 +177,103 @@ public class ImageJProcessor {
     }
 
     /**
+     * Detects motion using edge-based structural similarity (SSIM-like).
+     *
+     * <p>Converts both frames to grayscale, applies a Sobel edge-detection kernel,
+     * then computes the normalised cross-correlation (NCC) of the two edge maps.
+     * Edge maps are largely invariant to defocus blur, so normal focus-stepping
+     * does not trigger false positives.  Real subject motion shifts edge positions,
+     * lowering the NCC and producing a high motion score.
+     *
+     * @param currentImageBytes  bytes of the current frame image file
+     * @param previousImageBytes bytes of the previous frame image file
+     * @param threshold          motion detection threshold (0.0–1.0)
+     * @return MotionResult with score = 1 - NCC, detected flag, and threshold
+     */
+    public MotionDetector.MotionResult detectStructuralMotion(byte[] currentImageBytes,
+                                                               byte[] previousImageBytes,
+                                                               double threshold) {
+        FloatProcessor fpCurrent = readAsFloatProcessor(currentImageBytes);
+        FloatProcessor fpPrevious = readAsFloatProcessor(previousImageBytes);
+
+        if (fpCurrent == null || fpPrevious == null) {
+            return new MotionDetector.MotionResult(0.0, false, threshold);
+        }
+
+        int width = Math.min(fpCurrent.getWidth(), fpPrevious.getWidth());
+        int height = Math.min(fpCurrent.getHeight(), fpPrevious.getHeight());
+
+        if (width < 3 || height < 3) {
+            return new MotionDetector.MotionResult(0.0, false, threshold);
+        }
+
+        // Compute Sobel edge magnitude for both frames
+        float[] edgesCurrent = sobelMagnitude(fpCurrent, width, height);
+        float[] edgesPrevious = sobelMagnitude(fpPrevious, width, height);
+
+        // Normalised cross-correlation of edge maps
+        double similarity = normalizedCrossCorrelation(edgesCurrent, edgesPrevious);
+        double motionScore = Math.max(0.0, 1.0 - similarity);
+
+        log.debug("Structural motion detection: similarity={}, motionScore={}, threshold={}",
+                String.format("%.4f", similarity),
+                String.format("%.4f", motionScore),
+                threshold);
+
+        return new MotionDetector.MotionResult(motionScore, motionScore > threshold, threshold);
+    }
+
+    /** Computes Sobel gradient magnitude for a FloatProcessor. */
+    private float[] sobelMagnitude(FloatProcessor fp, int width, int height) {
+        int innerW = width - 2;
+        int innerH = height - 2;
+        float[] result = new float[innerW * innerH];
+
+        for (int y = 1; y < height - 1; y++) {
+            for (int x = 1; x < width - 1; x++) {
+                float gx =
+                        -fp.getf(x - 1, y - 1) + fp.getf(x + 1, y - 1)
+                        - 2f * fp.getf(x - 1, y) + 2f * fp.getf(x + 1, y)
+                        - fp.getf(x - 1, y + 1) + fp.getf(x + 1, y + 1);
+
+                float gy =
+                        -fp.getf(x - 1, y - 1) - 2f * fp.getf(x, y - 1) - fp.getf(x + 1, y - 1)
+                        + fp.getf(x - 1, y + 1) + 2f * fp.getf(x, y + 1) + fp.getf(x + 1, y + 1);
+
+                result[(y - 1) * innerW + (x - 1)] = (float) Math.sqrt(gx * gx + gy * gy);
+            }
+        }
+        return result;
+    }
+
+    /** Normalised cross-correlation of two float arrays. Returns [0, 1]. */
+    private double normalizedCrossCorrelation(float[] a, float[] b) {
+        if (a.length != b.length || a.length == 0) return 0.0;
+
+        double meanA = 0, meanB = 0;
+        for (int i = 0; i < a.length; i++) {
+            meanA += a[i];
+            meanB += b[i];
+        }
+        meanA /= a.length;
+        meanB /= b.length;
+
+        double sumAB = 0, sumAA = 0, sumBB = 0;
+        for (int i = 0; i < a.length; i++) {
+            double da = a[i] - meanA;
+            double db = b[i] - meanB;
+            sumAB += da * db;
+            sumAA += da * da;
+            sumBB += db * db;
+        }
+
+        double denom = Math.sqrt(sumAA * sumBB);
+        if (denom < 1e-10) return 1.0; // both constant → identical
+        double ncc = sumAB / denom;
+        return Math.max(0.0, Math.min(1.0, ncc));
+    }
+
+    /**
      * Returns the ImageJ version string for health checks.
      */
     public String getVersion() {

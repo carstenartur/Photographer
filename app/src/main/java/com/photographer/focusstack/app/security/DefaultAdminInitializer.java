@@ -19,12 +19,20 @@ public class DefaultAdminInitializer {
             PasswordEncoder passwordEncoder,
             @Value("${focusstack.security.admin-password:focusstack}") String adminPassword) {
         return args -> {
-            if (userRepository.findByUsername("admin").isEmpty()) {
+            var existing = userRepository.findByUsername("admin");
+            if (existing.isEmpty()) {
                 userRepository.save(new UserEntity(
                         "admin",
                         passwordEncoder.encode(adminPassword),
                         UserRole.ADMIN));
                 log.info("Default admin user created. Change the password via focusstack.security.admin-password");
+            } else {
+                UserEntity admin = existing.get();
+                if (!passwordEncoder.matches(adminPassword, admin.getPasswordHash())) {
+                    admin.setPasswordHash(passwordEncoder.encode(adminPassword));
+                    userRepository.save(admin);
+                    log.info("Admin password updated to match configured value");
+                }
             }
         };
     }

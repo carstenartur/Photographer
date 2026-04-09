@@ -38,5 +38,6 @@ public class UserEntity {
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public UserRole getRole() { return role; }
 }

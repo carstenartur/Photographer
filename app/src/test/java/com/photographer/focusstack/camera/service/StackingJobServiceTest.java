@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.service;
 
+import com.photographer.focusstack.analysis.service.StackMerger;
 import com.photographer.focusstack.analysis.service.StackingAdvisor;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
@@ -33,6 +34,7 @@ class StackingJobServiceTest {
     @Mock private StackingJobRepository repository;
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private StackingAdvisor stackingAdvisor;
+    @Mock private StackMerger stackMerger;
 
     private StackingJobService service;
 
@@ -44,7 +46,7 @@ class StackingJobServiceTest {
         // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
                 cameraBackend, repository, messagingTemplate, stackingAdvisor,
-                new FrameDataStore(), new SyncTaskExecutor(), "adaptive");
+                stackMerger, new FrameDataStore(), new SyncTaskExecutor(), "adaptive");
     }
 
     @Test
