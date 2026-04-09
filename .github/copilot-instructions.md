@@ -72,7 +72,7 @@ mvn site surefire-report:report --no-transfer-progress -DskipTests -DgenerateRep
 - **Test annotations**: `@MockitoBean` (not `@MockBean`), `@WebMvcTest` from `org.springframework.boot.webmvc.test.autoconfigure`
 - **Integration tests**: Extend `AbstractPostgresIntegrationTest` for Testcontainers setup; use `*IT.java` naming
 - **Unit tests**: Use `*Test.java` naming
-- **Security**: `@WebMvcTest` needs `@WithMockUser` + `@MockitoBean UserRepository`; `@SpringBootTest` needs `restTemplate.withBasicAuth("admin","admin")`
+- **Security**: `@WebMvcTest` needs `@WithMockUser` + `@MockitoBean UserRepository`; `@SpringBootTest` needs `restTemplate.withBasicAuth("admin","focusstack")`
 
 ## Frontend
 

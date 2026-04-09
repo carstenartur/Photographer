@@ -38,16 +38,17 @@ docker compose up --build
 ```
 
 This starts:
-- **frontend-web** on [http://localhost:3000](http://localhost:3000)
-- **camera-service** on [http://localhost:8080](http://localhost:8080)
-- **analysis-service** on [http://localhost:8081](http://localhost:8081)
+- **focusstack** (Spring Boot app serving the UI and API) on [http://localhost:8080](http://localhost:8080)
 - **PostgreSQL** on port `5432`
 
 The default profile uses the **mock camera**, so no hardware is needed.
 
 ### 3. Open the UI
 
-Navigate to [http://localhost:3000](http://localhost:3000) in your browser.
+Navigate to [http://localhost:8080](http://localhost:8080) in your browser.
+
+Log in with username `admin` and password `focusstack` (the default value of
+`FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in your `.env` file).
 
 ### 4. (Optional) Seed demo data
 
@@ -85,21 +86,13 @@ run natively for fast iteration and hot-reload.
 
 This launches PostgreSQL and the mock camera in Docker.
 
-### 2. Start camera-service
+### 2. Start the application
 
 ```bash
-cd backend/camera-service
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
+mvn spring-boot:run -pl app -am -Djava.awt.headless=true
 ```
 
-### 3. Start analysis-service
-
-```bash
-cd backend/analysis-service
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-### 4. Start frontend-web
+### 3. Start frontend-web
 
 ```bash
 cd frontend-web

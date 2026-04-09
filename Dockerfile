@@ -32,7 +32,10 @@ WORKDIR /app
 
 COPY --from=build /app/app/target/focusstack.jar app.jar
 
-RUN chown -R appuser:appgroup /app
+# Pre-create volume mount-points so they inherit appuser ownership
+# when Docker initializes empty named volumes.
+RUN mkdir -p /app/data/search-index /app/images \
+    && chown -R appuser:appgroup /app
 USER appuser
 
 EXPOSE 8080

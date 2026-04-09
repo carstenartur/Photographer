@@ -20,7 +20,7 @@ tests.
 
 ### JVM Memory Configuration
 
-Memory settings are centralized in the parent POM (`backend/pom.xml`):
+Memory settings are centralized in the parent POM (`pom.xml`):
 
 | Plugin | Heap (`-Xmx`) | Purpose |
 |---|---|---|
@@ -33,10 +33,10 @@ To override memory settings from the command line:
 
 ```bash
 # Increase failsafe heap for large test suites
-cd backend && mvn verify -Dfailsafe.argLine="-Xmx2g -Djava.awt.headless=true"
+mvn verify -pl common-api,app -am -Dfailsafe.argLine="-Xmx2g -Djava.awt.headless=true"
 
 # Set Maven process memory (affects the Maven JVM itself)
-MAVEN_OPTS="-Xmx1g" mvn verify
+MAVEN_OPTS="-Xmx1g" mvn verify -pl common-api,app -am -Djava.awt.headless=true
 ```
 
 ### Docker Requirements
@@ -106,7 +106,7 @@ real-hardware behaviour.
 
 ```bash
 # Java (from repository root)
-cd backend && mvn test
+mvn test -pl common-api,app -am -Djava.awt.headless=true
 
 # Frontend
 cd frontend-web && npm run lint
@@ -162,13 +162,13 @@ after the JVM exits.
 
 ```bash
 # Unit tests + integration tests (default)
-cd backend && mvn verify
+mvn verify -pl common-api,app -am -Djava.awt.headless=true
 
 # Unit tests only (skip integration tests)
-cd backend && mvn verify -DskipITs=true
+mvn verify -pl common-api,app -am -DskipITs=true -Djava.awt.headless=true
 
 # Integration tests only
-cd backend && mvn verify -DskipTests=true
+mvn verify -pl common-api,app -am -DskipTests=true -Djava.awt.headless=true
 ```
 
 ### Docker-Based Integration Tests
@@ -186,14 +186,14 @@ To run them explicitly:
 
 ```bash
 # Run only Docker-based ITs
-cd backend && mvn verify -pl analysis-service \
+mvn verify -pl app -am \
   -Dfailsafe.groups=docker \
-  -Dfailsafe.excludedGroups=
+  -Dfailsafe.excludedGroups= -Djava.awt.headless=true
 
 # Run all tests including Docker ITs
-cd backend && mvn verify \
+mvn verify -pl common-api,app -am \
   -Dfailsafe.excludedGroups= \
-  -Dsurefire.excludedGroups=
+  -Dsurefire.excludedGroups= -Djava.awt.headless=true
 ```
 
 ### End-to-End Tests
@@ -274,7 +274,7 @@ release notes. Automated reporting is a future goal.
 
 ```bash
 # View Java coverage
-open backend/camera-service/target/site/jacoco/index.html
+open app/target/site/jacoco/index.html
 ```
 
 ---

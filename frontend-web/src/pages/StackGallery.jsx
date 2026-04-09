@@ -51,6 +51,7 @@ export default function StackGallery() {
       // Try to retrieve a cached merge result first
       const cachedRes = await fetch(
         `${ANALYSIS_BASE}/analysis/merge-result/${job.id}`,
+        { credentials: 'include' },
       );
       if (cachedRes.ok) {
         const blob = await cachedRes.blob();
@@ -60,7 +61,9 @@ export default function StackGallery() {
       }
 
       // No cache — fetch the export ZIP and unpack it with JSZip
-      const exportRes = await fetch(`${CAMERA_BASE}/jobs/${job.id}/export`);
+      const exportRes = await fetch(`${CAMERA_BASE}/jobs/${job.id}/export`, {
+        credentials: 'include',
+      });
       if (!exportRes.ok) {
         throw new Error(`Export failed: ${exportRes.statusText}`);
       }
@@ -81,6 +84,7 @@ export default function StackGallery() {
 
       const mergeRes = await fetch(`${ANALYSIS_BASE}/analysis/merge-stack?jobId=${job.id}`, {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
       if (!mergeRes.ok) {
@@ -108,7 +112,9 @@ export default function StackGallery() {
   // ── Download frames as ZIP ───────────────────────────────────────────────────
   async function handleDownloadZip(jobId) {
     try {
-      const res = await fetch(`${CAMERA_BASE}/jobs/${jobId}/export`);
+      const res = await fetch(`${CAMERA_BASE}/jobs/${jobId}/export`, {
+        credentials: 'include',
+      });
       if (!res.ok) throw new Error(res.statusText);
       const blob     = await res.blob();
       const url      = URL.createObjectURL(blob);

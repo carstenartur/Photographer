@@ -101,4 +101,4 @@ fi
 
 echo ""
 echo "✔ Demo data seeded successfully."
-echo "  Open http://localhost:3000 to view the demo data."
+echo "  Open http://localhost:8080 to view the demo data."

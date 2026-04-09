@@ -17,7 +17,7 @@ public class DefaultAdminInitializer {
     public CommandLineRunner initDefaultAdmin(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            @Value("${focusstack.security.admin-password:admin}") String adminPassword) {
+            @Value("${focusstack.security.admin-password:focusstack}") String adminPassword) {
         return args -> {
             if (userRepository.findByUsername("admin").isEmpty()) {
                 userRepository.save(new UserEntity(

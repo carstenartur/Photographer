@@ -23,10 +23,8 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 ```
 /
 ├── frontend-web/          # React / Vite (JSX)
-├── backend/
-│   ├── common-api/        # Shared interfaces and models
-│   ├── camera-service/    # Spring Boot – camera orchestration
-│   └── analysis-service/  # Spring Boot – image analysis
+├── common-api/            # Shared interfaces and models
+├── app/                   # Spring Boot — camera orchestration + image analysis
 ├── docs/                  # Documentation
 ├── scripts/               # Helper scripts
 ├── fixtures/              # Sample images for tests & demos
@@ -42,8 +40,7 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 
 ```bash
 # From repository root
-cd backend
-mvn clean verify
+mvn clean verify -pl common-api,app -am -Djava.awt.headless=true
 ```
 
 ### Frontend
@@ -72,13 +69,10 @@ This starts PostgreSQL and the mock camera container.
 In separate terminals:
 
 ```bash
-# Terminal 1
-cd backend/camera-service && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# Terminal 1 — Spring Boot app
+mvn spring-boot:run -pl app -am -Djava.awt.headless=true
 
-# Terminal 2
-cd backend/analysis-service && mvn spring-boot:run -Dspring-boot.run.profiles=dev
-
-# Terminal 3
+# Terminal 2 — Frontend dev server (hot-reload)
 cd frontend-web && npm run dev
 ```
 
@@ -92,7 +86,7 @@ The frontend dev server runs at [http://localhost:5173](http://localhost:5173).
 
 ```bash
 # Java (from repository root)
-cd backend && mvn test
+mvn test -pl common-api,app -am -Djava.awt.headless=true
 
 # Frontend
 cd frontend-web && npm run lint
@@ -108,10 +102,10 @@ end with `IT` (e.g., `CameraServiceIT`).
 
 ```bash
 # Unit tests + integration tests (default)
-cd backend && mvn verify
+mvn verify -pl common-api,app -am -Djava.awt.headless=true
 
 # Skip integration tests
-cd backend && mvn verify -DskipITs=true
+mvn verify -pl common-api,app -am -DskipITs=true -Djava.awt.headless=true
 ```
 
 #### Memory Settings
@@ -133,8 +127,8 @@ and are **excluded by default** (they require network access and take 5–15 min
 
 ```bash
 # Run only Docker-based ITs
-cd backend && mvn verify -pl analysis-service \
-  -Dfailsafe.groups=docker -Dfailsafe.excludedGroups=
+mvn verify -pl app -am \
+  -Dfailsafe.groups=docker -Dfailsafe.excludedGroups= -Djava.awt.headless=true
 ```
 
 ### End-to-End Tests

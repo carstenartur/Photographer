@@ -55,15 +55,28 @@ The following Canon cameras expose CCAPI and have been tested:
 git clone https://github.com/carstenartur/Photographer.git
 cd Photographer
 
-# Start all services (camera-service, analysis-service, frontend-web, PostgreSQL)
+# Create your local environment file (required — sets the admin password and other defaults)
+cp .env.example .env        # Linux / macOS
+# copy .env.example .env    # Windows (cmd)
+
+# Start all services (focusstack app + PostgreSQL)
 docker compose up --build
 
 # Open the UI
-open http://localhost:3000
+open http://localhost:8080
 ```
 
 The default profile uses the **mock camera** so you can explore the UI without
 hardware. To connect a real camera, see [Camera Setup](docs/camera-setup.md).
+
+### Default Login
+
+| Username | Password |
+|----------|----------|
+| `admin`  | `focusstack` (default from `.env`; change `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` for production) |
+
+When running **without** Docker (i.e. `mvn spring-boot:run`), the password
+also defaults to `focusstack`.
 
 ### Seed demo data (optional)
 
@@ -78,20 +91,15 @@ For the full setup guide, including development mode, see
 
 ## Architecture
 
-Canon Focus Stack follows a **multi-service** architecture:
+Focus Stack is a **single Spring Boot application** that serves the React
+frontend as static resources and handles all backend logic (camera control,
+analysis, storage).
 
 ```
 ┌────────────────┐     HTTP/WS      ┌──────────────────┐     CCAPI     ┌───────────┐
-│  frontend-web  │ ◄──────────────► │  camera-service   │ ◄───────────► │  Canon    │
-│  (React/Vite)  │                  │  (Spring Boot)    │               │  Camera   │
+│  Browser UI    │ ◄──────────────► │   focusstack     │ ◄───────────► │  Canon    │
+│  (React/Vite)  │                  │   (Spring Boot)  │               │  Camera   │
 └────────────────┘                  └────────┬─────────┘               └───────────┘
-                                             │
-                                             │ REST (HTTP)
-                                             ▼
-                                   ┌──────────────────┐
-                                   │ analysis-service  │
-                                   │ (Java / ImageJ headless) │
-                                   └────────┬─────────┘
                                              │
                                              ▼
                                    ┌──────────────────┐
@@ -100,11 +108,11 @@ Canon Focus Stack follows a **multi-service** architecture:
                                    └──────────────────┘
 ```
 
-| Service | Tech | Role |
+| Component | Tech | Role |
 |---|---|---|
-| **frontend-web** | React 19, Vite | Browser UI: Live View, capture controls, stack gallery. |
-| **camera-service** | Java 21, Spring Boot 3 | Orchestrates CCAPI calls, manages capture sequences, streams Live View. |
-| **analysis-service** | Java 21, ImageJ headless | Sharpness analysis, movement detection, optional Fiji stack merging. |
+| **frontend-web** | React 19, Vite | Browser UI: Live View, capture controls, stack gallery. Bundled into the app JAR for production. |
+| **app** | Java 21, Spring Boot | Camera orchestration via CCAPI, sharpness analysis, movement detection, REST API, serves the frontend. |
+| **common-api** | Java 21 | Shared model records (e.g. `CameraProfile`, `StackingJob`). |
 | **storage** | PostgreSQL 16, local Docker volumes | Metadata in Postgres; raw frames on a shared volume. |
 
 For a deeper dive, see [docs/architecture.md](docs/architecture.md).
@@ -117,13 +125,10 @@ For a deeper dive, see [docs/architecture.md](docs/architecture.md).
 # Start infrastructure (Postgres) in Docker
 ./scripts/dev-up.sh
 
-# Run camera-service locally
-cd backend/camera-service && mvn spring-boot:run
+# Run the Spring Boot app locally (from repository root)
+mvn spring-boot:run -pl app -am -Djava.awt.headless=true
 
-# Run analysis-service locally
-cd backend/analysis-service && mvn spring-boot:run
-
-# Run frontend-web locally
+# Run frontend-web locally (dev server with hot-reload on http://localhost:5173)
 cd frontend-web && npm install && npm run dev
 ```
 

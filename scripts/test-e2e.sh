@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 COMPOSE_FILE="docker-compose.yml"
-FRONTEND_URL="http://localhost:3000"
+FRONTEND_URL="http://localhost:8080"
 BACKEND_URL="http://localhost:8080"
 MAX_WAIT=120  # seconds to wait for services to become healthy
 
