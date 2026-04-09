@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StructuralSimilarityStrategy.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.strategy</a> &gt; <span class="el_source">StructuralSimilarityStrategy.java</span></div><h1>StructuralSimilarityStrategy.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.strategy;
+
+import com.photographer.focusstack.analysis.service.ImageJProcessor;
+import com.photographer.focusstack.analysis.service.MotionDetector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Motion detection strategy based on structural similarity (SSIM-like).
+ *
+ * &lt;p&gt;Focus stacking intentionally changes the blur level between frames, which
+ * causes large pixel-intensity differences even when the subject has not moved.
+ * A naïve pixel-diff algorithm misinterprets these expected blur changes as
+ * subject motion and aborts the stack prematurely.
+ *
+ * &lt;p&gt;This strategy compares the &lt;em&gt;structural content&lt;/em&gt; of two frames by
+ * first extracting edges (Sobel gradient magnitude) and then computing the
+ * normalised cross-correlation of the edge maps. Edge structure is largely
+ * invariant to defocus blur — the same edges appear in both a sharp and a
+ * blurry image, only their contrast changes. Real subject motion, however,
+ * shifts the edge positions, producing a low correlation score.
+ *
+ * &lt;p&gt;The motion score reported is {@code 1.0 - structuralSimilarity}, so a
+ * higher score means more detected motion (consistent with the other
+ * strategies).
+ *
+ * &lt;p&gt;Falls back to {@link PixelDiffStrategy} when the input is not a
+ * decodable image file (e.g. synthetic test byte arrays).
+ */
+public class StructuralSimilarityStrategy implements MotionDetectionStrategy {
+
+<span class="fc" id="L32">    private static final Logger log = LoggerFactory.getLogger(StructuralSimilarityStrategy.class);</span>
+
+    private final ImageJProcessor imageJProcessor;
+    private final PixelDiffStrategy fallback;
+
+    public StructuralSimilarityStrategy(ImageJProcessor imageJProcessor,
+<span class="fc" id="L38">                                        MotionDetector motionDetector) {</span>
+<span class="fc" id="L39">        this.imageJProcessor = imageJProcessor;</span>
+<span class="fc" id="L40">        this.fallback = new PixelDiffStrategy(motionDetector);</span>
+<span class="fc" id="L41">    }</span>
+
+    @Override
+    public MotionDetector.MotionResult detect(byte[] current, byte[] previous, double threshold) {
+<span class="pc bpc" id="L45" title="1 of 4 branches missed.">        if (current == null || previous == null) {</span>
+<span class="fc" id="L46">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+        }
+
+        // For real image files, use edge-based structural similarity
+<span class="pc bpc" id="L50" title="3 of 4 branches missed.">        if (imageJProcessor.isImageFile(current) &amp;&amp; imageJProcessor.isImageFile(previous)) {</span>
+<span class="nc" id="L51">            return imageJProcessor.detectStructuralMotion(current, previous, threshold);</span>
+        }
+
+        // For synthetic / raw byte arrays, use edge-based comparison on raw data
+<span class="fc" id="L55">        return detectOnRawBytes(current, previous, threshold);</span>
+    }
+
+    /**
+     * Edge-based motion detection for raw (non-image-file) byte arrays.
+     *
+     * &lt;p&gt;Treats the input as a flat grayscale image, estimates its width,
+     * computes a Sobel gradient magnitude map, and correlates the two maps.
+     */
+    MotionDetector.MotionResult detectOnRawBytes(byte[] current, byte[] previous, double threshold) {
+<span class="fc" id="L65">        int length = Math.min(current.length, previous.length);</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (length &lt; 9) {</span>
+<span class="fc" id="L67">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+        }
+
+<span class="fc" id="L70">        int width = estimateWidth(length);</span>
+<span class="fc" id="L71">        int height = length / width;</span>
+<span class="pc bpc" id="L72" title="2 of 4 branches missed.">        if (width &lt; 3 || height &lt; 3) {</span>
+<span class="nc" id="L73">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+        }
+
+<span class="fc" id="L76">        double[] edgesCurrent = sobelMagnitude(current, width, height);</span>
+<span class="fc" id="L77">        double[] edgesPrevious = sobelMagnitude(previous, width, height);</span>
+
+<span class="fc" id="L79">        double similarity = normalizedCrossCorrelation(edgesCurrent, edgesPrevious);</span>
+<span class="fc" id="L80">        double motionScore = 1.0 - similarity;</span>
+
+<span class="fc" id="L82">        log.debug(&quot;StructuralSimilarity (raw): similarity={}, motionScore={}, threshold={}&quot;,</span>
+<span class="fc" id="L83">                String.format(&quot;%.4f&quot;, similarity),</span>
+<span class="fc" id="L84">                String.format(&quot;%.4f&quot;, motionScore),</span>
+<span class="fc" id="L85">                threshold);</span>
+
+<span class="fc" id="L87">        return new MotionDetector.MotionResult(</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">                Math.max(0.0, motionScore),</span>
+                motionScore &gt; threshold,
+                threshold);
+    }
+
+    /**
+     * Computes Sobel gradient magnitude for a grayscale byte array.
+     * Returns an array of size (width-2)*(height-2) covering the interior pixels.
+     */
+    static double[] sobelMagnitude(byte[] data, int width, int height) {
+<span class="fc" id="L98">        int innerW = width - 2;</span>
+<span class="fc" id="L99">        int innerH = height - 2;</span>
+<span class="fc" id="L100">        double[] result = new double[innerW * innerH];</span>
+
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        for (int y = 1; y &lt; height - 1; y++) {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            for (int x = 1; x &lt; width - 1; x++) {</span>
+                // Sobel X kernel: [-1 0 1; -2 0 2; -1 0 1]
+<span class="fc" id="L105">                double gx =</span>
+<span class="fc" id="L106">                        -pixel(data, width, x - 1, y - 1) + pixel(data, width, x + 1, y - 1)</span>
+<span class="fc" id="L107">                        - 2.0 * pixel(data, width, x - 1, y) + 2.0 * pixel(data, width, x + 1, y)</span>
+<span class="fc" id="L108">                        - pixel(data, width, x - 1, y + 1) + pixel(data, width, x + 1, y + 1);</span>
+
+                // Sobel Y kernel: [-1 -2 -1; 0 0 0; 1 2 1]
+<span class="fc" id="L111">                double gy =</span>
+<span class="fc" id="L112">                        -pixel(data, width, x - 1, y - 1) - 2.0 * pixel(data, width, x, y - 1) - pixel(data, width, x + 1, y - 1)</span>
+<span class="fc" id="L113">                        + pixel(data, width, x - 1, y + 1) + 2.0 * pixel(data, width, x, y + 1) + pixel(data, width, x + 1, y + 1);</span>
+
+<span class="fc" id="L115">                result[(y - 1) * innerW + (x - 1)] = Math.sqrt(gx * gx + gy * gy);</span>
+            }
+        }
+<span class="fc" id="L118">        return result;</span>
+    }
+
+    /**
+     * Normalised cross-correlation of two same-length arrays.
+     * Returns a value in [0, 1] where 1 = identical structure.
+     */
+    static double normalizedCrossCorrelation(double[] a, double[] b) {
+<span class="pc bpc" id="L126" title="2 of 4 branches missed.">        if (a.length != b.length || a.length == 0) return 0.0;</span>
+
+<span class="fc" id="L128">        double meanA = 0, meanB = 0;</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        for (int i = 0; i &lt; a.length; i++) {</span>
+<span class="fc" id="L130">            meanA += a[i];</span>
+<span class="fc" id="L131">            meanB += b[i];</span>
+        }
+<span class="fc" id="L133">        meanA /= a.length;</span>
+<span class="fc" id="L134">        meanB /= b.length;</span>
+
+<span class="fc" id="L136">        double sumAB = 0, sumAA = 0, sumBB = 0;</span>
+<span class="fc bfc" id="L137" title="All 2 branches covered.">        for (int i = 0; i &lt; a.length; i++) {</span>
+<span class="fc" id="L138">            double da = a[i] - meanA;</span>
+<span class="fc" id="L139">            double db = b[i] - meanB;</span>
+<span class="fc" id="L140">            sumAB += da * db;</span>
+<span class="fc" id="L141">            sumAA += da * da;</span>
+<span class="fc" id="L142">            sumBB += db * db;</span>
+        }
+
+<span class="fc" id="L145">        double denom = Math.sqrt(sumAA * sumBB);</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        if (denom &lt; 1e-10) return 1.0; // both constant → identical</span>
+
+<span class="fc" id="L148">        double ncc = sumAB / denom;</span>
+        // Clamp to [0, 1] — negative correlation treated as complete dissimilarity
+<span class="fc" id="L150">        return Math.max(0.0, Math.min(1.0, ncc));</span>
+    }
+
+    private static int pixel(byte[] data, int width, int x, int y) {
+<span class="fc" id="L154">        return Byte.toUnsignedInt(data[y * width + x]);</span>
+    }
+
+    /** Estimates the image width from total byte count (assumes square-ish). */
+    private static int estimateWidth(int length) {
+<span class="fc" id="L159">        int sqrt = (int) Math.sqrt(length);</span>
+<span class="pc bpc" id="L160" title="2 of 4 branches missed.">        while (sqrt &gt; 1 &amp;&amp; length % sqrt != 0) {</span>
+<span class="nc" id="L161">            sqrt--;</span>
+        }
+<span class="fc" id="L163">        return Math.max(sqrt, 1);</span>
+    }
+
+    @Override
+    public String name() {
+<span class="fc" id="L168">        return &quot;structural-similarity&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

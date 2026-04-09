@@ -19,14 +19,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
             PasswordEncoder passwordEncoder,
             @Value(&quot;${focusstack.security.admin-password:focusstack}&quot;) String adminPassword) {
 <span class="fc" id="L21">        return args -&gt; {</span>
-<span class="pc bpc" id="L22" title="1 of 2 branches missed.">            if (userRepository.findByUsername(&quot;admin&quot;).isEmpty()) {</span>
-<span class="fc" id="L23">                userRepository.save(new UserEntity(</span>
+<span class="fc" id="L22">            var existing = userRepository.findByUsername(&quot;admin&quot;);</span>
+<span class="pc bpc" id="L23" title="1 of 2 branches missed.">            if (existing.isEmpty()) {</span>
+<span class="fc" id="L24">                userRepository.save(new UserEntity(</span>
                         &quot;admin&quot;,
-<span class="fc" id="L25">                        passwordEncoder.encode(adminPassword),</span>
+<span class="fc" id="L26">                        passwordEncoder.encode(adminPassword),</span>
                         UserRole.ADMIN));
-<span class="fc" id="L27">                log.info(&quot;Default admin user created. Change the password via focusstack.security.admin-password&quot;);</span>
+<span class="fc" id="L28">                log.info(&quot;Default admin user created. Change the password via focusstack.security.admin-password&quot;);</span>
+            } else {
+<span class="nc" id="L30">                UserEntity admin = existing.get();</span>
+<span class="nc bnc" id="L31" title="All 2 branches missed.">                if (!passwordEncoder.matches(adminPassword, admin.getPasswordHash())) {</span>
+<span class="nc" id="L32">                    admin.setPasswordHash(passwordEncoder.encode(adminPassword));</span>
+<span class="nc" id="L33">                    userRepository.save(admin);</span>
+<span class="nc" id="L34">                    log.info(&quot;Admin password updated to match configured value&quot;);</span>
+                }
             }
-<span class="fc" id="L29">        };</span>
+<span class="fc" id="L37">        };</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
