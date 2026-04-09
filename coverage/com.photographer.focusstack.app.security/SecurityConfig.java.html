@@ -35,22 +35,27 @@ import org.springframework.security.web.SecurityFilterChain;
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 <span class="fc" id="L36">        http</span>
 <span class="fc" id="L37">            .authorizeHttpRequests(auth -&gt; auth</span>
-                // Public endpoints: API docs and static frontend assets
+                // Public endpoints: API docs, static frontend assets, and health check
 <span class="fc" id="L39">                .requestMatchers(&quot;/swagger-ui/**&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
 <span class="fc" id="L40">                .requestMatchers(HttpMethod.GET, &quot;/&quot;, &quot;/index.html&quot;, &quot;/assets/**&quot;, &quot;/favicon.svg&quot;,</span>
 <span class="fc" id="L41">                        &quot;/favicon.ico&quot;).permitAll()</span>
+<span class="fc" id="L42">                .requestMatchers(HttpMethod.GET, &quot;/api/analysis/health&quot;).permitAll()</span>
                 // Admin-only management endpoints
-<span class="fc" id="L43">                .requestMatchers(&quot;/api/admin/**&quot;).hasRole(&quot;ADMIN&quot;)</span>
+<span class="fc" id="L44">                .requestMatchers(&quot;/api/admin/**&quot;).hasRole(&quot;ADMIN&quot;)</span>
                 // All other requests (API, WebSocket) require authentication
-<span class="fc" id="L45">                .anyRequest().authenticated()</span>
+<span class="fc" id="L46">                .anyRequest().authenticated()</span>
             )
-<span class="fc" id="L47">            .formLogin(form -&gt; form.permitAll())</span>
-<span class="fc" id="L48">            .httpBasic(basic -&gt; {})</span>
-<span class="fc" id="L49">            .csrf(csrf -&gt; csrf</span>
+<span class="fc" id="L48">            .formLogin(form -&gt; form</span>
+<span class="fc" id="L49">                .defaultSuccessUrl(&quot;/&quot;, false)</span>
+<span class="fc" id="L50">                .failureUrl(&quot;/login?error&quot;)</span>
+<span class="fc" id="L51">                .permitAll()</span>
+            )
+<span class="fc" id="L53">            .httpBasic(basic -&gt; {})</span>
+<span class="fc" id="L54">            .csrf(csrf -&gt; csrf</span>
                 // Disable CSRF for REST API endpoints (stateless clients use HTTP Basic)
-<span class="fc" id="L51">                .ignoringRequestMatchers(&quot;/api/**&quot;, &quot;/ws/**&quot;)</span>
+<span class="fc" id="L56">                .ignoringRequestMatchers(&quot;/api/**&quot;, &quot;/ws/**&quot;)</span>
             );
-<span class="fc" id="L53">        return http.build();</span>
+<span class="fc" id="L58">        return http.build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
