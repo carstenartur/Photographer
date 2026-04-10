@@ -12,13 +12,13 @@ public record StorageConfig(
 ) {
 <span class="fc" id="L13">    public StorageConfig {</span>
 <span class="pc bpc" id="L14" title="1 of 2 branches missed.">        if (imagesDir == null) {</span>
-<span class="nc" id="L15">            imagesDir = Path.of(&quot;./data/images&quot;);</span>
+<span class="fc" id="L15">            imagesDir = Path.of(&quot;./data/images&quot;);</span>
         }
 <span class="pc bpc" id="L17" title="1 of 2 branches missed.">        if (searchIndexDir == null) {</span>
-<span class="nc" id="L18">            searchIndexDir = Path.of(&quot;./data/search-index&quot;);</span>
+<span class="fc" id="L18">            searchIndexDir = Path.of(&quot;./data/search-index&quot;);</span>
         }
 <span class="pc bpc" id="L20" title="1 of 2 branches missed.">        if (maxDiskUsageBytes &lt;= 0) {</span>
-<span class="nc" id="L21">            maxDiskUsageBytes = 10L * 1024 * 1024 * 1024; // 10 GB default</span>
+<span class="fc" id="L21">            maxDiskUsageBytes = 10L * 1024 * 1024 * 1024; // 10 GB default</span>
         }
 <span class="fc" id="L23">    }</span>
 }

@@ -22,15 +22,15 @@ import org.slf4j.LoggerFactory;
  */
 public class OpticalFlowStrategy implements MotionDetectionStrategy {
 
-<span class="fc" id="L25">    private static final Logger log = LoggerFactory.getLogger(OpticalFlowStrategy.class);</span>
+<span class="nc" id="L25">    private static final Logger log = LoggerFactory.getLogger(OpticalFlowStrategy.class);</span>
 
     private final ImageJProcessor imageJProcessor;
     private final PixelDiffStrategy fallback;
 
-<span class="fc" id="L30">    public OpticalFlowStrategy(ImageJProcessor imageJProcessor, MotionDetector motionDetector) {</span>
-<span class="fc" id="L31">        this.imageJProcessor = imageJProcessor;</span>
-<span class="fc" id="L32">        this.fallback = new PixelDiffStrategy(motionDetector);</span>
-<span class="fc" id="L33">    }</span>
+<span class="nc" id="L30">    public OpticalFlowStrategy(ImageJProcessor imageJProcessor, MotionDetector motionDetector) {</span>
+<span class="nc" id="L31">        this.imageJProcessor = imageJProcessor;</span>
+<span class="nc" id="L32">        this.fallback = new PixelDiffStrategy(motionDetector);</span>
+<span class="nc" id="L33">    }</span>
 
     @Override
     public MotionDetector.MotionResult detect(byte[] current, byte[] previous, double threshold) {
@@ -45,7 +45,7 @@ public class OpticalFlowStrategy implements MotionDetectionStrategy {
 
     @Override
     public String name() {
-<span class="fc" id="L48">        return &quot;optical-flow&quot;;</span>
+<span class="nc" id="L48">        return &quot;optical-flow&quot;;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

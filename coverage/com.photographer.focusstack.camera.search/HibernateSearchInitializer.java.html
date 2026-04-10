@@ -36,7 +36,9 @@ public class HibernateSearchInitializer {
 <span class="nc" id="L36">        } catch (InterruptedException e) {</span>
 <span class="nc" id="L37">            Thread.currentThread().interrupt();</span>
 <span class="nc" id="L38">            log.error(&quot;Hibernate Search mass indexing interrupted&quot;, e);</span>
-<span class="fc" id="L39">        }</span>
-<span class="fc" id="L40">    }</span>
+<span class="nc" id="L39">        } catch (Exception e) {</span>
+<span class="nc" id="L40">            log.error(&quot;Hibernate Search mass indexing failed (search may be unavailable until next restart)&quot;, e);</span>
+<span class="pc" id="L41">        }</span>
+<span class="fc" id="L42">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

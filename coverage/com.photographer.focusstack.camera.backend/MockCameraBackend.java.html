@@ -9,9 +9,14 @@ import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.Operation;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.imageio.ImageIO;
 
 public class MockCameraBackend implements CameraBackend {
 
@@ -42,16 +47,16 @@ public class MockCameraBackend implements CameraBackend {
      */
     private final int simulateMovementAt;
 
-<span class="fc" id="L45">    private final AtomicInteger focusPosition = new AtomicInteger(0);</span>
-<span class="fc" id="L46">    private final AtomicInteger captureCount  = new AtomicInteger(0);</span>
+<span class="fc" id="L50">    private final AtomicInteger focusPosition = new AtomicInteger(0);</span>
+<span class="fc" id="L51">    private final AtomicInteger captureCount  = new AtomicInteger(0);</span>
 
     /** Duration to block (in ms) when simulating a network timeout. */
     private static final long SIMULATED_TIMEOUT_MS = 30_000;
 
     /** Standard constructor — no failure simulation. */
     public MockCameraBackend(long delayMs) {
-<span class="fc" id="L53">        this(delayMs, 0, 0, 0, 0);</span>
-<span class="fc" id="L54">    }</span>
+<span class="fc" id="L58">        this(delayMs, 0, 0, 0, 0);</span>
+<span class="fc" id="L59">    }</span>
 
     /**
      * Full constructor with all failure-simulation parameters.
@@ -66,18 +71,18 @@ public class MockCameraBackend implements CameraBackend {
                              int simulateTimeoutAfterFrames,
                              int simulateDisconnectAfterFrames,
                              int simulateEmptyFrameAt,
-<span class="fc" id="L69">                             int simulateMovementAt) {</span>
-<span class="fc" id="L70">        this.delayMs                      = delayMs;</span>
-<span class="fc" id="L71">        this.simulateTimeoutAfterFrames   = simulateTimeoutAfterFrames;</span>
-<span class="fc" id="L72">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
-<span class="fc" id="L73">        this.simulateEmptyFrameAt         = simulateEmptyFrameAt;</span>
-<span class="fc" id="L74">        this.simulateMovementAt           = simulateMovementAt;</span>
-<span class="fc" id="L75">    }</span>
+<span class="fc" id="L74">                             int simulateMovementAt) {</span>
+<span class="fc" id="L75">        this.delayMs                      = delayMs;</span>
+<span class="fc" id="L76">        this.simulateTimeoutAfterFrames   = simulateTimeoutAfterFrames;</span>
+<span class="fc" id="L77">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
+<span class="fc" id="L78">        this.simulateEmptyFrameAt         = simulateEmptyFrameAt;</span>
+<span class="fc" id="L79">        this.simulateMovementAt           = simulateMovementAt;</span>
+<span class="fc" id="L80">    }</span>
 
     @Override
     public CameraInfo getInfo() {
-<span class="fc" id="L79">        simulateDelay();</span>
-<span class="fc" id="L80">        return new CameraInfo(</span>
+<span class="fc" id="L84">        simulateDelay();</span>
+<span class="fc" id="L85">        return new CameraInfo(</span>
                 &quot;mock-camera-001&quot;,
                 &quot;Mock Camera&quot;,
                 &quot;Mock Camera&quot;,
@@ -89,59 +94,67 @@ public class MockCameraBackend implements CameraBackend {
 
     @Override
     public LiveViewFrame getLiveView() {
-<span class="fc" id="L92">        simulateDelay();</span>
-<span class="fc" id="L93">        byte[] data = new byte[640 * 480];</span>
-<span class="fc" id="L94">        int pos = focusPosition.get();</span>
-<span class="fc bfc" id="L95" title="All 2 branches covered.">        for (int i = 0; i &lt; data.length; i++) {</span>
-<span class="fc" id="L96">            data[i] = (byte) ((i + pos) % 256);</span>
+<span class="fc" id="L97">        simulateDelay();</span>
+<span class="fc" id="L98">        int w = 640, h = 480;</span>
+<span class="fc" id="L99">        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);</span>
+<span class="fc" id="L100">        int pos = focusPosition.get();</span>
+        // Generate a colour gradient pattern that shifts with the focus position
+<span class="fc bfc" id="L102" title="All 2 branches covered.">        for (int y = 0; y &lt; h; y++) {</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">            for (int x = 0; x &lt; w; x++) {</span>
+<span class="fc" id="L104">                int r = (x + pos * 3) % 256;</span>
+<span class="fc" id="L105">                int g = (y + pos * 7) % 256;</span>
+<span class="fc" id="L106">                int b = ((x + y) / 2 + pos * 5) % 256;</span>
+<span class="fc" id="L107">                img.setRGB(x, y, (r &lt;&lt; 16) | (g &lt;&lt; 8) | b);</span>
+            }
         }
-<span class="fc" id="L98">        return new LiveViewFrame(data, 640, 480, Instant.now(), &quot;image/jpeg&quot;);</span>
+<span class="fc" id="L110">        byte[] data = toPng(img);</span>
+<span class="fc" id="L111">        return new LiveViewFrame(data, w, h, Instant.now(), &quot;image/png&quot;);</span>
     }
 
     @Override
     public CaptureResult capture() {
-<span class="fc" id="L103">        simulateDelay();</span>
+<span class="fc" id="L116">        simulateDelay();</span>
 
-<span class="fc" id="L105">        int captureIndex = captureCount.incrementAndGet(); // 1-based</span>
+<span class="fc" id="L118">        int captureIndex = captureCount.incrementAndGet(); // 1-based</span>
 
         // Timeout simulation: block for 30 s after threshold
-<span class="pc bpc" id="L108" title="3 of 4 branches missed.">        if (simulateTimeoutAfterFrames &gt; 0 &amp;&amp; captureIndex &gt; simulateTimeoutAfterFrames) {</span>
+<span class="pc bpc" id="L121" title="3 of 4 branches missed.">        if (simulateTimeoutAfterFrames &gt; 0 &amp;&amp; captureIndex &gt; simulateTimeoutAfterFrames) {</span>
             try {
-<span class="nc" id="L110">                Thread.sleep(SIMULATED_TIMEOUT_MS);</span>
-<span class="nc" id="L111">            } catch (InterruptedException e) {</span>
-<span class="nc" id="L112">                Thread.currentThread().interrupt();</span>
-<span class="nc" id="L113">            }</span>
+<span class="nc" id="L123">                Thread.sleep(SIMULATED_TIMEOUT_MS);</span>
+<span class="nc" id="L124">            } catch (InterruptedException e) {</span>
+<span class="nc" id="L125">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L126">            }</span>
         }
 
         // Disconnect simulation: throw CameraException after threshold
-<span class="fc bfc" id="L117" title="All 4 branches covered.">        if (simulateDisconnectAfterFrames &gt; 0 &amp;&amp; captureIndex &gt; simulateDisconnectAfterFrames) {</span>
-<span class="fc" id="L118">            throw new CameraException(</span>
+<span class="fc bfc" id="L130" title="All 4 branches covered.">        if (simulateDisconnectAfterFrames &gt; 0 &amp;&amp; captureIndex &gt; simulateDisconnectAfterFrames) {</span>
+<span class="fc" id="L131">            throw new CameraException(</span>
                     &quot;Simulated Wi-Fi disconnect after frame &quot; + simulateDisconnectAfterFrames);
         }
 
-<span class="fc" id="L122">        int pos = focusPosition.getAndIncrement();</span>
-<span class="fc" id="L123">        String imageId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L135">        int pos = focusPosition.getAndIncrement();</span>
+<span class="fc" id="L136">        String imageId = UUID.randomUUID().toString();</span>
 
         // Empty frame simulation
-<span class="fc bfc" id="L126" title="All 4 branches covered.">        if (simulateEmptyFrameAt &gt; 0 &amp;&amp; captureIndex == simulateEmptyFrameAt) {</span>
-<span class="fc" id="L127">            return new CaptureResult(</span>
-                    imageId, &quot;IMG_EMPTY_&quot; + pos + &quot;.jpg&quot;, &quot;/mock/captures/&quot; + imageId + &quot;.jpg&quot;,
-<span class="fc" id="L129">                    Instant.now(), pos, 0, new byte[0]);</span>
+<span class="fc bfc" id="L139" title="All 4 branches covered.">        if (simulateEmptyFrameAt &gt; 0 &amp;&amp; captureIndex == simulateEmptyFrameAt) {</span>
+<span class="fc" id="L140">            return new CaptureResult(</span>
+                    imageId, &quot;IMG_EMPTY_&quot; + pos + &quot;.png&quot;, &quot;/mock/captures/&quot; + imageId + &quot;.png&quot;,
+<span class="fc" id="L142">                    Instant.now(), pos, 0, new byte[0]);</span>
         }
 
         // Movement simulation: produce a drastically different (noise-like) image
         byte[] imageData;
-<span class="fc bfc" id="L134" title="All 4 branches covered.">        if (simulateMovementAt &gt; 0 &amp;&amp; captureIndex == simulateMovementAt) {</span>
-<span class="fc" id="L135">            imageData = generateMovementImage();</span>
+<span class="fc bfc" id="L147" title="All 4 branches covered.">        if (simulateMovementAt &gt; 0 &amp;&amp; captureIndex == simulateMovementAt) {</span>
+<span class="fc" id="L148">            imageData = generateMovementImage();</span>
         } else {
-<span class="fc" id="L137">            imageData = generateSyntheticImage(pos);</span>
+<span class="fc" id="L150">            imageData = generateSyntheticImage(pos);</span>
         }
 
-<span class="fc" id="L140">        return new CaptureResult(</span>
+<span class="fc" id="L153">        return new CaptureResult(</span>
                 imageId,
-                &quot;IMG_&quot; + pos + &quot;.jpg&quot;,
-                &quot;/mock/captures/&quot; + imageId + &quot;.jpg&quot;,
-<span class="fc" id="L144">                Instant.now(),</span>
+                &quot;IMG_&quot; + pos + &quot;.png&quot;,
+                &quot;/mock/captures/&quot; + imageId + &quot;.png&quot;,
+<span class="fc" id="L157">                Instant.now(),</span>
                 pos,
                 imageData.length,
                 imageData
@@ -155,57 +168,74 @@ public class MockCameraBackend implements CameraBackend {
      */
     private static final double MAX_CHECKERBOARD_STRIDE = 4.0;
 
-    /** Creates a 64×64 pixel synthetic image whose sharpness peaks at focus position 50. */
+    /** Creates a 64×64 pixel synthetic PNG image whose sharpness peaks at focus position 50. */
     private byte[] generateSyntheticImage(int focusPosition) {
-<span class="fc" id="L160">        int w = 64, h = 64;</span>
-<span class="fc" id="L161">        byte[] data = new byte[w * h];</span>
+<span class="fc" id="L173">        int w = 64, h = 64;</span>
+<span class="fc" id="L174">        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);</span>
         // Sharpness peak at position 50; simulate edge contrast declining away from peak
-<span class="fc" id="L163">        double distFromPeak = Math.abs(focusPosition - 50.0);</span>
-<span class="fc" id="L164">        double sharpnessFactor = Math.max(0.1, 1.0 - distFromPeak / 100.0);</span>
-<span class="fc" id="L165">        int stride = Math.max(1, (int) (MAX_CHECKERBOARD_STRIDE / sharpnessFactor));</span>
-<span class="fc bfc" id="L166" title="All 2 branches covered.">        for (int y = 0; y &lt; h; y++) {</span>
-<span class="fc bfc" id="L167" title="All 2 branches covered.">            for (int x = 0; x &lt; w; x++) {</span>
+<span class="fc" id="L176">        double distFromPeak = Math.abs(focusPosition - 50.0);</span>
+<span class="fc" id="L177">        double sharpnessFactor = Math.max(0.1, 1.0 - distFromPeak / 100.0);</span>
+<span class="fc" id="L178">        int stride = Math.max(1, (int) (MAX_CHECKERBOARD_STRIDE / sharpnessFactor));</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        for (int y = 0; y &lt; h; y++) {</span>
+<span class="fc bfc" id="L180" title="All 2 branches covered.">            for (int x = 0; x &lt; w; x++) {</span>
                 // Checkerboard pattern; tighter (smaller stride) = sharper
-<span class="fc bfc" id="L169" title="All 2 branches covered.">                boolean bright = ((x / stride + y / stride) % 2 == 0);</span>
-<span class="fc bfc" id="L170" title="All 2 branches covered.">                data[y * w + x] = (byte) (bright ? 220 : 30);</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">                int gray = ((x / stride + y / stride) % 2 == 0) ? 220 : 30;</span>
+<span class="fc" id="L183">                int rgb = (gray &lt;&lt; 16) | (gray &lt;&lt; 8) | gray;</span>
+<span class="fc" id="L184">                img.setRGB(x, y, rgb);</span>
             }
         }
-<span class="fc" id="L173">        return data;</span>
+<span class="fc" id="L187">        return toPng(img);</span>
     }
 
     /**
-     * Generates a pseudo-random noise image to simulate sudden subject movement.
+     * Generates a pseudo-random noise PNG image to simulate sudden subject movement.
      * The high-frequency variation will trigger the motion detector.
      */
     private byte[] generateMovementImage() {
-<span class="fc" id="L181">        int w = 64, h = 64;</span>
-<span class="fc" id="L182">        byte[] data = new byte[w * h];</span>
-<span class="fc bfc" id="L183" title="All 2 branches covered.">        for (int i = 0; i &lt; data.length; i++) {</span>
-            // XOR-based noise pattern — maximally different from a checkerboard
-<span class="fc" id="L185">            data[i] = (byte) ((i * 0x6B + 0xA5) &amp; 0xFF);</span>
+<span class="fc" id="L195">        int w = 64, h = 64;</span>
+<span class="fc" id="L196">        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">        for (int y = 0; y &lt; h; y++) {</span>
+<span class="fc bfc" id="L198" title="All 2 branches covered.">            for (int x = 0; x &lt; w; x++) {</span>
+<span class="fc" id="L199">                int i = y * w + x;</span>
+                // XOR-based noise pattern — maximally different from a checkerboard
+<span class="fc" id="L201">                int gray = (i * 0x6B + 0xA5) &amp; 0xFF;</span>
+<span class="fc" id="L202">                int rgb = (gray &lt;&lt; 16) | (gray &lt;&lt; 8) | gray;</span>
+<span class="fc" id="L203">                img.setRGB(x, y, rgb);</span>
+            }
         }
-<span class="fc" id="L187">        return data;</span>
+<span class="fc" id="L206">        return toPng(img);</span>
+    }
+
+    /** Encodes a BufferedImage as PNG bytes. */
+    private static byte[] toPng(BufferedImage img) {
+        try {
+<span class="fc" id="L212">            ByteArrayOutputStream baos = new ByteArrayOutputStream();</span>
+<span class="fc" id="L213">            ImageIO.write(img, &quot;png&quot;, baos);</span>
+<span class="fc" id="L214">            return baos.toByteArray();</span>
+<span class="nc" id="L215">        } catch (IOException e) {</span>
+<span class="nc" id="L216">            throw new UncheckedIOException(&quot;Failed to encode mock PNG image&quot;, e);</span>
+        }
     }
 
     @Override
     public void setFocus(FocusCommand command) {
-<span class="fc" id="L192">        simulateDelay();</span>
-<span class="fc" id="L193">        int delta = command.steps();</span>
-<span class="fc bfc" id="L194" title="All 2 branches covered.">        if (command.direction() == FocusCommand.Direction.NEAR) {</span>
-<span class="fc" id="L195">            focusPosition.addAndGet(-delta);</span>
+<span class="fc" id="L222">        simulateDelay();</span>
+<span class="fc" id="L223">        int delta = command.steps();</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">        if (command.direction() == FocusCommand.Direction.NEAR) {</span>
+<span class="fc" id="L225">            focusPosition.addAndGet(-delta);</span>
         } else {
-<span class="fc" id="L197">            focusPosition.addAndGet(delta);</span>
+<span class="fc" id="L227">            focusPosition.addAndGet(delta);</span>
         }
-<span class="fc" id="L199">    }</span>
+<span class="fc" id="L229">    }</span>
 
     @Override
     public CameraState getState() {
-<span class="fc" id="L203">        simulateDelay();</span>
-<span class="fc" id="L204">        return new CameraState(</span>
+<span class="fc" id="L233">        simulateDelay();</span>
+<span class="fc" id="L234">        return new CameraState(</span>
                 true,
                 85,
                 10_000_000L,
-<span class="fc" id="L208">                focusPosition.get(),</span>
+<span class="fc" id="L238">                focusPosition.get(),</span>
                 &quot;1/125&quot;,
                 &quot;f/8.0&quot;,
                 &quot;ISO 100&quot;,
@@ -215,17 +245,17 @@ public class MockCameraBackend implements CameraBackend {
 
     @Override
     public boolean supports(Operation operation) {
-<span class="fc" id="L218">        return true;</span>
+<span class="fc" id="L248">        return true;</span>
     }
 
     private void simulateDelay() {
-<span class="fc bfc" id="L222" title="All 2 branches covered.">        if (delayMs &gt; 0) {</span>
+<span class="fc bfc" id="L252" title="All 2 branches covered.">        if (delayMs &gt; 0) {</span>
             try {
-<span class="fc" id="L224">                Thread.sleep(delayMs);</span>
-<span class="nc" id="L225">            } catch (InterruptedException e) {</span>
-<span class="nc" id="L226">                Thread.currentThread().interrupt();</span>
-<span class="fc" id="L227">            }</span>
+<span class="fc" id="L254">                Thread.sleep(delayMs);</span>
+<span class="nc" id="L255">            } catch (InterruptedException e) {</span>
+<span class="nc" id="L256">                Thread.currentThread().interrupt();</span>
+<span class="fc" id="L257">            }</span>
         }
-<span class="fc" id="L229">    }</span>
+<span class="fc" id="L259">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
