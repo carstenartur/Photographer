@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.controller</a> &gt; <span class="el_source">CameraController.java</span></div><h1>CameraController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -29,78 +31,87 @@ import java.util.List;
 public class CameraController {
 
     private final CameraProfileService profileService;
-    private final CameraBackend cameraBackend;
+    private final CameraBackendFactory backendFactory;
     private final SearchService searchService;
 
-    public CameraController(CameraProfileService profileService, CameraBackend cameraBackend,
-<span class="fc" id="L36">                            SearchService searchService) {</span>
-<span class="fc" id="L37">        this.profileService = profileService;</span>
-<span class="fc" id="L38">        this.cameraBackend = cameraBackend;</span>
-<span class="fc" id="L39">        this.searchService = searchService;</span>
-<span class="fc" id="L40">    }</span>
+    public CameraController(CameraProfileService profileService, CameraBackendFactory backendFactory,
+<span class="fc" id="L38">                            SearchService searchService) {</span>
+<span class="fc" id="L39">        this.profileService = profileService;</span>
+<span class="fc" id="L40">        this.backendFactory = backendFactory;</span>
+<span class="fc" id="L41">        this.searchService = searchService;</span>
+<span class="fc" id="L42">    }</span>
+
+    /** Resolve the correct backend for a camera profile. */
+    private CameraBackend backendFor(String profileId) {
+<span class="fc" id="L46">        CameraProfile profile = profileService.getProfile(profileId);</span>
+<span class="fc" id="L47">        return backendFactory.getBackend(profile);</span>
+    }
 
     @GetMapping
     public ResponseEntity&lt;List&lt;CameraProfile&gt;&gt; listProfiles() {
-<span class="fc" id="L44">        return ResponseEntity.ok(profileService.getAllProfiles());</span>
+<span class="fc" id="L52">        return ResponseEntity.ok(profileService.getAllProfiles());</span>
     }
 
     @PostMapping
     public ResponseEntity&lt;CameraProfile&gt; createProfile(@Valid @RequestBody CameraProfile profile) {
-<span class="fc" id="L49">        return ResponseEntity.status(HttpStatus.CREATED).body(profileService.createProfile(profile));</span>
+<span class="fc" id="L57">        return ResponseEntity.status(HttpStatus.CREATED).body(profileService.createProfile(profile));</span>
     }
 
     @GetMapping(&quot;/{id}&quot;)
     public ResponseEntity&lt;CameraProfile&gt; getProfile(@PathVariable String id) {
-<span class="fc" id="L54">        return ResponseEntity.ok(profileService.getProfile(id));</span>
+<span class="fc" id="L62">        return ResponseEntity.ok(profileService.getProfile(id));</span>
     }
 
     @PutMapping(&quot;/{id}&quot;)
     public ResponseEntity&lt;CameraProfile&gt; updateProfile(@PathVariable String id,
                                                         @Valid @RequestBody CameraProfile profile) {
-<span class="fc" id="L60">        return ResponseEntity.ok(profileService.updateProfile(id, profile));</span>
+<span class="fc" id="L68">        backendFactory.evict(id);</span>
+<span class="fc" id="L69">        return ResponseEntity.ok(profileService.updateProfile(id, profile));</span>
     }
 
     @DeleteMapping(&quot;/{id}&quot;)
     public ResponseEntity&lt;Void&gt; deleteProfile(@PathVariable String id) {
-<span class="fc" id="L65">        profileService.deleteProfile(id);</span>
-<span class="fc" id="L66">        return ResponseEntity.noContent().build();</span>
+<span class="fc" id="L74">        backendFactory.evict(id);</span>
+<span class="fc" id="L75">        profileService.deleteProfile(id);</span>
+<span class="fc" id="L76">        return ResponseEntity.noContent().build();</span>
     }
 
     @GetMapping(&quot;/search&quot;)
     public ResponseEntity&lt;List&lt;CameraProfile&gt;&gt; searchProfiles(
             @RequestParam String q,
             @RequestParam(defaultValue = &quot;20&quot;) int maxResults) {
-<span class="fc" id="L73">        List&lt;CameraProfile&gt; results = searchService.searchCameraProfiles(q, maxResults)</span>
-<span class="fc" id="L74">                .stream()</span>
-<span class="fc" id="L75">                .map(CameraProfileEntity::toRecord)</span>
-<span class="fc" id="L76">                .toList();</span>
-<span class="fc" id="L77">        return ResponseEntity.ok(results);</span>
+<span class="fc" id="L83">        List&lt;CameraProfile&gt; results = searchService.searchCameraProfiles(q, maxResults)</span>
+<span class="fc" id="L84">                .stream()</span>
+<span class="fc" id="L85">                .map(CameraProfileEntity::toRecord)</span>
+<span class="fc" id="L86">                .toList();</span>
+<span class="fc" id="L87">        return ResponseEntity.ok(results);</span>
+    }
+
+    @GetMapping(&quot;/{id}/info&quot;)
+    public ResponseEntity&lt;CameraInfo&gt; getCameraInfo(@PathVariable String id) {
+<span class="fc" id="L92">        return ResponseEntity.ok(backendFor(id).getInfo());</span>
     }
 
     @GetMapping(&quot;/{id}/status&quot;)
     public ResponseEntity&lt;CameraState&gt; getCameraStatus(@PathVariable String id) {
-<span class="fc" id="L82">        profileService.getProfile(id);</span>
-<span class="fc" id="L83">        return ResponseEntity.ok(cameraBackend.getState());</span>
+<span class="fc" id="L97">        return ResponseEntity.ok(backendFor(id).getState());</span>
     }
 
     @GetMapping(&quot;/{id}/liveview&quot;)
     public ResponseEntity&lt;LiveViewFrame&gt; getLiveView(@PathVariable String id) {
-<span class="nc" id="L88">        profileService.getProfile(id);</span>
-<span class="nc" id="L89">        return ResponseEntity.ok(cameraBackend.getLiveView());</span>
+<span class="nc" id="L102">        return ResponseEntity.ok(backendFor(id).getLiveView());</span>
     }
 
     @PostMapping(&quot;/{id}/capture&quot;)
     public ResponseEntity&lt;CaptureResult&gt; capture(@PathVariable String id) {
-<span class="fc" id="L94">        profileService.getProfile(id);</span>
-<span class="fc" id="L95">        return ResponseEntity.ok(cameraBackend.capture());</span>
+<span class="fc" id="L107">        return ResponseEntity.ok(backendFor(id).capture());</span>
     }
 
     @PostMapping(&quot;/{id}/focus&quot;)
     public ResponseEntity&lt;Void&gt; adjustFocus(@PathVariable String id,
                                              @Valid @RequestBody FocusCommand command) {
-<span class="nc" id="L101">        profileService.getProfile(id);</span>
-<span class="nc" id="L102">        cameraBackend.setFocus(command);</span>
-<span class="nc" id="L103">        return ResponseEntity.ok().build();</span>
+<span class="nc" id="L113">        backendFor(id).setFocus(command);</span>
+<span class="nc" id="L114">        return ResponseEntity.ok().build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

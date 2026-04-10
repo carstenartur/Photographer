@@ -32,9 +32,9 @@ public class StackingAdvisor {
 <span class="fc" id="L32">        this.sharpnessAnalyzer = sharpnessAnalyzer;</span>
 <span class="fc" id="L33">        this.informationGainEstimator = informationGainEstimator;</span>
 <span class="fc" id="L34">        this.imageJProcessor = imageJProcessor;</span>
-<span class="fc bfc" id="L35" title="All 3 branches covered.">        this.motionDetectionStrategy = switch (strategyName.toLowerCase()) {</span>
+<span class="pc bpc" id="L35" title="1 of 3 branches missed.">        this.motionDetectionStrategy = switch (strategyName.toLowerCase()) {</span>
 <span class="fc" id="L36">            case &quot;pixel-diff&quot; -&gt; new PixelDiffStrategy(motionDetector);</span>
-<span class="fc" id="L37">            case &quot;optical-flow&quot; -&gt; new OpticalFlowStrategy(imageJProcessor, motionDetector);</span>
+<span class="nc" id="L37">            case &quot;optical-flow&quot; -&gt; new OpticalFlowStrategy(imageJProcessor, motionDetector);</span>
 <span class="fc" id="L38">            default -&gt; new StructuralSimilarityStrategy(imageJProcessor, motionDetector);</span>
         };
 <span class="fc" id="L40">        log.info(&quot;StackingAdvisor initialized with '{}' motion detection strategy&quot;,</span>

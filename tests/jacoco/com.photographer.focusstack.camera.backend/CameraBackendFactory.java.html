@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraBackendFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CameraBackendFactory.java</span></div><h1>CameraBackendFactory.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.model.CameraProfile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Resolves the correct {@link CameraBackend} for a given {@link CameraProfile}.
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code mock} profiles → {@link MockCameraBackend}&lt;/li&gt;
+ *   &lt;li&gt;{@code canon-ccapi} profiles → {@link CanonCcapiBackend} pointed at the profile's host&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * Backends are cached per profile id so that focus-position state is preserved
+ * across requests for the same camera.
+ */
+@Component
+public class CameraBackendFactory {
+
+<span class="fc" id="L28">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
+
+    private final long mockDelayMs;
+    private final int simulateTimeoutAfterFrames;
+    private final int simulateDisconnectAfterFrames;
+    private final int simulateEmptyFrameAt;
+    private final int simulateMovementAt;
+    private final RestTemplate restTemplate;
+
+    /** Cache backends per profile-id so focus position state is preserved. */
+<span class="fc" id="L38">    private final Map&lt;String, CameraBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+
+    public CameraBackendFactory(
+            @Value(&quot;${camera.mock.delay-ms:50}&quot;) long mockDelayMs,
+            @Value(&quot;${camera.mock.simulate-timeout-after-frames:0}&quot;) int simulateTimeoutAfterFrames,
+            @Value(&quot;${camera.mock.simulate-disconnect-after-frames:0}&quot;) int simulateDisconnectAfterFrames,
+            @Value(&quot;${camera.mock.simulate-empty-frame-at:0}&quot;) int simulateEmptyFrameAt,
+<span class="fc" id="L45">            @Value(&quot;${camera.mock.simulate-movement-at:0}&quot;) int simulateMovementAt) {</span>
+<span class="fc" id="L46">        this.mockDelayMs = mockDelayMs;</span>
+<span class="fc" id="L47">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
+<span class="fc" id="L48">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
+<span class="fc" id="L49">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
+<span class="fc" id="L50">        this.simulateMovementAt = simulateMovementAt;</span>
+<span class="fc" id="L51">        this.restTemplate = new RestTemplate();</span>
+<span class="fc" id="L52">    }</span>
+
+    /**
+     * Returns a {@link CameraBackend} appropriate for the given profile.
+     * The backend is created on first access and then cached by profile id.
+     * If the profile's host or backendType changes, call {@link #evict(String)}
+     * to force re-creation.
+     */
+    public CameraBackend getBackend(CameraProfile profile) {
+<span class="fc" id="L61">        return cache.computeIfAbsent(profile.id(), id -&gt; createBackend(profile));</span>
+    }
+
+    /** Removes a cached backend (e.g. when a profile is updated or deleted). */
+    public void evict(String profileId) {
+<span class="fc" id="L66">        cache.remove(profileId);</span>
+<span class="fc" id="L67">    }</span>
+
+    private CameraBackend createBackend(CameraProfile profile) {
+<span class="fc" id="L70">        String type = profile.backendType();</span>
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
+<span class="fc" id="L72">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
+<span class="fc" id="L73">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
+                    simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
+        }
+        // Default: canon-ccapi
+<span class="nc" id="L77">        String host = profile.host();</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
+<span class="nc" id="L79">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
+<span class="nc" id="L80">                profile.name(), profile.id(), baseUrl);</span>
+<span class="nc" id="L81">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
