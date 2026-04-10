@@ -98,9 +98,15 @@ public class JobController {
         }
         // Derive content type from filename extension
         String fileName = entry.fileName();
-        MediaType contentType = fileName != null && fileName.toLowerCase().endsWith(".png")
-                ? MediaType.IMAGE_PNG
-                : MediaType.APPLICATION_OCTET_STREAM;
+        MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;
+        if (fileName != null) {
+            String lower = fileName.toLowerCase();
+            if (lower.endsWith(".png")) {
+                contentType = MediaType.IMAGE_PNG;
+            } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                contentType = MediaType.IMAGE_JPEG;
+            }
+        }
         return ResponseEntity.ok()
                 .contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,

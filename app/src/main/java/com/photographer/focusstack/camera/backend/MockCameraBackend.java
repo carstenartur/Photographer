@@ -9,9 +9,14 @@ import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.Operation;
 
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.imageio.ImageIO;
 
 public class MockCameraBackend implements CameraBackend {
 
@@ -90,12 +95,20 @@ public class MockCameraBackend implements CameraBackend {
     @Override
     public LiveViewFrame getLiveView() {
         simulateDelay();
-        byte[] data = new byte[640 * 480];
+        int w = 640, h = 480;
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
         int pos = focusPosition.get();
-        for (int i = 0; i < data.length; i++) {
-            data[i] = (byte) ((i + pos) % 256);
+        // Generate a colour gradient pattern that shifts with the focus position
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int r = (x + pos * 3) % 256;
+                int g = (y + pos * 7) % 256;
+                int b = ((x + y) / 2 + pos * 5) % 256;
+                img.setRGB(x, y, (r << 16) | (g << 8) | b);
+            }
         }
-        return new LiveViewFrame(data, 640, 480, Instant.now(), "image/jpeg");
+        byte[] data = toPng(img);
+        return new LiveViewFrame(data, w, h, Instant.now(), "image/png");
     }
 
     @Override
@@ -125,7 +138,7 @@ public class MockCameraBackend implements CameraBackend {
         // Empty frame simulation
         if (simulateEmptyFrameAt > 0 && captureIndex == simulateEmptyFrameAt) {
             return new CaptureResult(
-                    imageId, "IMG_EMPTY_" + pos + ".jpg", "/mock/captures/" + imageId + ".jpg",
+                    imageId, "IMG_EMPTY_" + pos + ".png", "/mock/captures/" + imageId + ".png",
                     Instant.now(), pos, 0, new byte[0]);
         }
 
@@ -139,8 +152,8 @@ public class MockCameraBackend implements CameraBackend {
 
         return new CaptureResult(
                 imageId,
-                "IMG_" + pos + ".jpg",
-                "/mock/captures/" + imageId + ".jpg",
+                "IMG_" + pos + ".png",
+                "/mock/captures/" + imageId + ".png",
                 Instant.now(),
                 pos,
                 imageData.length,
@@ -155,10 +168,10 @@ public class MockCameraBackend implements CameraBackend {
      */
     private static final double MAX_CHECKERBOARD_STRIDE = 4.0;
 
-    /** Creates a 64×64 pixel synthetic image whose sharpness peaks at focus position 50. */
+    /** Creates a 64×64 pixel synthetic PNG image whose sharpness peaks at focus position 50. */
     private byte[] generateSyntheticImage(int focusPosition) {
         int w = 64, h = 64;
-        byte[] data = new byte[w * h];
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
         // Sharpness peak at position 50; simulate edge contrast declining away from peak
         double distFromPeak = Math.abs(focusPosition - 50.0);
         double sharpnessFactor = Math.max(0.1, 1.0 - distFromPeak / 100.0);
@@ -166,25 +179,42 @@ public class MockCameraBackend implements CameraBackend {
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 // Checkerboard pattern; tighter (smaller stride) = sharper
-                boolean bright = ((x / stride + y / stride) % 2 == 0);
-                data[y * w + x] = (byte) (bright ? 220 : 30);
+                int gray = ((x / stride + y / stride) % 2 == 0) ? 220 : 30;
+                int rgb = (gray << 16) | (gray << 8) | gray;
+                img.setRGB(x, y, rgb);
             }
         }
-        return data;
+        return toPng(img);
     }
 
     /**
-     * Generates a pseudo-random noise image to simulate sudden subject movement.
+     * Generates a pseudo-random noise PNG image to simulate sudden subject movement.
      * The high-frequency variation will trigger the motion detector.
      */
     private byte[] generateMovementImage() {
         int w = 64, h = 64;
-        byte[] data = new byte[w * h];
-        for (int i = 0; i < data.length; i++) {
-            // XOR-based noise pattern — maximally different from a checkerboard
-            data[i] = (byte) ((i * 0x6B + 0xA5) & 0xFF);
+        BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int i = y * w + x;
+                // XOR-based noise pattern — maximally different from a checkerboard
+                int gray = (i * 0x6B + 0xA5) & 0xFF;
+                int rgb = (gray << 16) | (gray << 8) | gray;
+                img.setRGB(x, y, rgb);
+            }
         }
-        return data;
+        return toPng(img);
+    }
+
+    /** Encodes a BufferedImage as PNG bytes. */
+    private static byte[] toPng(BufferedImage img) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(img, "png", baos);
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to encode mock PNG image", e);
+        }
     }
 
     @Override

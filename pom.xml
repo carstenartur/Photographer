@@ -37,6 +37,8 @@
         <jacoco.version>0.8.14</jacoco.version>
         <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
         <argLine/>
+        <!-- Tags excluded by default; override with -DexcludedGroups= to run real-camera tests -->
+        <excludedGroups>docker,real-camera</excludedGroups>
     </properties>
 
     <dependencyManagement>
@@ -87,7 +89,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <configuration>
                         <argLine>-Xmx512m -Djava.awt.headless=true @{argLine}</argLine>
-                        <excludedGroups>docker</excludedGroups>
+                        <excludedGroups>${excludedGroups}</excludedGroups>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -95,7 +97,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
                         <argLine>-Xmx1g -Djava.awt.headless=true @{argLine}</argLine>
-                        <excludedGroups>docker</excludedGroups>
+                        <excludedGroups>${excludedGroups}</excludedGroups>
                     </configuration>
                 </plugin>
             </plugins>

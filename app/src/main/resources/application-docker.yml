@@ -25,7 +25,7 @@ focusstack:
 
 camera:
   mock:
-    enabled: ${CAMERA_MOCK_ENABLED:true}
+    enabled: ${CAMERA_MOCK_ENABLED:false}
 
 logging:
   level:

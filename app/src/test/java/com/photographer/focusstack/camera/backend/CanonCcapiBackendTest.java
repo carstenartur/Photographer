@@ -12,8 +12,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
+import org.springframework.http.HttpEntity;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -25,21 +29,103 @@ class CanonCcapiBackendTest {
     private CanonCcapiBackend backend;
     private static final String BASE_URL = "http://192.168.1.2:8080";
 
+    // Simulated CCAPI endpoint list returned by GET /ccapi/ver100
+    private static final List<String> DISCOVERED_ENDPOINTS = List.of(
+            "/ccapi/ver100/deviceinformation",
+            "/ccapi/ver100/devicestatus/battery",
+            "/ccapi/ver100/devicestatus/currentstorage",
+            "/ccapi/ver100/shooting/liveview",
+            "/ccapi/ver100/shooting/liveview/flip",
+            "/ccapi/ver100/shooting/control/shutterbutton",
+            "/ccapi/ver100/shooting/control/af",
+            "/ccapi/ver100/event/polling"
+    );
+
     @BeforeEach
     void setUp() {
         restTemplate = Mockito.mock(RestTemplate.class);
         backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+
+        // Mock the CCAPI discovery flow:
+        // GET /ccapi → { "ver100": "/ccapi/ver100" }
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", "/ccapi/ver100"));
+        // GET /ccapi/ver100 → list of endpoint paths
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(DISCOVERED_ENDPOINTS);
+    }
+
+    // ── endpoint discovery ────────────────────────────────────────────────────
+
+    @Test
+    void discoverEndpoints_parsesVersionsAndEndpoints() {
+        backend.discoverEndpoints();
+
+        assertNotNull(backend.findEndpoint("deviceinformation"));
+        assertNotNull(backend.findEndpoint("liveview/flip"));
+        assertNotNull(backend.findEndpoint("shutterbutton"));
+        assertNotNull(backend.findEndpoint("/shooting/control/af"));
+        assertNotNull(backend.findEndpoint("currentstorage"));
+        assertNotNull(backend.findEndpoint("battery"));
+    }
+
+    @Test
+    void discoverEndpoints_picksHighestVersion() {
+        // Override with two versions — should pick ver110
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", "/ccapi/ver100", "ver110", "/ccapi/ver110"));
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver110"), eq(List.class)))
+                .thenReturn(List.of("/ccapi/ver110/deviceinformation"));
+
+        backend.discoverEndpoints();
+
+        // Should have queried ver110, not ver100
+        verify(restTemplate).getForObject(eq(BASE_URL + "/ccapi/ver110"), eq(List.class));
+        assertNotNull(backend.findEndpoint("deviceinformation"));
+    }
+
+    @Test
+    void discoverEndpoints_handlesArrayValuedVersionResponse() {
+        // Some Canon firmwares return version URLs wrapped in a JSON array
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", List.of("/ccapi/ver100")));
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(DISCOVERED_ENDPOINTS);
+
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend.discoverEndpoints();
+
+        assertNotNull(backend.findEndpoint("deviceinformation"));
+        assertNotNull(backend.findEndpoint("liveview/flip"));
+        assertNotNull(backend.findEndpoint("shutterbutton"));
+    }
+
+    @Test
+    void discoverEndpoints_handlesNetworkError() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenThrow(new ResourceAccessException("Connection refused"));
+
+        // Should not throw
+        assertDoesNotThrow(() -> backend.discoverEndpoints());
+    }
+
+    @Test
+    void discoverEndpoints_handlesNullVersionResponse() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(null);
+
+        assertDoesNotThrow(() -> backend.discoverEndpoints());
     }
 
     // ── getInfo ──────────────────────────────────────────────────────────────
 
     @Test
-    void getInfo_returnsDeviceInfoFromCcapi() {
+    void getInfo_returnsDeviceInfoFromDiscoveredEndpoint() {
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/deviceinformation"),
                 eq(CanonCcapiBackend.DeviceInformation.class)))
                 .thenReturn(new CanonCcapiBackend.DeviceInformation(
-                        "Canon PowerShot G5 X Mark II", "SN12345", "1.1.0"));
+                        "Canon PowerShot G5 X Mark II", "SN12345", "1.1.0", "AA:BB:CC:DD:EE:FF"));
 
         CameraInfo info = backend.getInfo();
 
@@ -51,7 +137,9 @@ class CanonCcapiBackendTest {
 
     @Test
     void getInfo_fallsBackToDefaultModelOnNetworkError() {
-        when(restTemplate.getForObject(anyString(), eq(CanonCcapiBackend.DeviceInformation.class)))
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/deviceinformation"),
+                eq(CanonCcapiBackend.DeviceInformation.class)))
                 .thenThrow(new ResourceAccessException("Connection refused"));
 
         CameraInfo info = backend.getInfo();
@@ -63,7 +151,7 @@ class CanonCcapiBackendTest {
     @Test
     void getInfo_handlesNullFieldsFromCcapi() {
         when(restTemplate.getForObject(anyString(), eq(CanonCcapiBackend.DeviceInformation.class)))
-                .thenReturn(new CanonCcapiBackend.DeviceInformation(null, null, null));
+                .thenReturn(new CanonCcapiBackend.DeviceInformation(null, null, null, null));
 
         CameraInfo info = backend.getInfo();
 
@@ -74,7 +162,7 @@ class CanonCcapiBackendTest {
     // ── getLiveView ───────────────────────────────────────────────────────────
 
     @Test
-    void getLiveView_returnsFrameFromCcapi() {
+    void getLiveView_returnsFrameFromDiscoveredFlipEndpoint() {
         byte[] fakeJpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, 0x00};
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/shooting/liveview/flip"),
@@ -99,7 +187,10 @@ class CanonCcapiBackendTest {
 
     @Test
     void getLiveView_returnsEmptyFrameWhenCcapiReturnsNull() {
-        when(restTemplate.getForObject(anyString(), eq(byte[].class))).thenReturn(null);
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/liveview/flip"),
+                eq(byte[].class)))
+                .thenReturn(null);
 
         LiveViewFrame frame = backend.getLiveView();
 
@@ -110,7 +201,7 @@ class CanonCcapiBackendTest {
     // ── capture ───────────────────────────────────────────────────────────────
 
     @Test
-    void capture_triggersShutterAndReturnsCaptureResult() {
+    void capture_triggersShutterViaDiscoveredEndpoint() {
         when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
                 .thenReturn("{\"message\": \"ok\"}");
 
@@ -120,11 +211,10 @@ class CanonCcapiBackendTest {
         assertTrue(result.fileName().startsWith("capture-"));
         assertTrue(result.fileName().endsWith(".jpg"));
         assertNotNull(result.capturedAt());
-        // CCAPI stores images on the card; no inline data
         assertNull(result.imageData());
         verify(restTemplate).postForObject(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton"),
-                eq(java.util.Map.of("af", false)),
+                argThat(arg -> arg instanceof HttpEntity<?> he && Map.of("af", false).equals(he.getBody())),
                 eq(String.class));
     }
 
@@ -136,6 +226,55 @@ class CanonCcapiBackendTest {
         CaptureResult result = backend.capture();
 
         assertEquals(5, result.focusPosition());
+    }
+
+    @Test
+    void capture_throwsCameraExceptionOnNetworkError() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
+                .thenThrow(new ResourceAccessException("timeout"));
+
+        assertThrows(CameraException.class, () -> backend.capture());
+    }
+
+    // ── setFocus ──────────────────────────────────────────────────────────────
+
+    @Test
+    void setFocus_usesAfEndpointWithSmallStep() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 1));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "on", "lensdrivecomposite", "near_small").equals(he.getBody())),
+                eq(String.class));
+    }
+
+    @Test
+    void setFocus_usesAfEndpointWithMediumStep() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "on", "lensdrivecomposite", "far_medium").equals(he.getBody())),
+                eq(String.class));
+    }
+
+    @Test
+    void setFocus_usesAfEndpointWithLargeStep() {
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 10));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "on", "lensdrivecomposite", "far_large").equals(he.getBody())),
+                eq(String.class));
     }
 
     @Test
@@ -152,48 +291,24 @@ class CanonCcapiBackendTest {
     }
 
     @Test
-    void capture_throwsCameraExceptionOnNetworkError() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
-                .thenThrow(new ResourceAccessException("timeout"));
+    void setFocus_fallsBackToRemoconWhenAfNotDiscovered() {
+        // Override discovery: no /af endpoint, but has /remocon
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/deviceinformation",
+                        "/ccapi/ver100/shooting/liveview/remocon",
+                        "/ccapi/ver100/shooting/liveview/flip"
+                ));
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
 
-        assertThrows(CameraException.class, () -> backend.capture());
-    }
-
-    // ── setFocus ──────────────────────────────────────────────────────────────
-
-    @Test
-    void setFocus_sendsNear1ForSingleStepNear() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
-
-        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 1));
-
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/mfdrive"),
-                eq(java.util.Map.of("kind", "near1")),
-                eq(String.class));
-    }
-
-    @Test
-    void setFocus_sendsFar2ForMediumStepFar() {
         when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
 
         verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/mfdrive"),
-                eq(java.util.Map.of("kind", "far2")),
-                eq(String.class));
-    }
-
-    @Test
-    void setFocus_sendsFar3ForLargeStepFar() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
-
-        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 10));
-
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/mfdrive"),
-                eq(java.util.Map.of("kind", "far3")),
+                eq(BASE_URL + "/ccapi/ver100/shooting/liveview/remocon"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("direction", "far", "magnitude", "medium").equals(he.getBody())),
                 eq(String.class));
     }
 
@@ -209,15 +324,15 @@ class CanonCcapiBackendTest {
     // ── getState ──────────────────────────────────────────────────────────────
 
     @Test
-    void getState_returnsBatteryAndStorageFromCcapi() {
+    void getState_returnsBatteryAndStorageFromDiscoveredEndpoints() {
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
                 eq(CanonCcapiBackend.BatteryStatus.class)))
-                .thenReturn(new CanonCcapiBackend.BatteryStatus("high"));
+                .thenReturn(new CanonCcapiBackend.BatteryStatus(null, null, "high", null));
         when(restTemplate.getForObject(
-                eq(BASE_URL + "/ccapi/ver100/devicestatus/storage"),
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/currentstorage"),
                 eq(CanonCcapiBackend.StorageStatus.class)))
-                .thenReturn(new CanonCcapiBackend.StorageStatus(2_000_000_000L));
+                .thenReturn(new CanonCcapiBackend.StorageStatus(null, null, 2_000_000_000L));
 
         CameraState state = backend.getState();
 
@@ -233,16 +348,15 @@ class CanonCcapiBackendTest {
                 eq(CanonCcapiBackend.BatteryStatus.class)))
                 .thenThrow(new ResourceAccessException("timeout"));
         when(restTemplate.getForObject(
-                eq(BASE_URL + "/ccapi/ver100/devicestatus/storage"),
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/currentstorage"),
                 eq(CanonCcapiBackend.StorageStatus.class)))
                 .thenReturn(null);
 
         CameraState state = backend.getState();
 
-        // Storage call succeeded (returned null without throwing) → connected=true
-        assertTrue(state.connected());
+        assertTrue(state.connected()); // storage call succeeded
         assertEquals(100, state.batteryLevel()); // default when battery fails
-        assertEquals(0L, state.storageAvailable()); // null storage → default
+        assertEquals(0L, state.storageAvailable());
     }
 
     @Test
@@ -252,7 +366,7 @@ class CanonCcapiBackendTest {
                 eq(CanonCcapiBackend.BatteryStatus.class)))
                 .thenThrow(new ResourceAccessException("timeout"));
         when(restTemplate.getForObject(
-                eq(BASE_URL + "/ccapi/ver100/devicestatus/storage"),
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/currentstorage"),
                 eq(CanonCcapiBackend.StorageStatus.class)))
                 .thenThrow(new ResourceAccessException("timeout"));
 
@@ -267,9 +381,9 @@ class CanonCcapiBackendTest {
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
                 eq(CanonCcapiBackend.BatteryStatus.class)))
-                .thenReturn(new CanonCcapiBackend.BatteryStatus("high"));
+                .thenReturn(new CanonCcapiBackend.BatteryStatus(null, null, "high", null));
         when(restTemplate.getForObject(
-                eq(BASE_URL + "/ccapi/ver100/devicestatus/storage"),
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/currentstorage"),
                 eq(CanonCcapiBackend.StorageStatus.class)))
                 .thenReturn(null);
 
@@ -283,16 +397,18 @@ class CanonCcapiBackendTest {
 
     @ParameterizedTest
     @CsvSource({
+        "full,  100",
         "high,   80",
+        "half,   50",
         "middle, 50",
         "low,    20",
         "empty,   0",
         "75,     75",
         "100,   100",
-        "'high ',  80",   // trailing whitespace
-        "' HIGH ', 80",  // leading/trailing whitespace + uppercase
-        "150,   100",    // clamped to 100
-        "-5,      0",    // clamped to 0
+        "'high ',  80",
+        "' HIGH ', 80",
+        "150,   100",
+        "-5,      0",
     })
     void parseBatteryLevel_mapsStringsCorrectly(String input, int expected) {
         assertEquals(expected, CanonCcapiBackend.parseBatteryLevel(input));
@@ -308,10 +424,21 @@ class CanonCcapiBackendTest {
         assertEquals(100, CanonCcapiBackend.parseBatteryLevel("unknown"));
     }
 
+    // ── toMfDriveSize ─────────────────────────────────────────────────────────
+
+    @Test
+    void toMfDriveSize_mapsStepCountsCorrectly() {
+        assertEquals("small", CanonCcapiBackend.toMfDriveSize(1));
+        assertEquals("medium", CanonCcapiBackend.toMfDriveSize(3));
+        assertEquals("medium", CanonCcapiBackend.toMfDriveSize(5));
+        assertEquals("large", CanonCcapiBackend.toMfDriveSize(10));
+    }
+
     // ── supports ─────────────────────────────────────────────────────────────
 
     @Test
-    void supports_liveViewAndCaptureAndFocusAndSettingsRead() {
+    void supports_reportsTrueForDiscoveredCapabilities() {
+        // These are all in our DISCOVERED_ENDPOINTS list
         assertTrue(backend.supports(Operation.LIVE_VIEW));
         assertTrue(backend.supports(Operation.CAPTURE));
         assertTrue(backend.supports(Operation.FOCUS_CONTROL));
@@ -322,5 +449,191 @@ class CanonCcapiBackendTest {
     void supports_zoomAndSettingsWriteNotSupported() {
         assertFalse(backend.supports(Operation.ZOOM_CONTROL));
         assertFalse(backend.supports(Operation.SETTINGS_WRITE));
+    }
+
+    @Test
+    void supports_focusControlFalseWhenNeitherAfNorRemoconDiscovered() {
+        // Override discovery: no /af and no /remocon
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/deviceinformation",
+                        "/ccapi/ver100/shooting/liveview/flip"
+                ));
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+
+        assertFalse(backend.supports(Operation.FOCUS_CONTROL));
+    }
+
+    // ── extractString ─────────────────────────────────────────────────────────
+
+    @Test
+    void extractString_returnsStringDirectly() {
+        assertEquals("/ccapi/ver100", CanonCcapiBackend.extractString("/ccapi/ver100"));
+    }
+
+    @Test
+    void extractString_returnsFirstElementOfList() {
+        assertEquals("/ccapi/ver100", CanonCcapiBackend.extractString(List.of("/ccapi/ver100")));
+    }
+
+    @Test
+    void extractString_returnsNullForEmptyList() {
+        assertNull(CanonCcapiBackend.extractString(List.of()));
+    }
+
+    @Test
+    void extractString_returnsNullForNull() {
+        assertNull(CanonCcapiBackend.extractString(null));
+    }
+
+    @Test
+    void extractString_returnsNullForNonStringListElement() {
+        assertNull(CanonCcapiBackend.extractString(List.of(42)));
+    }
+
+    // ── extractDescriptorUrls ────────────────────────────────────────────────
+
+    @Test
+    void extractDescriptorUrls_extractsUrlsFromDescriptorObjects() {
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("url", "/ccapi/ver100/devicestatus/battery", "get", true),
+                Map.of("url", "/ccapi/ver100/shooting/liveview/flip", "get", true, "post", false)
+        );
+        List<String> result = CanonCcapiBackend.extractDescriptorUrls(descriptors);
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals("/ccapi/ver100/deviceinformation", result.get(0));
+        assertEquals("/ccapi/ver100/devicestatus/battery", result.get(1));
+        assertEquals("/ccapi/ver100/shooting/liveview/flip", result.get(2));
+    }
+
+    @Test
+    void extractDescriptorUrls_returnsNullForStringList() {
+        // Format A: list of strings should NOT be matched
+        assertNull(CanonCcapiBackend.extractDescriptorUrls(List.of("/ccapi/ver100")));
+    }
+
+    @Test
+    void extractDescriptorUrls_returnsNullForEmptyList() {
+        assertNull(CanonCcapiBackend.extractDescriptorUrls(List.of()));
+    }
+
+    @Test
+    void extractDescriptorUrls_returnsNullForNull() {
+        assertNull(CanonCcapiBackend.extractDescriptorUrls(null));
+    }
+
+    @Test
+    void extractDescriptorUrls_returnsNullForString() {
+        assertNull(CanonCcapiBackend.extractDescriptorUrls("/ccapi/ver100"));
+    }
+
+    @Test
+    void extractDescriptorUrls_skipsDescriptorsWithoutUrl() {
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("get", true)  // no "url" key
+        );
+        List<String> result = CanonCcapiBackend.extractDescriptorUrls(descriptors);
+        assertNotNull(result);
+        assertEquals(1, result.size());
+    }
+
+    // ── discovery with descriptor-object format (Format B) ──────────────────
+
+    @Test
+    void discoverEndpoints_handlesDescriptorObjectFormat() {
+        // Simulate real Canon camera: version value is a list of descriptor objects
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("url", "/ccapi/ver100/devicestatus/battery", "get", true),
+                Map.of("url", "/ccapi/ver100/shooting/liveview/flip", "get", true),
+                Map.of("url", "/ccapi/ver100/shooting/control/shutterbutton", "get", false, "post", true),
+                Map.of("url", "/ccapi/ver100/shooting/control/af", "post", true)
+        );
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", descriptors));
+
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend.discoverEndpoints();
+
+        assertNotNull(backend.findEndpoint("deviceinformation"));
+        assertNotNull(backend.findEndpoint("battery"));
+        assertNotNull(backend.findEndpoint("liveview/flip"));
+        assertNotNull(backend.findEndpoint("shutterbutton"));
+        assertNotNull(backend.findEndpoint("/shooting/control/af"));
+
+        // Should NOT have made a second GET call for the version root
+        verify(restTemplate, never()).getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class));
+    }
+
+    @Test
+    void setFocus_usesPutWhenDescriptorExplicitlyAllowsPut() {
+        // Simulate a camera where the AF endpoint explicitly allows PUT
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("url", "/ccapi/ver100/shooting/control/af", "put", true)
+        );
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", descriptors));
+        doNothing().when(restTemplate).put(anyString(), any());
+
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 1));
+
+        verify(restTemplate).put(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "on", "lensdrivecomposite", "far_small").equals(he.getBody())));
+    }
+
+    @Test
+    void setFocus_usesPostWhenDescriptorAllowsPostNotPut() {
+        // Simulate real Canon camera where the AF endpoint allows POST (not PUT)
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("url", "/ccapi/ver100/shooting/control/af", "post", true)
+        );
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", descriptors));
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 3));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "on", "lensdrivecomposite", "near_medium").equals(he.getBody())),
+                eq(String.class));
+        // Should NOT have used PUT
+        verify(restTemplate, never()).put(anyString(), any());
+    }
+
+    // ── getState with no storage endpoint ────────────────────────────────────
+
+    @Test
+    void getState_skipsStorageWhenEndpointNotDiscovered() {
+        // Override discovery: no storage-related endpoints
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/deviceinformation",
+                        "/ccapi/ver100/devicestatus/battery"
+                ));
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
+                eq(CanonCcapiBackend.BatteryStatus.class)))
+                .thenReturn(new CanonCcapiBackend.BatteryStatus(null, null, "high", null));
+
+        CameraState state = backend.getState();
+
+        assertTrue(state.connected());
+        assertEquals(80, state.batteryLevel());
+        assertEquals(0L, state.storageAvailable());
+        // Should never have attempted a storage call
+        verify(restTemplate, never()).getForObject(anyString(), eq(CanonCcapiBackend.StorageStatus.class));
     }
 }

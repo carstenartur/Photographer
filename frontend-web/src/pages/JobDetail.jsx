@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getJob, startJob, pauseJob, cancelJob } from '../api/jobApi';
+import { getCameraStatus } from '../api/cameraApi';
 import PreviewPanel from '../components/PreviewPanel';
 
 export default function JobDetail() {
@@ -8,6 +9,7 @@ export default function JobDetail() {
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [cameraStatus, setCameraStatus] = useState(null);
   const logEndRef = useRef(null);
 
   useEffect(() => {
@@ -32,6 +34,24 @@ export default function JobDetail() {
     }, 2000);
     return () => clearInterval(interval);
   }, [id, job?.status]);
+
+  // Fetch camera battery status while job is active
+  useEffect(() => {
+    if (!job || !job.cameraProfileId) return;
+    const isActive = job.status === 'RUNNING' || job.status === 'CREATED' || job.status === 'PAUSED';
+    // Fetch once immediately, then poll only while active
+    let cancelled = false;
+    async function fetchStatus() {
+      try {
+        const status = await getCameraStatus(job.cameraProfileId);
+        if (!cancelled) setCameraStatus(status);
+      } catch { /* camera status is best-effort */ }
+    }
+    fetchStatus();
+    if (!isActive) return () => { cancelled = true; };
+    const interval = setInterval(fetchStatus, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [job?.cameraProfileId, job?.status]);
 
   // WebSocket for real-time logs
   useEffect(() => {
@@ -98,6 +118,11 @@ export default function JobDetail() {
   const params = job.parameters || {};
   const maxFrames = params.maxFrames || 0;
   const progress = maxFrames > 0 ? Math.round((frames.length / maxFrames) * 100) : 0;
+  const isActive = job.status === 'RUNNING' || job.status === 'CREATED' || job.status === 'PAUSED';
+  const batteryLevel = cameraStatus?.batteryLevel;
+  const batteryColor = batteryLevel != null
+    ? batteryLevel <= 15 ? '#ef4444' : batteryLevel <= 30 ? '#f59e0b' : '#22c55e'
+    : undefined;
 
   return (
     <div className="page">
@@ -110,6 +135,11 @@ export default function JobDetail() {
         <span className={`badge badge-${(job.status || 'UNKNOWN').toLowerCase()}`}>
           {job.status || 'UNKNOWN'}
         </span>
+        {isActive && batteryLevel != null && (
+          <span className="job-battery" style={{ color: batteryColor }} title={`Camera battery: ${batteryLevel}%`}>
+            🔋 {batteryLevel}%
+          </span>
+        )}
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -161,6 +191,29 @@ export default function JobDetail() {
         <dl className="params">
           <dt>Camera Profile</dt>
           <dd>{job.cameraProfileId || '—'}</dd>
+          {cameraStatus && (
+            <>
+              <dt>Camera Battery</dt>
+              <dd>
+                <span style={{ color: batteryColor, fontWeight: 600 }}>
+                  🔋 {cameraStatus.batteryLevel}%
+                </span>
+                {cameraStatus.batteryLevel <= 15 && (
+                  <span style={{ color: '#ef4444', marginLeft: '0.5rem', fontSize: '0.8rem' }}>
+                    ⚠ Low battery
+                  </span>
+                )}
+              </dd>
+              <dt>Camera Connected</dt>
+              <dd>{cameraStatus.connected ? '✅ Yes' : '❌ No'}</dd>
+              {cameraStatus.shutterSpeed && (
+                <>
+                  <dt>Exposure</dt>
+                  <dd>{cameraStatus.shutterSpeed} · f/{cameraStatus.aperture} · ISO {cameraStatus.iso}</dd>
+                </>
+              )}
+            </>
+          )}
           <dt>Step Size</dt>
           <dd>{params.stepSize ?? '—'}</dd>
           <dt>Max Frames</dt>

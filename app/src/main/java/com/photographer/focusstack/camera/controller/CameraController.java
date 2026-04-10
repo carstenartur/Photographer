@@ -1,6 +1,8 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -29,14 +31,20 @@ import java.util.List;
 public class CameraController {
 
     private final CameraProfileService profileService;
-    private final CameraBackend cameraBackend;
+    private final CameraBackendFactory backendFactory;
     private final SearchService searchService;
 
-    public CameraController(CameraProfileService profileService, CameraBackend cameraBackend,
+    public CameraController(CameraProfileService profileService, CameraBackendFactory backendFactory,
                             SearchService searchService) {
         this.profileService = profileService;
-        this.cameraBackend = cameraBackend;
+        this.backendFactory = backendFactory;
         this.searchService = searchService;
+    }
+
+    /** Resolve the correct backend for a camera profile. */
+    private CameraBackend backendFor(String profileId) {
+        CameraProfile profile = profileService.getProfile(profileId);
+        return backendFactory.getBackend(profile);
     }
 
     @GetMapping
@@ -57,11 +65,13 @@ public class CameraController {
     @PutMapping("/{id}")
     public ResponseEntity<CameraProfile> updateProfile(@PathVariable String id,
                                                         @Valid @RequestBody CameraProfile profile) {
+        backendFactory.evict(id);
         return ResponseEntity.ok(profileService.updateProfile(id, profile));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProfile(@PathVariable String id) {
+        backendFactory.evict(id);
         profileService.deleteProfile(id);
         return ResponseEntity.noContent().build();
     }
@@ -77,29 +87,30 @@ public class CameraController {
         return ResponseEntity.ok(results);
     }
 
+    @GetMapping("/{id}/info")
+    public ResponseEntity<CameraInfo> getCameraInfo(@PathVariable String id) {
+        return ResponseEntity.ok(backendFor(id).getInfo());
+    }
+
     @GetMapping("/{id}/status")
     public ResponseEntity<CameraState> getCameraStatus(@PathVariable String id) {
-        profileService.getProfile(id);
-        return ResponseEntity.ok(cameraBackend.getState());
+        return ResponseEntity.ok(backendFor(id).getState());
     }
 
     @GetMapping("/{id}/liveview")
     public ResponseEntity<LiveViewFrame> getLiveView(@PathVariable String id) {
-        profileService.getProfile(id);
-        return ResponseEntity.ok(cameraBackend.getLiveView());
+        return ResponseEntity.ok(backendFor(id).getLiveView());
     }
 
     @PostMapping("/{id}/capture")
     public ResponseEntity<CaptureResult> capture(@PathVariable String id) {
-        profileService.getProfile(id);
-        return ResponseEntity.ok(cameraBackend.capture());
+        return ResponseEntity.ok(backendFor(id).capture());
     }
 
     @PostMapping("/{id}/focus")
     public ResponseEntity<Void> adjustFocus(@PathVariable String id,
                                              @Valid @RequestBody FocusCommand command) {
-        profileService.getProfile(id);
-        cameraBackend.setFocus(command);
+        backendFor(id).setFocus(command);
         return ResponseEntity.ok().build();
     }
 }

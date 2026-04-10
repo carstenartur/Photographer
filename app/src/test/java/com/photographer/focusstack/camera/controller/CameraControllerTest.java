@@ -1,13 +1,16 @@
 package com.photographer.focusstack.camera.controller;
 
 import com.photographer.focusstack.app.security.UserRepository;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import tools.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -20,6 +23,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,13 +46,25 @@ class CameraControllerTest {
     private CameraProfileService profileService;
 
     @MockitoBean
-    private CameraBackend cameraBackend;
+    private CameraBackendFactory backendFactory;
 
     @MockitoBean
     private SearchService searchService;
 
     @MockitoBean
     private UserRepository userRepository;
+
+    private CameraBackend cameraBackend;
+
+    private static final CameraProfile PROFILE =
+            new CameraProfile("cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
+
+    @BeforeEach
+    void setUp() {
+        cameraBackend = mock(CameraBackend.class);
+        when(profileService.getProfile("cam-1")).thenReturn(PROFILE);
+        when(backendFactory.getBackend(PROFILE)).thenReturn(cameraBackend);
+    }
 
     @Test
     void listProfiles_returnsOk() throws Exception {
@@ -60,34 +76,36 @@ class CameraControllerTest {
 
     @Test
     void createProfile_returnsCreated() throws Exception {
-        CameraProfile profile = new CameraProfile(
-                "cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
-        when(profileService.createProfile(any())).thenReturn(profile);
+        when(profileService.createProfile(any())).thenReturn(PROFILE);
 
         mockMvc.perform(post("/api/cameras")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(profile)))
+                        .content(objectMapper.writeValueAsString(PROFILE)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("cam-1"));
     }
 
     @Test
     void getProfile_returnsProfile() throws Exception {
-        CameraProfile profile = new CameraProfile(
-                "cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
-        when(profileService.getProfile("cam-1")).thenReturn(profile);
-
         mockMvc.perform(get("/api/cameras/cam-1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Test Cam"));
     }
 
     @Test
+    void getCameraInfo_returnsInfo() throws Exception {
+        when(cameraBackend.getInfo()).thenReturn(
+                new CameraInfo("mock-001", "Mock Camera", "Mock Camera", "mock", "localhost", "1.0.0"));
+
+        mockMvc.perform(get("/api/cameras/cam-1/info"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.model").value("Mock Camera"))
+                .andExpect(jsonPath("$.firmwareVersion").value("1.0.0"));
+    }
+
+    @Test
     void getCameraStatus_returnsState() throws Exception {
-        CameraProfile profile = new CameraProfile(
-                "cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
-        when(profileService.getProfile("cam-1")).thenReturn(profile);
         when(cameraBackend.getState()).thenReturn(
                 new CameraState(true, 85, 10_000_000L, 0, "1/125", "f/8.0", "ISO 100", true));
 
@@ -98,9 +116,6 @@ class CameraControllerTest {
 
     @Test
     void capture_returnsResult() throws Exception {
-        CameraProfile profile = new CameraProfile(
-                "cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
-        when(profileService.getProfile("cam-1")).thenReturn(profile);
         when(cameraBackend.capture()).thenReturn(
                 new CaptureResult("img-1", "IMG_0.jpg", "/mock/captures/img-1.jpg",
                         Instant.now(), 0, 1024L, null));

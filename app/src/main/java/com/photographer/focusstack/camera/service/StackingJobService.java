@@ -2,6 +2,7 @@ package com.photographer.focusstack.camera.service;
 
 import com.photographer.focusstack.analysis.service.StackMerger;
 import com.photographer.focusstack.analysis.service.StackingAdvisor;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.camera.strategy.AdaptiveStepStrategy;
@@ -11,6 +12,7 @@ import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
@@ -41,7 +43,8 @@ public class StackingJobService {
     /** Maximum number of frames to include in a progressive stack merge preview. */
     private static final int MAX_PREVIEW_MERGE_FRAMES = 20;
 
-    private final CameraBackend cameraBackend;
+    private final CameraBackendFactory backendFactory;
+    private final CameraProfileService profileService;
     private final StackingJobRepository repository;
     private final SimpMessagingTemplate messagingTemplate;
     private final StackingAdvisor stackingAdvisor;
@@ -52,7 +55,8 @@ public class StackingJobService {
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
-    public StackingJobService(CameraBackend cameraBackend,
+    public StackingJobService(CameraBackendFactory backendFactory,
+                              CameraProfileService profileService,
                               StackingJobRepository repository,
                               SimpMessagingTemplate messagingTemplate,
                               StackingAdvisor stackingAdvisor,
@@ -60,7 +64,8 @@ public class StackingJobService {
                               FrameDataStore frameDataStore,
                               @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
                               @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
-        this.cameraBackend = cameraBackend;
+        this.backendFactory = backendFactory;
+        this.profileService = profileService;
         this.repository = repository;
         this.messagingTemplate = messagingTemplate;
         this.stackingAdvisor = stackingAdvisor;
@@ -71,6 +76,12 @@ public class StackingJobService {
                 ? new LinearStepStrategy()
                 : new AdaptiveStepStrategy();
         log.info("StackingJobService initialized with '{}' step strategy", this.stepStrategy.name());
+    }
+
+    /** Resolve the correct backend for the given camera profile id. */
+    private CameraBackend backendFor(String cameraProfileId) {
+        CameraProfile profile = profileService.getProfile(cameraProfileId);
+        return backendFactory.getBackend(profile);
     }
 
     public StackingJob createJob(String cameraProfileId, StackingParameters parameters) {
@@ -146,13 +157,14 @@ public class StackingJobService {
     }
 
     public List<StackingJob> getAllJobs() {
-        return repository.findAll().stream()
+        return repository.findAllByOrderByStartedAtDesc().stream()
                 .map(StackingJobEntity::toRecord)
                 .toList();
     }
 
     void executeStackingAsync(StackingJob job) {
         String id = job.id();
+        CameraBackend cameraBackend = backendFor(job.cameraProfileId());
         List<String> frames = new ArrayList<>(job.frames());
         List<AnalysisResult> analysisHistory = new ArrayList<>();
         List<byte[]> capturedFrameData = new ArrayList<>();

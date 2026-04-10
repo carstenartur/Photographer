@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   getAllCameras,
   createCamera,
   deleteCamera,
   getCameraStatus,
+  getCameraInfo,
+  getLiveViewImage,
 } from '../api/cameraApi';
 
 const EMPTY_FORM = {
@@ -16,10 +18,153 @@ const EMPTY_FORM = {
   movementThreshold: 0.02,
 };
 
+/* ── small helper: battery icon + colour ── */
+function BatteryIndicator({ level }) {
+  if (level == null) return null;
+  let colour = '#22c55e'; // green
+  let icon = '🔋';
+  if (level <= 20) { colour = '#ef4444'; icon = '🪫'; }
+  else if (level <= 50) { colour = '#f59e0b'; }
+  return (
+    <span className="cam-battery" style={{ color: colour }}>
+      {icon} {level}%
+    </span>
+  );
+}
+
+function ConnectionDot({ connected }) {
+  return (
+    <span
+      className="cam-connection-dot"
+      title={connected ? 'Connected' : 'Disconnected'}
+      style={{ background: connected ? '#22c55e' : '#ef4444' }}
+    />
+  );
+}
+
+/* ── CameraCard: single camera with auto-refreshing liveview & info ── */
+function CameraCard({ cam, onDelete }) {
+  const [status, setStatus] = useState(null);
+  const [info, setInfo] = useState(null);
+  const [liveviewSrc, setLiveviewSrc] = useState(null);
+  const [lvError, setLvError] = useState(false);
+  const unmounted = useRef(false);
+
+  // Fetch info once
+  useEffect(() => {
+    unmounted.current = false;
+    getCameraInfo(cam.id)
+      .then((data) => { if (!unmounted.current) setInfo(data); })
+      .catch(() => {});
+    return () => { unmounted.current = true; };
+  }, [cam.id]);
+
+  // Fetch status on mount, then every 5 s
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStatus = () => {
+      getCameraStatus(cam.id)
+        .then((s) => { if (!cancelled) setStatus(s); })
+        .catch(() => { if (!cancelled) setStatus(null); });
+    };
+    fetchStatus();
+    const id = setInterval(fetchStatus, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [cam.id]);
+
+  // Poll liveview every 2 s
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLv = () => {
+      getLiveViewImage(cam.id)
+        .then((src) => {
+          if (!cancelled) {
+            setLiveviewSrc(src);
+            setLvError(!src);
+          }
+        })
+        .catch(() => { if (!cancelled) setLvError(true); });
+    };
+    fetchLv();
+    const id = setInterval(fetchLv, 2000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [cam.id]);
+
+  const connected = status?.connected ?? false;
+
+  return (
+    <div className="cam-card">
+      {/* ── Header ── */}
+      <div className="cam-card-header">
+        <ConnectionDot connected={connected} />
+        <h3>{cam.name}</h3>
+        {status && <BatteryIndicator level={status.batteryLevel} />}
+      </div>
+
+      {/* ── Liveview ── */}
+      <div className="cam-liveview">
+        {liveviewSrc ? (
+          <img src={liveviewSrc} alt={`${cam.name} live view`} className="cam-liveview-img" />
+        ) : (
+          <div className="cam-liveview-placeholder">
+            {lvError ? 'No live view available' : 'Loading…'}
+          </div>
+        )}
+      </div>
+
+      {/* ── Info panel ── */}
+      <div className="cam-info-grid">
+        <div className="cam-info-row">
+          <span className="cam-info-label">Model</span>
+          <span className="cam-info-value">{info?.model || cam.backendType}</span>
+        </div>
+        <div className="cam-info-row">
+          <span className="cam-info-label">Firmware</span>
+          <span className="cam-info-value">{info?.firmwareVersion || '—'}</span>
+        </div>
+        <div className="cam-info-row">
+          <span className="cam-info-label">Host</span>
+          <span className="cam-info-value">{cam.host || '—'}</span>
+        </div>
+        {status && (
+          <>
+            <div className="cam-info-row">
+              <span className="cam-info-label">Storage</span>
+              <span className="cam-info-value">
+                {status.storageAvailable != null
+                  ? `${(status.storageAvailable / 1_000_000).toFixed(1)} MB`
+                  : '—'}
+              </span>
+            </div>
+            <div className="cam-info-row">
+              <span className="cam-info-label">Exposure</span>
+              <span className="cam-info-value">
+                {status.shutterSpeed || '—'} &nbsp;{status.aperture || ''} &nbsp;{status.iso || ''}
+              </span>
+            </div>
+            <div className="cam-info-row">
+              <span className="cam-info-label">Focus Pos</span>
+              <span className="cam-info-value">{status.currentFocusPosition ?? '—'}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Actions ── */}
+      <div className="cam-card-actions">
+        <span className="cam-type-badge">{cam.backendType}</span>
+        <button className="btn btn-small btn-danger" onClick={() => onDelete(cam.id)}>
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main page component ── */
 export default function CameraList() {
   const [searchParams] = useSearchParams();
   const [cameras, setCameras] = useState([]);
-  const [statuses, setStatuses] = useState({});
   const [form, setForm] = useState(EMPTY_FORM);
   const [showForm, setShowForm] = useState(
     () => searchParams.get('new') === '1',
@@ -34,14 +179,14 @@ export default function CameraList() {
     return () => { cancelled = true; };
   }, []);
 
-  async function refreshCameras() {
+  const refreshCameras = useCallback(async () => {
     try {
       const data = await getAllCameras();
       setCameras(data || []);
     } catch {
       setError('Failed to load cameras.');
     }
-  }
+  }, []);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -71,18 +216,6 @@ export default function CameraList() {
       await refreshCameras();
     } catch (err) {
       setError(`Delete failed: ${err.message}`);
-    }
-  }
-
-  async function handleStatus(id) {
-    try {
-      const status = await getCameraStatus(id);
-      setStatuses((prev) => ({ ...prev, [id]: status }));
-    } catch {
-      setStatuses((prev) => ({
-        ...prev,
-        [id]: { error: 'Unable to fetch status' },
-      }));
     }
   }
 
@@ -177,42 +310,9 @@ export default function CameraList() {
       {cameras.length === 0 ? (
         <p className="empty">No camera profiles configured.</p>
       ) : (
-        <div className="card-grid">
+        <div className="cam-grid">
           {cameras.map((cam) => (
-            <div key={cam.id} className="card">
-              <h3>{cam.name}</h3>
-              <p>
-                <strong>Type:</strong> {cam.backendType}
-              </p>
-              <p>
-                <strong>Host:</strong> {cam.host || '—'}
-              </p>
-              <p>
-                <strong>Step Size:</strong> {cam.defaultStepSize}
-              </p>
-              <p>
-                <strong>Max Frames:</strong> {cam.maxFrames}
-              </p>
-              <div className="card-actions">
-                <button
-                  className="btn btn-small"
-                  onClick={() => handleStatus(cam.id)}
-                >
-                  Status
-                </button>
-                <button
-                  className="btn btn-small btn-danger"
-                  onClick={() => handleDelete(cam.id)}
-                >
-                  Delete
-                </button>
-              </div>
-              {statuses[cam.id] && (
-                <pre className="status-block">
-                  {JSON.stringify(statuses[cam.id], null, 2)}
-                </pre>
-              )}
-            </div>
+            <CameraCard key={cam.id} cam={cam} onDelete={handleDelete} />
           ))}
         </div>
       )}

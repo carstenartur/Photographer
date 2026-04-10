@@ -44,8 +44,23 @@ export function getCameraStatus(id) {
   return request(`/cameras/${id}/status`);
 }
 
+export function getCameraInfo(id) {
+  return request(`/cameras/${id}/info`);
+}
+
 export function getLiveView(id) {
   return request(`/cameras/${id}/liveview`);
+}
+
+/**
+ * Fetch the liveview frame and return it as an object URL for an <img> src.
+ * The /liveview endpoint returns JSON with a base64-encoded `data` field.
+ */
+export async function getLiveViewImage(id) {
+  const frame = await request(`/cameras/${id}/liveview`);
+  if (!frame || !frame.data) return null;
+  const contentType = frame.contentType || 'image/png';
+  return `data:${contentType};base64,${frame.data}`;
 }
 
 export function triggerCapture(id) {

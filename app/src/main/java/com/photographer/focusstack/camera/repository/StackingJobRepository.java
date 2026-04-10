@@ -10,6 +10,8 @@ import java.util.List;
 @Repository
 public interface StackingJobRepository extends JpaRepository<StackingJobEntity, String> {
 
+    List<StackingJobEntity> findAllByOrderByStartedAtDesc();
+
     List<StackingJobEntity> findByStatus(JobStatus status);
 
     List<StackingJobEntity> findByCameraProfileId(String cameraProfileId);

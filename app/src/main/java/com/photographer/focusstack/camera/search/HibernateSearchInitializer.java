@@ -36,6 +36,8 @@ public class HibernateSearchInitializer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("Hibernate Search mass indexing interrupted", e);
+        } catch (Exception e) {
+            log.error("Hibernate Search mass indexing failed (search may be unavailable until next restart)", e);
         }
     }
 }

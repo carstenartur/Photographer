@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { getAllJobs, createJob, startJob, pauseJob, cancelJob } from '../api/jobApi';
-import { getAllCameras } from '../api/cameraApi';
+import { getAllCameras, getCameraStatus } from '../api/cameraApi';
 
 const EMPTY_FORM = {
   cameraProfileId: '',
@@ -43,6 +43,15 @@ const PRESETS = {
   },
 };
 
+/** Sort jobs so the newest (most recently started) appears first. */
+function sortNewestFirst(list) {
+  return [...list].sort((a, b) => {
+    const ta = a.startedAt ? new Date(a.startedAt).getTime() : Infinity;
+    const tb = b.startedAt ? new Date(b.startedAt).getTime() : Infinity;
+    return tb - ta;
+  });
+}
+
 export default function JobList() {
   const [searchParams] = useSearchParams();
   const [jobs, setJobs] = useState([]);
@@ -52,11 +61,12 @@ export default function JobList() {
     () => searchParams.get('new') === '1',
   );
   const [error, setError] = useState(null);
+  const [batteryLevels, setBatteryLevels] = useState({});
 
   useEffect(() => {
     let cancelled = false;
     getAllJobs()
-      .then((data) => { if (!cancelled) setJobs(data || []); })
+      .then((data) => { if (!cancelled) setJobs(sortNewestFirst(data || [])); })
       .catch(() => { if (!cancelled) setError('Failed to load jobs.'); });
     getAllCameras()
       .then((data) => { if (!cancelled) setCameras(data || []); })
@@ -67,11 +77,36 @@ export default function JobList() {
   async function refreshJobs() {
     try {
       const data = await getAllJobs();
-      setJobs(data || []);
+      setJobs(sortNewestFirst(data || []));
     } catch {
       setError('Failed to load jobs.');
     }
   }
+
+  // Fetch battery levels for cameras used by active jobs
+  useEffect(() => {
+    const activeProfiles = [...new Set(
+      jobs
+        .filter((j) => j.status === 'RUNNING' || j.status === 'CREATED' || j.status === 'PAUSED')
+        .map((j) => j.cameraProfileId)
+        .filter(Boolean),
+    )];
+    if (activeProfiles.length === 0) return;
+    let cancelled = false;
+    async function fetchBatteries() {
+      const levels = {};
+      await Promise.all(activeProfiles.map(async (profileId) => {
+        try {
+          const status = await getCameraStatus(profileId);
+          levels[profileId] = status.batteryLevel;
+        } catch { /* best-effort */ }
+      }));
+      if (!cancelled) setBatteryLevels((prev) => ({ ...prev, ...levels }));
+    }
+    fetchBatteries();
+    const interval = setInterval(fetchBatteries, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [jobs]);
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -256,6 +291,19 @@ export default function JobList() {
                   <span className={`badge badge-${(job.status || 'UNKNOWN').toLowerCase()}`}>
                     {job.status || 'UNKNOWN'}
                   </span>
+                  {(job.status === 'RUNNING' || job.status === 'CREATED' || job.status === 'PAUSED')
+                    && batteryLevels[job.cameraProfileId] != null && (
+                    <span
+                      className="job-battery"
+                      style={{
+                        color: batteryLevels[job.cameraProfileId] <= 15 ? '#ef4444'
+                          : batteryLevels[job.cameraProfileId] <= 30 ? '#f59e0b' : '#22c55e',
+                      }}
+                      title={`Camera battery: ${batteryLevels[job.cameraProfileId]}%`}
+                    >
+                      🔋 {batteryLevels[job.cameraProfileId]}%
+                    </span>
+                  )}
                 </td>
                 <td>{job.frames ? job.frames.length : 0}</td>
                 <td>

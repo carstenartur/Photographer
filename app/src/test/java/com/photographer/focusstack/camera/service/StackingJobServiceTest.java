@@ -2,11 +2,13 @@ package com.photographer.focusstack.camera.service;
 
 import com.photographer.focusstack.analysis.service.StackMerger;
 import com.photographer.focusstack.analysis.service.StackingAdvisor;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.QualityMode;
 import com.photographer.focusstack.common.model.StackingJob;
@@ -31,6 +33,8 @@ import static org.mockito.Mockito.*;
 class StackingJobServiceTest {
 
     @Mock private CameraBackend cameraBackend;
+    @Mock private CameraBackendFactory backendFactory;
+    @Mock private CameraProfileService profileService;
     @Mock private StackingJobRepository repository;
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private StackingAdvisor stackingAdvisor;
@@ -38,15 +42,23 @@ class StackingJobServiceTest {
 
     private StackingJobService service;
 
+    private static final CameraProfile PROFILE =
+            new CameraProfile("cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
+
     private static final StackingParameters PARAMS =
             new StackingParameters(0, 5, 3, 0.01, false, QualityMode.BALANCED);
 
     @BeforeEach
     void setUp() {
+        // Wire the factory to return our mocked CameraBackend for "cam-1"
+        lenient().when(profileService.getProfile("cam-1")).thenReturn(PROFILE);
+        lenient().when(backendFactory.getBackend(PROFILE)).thenReturn(cameraBackend);
+
         // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
-                cameraBackend, repository, messagingTemplate, stackingAdvisor,
-                stackMerger, new FrameDataStore(), new SyncTaskExecutor(), "adaptive");
+                backendFactory, profileService, repository, messagingTemplate,
+                stackingAdvisor, stackMerger, new FrameDataStore(),
+                new SyncTaskExecutor(), "adaptive");
     }
 
     @Test

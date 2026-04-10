@@ -27,7 +27,7 @@ spring:
 
 camera:
   mock:
-    enabled: true
+    enabled: false
     delay-ms: 50
     # Failure simulation (0 = disabled):
     simulate-timeout-after-frames: 0      # block for 30 s after N captures
@@ -56,7 +56,7 @@ focusstack:
     max-disk-usage-bytes: ${FOCUSSTACK_STORAGE_MAX_DISK_USAGE_BYTES:10737418240}
   camera:
     ccapi-base-url: ${FOCUSSTACK_CAMERA_CCAPI_BASE_URL:http://192.168.1.2:8080}
-    mock-enabled: ${FOCUSSTACK_CAMERA_MOCK_ENABLED:true}
+    mock-enabled: ${FOCUSSTACK_CAMERA_MOCK_ENABLED:false}
     connection-timeout: ${FOCUSSTACK_CAMERA_CONNECTION_TIMEOUT:10s}
 
 logging:

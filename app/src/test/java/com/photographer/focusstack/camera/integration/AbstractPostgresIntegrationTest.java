@@ -47,5 +47,8 @@ abstract class AbstractPostgresIntegrationTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+        // Use in-memory Lucene indexes to avoid file-system write.lock contention
+        // between Spring contexts that share the same JVM in the failsafe fork
+        registry.add("spring.jpa.properties.hibernate.search.backend.directory.type", () -> "local-heap");
     }
 }
