@@ -3,7 +3,7 @@
 ## Overview
 
 The camera-ptp module implements the PTP (Picture Transfer Protocol, ISO 15740) standard
-with Canon EOS vendor extensions. It is organised into five layers, each with a clear
+with Canon EOS vendor extensions. It is organized into five layers, each with a clear
 responsibility and dependency direction (lower layers never depend on higher ones).
 
 ## Layer Diagram

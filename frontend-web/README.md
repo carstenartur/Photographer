@@ -12,7 +12,7 @@ Built with Vite and packaged into the Spring Boot app JAR for production deploym
 
 ## Prerequisites
 
-- Node.js ≥ 20.19.0
+- Node.js ^20.19.0 or ≥22.12.0
 
 ## Development
 
