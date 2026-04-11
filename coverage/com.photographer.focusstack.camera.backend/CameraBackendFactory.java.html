@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.model.CameraProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -25,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class CameraBackendFactory {
 
-<span class="fc" id="L28">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
+<span class="fc" id="L29">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
 
     private final long mockDelayMs;
     private final int simulateTimeoutAfterFrames;
@@ -35,21 +36,25 @@ public class CameraBackendFactory {
     private final RestTemplate restTemplate;
 
     /** Cache backends per profile-id so focus position state is preserved. */
-<span class="fc" id="L38">    private final Map&lt;String, CameraBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L39">    private final Map&lt;String, CameraBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
 
     public CameraBackendFactory(
             @Value(&quot;${camera.mock.delay-ms:50}&quot;) long mockDelayMs,
             @Value(&quot;${camera.mock.simulate-timeout-after-frames:0}&quot;) int simulateTimeoutAfterFrames,
             @Value(&quot;${camera.mock.simulate-disconnect-after-frames:0}&quot;) int simulateDisconnectAfterFrames,
             @Value(&quot;${camera.mock.simulate-empty-frame-at:0}&quot;) int simulateEmptyFrameAt,
-<span class="fc" id="L45">            @Value(&quot;${camera.mock.simulate-movement-at:0}&quot;) int simulateMovementAt) {</span>
-<span class="fc" id="L46">        this.mockDelayMs = mockDelayMs;</span>
-<span class="fc" id="L47">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
-<span class="fc" id="L48">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
-<span class="fc" id="L49">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
-<span class="fc" id="L50">        this.simulateMovementAt = simulateMovementAt;</span>
-<span class="fc" id="L51">        this.restTemplate = new RestTemplate();</span>
-<span class="fc" id="L52">    }</span>
+<span class="fc" id="L46">            @Value(&quot;${camera.mock.simulate-movement-at:0}&quot;) int simulateMovementAt) {</span>
+<span class="fc" id="L47">        this.mockDelayMs = mockDelayMs;</span>
+<span class="fc" id="L48">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
+<span class="fc" id="L49">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
+<span class="fc" id="L50">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
+<span class="fc" id="L51">        this.simulateMovementAt = simulateMovementAt;</span>
+        // Configure timeouts: 10 s connection, 30 s read (allows multi-MB JPEG downloads).
+<span class="fc" id="L53">        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();</span>
+<span class="fc" id="L54">        factory.setConnectTimeout(10_000);</span>
+<span class="fc" id="L55">        factory.setReadTimeout(30_000);</span>
+<span class="fc" id="L56">        this.restTemplate = new RestTemplate(factory);</span>
+<span class="fc" id="L57">    }</span>
 
     /**
      * Returns a {@link CameraBackend} appropriate for the given profile.
@@ -58,27 +63,27 @@ public class CameraBackendFactory {
      * to force re-creation.
      */
     public CameraBackend getBackend(CameraProfile profile) {
-<span class="fc" id="L61">        return cache.computeIfAbsent(profile.id(), id -&gt; createBackend(profile));</span>
+<span class="fc" id="L66">        return cache.computeIfAbsent(profile.id(), id -&gt; createBackend(profile));</span>
     }
 
     /** Removes a cached backend (e.g. when a profile is updated or deleted). */
     public void evict(String profileId) {
-<span class="fc" id="L66">        cache.remove(profileId);</span>
-<span class="fc" id="L67">    }</span>
+<span class="fc" id="L71">        cache.remove(profileId);</span>
+<span class="fc" id="L72">    }</span>
 
     private CameraBackend createBackend(CameraProfile profile) {
-<span class="fc" id="L70">        String type = profile.backendType();</span>
-<span class="pc bpc" id="L71" title="1 of 2 branches missed.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
-<span class="fc" id="L72">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
-<span class="fc" id="L73">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
+<span class="fc" id="L75">        String type = profile.backendType();</span>
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
+<span class="fc" id="L77">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
+<span class="fc" id="L78">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
                     simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
         }
         // Default: canon-ccapi
-<span class="nc" id="L77">        String host = profile.host();</span>
-<span class="nc bnc" id="L78" title="All 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
-<span class="nc" id="L79">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
-<span class="nc" id="L80">                profile.name(), profile.id(), baseUrl);</span>
-<span class="nc" id="L81">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
+<span class="nc" id="L82">        String host = profile.host();</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
+<span class="nc" id="L84">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
+<span class="nc" id="L85">                profile.name(), profile.id(), baseUrl);</span>
+<span class="nc" id="L86">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
