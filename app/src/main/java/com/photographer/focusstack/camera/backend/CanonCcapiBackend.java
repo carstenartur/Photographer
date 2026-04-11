@@ -498,6 +498,9 @@ public class CanonCcapiBackend implements CameraBackend {
                 log.debug("Error while polling SD card for new image: {}", e.getMessage());
             }
             try {
+                if (Thread.currentThread().isInterrupted()) {
+                    break;
+                }
                 Thread.sleep(capturePollIntervalMs);
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
@@ -560,8 +563,10 @@ public class CanonCcapiBackend implements CameraBackend {
     /**
      * Returns {@code true} if {@code dt1} is strictly after {@code dt2} when
      * both are parsed as ISO-8601 offset date-times.
+     * Equal timestamps return {@code false}.
      * If {@code dt2} is {@code null} any non-null {@code dt1} is considered
      * "newer" (no prior image existed before this capture).
+     * Falls back to lexicographic comparison if parsing fails.
      */
     static boolean isNewerThan(String dt1, String dt2) {
         if (dt1 == null) return false;
