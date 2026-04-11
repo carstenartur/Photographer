@@ -6,19 +6,21 @@ WORKDIR /app
 # Copy all POMs first for better layer caching
 COPY pom.xml pom.xml
 COPY common-api/pom.xml common-api/pom.xml
+COPY camera-ptp/pom.xml camera-ptp/pom.xml
 COPY frontend-web/pom.xml frontend-web/pom.xml
 COPY app/pom.xml app/pom.xml
 
 # Download dependencies
-RUN mvn -B dependency:go-offline -pl common-api,app -am -DskipITs=true
+RUN mvn -B dependency:go-offline -pl common-api,camera-ptp,app -am -DskipITs=true
 
 # Copy source code
 COPY common-api/src common-api/src
+COPY camera-ptp/src camera-ptp/src
 COPY frontend-web/ frontend-web/
 COPY app/src app/src
 
-# Build: compile common-api, build frontend, compile app, copy frontend into static/
-RUN mvn -B clean package -pl common-api,frontend-web,app -am \
+# Build: compile common-api, camera-ptp, build frontend, compile app, copy frontend into static/
+RUN mvn -B clean package -pl common-api,camera-ptp,frontend-web,app -am \
     -DskipTests -DskipITs=true \
     -Djava.awt.headless=true
 
