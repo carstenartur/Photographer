@@ -28,6 +28,7 @@
         <module>video-core</module>
         <module>face-analysis-core</module>
         <module>face-profile-core</module>
+        <module>session-core</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>
