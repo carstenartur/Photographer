@@ -266,9 +266,11 @@ public class CanonCcapiBackend implements CameraBackend {
                 String urlStr = null;
                 Object url = map.get("url");
                 if (url instanceof String s) {
+                    // Prefer "url" field when present (most Canon firmware).
                     urlStr = s;
                 } else {
-                    // Some cameras use "path" instead of "url" (Canon SDK alternative format)
+                    // Fall back to "path" field as an alternative (Canon SDK alternative format).
+                    // If both exist, "url" wins; this branch is only reached when "url" is absent.
                     Object path = map.get("path");
                     if (path instanceof String p) {
                         urlStr = p;
@@ -448,7 +450,6 @@ public class CanonCcapiBackend implements CameraBackend {
             // can detect the newly written file during the polling phase.
             String dcimUrl = resolveContentsBase();
             String preNewestDatetime = findNewestImageDatetime(dcimUrl);
-            Instant captureTime = Instant.now();
 
             if (manualUrl != null) {
                 // 3-phase shutter sequence per Canon SDK:
@@ -469,7 +470,7 @@ public class CanonCcapiBackend implements CameraBackend {
             String imageId = UUID.randomUUID().toString();
 
             // Try event/polling first (faster), then fall back to DCIM content browsing.
-            byte[] imageData = downloadNewImageViaEventPolling(captureTime);
+            byte[] imageData = downloadNewImageViaEventPolling();
             if (imageData == null) {
                 imageData = downloadNewImage(dcimUrl, preNewestDatetime);
             }
@@ -614,7 +615,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * <p>The polling response is searched recursively for URLs that contain
      * {@code /contents/} and end with a recognised image extension.
      */
-    private byte[] downloadNewImageViaEventPolling(Instant captureTime) {
+    private byte[] downloadNewImageViaEventPolling() {
         if (captureTimeoutMs <= 0) {
             return null;
         }
