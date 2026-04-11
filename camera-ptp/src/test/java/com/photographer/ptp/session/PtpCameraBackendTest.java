@@ -17,7 +17,7 @@ class PtpCameraBackendTest {
     @BeforeEach
     void setUp() {
         transport = new MockPtpTransport();
-        camera = PtpCamera.open(transport);
+        camera = PtpCamera.open(transport, PtpCamera.Config.zeroDelays());
         backend = new PtpCameraBackend(camera);
     }
 
@@ -42,6 +42,9 @@ class PtpCameraBackendTest {
         CaptureResult result = backend.capture();
         assertNotNull(result);
         assertNotNull(result.fileName());
+        assertNotNull(result.imageData());
+        assertTrue(result.imageData().length > 0, "Capture should return non-empty image data");
+        assertTrue(result.fileSize() > 0);
     }
 
     @Test

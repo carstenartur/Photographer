@@ -44,9 +44,11 @@ public class MockPtpTransport implements PtpTransport {
         handlers.put(CanonConstants.OC_EOS_REMOTE_RELEASE_OFF, this::okResponse);
         handlers.put(CanonConstants.OC_EOS_AF_DRIVE, this::okResponse);
         handlers.put(CanonConstants.OC_EOS_SET_DEVICE_PROP, this::okResponse);
+        handlers.put(CanonConstants.OC_EOS_TRANSFER_COMPLETE, this::okResponse);
 
         // Canon data handlers
         dataHandlers.put(CanonConstants.OC_EOS_GET_LIVEVIEW_DATA, this::handleGetLiveViewData);
+        dataHandlers.put(CanonConstants.OC_EOS_GET_EVENT, this::handleGetEvent);
     }
 
     @Override
@@ -178,6 +180,16 @@ public class MockPtpTransport implements PtpTransport {
         return new DataResponse(liveViewData, okResponse(req));
     }
 
+    private DataResponse handleGetEvent(PtpContainer req) {
+        // Return a mock Canon event blob: one EVENT_OBJ_ADDED with object handle 42.
+        // Event entry format: entryLength(4) + eventType(4) + payload(N)
+        ByteBuffer buf = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(12);  // entryLength: 8-byte header + 4-byte payload
+        buf.putInt(CanonConstants.EVENT_OBJ_ADDED);
+        buf.putInt(42);  // object handle
+        return new DataResponse(buf.array(), okResponse(req));
+    }
+
     // ── Data builders ──
 
     private byte[] buildMockDeviceInfo() {
@@ -203,7 +215,7 @@ public class MockPtpTransport implements PtpTransport {
             CanonConstants.OC_EOS_SET_REMOTE_MODE, CanonConstants.OC_EOS_SET_EVENT_MODE,
             CanonConstants.OC_EOS_GET_EVENT, CanonConstants.OC_EOS_REMOTE_RELEASE_ON,
             CanonConstants.OC_EOS_REMOTE_RELEASE_OFF, CanonConstants.OC_EOS_AF_DRIVE,
-            CanonConstants.OC_EOS_GET_LIVEVIEW_DATA
+            CanonConstants.OC_EOS_GET_LIVEVIEW_DATA, CanonConstants.OC_EOS_GET_OBJECT
         };
         writeUInt16Array(buf, ops);
 
