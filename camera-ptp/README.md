@@ -1,0 +1,49 @@
+# camera-ptp
+
+Clean-room PTP (ISO 15740) implementation with Canon EOS vendor extensions.
+This module is standalone and can be used independently of the Focus Stack application.
+
+## Features
+
+- Full PTP/IP and USB transport abstraction
+- Canon EOS vendor extensions (remote capture, live view, focus drive, property control)
+- Event-driven architecture with background event polling
+- `CameraBackend` adapter for integration with the Focus Stack app
+
+## Dependencies
+
+| Dependency | Purpose |
+|---|---|
+| `common-api` | Shared interfaces (`CameraBackend`, `CaptureResult`, etc.) |
+| `usb4java-javax` | USB device access (Apache-2.0) |
+| `slf4j-api` | Logging facade |
+
+## Usage
+
+### Open a Canon camera over USB
+
+```java
+PtpCamera camera = PtpCamera.openUsb();
+CameraCapabilities caps = camera.getCapabilities();
+byte[] jpeg = camera.capture();
+camera.close();
+```
+
+### Mock transport for testing
+
+```java
+MockPtpTransport mock = new MockPtpTransport();
+PtpCamera camera = PtpCamera.open(mock, PtpCamera.Config.zeroDelays());
+```
+
+## Build
+
+```bash
+# From repository root
+mvn -B clean verify -pl common-api,camera-ptp -am -Djava.awt.headless=true
+```
+
+## Tests
+
+- Unit tests (`*Test.java`): run with `mvn test`, no hardware required
+- Integration test (`UsbCanonCameraIT.java`): requires a connected Canon camera, tagged `real-camera`, excluded by default
