@@ -1,16 +1,30 @@
-# React + Vite
+# frontend-web
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React single-page application for the Focus Stack browser UI.
+Built with Vite and packaged into the Spring Boot app JAR for production deployment.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Live View preview (MJPEG stream from the camera)
+- Capture controls for focus-stacking workflows
+- Stack gallery with before/after comparison
+- Responsive layout for desktop and tablet
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js ^20.19.0 or ≥22.12.0
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev      # Vite dev server with HMR on http://localhost:5173
+npm run lint     # ESLint checks
+npm run build    # Production build to dist/
+```
+
+## Maven Integration
+
+The `frontend-maven-plugin` in `pom.xml` handles Node installation and build
+as part of the Maven reactor. No manual Node setup is needed when building
+from the repository root.
