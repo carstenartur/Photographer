@@ -786,4 +786,13 @@ class CanonCcapiBackendTest {
     void isNewerThan_returnsFalseWhenBothNull() {
         assertFalse(CanonCcapiBackend.isNewerThan(null, null));
     }
+
+    @Test
+    void isNewerThan_fallsBackToLexicographicComparisonForUnparseableDatetimes() {
+        // Strings without timezone offset are not valid OffsetDateTime values,
+        // so the parser throws and the method falls back to lexicographic comparison.
+        // ISO 8601 local datetimes still sort correctly as strings.
+        assertTrue(CanonCcapiBackend.isNewerThan("2024-04-01T12:00:00", "2024-04-01T11:00:00"));
+        assertFalse(CanonCcapiBackend.isNewerThan("2024-04-01T10:00:00", "2024-04-01T11:00:00"));
+    }
 }

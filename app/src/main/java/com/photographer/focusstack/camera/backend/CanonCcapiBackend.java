@@ -483,12 +483,6 @@ public class CanonCcapiBackend implements CameraBackend {
         long deadline = System.currentTimeMillis() + captureTimeoutMs;
         while (System.currentTimeMillis() < deadline) {
             try {
-                Thread.sleep(capturePollIntervalMs);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-            try {
                 ImageLocation newest = findNewestImage(dcimUrl);
                 if (newest != null && isNewerThan(newest.entry().datetime(), preNewestDatetime)) {
                     String imageUrl = dcimUrl + "/" + newest.folderName()
@@ -502,6 +496,12 @@ public class CanonCcapiBackend implements CameraBackend {
                 }
             } catch (Exception e) {
                 log.debug("Error while polling SD card for new image: {}", e.getMessage());
+            }
+            try {
+                Thread.sleep(capturePollIntervalMs);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
             }
         }
         log.warn("Timed out after {}ms waiting for new image on camera {}",
