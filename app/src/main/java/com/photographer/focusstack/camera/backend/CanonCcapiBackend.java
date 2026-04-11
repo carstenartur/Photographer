@@ -448,8 +448,11 @@ public class CanonCcapiBackend implements CameraBackend {
         try {
             // Record the newest image datetime before triggering the shutter so we
             // can detect the newly written file during the polling phase.
-            String dcimUrl = resolveContentsBase();
-            String preNewestDatetime = findNewestImageDatetime(dcimUrl);
+            // Only do this when a contents endpoint was actually discovered — avoids
+            // unnecessary network calls on cameras that don't expose contents browsing.
+            boolean contentsDiscovered = findEndpoint("contents/sd") != null;
+            String dcimUrl = contentsDiscovered ? resolveContentsBase() : null;
+            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(dcimUrl) : null;
 
             if (manualUrl != null) {
                 // 3-phase shutter sequence per Canon SDK:
@@ -470,8 +473,11 @@ public class CanonCcapiBackend implements CameraBackend {
             String imageId = UUID.randomUUID().toString();
 
             // Try event/polling first (faster), then fall back to DCIM content browsing.
+            // DCIM browsing is only attempted when the contents endpoint was discovered;
+            // otherwise skip it to avoid adding captureTimeoutMs delay on every frame for
+            // cameras that expose shutter control but no contents endpoint.
             byte[] imageData = downloadNewImageViaEventPolling();
-            if (imageData == null) {
+            if (imageData == null && contentsDiscovered) {
                 imageData = downloadNewImage(dcimUrl, preNewestDatetime);
             }
 
@@ -589,12 +595,27 @@ public class CanonCcapiBackend implements CameraBackend {
             Optional<ContentEntry> newest = fileListing.dir().stream()
                     .filter(e -> "A".equals(e.attrib()) && isImageFile(e.name()))
                     .filter(e -> e.datetime() != null)
-                    .max(Comparator.comparing(ContentEntry::datetime));
+                    .max(Comparator.comparing(e -> parseOffsetDateTimeOrNull(e.datetime()),
+                            Comparator.nullsFirst(Comparator.naturalOrder())));
             if (newest.isPresent()) {
                 return new ImageLocation(folder.name(), newest.get());
             }
         }
         return null;
+    }
+
+    /**
+     * Parses an ISO-8601 offset datetime string, returning {@code null} if parsing fails.
+     * Used so that {@code max()} comparisons are based on actual instants rather than
+     * raw strings (which can sort incorrectly when timezone offsets differ).
+     */
+    private static OffsetDateTime parseOffsetDateTimeOrNull(String dt) {
+        if (dt == null) return null;
+        try {
+            return OffsetDateTime.parse(dt);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** Fetches a CCAPI directory listing, returning {@code null} on any error. */

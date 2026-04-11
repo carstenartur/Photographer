@@ -326,6 +326,30 @@ class CanonCcapiBackendTest {
         assertEquals(0L, result.fileSize());
     }
 
+    @Test
+    void capture_skipsContentsBrowsingWhenEndpointNotDiscovered() {
+        // Endpoint list has no contents/sd entry → DCIM browsing must be skipped entirely.
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/shooting/control/shutterbutton"
+                ));
+        // Use a generous timeout — if browsing were attempted the poll loop would run.
+        CanonCcapiBackend noContentsBackend =
+                new CanonCcapiBackend(BASE_URL, restTemplate, 0, 5_000);
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        long before = System.currentTimeMillis();
+        CaptureResult result = noContentsBackend.capture();
+        long elapsed = System.currentTimeMillis() - before;
+
+        // Should return quickly (no polling delay) with null imageData.
+        assertNull(result.imageData());
+        assertTrue(elapsed < 1_000, "Expected capture to return quickly without SD-card polling, but took " + elapsed + "ms");
+        // Contents listing must never have been called.
+        verify(restTemplate, never()).getForObject(
+                contains("/contents/sd"), eq(CanonCcapiBackend.ContentListing.class));
+    }
+
     // ── setFocus ──────────────────────────────────────────────────────────────
 
     @Test
@@ -794,6 +818,21 @@ class CanonCcapiBackendTest {
         // ISO 8601 local datetimes still sort correctly as strings.
         assertTrue(CanonCcapiBackend.isNewerThan("2024-04-01T12:00:00", "2024-04-01T11:00:00"));
         assertFalse(CanonCcapiBackend.isNewerThan("2024-04-01T10:00:00", "2024-04-01T11:00:00"));
+    }
+
+    @Test
+    void isNewerThan_correctlyHandlesDifferentTimezoneOffsets() {
+        // 10:00+09:00 (UTC+1:00) is actually before 02:00+00:00 (UTC+2:00) — different zone.
+        // Raw string comparison would wrongly say "10:00+09:00" > "02:00+00:00".
+        // OffsetDateTime comparison must be used to get the right answer.
+        // 2024-04-01T10:00:00+09:00 == 2024-04-01T01:00:00Z
+        // 2024-04-01T02:00:00+00:00 == 2024-04-01T02:00:00Z  → is later
+        assertFalse(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T10:00:00+09:00",
+                "2024-04-01T02:00:00+00:00"));
+        assertTrue(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T02:00:00+00:00",
+                "2024-04-01T10:00:00+09:00"));
     }
 
     // ── 3-phase shutter sequence ───────────────────────────────────────────────
