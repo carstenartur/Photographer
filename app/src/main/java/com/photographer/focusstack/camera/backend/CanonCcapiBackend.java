@@ -22,9 +22,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,8 +74,15 @@ public class CanonCcapiBackend implements CameraBackend {
     /** Default camera model reported when the CCAPI device-info call is unavailable. */
     static final String DEFAULT_MODEL = "Canon Camera";
 
+    /** Default poll interval when waiting for a new image to appear on the SD card. */
+    private static final long DEFAULT_CAPTURE_POLL_INTERVAL_MS = 500L;
+    /** Default maximum time to wait for a new image after shutter release. */
+    private static final long DEFAULT_CAPTURE_TIMEOUT_MS = 10_000L;
+
     private final String baseUrl;
     private final RestTemplate restTemplate;
+    private final long capturePollIntervalMs;
+    private final long captureTimeoutMs;
 
     /**
      * Tracks the last commanded focus position so it can be reported in
@@ -88,8 +98,20 @@ public class CanonCcapiBackend implements CameraBackend {
     private final AtomicBoolean discovered = new AtomicBoolean(false);
 
     public CanonCcapiBackend(String baseUrl, RestTemplate restTemplate) {
+        this(baseUrl, restTemplate, DEFAULT_CAPTURE_POLL_INTERVAL_MS, DEFAULT_CAPTURE_TIMEOUT_MS);
+    }
+
+    /**
+     * Constructor that allows overriding the capture polling behaviour.
+     * Use {@code captureTimeoutMs = 0} to disable image download entirely
+     * (e.g. in unit tests that only verify the shutter trigger).
+     */
+    CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
+                      long capturePollIntervalMs, long captureTimeoutMs) {
         this.baseUrl = baseUrl;
         this.restTemplate = restTemplate;
+        this.capturePollIntervalMs = capturePollIntervalMs;
+        this.captureTimeoutMs = captureTimeoutMs;
     }
 
     // ── endpoint discovery ──────────────────────────────────────────────────
@@ -385,21 +407,175 @@ public class CanonCcapiBackend implements CameraBackend {
             // Body: {"af": true/false}
             // We disable AF so the pre-set focus position is preserved between
             // stack frames.
+
+            // Record the newest image datetime before triggering the shutter so we
+            // can detect the newly written file during the polling phase.
+            String dcimUrl = resolveContentsBase();
+            String preNewestDatetime = findNewestImageDatetime(dcimUrl);
+
             ccapiPost(url, Map.of("af", false));
+
             String imageId = UUID.randomUUID().toString();
+
+            // Poll the SD card for the image that the camera just wrote.
+            byte[] imageData = downloadNewImage(dcimUrl, preNewestDatetime);
+
             return new CaptureResult(
                     imageId,
                     "capture-" + imageId + ".jpg",
                     url,
                     Instant.now(),
                     focusPosition.get(),
-                    0L,
-                    null // images are stored on the camera card; downloaded separately
+                    imageData != null ? (long) imageData.length : 0L,
+                    imageData
             );
         } catch (RestClientException e) {
             throw new CameraException("Failed to capture image via " + url + ": " + e.getMessage(), e);
         }
     }
+
+    // ── content browse & download ──────────────────────────────────────────
+
+    /**
+     * Resolves the base URL for the DCIM folder on the camera's SD card.
+     * Prefers a discovered {@code contents/sd} endpoint; falls back to the
+     * well-known CCAPI path.
+     */
+    private String resolveContentsBase() {
+        String found = findEndpoint("contents/sd");
+        if (found != null) {
+            // Ensure the URL ends at /DCIM so subsequent path concatenation works.
+            if (!found.endsWith("/DCIM")) {
+                return found.endsWith("/") ? found + "DCIM" : found + "/DCIM";
+            }
+            return found;
+        }
+        return baseUrl + "/ccapi/ver100/contents/sd/DCIM";
+    }
+
+    /**
+     * Returns the {@code datetime} string of the newest image currently on the
+     * SD card, or {@code null} if no images are found or the contents endpoint
+     * is unavailable.
+     */
+    private String findNewestImageDatetime(String dcimUrl) {
+        try {
+            ImageLocation loc = findNewestImage(dcimUrl);
+            return loc != null ? loc.entry().datetime() : null;
+        } catch (Exception e) {
+            log.debug("Could not read pre-capture contents listing: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Polls the SD card contents until a new image appears (newer than
+     * {@code preNewestDatetime}) and downloads it.
+     *
+     * <p>Returns {@code null} with a warning if no new image appears within
+     * {@link #captureTimeoutMs} milliseconds (graceful degradation).
+     * Returns {@code null} immediately if {@link #captureTimeoutMs} is {@code 0}.
+     */
+    private byte[] downloadNewImage(String dcimUrl, String preNewestDatetime) {
+        if (captureTimeoutMs <= 0) {
+            return null;
+        }
+        long deadline = System.currentTimeMillis() + captureTimeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(capturePollIntervalMs);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            try {
+                ImageLocation newest = findNewestImage(dcimUrl);
+                if (newest != null && isNewerThan(newest.entry().datetime(), preNewestDatetime)) {
+                    String imageUrl = dcimUrl + "/" + newest.folderName()
+                            + "/" + newest.entry().name();
+                    byte[] data = restTemplate.getForObject(imageUrl, byte[].class);
+                    if (data != null && data.length > 0) {
+                        log.info("Downloaded {} bytes from camera SD card ({})",
+                                data.length, imageUrl);
+                        return data;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Error while polling SD card for new image: {}", e.getMessage());
+            }
+        }
+        log.warn("Timed out after {}ms waiting for new image on camera {}",
+                captureTimeoutMs, baseUrl);
+        return null;
+    }
+
+    /**
+     * Finds the newest image file (by datetime) across all DCIM sub-folders.
+     * Returns {@code null} if the camera has no images or the contents
+     * endpoint is unavailable.
+     */
+    private ImageLocation findNewestImage(String dcimUrl) {
+        ContentListing folderListing = listContents(dcimUrl);
+        if (folderListing == null || folderListing.dir() == null || folderListing.dir().isEmpty()) {
+            return null;
+        }
+        // Sort folders descending by name so the highest-numbered folder is first.
+        List<ContentEntry> folders = folderListing.dir().stream()
+                .filter(e -> "D".equals(e.attrib()))
+                .sorted(Comparator.comparing(ContentEntry::name).reversed())
+                .toList();
+        for (ContentEntry folder : folders) {
+            String folderUrl = dcimUrl + "/" + folder.name();
+            ContentListing fileListing = listContents(folderUrl);
+            if (fileListing == null || fileListing.dir() == null) continue;
+            Optional<ContentEntry> newest = fileListing.dir().stream()
+                    .filter(e -> "A".equals(e.attrib()) && isImageFile(e.name()))
+                    .filter(e -> e.datetime() != null)
+                    .max(Comparator.comparing(ContentEntry::datetime));
+            if (newest.isPresent()) {
+                return new ImageLocation(folder.name(), newest.get());
+            }
+        }
+        return null;
+    }
+
+    /** Fetches a CCAPI directory listing, returning {@code null} on any error. */
+    private ContentListing listContents(String url) {
+        try {
+            return restTemplate.getForObject(url, ContentListing.class);
+        } catch (RestClientException e) {
+            log.debug("Failed to list SD card contents at {}: {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Returns {@code true} for JPEG and Canon RAW file extensions. */
+    private static boolean isImageFile(String name) {
+        if (name == null) return false;
+        String upper = name.toUpperCase();
+        return upper.endsWith(".JPG") || upper.endsWith(".JPEG")
+                || upper.endsWith(".CR2") || upper.endsWith(".CR3");
+    }
+
+    /**
+     * Returns {@code true} if {@code dt1} is strictly after {@code dt2} when
+     * both are parsed as ISO-8601 offset date-times.
+     * If {@code dt2} is {@code null} any non-null {@code dt1} is considered
+     * "newer" (no prior image existed before this capture).
+     */
+    static boolean isNewerThan(String dt1, String dt2) {
+        if (dt1 == null) return false;
+        if (dt2 == null) return true;
+        try {
+            return OffsetDateTime.parse(dt1).isAfter(OffsetDateTime.parse(dt2));
+        } catch (Exception e) {
+            // ISO 8601 strings sort correctly lexicographically as a fallback.
+            return dt1.compareTo(dt2) > 0;
+        }
+    }
+
+    /** Holds the DCIM folder name and file entry for a located image. */
+    record ImageLocation(String folderName, ContentEntry entry) {}
 
     @Override
     public void setFocus(FocusCommand command) {
@@ -601,5 +777,18 @@ public class CanonCcapiBackend implements CameraBackend {
             @JsonProperty("name")     String name,
             @JsonProperty("maxsize")  Long maxBytes,
             @JsonProperty("spacesize") Long spaceBytes
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record ContentEntry(
+            @JsonProperty("name")     String name,
+            @JsonProperty("size")     Long size,
+            @JsonProperty("datetime") String datetime,
+            @JsonProperty("attrib")   String attrib
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record ContentListing(
+            @JsonProperty("dir") List<ContentEntry> dir
     ) {}
 }

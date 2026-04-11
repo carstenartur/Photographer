@@ -38,13 +38,15 @@ class CanonCcapiBackendTest {
             "/ccapi/ver100/shooting/liveview/flip",
             "/ccapi/ver100/shooting/control/shutterbutton",
             "/ccapi/ver100/shooting/control/af",
-            "/ccapi/ver100/event/polling"
+            "/ccapi/ver100/event/polling",
+            "/ccapi/ver100/contents/sd"
     );
 
     @BeforeEach
     void setUp() {
         restTemplate = Mockito.mock(RestTemplate.class);
-        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        // Use 0 ms timeout so existing tests are fast (no image-download polling).
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
 
         // Mock the CCAPI discovery flow:
         // GET /ccapi → { "ver100": "/ccapi/ver100" }
@@ -234,6 +236,94 @@ class CanonCcapiBackendTest {
                 .thenThrow(new ResourceAccessException("timeout"));
 
         assertThrows(CameraException.class, () -> backend.capture());
+    }
+
+    @Test
+    void capture_downloadsNewImageAfterShutter() {
+        // Backend with 0 ms poll interval and generous timeout so mock responds immediately.
+        CanonCcapiBackend downloadBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        // Pre-capture: one existing image with an older datetime.
+        CanonCcapiBackend.ContentListing folderListing = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D")));
+        CanonCcapiBackend.ContentListing preCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry(
+                        "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
+        CanonCcapiBackend.ContentListing postCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A"),
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0002.JPG", 4_450_000L, "2024-04-01T11:15:30+09:00", "A")));
+
+        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
+        String folderUrl = dcimUrl + "/100CANON";
+        String imageUrl = folderUrl + "/IMG_0002.JPG";
+        byte[] imageBytes = new byte[]{1, 2, 3, 4, 5};
+
+        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(folderListing);
+        when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(preCaptureFiles)   // first call: pre-capture snapshot
+                .thenReturn(postCaptureFiles); // second call: post-capture poll
+        when(restTemplate.getForObject(eq(imageUrl), eq(byte[].class)))
+                .thenReturn(imageBytes);
+
+        CaptureResult result = downloadBackend.capture();
+
+        assertNotNull(result.imageData());
+        assertArrayEquals(imageBytes, result.imageData());
+        assertEquals(imageBytes.length, result.fileSize());
+    }
+
+    @Test
+    void capture_downloadsFirstImageWhenNoPriorImageExists() {
+        // Backend with 0 ms poll interval so the mock responds in the first loop iteration.
+        CanonCcapiBackend downloadBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        // Pre-capture: SD card is empty (no files).
+        CanonCcapiBackend.ContentListing emptyFolder = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D")));
+        CanonCcapiBackend.ContentListing emptyFiles = new CanonCcapiBackend.ContentListing(List.of());
+        CanonCcapiBackend.ContentListing postCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry(
+                        "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
+
+        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
+        String folderUrl = dcimUrl + "/100CANON";
+        String imageUrl = folderUrl + "/IMG_0001.JPG";
+        byte[] imageBytes = new byte[]{10, 20, 30};
+
+        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(emptyFolder);
+        when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(emptyFiles)        // pre-capture: no files
+                .thenReturn(postCaptureFiles); // post-capture: new file appeared
+        when(restTemplate.getForObject(eq(imageUrl), eq(byte[].class)))
+                .thenReturn(imageBytes);
+
+        CaptureResult result = downloadBackend.capture();
+
+        assertNotNull(result.imageData());
+        assertArrayEquals(imageBytes, result.imageData());
+    }
+
+    @Test
+    void capture_returnsNullImageDataOnTimeout() {
+        // Use a very short timeout and no mocked contents → download times out.
+        CanonCcapiBackend timeoutBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 1);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        CaptureResult result = timeoutBackend.capture();
+
+        assertNotNull(result.imageId());
+        assertNull(result.imageData());
+        assertEquals(0L, result.fileSize());
     }
 
     // ── setFocus ──────────────────────────────────────────────────────────────
@@ -621,7 +711,7 @@ class CanonCcapiBackendTest {
                         "/ccapi/ver100/deviceinformation",
                         "/ccapi/ver100/devicestatus/battery"
                 ));
-        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
 
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
@@ -635,5 +725,65 @@ class CanonCcapiBackendTest {
         assertEquals(0L, state.storageAvailable());
         // Should never have attempted a storage call
         verify(restTemplate, never()).getForObject(anyString(), eq(CanonCcapiBackend.StorageStatus.class));
+    }
+
+    // ── ContentListing DTO parsing ────────────────────────────────────────────
+
+    @Test
+    void contentListing_parsesDirectoryEntries() {
+        CanonCcapiBackend.ContentListing listing = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D"),
+                        new CanonCcapiBackend.ContentEntry("101CANON", null, null, "D")));
+
+        assertNotNull(listing.dir());
+        assertEquals(2, listing.dir().size());
+        assertEquals("100CANON", listing.dir().get(0).name());
+        assertEquals("D", listing.dir().get(0).attrib());
+    }
+
+    @Test
+    void contentListing_parsesFileEntries() {
+        CanonCcapiBackend.ContentListing listing = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0042.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
+
+        CanonCcapiBackend.ContentEntry entry = listing.dir().get(0);
+        assertEquals("IMG_0042.JPG", entry.name());
+        assertEquals(4_371_156L, entry.size());
+        assertEquals("2024-04-01T11:15:03+09:00", entry.datetime());
+        assertEquals("A", entry.attrib());
+    }
+
+    // ── isNewerThan ───────────────────────────────────────────────────────────
+
+    @Test
+    void isNewerThan_returnsTrueWhenFirstIsLater() {
+        assertTrue(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T11:15:30+09:00",
+                "2024-04-01T11:15:03+09:00"));
+    }
+
+    @Test
+    void isNewerThan_returnsFalseWhenFirstIsEarlier() {
+        assertFalse(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T11:15:03+09:00",
+                "2024-04-01T11:15:30+09:00"));
+    }
+
+    @Test
+    void isNewerThan_returnsFalseWhenFirstIsNull() {
+        assertFalse(CanonCcapiBackend.isNewerThan(null, "2024-04-01T11:15:03+09:00"));
+    }
+
+    @Test
+    void isNewerThan_returnsTrueWhenSecondIsNull() {
+        assertTrue(CanonCcapiBackend.isNewerThan("2024-04-01T11:15:03+09:00", null));
+    }
+
+    @Test
+    void isNewerThan_returnsFalseWhenBothNull() {
+        assertFalse(CanonCcapiBackend.isNewerThan(null, null));
     }
 }
