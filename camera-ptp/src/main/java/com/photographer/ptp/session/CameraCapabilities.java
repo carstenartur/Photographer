@@ -9,15 +9,16 @@ public record CameraCapabilities(
     boolean focusDrive,
     boolean zoom,
     boolean propertiesRead,
-    boolean propertiesWrite
+    boolean propertiesWrite,
+    boolean rawDownload
 ) {
     /** Camera with no known capabilities. */
     public static CameraCapabilities none() {
-        return new CameraCapabilities(false, false, false, false, false, false);
+        return new CameraCapabilities(false, false, false, false, false, false, false);
     }
 
     /** Camera with all capabilities enabled. */
     public static CameraCapabilities all() {
-        return new CameraCapabilities(true, true, true, true, true, true);
+        return new CameraCapabilities(true, true, true, true, true, true, true);
     }
 }

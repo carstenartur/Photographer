@@ -19,7 +19,7 @@ class PtpCameraTest {
     @BeforeEach
     void setUp() {
         transport = new MockPtpTransport();
-        camera = PtpCamera.open(transport);
+        camera = PtpCamera.open(transport, PtpCamera.Config.zeroDelays());
     }
 
     @AfterEach
@@ -49,6 +49,7 @@ class PtpCameraTest {
         assertTrue(caps.liveView());
         assertTrue(caps.propertiesRead());
         assertTrue(caps.propertiesWrite());
+        assertTrue(caps.rawDownload());
     }
 
     @Test
@@ -56,6 +57,9 @@ class PtpCameraTest {
         ImageDownload result = camera.capture();
         assertNotNull(result);
         assertNotNull(result.fileName());
+        assertNotNull(result.data());
+        assertTrue(result.data().length > 0, "Capture should return non-empty image data");
+        assertTrue(result.size() > 0);
     }
 
     @Test
