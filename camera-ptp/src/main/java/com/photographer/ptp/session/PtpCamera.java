@@ -74,30 +74,42 @@ public class PtpCamera implements AutoCloseable {
      */
     public static PtpCamera openUsb() {
         PtpTransport transport = UsbDeviceScanner.findCanon();
-        transport.open();
-        PtpCamera camera = new PtpCamera(transport);
-        camera.initialize();
-        return camera;
+        return openInitializedCamera(transport, Config.defaults());
     }
 
     /**
      * Opens a camera with the given transport (for testing/mock).
      */
     public static PtpCamera open(PtpTransport transport) {
-        transport.open();
-        PtpCamera camera = new PtpCamera(transport);
-        camera.initialize();
-        return camera;
+        return openInitializedCamera(transport, Config.defaults());
     }
 
     /**
      * Opens a camera with the given transport and custom config (for testing).
      */
     public static PtpCamera open(PtpTransport transport, Config config) {
-        transport.open();
-        PtpCamera camera = new PtpCamera(transport, config);
-        camera.initialize();
-        return camera;
+        return openInitializedCamera(transport, config);
+    }
+
+    private static PtpCamera openInitializedCamera(PtpTransport transport, Config config) {
+        PtpCamera camera = null;
+        try {
+            transport.open();
+            camera = new PtpCamera(transport, config);
+            camera.initialize();
+            return camera;
+        } catch (RuntimeException | Error e) {
+            try {
+                if (camera != null) {
+                    camera.close();
+                } else {
+                    transport.close();
+                }
+            } catch (RuntimeException | Error closeFailure) {
+                e.addSuppressed(closeFailure);
+            }
+            throw e;
+        }
     }
 
     private void initialize() {
@@ -117,10 +129,27 @@ public class PtpCamera implements AutoCloseable {
     }
 
     private void setupCanonRemoteMode() {
-        session.executeOperation(CanonConstants.OC_EOS_SET_REMOTE_MODE,
+        PtpContainer remoteModeResponse = session.executeOperation(
+                CanonConstants.OC_EOS_SET_REMOTE_MODE,
                 CanonConstants.REMOTE_MODE_NORMAL);
-        session.executeOperation(CanonConstants.OC_EOS_SET_EVENT_MODE, 1);
+        requireOkResponse("Canon remote mode", remoteModeResponse);
+
+        PtpContainer eventModeResponse = session.executeOperation(
+                CanonConstants.OC_EOS_SET_EVENT_MODE, 1);
+        requireOkResponse("Canon event mode", eventModeResponse);
+
         log.debug("Canon remote mode enabled");
+    }
+
+    private void requireOkResponse(String operationName, PtpContainer response) {
+        if (response == null) {
+            throw new PtpException(operationName + " failed: null response");
+        }
+        if (response.code() != PtpConstants.RC_OK) {
+            throw new PtpException(response.code(),
+                    operationName + " failed with response code 0x"
+                            + Integer.toHexString(response.code()));
+        }
     }
 
     // ── Camera Information ──
@@ -138,7 +167,8 @@ public class PtpCamera implements AutoCloseable {
         boolean hasFocus = isCanon
                 && deviceInfo.supportsOperation(CanonConstants.OC_EOS_AF_DRIVE);
         boolean hasPropsRead = deviceInfo.supportsOperation(PtpConstants.OP_GET_DEVICE_PROP_DESC);
-        boolean hasPropsWrite = deviceInfo.supportsOperation(PtpConstants.OP_SET_DEVICE_PROP_VALUE);
+        boolean hasPropsWrite = deviceInfo.supportsOperation(PtpConstants.OP_SET_DEVICE_PROP_VALUE)
+                || (isCanon && deviceInfo.supportsOperation(CanonConstants.OC_EOS_SET_DEVICE_PROP));
         boolean hasRawDownload = isCanon
                 && deviceInfo.supportsOperation(CanonConstants.OC_EOS_GET_OBJECT);
         return new CameraCapabilities(hasLiveView, hasCapture, hasFocus, false,
@@ -173,13 +203,13 @@ public class PtpCamera implements AutoCloseable {
                         config.fullPressDelayMs(),
                         config.releaseDelayMs());
                 remoteCapture.capture(session::nextTransactionId);
+                return pollForCapturedImageCanon();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new PtpException("Canon capture interrupted");
             } finally {
                 eventLoop.resume();
             }
-            return pollForCapturedImageCanon();
         }
 
         // Standard PTP capture
@@ -231,13 +261,20 @@ public class PtpCamera implements AutoCloseable {
             try {
                 PtpTransport.DataResponse dr =
                         session.executeReceiveData(CanonConstants.OC_EOS_GET_EVENT);
+                PtpOperationResponse.from(dr.response()).checkOk();
                 List<CanonEventParser.CanonEvent> events = CanonEventParser.parse(dr.data());
                 for (CanonEventParser.CanonEvent event : events) {
                     if (event.isObjectAdded()) {
                         int objectHandle = event.getObjectHandle();
                         // Acknowledge the object to the camera
-                        session.executeOperation(
+                        PtpContainer transferCompleteResponse = session.executeOperation(
                                 CanonConstants.OC_EOS_TRANSFER_COMPLETE, objectHandle);
+                        if (transferCompleteResponse.code() != PtpConstants.RC_OK) {
+                            throw new PtpException(
+                                    transferCompleteResponse.code(),
+                                    "Canon transfer complete failed for object 0x%08X: 0x%04X"
+                                            .formatted(objectHandle, transferCompleteResponse.code()));
+                        }
                         // Download the image
                         byte[] data = session.getObject(objectHandle);
                         PtpObjectInfo info = session.getObjectInfo(objectHandle);
@@ -310,8 +347,9 @@ public class PtpCamera implements AutoCloseable {
         if (!isCanon) {
             throw new PtpException("LiveView is only supported on Canon cameras");
         }
-        session.executeOperation(CanonConstants.OC_EOS_SET_DEVICE_PROP,
+        PtpContainer response = session.executeOperation(CanonConstants.OC_EOS_SET_DEVICE_PROP,
                 CanonConstants.DPC_EOS_EVF_OUTPUT, CanonConstants.EVF_OUTPUT_PC);
+        requireOkResponse("Start LiveView", response);
         log.info("LiveView started");
     }
 
@@ -333,12 +371,20 @@ public class PtpCamera implements AutoCloseable {
 
     // ── Focus ──
 
+    private void ensureCanonFocusDriveSupported() {
+        if (!isCanon) {
+            throw new PtpException("Focus drive is only supported on Canon cameras");
+        }
+    }
+
     public void driveFocusNear(int magnitude) {
+        ensureCanonFocusDriveSupported();
         CanonFocusDrive drive = new CanonFocusDrive(transport);
         drive.driveNear(magnitude, session.nextTransactionId());
     }
 
     public void driveFocusFar(int magnitude) {
+        ensureCanonFocusDriveSupported();
         CanonFocusDrive drive = new CanonFocusDrive(transport);
         drive.driveFar(magnitude, session.nextTransactionId());
     }
@@ -347,26 +393,22 @@ public class PtpCamera implements AutoCloseable {
 
     public String getAperture() {
         if (isCanon) return CanonPropertyDecoder.decodeAperture(getCanonPropertyValue(CanonConstants.DPC_EOS_APERTURE));
-        PtpDeviceProperty prop = session.getDevicePropertyDesc(CanonConstants.DPC_EOS_APERTURE);
-        return String.valueOf(prop.currentValue());
+        return "Unsupported";
     }
 
     public String getShutterSpeed() {
         if (isCanon) return CanonPropertyDecoder.decodeShutterSpeed(getCanonPropertyValue(CanonConstants.DPC_EOS_SHUTTER_SPEED));
-        PtpDeviceProperty prop = session.getDevicePropertyDesc(CanonConstants.DPC_EOS_SHUTTER_SPEED);
-        return String.valueOf(prop.currentValue());
+        return "Unsupported";
     }
 
     public String getIso() {
         if (isCanon) return CanonPropertyDecoder.decodeIso(getCanonPropertyValue(CanonConstants.DPC_EOS_ISO));
-        PtpDeviceProperty prop = session.getDevicePropertyDesc(CanonConstants.DPC_EOS_ISO);
-        return String.valueOf(prop.currentValue());
+        return "Unsupported";
     }
 
     public int getBatteryLevel() {
         if (isCanon) return CanonPropertyDecoder.decodeBatteryLevel(getCanonPropertyValue(CanonConstants.DPC_EOS_BATTERY_LEVEL));
-        PtpDeviceProperty prop = session.getDevicePropertyDesc(CanonConstants.DPC_EOS_BATTERY_LEVEL);
-        return prop.currentValue() instanceof Number n ? n.intValue() : 0;
+        return -1;
     }
 
     private int getCanonPropertyValue(int propertyCode) {

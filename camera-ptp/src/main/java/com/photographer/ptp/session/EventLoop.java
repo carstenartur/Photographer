@@ -125,6 +125,13 @@ public class EventLoop {
     private void pollCanonEvents() {
         try {
             PtpTransport.DataResponse dr = session.executeReceiveData(CanonConstants.OC_EOS_GET_EVENT);
+            if (dr.response().code() != com.photographer.ptp.core.PtpConstants.RC_OK) {
+                if (running) {
+                    log.debug("Canon GetEvent returned non-OK response: 0x{}",
+                            Integer.toHexString(dr.response().code()));
+                }
+                return;
+            }
             List<CanonEventParser.CanonEvent> events = CanonEventParser.parse(dr.data());
             if (listener != null) {
                 for (CanonEventParser.CanonEvent event : events) {

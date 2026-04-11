@@ -34,6 +34,10 @@ public class UsbPtpTransport implements PtpTransport {
     public void open() throws PtpException {
         try {
             UsbConfiguration config = device.getActiveUsbConfiguration();
+            if (config == null) {
+                throw new PtpException("No active USB configuration on device "
+                        + "(device may need to be configured first)");
+            }
             usbInterface = findPtpInterface(config);
             usbInterface.claim();
 
@@ -85,9 +89,13 @@ public class UsbPtpTransport implements PtpTransport {
         checkOpen();
         sendContainer(request);
 
-        // Receive data phase
-        PtpContainer dataContainer = receiveContainer(bulkIn);
-        byte[] data = dataContainer.payload();
+        // Receive first container — may be DATA or RESPONSE (on error)
+        PtpContainer firstContainer = receiveContainer(bulkIn);
+        if (firstContainer.type() == PtpConstants.CONTAINER_RESPONSE) {
+            // Error: camera returned response without data phase
+            return new DataResponse(new byte[0], firstContainer);
+        }
+        byte[] data = firstContainer.payload();
 
         // Receive response
         PtpContainer response = receiveContainer(bulkIn);
@@ -106,7 +114,19 @@ public class UsbPtpTransport implements PtpTransport {
             if (!pipe.isOpen()) {
                 pipe.open();
             }
-            int received = pipe.syncSubmit(buffer);
+            // Use an IRP with async submit + wait to honour the timeout
+            UsbIrp irp = pipe.createUsbIrp();
+            irp.setData(buffer);
+            pipe.asyncSubmit(irp);
+            irp.waitUntilComplete(timeoutMs);
+            if (!irp.isComplete()) {
+                irp.setComplete(true);
+                throw new PtpException("Event read timed out after " + timeoutMs + " ms");
+            }
+            if (irp.isUsbException()) {
+                throw new PtpException("Failed to read event", irp.getUsbException());
+            }
+            int received = irp.getActualLength();
             if (received >= PtpConstants.CONTAINER_HEADER_SIZE) {
                 byte[] actual = new byte[received];
                 System.arraycopy(buffer, 0, actual, 0, received);
@@ -156,18 +176,43 @@ public class UsbPtpTransport implements PtpTransport {
 
     private PtpContainer receiveContainer(UsbEndpoint endpoint) throws PtpException {
         try {
-            byte[] buffer = new byte[UsbConstants.MAX_BULK_TRANSFER_SIZE];
             UsbPipe pipe = endpoint.getUsbPipe();
             if (!pipe.isOpen()) {
                 pipe.open();
             }
-            int received = pipe.syncSubmit(buffer);
+            // First read: get at least the 12-byte header
+            byte[] headerBuf = new byte[UsbConstants.MAX_BULK_TRANSFER_SIZE];
+            int received = pipe.syncSubmit(headerBuf);
             if (received < PtpConstants.CONTAINER_HEADER_SIZE) {
                 throw new PtpException("Received data too short: " + received + " bytes");
             }
-            byte[] actual = new byte[received];
-            System.arraycopy(buffer, 0, actual, 0, received);
-            return PtpContainer.parse(actual);
+            // Parse declared length from the header (little-endian, first 4 bytes)
+            int declaredLength = (headerBuf[0] & 0xFF)
+                    | ((headerBuf[1] & 0xFF) << 8)
+                    | ((headerBuf[2] & 0xFF) << 16)
+                    | ((headerBuf[3] & 0xFF) << 24);
+            if (declaredLength <= received) {
+                // Complete container received in one transfer
+                byte[] actual = new byte[received];
+                System.arraycopy(headerBuf, 0, actual, 0, received);
+                return PtpContainer.parse(actual);
+            }
+            // Multi-transfer: container is larger than one bulk read
+            byte[] fullData = new byte[declaredLength];
+            System.arraycopy(headerBuf, 0, fullData, 0, received);
+            int totalReceived = received;
+            while (totalReceived < declaredLength) {
+                byte[] chunk = new byte[UsbConstants.MAX_BULK_TRANSFER_SIZE];
+                int chunkSize = pipe.syncSubmit(chunk);
+                if (chunkSize <= 0) {
+                    throw new PtpException("USB read returned 0 bytes, expected "
+                            + (declaredLength - totalReceived) + " more");
+                }
+                int toCopy = Math.min(chunkSize, declaredLength - totalReceived);
+                System.arraycopy(chunk, 0, fullData, totalReceived, toCopy);
+                totalReceived += toCopy;
+            }
+            return PtpContainer.parse(fullData);
         } catch (UsbException e) {
             throw new PtpException("Failed to receive PTP container", e);
         }

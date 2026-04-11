@@ -32,10 +32,12 @@ public class CanonEventParser {
                 break;
             }
             int payloadLength = entryLength - 8;
-            byte[] payload = new byte[0];
-            if (payloadLength > 0 && reader.remaining() >= payloadLength) {
-                payload = reader.readBytes(payloadLength);
+            if (reader.remaining() < payloadLength) {
+                log.warn("Truncated Canon event entry: type=0x{}, payloadLen={}, remaining={}",
+                        String.format("%04X", eventType), payloadLength, reader.remaining());
+                break;
             }
+            byte[] payload = payloadLength > 0 ? reader.readBytes(payloadLength) : new byte[0];
             events.add(new CanonEvent(eventType, payload));
             log.debug("Parsed Canon event: type=0x{}, payloadLen={}",
                     String.format("%04X", eventType), payload.length);

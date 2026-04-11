@@ -56,6 +56,18 @@ class PtpContainerTest {
     }
 
     @Test
+    void parseTruncatedContainerThrows() {
+        // Create a valid 12-byte header but declare a length of 100 (much larger than buffer)
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(12)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(100);            // declared length = 100 bytes
+        buf.putShort((short) 1);    // type = COMMAND
+        buf.putShort((short) 0x1001); // code
+        buf.putInt(1);              // transactionId
+        assertThrows(PtpException.class, () -> PtpContainer.parse(buf.array()));
+    }
+
+    @Test
     void multipleParamsRoundTrip() {
         PtpContainer cmd = PtpContainer.createCommand(
                 PtpConstants.OP_GET_OBJECT_HANDLES, 10, 0x00010001, 0x3801, 0);

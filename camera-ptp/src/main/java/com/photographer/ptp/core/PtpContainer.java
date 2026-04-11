@@ -69,12 +69,17 @@ public record PtpContainer(
         }
         ByteBuffer buf = ByteBuffer.wrap(raw).order(ByteOrder.LITTLE_ENDIAN);
         int length = buf.getInt();
+        if (length < PtpConstants.CONTAINER_HEADER_SIZE || length > raw.length) {
+            throw new PtpException("Invalid container length: " + length
+                    + " (expected between " + PtpConstants.CONTAINER_HEADER_SIZE
+                    + " and " + raw.length + ")");
+        }
         int type = buf.getShort() & 0xFFFF;
         int code = buf.getShort() & 0xFFFF;
         int transactionId = buf.getInt();
         int payloadLength = length - PtpConstants.CONTAINER_HEADER_SIZE;
         byte[] payload;
-        if (payloadLength > 0 && buf.remaining() >= payloadLength) {
+        if (payloadLength > 0) {
             payload = new byte[payloadLength];
             buf.get(payload);
         } else {

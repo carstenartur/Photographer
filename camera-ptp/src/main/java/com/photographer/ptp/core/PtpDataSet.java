@@ -22,7 +22,7 @@ public class PtpDataSet {
         return reader.readInt16();
     }
 
-    public int readUInt32() {
+    public int readInt32() {
         return reader.readInt32();
     }
 

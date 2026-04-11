@@ -53,7 +53,9 @@ public class PtpCameraBackend implements CameraBackend {
             liveViewActive = true;
         }
         byte[] jpeg = camera.getLiveViewFrame();
-        return new LiveViewFrame(jpeg, 960, 640, Instant.now(), "image/jpeg");
+        // Dimensions are not reliably extractable from all JPEG streams;
+        // report 0 to indicate "unknown" rather than hardcoding incorrect values.
+        return new LiveViewFrame(jpeg, 0, 0, Instant.now(), "image/jpeg");
     }
 
     @Override
