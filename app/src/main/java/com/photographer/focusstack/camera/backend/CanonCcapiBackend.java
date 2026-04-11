@@ -22,9 +22,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,8 +74,25 @@ public class CanonCcapiBackend implements CameraBackend {
     /** Default camera model reported when the CCAPI device-info call is unavailable. */
     static final String DEFAULT_MODEL = "Canon Camera";
 
+    /** Default poll interval when waiting for a new image to appear on the SD card. */
+    private static final long DEFAULT_CAPTURE_POLL_INTERVAL_MS = 500L;
+    /** Default maximum time to wait for a new image after shutter release. */
+    private static final long DEFAULT_CAPTURE_TIMEOUT_MS = 10_000L;
+
+    /** Delay (ms) between half-press and full-press in the 3-phase shutter sequence. */
+    private static final long DEFAULT_SHUTTER_HALF_PRESS_DELAY_MS = 300L;
+    /** Delay (ms) between full-press and release in the 3-phase shutter sequence. */
+    private static final long DEFAULT_SHUTTER_FULL_PRESS_DELAY_MS = 250L;
+    /** Delay (ms) after release to allow the image to be written to the SD card. */
+    private static final long DEFAULT_SHUTTER_RELEASE_DELAY_MS = 1200L;
+
     private final String baseUrl;
     private final RestTemplate restTemplate;
+    private final long capturePollIntervalMs;
+    private final long captureTimeoutMs;
+    private final long shutterHalfPressDelayMs;
+    private final long shutterFullPressDelayMs;
+    private final long shutterReleaseDelayMs;
 
     /**
      * Tracks the last commanded focus position so it can be reported in
@@ -88,8 +108,36 @@ public class CanonCcapiBackend implements CameraBackend {
     private final AtomicBoolean discovered = new AtomicBoolean(false);
 
     public CanonCcapiBackend(String baseUrl, RestTemplate restTemplate) {
+        this(baseUrl, restTemplate, DEFAULT_CAPTURE_POLL_INTERVAL_MS, DEFAULT_CAPTURE_TIMEOUT_MS);
+    }
+
+    /**
+     * Constructor that allows overriding the capture polling behaviour.
+     * Use {@code captureTimeoutMs = 0} to disable image download entirely
+     * (e.g. in unit tests that only verify the shutter trigger).
+     */
+    CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
+                      long capturePollIntervalMs, long captureTimeoutMs) {
+        this(baseUrl, restTemplate, capturePollIntervalMs, captureTimeoutMs,
+                DEFAULT_SHUTTER_HALF_PRESS_DELAY_MS, DEFAULT_SHUTTER_FULL_PRESS_DELAY_MS,
+                DEFAULT_SHUTTER_RELEASE_DELAY_MS);
+    }
+
+    /**
+     * Full constructor that allows overriding all timing parameters.
+     * Use all-zero delays for unit tests to avoid actual waits.
+     */
+    CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
+                      long capturePollIntervalMs, long captureTimeoutMs,
+                      long shutterHalfPressDelayMs, long shutterFullPressDelayMs,
+                      long shutterReleaseDelayMs) {
         this.baseUrl = baseUrl;
         this.restTemplate = restTemplate;
+        this.capturePollIntervalMs = capturePollIntervalMs;
+        this.captureTimeoutMs = captureTimeoutMs;
+        this.shutterHalfPressDelayMs = shutterHalfPressDelayMs;
+        this.shutterFullPressDelayMs = shutterFullPressDelayMs;
+        this.shutterReleaseDelayMs = shutterReleaseDelayMs;
     }
 
     // ── endpoint discovery ──────────────────────────────────────────────────
@@ -215,14 +263,26 @@ public class CanonCcapiBackend implements CameraBackend {
         List<EndpointDescriptor> result = new java.util.ArrayList<>();
         for (Object item : list) {
             if (item instanceof Map<?, ?> map) {
+                String urlStr = null;
                 Object url = map.get("url");
                 if (url instanceof String s) {
+                    // Prefer "url" field when present (most Canon firmware).
+                    urlStr = s;
+                } else {
+                    // Fall back to "path" field as an alternative (Canon SDK alternative format).
+                    // If both exist, "url" wins; this branch is only reached when "url" is absent.
+                    Object path = map.get("path");
+                    if (path instanceof String p) {
+                        urlStr = p;
+                    }
+                }
+                if (urlStr != null) {
                     Set<HttpMethod> methods = new HashSet<>();
                     if (Boolean.TRUE.equals(map.get("get")))    methods.add(HttpMethod.GET);
                     if (Boolean.TRUE.equals(map.get("post")))   methods.add(HttpMethod.POST);
                     if (Boolean.TRUE.equals(map.get("put")))    methods.add(HttpMethod.PUT);
                     if (Boolean.TRUE.equals(map.get("delete"))) methods.add(HttpMethod.DELETE);
-                    result.add(new EndpointDescriptor(s, methods));
+                    result.add(new EndpointDescriptor(urlStr, methods));
                 }
             }
         }
@@ -379,74 +439,361 @@ public class CanonCcapiBackend implements CameraBackend {
 
     @Override
     public CaptureResult capture() {
-        String url = resolveEndpoint("shutterbutton", "/ccapi/ver100/shooting/control/shutterbutton");
+        // Prefer shutterbutton/manual for the 3-phase sequence (Canon SDK §4.8.2).
+        // Fall back to the plain shutterbutton endpoint for older firmware.
+        String manualUrl = findEndpoint("shutterbutton/manual");
+        String regularUrl = resolveEndpoint("shutterbutton",
+                "/ccapi/ver100/shooting/control/shutterbutton");
+        String triggerUrl = manualUrl != null ? manualUrl : regularUrl;
         try {
-            // CCAPI spec §4.8.1: POST /shooting/control/shutterbutton
-            // Body: {"af": true/false}
-            // We disable AF so the pre-set focus position is preserved between
-            // stack frames.
-            ccapiPost(url, Map.of("af", false));
+            // Record the newest image datetime before triggering the shutter so we
+            // can detect the newly written file during the polling phase.
+            // Only do this when a contents endpoint was actually discovered — avoids
+            // unnecessary network calls on cameras that don't expose contents browsing.
+            boolean contentsDiscovered = findEndpoint("contents/sd") != null;
+            String dcimUrl = contentsDiscovered ? resolveContentsBase() : null;
+            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(dcimUrl) : null;
+
+            if (manualUrl != null) {
+                // 3-phase shutter sequence per Canon SDK:
+                // half_press → full_press → release, with delays between phases.
+                ccapiPost(manualUrl, Map.of("action", "half_press", "af", false));
+                sleepMs(shutterHalfPressDelayMs);
+                ccapiPost(manualUrl, Map.of("action", "full_press", "af", false));
+                sleepMs(shutterFullPressDelayMs);
+                ccapiPost(manualUrl, Map.of("action", "release", "af", false));
+                sleepMs(shutterReleaseDelayMs);
+            } else {
+                // Legacy single-POST approach for cameras without shutterbutton/manual.
+                // We disable AF so the pre-set focus position is preserved between
+                // stack frames.
+                ccapiPost(regularUrl, Map.of("af", false));
+            }
+
             String imageId = UUID.randomUUID().toString();
+
+            // Try event/polling first (faster), then fall back to DCIM content browsing.
+            // DCIM browsing is only attempted when the contents endpoint was discovered;
+            // otherwise skip it to avoid adding captureTimeoutMs delay on every frame for
+            // cameras that expose shutter control but no contents endpoint.
+            byte[] imageData = downloadNewImageViaEventPolling();
+            if (imageData == null && contentsDiscovered) {
+                imageData = downloadNewImage(dcimUrl, preNewestDatetime);
+            }
+
             return new CaptureResult(
                     imageId,
                     "capture-" + imageId + ".jpg",
-                    url,
+                    triggerUrl,
                     Instant.now(),
                     focusPosition.get(),
-                    0L,
-                    null // images are stored on the camera card; downloaded separately
+                    imageData != null ? (long) imageData.length : 0L,
+                    imageData
             );
         } catch (RestClientException e) {
-            throw new CameraException("Failed to capture image via " + url + ": " + e.getMessage(), e);
+            throw new CameraException("Failed to capture image via " + triggerUrl + ": " + e.getMessage(), e);
         }
     }
+
+    // ── content browse & download ──────────────────────────────────────────
+
+    /**
+     * Resolves the base URL for the DCIM folder on the camera's SD card.
+     * Prefers a discovered {@code contents/sd} endpoint; falls back to the
+     * well-known CCAPI path.
+     */
+    private String resolveContentsBase() {
+        String found = findEndpoint("contents/sd");
+        if (found != null) {
+            // Ensure the URL ends at /DCIM so subsequent path concatenation works.
+            if (!found.endsWith("/DCIM")) {
+                return found.endsWith("/") ? found + "DCIM" : found + "/DCIM";
+            }
+            return found;
+        }
+        return baseUrl + "/ccapi/ver100/contents/sd/DCIM";
+    }
+
+    /**
+     * Returns the {@code datetime} string of the newest image currently on the
+     * SD card, or {@code null} if no images are found or the contents endpoint
+     * is unavailable.
+     */
+    private String findNewestImageDatetime(String dcimUrl) {
+        try {
+            ImageLocation loc = findNewestImage(dcimUrl);
+            return loc != null ? loc.entry().datetime() : null;
+        } catch (Exception e) {
+            log.debug("Could not read pre-capture contents listing: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Polls the SD card contents until a new image appears (newer than
+     * {@code preNewestDatetime}) and downloads it.
+     *
+     * <p>Returns {@code null} with a warning if no new image appears within
+     * {@link #captureTimeoutMs} milliseconds (graceful degradation).
+     * Returns {@code null} immediately if {@link #captureTimeoutMs} is {@code 0}.
+     */
+    private byte[] downloadNewImage(String dcimUrl, String preNewestDatetime) {
+        if (captureTimeoutMs <= 0) {
+            return null;
+        }
+        long deadline = System.currentTimeMillis() + captureTimeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                ImageLocation newest = findNewestImage(dcimUrl);
+                if (newest != null && isNewerThan(newest.entry().datetime(), preNewestDatetime)) {
+                    String imageUrl = dcimUrl + "/" + newest.folderName()
+                            + "/" + newest.entry().name();
+                    byte[] data = restTemplate.getForObject(imageUrl, byte[].class);
+                    if (data != null && data.length > 0) {
+                        log.info("Downloaded {} bytes from camera SD card ({})",
+                                data.length, imageUrl);
+                        return data;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("Error while polling SD card for new image: {}", e.getMessage());
+            }
+            try {
+                if (Thread.currentThread().isInterrupted()) {
+                    break;
+                }
+                Thread.sleep(capturePollIntervalMs);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        log.warn("Timed out after {}ms waiting for new image on camera {}",
+                captureTimeoutMs, baseUrl);
+        return null;
+    }
+
+    /**
+     * Finds the newest image file (by datetime) across all DCIM sub-folders.
+     * Returns {@code null} if the camera has no images or the contents
+     * endpoint is unavailable.
+     */
+    private ImageLocation findNewestImage(String dcimUrl) {
+        ContentListing folderListing = listContents(dcimUrl);
+        if (folderListing == null || folderListing.dir() == null || folderListing.dir().isEmpty()) {
+            return null;
+        }
+        // Sort folders descending by name so the highest-numbered folder is first.
+        List<ContentEntry> folders = folderListing.dir().stream()
+                .filter(e -> "D".equals(e.attrib()))
+                .sorted(Comparator.comparing(ContentEntry::name).reversed())
+                .toList();
+        for (ContentEntry folder : folders) {
+            String folderUrl = dcimUrl + "/" + folder.name();
+            ContentListing fileListing = listContents(folderUrl);
+            if (fileListing == null || fileListing.dir() == null) continue;
+            Optional<ContentEntry> newest = fileListing.dir().stream()
+                    .filter(e -> "A".equals(e.attrib()) && isImageFile(e.name()))
+                    .filter(e -> e.datetime() != null)
+                    .max(Comparator.comparing(e -> parseOffsetDateTimeOrNull(e.datetime()),
+                            Comparator.nullsFirst(Comparator.naturalOrder())));
+            if (newest.isPresent()) {
+                return new ImageLocation(folder.name(), newest.get());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parses an ISO-8601 offset datetime string, returning {@code null} if parsing fails.
+     * Used so that {@code max()} comparisons are based on actual instants rather than
+     * raw strings (which can sort incorrectly when timezone offsets differ).
+     */
+    private static OffsetDateTime parseOffsetDateTimeOrNull(String dt) {
+        if (dt == null) return null;
+        try {
+            return OffsetDateTime.parse(dt);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Fetches a CCAPI directory listing, returning {@code null} on any error. */
+    private ContentListing listContents(String url) {
+        try {
+            return restTemplate.getForObject(url, ContentListing.class);
+        } catch (RestClientException e) {
+            log.debug("Failed to list SD card contents at {}: {}", url, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Attempts to find and download a newly added image by polling the
+     * {@code /event/polling} endpoint.  Returns {@code null} immediately if
+     * {@link #captureTimeoutMs} is {@code 0} or the endpoint is not discovered.
+     *
+     * <p>The polling response is searched recursively for URLs that contain
+     * {@code /contents/} and end with a recognised image extension.
+     */
+    private byte[] downloadNewImageViaEventPolling() {
+        if (captureTimeoutMs <= 0) {
+            return null;
+        }
+        String pollingUrl = findEndpoint("event/polling");
+        if (pollingUrl == null) {
+            return null;
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(pollingUrl, Map.class);
+            if (response == null) return null;
+
+            List<String> contentUrls = extractContentUrls(response);
+            for (String contentUrl : contentUrls) {
+                String fullUrl = contentUrl.startsWith("http") ? contentUrl : baseUrl + contentUrl;
+                try {
+                    byte[] data = restTemplate.getForObject(fullUrl, byte[].class);
+                    if (data != null && data.length > 0) {
+                        log.info("Downloaded {} bytes via event/polling ({})", data.length, fullUrl);
+                        return data;
+                    }
+                } catch (RestClientException e) {
+                    log.debug("Failed to download image {} from event/polling: {}", fullUrl, e.getMessage());
+                }
+            }
+        } catch (RestClientException e) {
+            log.debug("event/polling unavailable: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Recursively searches a CCAPI response object for URLs that look like
+     * content paths (contain {@code /contents/} and end with a recognised image
+     * extension).
+     */
+    @SuppressWarnings("unchecked")
+    static List<String> extractContentUrls(Object node) {
+        List<String> result = new java.util.ArrayList<>();
+        if (node instanceof String s) {
+            if (s.contains("/contents/") && isImageFile(s)) {
+                result.add(s);
+            }
+        } else if (node instanceof List<?> list) {
+            for (Object item : list) {
+                result.addAll(extractContentUrls(item));
+            }
+        } else if (node instanceof Map<?, ?> map) {
+            for (Object value : map.values()) {
+                result.addAll(extractContentUrls(value));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Sleeps for the specified number of milliseconds.
+     * Returns immediately if {@code ms <= 0}.
+     * Interrupts are propagated as a {@link CameraException}.
+     */
+    private void sleepMs(long ms) {
+        if (ms <= 0) return;
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CameraException("Interrupted during shutter sequence", e);
+        }
+    }
+
+    /** Returns {@code true} for JPEG and Canon RAW file extensions. */
+    private static boolean isImageFile(String name) {
+        if (name == null) return false;
+        String upper = name.toUpperCase();
+        return upper.endsWith(".JPG") || upper.endsWith(".JPEG")
+                || upper.endsWith(".CR2") || upper.endsWith(".CR3");
+    }
+
+    /**
+     * Returns {@code true} if {@code dt1} is strictly after {@code dt2} when
+     * both are parsed as ISO-8601 offset date-times.
+     * Equal timestamps return {@code false}.
+     * If {@code dt2} is {@code null} any non-null {@code dt1} is considered
+     * "newer" (no prior image existed before this capture).
+     * Falls back to lexicographic comparison if parsing fails.
+     */
+    static boolean isNewerThan(String dt1, String dt2) {
+        if (dt1 == null) return false;
+        if (dt2 == null) return true;
+        try {
+            return OffsetDateTime.parse(dt1).isAfter(OffsetDateTime.parse(dt2));
+        } catch (Exception e) {
+            // ISO 8601 strings sort correctly lexicographically as a fallback.
+            return dt1.compareTo(dt2) > 0;
+        }
+    }
+
+    /** Holds the DCIM folder name and file entry for a located image. */
+    record ImageLocation(String folderName, ContentEntry entry) {}
 
     @Override
     public void setFocus(FocusCommand command) {
         String direction = command.direction() == FocusCommand.Direction.NEAR ? "near" : "far";
         String size = toMfDriveSize(command.steps());
+        String magnitude = toDriveFocusMagnitude(command.steps());
 
         // Try discovered endpoints in order of preference:
-        // 1. /shooting/control/af (CCAPI §4.8.8)
-        //    Body: {"action": "on", "lensdrivecomposite": "near_small"}
+        // 1. /shooting/control/drivefocus (Canon SDK format, e.g. {"value":"near1"})
+        // 2. /shooting/control/af (CCAPI §4.8.8, e.g. {"action":"on","lensdrivecomposite":"near_small"})
         //    Use PUT if the endpoint descriptor explicitly allows it, otherwise POST.
-        // 2. /shooting/liveview/remocon (fallback for cameras without /af)
+        // 3. /shooting/liveview/remocon (fallback for cameras without /af or /drivefocus)
         //    Body: {"direction": "far", "magnitude": "medium"}
-        // 3. Log a warning if neither is available.
+        // 4. Log a warning if no focus endpoint is available.
 
-        String afUrl = findEndpoint("/shooting/control/af");
-        if (afUrl != null) {
-            Map<String, Object> body = Map.of(
-                    "action", "on",
-                    "lensdrivecomposite", direction + "_" + size);
+        String driveFocusUrl = findEndpoint("/shooting/control/drivefocus");
+        if (driveFocusUrl != null) {
             try {
-                if (endpointAllows("/shooting/control/af", HttpMethod.PUT, false)) {
-                    restTemplate.put(afUrl, ccapiEntity(body));
-                } else {
-                    ccapiPost(afUrl, body);
-                }
+                ccapiPost(driveFocusUrl, Map.of("value", direction + magnitude));
             } catch (RestClientException e) {
                 throw new CameraException(
-                        "Failed to trigger AF via " + afUrl + ": " + e.getMessage(), e);
+                        "Failed to drive focus via " + driveFocusUrl + ": " + e.getMessage(), e);
             }
         } else {
-            // Camera without /af — fall back to remocon for manual focus drive.
-            String remoconUrl = findEndpoint("/shooting/liveview/remocon");
-            if (remoconUrl != null) {
+            String afUrl = findEndpoint("/shooting/control/af");
+            if (afUrl != null) {
                 Map<String, Object> body = Map.of(
-                        "direction", direction,
-                        "magnitude", size);
+                        "action", "on",
+                        "lensdrivecomposite", direction + "_" + size);
                 try {
-                    ccapiPost(remoconUrl, body);
+                    if (endpointAllows("/shooting/control/af", HttpMethod.PUT, false)) {
+                        restTemplate.put(afUrl, ccapiEntity(body));
+                    } else {
+                        ccapiPost(afUrl, body);
+                    }
                 } catch (RestClientException e) {
                     throw new CameraException(
-                            "Failed to drive focus via " + remoconUrl + ": " + e.getMessage(), e);
+                            "Failed to trigger AF via " + afUrl + ": " + e.getMessage(), e);
                 }
             } else {
-                log.warn("No focus-control endpoint discovered on camera {}. "
-                        + "Available endpoints: {}. "
-                        + "Focus adjustment ignored.",
-                        baseUrl, endpoints.keySet());
+                // Camera without /drivefocus or /af — fall back to remocon.
+                String remoconUrl = findEndpoint("/shooting/liveview/remocon");
+                if (remoconUrl != null) {
+                    Map<String, Object> body = Map.of(
+                            "direction", direction,
+                            "magnitude", size);
+                    try {
+                        ccapiPost(remoconUrl, body);
+                    } catch (RestClientException e) {
+                        throw new CameraException(
+                                "Failed to drive focus via " + remoconUrl + ": " + e.getMessage(), e);
+                    }
+                } else {
+                    log.warn("No focus-control endpoint discovered on camera {}. "
+                            + "Available endpoints: {}. "
+                            + "Focus adjustment ignored.",
+                            baseUrl, endpoints.keySet());
+                }
             }
         }
         // Update tracked position: NEAR decrements, FAR increments
@@ -556,6 +903,17 @@ public class CanonCcapiBackend implements CameraBackend {
     }
 
     /**
+     * Maps an abstract step count to a {@code drivefocus} magnitude string
+     * as expected by the Canon SDK {@code /shooting/control/drivefocus} endpoint.
+     * Returns "1" (small), "2" (medium), or "3" (large).
+     */
+    static String toDriveFocusMagnitude(int steps) {
+        if (steps <= 1) return "1";
+        if (steps <= 5) return "2";
+        return "3";
+    }
+
+    /**
      * Parses a CCAPI battery level string ("high", "middle", "low", "empty",
      * "full") or a numeric percentage string ("80") into an integer 0–100.
      * Returns 100 for null or unrecognised input. Trims whitespace before parsing.
@@ -601,5 +959,18 @@ public class CanonCcapiBackend implements CameraBackend {
             @JsonProperty("name")     String name,
             @JsonProperty("maxsize")  Long maxBytes,
             @JsonProperty("spacesize") Long spaceBytes
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record ContentEntry(
+            @JsonProperty("name")     String name,
+            @JsonProperty("size")     Long size,
+            @JsonProperty("datetime") String datetime,
+            @JsonProperty("attrib")   String attrib
+    ) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record ContentListing(
+            @JsonProperty("dir") List<ContentEntry> dir
     ) {}
 }

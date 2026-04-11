@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.model.CameraProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -48,7 +49,11 @@ public class CameraBackendFactory {
         this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;
         this.simulateEmptyFrameAt = simulateEmptyFrameAt;
         this.simulateMovementAt = simulateMovementAt;
-        this.restTemplate = new RestTemplate();
+        // Configure timeouts: 10 s connection, 30 s read (allows multi-MB JPEG downloads).
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(30_000);
+        this.restTemplate = new RestTemplate(factory);
     }
 
     /**

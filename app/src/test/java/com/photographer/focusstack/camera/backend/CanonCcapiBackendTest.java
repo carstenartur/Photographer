@@ -38,13 +38,15 @@ class CanonCcapiBackendTest {
             "/ccapi/ver100/shooting/liveview/flip",
             "/ccapi/ver100/shooting/control/shutterbutton",
             "/ccapi/ver100/shooting/control/af",
-            "/ccapi/ver100/event/polling"
+            "/ccapi/ver100/event/polling",
+            "/ccapi/ver100/contents/sd"
     );
 
     @BeforeEach
     void setUp() {
         restTemplate = Mockito.mock(RestTemplate.class);
-        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        // Use 0 ms timeout so existing tests are fast (no image-download polling).
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
 
         // Mock the CCAPI discovery flow:
         // GET /ccapi → { "ver100": "/ccapi/ver100" }
@@ -234,6 +236,118 @@ class CanonCcapiBackendTest {
                 .thenThrow(new ResourceAccessException("timeout"));
 
         assertThrows(CameraException.class, () -> backend.capture());
+    }
+
+    @Test
+    void capture_downloadsNewImageAfterShutter() {
+        // Backend with 0 ms poll interval and generous timeout so mock responds immediately.
+        CanonCcapiBackend downloadBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        // Pre-capture: one existing image with an older datetime.
+        CanonCcapiBackend.ContentListing folderListing = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D")));
+        CanonCcapiBackend.ContentListing preCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry(
+                        "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
+        CanonCcapiBackend.ContentListing postCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A"),
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0002.JPG", 4_450_000L, "2024-04-01T11:15:30+09:00", "A")));
+
+        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
+        String folderUrl = dcimUrl + "/100CANON";
+        String imageUrl = folderUrl + "/IMG_0002.JPG";
+        byte[] imageBytes = new byte[]{1, 2, 3, 4, 5};
+
+        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(folderListing);
+        when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(preCaptureFiles)   // first call: pre-capture snapshot
+                .thenReturn(postCaptureFiles); // second call: post-capture poll
+        when(restTemplate.getForObject(eq(imageUrl), eq(byte[].class)))
+                .thenReturn(imageBytes);
+
+        CaptureResult result = downloadBackend.capture();
+
+        assertNotNull(result.imageData());
+        assertArrayEquals(imageBytes, result.imageData());
+        assertEquals(imageBytes.length, result.fileSize());
+    }
+
+    @Test
+    void capture_downloadsFirstImageWhenNoPriorImageExists() {
+        // Backend with 0 ms poll interval so the mock responds in the first loop iteration.
+        CanonCcapiBackend downloadBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        // Pre-capture: SD card is empty (no files).
+        CanonCcapiBackend.ContentListing emptyFolder = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D")));
+        CanonCcapiBackend.ContentListing emptyFiles = new CanonCcapiBackend.ContentListing(List.of());
+        CanonCcapiBackend.ContentListing postCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry(
+                        "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
+
+        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
+        String folderUrl = dcimUrl + "/100CANON";
+        String imageUrl = folderUrl + "/IMG_0001.JPG";
+        byte[] imageBytes = new byte[]{10, 20, 30};
+
+        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(emptyFolder);
+        when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(emptyFiles)        // pre-capture: no files
+                .thenReturn(postCaptureFiles); // post-capture: new file appeared
+        when(restTemplate.getForObject(eq(imageUrl), eq(byte[].class)))
+                .thenReturn(imageBytes);
+
+        CaptureResult result = downloadBackend.capture();
+
+        assertNotNull(result.imageData());
+        assertArrayEquals(imageBytes, result.imageData());
+    }
+
+    @Test
+    void capture_returnsNullImageDataOnTimeout() {
+        // Use a very short timeout and no mocked contents → download times out.
+        CanonCcapiBackend timeoutBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 1);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        CaptureResult result = timeoutBackend.capture();
+
+        assertNotNull(result.imageId());
+        assertNull(result.imageData());
+        assertEquals(0L, result.fileSize());
+    }
+
+    @Test
+    void capture_skipsContentsBrowsingWhenEndpointNotDiscovered() {
+        // Endpoint list has no contents/sd entry → DCIM browsing must be skipped entirely.
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/shooting/control/shutterbutton"
+                ));
+        // Use a generous timeout — if browsing were attempted the poll loop would run.
+        CanonCcapiBackend noContentsBackend =
+                new CanonCcapiBackend(BASE_URL, restTemplate, 0, 5_000);
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        long before = System.currentTimeMillis();
+        CaptureResult result = noContentsBackend.capture();
+        long elapsed = System.currentTimeMillis() - before;
+
+        // Should return quickly (no polling delay) with null imageData.
+        assertNull(result.imageData());
+        assertTrue(elapsed < 1_000, "Expected capture to return quickly without SD-card polling, but took " + elapsed + "ms");
+        // Contents listing must never have been called.
+        verify(restTemplate, never()).getForObject(
+                contains("/contents/sd"), eq(CanonCcapiBackend.ContentListing.class));
     }
 
     // ── setFocus ──────────────────────────────────────────────────────────────
@@ -621,7 +735,7 @@ class CanonCcapiBackendTest {
                         "/ccapi/ver100/deviceinformation",
                         "/ccapi/ver100/devicestatus/battery"
                 ));
-        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
 
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
@@ -635,5 +749,362 @@ class CanonCcapiBackendTest {
         assertEquals(0L, state.storageAvailable());
         // Should never have attempted a storage call
         verify(restTemplate, never()).getForObject(anyString(), eq(CanonCcapiBackend.StorageStatus.class));
+    }
+
+    // ── ContentListing DTO parsing ────────────────────────────────────────────
+
+    @Test
+    void contentListing_parsesDirectoryEntries() {
+        CanonCcapiBackend.ContentListing listing = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D"),
+                        new CanonCcapiBackend.ContentEntry("101CANON", null, null, "D")));
+
+        assertNotNull(listing.dir());
+        assertEquals(2, listing.dir().size());
+        assertEquals("100CANON", listing.dir().get(0).name());
+        assertEquals("D", listing.dir().get(0).attrib());
+    }
+
+    @Test
+    void contentListing_parsesFileEntries() {
+        CanonCcapiBackend.ContentListing listing = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0042.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
+
+        CanonCcapiBackend.ContentEntry entry = listing.dir().get(0);
+        assertEquals("IMG_0042.JPG", entry.name());
+        assertEquals(4_371_156L, entry.size());
+        assertEquals("2024-04-01T11:15:03+09:00", entry.datetime());
+        assertEquals("A", entry.attrib());
+    }
+
+    // ── isNewerThan ───────────────────────────────────────────────────────────
+
+    @Test
+    void isNewerThan_returnsTrueWhenFirstIsLater() {
+        assertTrue(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T11:15:30+09:00",
+                "2024-04-01T11:15:03+09:00"));
+    }
+
+    @Test
+    void isNewerThan_returnsFalseWhenFirstIsEarlier() {
+        assertFalse(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T11:15:03+09:00",
+                "2024-04-01T11:15:30+09:00"));
+    }
+
+    @Test
+    void isNewerThan_returnsFalseWhenFirstIsNull() {
+        assertFalse(CanonCcapiBackend.isNewerThan(null, "2024-04-01T11:15:03+09:00"));
+    }
+
+    @Test
+    void isNewerThan_returnsTrueWhenSecondIsNull() {
+        assertTrue(CanonCcapiBackend.isNewerThan("2024-04-01T11:15:03+09:00", null));
+    }
+
+    @Test
+    void isNewerThan_returnsFalseWhenBothNull() {
+        assertFalse(CanonCcapiBackend.isNewerThan(null, null));
+    }
+
+    @Test
+    void isNewerThan_fallsBackToLexicographicComparisonForUnparseableDatetimes() {
+        // Strings without timezone offset are not valid OffsetDateTime values,
+        // so the parser throws and the method falls back to lexicographic comparison.
+        // ISO 8601 local datetimes still sort correctly as strings.
+        assertTrue(CanonCcapiBackend.isNewerThan("2024-04-01T12:00:00", "2024-04-01T11:00:00"));
+        assertFalse(CanonCcapiBackend.isNewerThan("2024-04-01T10:00:00", "2024-04-01T11:00:00"));
+    }
+
+    @Test
+    void isNewerThan_correctlyHandlesDifferentTimezoneOffsets() {
+        // 10:00+09:00 (UTC+1:00) is actually before 02:00+00:00 (UTC+2:00) — different zone.
+        // Raw string comparison would wrongly say "10:00+09:00" > "02:00+00:00".
+        // OffsetDateTime comparison must be used to get the right answer.
+        // 2024-04-01T10:00:00+09:00 == 2024-04-01T01:00:00Z
+        // 2024-04-01T02:00:00+00:00 == 2024-04-01T02:00:00Z  → is later
+        assertFalse(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T10:00:00+09:00",
+                "2024-04-01T02:00:00+00:00"));
+        assertTrue(CanonCcapiBackend.isNewerThan(
+                "2024-04-01T02:00:00+00:00",
+                "2024-04-01T10:00:00+09:00"));
+    }
+
+    // ── 3-phase shutter sequence ───────────────────────────────────────────────
+
+    @Test
+    void capture_uses3PhaseShutterSequenceWhenManualEndpointDiscovered() {
+        // Discover shutterbutton/manual; use 0 delays to keep the test fast.
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/shooting/control/shutterbutton",
+                        "/ccapi/ver100/shooting/control/shutterbutton/manual"
+                ));
+        CanonCcapiBackend manualBackend =
+                new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0, 0, 0, 0);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        manualBackend.capture();
+
+        org.mockito.InOrder inOrder = Mockito.inOrder(restTemplate);
+        inOrder.verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton/manual"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "half_press", "af", false).equals(he.getBody())),
+                eq(String.class));
+        inOrder.verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton/manual"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "full_press", "af", false).equals(he.getBody())),
+                eq(String.class));
+        inOrder.verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton/manual"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "release", "af", false).equals(he.getBody())),
+                eq(String.class));
+    }
+
+    @Test
+    void capture_fallsBackToSinglePostWhenManualEndpointNotDiscovered() {
+        // Standard DISCOVERED_ENDPOINTS has shutterbutton but not shutterbutton/manual.
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
+                .thenReturn("{\"message\": \"ok\"}");
+
+        backend.capture();
+
+        // Should use single POST to shutterbutton, NOT the 3-phase sequence.
+        verify(restTemplate, times(1)).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("af", false).equals(he.getBody())),
+                eq(String.class));
+        verify(restTemplate, never()).postForObject(
+                contains("shutterbutton/manual"), any(), eq(String.class));
+    }
+
+    // ── drivefocus endpoint preference ────────────────────────────────────────
+
+    @Test
+    void setFocus_prefersDriveFocusOverAfEndpoint() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of(
+                        "/ccapi/ver100/shooting/control/drivefocus",
+                        "/ccapi/ver100/shooting/control/af"
+                ));
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 1));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("value", "near1").equals(he.getBody())),
+                eq(String.class));
+        // Should NOT fall through to /af
+        verify(restTemplate, never()).postForObject(
+                contains("/shooting/control/af"), any(), eq(String.class));
+    }
+
+    @Test
+    void setFocus_usesDriveFocusWithFarMediumStep() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of("/ccapi/ver100/shooting/control/drivefocus"));
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("value", "far2").equals(he.getBody())),
+                eq(String.class));
+    }
+
+    @Test
+    void setFocus_usesDriveFocusWithNearLargeStep() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(List.of("/ccapi/ver100/shooting/control/drivefocus"));
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 10));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("value", "near3").equals(he.getBody())),
+                eq(String.class));
+    }
+
+    @Test
+    void setFocus_fallsBackToAfWhenDriveFocusNotDiscovered() {
+        // Standard DISCOVERED_ENDPOINTS has /af but not /drivefocus.
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+
+        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
+
+        verify(restTemplate).postForObject(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
+                argThat(arg -> arg instanceof HttpEntity<?> he
+                        && Map.of("action", "on", "lensdrivecomposite", "far_medium").equals(he.getBody())),
+                eq(String.class));
+    }
+
+    // ── toDriveFocusMagnitude ─────────────────────────────────────────────────
+
+    @Test
+    void toDriveFocusMagnitude_mapsStepCountsCorrectly() {
+        assertEquals("1", CanonCcapiBackend.toDriveFocusMagnitude(1));
+        assertEquals("2", CanonCcapiBackend.toDriveFocusMagnitude(3));
+        assertEquals("2", CanonCcapiBackend.toDriveFocusMagnitude(5));
+        assertEquals("3", CanonCcapiBackend.toDriveFocusMagnitude(10));
+    }
+
+    // ── event/polling image detection ─────────────────────────────────────────
+
+    @Test
+    void capture_usesEventPollingToFindNewImage() {
+        // Backend with download enabled; event/polling is in the discovered list.
+        CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        String newImagePath = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.JPG";
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/event/polling"), eq(Map.class)))
+                .thenReturn(Map.of("addedcontents", List.of(newImagePath)));
+
+        byte[] imageBytes = new byte[]{10, 20, 30, 40, 50};
+        when(restTemplate.getForObject(eq(BASE_URL + newImagePath), eq(byte[].class)))
+                .thenReturn(imageBytes);
+
+        CaptureResult result = pollingBackend.capture();
+
+        assertNotNull(result.imageData());
+        assertArrayEquals(imageBytes, result.imageData());
+        assertEquals(imageBytes.length, result.fileSize());
+    }
+
+    @Test
+    void capture_fallsBackToDcimBrowsingWhenEventPollingReturnsNoImages() {
+        // Backend with download enabled; event/polling returns nothing useful.
+        CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+
+        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+
+        // event/polling returns an empty map (no content URLs).
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/event/polling"), eq(Map.class)))
+                .thenReturn(Map.of("status", "no_change"));
+
+        // DCIM content browsing setup.
+        CanonCcapiBackend.ContentListing folderListing = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry("100CANON", null, null, "D")));
+        CanonCcapiBackend.ContentListing preCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(new CanonCcapiBackend.ContentEntry(
+                        "IMG_0001.JPG", 1_000_000L, "2024-04-01T10:00:00+09:00", "A")));
+        CanonCcapiBackend.ContentListing postCaptureFiles = new CanonCcapiBackend.ContentListing(
+                List.of(
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0001.JPG", 1_000_000L, "2024-04-01T10:00:00+09:00", "A"),
+                        new CanonCcapiBackend.ContentEntry(
+                                "IMG_0002.JPG", 2_000_000L, "2024-04-01T10:01:00+09:00", "A")));
+
+        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
+        String folderUrl = dcimUrl + "/100CANON";
+        String imageUrl = folderUrl + "/IMG_0002.JPG";
+        byte[] imageBytes = new byte[]{1, 2, 3};
+
+        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(folderListing);
+        when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
+                .thenReturn(preCaptureFiles)
+                .thenReturn(postCaptureFiles);
+        when(restTemplate.getForObject(eq(imageUrl), eq(byte[].class)))
+                .thenReturn(imageBytes);
+
+        CaptureResult result = pollingBackend.capture();
+
+        assertNotNull(result.imageData());
+        assertArrayEquals(imageBytes, result.imageData());
+    }
+
+    // ── extractContentUrls ────────────────────────────────────────────────────
+
+    @Test
+    void extractContentUrls_findsJpegUrlInNestedMap() {
+        Map<String, Object> response = Map.of(
+                "addedcontents",
+                List.of("/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0001.JPG"));
+        List<String> urls = CanonCcapiBackend.extractContentUrls(response);
+        assertEquals(1, urls.size());
+        assertEquals("/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0001.JPG", urls.get(0));
+    }
+
+    @Test
+    void extractContentUrls_findsCr3UrlRecursively() {
+        Map<String, Object> response = Map.of(
+                "level1", Map.of(
+                        "level2",
+                        List.of("/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0002.CR3")));
+        List<String> urls = CanonCcapiBackend.extractContentUrls(response);
+        assertEquals(1, urls.size());
+        assertEquals("/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0002.CR3", urls.get(0));
+    }
+
+    @Test
+    void extractContentUrls_ignoresNonImageContentUrls() {
+        Map<String, Object> response = Map.of(
+                "contents", List.of(
+                        "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0001.TIF",
+                        "/ccapi/ver100/contents/sd/DCIM/100CANON/"
+                ));
+        List<String> urls = CanonCcapiBackend.extractContentUrls(response);
+        assertTrue(urls.isEmpty());
+    }
+
+    @Test
+    void extractContentUrls_returnsEmptyListForNull() {
+        List<String> urls = CanonCcapiBackend.extractContentUrls(null);
+        assertTrue(urls.isEmpty());
+    }
+
+    // ── path field support in discovery ──────────────────────────────────────
+
+    @Test
+    void discoverEndpoints_supportsPathFieldInDescriptors() {
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("path", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("url", "/ccapi/ver100/devicestatus/battery", "get", true)
+        );
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver100", descriptors));
+
+        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
+        backend.discoverEndpoints();
+
+        assertNotNull(backend.findEndpoint("deviceinformation"));
+        assertNotNull(backend.findEndpoint("battery"));
+    }
+
+    @Test
+    void extractDescriptorUrls_supportsPathFieldAsAlternativeToUrl() {
+        List<Map<String, Object>> descriptors = List.of(
+                Map.of("path", "/ccapi/ver100/deviceinformation", "get", true),
+                Map.of("url", "/ccapi/ver100/devicestatus/battery", "get", true)
+        );
+        List<String> result = CanonCcapiBackend.extractDescriptorUrls(descriptors);
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals("/ccapi/ver100/deviceinformation", result.get(0));
+        assertEquals("/ccapi/ver100/devicestatus/battery", result.get(1));
     }
 }
