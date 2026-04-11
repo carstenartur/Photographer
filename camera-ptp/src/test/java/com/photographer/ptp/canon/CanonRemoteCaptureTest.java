@@ -40,7 +40,7 @@ class CanonRemoteCaptureTest {
         capture.capture(txId::getAndIncrement);
 
         // Should have recorded exactly 3 commands: half-press, full-press, release
-        assertEquals(3, capture_commandCount(transport.executed),
+        assertEquals(3, captureCommandCount(transport.executed),
                 "Expected exactly 3 shutter commands");
     }
 
@@ -125,7 +125,7 @@ class CanonRemoteCaptureTest {
                 .toList();
     }
 
-    private static int capture_commandCount(List<PtpContainer> all) {
+    private static int captureCommandCount(List<PtpContainer> all) {
         return shutterCommands(all).size();
     }
 }
