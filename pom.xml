@@ -24,6 +24,8 @@
         <module>capture-core</module>
         <module>storage</module>
         <module>camera-ptp</module>
+        <module>hdr-core</module>
+        <module>video-core</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>
