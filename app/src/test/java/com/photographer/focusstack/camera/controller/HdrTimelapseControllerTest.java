@@ -22,6 +22,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -57,6 +58,7 @@ class HdrTimelapseControllerTest {
 
         HdrSettings settings = HdrSettings.defaults();
         mockMvc.perform(post("/api/hdr-timelapse")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(settings)))
                 .andExpect(status().isCreated())
@@ -77,13 +79,15 @@ class HdrTimelapseControllerTest {
     void startSession_returnsAccepted() throws Exception {
         when(hdrTimelapseService.getSession("sess-1")).thenReturn(SAMPLE_SESSION);
 
-        mockMvc.perform(post("/api/hdr-timelapse/sess-1/start"))
+        mockMvc.perform(post("/api/hdr-timelapse/sess-1/start")
+                        .with(csrf()))
                 .andExpect(status().isAccepted());
     }
 
     @Test
     void stopSession_returnsOk() throws Exception {
-        mockMvc.perform(post("/api/hdr-timelapse/sess-1/stop"))
+        mockMvc.perform(post("/api/hdr-timelapse/sess-1/stop")
+                        .with(csrf()))
                 .andExpect(status().isOk());
 
         verify(hdrTimelapseService).stopSession("sess-1");

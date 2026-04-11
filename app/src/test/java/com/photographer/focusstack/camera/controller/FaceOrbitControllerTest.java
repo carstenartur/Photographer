@@ -24,6 +24,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,6 +60,7 @@ class FaceOrbitControllerTest {
 
         FaceOrbitSettings settings = FaceOrbitSettings.defaults();
         mockMvc.perform(post("/api/face-orbit")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(settings)))
                 .andExpect(status().isCreated())
@@ -80,7 +82,8 @@ class FaceOrbitControllerTest {
         QualityCheck quality = new QualityCheck("f1", 0.85, 0.90, true, 0.95, true, "OK");
         when(faceOrbitService.captureNextStep("sess-2")).thenReturn(quality);
 
-        mockMvc.perform(post("/api/face-orbit/sess-2/capture"))
+        mockMvc.perform(post("/api/face-orbit/sess-2/capture")
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.passed").value(true));
     }
@@ -89,13 +92,15 @@ class FaceOrbitControllerTest {
     void startAutoMode_returnsAccepted() throws Exception {
         when(faceOrbitService.getSession("sess-2")).thenReturn(SAMPLE_SESSION);
 
-        mockMvc.perform(post("/api/face-orbit/sess-2/auto"))
+        mockMvc.perform(post("/api/face-orbit/sess-2/auto")
+                        .with(csrf()))
                 .andExpect(status().isAccepted());
     }
 
     @Test
     void stopSession_returnsOk() throws Exception {
-        mockMvc.perform(post("/api/face-orbit/sess-2/stop"))
+        mockMvc.perform(post("/api/face-orbit/sess-2/stop")
+                        .with(csrf()))
                 .andExpect(status().isOk());
 
         verify(faceOrbitService).stopSession("sess-2");
@@ -109,7 +114,8 @@ class FaceOrbitControllerTest {
                 List.of(), null, Map.of());
         when(faceOrbitService.completeSession("sess-2")).thenReturn(completed);
 
-        mockMvc.perform(post("/api/face-orbit/sess-2/complete"))
+        mockMvc.perform(post("/api/face-orbit/sess-2/complete")
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
     }
@@ -121,7 +127,8 @@ class FaceOrbitControllerTest {
                 Instant.now(), Instant.now(), "results/profile.json", null, 300, 0.85);
         when(faceOrbitService.generateProfile("sess-2")).thenReturn(job);
 
-        mockMvc.perform(post("/api/face-orbit/sess-2/profile"))
+        mockMvc.perform(post("/api/face-orbit/sess-2/profile")
+                        .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.jobId").value("job-1"))
                 .andExpect(jsonPath("$.vertexCount").value(300));
