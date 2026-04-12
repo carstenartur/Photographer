@@ -470,80 +470,146 @@ public class CanonCcapiBackend implements CameraBackend {
 <span class="fc" id="L470">    }</span>
 
     @Override
+    public void stopLiveView() {
+        // Use exact-match loop (same as startLiveView) to avoid matching
+        // sub-paths like /liveview/flip or /liveview/scroll.
+<span class="fc" id="L476">        String url = null;</span>
+<span class="fc bfc" id="L477" title="All 2 branches covered.">        for (Map.Entry&lt;String, String&gt; entry : endpoints.entrySet()) {</span>
+<span class="fc bfc" id="L478" title="All 2 branches covered.">            if (entry.getKey().endsWith(&quot;/shooting/liveview&quot;)) {</span>
+<span class="fc" id="L479">                url = entry.getValue();</span>
+<span class="fc" id="L480">                break;</span>
+            }
+<span class="fc" id="L482">        }</span>
+<span class="fc bfc" id="L483" title="All 2 branches covered.">        if (url == null) {</span>
+<span class="fc" id="L484">            log.debug(&quot;No /shooting/liveview endpoint discovered, cannot stop live view.&quot;);</span>
+<span class="fc" id="L485">            liveViewStarted.set(false);</span>
+<span class="fc" id="L486">            return;</span>
+        }
+        try {
+<span class="fc" id="L489">            ccapiPost(url, Map.of(&quot;liveviewsize&quot;, &quot;off&quot;));</span>
+<span class="fc" id="L490">            log.info(&quot;Live view stopped.&quot;);</span>
+<span class="fc" id="L491">        } catch (RestClientException e) {</span>
+            // Camera may already be idle — log and continue.
+<span class="fc" id="L493">            log.debug(&quot;Failed to stop live view (may already be off): {}&quot;, e.getMessage());</span>
+<span class="fc" id="L494">        }</span>
+        // Reset the flag so getLiveView() will re-start LV on next call.
+<span class="fc" id="L496">        liveViewStarted.set(false);</span>
+<span class="fc" id="L497">    }</span>
+
+    @Override
     public CaptureResult capture() {
         // Prefer shutterbutton/manual for the 3-phase sequence (Canon SDK §4.8.2).
         // Fall back to the plain shutterbutton endpoint for older firmware.
-<span class="fc" id="L476">        String manualUrl = findEndpoint(&quot;shutterbutton/manual&quot;);</span>
-<span class="fc" id="L477">        String regularUrl = resolveEndpoint(&quot;shutterbutton&quot;,</span>
+<span class="fc" id="L503">        String manualUrl = findEndpoint(&quot;shutterbutton/manual&quot;);</span>
+<span class="fc" id="L504">        String regularUrl = resolveEndpoint(&quot;shutterbutton&quot;,</span>
                 &quot;/ccapi/ver100/shooting/control/shutterbutton&quot;);
-<span class="fc bfc" id="L479" title="All 2 branches covered.">        String triggerUrl = manualUrl != null ? manualUrl : regularUrl;</span>
+<span class="fc bfc" id="L506" title="All 2 branches covered.">        String triggerUrl = manualUrl != null ? manualUrl : regularUrl;</span>
+
+        // Stop live view before capture to prevent &quot;Device busy&quot; errors.
+        // The camera cannot capture while the live view stream is active.
+<span class="fc" id="L510">        stopLiveView();</span>
+<span class="fc" id="L511">        sleepMs(250); // Give camera a moment to settle</span>
+
         try {
             // Record the newest image datetime before triggering the shutter so we
             // can detect the newly written file during the polling phase.
             // Only do this when a contents endpoint was actually discovered — avoids
             // unnecessary network calls on cameras that don't expose contents browsing.
-<span class="fc bfc" id="L485" title="All 2 branches covered.">            boolean contentsDiscovered = findEndpoint(&quot;contents/sd&quot;) != null;</span>
-<span class="fc bfc" id="L486" title="All 2 branches covered.">            String dcimUrl = contentsDiscovered ? resolveContentsBase() : null;</span>
-<span class="fc bfc" id="L487" title="All 2 branches covered.">            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(dcimUrl) : null;</span>
+<span class="fc bfc" id="L518" title="All 2 branches covered.">            boolean contentsDiscovered = findEndpoint(&quot;contents/sd&quot;) != null</span>
+<span class="pc bpc" id="L519" title="1 of 2 branches missed.">                    || findEndpoint(&quot;contents&quot;) != null;</span>
+<span class="fc bfc" id="L520" title="All 2 branches covered.">            String contentsBaseUrl = contentsDiscovered ? resolveContentsBase() : null;</span>
+<span class="fc bfc" id="L521" title="All 2 branches covered.">            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(contentsBaseUrl) : null;</span>
 
-<span class="fc bfc" id="L489" title="All 2 branches covered.">            if (manualUrl != null) {</span>
+<span class="fc bfc" id="L523" title="All 2 branches covered.">            if (manualUrl != null) {</span>
                 // 3-phase shutter sequence per Canon SDK:
                 // half_press → full_press → release, with delays between phases.
-<span class="fc" id="L492">                ccapiPost(manualUrl, Map.of(&quot;action&quot;, &quot;half_press&quot;, &quot;af&quot;, false));</span>
-<span class="fc" id="L493">                sleepMs(shutterHalfPressDelayMs);</span>
-<span class="fc" id="L494">                ccapiPost(manualUrl, Map.of(&quot;action&quot;, &quot;full_press&quot;, &quot;af&quot;, false));</span>
-<span class="fc" id="L495">                sleepMs(shutterFullPressDelayMs);</span>
-<span class="fc" id="L496">                ccapiPost(manualUrl, Map.of(&quot;action&quot;, &quot;release&quot;, &quot;af&quot;, false));</span>
-<span class="fc" id="L497">                sleepMs(shutterReleaseDelayMs);</span>
+<span class="fc" id="L526">                ccapiPost(manualUrl, Map.of(&quot;action&quot;, &quot;half_press&quot;, &quot;af&quot;, false));</span>
+<span class="fc" id="L527">                sleepMs(shutterHalfPressDelayMs);</span>
+<span class="fc" id="L528">                ccapiPost(manualUrl, Map.of(&quot;action&quot;, &quot;full_press&quot;, &quot;af&quot;, false));</span>
+<span class="fc" id="L529">                sleepMs(shutterFullPressDelayMs);</span>
+<span class="fc" id="L530">                ccapiPost(manualUrl, Map.of(&quot;action&quot;, &quot;release&quot;, &quot;af&quot;, false));</span>
+<span class="fc" id="L531">                sleepMs(shutterReleaseDelayMs);</span>
             } else {
                 // Legacy single-POST approach for cameras without shutterbutton/manual.
                 // We disable AF so the pre-set focus position is preserved between
                 // stack frames.
-<span class="fc" id="L502">                ccapiPost(regularUrl, Map.of(&quot;af&quot;, false));</span>
+<span class="fc" id="L536">                ccapiPost(regularUrl, Map.of(&quot;af&quot;, false));</span>
             }
 
-<span class="fc" id="L505">            String imageId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L539">            String imageId = UUID.randomUUID().toString();</span>
 
             // Try event/polling first (faster), then fall back to DCIM content browsing.
             // DCIM browsing is only attempted when the contents endpoint was discovered;
             // otherwise skip it to avoid adding captureTimeoutMs delay on every frame for
             // cameras that expose shutter control but no contents endpoint.
-<span class="fc" id="L511">            byte[] imageData = downloadNewImageViaEventPolling();</span>
-<span class="fc bfc" id="L512" title="All 4 branches covered.">            if (imageData == null &amp;&amp; contentsDiscovered) {</span>
-<span class="fc" id="L513">                imageData = downloadNewImage(dcimUrl, preNewestDatetime);</span>
+<span class="fc" id="L545">            byte[] imageData = downloadNewImageViaEventPolling();</span>
+<span class="fc bfc" id="L546" title="All 4 branches covered.">            if (imageData == null &amp;&amp; contentsDiscovered) {</span>
+<span class="fc" id="L547">                imageData = downloadNewImage(contentsBaseUrl, preNewestDatetime);</span>
             }
 
-<span class="fc" id="L516">            return new CaptureResult(</span>
+<span class="fc" id="L550">            return new CaptureResult(</span>
                     imageId,
                     &quot;capture-&quot; + imageId + &quot;.jpg&quot;,
                     triggerUrl,
-<span class="fc" id="L520">                    Instant.now(),</span>
-<span class="fc" id="L521">                    focusPosition.get(),</span>
-<span class="fc bfc" id="L522" title="All 2 branches covered.">                    imageData != null ? (long) imageData.length : 0L,</span>
+<span class="fc" id="L554">                    Instant.now(),</span>
+<span class="fc" id="L555">                    focusPosition.get(),</span>
+<span class="fc bfc" id="L556" title="All 2 branches covered.">                    imageData != null ? (long) imageData.length : 0L,</span>
                     imageData
             );
-<span class="fc" id="L525">        } catch (RestClientException e) {</span>
-<span class="fc" id="L526">            throw new CameraException(&quot;Failed to capture image via &quot; + triggerUrl + &quot;: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L559">        } catch (RestClientException e) {</span>
+<span class="fc" id="L560">            throw new CameraException(&quot;Failed to capture image via &quot; + triggerUrl + &quot;: &quot; + e.getMessage(), e);</span>
         }
     }
 
     // ── content browse &amp; download ──────────────────────────────────────────
 
     /**
-     * Resolves the base URL for the DCIM folder on the camera's SD card.
-     * Prefers a discovered {@code contents/sd} endpoint; falls back to the
-     * well-known CCAPI path.
+     * Resolves the base URL for browsing image folders on the camera's SD card.
+     *
+     * &lt;p&gt;Canon CCAPI places image folders (e.g. {@code 100CANON}) &lt;strong&gt;directly
+     * under {@code /contents/sd}&lt;/strong&gt; — there is no intermediate {@code /DCIM}
+     * directory level as on a physical SD card.  The storage API
+     * ({@code /devicestatus/storage}) returns a {@code storagelist[].url} field
+     * pointing to the correct base (e.g.
+     * {@code http://192.168.0.206:8080/ccapi/ver100/contents/sd}).
+     *
+     * &lt;p&gt;Resolution order:
+     * &lt;ol&gt;
+     *   &lt;li&gt;Discovered endpoint containing {@code contents/sd}&lt;/li&gt;
+     *   &lt;li&gt;URL from the {@code /devicestatus/storage} storagelist&lt;/li&gt;
+     *   &lt;li&gt;Well-known fallback {@code /ccapi/ver100/contents/sd}&lt;/li&gt;
+     * &lt;/ol&gt;
      */
     private String resolveContentsBase() {
-<span class="fc" id="L538">        String found = findEndpoint(&quot;contents/sd&quot;);</span>
-<span class="pc bpc" id="L539" title="1 of 2 branches missed.">        if (found != null) {</span>
-            // Ensure the URL ends at /DCIM so subsequent path concatenation works.
-<span class="pc bpc" id="L541" title="1 of 2 branches missed.">            if (!found.endsWith(&quot;/DCIM&quot;)) {</span>
-<span class="pc bpc" id="L542" title="1 of 2 branches missed.">                return found.endsWith(&quot;/&quot;) ? found + &quot;DCIM&quot; : found + &quot;/DCIM&quot;;</span>
-            }
-<span class="nc" id="L544">            return found;</span>
+        // 1. Try discovered endpoint map
+<span class="fc" id="L585">        String found = findEndpoint(&quot;contents/sd&quot;);</span>
+<span class="pc bpc" id="L586" title="1 of 2 branches missed.">        if (found != null) {</span>
+<span class="fc" id="L587">            return found;</span>
         }
-<span class="nc" id="L546">        return baseUrl + &quot;/ccapi/ver100/contents/sd/DCIM&quot;;</span>
+        // Also check for a &quot;contents&quot; endpoint and append &quot;/sd&quot;
+<span class="nc" id="L590">        found = findEndpoint(&quot;contents&quot;);</span>
+<span class="nc bnc" id="L591" title="All 2 branches missed.">        if (found != null) {</span>
+<span class="nc bnc" id="L592" title="All 2 branches missed.">            return found.endsWith(&quot;/&quot;) ? found + &quot;sd&quot; : found + &quot;/sd&quot;;</span>
+        }
+        // 2. Try reading the storage API for the URL
+        try {
+            @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L597">            var storage = restTemplate.getForObject(</span>
+<span class="nc" id="L598">                    resolveEndpoint(&quot;storage&quot;, &quot;/ccapi/ver100/devicestatus/storage&quot;),</span>
+                    Map.class);
+<span class="nc bnc" id="L600" title="All 2 branches missed.">            if (storage != null) {</span>
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="nc" id="L602">                var list = (List&lt;Map&lt;String, Object&gt;&gt;) storage.get(&quot;storagelist&quot;);</span>
+<span class="nc bnc" id="L603" title="All 4 branches missed.">                if (list != null &amp;&amp; !list.isEmpty()) {</span>
+<span class="nc" id="L604">                    String url = (String) list.get(0).get(&quot;url&quot;);</span>
+<span class="nc bnc" id="L605" title="All 2 branches missed.">                    if (url != null) return url;</span>
+                }
+            }
+<span class="nc" id="L608">        } catch (Exception e) {</span>
+<span class="nc" id="L609">            log.debug(&quot;Could not read storage URL from /devicestatus/storage: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L610">        }</span>
+        // 3. Well-known fallback (no /DCIM — Canon CCAPI doesn't use it)
+<span class="nc" id="L612">        return baseUrl + &quot;/ccapi/ver100/contents/sd&quot;;</span>
     }
 
     /**
@@ -553,11 +619,11 @@ public class CanonCcapiBackend implements CameraBackend {
      */
     private String findNewestImageDatetime(String dcimUrl) {
         try {
-<span class="fc" id="L556">            ImageLocation loc = findNewestImage(dcimUrl);</span>
-<span class="fc bfc" id="L557" title="All 2 branches covered.">            return loc != null ? loc.entry().datetime() : null;</span>
-<span class="nc" id="L558">        } catch (Exception e) {</span>
-<span class="nc" id="L559">            log.debug(&quot;Could not read pre-capture contents listing: {}&quot;, e.getMessage());</span>
-<span class="nc" id="L560">            return null;</span>
+<span class="fc" id="L622">            ImageLocation loc = findNewestImage(dcimUrl);</span>
+<span class="fc bfc" id="L623" title="All 2 branches covered.">            return loc != null ? loc.entry().datetime() : null;</span>
+<span class="nc" id="L624">        } catch (Exception e) {</span>
+<span class="nc" id="L625">            log.debug(&quot;Could not read pre-capture contents listing: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L626">            return null;</span>
         }
     }
 
@@ -570,39 +636,39 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns {@code null} immediately if {@link #captureTimeoutMs} is {@code 0}.
      */
     private byte[] downloadNewImage(String dcimUrl, String preNewestDatetime) {
-<span class="fc bfc" id="L573" title="All 2 branches covered.">        if (captureTimeoutMs &lt;= 0) {</span>
-<span class="fc" id="L574">            return null;</span>
+<span class="fc bfc" id="L639" title="All 2 branches covered.">        if (captureTimeoutMs &lt;= 0) {</span>
+<span class="fc" id="L640">            return null;</span>
         }
-<span class="fc" id="L576">        long deadline = System.currentTimeMillis() + captureTimeoutMs;</span>
-<span class="fc bfc" id="L577" title="All 2 branches covered.">        while (System.currentTimeMillis() &lt; deadline) {</span>
+<span class="fc" id="L642">        long deadline = System.currentTimeMillis() + captureTimeoutMs;</span>
+<span class="fc bfc" id="L643" title="All 2 branches covered.">        while (System.currentTimeMillis() &lt; deadline) {</span>
             try {
-<span class="fc" id="L579">                ImageLocation newest = findNewestImage(dcimUrl);</span>
-<span class="pc bpc" id="L580" title="1 of 4 branches missed.">                if (newest != null &amp;&amp; isNewerThan(newest.entry().datetime(), preNewestDatetime)) {</span>
-<span class="fc" id="L581">                    String imageUrl = dcimUrl + &quot;/&quot; + newest.folderName()</span>
-<span class="fc" id="L582">                            + &quot;/&quot; + newest.entry().name();</span>
-<span class="fc" id="L583">                    byte[] data = restTemplate.getForObject(imageUrl, byte[].class);</span>
-<span class="pc bpc" id="L584" title="2 of 4 branches missed.">                    if (data != null &amp;&amp; data.length &gt; 0) {</span>
-<span class="fc" id="L585">                        log.info(&quot;Downloaded {} bytes from camera SD card ({})&quot;,</span>
-<span class="fc" id="L586">                                data.length, imageUrl);</span>
-<span class="fc" id="L587">                        return data;</span>
+<span class="fc" id="L645">                ImageLocation newest = findNewestImage(dcimUrl);</span>
+<span class="pc bpc" id="L646" title="1 of 4 branches missed.">                if (newest != null &amp;&amp; isNewerThan(newest.entry().datetime(), preNewestDatetime)) {</span>
+<span class="fc" id="L647">                    String imageUrl = dcimUrl + &quot;/&quot; + newest.folderName()</span>
+<span class="fc" id="L648">                            + &quot;/&quot; + newest.entry().name();</span>
+<span class="fc" id="L649">                    byte[] data = restTemplate.getForObject(imageUrl, byte[].class);</span>
+<span class="pc bpc" id="L650" title="2 of 4 branches missed.">                    if (data != null &amp;&amp; data.length &gt; 0) {</span>
+<span class="fc" id="L651">                        log.info(&quot;Downloaded {} bytes from camera SD card ({})&quot;,</span>
+<span class="fc" id="L652">                                data.length, imageUrl);</span>
+<span class="fc" id="L653">                        return data;</span>
                     }
                 }
-<span class="nc" id="L590">            } catch (Exception e) {</span>
-<span class="nc" id="L591">                log.debug(&quot;Error while polling SD card for new image: {}&quot;, e.getMessage());</span>
-<span class="fc" id="L592">            }</span>
+<span class="nc" id="L656">            } catch (Exception e) {</span>
+<span class="nc" id="L657">                log.debug(&quot;Error while polling SD card for new image: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L658">            }</span>
             try {
-<span class="pc bpc" id="L594" title="1 of 2 branches missed.">                if (Thread.currentThread().isInterrupted()) {</span>
-<span class="nc" id="L595">                    break;</span>
+<span class="pc bpc" id="L660" title="1 of 2 branches missed.">                if (Thread.currentThread().isInterrupted()) {</span>
+<span class="nc" id="L661">                    break;</span>
                 }
-<span class="fc" id="L597">                Thread.sleep(capturePollIntervalMs);</span>
-<span class="nc" id="L598">            } catch (InterruptedException ie) {</span>
-<span class="nc" id="L599">                Thread.currentThread().interrupt();</span>
-<span class="nc" id="L600">                break;</span>
-<span class="fc" id="L601">            }</span>
+<span class="fc" id="L663">                Thread.sleep(capturePollIntervalMs);</span>
+<span class="nc" id="L664">            } catch (InterruptedException ie) {</span>
+<span class="nc" id="L665">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L666">                break;</span>
+<span class="fc" id="L667">            }</span>
         }
-<span class="fc" id="L603">        log.warn(&quot;Timed out after {}ms waiting for new image on camera {}&quot;,</span>
-<span class="fc" id="L604">                captureTimeoutMs, baseUrl);</span>
-<span class="fc" id="L605">        return null;</span>
+<span class="fc" id="L669">        log.warn(&quot;Timed out after {}ms waiting for new image on camera {}&quot;,</span>
+<span class="fc" id="L670">                captureTimeoutMs, baseUrl);</span>
+<span class="fc" id="L671">        return null;</span>
     }
 
     /**
@@ -611,29 +677,29 @@ public class CanonCcapiBackend implements CameraBackend {
      * endpoint is unavailable.
      */
     private ImageLocation findNewestImage(String dcimUrl) {
-<span class="fc" id="L614">        ContentListing folderListing = listContents(dcimUrl);</span>
-<span class="pc bpc" id="L615" title="2 of 6 branches missed.">        if (folderListing == null || folderListing.dir() == null || folderListing.dir().isEmpty()) {</span>
-<span class="fc" id="L616">            return null;</span>
+<span class="fc" id="L680">        ContentListing folderListing = listContents(dcimUrl);</span>
+<span class="pc bpc" id="L681" title="2 of 6 branches missed.">        if (folderListing == null || folderListing.dir() == null || folderListing.dir().isEmpty()) {</span>
+<span class="fc" id="L682">            return null;</span>
         }
         // Sort folders descending by name so the highest-numbered folder is first.
-<span class="fc" id="L619">        List&lt;ContentEntry&gt; folders = folderListing.dir().stream()</span>
-<span class="fc" id="L620">                .filter(e -&gt; &quot;D&quot;.equals(e.attrib()))</span>
-<span class="fc" id="L621">                .sorted(Comparator.comparing(ContentEntry::name).reversed())</span>
-<span class="fc" id="L622">                .toList();</span>
-<span class="fc bfc" id="L623" title="All 2 branches covered.">        for (ContentEntry folder : folders) {</span>
-<span class="fc" id="L624">            String folderUrl = dcimUrl + &quot;/&quot; + folder.name();</span>
-<span class="fc" id="L625">            ContentListing fileListing = listContents(folderUrl);</span>
-<span class="pc bpc" id="L626" title="2 of 4 branches missed.">            if (fileListing == null || fileListing.dir() == null) continue;</span>
-<span class="fc" id="L627">            Optional&lt;ContentEntry&gt; newest = fileListing.dir().stream()</span>
-<span class="pc bpc" id="L628" title="2 of 4 branches missed.">                    .filter(e -&gt; &quot;A&quot;.equals(e.attrib()) &amp;&amp; isImageFile(e.name()))</span>
-<span class="pc bpc" id="L629" title="1 of 2 branches missed.">                    .filter(e -&gt; e.datetime() != null)</span>
-<span class="fc" id="L630">                    .max(Comparator.comparing(e -&gt; parseOffsetDateTimeOrNull(e.datetime()),</span>
-<span class="fc" id="L631">                            Comparator.nullsFirst(Comparator.naturalOrder())));</span>
-<span class="fc bfc" id="L632" title="All 2 branches covered.">            if (newest.isPresent()) {</span>
-<span class="fc" id="L633">                return new ImageLocation(folder.name(), newest.get());</span>
+<span class="fc" id="L685">        List&lt;ContentEntry&gt; folders = folderListing.dir().stream()</span>
+<span class="fc" id="L686">                .filter(e -&gt; &quot;D&quot;.equals(e.attrib()))</span>
+<span class="fc" id="L687">                .sorted(Comparator.comparing(ContentEntry::name).reversed())</span>
+<span class="fc" id="L688">                .toList();</span>
+<span class="fc bfc" id="L689" title="All 2 branches covered.">        for (ContentEntry folder : folders) {</span>
+<span class="fc" id="L690">            String folderUrl = dcimUrl + &quot;/&quot; + folder.name();</span>
+<span class="fc" id="L691">            ContentListing fileListing = listContents(folderUrl);</span>
+<span class="pc bpc" id="L692" title="2 of 4 branches missed.">            if (fileListing == null || fileListing.dir() == null) continue;</span>
+<span class="fc" id="L693">            Optional&lt;ContentEntry&gt; newest = fileListing.dir().stream()</span>
+<span class="pc bpc" id="L694" title="2 of 4 branches missed.">                    .filter(e -&gt; &quot;A&quot;.equals(e.attrib()) &amp;&amp; isImageFile(e.name()))</span>
+<span class="pc bpc" id="L695" title="1 of 2 branches missed.">                    .filter(e -&gt; e.datetime() != null)</span>
+<span class="fc" id="L696">                    .max(Comparator.comparing(e -&gt; parseOffsetDateTimeOrNull(e.datetime()),</span>
+<span class="fc" id="L697">                            Comparator.nullsFirst(Comparator.naturalOrder())));</span>
+<span class="fc bfc" id="L698" title="All 2 branches covered.">            if (newest.isPresent()) {</span>
+<span class="fc" id="L699">                return new ImageLocation(folder.name(), newest.get());</span>
             }
-<span class="fc" id="L635">        }</span>
-<span class="fc" id="L636">        return null;</span>
+<span class="fc" id="L701">        }</span>
+<span class="fc" id="L702">        return null;</span>
     }
 
     /**
@@ -642,21 +708,21 @@ public class CanonCcapiBackend implements CameraBackend {
      * raw strings (which can sort incorrectly when timezone offsets differ).
      */
     private static OffsetDateTime parseOffsetDateTimeOrNull(String dt) {
-<span class="pc bpc" id="L645" title="1 of 2 branches missed.">        if (dt == null) return null;</span>
+<span class="pc bpc" id="L711" title="1 of 2 branches missed.">        if (dt == null) return null;</span>
         try {
-<span class="fc" id="L647">            return OffsetDateTime.parse(dt);</span>
-<span class="nc" id="L648">        } catch (Exception e) {</span>
-<span class="nc" id="L649">            return null;</span>
+<span class="fc" id="L713">            return OffsetDateTime.parse(dt);</span>
+<span class="nc" id="L714">        } catch (Exception e) {</span>
+<span class="nc" id="L715">            return null;</span>
         }
     }
 
     /** Fetches a CCAPI directory listing, returning {@code null} on any error. */
     private ContentListing listContents(String url) {
         try {
-<span class="fc" id="L656">            return restTemplate.getForObject(url, ContentListing.class);</span>
-<span class="nc" id="L657">        } catch (RestClientException e) {</span>
-<span class="nc" id="L658">            log.debug(&quot;Failed to list SD card contents at {}: {}&quot;, url, e.getMessage());</span>
-<span class="nc" id="L659">            return null;</span>
+<span class="fc" id="L722">            return restTemplate.getForObject(url, ContentListing.class);</span>
+<span class="nc" id="L723">        } catch (RestClientException e) {</span>
+<span class="nc" id="L724">            log.debug(&quot;Failed to list SD card contents at {}: {}&quot;, url, e.getMessage());</span>
+<span class="nc" id="L725">            return null;</span>
         }
     }
 
@@ -669,35 +735,49 @@ public class CanonCcapiBackend implements CameraBackend {
      * {@code /contents/} and end with a recognised image extension.
      */
     private byte[] downloadNewImageViaEventPolling() {
-<span class="fc bfc" id="L672" title="All 2 branches covered.">        if (captureTimeoutMs &lt;= 0) {</span>
-<span class="fc" id="L673">            return null;</span>
+<span class="fc bfc" id="L738" title="All 2 branches covered.">        if (captureTimeoutMs &lt;= 0) {</span>
+<span class="fc" id="L739">            return null;</span>
         }
-<span class="fc" id="L675">        String pollingUrl = findEndpoint(&quot;event/polling&quot;);</span>
-<span class="fc bfc" id="L676" title="All 2 branches covered.">        if (pollingUrl == null) {</span>
-<span class="fc" id="L677">            return null;</span>
+<span class="fc" id="L741">        String pollingUrl = findEndpoint(&quot;event/polling&quot;);</span>
+<span class="fc bfc" id="L742" title="All 2 branches covered.">        if (pollingUrl == null) {</span>
+<span class="fc" id="L743">            return null;</span>
         }
-        try {
-            @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L681">            Map&lt;String, Object&gt; response = restTemplate.getForObject(pollingUrl, Map.class);</span>
-<span class="fc bfc" id="L682" title="All 2 branches covered.">            if (response == null) return null;</span>
-
-<span class="fc" id="L684">            List&lt;String&gt; contentUrls = extractContentUrls(response);</span>
-<span class="fc bfc" id="L685" title="All 2 branches covered.">            for (String contentUrl : contentUrls) {</span>
-<span class="pc bpc" id="L686" title="1 of 2 branches missed.">                String fullUrl = contentUrl.startsWith(&quot;http&quot;) ? contentUrl : baseUrl + contentUrl;</span>
-                try {
-<span class="fc" id="L688">                    byte[] data = restTemplate.getForObject(fullUrl, byte[].class);</span>
-<span class="pc bpc" id="L689" title="2 of 4 branches missed.">                    if (data != null &amp;&amp; data.length &gt; 0) {</span>
-<span class="fc" id="L690">                        log.info(&quot;Downloaded {} bytes via event/polling ({})&quot;, data.length, fullUrl);</span>
-<span class="fc" id="L691">                        return data;</span>
-                    }
-<span class="nc" id="L693">                } catch (RestClientException e) {</span>
-<span class="nc" id="L694">                    log.debug(&quot;Failed to download image {} from event/polling: {}&quot;, fullUrl, e.getMessage());</span>
-<span class="nc" id="L695">                }</span>
-<span class="nc" id="L696">            }</span>
-<span class="nc" id="L697">        } catch (RestClientException e) {</span>
-<span class="nc" id="L698">            log.debug(&quot;event/polling unavailable: {}&quot;, e.getMessage());</span>
-<span class="fc" id="L699">        }</span>
-<span class="fc" id="L700">        return null;</span>
+        // Retry loop: Canon cameras write the image file asynchronously after the
+        // shutter fires. The first event/polling call may return an empty response if
+        // the file is still being written to the SD card. We poll repeatedly until a
+        // content URL appears or the timeout expires.
+<span class="fc" id="L749">        long deadline = System.currentTimeMillis() + captureTimeoutMs;</span>
+<span class="fc bfc" id="L750" title="All 2 branches covered.">        while (System.currentTimeMillis() &lt; deadline) {</span>
+            try {
+                @SuppressWarnings(&quot;unchecked&quot;)
+<span class="fc" id="L753">                Map&lt;String, Object&gt; response = restTemplate.getForObject(pollingUrl, Map.class);</span>
+<span class="fc bfc" id="L754" title="All 4 branches covered.">                if (response != null &amp;&amp; !response.isEmpty()) {</span>
+<span class="fc" id="L755">                    List&lt;String&gt; contentUrls = extractContentUrls(response);</span>
+<span class="fc bfc" id="L756" title="All 2 branches covered.">                    for (String contentUrl : contentUrls) {</span>
+<span class="pc bpc" id="L757" title="1 of 2 branches missed.">                        String fullUrl = contentUrl.startsWith(&quot;http&quot;) ? contentUrl : baseUrl + contentUrl;</span>
+                        try {
+<span class="fc" id="L759">                            byte[] data = restTemplate.getForObject(fullUrl, byte[].class);</span>
+<span class="pc bpc" id="L760" title="2 of 4 branches missed.">                            if (data != null &amp;&amp; data.length &gt; 0) {</span>
+<span class="fc" id="L761">                                log.info(&quot;Downloaded {} bytes via event/polling ({})&quot;, data.length, fullUrl);</span>
+<span class="fc" id="L762">                                return data;</span>
+                            }
+<span class="nc" id="L764">                        } catch (RestClientException e) {</span>
+<span class="nc" id="L765">                            log.debug(&quot;Failed to download image {} from event/polling: {}&quot;, fullUrl, e.getMessage());</span>
+<span class="nc" id="L766">                        }</span>
+<span class="nc" id="L767">                    }</span>
+                }
+<span class="nc" id="L769">            } catch (RestClientException e) {</span>
+<span class="nc" id="L770">                log.debug(&quot;event/polling unavailable: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L771">            }</span>
+            try {
+<span class="pc bpc" id="L773" title="1 of 2 branches missed.">                if (Thread.currentThread().isInterrupted()) break;</span>
+<span class="fc" id="L774">                Thread.sleep(capturePollIntervalMs);</span>
+<span class="nc" id="L775">            } catch (InterruptedException ie) {</span>
+<span class="nc" id="L776">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L777">                break;</span>
+<span class="fc" id="L778">            }</span>
+        }
+<span class="fc" id="L780">        return null;</span>
     }
 
     /**
@@ -707,21 +787,21 @@ public class CanonCcapiBackend implements CameraBackend {
      */
     @SuppressWarnings(&quot;unchecked&quot;)
     static List&lt;String&gt; extractContentUrls(Object node) {
-<span class="fc" id="L710">        List&lt;String&gt; result = new java.util.ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L711" title="All 2 branches covered.">        if (node instanceof String s) {</span>
-<span class="fc bfc" id="L712" title="All 4 branches covered.">            if (s.contains(&quot;/contents/&quot;) &amp;&amp; isImageFile(s)) {</span>
-<span class="fc" id="L713">                result.add(s);</span>
+<span class="fc" id="L790">        List&lt;String&gt; result = new java.util.ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L791" title="All 2 branches covered.">        if (node instanceof String s) {</span>
+<span class="fc bfc" id="L792" title="All 4 branches covered.">            if (s.contains(&quot;/contents/&quot;) &amp;&amp; isImageFile(s)) {</span>
+<span class="fc" id="L793">                result.add(s);</span>
             }
-<span class="fc bfc" id="L715" title="All 2 branches covered.">        } else if (node instanceof List&lt;?&gt; list) {</span>
-<span class="fc bfc" id="L716" title="All 2 branches covered.">            for (Object item : list) {</span>
-<span class="fc" id="L717">                result.addAll(extractContentUrls(item));</span>
-<span class="fc" id="L718">            }</span>
-<span class="fc bfc" id="L719" title="All 2 branches covered.">        } else if (node instanceof Map&lt;?, ?&gt; map) {</span>
-<span class="fc bfc" id="L720" title="All 2 branches covered.">            for (Object value : map.values()) {</span>
-<span class="fc" id="L721">                result.addAll(extractContentUrls(value));</span>
-<span class="fc" id="L722">            }</span>
+<span class="fc bfc" id="L795" title="All 2 branches covered.">        } else if (node instanceof List&lt;?&gt; list) {</span>
+<span class="fc bfc" id="L796" title="All 2 branches covered.">            for (Object item : list) {</span>
+<span class="fc" id="L797">                result.addAll(extractContentUrls(item));</span>
+<span class="fc" id="L798">            }</span>
+<span class="fc bfc" id="L799" title="All 2 branches covered.">        } else if (node instanceof Map&lt;?, ?&gt; map) {</span>
+<span class="fc bfc" id="L800" title="All 2 branches covered.">            for (Object value : map.values()) {</span>
+<span class="fc" id="L801">                result.addAll(extractContentUrls(value));</span>
+<span class="fc" id="L802">            }</span>
         }
-<span class="fc" id="L724">        return result;</span>
+<span class="fc" id="L804">        return result;</span>
     }
 
     /**
@@ -730,21 +810,21 @@ public class CanonCcapiBackend implements CameraBackend {
      * Interrupts are propagated as a {@link CameraException}.
      */
     private void sleepMs(long ms) {
-<span class="fc bfc" id="L733" title="All 2 branches covered.">        if (ms &lt;= 0) return;</span>
+<span class="fc bfc" id="L813" title="All 2 branches covered.">        if (ms &lt;= 0) return;</span>
         try {
-<span class="fc" id="L735">            Thread.sleep(ms);</span>
-<span class="nc" id="L736">        } catch (InterruptedException e) {</span>
-<span class="nc" id="L737">            Thread.currentThread().interrupt();</span>
-<span class="nc" id="L738">            throw new CameraException(&quot;Interrupted during shutter sequence&quot;, e);</span>
-<span class="fc" id="L739">        }</span>
-<span class="fc" id="L740">    }</span>
+<span class="fc" id="L815">            Thread.sleep(ms);</span>
+<span class="nc" id="L816">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L817">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L818">            throw new CameraException(&quot;Interrupted during shutter sequence&quot;, e);</span>
+<span class="fc" id="L819">        }</span>
+<span class="fc" id="L820">    }</span>
 
     /** Returns {@code true} for JPEG and Canon RAW file extensions. */
     private static boolean isImageFile(String name) {
-<span class="pc bpc" id="L744" title="1 of 2 branches missed.">        if (name == null) return false;</span>
-<span class="fc" id="L745">        String upper = name.toUpperCase();</span>
-<span class="pc bpc" id="L746" title="1 of 4 branches missed.">        return upper.endsWith(&quot;.JPG&quot;) || upper.endsWith(&quot;.JPEG&quot;)</span>
-<span class="pc bpc" id="L747" title="1 of 4 branches missed.">                || upper.endsWith(&quot;.CR2&quot;) || upper.endsWith(&quot;.CR3&quot;);</span>
+<span class="pc bpc" id="L824" title="1 of 2 branches missed.">        if (name == null) return false;</span>
+<span class="fc" id="L825">        String upper = name.toUpperCase();</span>
+<span class="pc bpc" id="L826" title="1 of 4 branches missed.">        return upper.endsWith(&quot;.JPG&quot;) || upper.endsWith(&quot;.JPEG&quot;)</span>
+<span class="pc bpc" id="L827" title="1 of 4 branches missed.">                || upper.endsWith(&quot;.CR2&quot;) || upper.endsWith(&quot;.CR3&quot;);</span>
     }
 
     /**
@@ -756,23 +836,23 @@ public class CanonCcapiBackend implements CameraBackend {
      * Falls back to lexicographic comparison if parsing fails.
      */
     static boolean isNewerThan(String dt1, String dt2) {
-<span class="fc bfc" id="L759" title="All 2 branches covered.">        if (dt1 == null) return false;</span>
-<span class="fc bfc" id="L760" title="All 2 branches covered.">        if (dt2 == null) return true;</span>
+<span class="fc bfc" id="L839" title="All 2 branches covered.">        if (dt1 == null) return false;</span>
+<span class="fc bfc" id="L840" title="All 2 branches covered.">        if (dt2 == null) return true;</span>
         try {
-<span class="fc" id="L762">            return OffsetDateTime.parse(dt1).isAfter(OffsetDateTime.parse(dt2));</span>
-<span class="fc" id="L763">        } catch (Exception e) {</span>
+<span class="fc" id="L842">            return OffsetDateTime.parse(dt1).isAfter(OffsetDateTime.parse(dt2));</span>
+<span class="fc" id="L843">        } catch (Exception e) {</span>
             // ISO 8601 strings sort correctly lexicographically as a fallback.
-<span class="fc bfc" id="L765" title="All 2 branches covered.">            return dt1.compareTo(dt2) &gt; 0;</span>
+<span class="fc bfc" id="L845" title="All 2 branches covered.">            return dt1.compareTo(dt2) &gt; 0;</span>
         }
     }
 
     /** Holds the DCIM folder name and file entry for a located image. */
-<span class="fc" id="L770">    record ImageLocation(String folderName, ContentEntry entry) {}</span>
+<span class="fc" id="L850">    record ImageLocation(String folderName, ContentEntry entry) {}</span>
 
     @Override
     public void setFocus(FocusCommand command) {
-<span class="fc bfc" id="L774" title="All 2 branches covered.">        String direction = command.direction() == FocusCommand.Direction.NEAR ? &quot;near&quot; : &quot;far&quot;;</span>
-<span class="fc" id="L775">        String magnitude = toDriveFocusMagnitude(command.steps());</span>
+<span class="fc bfc" id="L854" title="All 2 branches covered.">        String direction = command.direction() == FocusCommand.Direction.NEAR ? &quot;near&quot; : &quot;far&quot;;</span>
+<span class="fc" id="L855">        String magnitude = toDriveFocusMagnitude(command.steps());</span>
 
         // Per the Canon CCAPI SDK, manual focus drive is exclusively handled by:
         //   POST /shooting/control/drivefocus  →  {&quot;value&quot;: &quot;near1&quot;} | {&quot;value&quot;: &quot;far2&quot;} etc.
@@ -782,77 +862,77 @@ public class CanonCcapiBackend implements CameraBackend {
         // focus drive.  Its body is {&quot;action&quot;: &quot;start&quot;} or {&quot;action&quot;: &quot;stop&quot;}.
         // Using it for manual lens drive would be semantically incorrect.
 
-<span class="fc" id="L785">        String driveFocusUrl = findEndpoint(&quot;/shooting/control/drivefocus&quot;);</span>
-<span class="fc bfc" id="L786" title="All 2 branches covered.">        if (driveFocusUrl != null) {</span>
+<span class="fc" id="L865">        String driveFocusUrl = findEndpoint(&quot;/shooting/control/drivefocus&quot;);</span>
+<span class="fc bfc" id="L866" title="All 2 branches covered.">        if (driveFocusUrl != null) {</span>
             try {
-<span class="fc" id="L788">                ccapiPost(driveFocusUrl, Map.of(&quot;value&quot;, direction + magnitude));</span>
-<span class="fc" id="L789">            } catch (RestClientException e) {</span>
-<span class="fc" id="L790">                throw new CameraException(</span>
-<span class="fc" id="L791">                        &quot;Failed to drive focus via &quot; + driveFocusUrl + &quot;: &quot; + e.getMessage(), e);</span>
-<span class="fc" id="L792">            }</span>
+<span class="fc" id="L868">                ccapiPost(driveFocusUrl, Map.of(&quot;value&quot;, direction + magnitude));</span>
+<span class="fc" id="L869">            } catch (RestClientException e) {</span>
+<span class="fc" id="L870">                throw new CameraException(</span>
+<span class="fc" id="L871">                        &quot;Failed to drive focus via &quot; + driveFocusUrl + &quot;: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L872">            }</span>
         } else {
-<span class="fc" id="L794">            log.warn(&quot;No /shooting/control/drivefocus endpoint discovered on camera {}. &quot;</span>
+<span class="fc" id="L874">            log.warn(&quot;No /shooting/control/drivefocus endpoint discovered on camera {}. &quot;</span>
                     + &quot;Available endpoints: {}. &quot;
                     + &quot;Manual focus adjustment is not supported on this camera.&quot;,
-<span class="fc" id="L797">                    baseUrl, endpoints.keySet());</span>
+<span class="fc" id="L877">                    baseUrl, endpoints.keySet());</span>
         }
         // Update tracked position: NEAR decrements, FAR increments
-<span class="fc bfc" id="L800" title="All 2 branches covered.">        int delta = command.direction() == FocusCommand.Direction.NEAR</span>
-<span class="fc" id="L801">                ? -command.steps() : command.steps();</span>
-<span class="fc" id="L802">        focusPosition.addAndGet(delta);</span>
-<span class="fc" id="L803">    }</span>
+<span class="fc bfc" id="L880" title="All 2 branches covered.">        int delta = command.direction() == FocusCommand.Direction.NEAR</span>
+<span class="fc" id="L881">                ? -command.steps() : command.steps();</span>
+<span class="fc" id="L882">        focusPosition.addAndGet(delta);</span>
+<span class="fc" id="L883">    }</span>
 
     @Override
     public CameraState getState() {
-<span class="fc" id="L807">        int batteryLevel = 100;</span>
-<span class="fc" id="L808">        long storageAvailable = 0L;</span>
-<span class="fc" id="L809">        boolean connected = false;</span>
+<span class="fc" id="L887">        int batteryLevel = 100;</span>
+<span class="fc" id="L888">        long storageAvailable = 0L;</span>
+<span class="fc" id="L889">        boolean connected = false;</span>
 
         // Battery — look for discovered battery endpoint
-<span class="fc" id="L812">        String batteryUrl = resolveEndpoint(&quot;battery&quot;, &quot;/ccapi/ver100/devicestatus/battery&quot;);</span>
+<span class="fc" id="L892">        String batteryUrl = resolveEndpoint(&quot;battery&quot;, &quot;/ccapi/ver100/devicestatus/battery&quot;);</span>
         try {
-<span class="fc" id="L814">            BatteryStatus battery = restTemplate.getForObject(batteryUrl, BatteryStatus.class);</span>
-<span class="pc bpc" id="L815" title="2 of 4 branches missed.">            if (battery != null &amp;&amp; battery.level() != null) {</span>
-<span class="fc" id="L816">                batteryLevel = parseBatteryLevel(battery.level());</span>
+<span class="fc" id="L894">            BatteryStatus battery = restTemplate.getForObject(batteryUrl, BatteryStatus.class);</span>
+<span class="pc bpc" id="L895" title="2 of 4 branches missed.">            if (battery != null &amp;&amp; battery.level() != null) {</span>
+<span class="fc" id="L896">                batteryLevel = parseBatteryLevel(battery.level());</span>
             }
-<span class="fc" id="L818">            connected = true;</span>
-<span class="fc" id="L819">        } catch (RestClientException e) {</span>
-<span class="fc" id="L820">            log.debug(&quot;CCAPI battery status unavailable: {}&quot;, e.getMessage());</span>
-<span class="fc" id="L821">        }</span>
+<span class="fc" id="L898">            connected = true;</span>
+<span class="fc" id="L899">        } catch (RestClientException e) {</span>
+<span class="fc" id="L900">            log.debug(&quot;CCAPI battery status unavailable: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L901">        }</span>
 
         // Storage — try discovered /currentstorage, then /storage.
         // Do NOT fall back to a hardcoded URL if neither is discovered —
         // the camera simply may not expose a storage endpoint.
-<span class="fc" id="L826">        String storageUrl = findEndpoint(&quot;currentstorage&quot;);</span>
-<span class="fc bfc" id="L827" title="All 2 branches covered.">        if (storageUrl == null) storageUrl = findEndpoint(&quot;storage&quot;);</span>
-<span class="fc bfc" id="L828" title="All 2 branches covered.">        if (storageUrl != null) {</span>
+<span class="fc" id="L906">        String storageUrl = findEndpoint(&quot;currentstorage&quot;);</span>
+<span class="fc bfc" id="L907" title="All 2 branches covered.">        if (storageUrl == null) storageUrl = findEndpoint(&quot;storage&quot;);</span>
+<span class="fc bfc" id="L908" title="All 2 branches covered.">        if (storageUrl != null) {</span>
             try {
-<span class="fc" id="L830">                StorageStatus storage = restTemplate.getForObject(storageUrl, StorageStatus.class);</span>
-<span class="pc bpc" id="L831" title="1 of 4 branches missed.">                if (storage != null &amp;&amp; storage.spaceBytes() != null) {</span>
-<span class="fc" id="L832">                    storageAvailable = storage.spaceBytes();</span>
+<span class="fc" id="L910">                StorageStatus storage = restTemplate.getForObject(storageUrl, StorageStatus.class);</span>
+<span class="pc bpc" id="L911" title="1 of 4 branches missed.">                if (storage != null &amp;&amp; storage.spaceBytes() != null) {</span>
+<span class="fc" id="L912">                    storageAvailable = storage.spaceBytes();</span>
                 }
-<span class="fc" id="L834">                connected = true;</span>
-<span class="fc" id="L835">            } catch (RestClientException e) {</span>
-<span class="fc" id="L836">                log.debug(&quot;CCAPI storage status unavailable: {}&quot;, e.getMessage());</span>
-<span class="fc" id="L837">            }</span>
+<span class="fc" id="L914">                connected = true;</span>
+<span class="fc" id="L915">            } catch (RestClientException e) {</span>
+<span class="fc" id="L916">                log.debug(&quot;CCAPI storage status unavailable: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L917">            }</span>
         } else {
-<span class="fc" id="L839">            log.debug(&quot;No storage endpoint discovered — skipping storage status&quot;);</span>
+<span class="fc" id="L919">            log.debug(&quot;No storage endpoint discovered — skipping storage status&quot;);</span>
         }
 
-<span class="fc" id="L842">        return new CameraState(</span>
-<span class="fc" id="L843">                connected, batteryLevel, storageAvailable, focusPosition.get(),</span>
+<span class="fc" id="L922">        return new CameraState(</span>
+<span class="fc" id="L923">                connected, batteryLevel, storageAvailable, focusPosition.get(),</span>
                 &quot;auto&quot;, &quot;auto&quot;, &quot;auto&quot;, false
         );
     }
 
     @Override
     public boolean supports(Operation operation) {
-<span class="fc bfc" id="L850" title="All 5 branches covered.">        return switch (operation) {</span>
-<span class="pc bpc" id="L851" title="1 of 2 branches missed.">            case LIVE_VIEW -&gt; findEndpoint(&quot;liveview&quot;) != null;</span>
-<span class="pc bpc" id="L852" title="1 of 2 branches missed.">            case CAPTURE -&gt; findEndpoint(&quot;shutterbutton&quot;) != null;</span>
-<span class="fc bfc" id="L853" title="All 2 branches covered.">            case FOCUS_CONTROL -&gt; findEndpoint(&quot;/shooting/control/drivefocus&quot;) != null;</span>
-<span class="fc" id="L854">            case SETTINGS_READ -&gt; true;</span>
-<span class="fc" id="L855">            case ZOOM_CONTROL, SETTINGS_WRITE -&gt; false;</span>
+<span class="fc bfc" id="L930" title="All 5 branches covered.">        return switch (operation) {</span>
+<span class="pc bpc" id="L931" title="1 of 2 branches missed.">            case LIVE_VIEW -&gt; findEndpoint(&quot;liveview&quot;) != null;</span>
+<span class="pc bpc" id="L932" title="1 of 2 branches missed.">            case CAPTURE -&gt; findEndpoint(&quot;shutterbutton&quot;) != null;</span>
+<span class="fc bfc" id="L933" title="All 2 branches covered.">            case FOCUS_CONTROL -&gt; findEndpoint(&quot;/shooting/control/drivefocus&quot;) != null;</span>
+<span class="fc" id="L934">            case SETTINGS_READ -&gt; true;</span>
+<span class="fc" id="L935">            case ZOOM_CONTROL, SETTINGS_WRITE -&gt; false;</span>
         };
     }
 
@@ -860,14 +940,14 @@ public class CanonCcapiBackend implements CameraBackend {
 
     /** Returns an unmodifiable view of the discovered endpoints map. */
     public Map&lt;String, String&gt; getDiscoveredEndpoints() {
-<span class="nc bnc" id="L863" title="All 2 branches missed.">        if (!discovered.get()) discoverEndpoints();</span>
-<span class="nc" id="L864">        return Map.copyOf(endpoints);</span>
+<span class="nc bnc" id="L943" title="All 2 branches missed.">        if (!discovered.get()) discoverEndpoints();</span>
+<span class="nc" id="L944">        return Map.copyOf(endpoints);</span>
     }
 
     /** Returns an unmodifiable view of the discovered HTTP methods per endpoint. */
     public Map&lt;String, Set&lt;HttpMethod&gt;&gt; getDiscoveredEndpointMethods() {
-<span class="nc bnc" id="L869" title="All 2 branches missed.">        if (!discovered.get()) discoverEndpoints();</span>
-<span class="nc" id="L870">        return Map.copyOf(endpointMethods);</span>
+<span class="nc bnc" id="L949" title="All 2 branches missed.">        if (!discovered.get()) discoverEndpoints();</span>
+<span class="nc" id="L950">        return Map.copyOf(endpointMethods);</span>
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -892,24 +972,24 @@ public class CanonCcapiBackend implements CameraBackend {
         // MappingJackson2HttpMessageConverter from being involved and adding
         // &quot;charset=UTF-8&quot; to the Content-Type, which the Canon camera rejects.
         byte[] jsonBytes;
-<span class="pc bpc" id="L895" title="1 of 2 branches missed.">        if (body instanceof byte[]) {</span>
-<span class="nc" id="L896">            jsonBytes = (byte[]) body;</span>
+<span class="pc bpc" id="L975" title="1 of 2 branches missed.">        if (body instanceof byte[]) {</span>
+<span class="nc" id="L976">            jsonBytes = (byte[]) body;</span>
         } else {
             try {
-<span class="fc" id="L899">                jsonBytes = JSON_MAPPER.writeValueAsBytes(body);</span>
-<span class="nc" id="L900">            } catch (Exception e) {</span>
-<span class="nc" id="L901">                throw new CameraException(&quot;Failed to serialise CCAPI request body: &quot; + e.getMessage(), e);</span>
-<span class="fc" id="L902">            }</span>
+<span class="fc" id="L979">                jsonBytes = JSON_MAPPER.writeValueAsBytes(body);</span>
+<span class="nc" id="L980">            } catch (Exception e) {</span>
+<span class="nc" id="L981">                throw new CameraException(&quot;Failed to serialise CCAPI request body: &quot; + e.getMessage(), e);</span>
+<span class="fc" id="L982">            }</span>
         }
-<span class="fc" id="L904">        HttpHeaders headers = new HttpHeaders();</span>
+<span class="fc" id="L984">        HttpHeaders headers = new HttpHeaders();</span>
         // No Accept, no Accept-Encoding — match the Canon SDK sample.
         // Content-Type is omitted too; the Canon camera does not require it
         // and rejects header values it doesn't understand.
-<span class="fc" id="L908">        return new HttpEntity&lt;&gt;(jsonBytes, headers);</span>
+<span class="fc" id="L988">        return new HttpEntity&lt;&gt;(jsonBytes, headers);</span>
     }
 
     /** Shared Jackson mapper for CCAPI request serialisation. */
-<span class="fc" id="L912">    private static final com.fasterxml.jackson.databind.ObjectMapper JSON_MAPPER =</span>
+<span class="fc" id="L992">    private static final com.fasterxml.jackson.databind.ObjectMapper JSON_MAPPER =</span>
             new com.fasterxml.jackson.databind.ObjectMapper();
 
     /** Maximum number of retry attempts when the camera reports &quot;Device busy&quot; (503). */
@@ -933,20 +1013,20 @@ public class CanonCcapiBackend implements CameraBackend {
      * starting at {@value #DEVICE_BUSY_INITIAL_BACKOFF_MS}&amp;nbsp;ms.
      */
     private void ccapiPost(String url, Object body) {
-<span class="fc" id="L936">        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;</span>
-<span class="fc" id="L937">        for (int attempt = 0; ; attempt++) {</span>
+<span class="fc" id="L1016">        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;</span>
+<span class="fc" id="L1017">        for (int attempt = 0; ; attempt++) {</span>
             try {
-<span class="fc" id="L939">                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);</span>
-<span class="fc" id="L940">                return;</span>
-<span class="fc" id="L941">            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {</span>
-<span class="fc" id="L942">                boolean deviceBusy = e.getResponseBodyAsString().contains(&quot;Device busy&quot;);</span>
-<span class="pc bpc" id="L943" title="1 of 4 branches missed.">                if (!deviceBusy || attempt &gt;= DEVICE_BUSY_MAX_RETRIES) {</span>
-<span class="fc" id="L944">                    throw e;</span>
+<span class="fc" id="L1019">                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);</span>
+<span class="fc" id="L1020">                return;</span>
+<span class="fc" id="L1021">            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {</span>
+<span class="fc" id="L1022">                boolean deviceBusy = e.getResponseBodyAsString().contains(&quot;Device busy&quot;);</span>
+<span class="fc bfc" id="L1023" title="All 4 branches covered.">                if (!deviceBusy || attempt &gt;= DEVICE_BUSY_MAX_RETRIES) {</span>
+<span class="fc" id="L1024">                    throw e;</span>
                 }
-<span class="fc" id="L946">                log.warn(&quot;Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})&quot;,</span>
-<span class="fc" id="L947">                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);</span>
-<span class="fc" id="L948">                sleepMs(backoffMs);</span>
-<span class="fc" id="L949">                backoffMs = Math.min(backoffMs * 2, 5_000);</span>
+<span class="fc" id="L1026">                log.warn(&quot;Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})&quot;,</span>
+<span class="fc" id="L1027">                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);</span>
+<span class="fc" id="L1028">                sleepMs(backoffMs);</span>
+<span class="fc" id="L1029">                backoffMs = Math.min(backoffMs * 2, 5_000);</span>
             }
         }
     }
@@ -957,9 +1037,9 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns &quot;1&quot; (small), &quot;2&quot; (medium), or &quot;3&quot; (large).
      */
     static String toDriveFocusMagnitude(int steps) {
-<span class="fc bfc" id="L960" title="All 2 branches covered.">        if (steps &lt;= 1) return &quot;1&quot;;</span>
-<span class="fc bfc" id="L961" title="All 2 branches covered.">        if (steps &lt;= 5) return &quot;2&quot;;</span>
-<span class="fc" id="L962">        return &quot;3&quot;;</span>
+<span class="fc bfc" id="L1040" title="All 2 branches covered.">        if (steps &lt;= 1) return &quot;1&quot;;</span>
+<span class="fc bfc" id="L1041" title="All 2 branches covered.">        if (steps &lt;= 5) return &quot;2&quot;;</span>
+<span class="fc" id="L1042">        return &quot;3&quot;;</span>
     }
 
     /**
@@ -968,19 +1048,19 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns 100 for null or unrecognised input. Trims whitespace before parsing.
      */
     static int parseBatteryLevel(String level) {
-<span class="fc bfc" id="L971" title="All 2 branches covered.">        if (level == null) {</span>
-<span class="fc" id="L972">            return 100;</span>
+<span class="fc bfc" id="L1051" title="All 2 branches covered.">        if (level == null) {</span>
+<span class="fc" id="L1052">            return 100;</span>
         }
-<span class="fc" id="L974">        String normalized = level.trim().toLowerCase();</span>
-<span class="fc bfc" id="L975" title="All 6 branches covered.">        return switch (normalized) {</span>
-<span class="fc" id="L976">            case &quot;full&quot;   -&gt; 100;</span>
-<span class="fc" id="L977">            case &quot;high&quot;   -&gt; 80;</span>
-<span class="fc" id="L978">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
-<span class="fc" id="L979">            case &quot;low&quot;    -&gt; 20;</span>
-<span class="fc" id="L980">            case &quot;empty&quot;  -&gt; 0;</span>
+<span class="fc" id="L1054">        String normalized = level.trim().toLowerCase();</span>
+<span class="fc bfc" id="L1055" title="All 6 branches covered.">        return switch (normalized) {</span>
+<span class="fc" id="L1056">            case &quot;full&quot;   -&gt; 100;</span>
+<span class="fc" id="L1057">            case &quot;high&quot;   -&gt; 80;</span>
+<span class="fc" id="L1058">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
+<span class="fc" id="L1059">            case &quot;low&quot;    -&gt; 20;</span>
+<span class="fc" id="L1060">            case &quot;empty&quot;  -&gt; 0;</span>
             default -&gt; {
-<span class="fc" id="L982">                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }</span>
-<span class="fc" id="L983">                catch (NumberFormatException e) { yield 100; }</span>
+<span class="fc" id="L1062">                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }</span>
+<span class="fc" id="L1063">                catch (NumberFormatException e) { yield 100; }</span>
             }
         };
     }
@@ -988,7 +1068,7 @@ public class CanonCcapiBackend implements CameraBackend {
     // ── CCAPI response DTOs ────────────────────────────────────────────────
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L991">    record DeviceInformation(</span>
+<span class="fc" id="L1071">    record DeviceInformation(</span>
             @JsonProperty(&quot;productname&quot;)    String productname,
             @JsonProperty(&quot;serialnumber&quot;)   String serialnumber,
             @JsonProperty(&quot;firmwareversion&quot;) String firmwareversion,
@@ -996,7 +1076,7 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L999">    record BatteryStatus(</span>
+<span class="fc" id="L1079">    record BatteryStatus(</span>
             @JsonProperty(&quot;name&quot;)    String name,
             @JsonProperty(&quot;kind&quot;)    String kind,
             @JsonProperty(&quot;level&quot;)   String level,
@@ -1004,14 +1084,14 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1007">    record StorageStatus(</span>
+<span class="fc" id="L1087">    record StorageStatus(</span>
             @JsonProperty(&quot;name&quot;)     String name,
             @JsonProperty(&quot;maxsize&quot;)  Long maxBytes,
             @JsonProperty(&quot;spacesize&quot;) Long spaceBytes
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1014">    record ContentEntry(</span>
+<span class="fc" id="L1094">    record ContentEntry(</span>
             @JsonProperty(&quot;name&quot;)     String name,
             @JsonProperty(&quot;size&quot;)     Long size,
             @JsonProperty(&quot;datetime&quot;) String datetime,
@@ -1019,7 +1099,7 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1022">    record ContentListing(</span>
+<span class="fc" id="L1102">    record ContentListing(</span>
             @JsonProperty(&quot;dir&quot;) List&lt;ContentEntry&gt; dir
     ) {}
 }

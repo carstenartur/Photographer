@@ -65,7 +65,7 @@ Focus Stack - App,com.photographer.focusstack.app.security,UserRole,0,15,0,0,0,3
 Focus Stack - App,com.photographer.focusstack.camera.search,SearchService,25,95,0,0,9,20,0,7,0,7
 Focus Stack - App,com.photographer.focusstack.camera.search,HibernateSearchInitializer,13,23,0,0,5,11,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.BatteryStatus,0,15,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,270,1572,66,203,65,338,62,119,3,40
+Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,329,1646,77,214,80,362,67,126,3,41
 Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,100,91,13,1,18,20,7,6,0,6
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.EndpointDescriptor,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ImageLocation,0,9,0,0,0,1,0,1,0,1
