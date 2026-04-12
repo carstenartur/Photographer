@@ -61,6 +61,14 @@ public class GeminiVisionProvider implements VisionProvider {
     }
 
     @Override
+    public VisionResult detectObjects(byte[] imageData, VisionContext context) {
+        String prompt = context.promptTemplate() != null
+                ? context.promptTemplate()
+                : PromptTemplates.DETECT_OBJECTS;
+        return doRequest(imageData, prompt, "object_detection");
+    }
+
+    @Override
     public VisionResult rankBestImage(List<byte[]> images, VisionContext context) {
         if (images == null || images.isEmpty()) {
             return VisionResult.error(name(), config.model(), "No images provided");
@@ -85,7 +93,7 @@ public class GeminiVisionProvider implements VisionProvider {
     @Override
     public ProviderCapabilities capabilities() {
         return new ProviderCapabilities(
-                true, true, false, false,
+                true, true, true, false,
                 (int) config.maxImageBytes(),
                 List.of("jpeg", "png", "webp")
         );

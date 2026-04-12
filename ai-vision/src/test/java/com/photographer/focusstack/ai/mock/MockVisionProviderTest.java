@@ -1,5 +1,6 @@
 package com.photographer.focusstack.ai.mock;
 
+import com.photographer.focusstack.ai.ProviderCapabilities;
 import com.photographer.focusstack.ai.VisionContext;
 import com.photographer.focusstack.ai.VisionResult;
 import org.junit.jupiter.api.Test;
@@ -64,5 +65,24 @@ class MockVisionProviderTest {
         MockVisionProvider provider = new MockVisionProvider(List.of(), 0);
         VisionResult result = provider.classifyImage(DUMMY_IMAGE, VisionContext.wildlife());
         assertFalse(result.successful());
+    }
+
+    @Test
+    void detectObjects_returnsMockBoundingBox() {
+        VisionResult r = new VisionResult("mock", "m", "classification",
+                "Honigbiene", List.of(), 0.85, null, List.of(), null, 5L, true, null);
+        MockVisionProvider provider = new MockVisionProvider(r);
+        VisionResult detected = provider.detectObjects(DUMMY_IMAGE, VisionContext.wildlife());
+        assertEquals("object_detection", detected.taskType());
+        assertEquals("Honigbiene", detected.primaryLabel());
+        assertFalse(detected.boundingBoxes().isEmpty());
+    }
+
+    @Test
+    void capabilities_objectDetectionIsTrue() {
+        MockVisionProvider provider = new MockVisionProvider(
+                VisionResult.error("mock", "m", "x"));
+        assertTrue(provider.capabilities().objectDetection());
+        assertTrue(provider.capabilities().classification());
     }
 }

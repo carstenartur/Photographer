@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.backend.FolderCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -77,6 +79,26 @@ public class CameraBackendFactory {
             log.info("Creating MockCameraBackend for profile '{}' ({})", profile.name(), profile.id());
             return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,
                     simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
+        }
+        if ("folder".equalsIgnoreCase(type)) {
+            String path = profile.host(); // host field reused as folder path
+            if (path == null || path.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Profile '" + profile.name() + "': host field must contain a valid folder path for folder backend");
+            }
+            java.nio.file.Path folderPath = java.nio.file.Path.of(path);
+            if (!folderPath.isAbsolute()) {
+                folderPath = folderPath.toAbsolutePath();
+            }
+            if (!folderPath.toFile().isDirectory()) {
+                // Log a warning but allow creation; the directory may be created at runtime
+                // (e.g., replay session starts before images are written). Actual failures
+                // will be surfaced when getLiveView() is called on the backend.
+                log.warn("FolderCameraBackend: path does not exist or is not a directory: {}", folderPath);
+            }
+            log.info("Creating FolderCameraBackend for profile '{}' ({}) → {}",
+                    profile.name(), profile.id(), folderPath);
+            return new FolderCameraBackend(folderPath);
         }
         // Default: canon-ccapi
         String host = profile.host();
