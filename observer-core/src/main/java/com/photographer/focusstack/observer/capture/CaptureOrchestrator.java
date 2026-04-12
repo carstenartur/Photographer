@@ -21,6 +21,10 @@ import java.util.UUID;
  *
  * <p>Supports single capture, burst capture, and focus-bracketing sequences.
  * The mode is determined by the active {@link ObserverProfile}.</p>
+ *
+ * <p>Timing delays between captures are delegated to a {@link Sleeper}
+ * so that tests can supply a no-op implementation instead of blocking
+ * on {@code Thread.sleep}.</p>
  */
 public class CaptureOrchestrator {
 
@@ -31,15 +35,33 @@ public class CaptureOrchestrator {
     /** Delay after focus adjustment in milliseconds. */
     private static final int FOCUS_SETTLE_MS = 150;
 
+    /**
+     * Abstraction over {@code Thread.sleep} so tests can eliminate real delays.
+     */
+    @FunctionalInterface
+    public interface Sleeper {
+        void sleep(long milliseconds) throws InterruptedException;
+    }
+
+    /** Default sleeper that delegates to {@link Thread#sleep(long)}. */
+    private static final Sleeper DEFAULT_SLEEPER = Thread::sleep;
+
     private final CameraBackend camera;
     private final SharpnessEvaluator sharpnessEvaluator;
     private final ObserverProfile profile;
+    private final Sleeper sleeper;
 
     public CaptureOrchestrator(CameraBackend camera, SharpnessEvaluator sharpnessEvaluator,
                                 ObserverProfile profile) {
+        this(camera, sharpnessEvaluator, profile, DEFAULT_SLEEPER);
+    }
+
+    public CaptureOrchestrator(CameraBackend camera, SharpnessEvaluator sharpnessEvaluator,
+                                ObserverProfile profile, Sleeper sleeper) {
         this.camera = camera;
         this.sharpnessEvaluator = sharpnessEvaluator;
         this.profile = profile;
+        this.sleeper = sleeper;
     }
 
     /**
@@ -124,7 +146,7 @@ public class CaptureOrchestrator {
 
     private void sleep(int ms) {
         try {
-            Thread.sleep(ms);
+            sleeper.sleep(ms);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

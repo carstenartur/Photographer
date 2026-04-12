@@ -26,16 +26,32 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Orchestrates HDR Timelapse sessions: captures bracket sets at intervals,
  * merges to HDR, applies tonemapping, and generates video.
  * No shell calls or external process dependencies.
+ *
+ * <p>The interval delay between captures is delegated to a {@link Sleeper}
+ * so that tests can supply a no-op implementation instead of blocking on
+ * {@code Thread.sleep}.</p>
  */
 public class HdrTimelapseService {
 
     private static final Logger log = LoggerFactory.getLogger(HdrTimelapseService.class);
+
+    /**
+     * Abstraction over {@code Thread.sleep} so tests can eliminate real delays.
+     */
+    @FunctionalInterface
+    public interface Sleeper {
+        void sleep(long milliseconds) throws InterruptedException;
+    }
+
+    /** Default sleeper that delegates to {@link Thread#sleep(long)}. */
+    private static final Sleeper DEFAULT_SLEEPER = Thread::sleep;
 
     private final BracketCaptureService captureService;
     private final SessionStorage storage;
     private final HdrProcessor hdrProcessor;
     private final Tonemapper tonemapper;
     private final VideoEncoder videoEncoder;
+    private final Sleeper sleeper;
 
     private final Map<String, CaptureSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, List<BracketSet>> sessionBrackets = new ConcurrentHashMap<>();
@@ -47,11 +63,21 @@ public class HdrTimelapseService {
                                 HdrProcessor hdrProcessor,
                                 Tonemapper tonemapper,
                                 VideoEncoder videoEncoder) {
+        this(captureService, storage, hdrProcessor, tonemapper, videoEncoder, DEFAULT_SLEEPER);
+    }
+
+    public HdrTimelapseService(BracketCaptureService captureService,
+                                SessionStorage storage,
+                                HdrProcessor hdrProcessor,
+                                Tonemapper tonemapper,
+                                VideoEncoder videoEncoder,
+                                Sleeper sleeper) {
         this.captureService = captureService;
         this.storage = storage;
         this.hdrProcessor = hdrProcessor;
         this.tonemapper = tonemapper;
         this.videoEncoder = videoEncoder;
+        this.sleeper = sleeper;
     }
 
     /**
@@ -188,7 +214,7 @@ public class HdrTimelapseService {
                 // Wait for next interval (skip for last)
                 if (interval < settings.totalIntervals() - 1 && !stopFlag.get()) {
                     try {
-                        Thread.sleep(settings.intervalSeconds() * 1000L);
+                        sleeper.sleep(settings.intervalSeconds() * 1000L);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         break;

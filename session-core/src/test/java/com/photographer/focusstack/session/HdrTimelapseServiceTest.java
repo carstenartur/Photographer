@@ -35,6 +35,9 @@ class HdrTimelapseServiceTest {
     private BracketCaptureService captureService;
     private HdrTimelapseService service;
 
+    /** No-op sleeper eliminates Thread.sleep delays in tests. */
+    private static final HdrTimelapseService.Sleeper NO_OP_SLEEPER = ms -> { };
+
     @BeforeEach
     void setUp() {
         captureService = mock(BracketCaptureService.class);
@@ -42,7 +45,7 @@ class HdrTimelapseServiceTest {
         HdrProcessor hdrProcessor = new MockHdrProcessor();
         Tonemapper tonemapper = new MockTonemapper();
         VideoEncoder videoEncoder = new MockVideoEncoder();
-        service = new HdrTimelapseService(captureService, storage, hdrProcessor, tonemapper, videoEncoder);
+        service = new HdrTimelapseService(captureService, storage, hdrProcessor, tonemapper, videoEncoder, NO_OP_SLEEPER);
     }
 
     @Test
@@ -74,7 +77,7 @@ class HdrTimelapseServiceTest {
 
     @Test
     void executeSession_invalidState_throwsException() {
-        HdrSettings settings = HdrSettings.defaults();
+        HdrSettings settings = new HdrSettings(0, 3, 1.0, 2, false, true);
         CaptureSession session = service.createSession(settings);
 
         when(captureService.captureBracket(anyString(), anyInt(), anyDouble(), anyInt()))
