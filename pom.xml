@@ -29,6 +29,8 @@
         <module>face-analysis-core</module>
         <module>face-profile-core</module>
         <module>session-core</module>
+        <module>observer-core</module>
+        <module>ai-vision</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>

@@ -27,6 +27,9 @@ export default function Navbar() {
         <li>
           <NavLink to="/face-orbit">Face Orbit</NavLink>
         </li>
+        <li>
+          <NavLink to="/observer">Observer</NavLink>
+        </li>
       </ul>
     </nav>
   );

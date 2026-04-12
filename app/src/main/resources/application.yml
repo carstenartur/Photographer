@@ -64,3 +64,17 @@ logging:
     root: INFO
     com.photographer.focusstack: DEBUG
     org.springframework.security: DEBUG
+
+# Wildlife Observer configuration
+observer:
+  enabled: ${OBSERVER_ENABLED:false}
+  default-profile: ${OBSERVER_DEFAULT_PROFILE:birdhouse}
+  preferred-ai-provider: ${OBSERVER_AI_PROVIDER:mock}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${OBSERVER_GEMINI_MODEL:gemini-2.5-flash}
+    endpoint: ${OBSERVER_GEMINI_ENDPOINT:https://generativelanguage.googleapis.com/v1beta/models}
+    timeout-seconds: ${OBSERVER_GEMINI_TIMEOUT:30}
+  folder:
+    enabled: ${OBSERVER_FOLDER_ENABLED:false}
+    path: ${OBSERVER_FOLDER_PATH:./data/observer-images}

@@ -21,8 +21,9 @@ export default function JobDetail() {
   }, [id]);
 
   // Auto-refresh while job is RUNNING
+  const jobStatus = job?.status;
   useEffect(() => {
-    if (!job || (job.status !== 'RUNNING' && job.status !== 'CREATED')) return;
+    if (!jobStatus || (jobStatus !== 'RUNNING' && jobStatus !== 'CREATED')) return;
     const interval = setInterval(async () => {
       try {
         const data = await getJob(id);
@@ -33,17 +34,18 @@ export default function JobDetail() {
       } catch { /* ignore refresh errors */ }
     }, 2000);
     return () => clearInterval(interval);
-  }, [id, job?.status]);
+  }, [id, jobStatus]);
 
   // Fetch camera battery status while job is active
+  const cameraProfileId = job?.cameraProfileId;
   useEffect(() => {
-    if (!job || !job.cameraProfileId) return;
-    const isActive = job.status === 'RUNNING' || job.status === 'CREATED' || job.status === 'PAUSED';
+    if (!cameraProfileId) return;
+    const isActive = jobStatus === 'RUNNING' || jobStatus === 'CREATED' || jobStatus === 'PAUSED';
     // Fetch once immediately, then poll only while active
     let cancelled = false;
     async function fetchStatus() {
       try {
-        const status = await getCameraStatus(job.cameraProfileId);
+        const status = await getCameraStatus(cameraProfileId);
         if (!cancelled) setCameraStatus(status);
       } catch { /* camera status is best-effort */ }
     }
@@ -51,7 +53,7 @@ export default function JobDetail() {
     if (!isActive) return () => { cancelled = true; };
     const interval = setInterval(fetchStatus, 10000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [job?.cameraProfileId, job?.status]);
+  }, [cameraProfileId, jobStatus]);
 
   // WebSocket for real-time logs
   useEffect(() => {
