@@ -377,6 +377,51 @@ class CanonCcapiBackendTest {
                 contains("/contents/sd"), eq(CanonCcapiBackend.ContentListing.class));
     }
 
+    @Test
+    void capture_retriesOnDeviceBusy503() {
+        // First POST returns 503 "Device busy", second succeeds.
+        org.springframework.web.client.HttpServerErrorException busyEx =
+                (org.springframework.web.client.HttpServerErrorException)
+                org.springframework.web.client.HttpServerErrorException.create(
+                        org.springframework.http.HttpStatusCode.valueOf(503),
+                        "Service Unavailable",
+                        org.springframework.http.HttpHeaders.EMPTY,
+                        "{\"message\":\"Device busy\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        java.nio.charset.StandardCharsets.UTF_8);
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .thenThrow(busyEx)
+                .thenReturn(ResponseEntity.ok("{}"));
+
+        CaptureResult result = backend.capture();
+
+        assertNotNull(result.imageId());
+        // exchange should have been called twice: first attempt (Device busy) + successful retry
+        verify(restTemplate, atLeast(2)).exchange(anyString(), eq(HttpMethod.POST),
+                any(HttpEntity.class), eq(String.class));
+    }
+
+    @Test
+    void capture_doesNotRetryNonBusy503() {
+        // 503 response without "Device busy" should propagate immediately as CameraException.
+        org.springframework.web.client.HttpServerErrorException otherEx =
+                (org.springframework.web.client.HttpServerErrorException)
+                org.springframework.web.client.HttpServerErrorException.create(
+                        org.springframework.http.HttpStatusCode.valueOf(503),
+                        "Service Unavailable",
+                        org.springframework.http.HttpHeaders.EMPTY,
+                        "{\"message\":\"Internal error\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        java.nio.charset.StandardCharsets.UTF_8);
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .thenThrow(otherEx);
+
+        assertThrows(CameraException.class, () -> backend.capture());
+        // Only one POST attempt — no retries.
+        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.POST),
+                any(HttpEntity.class), eq(String.class));
+    }
+
     // ── setFocus ──────────────────────────────────────────────────────────────
 
     @Test

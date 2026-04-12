@@ -912,6 +912,12 @@ public class CanonCcapiBackend implements CameraBackend {
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON_MAPPER =
             new com.fasterxml.jackson.databind.ObjectMapper();
 
+    /** Maximum number of retry attempts when the camera reports "Device busy" (503). */
+    private static final int DEVICE_BUSY_MAX_RETRIES = 5;
+
+    /** Initial backoff in milliseconds before the first retry on "Device busy". */
+    private static final long DEVICE_BUSY_INITIAL_BACKOFF_MS = 500;
+
     /**
      * Sends a POST request to the given CCAPI URL with the supplied body,
      * using {@link #ccapiEntity(Object)} to set the required headers.
@@ -920,9 +926,29 @@ public class CanonCcapiBackend implements CameraBackend {
      * the Canon camera sees is {@code Content-Length} (added automatically by
      * the HTTP client).  This matches the Canon SDK sample which writes raw
      * bytes via {@code OutputStream} without setting any custom headers.
+     *
+     * <p>If the camera responds with {@code 503 Service Unavailable} and a
+     * {@code "Device busy"} message, the request is retried up to
+     * {@value #DEVICE_BUSY_MAX_RETRIES} times with exponential backoff
+     * starting at {@value #DEVICE_BUSY_INITIAL_BACKOFF_MS}&nbsp;ms.
      */
     private void ccapiPost(String url, Object body) {
-        restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);
+        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;
+        for (int attempt = 0; ; attempt++) {
+            try {
+                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);
+                return;
+            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {
+                boolean deviceBusy = e.getResponseBodyAsString().contains("Device busy");
+                if (!deviceBusy || attempt >= DEVICE_BUSY_MAX_RETRIES) {
+                    throw e;
+                }
+                log.warn("Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})",
+                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);
+                sleepMs(backoffMs);
+                backoffMs = Math.min(backoffMs * 2, 5_000);
+            }
+        }
     }
 
     /**
