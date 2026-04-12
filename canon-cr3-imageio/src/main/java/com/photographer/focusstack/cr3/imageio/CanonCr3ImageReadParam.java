@@ -21,6 +21,7 @@ import javax.imageio.ImageReadParam;
 public class CanonCr3ImageReadParam extends ImageReadParam {
 
     private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.defaults();
+    private boolean previewOnly;
 
     /**
      * Returns the CR3-specific decode options.
@@ -38,5 +39,33 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      */
     public void setDecodeOptions(Cr3DecodeOptions options) {
         this.decodeOptions = options;
+    }
+
+    /**
+     * Returns whether only the embedded JPEG preview should be read.
+     *
+     * <p>When {@code true}, the reader will extract the embedded JPEG preview
+     * image instead of decoding the full RAW data. This is significantly faster
+     * and is useful for thumbnailing or quick previews.</p>
+     *
+     * @return {@code true} if only the preview should be read
+     */
+    public boolean isPreviewOnly() {
+        return previewOnly;
+    }
+
+    /**
+     * Sets whether only the embedded JPEG preview should be read.
+     *
+     * <p>When set to {@code true}, the decode options are automatically
+     * configured to use {@link Cr3DecodeOptions.OutputMode#PREVIEW}.</p>
+     *
+     * @param previewOnly {@code true} to read only the preview
+     */
+    public void setPreviewOnly(boolean previewOnly) {
+        this.previewOnly = previewOnly;
+        if (previewOnly) {
+            this.decodeOptions = this.decodeOptions.outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
+        }
     }
 }

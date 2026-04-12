@@ -118,7 +118,12 @@ public class CanonCr3ImageReader extends ImageReader {
 
         Cr3DecodeOptions options;
         if (param instanceof CanonCr3ImageReadParam cr3Param) {
-            options = cr3Param.getDecodeOptions();
+            if (cr3Param.isPreviewOnly()) {
+                options = Cr3DecodeOptions.defaults()
+                        .outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
+            } else {
+                options = cr3Param.getDecodeOptions();
+            }
         } else {
             options = Cr3DecodeOptions.defaults();
         }

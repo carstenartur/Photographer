@@ -81,7 +81,11 @@ public final class IsoBmffReader {
             }
 
             byte[] typeBytes = new byte[4];
-            input.readFully(typeBytes);
+            try {
+                input.readFully(typeBytes);
+            } catch (java.io.EOFException e) {
+                break;
+            }
             String type = new String(typeBytes, StandardCharsets.US_ASCII);
 
             // Handle extended size (size == 1 means 64-bit size follows)

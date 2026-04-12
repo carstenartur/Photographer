@@ -1,6 +1,7 @@
 package com.photographer.focusstack.cr3.cli;
 
 import com.photographer.focusstack.cr3.bmff.IsoBox;
+import com.photographer.focusstack.cr3.bmff.IsoBmffReader;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.container.Cr3Track;
@@ -15,6 +16,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Command-line debug tool for Canon CR3 files.
@@ -51,6 +53,7 @@ public final class Cr3CliApp {
             switch (command) {
                 case "info" -> showInfo(filePath);
                 case "boxes" -> showBoxes(filePath);
+                case "dump-box-tree" -> dumpBoxTree(filePath);
                 case "preview" -> extractPreview(filePath, args.length > 2 ? args[2] : "preview.jpg");
                 case "thumb" -> extractThumbnail(filePath, args.length > 2 ? args[2] : "thumbnail.jpg");
                 default -> {
@@ -107,6 +110,40 @@ public final class Cr3CliApp {
         }
     }
 
+    /**
+     * Dumps the raw ISO-BMFF box tree for any BMFF file (does not require CR3 validation).
+     * Shows all boxes with offset, length, and type in a hierarchical tree format.
+     *
+     * @param filePath path to the BMFF/CR3 file
+     * @throws Exception if an I/O error occurs
+     */
+    static void dumpBoxTree(String filePath) throws Exception {
+        try (ImageInputStream input = ImageIO.createImageInputStream(new File(filePath))) {
+            if (input == null) {
+                throw new IOException("Cannot open file: " + filePath);
+            }
+            List<IsoBox> boxes = IsoBmffReader.readBoxes(input);
+            StringBuilder sb = new StringBuilder();
+            for (IsoBox box : boxes) {
+                formatBoxTree(box, 0, sb);
+            }
+            System.out.print(sb);
+        }
+    }
+
+    /**
+     * Formats a box tree into the provided StringBuilder.
+     * Visible for testing.
+     */
+    static void formatBoxTree(IsoBox box, int depth, StringBuilder sb) {
+        String indent = "  ".repeat(depth);
+        sb.append(String.format("%s%s  offset=%-10d  size=%-10d%n",
+                indent, box.type(), box.offset(), box.size()));
+        for (IsoBox child : box.children()) {
+            formatBoxTree(child, depth + 1, sb);
+        }
+    }
+
     private static void printBox(IsoBox box, int indent) {
         String prefix = "  ".repeat(indent);
         System.out.printf("%s[%s] offset=%d size=%d%n", prefix, box.type(), box.offset(), box.size());
@@ -139,9 +176,10 @@ public final class Cr3CliApp {
         System.out.println("Canon CR3 Debug CLI");
         System.out.println();
         System.out.println("Usage:");
-        System.out.println("  cr3-cli info    <file.cr3>              Show file info and metadata");
-        System.out.println("  cr3-cli boxes   <file.cr3>              Dump box structure");
-        System.out.println("  cr3-cli preview <file.cr3> [output.jpg] Extract JPEG preview");
-        System.out.println("  cr3-cli thumb   <file.cr3> [output.jpg] Extract JPEG thumbnail");
+        System.out.println("  cr3-cli info          <file.cr3>              Show file info and metadata");
+        System.out.println("  cr3-cli boxes         <file.cr3>              Dump box structure (CR3 only)");
+        System.out.println("  cr3-cli dump-box-tree <file.cr3>              Dump all ISO-BMFF boxes with offset/size");
+        System.out.println("  cr3-cli preview       <file.cr3> [output.jpg] Extract JPEG preview");
+        System.out.println("  cr3-cli thumb         <file.cr3> [output.jpg] Extract JPEG thumbnail");
     }
 }
