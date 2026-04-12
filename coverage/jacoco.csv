@@ -1,4 +1,5 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Focus Stack - App,com.photographer.focusstack.app.config,SessionConfig,0,88,0,0,0,20,0,10,0,10
 Focus Stack - App,com.photographer.focusstack.app.config,StorageConfig,0,32,3,3,0,8,3,1,0,1
 Focus Stack - App,com.photographer.focusstack.app.config,CameraConfig,0,22,2,2,0,6,2,1,0,1
 Focus Stack - App,com.photographer.focusstack,FocusStackApplication,5,3,0,0,2,1,1,1,1,1
@@ -17,7 +18,9 @@ Focus Stack - App,com.photographer.focusstack.analysis.plugin,AnalysisPluginResu
 Focus Stack - App,com.photographer.focusstack.analysis.plugin,DefaultSharpnessPlugin,11,34,1,1,2,11,1,3,0,3
 Focus Stack - App,com.photographer.focusstack.analysis.plugin,AnalysisContext,0,18,0,0,0,3,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.analysis.plugin,AnalysisPluginRegistry,0,120,0,4,0,26,0,11,0,9
+Focus Stack - App,com.photographer.focusstack.camera.controller,FaceOrbitController,12,79,0,0,1,19,2,9,2,9
 Focus Stack - App,com.photographer.focusstack.camera.controller,JobController.CreateJobRequest,0,9,0,0,0,1,0,1,0,1
+Focus Stack - App,com.photographer.focusstack.camera.controller,HdrTimelapseController,41,57,2,0,8,14,3,6,2,6
 Focus Stack - App,com.photographer.focusstack.camera.controller,JobController,184,49,18,0,45,15,16,5,7,5
 Focus Stack - App,com.photographer.focusstack.camera.controller,CameraController,14,94,0,0,3,23,2,11,2,11
 Focus Stack - App,com.photographer.focusstack.analysis.strategy,PixelDiffStrategy,0,15,0,0,0,5,0,3,0,3
@@ -37,7 +40,7 @@ Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore,26,3
 Focus Stack - App,com.photographer.focusstack.camera.service,CameraProfileService,0,93,0,4,0,21,0,9,0,7
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.FrameEntry,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.new LinkedHashMap() {...},2,15,1,1,0,2,1,2,0,2
-Focus Stack - App,com.photographer.focusstack.camera.exception,GlobalExceptionHandler,36,39,0,0,10,11,3,4,3,4
+Focus Stack - App,com.photographer.focusstack.camera.exception,GlobalExceptionHandler,46,49,0,0,14,15,4,5,4,5
 Focus Stack - App,com.photographer.focusstack.camera.exception,CameraException,0,9,0,0,0,4,0,2,0,2
 Focus Stack - App,com.photographer.focusstack.camera.exception,CameraNotFoundException,0,4,0,0,0,2,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.app.security,SecurityEventListener,12,19,0,0,4,6,1,3,1,3

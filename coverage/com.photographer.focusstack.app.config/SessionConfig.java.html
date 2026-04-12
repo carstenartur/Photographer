@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SessionConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.config</a> &gt; <span class="el_source">SessionConfig.java</span></div><h1>SessionConfig.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.config;
+
+import com.photographer.focusstack.capture.BracketCaptureService;
+import com.photographer.focusstack.capture.SequenceCaptureService;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.face.analysis.FaceAnalysisEngine;
+import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;
+import com.photographer.focusstack.face.profile.FaceProfileEngine;
+import com.photographer.focusstack.face.profile.MockFaceProfileEngine;
+import com.photographer.focusstack.hdr.HdrProcessor;
+import com.photographer.focusstack.hdr.MockHdrProcessor;
+import com.photographer.focusstack.hdr.MockTonemapper;
+import com.photographer.focusstack.hdr.Tonemapper;
+import com.photographer.focusstack.session.FaceOrbitService;
+import com.photographer.focusstack.session.HdrTimelapseService;
+import com.photographer.focusstack.storage.FileSessionStorage;
+import com.photographer.focusstack.storage.SessionStorage;
+import com.photographer.focusstack.video.MockVideoEncoder;
+import com.photographer.focusstack.video.VideoEncoder;
+import com.photographer.focusstack.camera.backend.MockCameraBackend;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
+import java.nio.file.Path;
+
+/**
+ * Spring configuration for HDR Timelapse and Face Orbit session services.
+ * Wires the core modules together using mock adapters by default.
+ */
+@Configuration
+<span class="fc" id="L34">public class SessionConfig {</span>
+
+    @Bean
+    public SessionStorage sessionStorage(
+            @Value(&quot;${focusstack.sessions.base-dir:./data/sessions}&quot;) String baseDir) {
+<span class="fc" id="L39">        return new FileSessionStorage(Path.of(baseDir));</span>
+    }
+
+    @Bean
+    public HdrProcessor hdrProcessor() {
+<span class="fc" id="L44">        return new MockHdrProcessor();</span>
+    }
+
+    @Bean
+    public Tonemapper tonemapper() {
+<span class="fc" id="L49">        return new MockTonemapper();</span>
+    }
+
+    @Bean
+    public VideoEncoder videoEncoder() {
+<span class="fc" id="L54">        return new MockVideoEncoder();</span>
+    }
+
+    @Bean
+    public FaceAnalysisEngine faceAnalysisEngine() {
+<span class="fc" id="L59">        return new MockFaceAnalysisEngine();</span>
+    }
+
+    @Bean
+    public FaceProfileEngine faceProfileEngine() {
+<span class="fc" id="L64">        return new MockFaceProfileEngine();</span>
+    }
+
+    @Bean
+    public HdrTimelapseService hdrTimelapseService(
+            SessionStorage sessionStorage,
+            HdrProcessor hdrProcessor,
+            Tonemapper tonemapper,
+            VideoEncoder videoEncoder) {
+<span class="fc" id="L73">        CameraBackend mockBackend = new MockCameraBackend(0);</span>
+<span class="fc" id="L74">        BracketCaptureService captureService = new BracketCaptureService(mockBackend);</span>
+<span class="fc" id="L75">        return new HdrTimelapseService(captureService, sessionStorage,</span>
+                hdrProcessor, tonemapper, videoEncoder);
+    }
+
+    @Bean
+    public FaceOrbitService faceOrbitService(
+            SessionStorage sessionStorage,
+            FaceAnalysisEngine faceAnalysisEngine,
+            FaceProfileEngine faceProfileEngine) {
+<span class="fc" id="L84">        CameraBackend mockBackend = new MockCameraBackend(0);</span>
+<span class="fc" id="L85">        SequenceCaptureService captureService = new SequenceCaptureService(mockBackend);</span>
+<span class="fc" id="L86">        return new FaceOrbitService(captureService, sessionStorage,</span>
+                faceAnalysisEngine, faceProfileEngine);
+    }
+
+    /**
+     * Dedicated thread pool for session tasks (HDR timelapse, face orbit auto mode).
+     */
+    @Bean(&quot;sessionTaskExecutor&quot;)
+    public TaskExecutor sessionTaskExecutor() {
+<span class="fc" id="L95">        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();</span>
+<span class="fc" id="L96">        executor.setCorePoolSize(2);</span>
+<span class="fc" id="L97">        executor.setMaxPoolSize(4);</span>
+<span class="fc" id="L98">        executor.setQueueCapacity(10);</span>
+<span class="fc" id="L99">        executor.setThreadNamePrefix(&quot;session-task-&quot;);</span>
+<span class="fc" id="L100">        executor.initialize();</span>
+<span class="fc" id="L101">        return executor;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
