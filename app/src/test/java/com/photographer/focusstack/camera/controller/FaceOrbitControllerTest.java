@@ -95,6 +95,8 @@ class FaceOrbitControllerTest {
         mockMvc.perform(post("/api/face-orbit/sess-2/auto")
                         .with(csrf()))
                 .andExpect(status().isAccepted());
+
+        verify(faceOrbitService).validateAutoModeStartable("sess-2");
     }
 
     @Test

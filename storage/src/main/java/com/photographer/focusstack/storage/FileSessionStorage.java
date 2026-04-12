@@ -30,7 +30,7 @@ public class FileSessionStorage implements SessionStorage {
 
     @Override
     public Path createSessionDirectory(String sessionId) throws IOException {
-        Path sessionDir = getSessionPath(sessionId);
+        Path sessionDir = validateSessionPath(sessionId);
         Files.createDirectories(sessionDir.resolve("frames"));
         Files.createDirectories(sessionDir.resolve("brackets"));
         Files.createDirectories(sessionDir.resolve("results"));
@@ -41,11 +41,11 @@ public class FileSessionStorage implements SessionStorage {
 
     @Override
     public Path storeFile(String sessionId, String fileName, byte[] data) throws IOException {
-        Path sessionDir = getSessionPath(sessionId);
+        Path sessionDir = validateSessionPath(sessionId);
         if (!Files.exists(sessionDir)) {
             createSessionDirectory(sessionId);
         }
-        Path filePath = sessionDir.resolve(fileName);
+        Path filePath = validateFilePath(sessionDir, fileName);
         Files.createDirectories(filePath.getParent());
         Files.write(filePath, data);
         log.debug("Stored file: {}", filePath);
@@ -54,17 +54,52 @@ public class FileSessionStorage implements SessionStorage {
 
     @Override
     public byte[] readFile(String sessionId, String fileName) throws IOException {
-        Path filePath = getSessionPath(sessionId).resolve(fileName);
+        Path sessionDir = validateSessionPath(sessionId);
+        Path filePath = validateFilePath(sessionDir, fileName);
         return Files.readAllBytes(filePath);
     }
 
     @Override
     public boolean sessionExists(String sessionId) {
+        try {
+            validateSessionPath(sessionId);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
         return Files.exists(getSessionPath(sessionId));
     }
 
     @Override
     public Path getSessionPath(String sessionId) {
         return baseDirectory.resolve(sessionId);
+    }
+
+    /**
+     * Validates that sessionId does not escape baseDirectory via path traversal.
+     */
+    private Path validateSessionPath(String sessionId) {
+        if (sessionId == null || sessionId.isEmpty()) {
+            throw new IllegalArgumentException("sessionId must not be null or empty");
+        }
+        Path resolved = baseDirectory.resolve(sessionId).normalize();
+        if (!resolved.startsWith(baseDirectory.normalize())) {
+            throw new IllegalArgumentException("Invalid sessionId: path traversal detected");
+        }
+        return resolved;
+    }
+
+    /**
+     * Validates that fileName does not escape sessionDir via path traversal.
+     */
+    private Path validateFilePath(Path sessionDir, String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            throw new IllegalArgumentException("fileName must not be null or empty");
+        }
+        Path normalized = sessionDir.normalize();
+        Path resolved = normalized.resolve(fileName).normalize();
+        if (!resolved.startsWith(normalized)) {
+            throw new IllegalArgumentException("Invalid fileName: path traversal detected");
+        }
+        return resolved;
     }
 }

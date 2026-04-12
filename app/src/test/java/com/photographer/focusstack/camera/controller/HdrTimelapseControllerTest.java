@@ -82,6 +82,8 @@ class HdrTimelapseControllerTest {
         mockMvc.perform(post("/api/hdr-timelapse/sess-1/start")
                         .with(csrf()))
                 .andExpect(status().isAccepted());
+
+        verify(hdrTimelapseService).validateStartable("sess-1");
     }
 
     @Test

@@ -102,8 +102,8 @@ class FaceOrbitServiceTest {
     }
 
     @Test
-    void getSession_nonExistent_throwsException() {
-        assertThrows(SessionException.class, () -> service.getSession("nonexistent"));
+    void getSession_nonExistent_throwsSessionNotFoundException() {
+        assertThrows(SessionNotFoundException.class, () -> service.getSession("nonexistent"));
     }
 
     @Test

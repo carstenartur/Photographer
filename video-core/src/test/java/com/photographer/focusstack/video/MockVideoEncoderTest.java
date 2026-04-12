@@ -2,6 +2,7 @@ package com.photographer.focusstack.video;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -19,7 +20,7 @@ class MockVideoEncoderTest {
 
         assertNotNull(result);
         assertTrue(result.length > 0);
-        String content = new String(result);
+        String content = new String(result, StandardCharsets.UTF_8);
         assertTrue(content.contains("frames=2"));
         assertTrue(content.contains("fps=24"));
     }

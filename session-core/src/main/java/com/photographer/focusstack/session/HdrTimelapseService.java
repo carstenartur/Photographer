@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Orchestrates HDR Timelapse sessions: captures bracket sets at intervals,
@@ -39,7 +40,7 @@ public class HdrTimelapseService {
     private final Map<String, CaptureSession> sessions = new ConcurrentHashMap<>();
     private final Map<String, List<BracketSet>> sessionBrackets = new ConcurrentHashMap<>();
     private final Map<String, HdrSettings> sessionSettings = new ConcurrentHashMap<>();
-    private volatile boolean stopRequested;
+    private final Map<String, AtomicBoolean> stopFlags = new ConcurrentHashMap<>();
 
     public HdrTimelapseService(BracketCaptureService captureService,
                                 SessionStorage storage,
@@ -79,6 +80,19 @@ public class HdrTimelapseService {
     }
 
     /**
+     * Validates that the session is in a startable state.
+     *
+     * @throws SessionNotFoundException if the session does not exist
+     * @throws SessionException if the session is not in CREATED or PAUSED state
+     */
+    public void validateStartable(String sessionId) {
+        CaptureSession session = getSession(sessionId);
+        if (session.status() != SessionStatus.CREATED && session.status() != SessionStatus.PAUSED) {
+            throw new SessionException("Session cannot be started in state: " + session.status());
+        }
+    }
+
+    /**
      * Executes the HDR timelapse capture loop synchronously.
      * Call from an async executor for non-blocking operation.
      */
@@ -93,7 +107,9 @@ public class HdrTimelapseService {
             throw new SessionException("No settings found for session: " + sessionId);
         }
 
-        stopRequested = false;
+        AtomicBoolean stopFlag = new AtomicBoolean(false);
+        stopFlags.put(sessionId, stopFlag);
+
         CaptureSession running = new CaptureSession(
                 sessionId, session.type(), SessionStatus.RUNNING,
                 session.createdAt(), Instant.now(), null,
@@ -105,7 +121,7 @@ public class HdrTimelapseService {
 
         try {
             for (int interval = brackets.size(); interval < settings.totalIntervals(); interval++) {
-                if (stopRequested) {
+                if (stopFlag.get()) {
                     log.info("Session {} stop requested at interval {}", sessionId, interval);
                     break;
                 }
@@ -113,7 +129,6 @@ public class HdrTimelapseService {
                 int startIndex = interval * settings.bracketCount();
                 BracketSet bracketSet = captureService.captureBracket(
                         sessionId, settings.bracketCount(), settings.evStep(), startIndex);
-                brackets.add(bracketSet);
 
                 // Collect frame IDs
                 for (CaptureFrame frame : bracketSet.frames()) {
@@ -141,16 +156,24 @@ public class HdrTimelapseService {
                     hdrResult = tonemapper.tonemap(hdrResult, 2.2);
                 }
 
-                // Store HDR result
+                // Store HDR result and propagate path back into BracketSet
+                String hdrResultPath = null;
                 if (hdrResult.length > 0) {
+                    hdrResultPath = "brackets/hdr_" + bracketSet.bracketSetId() + ".jpg";
                     try {
-                        storage.storeFile(sessionId,
-                                "brackets/hdr_" + bracketSet.bracketSetId() + ".jpg", hdrResult);
+                        storage.storeFile(sessionId, hdrResultPath, hdrResult);
                     } catch (IOException e) {
                         log.warn("Failed to store HDR result for bracket {}: {}",
                                 bracketSet.bracketSetId(), e.getMessage());
+                        hdrResultPath = null;
                     }
                 }
+
+                // Store bracket with HDR result path
+                BracketSet bracketWithHdr = new BracketSet(
+                        bracketSet.bracketSetId(), bracketSet.sessionId(),
+                        bracketSet.capturedAt(), bracketSet.frames(), hdrResultPath);
+                brackets.add(bracketWithHdr);
 
                 // Update session
                 CaptureSession updated = new CaptureSession(
@@ -163,7 +186,7 @@ public class HdrTimelapseService {
                         settings.totalIntervals());
 
                 // Wait for next interval (skip for last)
-                if (interval < settings.totalIntervals() - 1 && !stopRequested) {
+                if (interval < settings.totalIntervals() - 1 && !stopFlag.get()) {
                     try {
                         Thread.sleep(settings.intervalSeconds() * 1000L);
                     } catch (InterruptedException e) {
@@ -173,7 +196,7 @@ public class HdrTimelapseService {
                 }
             }
 
-            SessionStatus finalStatus = stopRequested ? SessionStatus.CANCELLED : SessionStatus.COMPLETED;
+            SessionStatus finalStatus = stopFlag.get() ? SessionStatus.CANCELLED : SessionStatus.COMPLETED;
             CaptureSession completed = new CaptureSession(
                     sessionId, session.type(), finalStatus,
                     session.createdAt(), running.startedAt(), Instant.now(),
@@ -192,6 +215,8 @@ public class HdrTimelapseService {
                     frameIds, e.getMessage(), session.metadata());
             sessions.put(sessionId, failed);
             return failed;
+        } finally {
+            stopFlags.remove(sessionId);
         }
     }
 
@@ -200,7 +225,10 @@ public class HdrTimelapseService {
      */
     public void stopSession(String sessionId) {
         getSession(sessionId); // Verify it exists
-        stopRequested = true;
+        AtomicBoolean stopFlag = stopFlags.get(sessionId);
+        if (stopFlag != null) {
+            stopFlag.set(true);
+        }
         log.info("Stop requested for session: {}", sessionId);
     }
 
@@ -229,20 +257,32 @@ public class HdrTimelapseService {
     }
 
     /**
+     * Returns the video format of the configured encoder (e.g. "mp4", "mock").
+     */
+    public String getVideoFormat() {
+        return videoEncoder.format();
+    }
+
+    /**
      * Gets the current session status.
      */
     public CaptureSession getSession(String sessionId) {
         CaptureSession session = sessions.get(sessionId);
         if (session == null) {
-            throw new SessionException("Session not found: " + sessionId);
+            throw new SessionNotFoundException("Session not found: " + sessionId);
         }
         return session;
     }
 
     /**
      * Gets all bracket sets for a session.
+     * Returns an immutable snapshot to avoid concurrent modification.
      */
     public List<BracketSet> getBrackets(String sessionId) {
-        return sessionBrackets.getOrDefault(sessionId, List.of());
+        List<BracketSet> brackets = sessionBrackets.get(sessionId);
+        if (brackets == null) {
+            return List.of();
+        }
+        return List.copyOf(brackets);
     }
 }

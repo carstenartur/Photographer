@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Orchestrates Face Orbit Capture sessions: guided image series of a face
@@ -39,7 +40,7 @@ public class FaceOrbitService {
     private final Map<String, List<CaptureFrame>> sessionFrames = new ConcurrentHashMap<>();
     private final Map<String, List<QualityCheck>> sessionQualityChecks = new ConcurrentHashMap<>();
     private final Map<String, FaceProfileJob> profileJobs = new ConcurrentHashMap<>();
-    private volatile boolean stopRequested;
+    private final Map<String, AtomicBoolean> stopFlags = new ConcurrentHashMap<>();
 
     public FaceOrbitService(SequenceCaptureService captureService,
                              SessionStorage storage,
@@ -130,6 +131,19 @@ public class FaceOrbitService {
     }
 
     /**
+     * Validates that the session is in a startable state for auto mode.
+     *
+     * @throws SessionNotFoundException if the session does not exist
+     * @throws SessionException if the session is not in CREATED state
+     */
+    public void validateAutoModeStartable(String sessionId) {
+        CaptureSession session = getSession(sessionId);
+        if (session.status() != SessionStatus.CREATED) {
+            throw new SessionException("Auto mode can only start from CREATED state");
+        }
+    }
+
+    /**
      * Executes the face orbit capture in auto mode.
      * Call from an async executor for non-blocking operation.
      */
@@ -141,7 +155,9 @@ public class FaceOrbitService {
             throw new SessionException("Auto mode can only start from CREATED state");
         }
 
-        stopRequested = false;
+        AtomicBoolean stopFlag = new AtomicBoolean(false);
+        stopFlags.put(sessionId, stopFlag);
+
         CaptureSession running = new CaptureSession(
                 sessionId, session.type(), SessionStatus.RUNNING,
                 session.createdAt(), Instant.now(), null,
@@ -153,7 +169,7 @@ public class FaceOrbitService {
 
         try {
             for (int step = 0; step < settings.totalSteps(); step++) {
-                if (stopRequested) {
+                if (stopFlag.get()) {
                     break;
                 }
 
@@ -175,7 +191,7 @@ public class FaceOrbitService {
                         settings.totalSteps(), angle);
             }
 
-            SessionStatus finalStatus = stopRequested ? SessionStatus.CANCELLED : SessionStatus.COMPLETED;
+            SessionStatus finalStatus = stopFlag.get() ? SessionStatus.CANCELLED : SessionStatus.COMPLETED;
             CaptureSession completed = new CaptureSession(
                     sessionId, session.type(), finalStatus,
                     session.createdAt(), running.startedAt(), Instant.now(),
@@ -191,6 +207,8 @@ public class FaceOrbitService {
                     frameIds, e.getMessage(), session.metadata());
             sessions.put(sessionId, failed);
             return failed;
+        } finally {
+            stopFlags.remove(sessionId);
         }
     }
 
@@ -199,7 +217,10 @@ public class FaceOrbitService {
      */
     public void stopSession(String sessionId) {
         getSession(sessionId);
-        stopRequested = true;
+        AtomicBoolean stopFlag = stopFlags.get(sessionId);
+        if (stopFlag != null) {
+            stopFlag.set(true);
+        }
     }
 
     /**
@@ -283,19 +304,27 @@ public class FaceOrbitService {
     public CaptureSession getSession(String sessionId) {
         CaptureSession session = sessions.get(sessionId);
         if (session == null) {
-            throw new SessionException("Session not found: " + sessionId);
+            throw new SessionNotFoundException("Session not found: " + sessionId);
         }
         return session;
     }
 
+    /**
+     * Gets quality checks for a session.
+     * Returns an immutable snapshot to avoid concurrent modification.
+     */
     public List<QualityCheck> getQualityChecks(String sessionId) {
-        return sessionQualityChecks.getOrDefault(sessionId, List.of());
+        List<QualityCheck> checks = sessionQualityChecks.get(sessionId);
+        if (checks == null) {
+            return List.of();
+        }
+        return List.copyOf(checks);
     }
 
     public FaceProfileJob getProfileJob(String jobId) {
         FaceProfileJob job = profileJobs.get(jobId);
         if (job == null) {
-            throw new SessionException("Profile job not found: " + jobId);
+            throw new SessionNotFoundException("Profile job not found: " + jobId);
         }
         return job;
     }

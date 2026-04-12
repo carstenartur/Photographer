@@ -50,6 +50,8 @@ public class FaceOrbitController {
 
     @PostMapping("/{sessionId}/auto")
     public ResponseEntity<CaptureSession> startAutoMode(@PathVariable String sessionId) {
+        // Validate state synchronously before scheduling async execution
+        service.validateAutoModeStartable(sessionId);
         taskExecutor.execute(() -> service.executeAutoMode(sessionId));
         CaptureSession session = service.getSession(sessionId);
         return ResponseEntity.accepted().body(session);

@@ -46,9 +46,9 @@ public class HdrTimelapseController {
 
     @PostMapping("/{sessionId}/start")
     public ResponseEntity<CaptureSession> startSession(@PathVariable String sessionId) {
-        // Start async execution
+        // Validate state synchronously before scheduling async execution
+        service.validateStartable(sessionId);
         taskExecutor.execute(() -> service.executeSession(sessionId));
-        // Return current session state immediately
         CaptureSession session = service.getSession(sessionId);
         return ResponseEntity.accepted().body(session);
     }
@@ -79,10 +79,11 @@ public class HdrTimelapseController {
         if (video.length == 0) {
             return ResponseEntity.noContent().build();
         }
+        String format = service.getVideoFormat();
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"timelapse-" + sessionId + ".mp4\"")
+                        "attachment; filename=\"timelapse-" + sessionId + "." + format + "\"")
                 .body(video);
     }
 }

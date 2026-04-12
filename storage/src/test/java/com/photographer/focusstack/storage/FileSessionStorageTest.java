@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -35,7 +36,7 @@ class FileSessionStorageTest {
     @Test
     void storeAndReadFile_roundTrips() throws IOException {
         storage.createSessionDirectory("test-session");
-        byte[] data = "test content".getBytes();
+        byte[] data = "test content".getBytes(StandardCharsets.UTF_8);
 
         Path stored = storage.storeFile("test-session", "frames/test.jpg", data);
 
@@ -64,11 +65,36 @@ class FileSessionStorageTest {
 
     @Test
     void storeFile_createsSessionDirectoryIfMissing() throws IOException {
-        byte[] data = "auto-create".getBytes();
+        byte[] data = "auto-create".getBytes(StandardCharsets.UTF_8);
 
         Path stored = storage.storeFile("new-session", "frames/auto.jpg", data);
 
         assertTrue(Files.exists(stored));
         assertTrue(storage.sessionExists("new-session"));
+    }
+
+    @Test
+    void storeFile_rejectsPathTraversalInSessionId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> storage.storeFile("../escape", "file.txt", new byte[]{1}));
+    }
+
+    @Test
+    void storeFile_rejectsPathTraversalInFileName() throws IOException {
+        storage.createSessionDirectory("safe-session");
+        assertThrows(IllegalArgumentException.class,
+                () -> storage.storeFile("safe-session", "../../escape.txt", new byte[]{1}));
+    }
+
+    @Test
+    void readFile_rejectsPathTraversalInFileName() throws IOException {
+        storage.createSessionDirectory("safe-session");
+        assertThrows(IllegalArgumentException.class,
+                () -> storage.readFile("safe-session", "../../etc/passwd"));
+    }
+
+    @Test
+    void sessionExists_returnsFalseForTraversalSessionId() {
+        assertFalse(storage.sessionExists("../escape"));
     }
 }
