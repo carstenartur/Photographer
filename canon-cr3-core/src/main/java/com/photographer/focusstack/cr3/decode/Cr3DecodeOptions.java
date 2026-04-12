@@ -1,0 +1,132 @@
+package com.photographer.focusstack.cr3.decode;
+
+/**
+ * Options controlling how a CR3 file is decoded.
+ *
+ * <p>Allows callers to choose between preview extraction (fast) and full RAW
+ * decoding, and to control output format and processing steps.</p>
+ */
+public final class Cr3DecodeOptions {
+
+    /**
+     * Output mode for the decoder.
+     */
+    public enum OutputMode {
+        /** Return the embedded JPEG preview (fastest). */
+        PREVIEW,
+        /** Return the embedded JPEG thumbnail. */
+        THUMBNAIL,
+        /** Decode the full RAW image with demosaicing and color processing. */
+        RAW_PROCESSED,
+        /** Decode the RAW image as a linear Bayer pattern (no demosaicing). */
+        RAW_LINEAR
+    }
+
+    /**
+     * Output bit depth.
+     */
+    public enum BitDepth {
+        /** 8 bits per channel (standard sRGB). */
+        EIGHT,
+        /** 16 bits per channel (for HDR / wide-gamut workflows). */
+        SIXTEEN
+    }
+
+    private OutputMode outputMode = OutputMode.PREVIEW;
+    private BitDepth bitDepth = BitDepth.EIGHT;
+    private boolean applyBlackLevel = true;
+    private boolean applyWhiteBalance = true;
+    private boolean applyColorMatrix = true;
+    private boolean applySrgbConversion = true;
+    private boolean cropToActiveArea = true;
+
+    /** Returns the output mode. Default is {@link OutputMode#PREVIEW}. */
+    public OutputMode outputMode() { return outputMode; }
+
+    /** Sets the output mode. */
+    public Cr3DecodeOptions outputMode(OutputMode mode) {
+        this.outputMode = mode;
+        return this;
+    }
+
+    /** Returns the output bit depth. Default is {@link BitDepth#EIGHT}. */
+    public BitDepth bitDepth() { return bitDepth; }
+
+    /** Sets the output bit depth. */
+    public Cr3DecodeOptions bitDepth(BitDepth depth) {
+        this.bitDepth = depth;
+        return this;
+    }
+
+    /** Whether to subtract black level from RAW data. Default is {@code true}. */
+    public boolean applyBlackLevel() { return applyBlackLevel; }
+
+    /** Sets whether to apply black level subtraction. */
+    public Cr3DecodeOptions applyBlackLevel(boolean apply) {
+        this.applyBlackLevel = apply;
+        return this;
+    }
+
+    /** Whether to apply white balance. Default is {@code true}. */
+    public boolean applyWhiteBalance() { return applyWhiteBalance; }
+
+    /** Sets whether to apply white balance. */
+    public Cr3DecodeOptions applyWhiteBalance(boolean apply) {
+        this.applyWhiteBalance = apply;
+        return this;
+    }
+
+    /** Whether to apply the camera color matrix. Default is {@code true}. */
+    public boolean applyColorMatrix() { return applyColorMatrix; }
+
+    /** Sets whether to apply the color matrix. */
+    public Cr3DecodeOptions applyColorMatrix(boolean apply) {
+        this.applyColorMatrix = apply;
+        return this;
+    }
+
+    /** Whether to convert to sRGB. Default is {@code true}. */
+    public boolean applySrgbConversion() { return applySrgbConversion; }
+
+    /** Sets whether to apply sRGB conversion. */
+    public Cr3DecodeOptions applySrgbConversion(boolean apply) {
+        this.applySrgbConversion = apply;
+        return this;
+    }
+
+    /** Whether to crop to the active sensor area. Default is {@code true}. */
+    public boolean cropToActiveArea() { return cropToActiveArea; }
+
+    /** Sets whether to crop to the active area. */
+    public Cr3DecodeOptions cropToActiveArea(boolean crop) {
+        this.cropToActiveArea = crop;
+        return this;
+    }
+
+    /** Creates default options (preview mode, 8-bit). */
+    public static Cr3DecodeOptions defaults() {
+        return new Cr3DecodeOptions();
+    }
+
+    /** Creates options for full RAW processing. */
+    public static Cr3DecodeOptions rawProcessed() {
+        return new Cr3DecodeOptions().outputMode(OutputMode.RAW_PROCESSED);
+    }
+
+    /** Creates options for linear RAW output (no demosaicing). */
+    public static Cr3DecodeOptions rawLinear() {
+        return new Cr3DecodeOptions()
+                .outputMode(OutputMode.RAW_LINEAR)
+                .applyBlackLevel(true)
+                .applyWhiteBalance(false)
+                .applyColorMatrix(false)
+                .applySrgbConversion(false);
+    }
+
+    @Override
+    public String toString() {
+        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, crop=%s]"
+                .formatted(outputMode, bitDepth, applyBlackLevel, applyWhiteBalance,
+                        applyColorMatrix, applySrgbConversion, cropToActiveArea);
+    }
+}
