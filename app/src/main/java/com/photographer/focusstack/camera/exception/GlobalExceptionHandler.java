@@ -1,5 +1,7 @@
 package com.photographer.focusstack.camera.exception;
 
+import com.photographer.focusstack.session.SessionException;
+import com.photographer.focusstack.session.SessionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -36,6 +38,22 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST, details);
         problem.setTitle("Validation Error");
+        return problem;
+    }
+
+    @ExceptionHandler(SessionNotFoundException.class)
+    public ProblemDetail handleSessionNotFound(SessionNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Session Not Found");
+        return problem;
+    }
+
+    @ExceptionHandler(SessionException.class)
+    public ProblemDetail handleSessionException(SessionException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Session Error");
         return problem;
     }
 

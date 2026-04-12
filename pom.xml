@@ -21,7 +21,14 @@
 
     <modules>
         <module>common-api</module>
+        <module>capture-core</module>
+        <module>storage</module>
         <module>camera-ptp</module>
+        <module>hdr-core</module>
+        <module>video-core</module>
+        <module>face-analysis-core</module>
+        <module>face-profile-core</module>
+        <module>session-core</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>

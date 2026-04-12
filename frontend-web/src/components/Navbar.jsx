@@ -21,6 +21,12 @@ export default function Navbar() {
         <li>
           <NavLink to="/gallery">Gallery</NavLink>
         </li>
+        <li>
+          <NavLink to="/hdr-timelapse">HDR Timelapse</NavLink>
+        </li>
+        <li>
+          <NavLink to="/face-orbit">Face Orbit</NavLink>
+        </li>
       </ul>
     </nav>
   );
