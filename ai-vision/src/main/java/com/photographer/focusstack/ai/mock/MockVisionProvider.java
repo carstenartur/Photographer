@@ -56,6 +56,23 @@ public class MockVisionProvider implements VisionProvider {
     }
 
     @Override
+    public VisionResult detectObjects(byte[] imageData, VisionContext context) {
+        simulateLatency();
+        VisionResult base = nextResult();
+        // Return a mock bounding box result
+        com.photographer.focusstack.observer.events.BoundingBox box =
+                new com.photographer.focusstack.observer.events.BoundingBox(
+                        0.2, 0.2, 0.4, 0.4, base.primaryLabel(), base.confidence());
+        return new VisionResult(
+                base.provider(), base.model(), "object_detection",
+                base.primaryLabel(), base.alternativeLabels(), base.confidence(),
+                base.summary(),
+                java.util.List.of(box),
+                base.rawResponse(), base.durationMs(), base.successful(), base.errorMessage()
+        );
+    }
+
+    @Override
     public VisionResult rankBestImage(List<byte[]> images, VisionContext context) {
         simulateLatency();
         return nextResult();
@@ -68,7 +85,7 @@ public class MockVisionProvider implements VisionProvider {
 
     @Override
     public ProviderCapabilities capabilities() {
-        return new ProviderCapabilities(true, true, false, true,
+        return new ProviderCapabilities(true, true, true, true,
                 4 * 1024 * 1024, List.of("jpeg", "png"));
     }
 

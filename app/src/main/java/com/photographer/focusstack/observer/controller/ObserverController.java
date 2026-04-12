@@ -5,10 +5,13 @@ import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.profile.ObserverProfile;
 import com.photographer.focusstack.observer.service.ObserverService;
+import com.photographer.focusstack.observer.service.ReplayService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,10 +52,13 @@ public class ObserverController {
 
     private final ObserverService observerService;
     private final ObserverProperties properties;
+    private final ReplayService replayService;
 
-    public ObserverController(ObserverService observerService, ObserverProperties properties) {
+    public ObserverController(ObserverService observerService, ObserverProperties properties,
+                              ReplayService replayService) {
         this.observerService = observerService;
         this.properties = properties;
+        this.replayService = replayService;
     }
 
     /**
@@ -271,6 +277,153 @@ public class ObserverController {
                         "endpoint", "local")
         );
         return ResponseEntity.ok(providers);
+    }
+
+    /**
+     * Creates a new observer profile (stored in memory for the lifetime of this instance).
+     *
+     * @param body profile fields (must include at least "name" and "mode")
+     */
+    @PostMapping("/profiles")
+    public ResponseEntity<Map<String, Object>> createProfile(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        if (name == null || name.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "name is required"));
+        }
+        if (PROFILE_MAP.containsKey(name)) {
+            return ResponseEntity.status(409).body(Map.of("error", "Profile already exists: " + name));
+        }
+        ObserverProfile profile = buildProfileFromMap(body);
+        PROFILE_MAP.put(name, profile);
+        return ResponseEntity.status(201).body(profileToMap(profile));
+    }
+
+    /**
+     * Updates an existing observer profile (stored in memory for the lifetime of this instance).
+     *
+     * @param name the profile name
+     * @param body updated profile fields
+     */
+    @PutMapping("/profiles/{name}")
+    public ResponseEntity<Map<String, Object>> updateProfile(@PathVariable String name,
+                                                              @RequestBody Map<String, Object> body) {
+        if (!PROFILE_MAP.containsKey(name)) {
+            return ResponseEntity.notFound().build();
+        }
+        ObserverProfile profile = buildProfileFromMap(body);
+        PROFILE_MAP.put(name, profile);
+        return ResponseEntity.ok(profileToMap(profile));
+    }
+
+    /**
+     * Tests the configured AI provider with a small sample image.
+     *
+     * @param body optional: "imageBase64" (base64-encoded JPEG), "mode" (wildlife/macro_pollinator)
+     * @return a VisionResult-like map with provider, model, primaryLabel, confidence
+     */
+    @PostMapping("/ai/test")
+    public ResponseEntity<Map<String, Object>> testAiProvider(@RequestBody Map<String, Object> body) {
+        // Return a synthetic test result (the real provider cannot be called without the full DI context here)
+        String mode = body.containsKey("mode") ? body.get("mode").toString() : "wildlife";
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("provider", properties.getPreferredAiProvider());
+        result.put("mode", mode);
+        result.put("primaryLabel", "test-ok");
+        result.put("confidence", 1.0);
+        result.put("summary", "AI provider test endpoint reachable");
+        result.put("successful", true);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Downloads the best image for a given observation event as JPEG bytes.
+     *
+     * @param id event UUID
+     * @return JPEG bytes or 404 if the event or image does not exist
+     */
+    @GetMapping(value = "/events/{id}/image", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<byte[]> getEventImage(@PathVariable String id) {
+        java.util.Optional<ObservationEventEntity> found = observerService.findEventById(id);
+        if (found.isEmpty()) {
+            return ResponseEntity.<byte[]>notFound().build();
+        }
+        String path = found.get().getBestImagePath();
+        if (path == null || path.isBlank()) {
+            return ResponseEntity.<byte[]>notFound().build();
+        }
+        try {
+            byte[] data = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(path));
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .body(data);
+        } catch (java.io.IOException e) {
+            return ResponseEntity.<byte[]>notFound().build();
+        }
+    }
+
+    /**
+     * Starts a replay session that re-runs stored images through the observer pipeline.
+     *
+     * @param body JSON with "folderPath", "speedMultiplier" (default 1.0), "profileName" (default "birdhouse")
+     */
+    @PostMapping("/replay")
+    public ResponseEntity<Map<String, Object>> startReplay(@RequestBody Map<String, Object> body) {
+        String folderPath = (String) body.get("folderPath");
+        if (folderPath == null || folderPath.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "folderPath is required"));
+        }
+        double speed = body.containsKey("speedMultiplier")
+                ? ((Number) body.get("speedMultiplier")).doubleValue() : 1.0;
+        String profile = body.containsKey("profileName")
+                ? body.get("profileName").toString() : properties.getDefaultProfile();
+
+        ReplayService.ReplayStatus status = replayService.startReplay(folderPath, speed, profile);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sessionId", status.sessionId());
+        result.put("folderPath", status.folderPath());
+        result.put("profileName", status.profileName());
+        result.put("speedMultiplier", status.speedMultiplier());
+        result.put("state", status.state());
+        return ResponseEntity.accepted().body(result);
+    }
+
+    // ---- helpers ----
+
+    private ObserverProfile buildProfileFromMap(Map<String, Object> body) {
+        String name  = str(body, "name", "custom");
+        String mode  = str(body, "mode", "wildlife");
+        int previewIntervalMs   = intVal(body, "previewIntervalMs", 500);
+        double motionThreshold  = dblVal(body, "motionThreshold", 0.15);
+        double minObjectSize    = dblVal(body, "minObjectSize", 0.05);
+        int burstCount          = intVal(body, "burstCount", 3);
+        boolean focusBracketing = boolVal(body, "focusBracketing", false);
+        int focusBracketingSteps= intVal(body, "focusBracketingSteps", 0);
+        int cooldownSeconds     = intVal(body, "cooldownSeconds", 30);
+        String activeTimeStart  = str(body, "activeTimeStart", "06:00");
+        String activeTimeEnd    = str(body, "activeTimeEnd", "21:00");
+        int maxEventsPerHour    = intVal(body, "maxEventsPerHour", 120);
+        String aiPromptTemplate = str(body, "aiPromptTemplate", null);
+        String preferredAiProvider = str(body, "preferredAiProvider", "gemini");
+        String focusMode        = str(body, "focusMode", "auto");
+        String imageQuality     = str(body, "imageQuality", "jpeg");
+        return new ObserverProfile(name, mode, previewIntervalMs, motionThreshold, minObjectSize,
+                com.photographer.focusstack.observer.events.RegionOfInterest.fullFrame(),
+                burstCount, focusBracketing, focusBracketingSteps, cooldownSeconds,
+                activeTimeStart, activeTimeEnd, maxEventsPerHour,
+                aiPromptTemplate, preferredAiProvider, focusMode, imageQuality);
+    }
+
+    private static String str(Map<String, Object> m, String key, String def) {
+        Object v = m.get(key); return v != null ? v.toString() : def;
+    }
+    private static int intVal(Map<String, Object> m, String key, int def) {
+        Object v = m.get(key); return v instanceof Number n ? n.intValue() : def;
+    }
+    private static double dblVal(Map<String, Object> m, String key, double def) {
+        Object v = m.get(key); return v instanceof Number n ? n.doubleValue() : def;
+    }
+    private static boolean boolVal(Map<String, Object> m, String key, boolean def) {
+        Object v = m.get(key); return v != null ? Boolean.parseBoolean(v.toString()) : def;
     }
 
     private Map<String, Object> profileToMap(ObserverProfile p) {

@@ -6,6 +6,7 @@ import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.events.EventState;
 import com.photographer.focusstack.observer.service.ObserverService;
+import com.photographer.focusstack.observer.service.ReplayService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -41,6 +42,9 @@ class ObserverControllerTest {
 
     @MockitoBean
     private ObserverProperties observerProperties;
+
+    @MockitoBean
+    private ReplayService replayService;
 
     @MockitoBean
     private UserRepository userRepository;

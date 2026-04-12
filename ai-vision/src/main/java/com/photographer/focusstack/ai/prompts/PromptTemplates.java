@@ -41,6 +41,21 @@ public final class PromptTemplates {
             Antworte als JSON: { "bestIndex": 0, "reason": "..." }
             """;
 
+    public static final String DETECT_OBJECTS = """
+            Erkenne alle Objekte (Tiere, Insekten) im Bild und gib ihre Position als Begrenzungsrahmen an.
+            Alle Koordinaten sind relativ zur Bildgröße (0.0–1.0).
+            Antworte ausschließlich als JSON:
+            {
+              "primaryLabel": "Hauptobjekt (deutsch)",
+              "confidence": 0.85,
+              "summary": "Kurze Beschreibung der erkannten Objekte",
+              "objects": [
+                { "label": "Artname", "confidence": 0.9, "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4 }
+              ]
+            }
+            Falls kein Objekt sichtbar ist, setze primaryLabel auf "none" und objects auf [].
+            """;
+
     /** Returns the classification prompt for the given mode. */
     public static String forMode(String mode) {
         return "macro_pollinator".equals(mode) ? MACRO_CLASSIFY : WILDLIFE_CLASSIFY;

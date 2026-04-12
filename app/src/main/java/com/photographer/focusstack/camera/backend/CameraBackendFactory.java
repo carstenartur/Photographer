@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.backend.FolderCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -77,6 +79,12 @@ public class CameraBackendFactory {
             log.info("Creating MockCameraBackend for profile '{}' ({})", profile.name(), profile.id());
             return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,
                     simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
+        }
+        if ("folder".equalsIgnoreCase(type)) {
+            String path = profile.host(); // host field reused as folder path
+            log.info("Creating FolderCameraBackend for profile '{}' ({}) → {}",
+                    profile.name(), profile.id(), path);
+            return new FolderCameraBackend(Path.of(path));
         }
         // Default: canon-ccapi
         String host = profile.host();

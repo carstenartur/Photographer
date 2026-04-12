@@ -31,6 +31,15 @@ public interface VisionProvider {
     VisionResult describeImage(byte[] imageData, VisionContext context);
 
     /**
+     * Detects objects in an image and returns bounding boxes for each detected subject.
+     *
+     * @param imageData image bytes (JPEG or PNG)
+     * @param context   analysis context and configuration
+     * @return detection result with bounding boxes; never {@code null}
+     */
+    VisionResult detectObjects(byte[] imageData, VisionContext context);
+
+    /**
      * Ranks multiple images and returns the index of the best one.
      *
      * @param images  list of image byte arrays (same scene, different shots)

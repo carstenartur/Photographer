@@ -95,12 +95,17 @@ public class CaptureOrchestrator {
         log.debug("Macro capture: {} frames, focusBracketing={}", profile.burstCount(), profile.focusBracketing());
         List<CapturedImage> images = new ArrayList<>();
         if (profile.focusBracketing()) {
-            for (int step = 0; step < profile.focusBracketingSteps(); step++) {
+            int steps = profile.focusBracketingSteps();
+            for (int step = 0; step < steps; step++) {
                 camera.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 1));
                 sleep(FOCUS_SETTLE_MS);
                 CaptureResult result = camera.capture();
                 double score = sharpnessEvaluator.evaluate(result.imageData(), trigger.roi());
                 images.add(toCapturedImage(result, score));
+            }
+            // Return focus to original position
+            if (steps > 0) {
+                camera.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, steps));
             }
         } else {
             for (int i = 0; i < profile.burstCount(); i++) {
