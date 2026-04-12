@@ -31,13 +31,12 @@ public class PixelDiffMotionDetector implements MotionDetector {
             return 0.0;
         }
         int compareLen = Math.min(reference.length, current.length);
-        // For ROI-weighted comparison, approximate the ROI as a fraction of the total bytes.
-        int roiStart = (int) (compareLen * roi.y() * roi.x());
-        int roiEnd = Math.min(compareLen, roiStart + (int) (compareLen * roi.width() * roi.height()));
-        if (roiStart >= roiEnd) {
-            roiStart = 0;
-            roiEnd = compareLen;
-        }
+        // Approximate ROI as a fraction of the total byte stream.
+        // Note: ROI x/y position is not meaningfully supported on raw compressed bytes;
+        // only the ROI area (width*height) determines the comparison window size.
+        int roiLen = Math.max(1, (int) (compareLen * roi.width() * roi.height()));
+        int roiStart = 0;
+        int roiEnd = Math.min(compareLen, roiLen);
 
         int changed = 0;
         int total = roiEnd - roiStart;
@@ -55,10 +54,12 @@ public class PixelDiffMotionDetector implements MotionDetector {
         if (frame == null || frame.length == 0) {
             return 0.0;
         }
-        // Simple heuristic: measure local variance within the ROI region of the byte stream
-        int start = (int) (frame.length * roi.y() * roi.x());
-        int end = Math.min(frame.length, start + (int) (frame.length * roi.width() * roi.height()));
-        if (start >= end || end - start < 2) {
+        // Simple heuristic: measure local variance within the ROI region of the byte stream.
+        // Note: ROI position is not meaningfully supported on raw bytes; only area is used.
+        int roiLen = (int) (frame.length * roi.width() * roi.height());
+        int start = 0;
+        int end = Math.min(frame.length, Math.max(2, roiLen));
+        if (end - start < 2) {
             return 0.0;
         }
         long sum = 0;

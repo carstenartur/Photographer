@@ -1,5 +1,6 @@
 package com.photographer.focusstack.observer.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -22,6 +23,7 @@ public class AiResultEntity {
 
     @OneToOne
     @JoinColumn(name = "event_id", nullable = false)
+    @JsonIgnore
     private ObservationEventEntity event;
 
     private String provider;

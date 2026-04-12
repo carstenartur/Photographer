@@ -74,7 +74,6 @@ public class SceneMonitor {
     /** Records the time of the last completed event (for cooldown computation). */
     public void recordEventTime(Instant time) {
         this.lastEventTime = time;
-        this.lastEventTime = time;
     }
 
     /** Resets state after an event (updates reference frame and records time). */

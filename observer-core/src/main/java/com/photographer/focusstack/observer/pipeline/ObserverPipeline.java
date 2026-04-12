@@ -80,11 +80,12 @@ public class ObserverPipeline {
             return;
         }
 
-        log.info("Observer triggered: mode={} camera={}", profile.mode(), profile.name());
+        log.info("Observer triggered: mode={} profile={} camera={}", profile.mode(), profile.name(),
+                camera.getInfo().id());
 
         try {
             // 1. Motion detected → tracking
-            stateMachine.motionDetected(trigger.get().mode(), profile.defaultRoi());
+            stateMachine.motionDetected("motion", profile.defaultRoi());
             stateMachine.startTracking();
 
             // 2. Capture
@@ -122,7 +123,7 @@ public class ObserverPipeline {
         } finally {
             // Reset for next event
             sceneMonitor.resetAfterEvent(frame.data());
-            stateMachine.reset(profile.name(), profile.mode());
+            stateMachine.reset(camera.getInfo().id(), profile.mode());
         }
     }
 

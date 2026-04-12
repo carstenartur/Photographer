@@ -65,7 +65,13 @@ public class GeminiVisionProvider implements VisionProvider {
         if (images == null || images.isEmpty()) {
             return VisionResult.error(name(), config.model(), "No images provided");
         }
-        // For ranking, use only the first image as Gemini inline data (simplified)
+        if (images.size() > 1) {
+            return VisionResult.error(
+                    name(),
+                    config.model(),
+                    "Multi-image ranking is not supported by the Gemini provider"
+            );
+        }
         String prompt = PromptTemplates.RANK_BEST.formatted(images.size());
         return doRequest(images.get(0), prompt, "ranking");
     }

@@ -72,6 +72,11 @@ public class ObserverService implements ObservationEventListener {
         return eventRepository.count();
     }
 
+    @Transactional(readOnly = true)
+    public long getTotalSpeciesCount() {
+        return speciesRepository.count();
+    }
+
     private ObservationEventEntity toEntity(ObservationEvent event) {
         ObservationEventEntity entity = new ObservationEventEntity(event.id());
         entity.setTimestamp(event.timestamp());

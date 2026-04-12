@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Mock VisionProvider for tests and development.
@@ -22,7 +23,7 @@ public class MockVisionProvider implements VisionProvider {
 
     private final List<VisionResult> scheduledResults;
     private final long simulatedLatencyMs;
-    private int callIndex = 0;
+    private final AtomicInteger callIndex = new AtomicInteger(0);
 
     /** Creates a provider that returns a single fixed result. */
     public MockVisionProvider(VisionResult fixedResult) {
@@ -73,21 +74,20 @@ public class MockVisionProvider implements VisionProvider {
 
     /** Resets the round-robin counter. */
     public void reset() {
-        callIndex = 0;
+        callIndex.set(0);
     }
 
     /** Returns how many times the provider has been called. */
     public int getCallCount() {
-        return callIndex;
+        return callIndex.get();
     }
 
     private VisionResult nextResult() {
         if (scheduledResults.isEmpty()) {
             return VisionResult.error("mock", "mock-model", "No results configured");
         }
-        VisionResult result = scheduledResults.get(callIndex % scheduledResults.size());
-        callIndex++;
-        return result;
+        int idx = callIndex.getAndIncrement();
+        return scheduledResults.get(idx % scheduledResults.size());
     }
 
     private void simulateLatency() {

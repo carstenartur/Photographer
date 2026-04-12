@@ -110,14 +110,16 @@ public class FolderCameraBackend implements CameraBackend {
             if (!Files.isDirectory(folder)) {
                 return List.of();
             }
-            return Files.list(folder)
-                    .filter(p -> {
-                        String name = p.getFileName().toString().toLowerCase();
-                        return name.endsWith(".jpg") || name.endsWith(".jpeg")
-                                || name.endsWith(".png") || name.endsWith(".raw");
-                    })
-                    .sorted()
-                    .collect(Collectors.toList());
+            try (var files = Files.list(folder)) {
+                return files
+                        .filter(p -> {
+                            String name = p.getFileName().toString().toLowerCase();
+                            return name.endsWith(".jpg") || name.endsWith(".jpeg")
+                                    || name.endsWith(".png") || name.endsWith(".raw");
+                        })
+                        .sorted()
+                        .collect(Collectors.toList());
+            }
         } catch (IOException e) {
             log.warn("Failed to list images in {}: {}", folder, e.getMessage());
             return List.of();

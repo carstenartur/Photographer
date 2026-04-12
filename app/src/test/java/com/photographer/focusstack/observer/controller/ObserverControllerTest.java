@@ -71,7 +71,7 @@ class ObserverControllerTest {
     @Test
     void getStatsReturnsOk() throws Exception {
         when(observerService.getTotalEventCount()).thenReturn(42L);
-        when(observerService.getSpeciesRanking()).thenReturn(List.of());
+        when(observerService.getTotalSpeciesCount()).thenReturn(0L);
 
         mockMvc.perform(get("/api/observer/stats"))
                 .andExpect(status().isOk())

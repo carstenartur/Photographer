@@ -28,7 +28,8 @@ public class GeminiResponseParser {
      * @param model      model name
      * @param taskType   task type string
      * @param durationMs time taken for the API call
-     * @return parsed result; on parse error returns a successful result with primaryLabel="none"
+     * @return parsed result; on outer JSON parse error returns {@code VisionResult.error(...)},
+     *         on inner text parse error returns a successful result with primaryLabel="none"
      */
     public static VisionResult parse(String json, String provider, String model,
                                      String taskType, long durationMs) {

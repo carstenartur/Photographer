@@ -24,9 +24,12 @@ public class SharpnessEvaluator {
         if (imageBytes == null || imageBytes.length < 3) {
             return 0.0;
         }
-        int start = (int) (imageBytes.length * roi.y() * roi.x());
-        int end = Math.min(imageBytes.length, start + (int) (imageBytes.length * roi.width() * roi.height()));
-        if (start >= end - 2) {
+        // Note: ROI position is not meaningfully supported on raw compressed bytes;
+        // only the ROI area (width*height) determines the evaluation window.
+        int roiLen = (int) (imageBytes.length * roi.width() * roi.height());
+        int start = 0;
+        int end = Math.min(imageBytes.length, Math.max(3, roiLen));
+        if (end - start < 3) {
             start = 0;
             end = imageBytes.length;
         }
