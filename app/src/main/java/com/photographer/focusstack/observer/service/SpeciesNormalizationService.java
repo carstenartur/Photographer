@@ -21,6 +21,9 @@ public class SpeciesNormalizationService {
 
     private static final Logger log = LoggerFactory.getLogger(SpeciesNormalizationService.class);
 
+    /** Canonical name used when no species can be identified. */
+    private static final String UNKNOWN_SPECIES = "Unbekannt";
+
     /**
      * Lookup table: raw/alternate name (lower-case) → [normalizedNameDe, normalizedNameEn, scientificName, category].
      * At least 20 common European bird species and 10 common pollinators are included.
@@ -128,9 +131,9 @@ public class SpeciesNormalizationService {
     public SpeciesRecordEntity getOrCreateSpecies(String rawLabel, String category) {
         if (rawLabel == null || rawLabel.isBlank()) {
             // Return a generic "unknown" record when no label is available
-            return speciesRepository.findByNormalizedNameDe("Unbekannt")
+            return speciesRepository.findByNormalizedNameDe(UNKNOWN_SPECIES)
                     .orElseGet(() -> speciesRepository.save(
-                            new SpeciesRecordEntity("Unbekannt", category != null ? category : "unknown")));
+                            new SpeciesRecordEntity(UNKNOWN_SPECIES, category != null ? category : "unknown")));
         }
         String normalized = normalizeSpeciesName(rawLabel);
         // Use the normalized key (lower-case) to retrieve lookup metadata, falling back to raw

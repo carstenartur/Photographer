@@ -91,6 +91,9 @@ public class CameraBackendFactory {
                 folderPath = folderPath.toAbsolutePath();
             }
             if (!folderPath.toFile().isDirectory()) {
+                // Log a warning but allow creation; the directory may be created at runtime
+                // (e.g., replay session starts before images are written). Actual failures
+                // will be surfaced when getLiveView() is called on the backend.
                 log.warn("FolderCameraBackend: path does not exist or is not a directory: {}", folderPath);
             }
             log.info("Creating FolderCameraBackend for profile '{}' ({}) → {}",

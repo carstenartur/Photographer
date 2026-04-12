@@ -67,7 +67,10 @@ public class ObserverExportController {
                     ? LocalDate.parse(to).plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
                     : Instant.now().plusSeconds(86400);
         } catch (DateTimeParseException e) {
-            byte[] msg = ("Invalid date format. Use ISO format yyyy-MM-dd. " + e.getMessage())
+            // Report which parameter was invalid and what was received
+            String invalid = (from != null && e.getParsedString() != null
+                    && e.getParsedString().equals(from)) ? from : (to != null ? to : "unknown");
+            byte[] msg = ("Invalid date format. Expected yyyy-MM-dd, received: " + invalid)
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8);
             return ResponseEntity.badRequest()
                     .contentType(MediaType.TEXT_PLAIN)

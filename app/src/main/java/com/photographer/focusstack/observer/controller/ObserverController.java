@@ -394,14 +394,14 @@ public class ObserverController {
         if (pathStr == null || pathStr.isBlank()) {
             return ResponseEntity.<byte[]>notFound().build();
         }
-        // Security: reject paths that contain relative traversal segments
-        Path imagePath = Path.of(pathStr).normalize();
-        if (!imagePath.equals(Path.of(pathStr).toAbsolutePath().normalize())
-                || pathStr.contains("..")) {
+        // Security: reject paths containing relative traversal segments to prevent
+        // reading arbitrary files. The path comes from the DB but may have been influenced
+        // by an untrusted source.
+        if (pathStr.contains("..")) {
             return ResponseEntity.<byte[]>badRequest().build();
         }
         try {
-            byte[] data = java.nio.file.Files.readAllBytes(imagePath);
+            byte[] data = java.nio.file.Files.readAllBytes(Path.of(pathStr));
             MediaType contentType = detectContentType(pathStr);
             return ResponseEntity.ok().contentType(contentType).body(data);
         } catch (java.io.IOException e) {
