@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,6 +32,7 @@ public class ObserverExportController {
 
     private static final String CSV_MIME = "text/csv;charset=UTF-8";
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final ObservationEventRepository eventRepository;
     private final SpeciesRecordRepository speciesRepository;
 
@@ -123,47 +127,49 @@ public class ObserverExportController {
     // ---- JSON builders ----
 
     private String buildEventsJson(List<ObservationEventEntity> events) {
-        StringBuilder sb = new StringBuilder("[\n");
-        for (int i = 0; i < events.size(); i++) {
-            ObservationEventEntity e = events.get(i);
+        ArrayNode arr = objectMapper.createArrayNode();
+        for (ObservationEventEntity e : events) {
+            ObjectNode node = objectMapper.createObjectNode();
+            node.put("id", e.getId());
+            node.put("timestamp", e.getTimestamp() != null ? e.getTimestamp().toString() : null);
+            node.put("mode", e.getMode());
             String label = e.getAiResult() != null ? e.getAiResult().getPrimaryLabel() : null;
-            String conf  = e.getAiResult() != null
-                    ? String.format("%.4f", e.getAiResult().getConfidence()) : "null";
-            sb.append("  {");
-            sb.append("\"id\":").append(jsonStr(e.getId())).append(',');
-            sb.append("\"timestamp\":").append(jsonStr(e.getTimestamp() != null ? e.getTimestamp().toString() : null)).append(',');
-            sb.append("\"mode\":").append(jsonStr(e.getMode())).append(',');
-            sb.append("\"primaryLabel\":").append(jsonStr(label)).append(',');
-            sb.append("\"confidence\":").append(conf).append(',');
-            sb.append("\"cameraId\":").append(jsonStr(e.getCameraId())).append(',');
-            sb.append("\"triggerReason\":").append(jsonStr(e.getTriggerReason())).append(',');
-            sb.append("\"imagePath\":").append(jsonStr(e.getBestImagePath()));
-            sb.append("}");
-            if (i < events.size() - 1) sb.append(',');
-            sb.append('\n');
+            if (label != null) node.put("primaryLabel", label); else node.putNull("primaryLabel");
+            if (e.getAiResult() != null) {
+                node.put("confidence", e.getAiResult().getConfidence());
+            } else {
+                node.putNull("confidence");
+            }
+            node.put("cameraId", e.getCameraId());
+            node.put("triggerReason", e.getTriggerReason());
+            node.put("imagePath", e.getBestImagePath());
+            arr.add(node);
         }
-        sb.append(']');
-        return sb.toString();
+        try {
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);
+        } catch (Exception ex) {
+            return "[]";
+        }
     }
 
     private String buildSpeciesJson(List<SpeciesRecordEntity> species) {
-        StringBuilder sb = new StringBuilder("[\n");
-        for (int i = 0; i < species.size(); i++) {
-            SpeciesRecordEntity s = species.get(i);
-            sb.append("  {");
-            sb.append("\"normalizedNameDe\":").append(jsonStr(s.getNormalizedNameDe())).append(',');
-            sb.append("\"normalizedNameEn\":").append(jsonStr(s.getNormalizedNameEn())).append(',');
-            sb.append("\"scientificName\":").append(jsonStr(s.getScientificName())).append(',');
-            sb.append("\"category\":").append(jsonStr(s.getCategory())).append(',');
-            sb.append("\"totalSightings\":").append(s.getTotalSightings()).append(',');
-            sb.append("\"firstSeen\":").append(jsonStr(s.getFirstSeen() != null ? s.getFirstSeen().toString() : null)).append(',');
-            sb.append("\"lastSeen\":").append(jsonStr(s.getLastSeen() != null ? s.getLastSeen().toString() : null));
-            sb.append("}");
-            if (i < species.size() - 1) sb.append(',');
-            sb.append('\n');
+        ArrayNode arr = objectMapper.createArrayNode();
+        for (SpeciesRecordEntity s : species) {
+            ObjectNode node = objectMapper.createObjectNode();
+            node.put("normalizedNameDe", s.getNormalizedNameDe());
+            node.put("normalizedNameEn", s.getNormalizedNameEn());
+            node.put("scientificName", s.getScientificName());
+            node.put("category", s.getCategory());
+            node.put("totalSightings", s.getTotalSightings());
+            node.put("firstSeen", s.getFirstSeen() != null ? s.getFirstSeen().toString() : null);
+            node.put("lastSeen", s.getLastSeen() != null ? s.getLastSeen().toString() : null);
+            arr.add(node);
         }
-        sb.append(']');
-        return sb.toString();
+        try {
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);
+        } catch (Exception ex) {
+            return "[]";
+        }
     }
 
     // ---- response helpers ----
@@ -191,10 +197,5 @@ public class ObserverExportController {
             return "\"" + value.replace("\"", "\"\"") + "\"";
         }
         return value;
-    }
-
-    private static String jsonStr(String value) {
-        if (value == null) return "null";
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 }

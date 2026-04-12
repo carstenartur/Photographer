@@ -384,6 +384,8 @@ public class ObserverController {
         result.put("profileName", status.profileName());
         result.put("speedMultiplier", status.speedMultiplier());
         result.put("state", status.state());
+        result.put("framesProcessed", status.framesProcessed());
+        result.put("nonEmptyFrames", status.nonEmptyFrames());
         return ResponseEntity.accepted().body(result);
     }
 

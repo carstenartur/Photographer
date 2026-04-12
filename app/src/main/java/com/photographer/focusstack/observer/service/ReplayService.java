@@ -81,10 +81,8 @@ public class ReplayService {
         try {
             CameraBackend camera = new FolderCameraBackend(Path.of(folderPath));
             int framesProcessed = 0;
-            int eventsTriggered = 0;
+            int nonEmptyFrames = 0;
 
-            // Simple replay: pull frames in a loop until the folder backend cycles back
-            // Use a simple counter-based approach to process each image once
             int totalImages = countImages(folderPath);
             if (totalImages == 0) {
                 updateStatus(sessionId, "COMPLETED", 0, 0, "No images found in folder");
@@ -95,21 +93,20 @@ public class ReplayService {
                 LiveViewFrame frame = camera.getLiveView();
                 framesProcessed++;
 
-                // Count frames that are "different" (non-trivial) as potential triggers
                 if (frame.data().length > 0) {
-                    eventsTriggered++;
+                    nonEmptyFrames++;
                 }
 
-                updateStatus(sessionId, "RUNNING", framesProcessed, eventsTriggered, null);
+                updateStatus(sessionId, "RUNNING", framesProcessed, nonEmptyFrames, null);
 
                 if (i < totalImages - 1) {
                     Thread.sleep(delayMs);
                 }
             }
 
-            updateStatus(sessionId, "COMPLETED", framesProcessed, eventsTriggered, null);
-            log.info("Replay session {} completed: {} frames, {} events",
-                    sessionId, framesProcessed, eventsTriggered);
+            updateStatus(sessionId, "COMPLETED", framesProcessed, nonEmptyFrames, null);
+            log.info("Replay session {} completed: {} frames read, {} non-empty",
+                    sessionId, framesProcessed, nonEmptyFrames);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -140,18 +137,22 @@ public class ReplayService {
         }
     }
 
-    private void updateStatus(String sessionId, String state, int frames, int events, String error) {
+    private void updateStatus(String sessionId, String state, int frames, int nonEmptyFrames, String error) {
         ReplayStatus old = sessions.get(sessionId);
         if (old != null) {
             sessions.put(sessionId, new ReplayStatus(
                     old.sessionId(), old.folderPath(), old.profileName(),
-                    old.speedMultiplier(), state, frames, events, error == null ? 0 : 1
+                    old.speedMultiplier(), state, frames, nonEmptyFrames, error == null ? 0 : 1
             ));
         }
     }
 
     /**
      * Immutable status record for a replay session.
+     *
+     * @param framesProcessed total frames read from the folder
+     * @param nonEmptyFrames  number of frames containing image data (not empty)
+     * @param errorCount      number of errors encountered during replay
      */
     public record ReplayStatus(
             String sessionId,
@@ -160,7 +161,7 @@ public class ReplayService {
             double speedMultiplier,
             String state,
             int framesProcessed,
-            int eventsTriggered,
+            int nonEmptyFrames,
             int errorCount
     ) {}
 

@@ -49,8 +49,8 @@ public class TwoStageVisionProvider implements VisionProvider {
     public VisionResult classifyImage(byte[] imageData, VisionContext context) {
         VisionResult preCheck = preFilter.classifyImage(imageData, context);
         if (shouldSkip(preCheck)) {
-            log.debug("TwoStageVisionProvider: pre-filter returned '{}' (conf={:.2f}), skipping classifier",
-                    preCheck.primaryLabel(), preCheck.confidence());
+            log.debug("TwoStageVisionProvider: pre-filter returned '{}' (conf={}), skipping classifier",
+                    preCheck.primaryLabel(), String.format("%.2f", preCheck.confidence()));
             return preCheck;
         }
         log.debug("TwoStageVisionProvider: pre-filter detected '{}', running classifier",
