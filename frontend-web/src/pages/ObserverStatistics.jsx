@@ -36,8 +36,10 @@ export default function ObserverStatistics() {
 
   useEffect(() => {
     if (!selectedSpecies) {
-      setSpeciesDetail(null);
-      return;
+      // No species selected — clear detail asynchronously via microtask
+      let cancelled = false;
+      Promise.resolve().then(() => { if (!cancelled) setSpeciesDetail(null); });
+      return () => { cancelled = true; };
     }
     let cancelled = false;
     getSpeciesDetail(selectedSpecies)
