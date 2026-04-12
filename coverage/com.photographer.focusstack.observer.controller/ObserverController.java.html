@@ -5,16 +5,20 @@ import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.profile.ObserverProfile;
 import com.photographer.focusstack.observer.service.ObserverService;
+import com.photographer.focusstack.observer.service.ReplayService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -22,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * REST API for the Wildlife Observer.
@@ -33,27 +38,34 @@ import java.util.Optional;
 @RequestMapping(&quot;/api/observer&quot;)
 public class ObserverController {
 
-    private static final Map&lt;String, ObserverProfile&gt; PROFILE_MAP;
+    /**
+     * In-memory profile store. Pre-loaded with the 5 built-in profiles.
+     * Uses {@link ConcurrentHashMap} to allow safe concurrent mutation from
+     * the create/update profile endpoints.
+     */
+<span class="fc" id="L46">    private static final Map&lt;String, ObserverProfile&gt; PROFILE_MAP = new ConcurrentHashMap&lt;&gt;();</span>
 
     static {
-<span class="fc" id="L39">        PROFILE_MAP = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc bfc" id="L40" title="All 2 branches covered.">        for (ObserverProfile p : List.of(</span>
-<span class="fc" id="L41">                ObserverProfile.birdhouse(),</span>
-<span class="fc" id="L42">                ObserverProfile.birdbath(),</span>
-<span class="fc" id="L43">                ObserverProfile.macroFlower(),</span>
-<span class="fc" id="L44">                ObserverProfile.insectHotel(),</span>
-<span class="fc" id="L45">                ObserverProfile.gardenWildlife())) {</span>
-<span class="fc" id="L46">            PROFILE_MAP.put(p.name(), p);</span>
-<span class="fc" id="L47">        }</span>
-<span class="fc" id="L48">    }</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        for (ObserverProfile p : List.of(</span>
+<span class="fc" id="L50">                ObserverProfile.birdhouse(),</span>
+<span class="fc" id="L51">                ObserverProfile.birdbath(),</span>
+<span class="fc" id="L52">                ObserverProfile.macroFlower(),</span>
+<span class="fc" id="L53">                ObserverProfile.insectHotel(),</span>
+<span class="fc" id="L54">                ObserverProfile.gardenWildlife())) {</span>
+<span class="fc" id="L55">            PROFILE_MAP.put(p.name(), p);</span>
+<span class="fc" id="L56">        }</span>
+<span class="fc" id="L57">    }</span>
 
     private final ObserverService observerService;
     private final ObserverProperties properties;
+    private final ReplayService replayService;
 
-<span class="fc" id="L53">    public ObserverController(ObserverService observerService, ObserverProperties properties) {</span>
-<span class="fc" id="L54">        this.observerService = observerService;</span>
-<span class="fc" id="L55">        this.properties = properties;</span>
-<span class="fc" id="L56">    }</span>
+    public ObserverController(ObserverService observerService, ObserverProperties properties,
+<span class="fc" id="L64">                              ReplayService replayService) {</span>
+<span class="fc" id="L65">        this.observerService = observerService;</span>
+<span class="fc" id="L66">        this.properties = properties;</span>
+<span class="fc" id="L67">        this.replayService = replayService;</span>
+<span class="fc" id="L68">    }</span>
 
     /**
      * Returns a list of the most recent completed observation events.
@@ -63,10 +75,10 @@ public class ObserverController {
     @GetMapping(&quot;/events&quot;)
     public ResponseEntity&lt;List&lt;ObservationEventEntity&gt;&gt; getRecentEvents(
             @RequestParam(defaultValue = &quot;20&quot;) int limit) {
-<span class="fc bfc" id="L66" title="All 4 branches covered.">        if (limit &lt; 1 || limit &gt; 100) {</span>
-<span class="fc" id="L67">            return ResponseEntity.badRequest().build();</span>
+<span class="fc bfc" id="L78" title="All 4 branches covered.">        if (limit &lt; 1 || limit &gt; 100) {</span>
+<span class="fc" id="L79">            return ResponseEntity.badRequest().build();</span>
         }
-<span class="fc" id="L69">        return ResponseEntity.ok(observerService.findRecentEvents(limit));</span>
+<span class="fc" id="L81">        return ResponseEntity.ok(observerService.findRecentEvents(limit));</span>
     }
 
     /**
@@ -76,9 +88,9 @@ public class ObserverController {
      */
     @GetMapping(&quot;/events/{id}&quot;)
     public ResponseEntity&lt;ObservationEventEntity&gt; getEvent(@PathVariable String id) {
-<span class="fc" id="L79">        return observerService.findEventById(id)</span>
-<span class="fc" id="L80">                .map(ResponseEntity::ok)</span>
-<span class="fc" id="L81">                .orElse(ResponseEntity.notFound().build());</span>
+<span class="fc" id="L91">        return observerService.findEventById(id)</span>
+<span class="fc" id="L92">                .map(ResponseEntity::ok)</span>
+<span class="fc" id="L93">                .orElse(ResponseEntity.notFound().build());</span>
     }
 
     /**
@@ -91,10 +103,10 @@ public class ObserverController {
     public ResponseEntity&lt;List&lt;ObservationEventEntity&gt;&gt; getEventsByMode(
             @RequestParam String mode,
             @RequestParam(defaultValue = &quot;50&quot;) int limit) {
-<span class="nc bnc" id="L94" title="All 4 branches missed.">        if (limit &lt; 1 || limit &gt; 100) {</span>
-<span class="nc" id="L95">            return ResponseEntity.badRequest().build();</span>
+<span class="nc bnc" id="L106" title="All 4 branches missed.">        if (limit &lt; 1 || limit &gt; 100) {</span>
+<span class="nc" id="L107">            return ResponseEntity.badRequest().build();</span>
         }
-<span class="nc" id="L97">        return ResponseEntity.ok(observerService.findEventsByMode(mode, limit));</span>
+<span class="nc" id="L109">        return ResponseEntity.ok(observerService.findEventsByMode(mode, limit));</span>
     }
 
     /**
@@ -105,10 +117,10 @@ public class ObserverController {
     @GetMapping(&quot;/events/by-date&quot;)
     public ResponseEntity&lt;List&lt;ObservationEventEntity&gt;&gt; getEventsByDate(
             @RequestParam(required = false) String date) {
-<span class="nc bnc" id="L108" title="All 2 branches missed.">        LocalDate localDate = date != null ? LocalDate.parse(date) : LocalDate.now();</span>
-<span class="nc" id="L109">        Instant from = localDate.atStartOfDay(ZoneOffset.UTC).toInstant();</span>
-<span class="nc" id="L110">        Instant to = localDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();</span>
-<span class="nc" id="L111">        return ResponseEntity.ok(observerService.findEventsByDateRange(from, to));</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        LocalDate localDate = date != null ? LocalDate.parse(date) : LocalDate.now();</span>
+<span class="nc" id="L121">        Instant from = localDate.atStartOfDay(ZoneOffset.UTC).toInstant();</span>
+<span class="nc" id="L122">        Instant to = localDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();</span>
+<span class="nc" id="L123">        return ResponseEntity.ok(observerService.findEventsByDateRange(from, to));</span>
     }
 
     /**
@@ -116,7 +128,7 @@ public class ObserverController {
      */
     @GetMapping(&quot;/species&quot;)
     public ResponseEntity&lt;List&lt;SpeciesRecordEntity&gt;&gt; getSpeciesRanking() {
-<span class="fc" id="L119">        return ResponseEntity.ok(observerService.getSpeciesRanking());</span>
+<span class="fc" id="L131">        return ResponseEntity.ok(observerService.getSpeciesRanking());</span>
     }
 
     /**
@@ -124,11 +136,11 @@ public class ObserverController {
      */
     @GetMapping(&quot;/stats&quot;)
     public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getStats() {
-<span class="fc" id="L127">        Map&lt;String, Object&gt; stats = Map.of(</span>
-<span class="fc" id="L128">                &quot;totalEvents&quot;, observerService.getTotalEventCount(),</span>
-<span class="fc" id="L129">                &quot;totalSpecies&quot;, observerService.getTotalSpeciesCount()</span>
+<span class="fc" id="L139">        Map&lt;String, Object&gt; stats = Map.of(</span>
+<span class="fc" id="L140">                &quot;totalEvents&quot;, observerService.getTotalEventCount(),</span>
+<span class="fc" id="L141">                &quot;totalSpecies&quot;, observerService.getTotalSpeciesCount()</span>
         );
-<span class="fc" id="L131">        return ResponseEntity.ok(stats);</span>
+<span class="fc" id="L143">        return ResponseEntity.ok(stats);</span>
     }
 
     /**
@@ -136,13 +148,13 @@ public class ObserverController {
      */
     @GetMapping(&quot;/status&quot;)
     public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getStatus() {
-<span class="fc" id="L139">        Map&lt;String, Object&gt; status = Map.of(</span>
-<span class="fc" id="L140">                &quot;enabled&quot;, properties.isEnabled(),</span>
-<span class="fc" id="L141">                &quot;defaultProfile&quot;, properties.getDefaultProfile(),</span>
-<span class="fc" id="L142">                &quot;preferredAiProvider&quot;, properties.getPreferredAiProvider(),</span>
-<span class="fc" id="L143">                &quot;folderModeEnabled&quot;, properties.getFolder().isEnabled()</span>
+<span class="fc" id="L151">        Map&lt;String, Object&gt; status = Map.of(</span>
+<span class="fc" id="L152">                &quot;enabled&quot;, properties.isEnabled(),</span>
+<span class="fc" id="L153">                &quot;defaultProfile&quot;, properties.getDefaultProfile(),</span>
+<span class="fc" id="L154">                &quot;preferredAiProvider&quot;, properties.getPreferredAiProvider(),</span>
+<span class="fc" id="L155">                &quot;folderModeEnabled&quot;, properties.getFolder().isEnabled()</span>
         );
-<span class="fc" id="L145">        return ResponseEntity.ok(status);</span>
+<span class="fc" id="L157">        return ResponseEntity.ok(status);</span>
     }
 
     /**
@@ -150,8 +162,8 @@ public class ObserverController {
      */
     @GetMapping(&quot;/profiles&quot;)
     public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; getProfiles() {
-<span class="fc" id="L153">        List&lt;Map&lt;String, Object&gt;&gt; result = PROFILE_MAP.values().stream().map(this::profileToMap).toList();</span>
-<span class="fc" id="L154">        return ResponseEntity.ok(result);</span>
+<span class="fc" id="L165">        List&lt;Map&lt;String, Object&gt;&gt; result = PROFILE_MAP.values().stream().map(this::profileToMap).toList();</span>
+<span class="fc" id="L166">        return ResponseEntity.ok(result);</span>
     }
 
     /**
@@ -161,11 +173,11 @@ public class ObserverController {
      */
     @GetMapping(&quot;/profiles/{name}&quot;)
     public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getProfile(@PathVariable String name) {
-<span class="fc" id="L164">        ObserverProfile profile = PROFILE_MAP.get(name);</span>
-<span class="fc bfc" id="L165" title="All 2 branches covered.">        if (profile == null) {</span>
-<span class="fc" id="L166">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L176">        ObserverProfile profile = PROFILE_MAP.get(name);</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        if (profile == null) {</span>
+<span class="fc" id="L178">            return ResponseEntity.notFound().build();</span>
         }
-<span class="fc" id="L168">        return ResponseEntity.ok(profileToMap(profile));</span>
+<span class="fc" id="L180">        return ResponseEntity.ok(profileToMap(profile));</span>
     }
 
     // ---- Event lifecycle ----
@@ -177,10 +189,10 @@ public class ObserverController {
      */
     @DeleteMapping(&quot;/events/{id}&quot;)
     public ResponseEntity&lt;Void&gt; deleteEvent(@PathVariable String id) {
-<span class="fc bfc" id="L180" title="All 2 branches covered.">        if (observerService.deleteEvent(id)) {</span>
-<span class="fc" id="L181">            return ResponseEntity.noContent().build();</span>
+<span class="fc bfc" id="L192" title="All 2 branches covered.">        if (observerService.deleteEvent(id)) {</span>
+<span class="fc" id="L193">            return ResponseEntity.noContent().build();</span>
         }
-<span class="fc" id="L183">        return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L195">        return ResponseEntity.notFound().build();</span>
     }
 
     // ---- Extended statistics ----
@@ -193,10 +205,10 @@ public class ObserverController {
     @GetMapping(&quot;/stats/daily&quot;)
     public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; getDailyStats(
             @RequestParam(defaultValue = &quot;7&quot;) int days) {
-<span class="fc bfc" id="L196" title="All 4 branches covered.">        if (days &lt; 1 || days &gt; 90) {</span>
-<span class="fc" id="L197">            return ResponseEntity.badRequest().build();</span>
+<span class="fc bfc" id="L208" title="All 4 branches covered.">        if (days &lt; 1 || days &gt; 90) {</span>
+<span class="fc" id="L209">            return ResponseEntity.badRequest().build();</span>
         }
-<span class="fc" id="L199">        return ResponseEntity.ok(observerService.getDailyStats(days));</span>
+<span class="fc" id="L211">        return ResponseEntity.ok(observerService.getDailyStats(days));</span>
     }
 
     /**
@@ -206,20 +218,20 @@ public class ObserverController {
      */
     @GetMapping(&quot;/stats/species/{name}&quot;)
     public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getSpeciesDetail(@PathVariable String name) {
-<span class="fc" id="L209">        Optional&lt;SpeciesRecordEntity&gt; species = observerService.findSpeciesByName(name);</span>
-<span class="fc bfc" id="L210" title="All 2 branches covered.">        if (species.isEmpty()) {</span>
-<span class="fc" id="L211">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L221">        Optional&lt;SpeciesRecordEntity&gt; species = observerService.findSpeciesByName(name);</span>
+<span class="fc bfc" id="L222" title="All 2 branches covered.">        if (species.isEmpty()) {</span>
+<span class="fc" id="L223">            return ResponseEntity.notFound().build();</span>
         }
-<span class="fc" id="L213">        SpeciesRecordEntity s = species.get();</span>
-<span class="fc" id="L214">        Map&lt;String, Object&gt; detail = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc" id="L215">        detail.put(&quot;normalizedNameDe&quot;, s.getNormalizedNameDe());</span>
-<span class="fc" id="L216">        detail.put(&quot;normalizedNameEn&quot;, s.getNormalizedNameEn());</span>
-<span class="fc" id="L217">        detail.put(&quot;scientificName&quot;, s.getScientificName());</span>
-<span class="fc" id="L218">        detail.put(&quot;category&quot;, s.getCategory());</span>
-<span class="fc" id="L219">        detail.put(&quot;totalSightings&quot;, s.getTotalSightings());</span>
-<span class="fc" id="L220">        detail.put(&quot;firstSeen&quot;, s.getFirstSeen());</span>
-<span class="fc" id="L221">        detail.put(&quot;lastSeen&quot;, s.getLastSeen());</span>
-<span class="fc" id="L222">        return ResponseEntity.ok(detail);</span>
+<span class="fc" id="L225">        SpeciesRecordEntity s = species.get();</span>
+<span class="fc" id="L226">        Map&lt;String, Object&gt; detail = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L227">        detail.put(&quot;normalizedNameDe&quot;, s.getNormalizedNameDe());</span>
+<span class="fc" id="L228">        detail.put(&quot;normalizedNameEn&quot;, s.getNormalizedNameEn());</span>
+<span class="fc" id="L229">        detail.put(&quot;scientificName&quot;, s.getScientificName());</span>
+<span class="fc" id="L230">        detail.put(&quot;category&quot;, s.getCategory());</span>
+<span class="fc" id="L231">        detail.put(&quot;totalSightings&quot;, s.getTotalSightings());</span>
+<span class="fc" id="L232">        detail.put(&quot;firstSeen&quot;, s.getFirstSeen());</span>
+<span class="fc" id="L233">        detail.put(&quot;lastSeen&quot;, s.getLastSeen());</span>
+<span class="fc" id="L234">        return ResponseEntity.ok(detail);</span>
     }
 
     // ---- Runtime configuration ----
@@ -231,23 +243,23 @@ public class ObserverController {
      */
     @PutMapping(&quot;/config&quot;)
     public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; updateConfig(@RequestBody Map&lt;String, Object&gt; body) {
-<span class="pc bpc" id="L234" title="1 of 2 branches missed.">        if (body.containsKey(&quot;defaultProfile&quot;)) {</span>
-<span class="fc" id="L235">            String profile = body.get(&quot;defaultProfile&quot;).toString();</span>
-<span class="fc bfc" id="L236" title="All 2 branches covered.">            if (!PROFILE_MAP.containsKey(profile)) {</span>
-<span class="fc" id="L237">                return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;Unknown profile: &quot; + profile));</span>
+<span class="pc bpc" id="L246" title="1 of 2 branches missed.">        if (body.containsKey(&quot;defaultProfile&quot;)) {</span>
+<span class="fc" id="L247">            String profile = body.get(&quot;defaultProfile&quot;).toString();</span>
+<span class="fc bfc" id="L248" title="All 2 branches covered.">            if (!PROFILE_MAP.containsKey(profile)) {</span>
+<span class="fc" id="L249">                return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;Unknown profile: &quot; + profile));</span>
             }
-<span class="fc" id="L239">            properties.setDefaultProfile(profile);</span>
+<span class="fc" id="L251">            properties.setDefaultProfile(profile);</span>
         }
-<span class="pc bpc" id="L241" title="1 of 2 branches missed.">        if (body.containsKey(&quot;preferredAiProvider&quot;)) {</span>
-<span class="fc" id="L242">            properties.setPreferredAiProvider(body.get(&quot;preferredAiProvider&quot;).toString());</span>
+<span class="pc bpc" id="L253" title="1 of 2 branches missed.">        if (body.containsKey(&quot;preferredAiProvider&quot;)) {</span>
+<span class="fc" id="L254">            properties.setPreferredAiProvider(body.get(&quot;preferredAiProvider&quot;).toString());</span>
         }
-<span class="pc bpc" id="L244" title="1 of 2 branches missed.">        if (body.containsKey(&quot;enabled&quot;)) {</span>
-<span class="nc" id="L245">            properties.setEnabled(Boolean.parseBoolean(body.get(&quot;enabled&quot;).toString()));</span>
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">        if (body.containsKey(&quot;enabled&quot;)) {</span>
+<span class="nc" id="L257">            properties.setEnabled(Boolean.parseBoolean(body.get(&quot;enabled&quot;).toString()));</span>
         }
-<span class="fc" id="L247">        return ResponseEntity.ok(Map.of(</span>
-<span class="fc" id="L248">                &quot;enabled&quot;, properties.isEnabled(),</span>
-<span class="fc" id="L249">                &quot;defaultProfile&quot;, properties.getDefaultProfile(),</span>
-<span class="fc" id="L250">                &quot;preferredAiProvider&quot;, properties.getPreferredAiProvider()</span>
+<span class="fc" id="L259">        return ResponseEntity.ok(Map.of(</span>
+<span class="fc" id="L260">                &quot;enabled&quot;, properties.isEnabled(),</span>
+<span class="fc" id="L261">                &quot;defaultProfile&quot;, properties.getDefaultProfile(),</span>
+<span class="fc" id="L262">                &quot;preferredAiProvider&quot;, properties.getPreferredAiProvider()</span>
         ));
     }
 
@@ -259,37 +271,250 @@ public class ObserverController {
     @GetMapping(&quot;/ai/providers&quot;)
     public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; getAiProviders() {
         // Expose the configured AI providers and their status
-<span class="fc" id="L262">        List&lt;Map&lt;String, Object&gt;&gt; providers = List.of(</span>
-<span class="fc" id="L263">                Map.of(&quot;name&quot;, &quot;gemini&quot;,</span>
-<span class="pc bpc" id="L264" title="1 of 2 branches missed.">                        &quot;configured&quot;, properties.getGemini().getApiKey() != null</span>
-<span class="pc bnc" id="L265" title="All 2 branches missed.">                                &amp;&amp; !properties.getGemini().getApiKey().isBlank(),</span>
-<span class="fc" id="L266">                        &quot;model&quot;, properties.getGemini().getModel(),</span>
-<span class="fc" id="L267">                        &quot;endpoint&quot;, properties.getGemini().getEndpoint()),</span>
-<span class="fc" id="L268">                Map.of(&quot;name&quot;, &quot;mock&quot;,</span>
-<span class="fc" id="L269">                        &quot;configured&quot;, true,</span>
+<span class="fc" id="L274">        List&lt;Map&lt;String, Object&gt;&gt; providers = List.of(</span>
+<span class="fc" id="L275">                Map.of(&quot;name&quot;, &quot;gemini&quot;,</span>
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">                        &quot;configured&quot;, properties.getGemini().getApiKey() != null</span>
+<span class="pc bnc" id="L277" title="All 2 branches missed.">                                &amp;&amp; !properties.getGemini().getApiKey().isBlank(),</span>
+<span class="fc" id="L278">                        &quot;model&quot;, properties.getGemini().getModel(),</span>
+<span class="fc" id="L279">                        &quot;endpoint&quot;, properties.getGemini().getEndpoint()),</span>
+<span class="fc" id="L280">                Map.of(&quot;name&quot;, &quot;mock&quot;,</span>
+<span class="fc" id="L281">                        &quot;configured&quot;, true,</span>
                         &quot;model&quot;, &quot;built-in&quot;,
                         &quot;endpoint&quot;, &quot;local&quot;)
         );
-<span class="fc" id="L273">        return ResponseEntity.ok(providers);</span>
+<span class="fc" id="L285">        return ResponseEntity.ok(providers);</span>
+    }
+
+    /**
+     * Creates a new observer profile (stored in memory for the lifetime of this instance).
+     *
+     * @param body profile fields (must include at least &quot;name&quot; and &quot;mode&quot;)
+     */
+    @PostMapping(&quot;/profiles&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; createProfile(@RequestBody Map&lt;String, Object&gt; body) {
+<span class="nc" id="L295">        String name = (String) body.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L296" title="All 4 branches missed.">        if (name == null || name.isBlank()) {</span>
+<span class="nc" id="L297">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;name is required&quot;));</span>
+        }
+<span class="nc bnc" id="L299" title="All 2 branches missed.">        if (PROFILE_MAP.containsKey(name)) {</span>
+<span class="nc" id="L300">            return ResponseEntity.status(409).body(Map.of(&quot;error&quot;, &quot;Profile already exists: &quot; + name));</span>
+        }
+<span class="nc" id="L302">        ObserverProfile profile = buildProfileFromMap(body);</span>
+<span class="nc" id="L303">        PROFILE_MAP.put(name, profile);</span>
+<span class="nc" id="L304">        return ResponseEntity.status(201).body(profileToMap(profile));</span>
+    }
+
+    /**
+     * Updates an existing observer profile (stored in memory for the lifetime of this instance).
+     *
+     * &lt;p&gt;The profile name in the request body (if provided) must match the {@code {name}} path
+     * parameter; a mismatch returns 400.&lt;/p&gt;
+     *
+     * @param name the profile name
+     * @param body updated profile fields
+     */
+    @PutMapping(&quot;/profiles/{name}&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; updateProfile(@PathVariable String name,
+                                                              @RequestBody Map&lt;String, Object&gt; body) {
+<span class="nc bnc" id="L319" title="All 2 branches missed.">        if (!PROFILE_MAP.containsKey(name)) {</span>
+<span class="nc" id="L320">            return ResponseEntity.notFound().build();</span>
+        }
+        // Reject requests where body.name contradicts the path parameter
+<span class="nc" id="L323">        Object bodyName = body.get(&quot;name&quot;);</span>
+<span class="nc bnc" id="L324" title="All 6 branches missed.">        if (bodyName != null &amp;&amp; !bodyName.toString().isBlank() &amp;&amp; !name.equals(bodyName.toString())) {</span>
+<span class="nc" id="L325">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;,</span>
+                    &quot;Profile name in body must match path parameter. Expected: &quot; + name));
+        }
+        // Force the name field to match the path parameter before building the profile
+<span class="nc" id="L329">        Map&lt;String, Object&gt; normalizedBody = new LinkedHashMap&lt;&gt;(body);</span>
+<span class="nc" id="L330">        normalizedBody.put(&quot;name&quot;, name);</span>
+<span class="nc" id="L331">        ObserverProfile profile = buildProfileFromMap(normalizedBody);</span>
+<span class="nc" id="L332">        PROFILE_MAP.put(name, profile);</span>
+<span class="nc" id="L333">        return ResponseEntity.ok(profileToMap(profile));</span>
+    }
+
+    /**
+     * Tests the configured AI provider availability by checking whether it is reachable/configured.
+     *
+     * &lt;p&gt;For the Gemini provider, verifies that the API key is set.
+     * Always returns {@code true} for the built-in mock provider.&lt;/p&gt;
+     *
+     * @param body optional: &quot;mode&quot; (wildlife/macro_pollinator) — for documentation purposes
+     * @return provider info including whether the provider is configured and available
+     */
+    @PostMapping(&quot;/ai/test&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; testAiProvider(@RequestBody Map&lt;String, Object&gt; body) {
+<span class="nc" id="L347">        String preferredProvider = properties.getPreferredAiProvider();</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">        String mode = body.containsKey(&quot;mode&quot;) ? body.get(&quot;mode&quot;).toString() : &quot;wildlife&quot;;</span>
+
+        boolean available;
+        String reason;
+<span class="nc bnc" id="L352" title="All 2 branches missed.">        if (&quot;gemini&quot;.equalsIgnoreCase(preferredProvider)) {</span>
+<span class="nc" id="L353">            String apiKey = properties.getGemini().getApiKey();</span>
+<span class="nc bnc" id="L354" title="All 4 branches missed.">            if (apiKey == null || apiKey.isBlank()) {</span>
+                // Also check environment variable
+<span class="nc" id="L356">                String envKey = System.getenv(&quot;GEMINI_API_KEY&quot;);</span>
+<span class="nc bnc" id="L357" title="All 4 branches missed.">                available = envKey != null &amp;&amp; !envKey.isBlank();</span>
+<span class="nc bnc" id="L358" title="All 2 branches missed.">                reason = available ? &quot;API key found in environment&quot; : &quot;GEMINI_API_KEY not set&quot;;</span>
+<span class="nc" id="L359">            } else {</span>
+<span class="nc" id="L360">                available = true;</span>
+<span class="nc" id="L361">                reason = &quot;API key configured&quot;;</span>
+            }
+<span class="nc" id="L363">        } else {</span>
+            // Mock provider is always available
+<span class="nc" id="L365">            available = true;</span>
+<span class="nc" id="L366">            reason = &quot;Mock provider always available&quot;;</span>
+        }
+
+<span class="nc" id="L369">        Map&lt;String, Object&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L370">        result.put(&quot;provider&quot;, preferredProvider);</span>
+<span class="nc" id="L371">        result.put(&quot;mode&quot;, mode);</span>
+<span class="nc" id="L372">        result.put(&quot;available&quot;, available);</span>
+<span class="nc" id="L373">        result.put(&quot;reason&quot;, reason);</span>
+<span class="nc" id="L374">        result.put(&quot;successful&quot;, available);</span>
+<span class="nc" id="L375">        return ResponseEntity.ok(result);</span>
+    }
+
+    /**
+     * Downloads the best image for a given observation event.
+     *
+     * &lt;p&gt;Content type is derived from the file extension. Only paths without {@code ..}
+     * segments are served to prevent path traversal.&lt;/p&gt;
+     *
+     * @param id event UUID
+     * @return image bytes (JPEG/PNG) or 404 if not found
+     */
+    @GetMapping(&quot;/events/{id}/image&quot;)
+    public ResponseEntity&lt;byte[]&gt; getEventImage(@PathVariable String id) {
+<span class="nc" id="L389">        Optional&lt;ObservationEventEntity&gt; found = observerService.findEventById(id);</span>
+<span class="nc bnc" id="L390" title="All 2 branches missed.">        if (found.isEmpty()) {</span>
+<span class="nc" id="L391">            return ResponseEntity.&lt;byte[]&gt;notFound().build();</span>
+        }
+<span class="nc" id="L393">        String pathStr = found.get().getBestImagePath();</span>
+<span class="nc bnc" id="L394" title="All 4 branches missed.">        if (pathStr == null || pathStr.isBlank()) {</span>
+<span class="nc" id="L395">            return ResponseEntity.&lt;byte[]&gt;notFound().build();</span>
+        }
+        // Security: reject paths containing relative traversal segments to prevent
+        // reading arbitrary files. The path comes from the DB but may have been influenced
+        // by an untrusted source.
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        if (pathStr.contains(&quot;..&quot;)) {</span>
+<span class="nc" id="L401">            return ResponseEntity.&lt;byte[]&gt;badRequest().build();</span>
+        }
+        try {
+<span class="nc" id="L404">            byte[] data = java.nio.file.Files.readAllBytes(Path.of(pathStr));</span>
+<span class="nc" id="L405">            MediaType contentType = detectContentType(pathStr);</span>
+<span class="nc" id="L406">            return ResponseEntity.ok().contentType(contentType).body(data);</span>
+<span class="nc" id="L407">        } catch (java.io.IOException e) {</span>
+<span class="nc" id="L408">            return ResponseEntity.&lt;byte[]&gt;notFound().build();</span>
+        }
+    }
+
+    /** Derives a {@link MediaType} from the file extension. Defaults to JPEG. */
+    private static MediaType detectContentType(String path) {
+<span class="nc" id="L414">        String lower = path.toLowerCase();</span>
+<span class="nc bnc" id="L415" title="All 2 branches missed.">        if (lower.endsWith(&quot;.png&quot;)) return MediaType.IMAGE_PNG;</span>
+<span class="nc bnc" id="L416" title="All 2 branches missed.">        if (lower.endsWith(&quot;.gif&quot;)) return MediaType.IMAGE_GIF;</span>
+<span class="nc bnc" id="L417" title="All 2 branches missed.">        if (lower.endsWith(&quot;.webp&quot;)) return MediaType.parseMediaType(&quot;image/webp&quot;);</span>
+<span class="nc" id="L418">        return MediaType.IMAGE_JPEG;</span>
+    }
+
+    /**
+     * Starts a replay session that re-runs stored images through the observer pipeline.
+     *
+     * @param body JSON with &quot;folderPath&quot;, &quot;speedMultiplier&quot; (default 1.0, must be positive), &quot;profileName&quot;
+     */
+    @PostMapping(&quot;/replay&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; startReplay(@RequestBody Map&lt;String, Object&gt; body) {
+<span class="nc" id="L428">        String folderPath = (String) body.get(&quot;folderPath&quot;);</span>
+<span class="nc bnc" id="L429" title="All 4 branches missed.">        if (folderPath == null || folderPath.isBlank()) {</span>
+<span class="nc" id="L430">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;folderPath is required&quot;));</span>
+        }
+        double speed;
+<span class="nc bnc" id="L433" title="All 2 branches missed.">        if (body.containsKey(&quot;speedMultiplier&quot;)) {</span>
+            try {
+<span class="nc" id="L435">                speed = Double.parseDouble(body.get(&quot;speedMultiplier&quot;).toString());</span>
+<span class="nc" id="L436">            } catch (NumberFormatException e) {</span>
+<span class="nc" id="L437">                return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;,</span>
+                        &quot;speedMultiplier must be a positive number&quot;));
+<span class="nc" id="L439">            }</span>
+        } else {
+<span class="nc" id="L441">            speed = 1.0;</span>
+        }
+<span class="nc bnc" id="L443" title="All 2 branches missed.">        if (speed &lt;= 0) {</span>
+<span class="nc" id="L444">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;,</span>
+                    &quot;speedMultiplier must be positive, got: &quot; + speed));
+        }
+<span class="nc bnc" id="L447" title="All 2 branches missed.">        String profile = body.containsKey(&quot;profileName&quot;)</span>
+<span class="nc" id="L448">                ? body.get(&quot;profileName&quot;).toString() : properties.getDefaultProfile();</span>
+
+<span class="nc" id="L450">        ReplayService.ReplayStatus status = replayService.startReplay(folderPath, speed, profile);</span>
+<span class="nc" id="L451">        Map&lt;String, Object&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L452">        result.put(&quot;sessionId&quot;, status.sessionId());</span>
+<span class="nc" id="L453">        result.put(&quot;folderPath&quot;, status.folderPath());</span>
+<span class="nc" id="L454">        result.put(&quot;profileName&quot;, status.profileName());</span>
+<span class="nc" id="L455">        result.put(&quot;speedMultiplier&quot;, status.speedMultiplier());</span>
+<span class="nc" id="L456">        result.put(&quot;state&quot;, status.state());</span>
+<span class="nc" id="L457">        result.put(&quot;framesProcessed&quot;, status.framesProcessed());</span>
+<span class="nc" id="L458">        result.put(&quot;nonEmptyFrames&quot;, status.nonEmptyFrames());</span>
+<span class="nc" id="L459">        return ResponseEntity.accepted().body(result);</span>
+    }
+
+    // ---- helpers ----
+
+    private ObserverProfile buildProfileFromMap(Map&lt;String, Object&gt; body) {
+<span class="nc" id="L465">        String name  = str(body, &quot;name&quot;, &quot;custom&quot;);</span>
+<span class="nc" id="L466">        String mode  = str(body, &quot;mode&quot;, &quot;wildlife&quot;);</span>
+<span class="nc" id="L467">        int previewIntervalMs   = intVal(body, &quot;previewIntervalMs&quot;, 500);</span>
+<span class="nc" id="L468">        double motionThreshold  = dblVal(body, &quot;motionThreshold&quot;, 0.15);</span>
+<span class="nc" id="L469">        double minObjectSize    = dblVal(body, &quot;minObjectSize&quot;, 0.05);</span>
+<span class="nc" id="L470">        int burstCount          = intVal(body, &quot;burstCount&quot;, 3);</span>
+<span class="nc" id="L471">        boolean focusBracketing = boolVal(body, &quot;focusBracketing&quot;, false);</span>
+<span class="nc" id="L472">        int focusBracketingSteps= intVal(body, &quot;focusBracketingSteps&quot;, 0);</span>
+<span class="nc" id="L473">        int cooldownSeconds     = intVal(body, &quot;cooldownSeconds&quot;, 30);</span>
+<span class="nc" id="L474">        String activeTimeStart  = str(body, &quot;activeTimeStart&quot;, &quot;06:00&quot;);</span>
+<span class="nc" id="L475">        String activeTimeEnd    = str(body, &quot;activeTimeEnd&quot;, &quot;21:00&quot;);</span>
+<span class="nc" id="L476">        int maxEventsPerHour    = intVal(body, &quot;maxEventsPerHour&quot;, 120);</span>
+<span class="nc" id="L477">        String aiPromptTemplate = str(body, &quot;aiPromptTemplate&quot;, null);</span>
+<span class="nc" id="L478">        String preferredAiProvider = str(body, &quot;preferredAiProvider&quot;, &quot;gemini&quot;);</span>
+<span class="nc" id="L479">        String focusMode        = str(body, &quot;focusMode&quot;, &quot;auto&quot;);</span>
+<span class="nc" id="L480">        String imageQuality     = str(body, &quot;imageQuality&quot;, &quot;jpeg&quot;);</span>
+<span class="nc" id="L481">        return new ObserverProfile(name, mode, previewIntervalMs, motionThreshold, minObjectSize,</span>
+<span class="nc" id="L482">                com.photographer.focusstack.observer.events.RegionOfInterest.fullFrame(),</span>
+                burstCount, focusBracketing, focusBracketingSteps, cooldownSeconds,
+                activeTimeStart, activeTimeEnd, maxEventsPerHour,
+                aiPromptTemplate, preferredAiProvider, focusMode, imageQuality);
+    }
+
+    private static String str(Map&lt;String, Object&gt; m, String key, String def) {
+<span class="nc bnc" id="L489" title="All 2 branches missed.">        Object v = m.get(key); return v != null ? v.toString() : def;</span>
+    }
+    private static int intVal(Map&lt;String, Object&gt; m, String key, int def) {
+<span class="nc bnc" id="L492" title="All 2 branches missed.">        Object v = m.get(key); return v instanceof Number n ? n.intValue() : def;</span>
+    }
+    private static double dblVal(Map&lt;String, Object&gt; m, String key, double def) {
+<span class="nc bnc" id="L495" title="All 2 branches missed.">        Object v = m.get(key); return v instanceof Number n ? n.doubleValue() : def;</span>
+    }
+    private static boolean boolVal(Map&lt;String, Object&gt; m, String key, boolean def) {
+<span class="nc bnc" id="L498" title="All 2 branches missed.">        Object v = m.get(key); return v != null ? Boolean.parseBoolean(v.toString()) : def;</span>
     }
 
     private Map&lt;String, Object&gt; profileToMap(ObserverProfile p) {
-<span class="fc" id="L277">        Map&lt;String, Object&gt; m = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc" id="L278">        m.put(&quot;name&quot;, p.name());</span>
-<span class="fc" id="L279">        m.put(&quot;mode&quot;, p.mode());</span>
-<span class="fc" id="L280">        m.put(&quot;previewIntervalMs&quot;, p.previewIntervalMs());</span>
-<span class="fc" id="L281">        m.put(&quot;motionThreshold&quot;, p.motionThreshold());</span>
-<span class="fc" id="L282">        m.put(&quot;minObjectSize&quot;, p.minObjectSize());</span>
-<span class="fc" id="L283">        m.put(&quot;burstCount&quot;, p.burstCount());</span>
-<span class="fc" id="L284">        m.put(&quot;focusBracketing&quot;, p.focusBracketing());</span>
-<span class="fc" id="L285">        m.put(&quot;focusBracketingSteps&quot;, p.focusBracketingSteps());</span>
-<span class="fc" id="L286">        m.put(&quot;cooldownSeconds&quot;, p.cooldownSeconds());</span>
-<span class="fc" id="L287">        m.put(&quot;activeTimeStart&quot;, p.activeTimeStart());</span>
-<span class="fc" id="L288">        m.put(&quot;activeTimeEnd&quot;, p.activeTimeEnd());</span>
-<span class="fc" id="L289">        m.put(&quot;maxEventsPerHour&quot;, p.maxEventsPerHour());</span>
-<span class="fc" id="L290">        m.put(&quot;focusMode&quot;, p.focusMode());</span>
-<span class="fc" id="L291">        m.put(&quot;imageQuality&quot;, p.imageQuality());</span>
-<span class="fc" id="L292">        return m;</span>
+<span class="fc" id="L502">        Map&lt;String, Object&gt; m = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L503">        m.put(&quot;name&quot;, p.name());</span>
+<span class="fc" id="L504">        m.put(&quot;mode&quot;, p.mode());</span>
+<span class="fc" id="L505">        m.put(&quot;previewIntervalMs&quot;, p.previewIntervalMs());</span>
+<span class="fc" id="L506">        m.put(&quot;motionThreshold&quot;, p.motionThreshold());</span>
+<span class="fc" id="L507">        m.put(&quot;minObjectSize&quot;, p.minObjectSize());</span>
+<span class="fc" id="L508">        m.put(&quot;burstCount&quot;, p.burstCount());</span>
+<span class="fc" id="L509">        m.put(&quot;focusBracketing&quot;, p.focusBracketing());</span>
+<span class="fc" id="L510">        m.put(&quot;focusBracketingSteps&quot;, p.focusBracketingSteps());</span>
+<span class="fc" id="L511">        m.put(&quot;cooldownSeconds&quot;, p.cooldownSeconds());</span>
+<span class="fc" id="L512">        m.put(&quot;activeTimeStart&quot;, p.activeTimeStart());</span>
+<span class="fc" id="L513">        m.put(&quot;activeTimeEnd&quot;, p.activeTimeEnd());</span>
+<span class="fc" id="L514">        m.put(&quot;maxEventsPerHour&quot;, p.maxEventsPerHour());</span>
+<span class="fc" id="L515">        m.put(&quot;focusMode&quot;, p.focusMode());</span>
+<span class="fc" id="L516">        m.put(&quot;imageQuality&quot;, p.imageQuality());</span>
+<span class="fc" id="L517">        return m;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
