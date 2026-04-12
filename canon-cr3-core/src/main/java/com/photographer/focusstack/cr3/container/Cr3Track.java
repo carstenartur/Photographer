@@ -11,13 +11,14 @@ package com.photographer.focusstack.cr3.container;
  *   <li>Track 4 (CRX HDR): optional HDR RAW data</li>
  * </ul>
  *
- * @param index       zero-based track index
- * @param type        the track type
- * @param dataOffset  absolute offset of the track's data within the file
- * @param dataSize    size of the track's data in bytes
- * @param width       image width in pixels (0 if unknown)
- * @param height      image height in pixels (0 if unknown)
- * @param codecType   codec four-character code (e.g. "CRAW")
+ * @param index           zero-based track index
+ * @param type            the track type
+ * @param dataOffset      absolute offset of the track's data within the file
+ * @param dataSize        size of the track's data in bytes
+ * @param width           image width in pixels (0 if unknown)
+ * @param height          image height in pixels (0 if unknown)
+ * @param codecType       codec four-character code (e.g. "CRAW")
+ * @param compressionMode the compression mode (RAW_LOSSLESS, CRAW_LOSSY, or UNKNOWN)
  */
 public record Cr3Track(
         int index,
@@ -26,8 +27,17 @@ public record Cr3Track(
         long dataSize,
         int width,
         int height,
-        String codecType
+        String codecType,
+        CompressionMode compressionMode
 ) {
+
+    /**
+     * Backwards-compatible constructor without compression mode (defaults to UNKNOWN).
+     */
+    public Cr3Track(int index, TrackType type, long dataOffset, long dataSize,
+                    int width, int height, String codecType) {
+        this(index, type, dataOffset, dataSize, width, height, codecType, CompressionMode.UNKNOWN);
+    }
 
     /**
      * Enumeration of CR3 track types.
@@ -47,7 +57,7 @@ public record Cr3Track(
 
     @Override
     public String toString() {
-        return "Cr3Track[index=%d, type=%s, offset=%d, size=%d, %dx%d, codec=%s]"
-                .formatted(index, type, dataOffset, dataSize, width, height, codecType);
+        return "Cr3Track[index=%d, type=%s, offset=%d, size=%d, %dx%d, codec=%s, compression=%s]"
+                .formatted(index, type, dataOffset, dataSize, width, height, codecType, compressionMode);
     }
 }

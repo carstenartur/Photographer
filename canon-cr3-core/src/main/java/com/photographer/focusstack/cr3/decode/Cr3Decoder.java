@@ -4,6 +4,7 @@ import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
+import com.photographer.focusstack.cr3.metadata.Cr3MetadataReader;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,22 +105,9 @@ public final class Cr3Decoder {
         this.metadata = null;
     }
 
-    private Cr3Metadata extractMetadata() {
-        // TODO: Extract full metadata from CMT1-4 boxes, CNCV, etc.
-        Cr3Metadata meta = new Cr3Metadata();
-        meta.setCameraMake("Canon");
-
-        // Set sensor dimensions from RAW track if available
-        for (var track : container.tracks()) {
-            if (track.type() == com.photographer.focusstack.cr3.container.Cr3Track.TrackType.CRX_RAW) {
-                meta.setSensorWidth(track.width());
-                meta.setSensorHeight(track.height());
-                break;
-            }
-        }
-
-        LOG.debug("Extracted metadata: {}", meta);
-        return meta;
+    private Cr3Metadata extractMetadata() throws IOException {
+        // Delegate to Cr3MetadataReader — metadata and image data are separate concerns
+        return Cr3MetadataReader.read(input, container);
     }
 
     private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception {

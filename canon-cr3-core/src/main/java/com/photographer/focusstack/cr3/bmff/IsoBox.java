@@ -9,20 +9,30 @@ import java.util.List;
  * CR3, HEIF, and MP4. Each box has a 4-character type code, a size, and an offset
  * within the file. Container boxes (e.g. 'moov', 'trak') hold nested child boxes.</p>
  *
- * @param type     four-character box type code (e.g. "ftyp", "moov")
- * @param size     total size of the box in bytes (including header)
- * @param offset   absolute byte offset of the box start within the file
- * @param children nested child boxes (empty list for leaf boxes)
+ * <p>All offsets and sizes use {@code long} (64-bit) throughout, following the lesson
+ * from LibRaw 0.22 that CR3 parsing requires 64-bit offset support.</p>
+ *
+ * @param type       four-character box type code (e.g. "ftyp", "moov")
+ * @param size       total size of the box in bytes (including header)
+ * @param offset     absolute byte offset of the box start within the file
+ * @param children   nested child boxes (empty list for leaf boxes)
+ * @param extendedSize whether this box was parsed from an extended (16-byte) header
  */
 public record IsoBox(
         String type,
         long size,
         long offset,
-        List<IsoBox> children
+        List<IsoBox> children,
+        boolean extendedSize
 ) {
-    /** Creates a leaf box with no children. */
+    /** Creates a leaf box with no children and standard header. */
     public IsoBox(String type, long size, long offset) {
-        this(type, size, offset, List.of());
+        this(type, size, offset, List.of(), false);
+    }
+
+    /** Creates a box with children and standard header. */
+    public IsoBox(String type, long size, long offset, List<IsoBox> children) {
+        this(type, size, offset, children, false);
     }
 
     /** Returns the offset of the box payload (after the 8- or 16-byte header). */
@@ -40,12 +50,11 @@ public record IsoBox(
 
     /**
      * Returns the header size of this box.
-     * Standard boxes have an 8-byte header; boxes with size > 2^32 - 1 would use
-     * an extended 16-byte header, but after parsing the actual size is stored in
-     * {@link #size}, so the header is always 8 bytes for parsed boxes.
+     * Standard boxes have an 8-byte header; boxes with extended 64-bit size
+     * have a 16-byte header.
      */
-    private long headerSize() {
-        return 8;
+    public long headerSize() {
+        return extendedSize ? 16 : 8;
     }
 
     /**

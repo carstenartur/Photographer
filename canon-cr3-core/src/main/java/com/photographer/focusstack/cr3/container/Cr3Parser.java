@@ -240,10 +240,11 @@ public final class Cr3Parser {
 
         // Determine track type based on index and codec
         Cr3Track.TrackType type = determineTrackType(index, codecType);
-        LOG.debug("Track {}: type={}, codec='{}', {}x{}, offset={}, size={}",
-                index, type, codecType, width, height, dataOffset, dataSize);
+        CompressionMode compressionMode = determineCompressionMode(codecType, type);
+        LOG.debug("Track {}: type={}, codec='{}', {}x{}, offset={}, size={}, compression={}",
+                index, type, codecType, width, height, dataOffset, dataSize, compressionMode);
 
-        return new Cr3Track(index, type, dataOffset, dataSize, width, height, codecType);
+        return new Cr3Track(index, type, dataOffset, dataSize, width, height, codecType, compressionMode);
     }
 
     private static Cr3Track.TrackType determineTrackType(int index, String codecType) {
@@ -257,6 +258,20 @@ public final class Cr3Parser {
             case 1 -> Cr3Track.TrackType.JPEG_PREVIEW;
             default -> Cr3Track.TrackType.UNKNOWN;
         };
+    }
+
+    /**
+     * Determines the compression mode based on codec type.
+     * TODO: Read CNCV box to distinguish between RAW_LOSSLESS and CRAW_LOSSY more reliably
+     */
+    private static CompressionMode determineCompressionMode(String codecType, Cr3Track.TrackType trackType) {
+        if (!"CRAW".equals(codecType)) {
+            // Non-CRX tracks (JPEG) don't have a CRX compression mode
+            return CompressionMode.UNKNOWN;
+        }
+        // Default to RAW_LOSSLESS for CRX tracks — actual mode should be
+        // determined from CNCV compressor version string once parsing is implemented
+        return CompressionMode.RAW_LOSSLESS;
     }
 
     private static IsoBox findBox(List<IsoBox> boxes, String type) {

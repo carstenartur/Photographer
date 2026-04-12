@@ -119,6 +119,34 @@ class IsoBmffReaderTest {
             assertThat(boxes.get(1).type()).isEqualTo("sml1");
             assertThat(boxes.get(1).offset()).isEqualTo(18);
         }
+
+        @Test
+        @DisplayName("Extended size box should have extendedSize=true and 16-byte header")
+        void extendedSizeFlag() throws IOException {
+            byte[] data = Cr3TestData.buildExtendedSizeBox("ext1", new byte[]{1, 2, 3, 4});
+            var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
+            List<IsoBox> boxes = IsoBmffReader.readBoxes(input);
+
+            IsoBox box = boxes.getFirst();
+            assertThat(box.extendedSize()).isTrue();
+            assertThat(box.headerSize()).isEqualTo(16);
+            assertThat(box.dataOffset()).isEqualTo(16); // offset(0) + headerSize(16)
+            assertThat(box.dataSize()).isEqualTo(4); // size(20) - headerSize(16)
+        }
+
+        @Test
+        @DisplayName("Normal box should have extendedSize=false and 8-byte header")
+        void normalSizeFlag() throws IOException {
+            byte[] data = Cr3TestData.buildBox("norm", new byte[]{1, 2, 3, 4});
+            var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
+            List<IsoBox> boxes = IsoBmffReader.readBoxes(input);
+
+            IsoBox box = boxes.getFirst();
+            assertThat(box.extendedSize()).isFalse();
+            assertThat(box.headerSize()).isEqualTo(8);
+            assertThat(box.dataOffset()).isEqualTo(8);
+            assertThat(box.dataSize()).isEqualTo(4);
+        }
     }
 
     @Nested

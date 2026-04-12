@@ -127,7 +127,7 @@ public final class IsoBmffReader {
                 children = List.of();
             }
 
-            boxes.add(new IsoBox(type, size, pos, children));
+            boxes.add(new IsoBox(type, size, pos, children, extendedHeader));
             pos += size;
         }
 

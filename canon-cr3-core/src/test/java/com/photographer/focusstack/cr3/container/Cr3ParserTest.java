@@ -238,5 +238,28 @@ class Cr3ParserTest {
                 assertThat(track.dataSize()).isGreaterThan(0);
             }
         }
+
+        @Test
+        @DisplayName("JPEG tracks should have UNKNOWN compression mode")
+        void jpegTrackCompressionMode() throws Exception {
+            byte[] cr3Data = Cr3TestData.buildMinimalCr3WithJpeg();
+            var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3Data));
+
+            Cr3Container container = Cr3Parser.parse(input);
+
+            // JPEG tracks don't use CRX compression, so mode should be UNKNOWN
+            for (Cr3Track track : container.tracks()) {
+                assertThat(track.compressionMode())
+                        .isEqualTo(CompressionMode.UNKNOWN);
+            }
+        }
+
+        @Test
+        @DisplayName("backwards-compatible Cr3Track constructor should default to UNKNOWN compression")
+        void backwardsCompatibleTrackConstructor() {
+            Cr3Track track = new Cr3Track(0, Cr3Track.TrackType.JPEG_THUMBNAIL,
+                    100, 200, 160, 120, "jpeg");
+            assertThat(track.compressionMode()).isEqualTo(CompressionMode.UNKNOWN);
+        }
     }
 }
