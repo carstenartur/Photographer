@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -154,7 +155,7 @@ class ObserverControllerTest {
     void deleteEventReturns204WhenFound() throws Exception {
         when(observerService.deleteEvent(eq("evt-del"))).thenReturn(true);
 
-        mockMvc.perform(delete("/api/observer/events/evt-del"))
+        mockMvc.perform(delete("/api/observer/events/evt-del").with(csrf()))
                 .andExpect(status().isNoContent());
     }
 
@@ -162,7 +163,7 @@ class ObserverControllerTest {
     void deleteEventReturns404WhenNotFound() throws Exception {
         when(observerService.deleteEvent(eq("missing"))).thenReturn(false);
 
-        mockMvc.perform(delete("/api/observer/events/missing"))
+        mockMvc.perform(delete("/api/observer/events/missing").with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
@@ -213,7 +214,7 @@ class ObserverControllerTest {
         when(observerProperties.getDefaultProfile()).thenReturn("birdhouse");
         when(observerProperties.getPreferredAiProvider()).thenReturn("mock");
 
-        mockMvc.perform(put("/api/observer/config")
+        mockMvc.perform(put("/api/observer/config").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"defaultProfile\":\"birdhouse\",\"preferredAiProvider\":\"mock\"}"))
                 .andExpect(status().isOk())
@@ -222,7 +223,7 @@ class ObserverControllerTest {
 
     @Test
     void updateConfigRejectsBadProfile() throws Exception {
-        mockMvc.perform(put("/api/observer/config")
+        mockMvc.perform(put("/api/observer/config").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"defaultProfile\":\"nonexistent\"}"))
                 .andExpect(status().isBadRequest())

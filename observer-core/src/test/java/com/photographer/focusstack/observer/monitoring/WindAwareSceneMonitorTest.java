@@ -65,22 +65,40 @@ class WindAwareSceneMonitorTest {
 
     @Test
     void windFilterSuppressesOnHighGlobalMotion() {
-        // Create frames where wind filter would detect wind
-        // WindFilter: fullMotion >= 0.6 AND (fullMotion / roiMotion) > 1.5
-        // Use frames that produce different pixel diff results
+        // WindFilter condition: fullMotion >= 0.6 AND (fullMotion / roiMotion) > 1.5
+        // macroFlower uses fullFrame ROI, so full motion equals ROI motion (ratio=1.0).
+        // Use a profile with a small ROI so global motion can exceed ROI motion.
+        ObserverProfile smallRoiProfile = new ObserverProfile(
+                "test_wind", "macro_pollinator",
+                200, 0.08, 0.02,
+                new RegionOfInterest(0.3, 0.3, 0.4, 0.4, "center"),
+                5, true, 3,
+                10, "08:00", "19:00", 300,
+                null, "gemini", "manual", "raw+jpeg"
+        );
+        RulesEngine rulesEngine = new RulesEngine(List.of());
+        WindFilter wf = new WindFilter(0.6);
+        WindAwareSceneMonitor smallRoiMonitor = new WindAwareSceneMonitor(
+                motionDetector, rulesEngine, smallRoiProfile, wf);
 
-        LiveViewFrame frame1 = frame(new byte[100]);
-        monitor.analyzeFrame(frame1); // set lastFrameData
+        // First frame — all zeros
+        byte[] frame1Data = new byte[1000];
+        LiveViewFrame frame1 = frame(frame1Data);
+        smallRoiMonitor.analyzeFrame(frame1); // init lastFrameData
 
-        // Create a very different frame (high global motion)
-        byte[] data2 = new byte[100];
-        java.util.Arrays.fill(data2, (byte) 200);
-        LiveViewFrame frame2 = frame(data2);
+        // Second frame — change only bytes OUTSIDE the ROI region.
+        // ROI = 0.4*0.4 = 16% of frame → first 160 bytes.
+        // Change bytes 160..999 but leave 0..159 unchanged:
+        //   ROI (first 160 bytes): 0 changed → roiMotion ≈ 0.0
+        //   Full frame (1000 bytes): 840 changed → fullMotion = 0.84
+        //   Condition: 0.84 >= 0.6 ✓ AND 0.84 / max(0.0, 0.001) >> 1.5 ✓
+        byte[] windFrame = new byte[1000];
+        for (int i = 160; i < 1000; i++) {
+            windFrame[i] = (byte) 200;
+        }
+        LiveViewFrame frame2 = frame(windFrame);
 
-        // The wind filter will compute pixel diff between frame1 and frame2
-        // Since all pixels changed drastically, fullMotion will be high
-        Optional<TriggerContext> result = monitor.analyzeFrame(frame2);
-        // Wind should be detected → trigger suppressed
+        Optional<TriggerContext> result = smallRoiMonitor.analyzeFrame(frame2);
         assertTrue(result.isEmpty(), "Should suppress trigger when wind motion is detected");
     }
 
