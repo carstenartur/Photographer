@@ -1,9 +1,13 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
-Focus Stack - App,com.photographer.focusstack.observer.controller,ObserverController,58,412,12,22,8,93,10,24,2,15
+Focus Stack - App,com.photographer.focusstack.observer.controller,ObserverExportController,576,14,64,0,101,5,41,1,9,1
+Focus Stack - App,com.photographer.focusstack.observer.controller,ObserverController,594,415,72,22,110,94,51,24,13,15
 Focus Stack - App,com.photographer.focusstack.app.config,SessionConfig,0,88,0,0,0,20,0,10,0,10
 Focus Stack - App,com.photographer.focusstack.app.config,StorageConfig,0,32,3,3,0,8,3,1,0,1
 Focus Stack - App,com.photographer.focusstack.app.config,CameraConfig,0,22,2,2,0,6,2,1,0,1
+Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService,308,20,26,0,61,5,22,2,9,2
+Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService.ReplayStatus,30,0,0,0,1,0,1,0,1,0
 Focus Stack - App,com.photographer.focusstack.observer.service,ObserverService,70,273,9,9,16,66,13,16,5,15
+Focus Stack - App,com.photographer.focusstack.observer.service,SpeciesNormalizationService,29,713,9,9,3,91,8,9,1,7
 Focus Stack - App,com.photographer.focusstack,FocusStackApplication,5,3,0,0,2,1,1,1,1,1
 Focus Stack - App,com.photographer.focusstack.camera.strategy,MacroCaptureStrategy,0,71,0,10,0,17,0,8,0,3
 Focus Stack - App,com.photographer.focusstack.camera.strategy,LinearStepStrategy,0,7,0,0,0,3,0,3,0,3
@@ -52,7 +56,7 @@ Focus Stack - App,com.photographer.focusstack.observer.config,ObserverConfig,0,3
 Focus Stack - App,com.photographer.focusstack.observer.config,ObserverProperties.Gemini,19,21,0,0,5,7,5,4,5,4
 Focus Stack - App,com.photographer.focusstack.observer.entity,ObservationEventEntity,4,82,0,0,1,25,1,23,1,23
 Focus Stack - App,com.photographer.focusstack.observer.entity,AiResultEntity,3,73,0,0,1,21,1,21,1,21
-Focus Stack - App,com.photographer.focusstack.observer.entity,SpeciesRecordEntity,15,65,0,0,3,21,3,15,3,15
+Focus Stack - App,com.photographer.focusstack.observer.entity,SpeciesRecordEntity,8,72,0,0,2,22,2,16,2,16
 Focus Stack - App,com.photographer.focusstack.app.security,SecurityEventListener,12,19,0,0,4,6,1,3,1,3
 Focus Stack - App,com.photographer.focusstack.app.security,UserEntity,7,24,0,0,2,9,2,5,2,5
 Focus Stack - App,com.photographer.focusstack.app.security,SecurityConfig,6,146,0,0,0,24,1,10,1,10
@@ -62,7 +66,7 @@ Focus Stack - App,com.photographer.focusstack.camera.search,SearchService,25,95,
 Focus Stack - App,com.photographer.focusstack.camera.search,HibernateSearchInitializer,13,23,0,0,5,11,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.BatteryStatus,0,15,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,270,1572,66,203,65,338,62,119,3,40
-Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,38,91,3,1,5,20,2,6,0,6
+Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,100,91,13,1,18,20,7,6,0,6
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.EndpointDescriptor,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ImageLocation,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,MockCameraBackend,20,412,3,31,8,77,2,27,0,12
