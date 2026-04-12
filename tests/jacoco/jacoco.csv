@@ -2,7 +2,7 @@ GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_
 Focus Stack - App,com.photographer.focusstack.observer.controller,ObserverExportController,576,14,64,0,101,5,41,1,9,1
 Focus Stack - App,com.photographer.focusstack.observer.controller,ObserverController,594,415,72,22,110,94,51,24,13,15
 Focus Stack - App,com.photographer.focusstack.app.config,SessionConfig,0,88,0,0,0,20,0,10,0,10
-Focus Stack - App,com.photographer.focusstack.app.config,StorageConfig,0,32,3,3,0,8,3,1,0,1
+Focus Stack - App,com.photographer.focusstack.app.config,StorageConfig,5,27,3,3,1,7,3,1,0,1
 Focus Stack - App,com.photographer.focusstack.app.config,CameraConfig,0,22,2,2,0,6,2,1,0,1
 Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService,308,20,26,0,61,5,22,2,9,2
 Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService.ReplayStatus,30,0,0,0,1,0,1,0,1,0
@@ -14,9 +14,9 @@ Focus Stack - App,com.photographer.focusstack.camera.strategy,LinearStepStrategy
 Focus Stack - App,com.photographer.focusstack.camera.strategy,AdaptiveStepStrategy,2,74,1,9,1,18,1,7,0,3
 Focus Stack - App,com.photographer.focusstack.analysis.service,ImageJStackMerger,34,328,9,35,10,58,9,18,0,5
 Focus Stack - App,com.photographer.focusstack.analysis.service,SharpnessAnalyzer,4,152,4,14,2,25,4,8,0,3
-Focus Stack - App,com.photographer.focusstack.analysis.service,ImageJProcessor,435,414,39,43,57,75,29,24,3,9
+Focus Stack - App,com.photographer.focusstack.analysis.service,ImageJProcessor,435,437,39,45,57,80,29,25,3,9
 Focus Stack - App,com.photographer.focusstack.analysis.service,MotionDetector.MotionResult,0,12,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.analysis.service,StackingAdvisor,13,151,5,14,3,35,5,11,0,6
+Focus Stack - App,com.photographer.focusstack.analysis.service,StackingAdvisor,8,156,4,15,2,36,4,12,0,6
 Focus Stack - App,com.photographer.focusstack.analysis.service,InformationGainEstimator,0,83,1,5,0,16,1,4,0,2
 Focus Stack - App,com.photographer.focusstack.analysis.service,MotionDetector,7,75,2,8,1,13,2,6,0,3
 Focus Stack - App,com.photographer.focusstack.camera.config,WebSocketConfig,0,40,0,0,0,8,0,3,0,3
@@ -28,7 +28,7 @@ Focus Stack - App,com.photographer.focusstack.analysis.plugin,AnalysisPluginRegi
 Focus Stack - App,com.photographer.focusstack.camera.controller,FaceOrbitController,12,79,0,0,1,19,2,9,2,9
 Focus Stack - App,com.photographer.focusstack.camera.controller,JobController.CreateJobRequest,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.controller,HdrTimelapseController,41,57,2,0,8,14,3,6,2,6
-Focus Stack - App,com.photographer.focusstack.camera.controller,JobController,184,49,18,0,45,15,16,5,7,5
+Focus Stack - App,com.photographer.focusstack.camera.controller,JobController,23,210,7,11,5,55,8,13,2,10
 Focus Stack - App,com.photographer.focusstack.camera.controller,CameraController,14,94,0,0,3,23,2,11,2,11
 Focus Stack - App,com.photographer.focusstack.analysis.strategy,PixelDiffStrategy,0,15,0,0,0,5,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.analysis.strategy,StructuralSimilarityStrategy,25,453,11,23,3,62,10,16,0,9
@@ -42,8 +42,8 @@ Focus Stack - App,com.photographer.focusstack.camera.entity,StackingJobEntity,39
 Focus Stack - App,com.photographer.focusstack.analysis.dto,SharpnessResponse,0,6,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,AnalyzeRequest,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,MotionResponse,0,12,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.service,StackingJobService,290,630,19,27,51,127,18,21,4,12
-Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore,26,31,5,3,4,6,7,2,3,2
+Focus Stack - App,com.photographer.focusstack.camera.service,StackingJobService,224,803,17,31,37,157,16,24,2,14
+Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore,112,90,15,5,28,21,13,4,3,4
 Focus Stack - App,com.photographer.focusstack.camera.service,CameraProfileService,0,93,0,4,0,21,0,9,0,7
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.FrameEntry,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.new LinkedHashMap() {...},2,15,1,1,0,2,1,2,0,2
@@ -60,13 +60,13 @@ Focus Stack - App,com.photographer.focusstack.observer.entity,SpeciesRecordEntit
 Focus Stack - App,com.photographer.focusstack.app.security,SecurityEventListener,12,19,0,0,4,6,1,3,1,3
 Focus Stack - App,com.photographer.focusstack.app.security,UserEntity,7,24,0,0,2,9,2,5,2,5
 Focus Stack - App,com.photographer.focusstack.app.security,SecurityConfig,6,146,0,0,0,24,1,10,1,10
-Focus Stack - App,com.photographer.focusstack.app.security,DefaultAdminInitializer,22,35,3,1,5,9,2,4,0,4
+Focus Stack - App,com.photographer.focusstack.app.security,DefaultAdminInitializer,12,45,1,3,3,11,1,5,0,4
 Focus Stack - App,com.photographer.focusstack.app.security,UserRole,0,15,0,0,0,3,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.search,SearchService,25,95,0,0,9,20,0,7,0,7
 Focus Stack - App,com.photographer.focusstack.camera.search,HibernateSearchInitializer,13,23,0,0,5,11,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.BatteryStatus,0,15,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,329,1646,77,214,80,362,67,126,3,41
-Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,100,91,13,1,18,20,7,6,0,6
+Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,60,131,10,4,12,26,6,7,0,6
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.EndpointDescriptor,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ImageLocation,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,MockCameraBackend,20,412,3,31,8,77,2,27,0,12

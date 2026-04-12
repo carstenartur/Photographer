@@ -20,15 +20,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
             @Value(&quot;${focusstack.security.admin-password:focusstack}&quot;) String adminPassword) {
 <span class="fc" id="L21">        return args -&gt; {</span>
 <span class="fc" id="L22">            var existing = userRepository.findByUsername(&quot;admin&quot;);</span>
-<span class="pc bpc" id="L23" title="1 of 2 branches missed.">            if (existing.isEmpty()) {</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">            if (existing.isEmpty()) {</span>
 <span class="fc" id="L24">                userRepository.save(new UserEntity(</span>
                         &quot;admin&quot;,
 <span class="fc" id="L26">                        passwordEncoder.encode(adminPassword),</span>
                         UserRole.ADMIN));
 <span class="fc" id="L28">                log.info(&quot;Default admin user created. Change the password via focusstack.security.admin-password&quot;);</span>
             } else {
-<span class="nc" id="L30">                UserEntity admin = existing.get();</span>
-<span class="nc bnc" id="L31" title="All 2 branches missed.">                if (!passwordEncoder.matches(adminPassword, admin.getPasswordHash())) {</span>
+<span class="fc" id="L30">                UserEntity admin = existing.get();</span>
+<span class="pc bpc" id="L31" title="1 of 2 branches missed.">                if (!passwordEncoder.matches(adminPassword, admin.getPasswordHash())) {</span>
 <span class="nc" id="L32">                    admin.setPasswordHash(passwordEncoder.encode(adminPassword));</span>
 <span class="nc" id="L33">                    userRepository.save(admin);</span>
 <span class="nc" id="L34">                    log.info(&quot;Admin password updated to match configured value&quot;);</span>

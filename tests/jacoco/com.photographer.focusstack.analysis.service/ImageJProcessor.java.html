@@ -292,21 +292,33 @@ public class ImageJProcessor {
     /**
      * Reads image file bytes into an ImageJ ByteProcessor (8-bit grayscale).
      * Uses javax.imageio.ImageIO for format decoding, then wraps in ImageJ processor.
+     *
+     * &lt;p&gt;Real camera JPEGs are always RGB ({@code TYPE_INT_RGB} or similar).
+     * ImageJ's {@link ByteProcessor} constructor requires {@code TYPE_BYTE_GRAY},
+     * so we must convert non-grayscale images before wrapping them.
      */
     private ByteProcessor readAsByteProcessor(byte[] imageFileBytes) {
-<span class="fc bfc" id="L297" title="All 4 branches covered.">        if (imageFileBytes == null || imageFileBytes.length == 0) {</span>
-<span class="fc" id="L298">            return null;</span>
+<span class="fc bfc" id="L301" title="All 4 branches covered.">        if (imageFileBytes == null || imageFileBytes.length == 0) {</span>
+<span class="fc" id="L302">            return null;</span>
         }
         try {
-<span class="fc" id="L301">            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageFileBytes));</span>
-<span class="fc bfc" id="L302" title="All 2 branches covered.">            if (bi == null) {</span>
-<span class="fc" id="L303">                log.warn(&quot;Could not decode image from {} bytes&quot;, imageFileBytes.length);</span>
-<span class="fc" id="L304">                return null;</span>
+<span class="fc" id="L305">            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageFileBytes));</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">            if (bi == null) {</span>
+<span class="fc" id="L307">                log.warn(&quot;Could not decode image from {} bytes&quot;, imageFileBytes.length);</span>
+<span class="fc" id="L308">                return null;</span>
             }
-<span class="fc" id="L306">            return new ByteProcessor(bi);</span>
-<span class="nc" id="L307">        } catch (IOException e) {</span>
-<span class="nc" id="L308">            log.error(&quot;Error reading image: {}&quot;, e.getMessage(), e);</span>
-<span class="nc" id="L309">            return null;</span>
+            // ByteProcessor requires TYPE_BYTE_GRAY; real camera JPEGs are RGB.
+            // Convert to grayscale if the image is not already 8-bit gray.
+<span class="fc bfc" id="L312" title="All 2 branches covered.">            if (bi.getType() != BufferedImage.TYPE_BYTE_GRAY) {</span>
+<span class="fc" id="L313">                BufferedImage gray = new BufferedImage(</span>
+<span class="fc" id="L314">                        bi.getWidth(), bi.getHeight(), BufferedImage.TYPE_BYTE_GRAY);</span>
+<span class="fc" id="L315">                gray.getGraphics().drawImage(bi, 0, 0, null);</span>
+<span class="fc" id="L316">                bi = gray;</span>
+            }
+<span class="fc" id="L318">            return new ByteProcessor(bi);</span>
+<span class="nc" id="L319">        } catch (IOException e) {</span>
+<span class="nc" id="L320">            log.error(&quot;Error reading image: {}&quot;, e.getMessage(), e);</span>
+<span class="nc" id="L321">            return null;</span>
         }
     }
 }
