@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObserverService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.observer.service</a> &gt; <span class="el_source">ObserverService.java</span></div><h1>ObserverService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.observer.service;
+
+import com.photographer.focusstack.observer.entity.AiResultEntity;
+import com.photographer.focusstack.observer.entity.ObservationEventEntity;
+import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
+import com.photographer.focusstack.observer.events.ObservationEvent;
+import com.photographer.focusstack.observer.events.VisionResultData;
+import com.photographer.focusstack.observer.pipeline.ObservationEventListener;
+import com.photographer.focusstack.observer.repository.ObservationEventRepository;
+import com.photographer.focusstack.observer.repository.SpeciesRecordRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+/**
+ * Spring service that persists completed observation events and maintains species records.
+ * Implements {@link ObservationEventListener} to receive events from the pipeline.
+ */
+@Service
+public class ObserverService implements ObservationEventListener {
+
+<span class="fc" id="L25">    private static final Logger log = LoggerFactory.getLogger(ObserverService.class);</span>
+
+    private final ObservationEventRepository eventRepository;
+    private final SpeciesRecordRepository speciesRepository;
+
+    public ObserverService(ObservationEventRepository eventRepository,
+<span class="fc" id="L31">                           SpeciesRecordRepository speciesRepository) {</span>
+<span class="fc" id="L32">        this.eventRepository = eventRepository;</span>
+<span class="fc" id="L33">        this.speciesRepository = speciesRepository;</span>
+<span class="fc" id="L34">    }</span>
+
+    @Override
+    @Transactional
+    public void onEventCompleted(ObservationEvent event) {
+<span class="fc" id="L39">        log.info(&quot;Persisting completed observation event: {} label={}&quot;,</span>
+<span class="fc" id="L40">                event.id(),</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">                event.aiResult() != null ? event.aiResult().primaryLabel() : &quot;N/A&quot;);</span>
+
+<span class="fc" id="L43">        ObservationEventEntity entity = toEntity(event);</span>
+<span class="fc" id="L44">        eventRepository.save(entity);</span>
+
+<span class="pc bpc" id="L46" title="2 of 4 branches missed.">        if (event.aiResult() != null &amp;&amp; !&quot;none&quot;.equals(event.aiResult().primaryLabel())) {</span>
+<span class="fc" id="L47">            updateSpeciesRecord(event.aiResult());</span>
+        }
+<span class="fc" id="L49">    }</span>
+
+    @Override
+    public void onEventDiscarded(ObservationEvent event) {
+<span class="nc" id="L53">        log.debug(&quot;Observation event discarded: {} reason={}&quot;, event.id(), event.triggerReason());</span>
+        // Discarded events are not persisted by default
+<span class="nc" id="L55">    }</span>
+
+    @Transactional(readOnly = true)
+    public List&lt;ObservationEventEntity&gt; findRecentEvents(int limit) {
+<span class="fc" id="L59">        return eventRepository.findAll(</span>
+<span class="fc" id="L60">                org.springframework.data.domain.PageRequest.of(0, limit,</span>
+<span class="fc" id="L61">                        org.springframework.data.domain.Sort.by(&quot;timestamp&quot;).descending())</span>
+<span class="fc" id="L62">        ).getContent();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional&lt;ObservationEventEntity&gt; findEventById(String id) {
+<span class="fc" id="L67">        return eventRepository.findById(id);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;ObservationEventEntity&gt; findEventsByMode(String mode, int limit) {
+<span class="nc" id="L72">        return eventRepository.findByModeOrderByTimestampDesc(mode).stream()</span>
+<span class="nc" id="L73">                .limit(limit)</span>
+<span class="nc" id="L74">                .toList();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;ObservationEventEntity&gt; findEventsByDateRange(java.time.Instant from, java.time.Instant to) {
+<span class="nc" id="L79">        return eventRepository.findByTimestampBetweenOrderByTimestampDesc(from, to);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;SpeciesRecordEntity&gt; getSpeciesRanking() {
+<span class="fc" id="L84">        return speciesRepository.findAllByOrderByTotalSightingsDesc();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public long getTotalEventCount() {
+<span class="fc" id="L89">        return eventRepository.count();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public long getTotalSpeciesCount() {
+<span class="fc" id="L94">        return speciesRepository.count();</span>
+    }
+
+    @Transactional
+    public boolean deleteEvent(String id) {
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        if (eventRepository.existsById(id)) {</span>
+<span class="fc" id="L100">            eventRepository.deleteById(id);</span>
+<span class="fc" id="L101">            return true;</span>
+        }
+<span class="nc" id="L103">        return false;</span>
+    }
+
+    /**
+     * Returns daily event counts for the last {@code days} days.
+     * Each entry maps &quot;date&quot; → ISO date string and &quot;count&quot; → number of events.
+     */
+    @Transactional(readOnly = true)
+    public List&lt;java.util.Map&lt;String, Object&gt;&gt; getDailyStats(int days) {
+<span class="fc" id="L112">        List&lt;java.util.Map&lt;String, Object&gt;&gt; result = new java.util.ArrayList&lt;&gt;();</span>
+<span class="fc" id="L113">        java.time.LocalDate today = java.time.LocalDate.now();</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        for (int i = days - 1; i &gt;= 0; i--) {</span>
+<span class="fc" id="L115">            java.time.LocalDate date = today.minusDays(i);</span>
+<span class="fc" id="L116">            java.time.Instant from = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant();</span>
+<span class="fc" id="L117">            java.time.Instant to = date.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();</span>
+<span class="fc" id="L118">            long count = eventRepository.countByTimestampBetween(from, to);</span>
+<span class="fc" id="L119">            result.add(java.util.Map.of(&quot;date&quot;, date.toString(), &quot;count&quot;, count));</span>
+        }
+<span class="fc" id="L121">        return result;</span>
+    }
+
+    /**
+     * Returns detailed statistics for a given species name.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional&lt;SpeciesRecordEntity&gt; findSpeciesByName(String name) {
+<span class="fc" id="L129">        return speciesRepository.findByNormalizedNameDe(name);</span>
+    }
+
+    /**
+     * Returns per-mode event counts.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map&lt;String, Long&gt; getEventCountsByMode() {
+<span class="nc" id="L137">        java.util.Map&lt;String, Long&gt; counts = new java.util.LinkedHashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">        for (Object[] row : eventRepository.countByModeGrouped()) {</span>
+<span class="nc" id="L139">            counts.put((String) row[0], (Long) row[1]);</span>
+<span class="nc" id="L140">        }</span>
+<span class="nc" id="L141">        return counts;</span>
+    }
+
+    private ObservationEventEntity toEntity(ObservationEvent event) {
+<span class="fc" id="L145">        ObservationEventEntity entity = new ObservationEventEntity(event.id());</span>
+<span class="fc" id="L146">        entity.setTimestamp(event.timestamp());</span>
+<span class="fc" id="L147">        entity.setCompletedAt(event.completedAt());</span>
+<span class="fc" id="L148">        entity.setState(event.state());</span>
+<span class="fc" id="L149">        entity.setMode(event.mode());</span>
+<span class="fc" id="L150">        entity.setCameraId(event.cameraId());</span>
+<span class="fc" id="L151">        entity.setTriggerReason(event.triggerReason());</span>
+
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (event.aiResult() != null) {</span>
+<span class="fc" id="L154">            AiResultEntity aiEntity = toAiEntity(event.aiResult(), entity);</span>
+<span class="fc" id="L155">            entity.setAiResult(aiEntity);</span>
+        }
+
+<span class="fc" id="L158">        return entity;</span>
+    }
+
+    private AiResultEntity toAiEntity(VisionResultData result, ObservationEventEntity event) {
+<span class="fc" id="L162">        AiResultEntity entity = new AiResultEntity();</span>
+<span class="fc" id="L163">        entity.setEvent(event);</span>
+<span class="fc" id="L164">        entity.setProvider(result.provider());</span>
+<span class="fc" id="L165">        entity.setModel(result.model());</span>
+<span class="fc" id="L166">        entity.setTaskType(result.taskType());</span>
+<span class="fc" id="L167">        entity.setPrimaryLabel(result.primaryLabel());</span>
+<span class="fc" id="L168">        entity.setAlternativeLabelsJson(</span>
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">                result.alternativeLabels() != null ? String.join(&quot;,&quot;, result.alternativeLabels()) : null);</span>
+<span class="fc" id="L170">        entity.setConfidence(result.confidence());</span>
+<span class="fc" id="L171">        entity.setSummary(result.summary());</span>
+<span class="fc" id="L172">        entity.setRawResponse(result.rawResponse());</span>
+<span class="fc" id="L173">        entity.setDurationMs(result.durationMs());</span>
+<span class="fc" id="L174">        return entity;</span>
+    }
+
+    private void updateSpeciesRecord(VisionResultData aiResult) {
+<span class="fc" id="L178">        String label = aiResult.primaryLabel();</span>
+<span class="fc" id="L179">        speciesRepository.findByNormalizedNameDe(label)</span>
+<span class="fc" id="L180">                .ifPresentOrElse(</span>
+                        record -&gt; {
+<span class="nc" id="L182">                            record.setLastSeen(java.time.Instant.now());</span>
+<span class="nc" id="L183">                            record.incrementSightings();</span>
+<span class="nc" id="L184">                            speciesRepository.save(record);</span>
+<span class="nc" id="L185">                        },</span>
+                        () -&gt; {
+<span class="fc" id="L187">                            SpeciesRecordEntity record = new SpeciesRecordEntity(label,</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">                                    aiResult.taskType() != null ? aiResult.taskType() : &quot;unknown&quot;);</span>
+<span class="fc" id="L189">                            speciesRepository.save(record);</span>
+<span class="fc" id="L190">                        }</span>
+                );
+<span class="fc" id="L192">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

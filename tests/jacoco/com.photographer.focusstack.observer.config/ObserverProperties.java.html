@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ObserverProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.observer.config</a> &gt; <span class="el_source">ObserverProperties.java</span></div><h1>ObserverProperties.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.observer.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+/**
+ * Spring configuration properties for the Wildlife Observer feature.
+ *
+ * &lt;p&gt;Configured under the {@code observer} prefix in application.yml.&lt;/p&gt;
+ */
+@ConfigurationProperties(prefix = &quot;observer&quot;)
+<span class="fc" id="L11">public class ObserverProperties {</span>
+
+<span class="fc" id="L13">    private boolean enabled = false;</span>
+<span class="fc" id="L14">    private String defaultProfile = &quot;birdhouse&quot;;</span>
+<span class="fc" id="L15">    private String preferredAiProvider = &quot;mock&quot;;</span>
+<span class="fc" id="L16">    private Gemini gemini = new Gemini();</span>
+<span class="fc" id="L17">    private Folder folder = new Folder();</span>
+
+<span class="nc" id="L19">    public boolean isEnabled() { return enabled; }</span>
+<span class="nc" id="L20">    public void setEnabled(boolean enabled) { this.enabled = enabled; }</span>
+
+<span class="nc" id="L22">    public String getDefaultProfile() { return defaultProfile; }</span>
+<span class="nc" id="L23">    public void setDefaultProfile(String defaultProfile) { this.defaultProfile = defaultProfile; }</span>
+
+<span class="nc" id="L25">    public String getPreferredAiProvider() { return preferredAiProvider; }</span>
+<span class="nc" id="L26">    public void setPreferredAiProvider(String preferredAiProvider) { this.preferredAiProvider = preferredAiProvider; }</span>
+
+<span class="fc" id="L28">    public Gemini getGemini() { return gemini; }</span>
+<span class="nc" id="L29">    public void setGemini(Gemini gemini) { this.gemini = gemini; }</span>
+
+<span class="nc" id="L31">    public Folder getFolder() { return folder; }</span>
+<span class="nc" id="L32">    public void setFolder(Folder folder) { this.folder = folder; }</span>
+
+    /**
+     * Gemini API configuration.
+     */
+<span class="fc" id="L37">    public static class Gemini {</span>
+        private String apiKey;
+<span class="fc" id="L39">        private String model = &quot;gemini-2.5-flash&quot;;</span>
+<span class="fc" id="L40">        private String endpoint = &quot;https://generativelanguage.googleapis.com/v1beta/models&quot;;</span>
+<span class="fc" id="L41">        private int timeoutSeconds = 30;</span>
+
+<span class="fc" id="L43">        public String getApiKey() { return apiKey; }</span>
+<span class="nc" id="L44">        public void setApiKey(String apiKey) { this.apiKey = apiKey; }</span>
+
+<span class="fc" id="L46">        public String getModel() { return model; }</span>
+<span class="nc" id="L47">        public void setModel(String model) { this.model = model; }</span>
+
+<span class="fc" id="L49">        public String getEndpoint() { return endpoint; }</span>
+<span class="nc" id="L50">        public void setEndpoint(String endpoint) { this.endpoint = endpoint; }</span>
+
+<span class="nc" id="L52">        public int getTimeoutSeconds() { return timeoutSeconds; }</span>
+<span class="nc" id="L53">        public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }</span>
+    }
+
+    /**
+     * Folder camera backend configuration for replay mode.
+     */
+<span class="fc" id="L59">    public static class Folder {</span>
+<span class="fc" id="L60">        private boolean enabled = false;</span>
+<span class="fc" id="L61">        private String path = &quot;./data/observer-images&quot;;</span>
+
+<span class="fc" id="L63">        public boolean isEnabled() { return enabled; }</span>
+<span class="nc" id="L64">        public void setEnabled(boolean enabled) { this.enabled = enabled; }</span>
+
+<span class="nc" id="L66">        public String getPath() { return path; }</span>
+<span class="nc" id="L67">        public void setPath(String path) { this.path = path; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

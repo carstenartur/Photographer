@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FolderCameraBackend.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">FolderCameraBackend.java</span></div><h1>FolderCameraBackend.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraInfo;
+import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.camera.Operation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
+/**
+ * Camera backend that replays images from a folder on disk.
+ *
+ * &lt;p&gt;Useful for testing the Wildlife Observer pipeline with real images
+ * without a connected camera. Images are served in alphabetical order,
+ * cycling back to the start when all images have been served.&lt;/p&gt;
+ */
+public class FolderCameraBackend implements CameraBackend {
+
+<span class="nc" id="L33">    private static final Logger log = LoggerFactory.getLogger(FolderCameraBackend.class);</span>
+
+    private final Path imageFolder;
+    private final List&lt;Path&gt; imageFiles;
+<span class="nc" id="L37">    private final AtomicInteger index = new AtomicInteger(0);</span>
+    private final CameraInfo cameraInfo;
+
+<span class="nc" id="L40">    public FolderCameraBackend(Path imageFolder) {</span>
+<span class="nc" id="L41">        this.imageFolder = imageFolder;</span>
+<span class="nc" id="L42">        this.cameraInfo = new CameraInfo(</span>
+<span class="nc" id="L43">                &quot;folder-&quot; + imageFolder.getFileName(),</span>
+                &quot;Folder Replay&quot;,
+                &quot;FolderCameraBackend&quot;,
+                &quot;folder&quot;,
+<span class="nc" id="L47">                imageFolder.toString(),</span>
+                &quot;1.0&quot;
+        );
+<span class="nc" id="L50">        this.imageFiles = loadImageFiles(imageFolder);</span>
+<span class="nc" id="L51">        log.info(&quot;FolderCameraBackend: loaded {} images from {}&quot;, imageFiles.size(), imageFolder);</span>
+<span class="nc" id="L52">    }</span>
+
+    @Override
+    public CameraInfo getInfo() {
+<span class="nc" id="L56">        return cameraInfo;</span>
+    }
+
+    @Override
+    public LiveViewFrame getLiveView() {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (imageFiles.isEmpty()) {</span>
+<span class="nc" id="L62">            return new LiveViewFrame(new byte[0], 0, 0, Instant.now(), &quot;image/jpeg&quot;);</span>
+        }
+<span class="nc" id="L64">        int i = index.get() % imageFiles.size();</span>
+<span class="nc" id="L65">        byte[] data = readFile(imageFiles.get(i));</span>
+<span class="nc" id="L66">        return new LiveViewFrame(data, 0, 0, Instant.now(), &quot;image/jpeg&quot;);</span>
+    }
+
+    @Override
+    public CaptureResult capture() {
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (imageFiles.isEmpty()) {</span>
+<span class="nc" id="L72">            throw new CameraException(&quot;No images available in folder: &quot; + imageFolder);</span>
+        }
+<span class="nc" id="L74">        int i = index.getAndIncrement() % imageFiles.size();</span>
+<span class="nc" id="L75">        Path file = imageFiles.get(i);</span>
+<span class="nc" id="L76">        byte[] data = readFile(file);</span>
+<span class="nc" id="L77">        return new CaptureResult(</span>
+<span class="nc" id="L78">                UUID.randomUUID().toString(),</span>
+<span class="nc" id="L79">                file.getFileName().toString(),</span>
+<span class="nc" id="L80">                file.toAbsolutePath().toString(),</span>
+<span class="nc" id="L81">                Instant.now(),</span>
+                i,
+                data.length,
+                data
+        );
+    }
+
+    @Override
+    public void setFocus(FocusCommand command) {
+        // No-op for folder replay
+<span class="nc" id="L91">        log.debug(&quot;FolderCameraBackend: setFocus({}) — no-op&quot;, command);</span>
+<span class="nc" id="L92">    }</span>
+
+    @Override
+    public CameraState getState() {
+<span class="nc" id="L96">        return new CameraState(true, 100, 100L * 1024 * 1024 * 1024,</span>
+<span class="nc" id="L97">                index.get(), &quot;1/250&quot;, &quot;f/5.6&quot;, &quot;400&quot;, false);</span>
+    }
+
+    @Override
+    public boolean supports(Operation operation) {
+<span class="nc bnc" id="L102" title="All 2 branches missed.">        return switch (operation) {</span>
+<span class="nc" id="L103">            case CAPTURE, LIVE_VIEW -&gt; true;</span>
+<span class="nc" id="L104">            default -&gt; false;</span>
+        };
+    }
+
+    private List&lt;Path&gt; loadImageFiles(Path folder) {
+        try {
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (!Files.isDirectory(folder)) {</span>
+<span class="nc" id="L111">                return List.of();</span>
+            }
+<span class="nc" id="L113">            try (var files = Files.list(folder)) {</span>
+<span class="nc" id="L114">                return files</span>
+<span class="nc" id="L115">                        .filter(p -&gt; {</span>
+<span class="nc" id="L116">                            String name = p.getFileName().toString().toLowerCase();</span>
+<span class="nc bnc" id="L117" title="All 4 branches missed.">                            return name.endsWith(&quot;.jpg&quot;) || name.endsWith(&quot;.jpeg&quot;)</span>
+<span class="nc bnc" id="L118" title="All 4 branches missed.">                                    || name.endsWith(&quot;.png&quot;) || name.endsWith(&quot;.raw&quot;);</span>
+                        })
+<span class="nc" id="L120">                        .sorted()</span>
+<span class="nc" id="L121">                        .collect(Collectors.toList());</span>
+            }
+<span class="nc" id="L123">        } catch (IOException e) {</span>
+<span class="nc" id="L124">            log.warn(&quot;Failed to list images in {}: {}&quot;, folder, e.getMessage());</span>
+<span class="nc" id="L125">            return List.of();</span>
+        }
+    }
+
+    private byte[] readFile(Path path) {
+        try {
+<span class="nc" id="L131">            return Files.readAllBytes(path);</span>
+<span class="nc" id="L132">        } catch (IOException e) {</span>
+<span class="nc" id="L133">            throw new UncheckedIOException(&quot;Failed to read image file: &quot; + path, e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
