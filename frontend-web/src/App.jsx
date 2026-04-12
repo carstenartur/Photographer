@@ -7,6 +7,11 @@ import JobDetail from './pages/JobDetail';
 import StackGallery from './pages/StackGallery';
 import HdrTimelapse from './pages/HdrTimelapse';
 import FaceOrbit from './pages/FaceOrbit';
+import ObserverDashboard from './pages/ObserverDashboard';
+import ObserverEvents from './pages/ObserverEvents';
+import ObserverEventDetail from './pages/ObserverEventDetail';
+import ObserverGallery from './pages/ObserverGallery';
+import ObserverStatistics from './pages/ObserverStatistics';
 import './App.css';
 
 export default function App() {
@@ -22,6 +27,11 @@ export default function App() {
           <Route path="/gallery" element={<StackGallery />} />
           <Route path="/hdr-timelapse" element={<HdrTimelapse />} />
           <Route path="/face-orbit" element={<FaceOrbit />} />
+          <Route path="/observer" element={<ObserverDashboard />} />
+          <Route path="/observer/events" element={<ObserverEvents />} />
+          <Route path="/observer/events/:id" element={<ObserverEventDetail />} />
+          <Route path="/observer/gallery" element={<ObserverGallery />} />
+          <Route path="/observer/statistics" element={<ObserverStatistics />} />
         </Routes>
       </main>
     </div>

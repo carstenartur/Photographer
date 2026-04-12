@@ -63,6 +63,23 @@ public class ObserverService implements ObservationEventListener {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Optional<ObservationEventEntity> findEventById(String id) {
+        return eventRepository.findById(id);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ObservationEventEntity> findEventsByMode(String mode, int limit) {
+        return eventRepository.findByModeOrderByTimestampDesc(mode).stream()
+                .limit(limit)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ObservationEventEntity> findEventsByDateRange(java.time.Instant from, java.time.Instant to) {
+        return eventRepository.findByTimestampBetweenOrderByTimestampDesc(from, to);
+    }
+
+    @Transactional(readOnly = true)
     public List<SpeciesRecordEntity> getSpeciesRanking() {
         return speciesRepository.findAllByOrderByTotalSightingsDesc();
     }
