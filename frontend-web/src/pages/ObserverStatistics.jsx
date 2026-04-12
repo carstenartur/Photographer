@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSpeciesRanking, getStats, getEventsByDate, getProfiles } from '../api/observerApi';
+import { getSpeciesRanking, getStats, getEventsByDate, getProfiles, getDailyStats, getSpeciesDetail } from '../api/observerApi';
 import SpeciesChart from '../components/observer/SpeciesChart';
 
 export default function ObserverStatistics() {
@@ -7,24 +7,44 @@ export default function ObserverStatistics() {
   const [stats, setStats] = useState(null);
   const [todayEvents, setTodayEvents] = useState([]);
   const [profiles, setProfiles] = useState([]);
+  const [dailyStats, setDailyStats] = useState([]);
+  const [selectedSpecies, setSelectedSpecies] = useState(null);
+  const [speciesDetail, setSpeciesDetail] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.allSettled([
       getSpeciesRanking(),
       getStats(),
       getEventsByDate(), // defaults to today
       getProfiles(),
-    ]).then(([specRes, statsRes, todayRes, profilesRes]) => {
+      getDailyStats(14),
+    ]).then(([specRes, statsRes, todayRes, profilesRes, dailyRes]) => {
+      if (cancelled) return;
       if (specRes.status === 'fulfilled') setSpecies(specRes.value || []);
       if (statsRes.status === 'fulfilled') setStats(statsRes.value);
       if (todayRes.status === 'fulfilled') setTodayEvents(todayRes.value || []);
       if (profilesRes.status === 'fulfilled') setProfiles(profilesRes.value || []);
+      if (dailyRes.status === 'fulfilled') setDailyStats(dailyRes.value || []);
       if (specRes.status === 'rejected' && statsRes.status === 'rejected') {
         setError('Unable to load statistics.');
       }
     });
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!selectedSpecies) {
+      setSpeciesDetail(null);
+      return;
+    }
+    let cancelled = false;
+    getSpeciesDetail(selectedSpecies)
+      .then((data) => { if (!cancelled) setSpeciesDetail(data); })
+      .catch(() => { if (!cancelled) setSpeciesDetail(null); });
+    return () => { cancelled = true; };
+  }, [selectedSpecies]);
 
   // Compute hourly distribution for today's events
   const hourlyDistribution = new Array(24).fill(0);
@@ -64,7 +84,80 @@ export default function ObserverStatistics() {
       <section style={{ marginTop: '2rem' }}>
         <h2>Species Ranking</h2>
         <SpeciesChart species={species} />
+        {species.length > 0 && (
+          <div style={{ marginTop: '1rem' }}>
+            <label htmlFor="species-select"><strong>View species detail: </strong></label>
+            <select
+              id="species-select"
+              value={selectedSpecies || ''}
+              onChange={(e) => setSelectedSpecies(e.target.value || null)}
+            >
+              <option value="">— select —</option>
+              {species.map((s) => (
+                <option key={s.normalizedNameDe} value={s.normalizedNameDe}>
+                  {s.normalizedNameDe} ({s.totalSightings})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        {speciesDetail && (
+          <div className="form-card" style={{ marginTop: '1rem' }}>
+            <h3>{speciesDetail.normalizedNameDe}</h3>
+            <div className="detail-grid">
+              <div className="detail-item">
+                <span className="detail-label">Category</span>
+                <span className="detail-value">{speciesDetail.category || '—'}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Total Sightings</span>
+                <span className="detail-value">{speciesDetail.totalSightings}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">First Seen</span>
+                <span className="detail-value">
+                  {speciesDetail.firstSeen ? new Date(speciesDetail.firstSeen).toLocaleString() : '—'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Last Seen</span>
+                <span className="detail-value">
+                  {speciesDetail.lastSeen ? new Date(speciesDetail.lastSeen).toLocaleString() : '—'}
+                </span>
+              </div>
+              {speciesDetail.scientificName && (
+                <div className="detail-item">
+                  <span className="detail-label">Scientific Name</span>
+                  <span className="detail-value">{speciesDetail.scientificName}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </section>
+
+      {dailyStats.length > 0 && (
+        <section style={{ marginTop: '2rem' }}>
+          <h2>Daily Activity (Last 14 Days)</h2>
+          <div className="hourly-chart">
+            {dailyStats.map((d) => {
+              const maxDaily = Math.max(...dailyStats.map((x) => x.count), 1);
+              return (
+                <div key={d.date} className="hourly-bar-col">
+                  <div
+                    className="hourly-bar"
+                    style={{ height: `${(d.count / maxDaily) * 100}%` }}
+                    title={`${d.date}: ${d.count} events`}
+                  />
+                  <span className="hourly-label" style={{ fontSize: '0.65rem' }}>
+                    {d.date.slice(5)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section style={{ marginTop: '2rem' }}>
         <h2>Today&apos;s Activity by Hour</h2>

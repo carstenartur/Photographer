@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getEvent } from '../api/observerApi';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getEvent, deleteEvent } from '../api/observerApi';
 import AiResultPanel from '../components/observer/AiResultPanel';
 import EventTimeline from '../components/observer/EventTimeline';
 
 export default function ObserverEventDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,6 +21,17 @@ export default function ObserverEventDetail() {
     return () => { cancelled = true; };
   }, [id]);
 
+  function handleDelete() {
+    if (!window.confirm('Delete this observation event? This cannot be undone.')) return;
+    setDeleting(true);
+    deleteEvent(id)
+      .then(() => navigate('/observer/events'))
+      .catch((err) => {
+        setError(`Failed to delete: ${err.message}`);
+        setDeleting(false);
+      });
+  }
+
   if (loading) return <div className="page"><p>Loading…</p></div>;
   if (error) return <div className="page"><p className="error">{error}</p></div>;
   if (!event) return <div className="page"><p className="empty">Event not found.</p></div>;
@@ -27,7 +40,16 @@ export default function ObserverEventDetail() {
     <div className="page">
       <div className="page-header">
         <h1>Event Detail</h1>
-        <Link to="/observer/events" className="btn btn-secondary">← Back to Events</Link>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <Link to="/observer/events" className="btn btn-secondary">← Back to Events</Link>
+          <button
+            className="btn btn-danger"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Delete Event'}
+          </button>
+        </div>
       </div>
 
       <EventTimeline currentState={event.state} />

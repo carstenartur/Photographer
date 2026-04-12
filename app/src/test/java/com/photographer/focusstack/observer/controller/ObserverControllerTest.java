@@ -9,18 +9,22 @@ import com.photographer.focusstack.observer.service.ObserverService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -127,5 +131,114 @@ class ObserverControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0].name").value("birdhouse"));
+    }
+
+    // ---- New endpoint tests ----
+
+    @Test
+    void getProfileByNameReturnsOk() throws Exception {
+        mockMvc.perform(get("/api/observer/profiles/birdhouse"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("birdhouse"))
+                .andExpect(jsonPath("$.mode").value("wildlife"))
+                .andExpect(jsonPath("$.focusMode").value("auto"));
+    }
+
+    @Test
+    void getProfileByNameReturns404ForUnknown() throws Exception {
+        mockMvc.perform(get("/api/observer/profiles/nonexistent"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteEventReturns204WhenFound() throws Exception {
+        when(observerService.deleteEvent(eq("evt-del"))).thenReturn(true);
+
+        mockMvc.perform(delete("/api/observer/events/evt-del"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteEventReturns404WhenNotFound() throws Exception {
+        when(observerService.deleteEvent(eq("missing"))).thenReturn(false);
+
+        mockMvc.perform(delete("/api/observer/events/missing"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getDailyStatsReturnsOk() throws Exception {
+        when(observerService.getDailyStats(eq(7))).thenReturn(List.of(
+                Map.of("date", "2026-04-12", "count", 5L)
+        ));
+
+        mockMvc.perform(get("/api/observer/stats/daily"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].date").value("2026-04-12"))
+                .andExpect(jsonPath("$[0].count").value(5));
+    }
+
+    @Test
+    void getDailyStatsRejectsBadRange() throws Exception {
+        mockMvc.perform(get("/api/observer/stats/daily").param("days", "0"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/observer/stats/daily").param("days", "91"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getSpeciesDetailReturnsOk() throws Exception {
+        SpeciesRecordEntity s = new SpeciesRecordEntity("Kohlmeise", "bird");
+        when(observerService.findSpeciesByName(eq("Kohlmeise"))).thenReturn(Optional.of(s));
+
+        mockMvc.perform(get("/api/observer/stats/species/Kohlmeise"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.normalizedNameDe").value("Kohlmeise"))
+                .andExpect(jsonPath("$.category").value("bird"))
+                .andExpect(jsonPath("$.totalSightings").value(1));
+    }
+
+    @Test
+    void getSpeciesDetailReturns404WhenNotFound() throws Exception {
+        when(observerService.findSpeciesByName(eq("Unknown"))).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/observer/stats/species/Unknown"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateConfigReturnsOk() throws Exception {
+        when(observerProperties.isEnabled()).thenReturn(true);
+        when(observerProperties.getDefaultProfile()).thenReturn("birdhouse");
+        when(observerProperties.getPreferredAiProvider()).thenReturn("mock");
+
+        mockMvc.perform(put("/api/observer/config")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"defaultProfile\":\"birdhouse\",\"preferredAiProvider\":\"mock\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultProfile").value("birdhouse"));
+    }
+
+    @Test
+    void updateConfigRejectsBadProfile() throws Exception {
+        mockMvc.perform(put("/api/observer/config")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"defaultProfile\":\"nonexistent\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    void getAiProvidersReturnsOk() throws Exception {
+        ObserverProperties.Gemini gemini = new ObserverProperties.Gemini();
+        when(observerProperties.getGemini()).thenReturn(gemini);
+
+        mockMvc.perform(get("/api/observer/ai/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$[0].name").value("gemini"))
+                .andExpect(jsonPath("$[1].name").value("mock"))
+                .andExpect(jsonPath("$[1].configured").value(true));
     }
 }

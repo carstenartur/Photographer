@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getRecentEvents, getSpeciesRanking, getStats, getStatus } from '../api/observerApi';
+import { getRecentEvents, getSpeciesRanking, getStats, getStatus, getAiProviders } from '../api/observerApi';
 import EventCard from '../components/observer/EventCard';
 import SpeciesChart from '../components/observer/SpeciesChart';
 import ObserverStatusBadge from '../components/observer/ObserverStatusBadge';
@@ -10,19 +10,24 @@ export default function ObserverDashboard() {
   const [species, setSpecies] = useState([]);
   const [stats, setStats] = useState(null);
   const [status, setStatus] = useState(null);
+  const [aiProviders, setAiProviders] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
     Promise.allSettled([
       getRecentEvents(5),
       getSpeciesRanking(),
       getStats(),
       getStatus(),
-    ]).then(([evtResult, specResult, statsResult, statusResult]) => {
+      getAiProviders(),
+    ]).then(([evtResult, specResult, statsResult, statusResult, aiResult]) => {
+      if (cancelled) return;
       if (evtResult.status === 'fulfilled') setEvents(evtResult.value || []);
       if (specResult.status === 'fulfilled') setSpecies(specResult.value || []);
       if (statsResult.status === 'fulfilled') setStats(statsResult.value);
       if (statusResult.status === 'fulfilled') setStatus(statusResult.value);
+      if (aiResult.status === 'fulfilled') setAiProviders(aiResult.value || []);
       if (
         evtResult.status === 'rejected' &&
         specResult.status === 'rejected' &&
@@ -31,6 +36,7 @@ export default function ObserverDashboard() {
         setError('Unable to connect to observer backend.');
       }
     });
+    return () => { cancelled = true; };
   }, []);
 
   return (
@@ -102,6 +108,25 @@ export default function ObserverDashboard() {
         <section className="species-ranking">
           <h2>Species Ranking</h2>
           <SpeciesChart species={species.slice(0, 10)} />
+        </section>
+      )}
+
+      {aiProviders.length > 0 && (
+        <section style={{ marginTop: '2rem' }}>
+          <h2>AI Providers</h2>
+          <div className="status-cards">
+            {aiProviders.map((p) => (
+              <div key={p.name} className="card">
+                <h3>{p.name}</h3>
+                <p className="card-value">
+                  <span className={`badge badge-${p.configured ? 'completed' : 'idle'}`}>
+                    {p.configured ? 'Configured' : 'Not Configured'}
+                  </span>
+                </p>
+                <p className="card-label">Model: {p.model}</p>
+              </div>
+            ))}
+          </div>
         </section>
       )}
     </div>

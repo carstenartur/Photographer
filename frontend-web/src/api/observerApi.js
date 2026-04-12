@@ -75,3 +75,53 @@ export function getStatus() {
 export function getProfiles() {
   return request('/observer/profiles');
 }
+
+/**
+ * Fetch a single observer profile by name.
+ * @param {string} name - Profile name (e.g. 'birdhouse')
+ */
+export function getProfile(name) {
+  return request(`/observer/profiles/${encodeURIComponent(name)}`);
+}
+
+/**
+ * Delete a single observation event.
+ * @param {string} id - Event UUID
+ */
+export function deleteEvent(id) {
+  return request(`/observer/events/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/**
+ * Fetch daily event counts for the last N days.
+ * @param {number} days - Number of days (default 7, max 90)
+ */
+export function getDailyStats(days = 7) {
+  return request(`/observer/stats/daily?days=${days}`);
+}
+
+/**
+ * Fetch detailed statistics for a specific species.
+ * @param {string} name - Species name
+ */
+export function getSpeciesDetail(name) {
+  return request(`/observer/stats/species/${encodeURIComponent(name)}`);
+}
+
+/**
+ * Update observer runtime configuration.
+ * @param {Object} config - Config fields to update (defaultProfile, preferredAiProvider, enabled)
+ */
+export function updateConfig(config) {
+  return request('/observer/config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+}
+
+/**
+ * Fetch available AI providers with their status.
+ */
+export function getAiProviders() {
+  return request('/observer/ai/providers');
+}

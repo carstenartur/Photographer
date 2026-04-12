@@ -94,6 +94,53 @@ public class ObserverService implements ObservationEventListener {
         return speciesRepository.count();
     }
 
+    @Transactional
+    public boolean deleteEvent(String id) {
+        if (eventRepository.existsById(id)) {
+            eventRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Returns daily event counts for the last {@code days} days.
+     * Each entry maps "date" → ISO date string and "count" → number of events.
+     */
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> getDailyStats(int days) {
+        List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        for (int i = days - 1; i >= 0; i--) {
+            java.time.LocalDate date = today.minusDays(i);
+            java.time.Instant from = date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+            java.time.Instant to = date.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant();
+            long count = eventRepository.countByTimestampBetween(from, to);
+            result.add(java.util.Map.of("date", date.toString(), "count", count));
+        }
+        return result;
+    }
+
+    /**
+     * Returns detailed statistics for a given species name.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<SpeciesRecordEntity> findSpeciesByName(String name) {
+        return speciesRepository.findByNormalizedNameDe(name);
+    }
+
+    /**
+     * Returns per-mode event counts.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Long> getEventCountsByMode() {
+        java.util.Map<String, Long> counts = new java.util.LinkedHashMap<>();
+        for (Object[] row : eventRepository.countByModeGrouped()) {
+            counts.put((String) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
     private ObservationEventEntity toEntity(ObservationEvent event) {
         ObservationEventEntity entity = new ObservationEventEntity(event.id());
         entity.setTimestamp(event.timestamp());

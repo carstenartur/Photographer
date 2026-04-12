@@ -25,6 +25,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestRestTemplate
@@ -80,5 +81,61 @@ class ObserverServiceIT extends AbstractPostgresIntegrationTest {
                 "/api/observer/stats", String.class);
         assertEquals(HttpStatus.OK, statsResponse.getStatusCode());
         assertNotNull(statsResponse.getBody());
+    }
+
+    @Test
+    void dailyStatsAndSpeciesDetail() {
+        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+
+        // Persist a test event
+        String eventId = UUID.randomUUID().toString();
+        ObservationEvent event = new ObservationEvent.Builder()
+                .id(eventId)
+                .timestamp(Instant.now())
+                .completedAt(Instant.now())
+                .state(EventState.COMPLETED)
+                .mode("macro_pollinator")
+                .cameraId("macro-cam")
+                .triggerReason("motion")
+                .aiResult(new VisionResultData("mock", "mock-model", "classification",
+                        "Honigbiene", List.of(), 0.88, "A honey bee",
+                        List.of(), "{}", 80L))
+                .metadata(Map.of())
+                .build();
+        observerService.onEventCompleted(event);
+
+        // Daily stats
+        ResponseEntity<String> dailyResponse = restTemplate.getForEntity(
+                "/api/observer/stats/daily?days=3", String.class);
+        assertEquals(HttpStatus.OK, dailyResponse.getStatusCode());
+        assertNotNull(dailyResponse.getBody());
+        assertTrue(dailyResponse.getBody().contains("date"));
+
+        // Species detail
+        ResponseEntity<String> speciesDetail = restTemplate.getForEntity(
+                "/api/observer/stats/species/Honigbiene", String.class);
+        assertEquals(HttpStatus.OK, speciesDetail.getStatusCode());
+        assertNotNull(speciesDetail.getBody());
+        assertTrue(speciesDetail.getBody().contains("Honigbiene"));
+
+        // Profile detail
+        ResponseEntity<String> profileDetail = restTemplate.getForEntity(
+                "/api/observer/profiles/birdhouse", String.class);
+        assertEquals(HttpStatus.OK, profileDetail.getStatusCode());
+        assertNotNull(profileDetail.getBody());
+        assertTrue(profileDetail.getBody().contains("birdhouse"));
+
+        // AI providers
+        ResponseEntity<String> providersResponse = restTemplate.getForEntity(
+                "/api/observer/ai/providers", String.class);
+        assertEquals(HttpStatus.OK, providersResponse.getStatusCode());
+        assertNotNull(providersResponse.getBody());
+        assertTrue(providersResponse.getBody().contains("mock"));
+
+        // Delete event
+        restTemplate.delete("/api/observer/events/" + eventId);
+        ResponseEntity<String> afterDelete = restTemplate.getForEntity(
+                "/api/observer/events/" + eventId, String.class);
+        assertEquals(HttpStatus.NOT_FOUND, afterDelete.getStatusCode());
     }
 }
