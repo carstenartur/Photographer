@@ -912,6 +912,12 @@ public class CanonCcapiBackend implements CameraBackend {
 <span class="fc" id="L912">    private static final com.fasterxml.jackson.databind.ObjectMapper JSON_MAPPER =</span>
             new com.fasterxml.jackson.databind.ObjectMapper();
 
+    /** Maximum number of retry attempts when the camera reports &quot;Device busy&quot; (503). */
+    private static final int DEVICE_BUSY_MAX_RETRIES = 5;
+
+    /** Initial backoff in milliseconds before the first retry on &quot;Device busy&quot;. */
+    private static final long DEVICE_BUSY_INITIAL_BACKOFF_MS = 500;
+
     /**
      * Sends a POST request to the given CCAPI URL with the supplied body,
      * using {@link #ccapiEntity(Object)} to set the required headers.
@@ -920,10 +926,30 @@ public class CanonCcapiBackend implements CameraBackend {
      * the Canon camera sees is {@code Content-Length} (added automatically by
      * the HTTP client).  This matches the Canon SDK sample which writes raw
      * bytes via {@code OutputStream} without setting any custom headers.
+     *
+     * &lt;p&gt;If the camera responds with {@code 503 Service Unavailable} and a
+     * {@code &quot;Device busy&quot;} message, the request is retried up to
+     * {@value #DEVICE_BUSY_MAX_RETRIES} times with exponential backoff
+     * starting at {@value #DEVICE_BUSY_INITIAL_BACKOFF_MS}&amp;nbsp;ms.
      */
     private void ccapiPost(String url, Object body) {
-<span class="fc" id="L925">        restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);</span>
-<span class="fc" id="L926">    }</span>
+<span class="fc" id="L936">        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;</span>
+<span class="fc" id="L937">        for (int attempt = 0; ; attempt++) {</span>
+            try {
+<span class="fc" id="L939">                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);</span>
+<span class="fc" id="L940">                return;</span>
+<span class="fc" id="L941">            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {</span>
+<span class="fc" id="L942">                boolean deviceBusy = e.getResponseBodyAsString().contains(&quot;Device busy&quot;);</span>
+<span class="pc bpc" id="L943" title="1 of 4 branches missed.">                if (!deviceBusy || attempt &gt;= DEVICE_BUSY_MAX_RETRIES) {</span>
+<span class="fc" id="L944">                    throw e;</span>
+                }
+<span class="fc" id="L946">                log.warn(&quot;Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})&quot;,</span>
+<span class="fc" id="L947">                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);</span>
+<span class="fc" id="L948">                sleepMs(backoffMs);</span>
+<span class="fc" id="L949">                backoffMs = Math.min(backoffMs * 2, 5_000);</span>
+            }
+        }
+    }
 
     /**
      * Maps an abstract step count to a {@code drivefocus} magnitude string
@@ -931,9 +957,9 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns &quot;1&quot; (small), &quot;2&quot; (medium), or &quot;3&quot; (large).
      */
     static String toDriveFocusMagnitude(int steps) {
-<span class="fc bfc" id="L934" title="All 2 branches covered.">        if (steps &lt;= 1) return &quot;1&quot;;</span>
-<span class="fc bfc" id="L935" title="All 2 branches covered.">        if (steps &lt;= 5) return &quot;2&quot;;</span>
-<span class="fc" id="L936">        return &quot;3&quot;;</span>
+<span class="fc bfc" id="L960" title="All 2 branches covered.">        if (steps &lt;= 1) return &quot;1&quot;;</span>
+<span class="fc bfc" id="L961" title="All 2 branches covered.">        if (steps &lt;= 5) return &quot;2&quot;;</span>
+<span class="fc" id="L962">        return &quot;3&quot;;</span>
     }
 
     /**
@@ -942,19 +968,19 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns 100 for null or unrecognised input. Trims whitespace before parsing.
      */
     static int parseBatteryLevel(String level) {
-<span class="fc bfc" id="L945" title="All 2 branches covered.">        if (level == null) {</span>
-<span class="fc" id="L946">            return 100;</span>
+<span class="fc bfc" id="L971" title="All 2 branches covered.">        if (level == null) {</span>
+<span class="fc" id="L972">            return 100;</span>
         }
-<span class="fc" id="L948">        String normalized = level.trim().toLowerCase();</span>
-<span class="fc bfc" id="L949" title="All 6 branches covered.">        return switch (normalized) {</span>
-<span class="fc" id="L950">            case &quot;full&quot;   -&gt; 100;</span>
-<span class="fc" id="L951">            case &quot;high&quot;   -&gt; 80;</span>
-<span class="fc" id="L952">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
-<span class="fc" id="L953">            case &quot;low&quot;    -&gt; 20;</span>
-<span class="fc" id="L954">            case &quot;empty&quot;  -&gt; 0;</span>
+<span class="fc" id="L974">        String normalized = level.trim().toLowerCase();</span>
+<span class="fc bfc" id="L975" title="All 6 branches covered.">        return switch (normalized) {</span>
+<span class="fc" id="L976">            case &quot;full&quot;   -&gt; 100;</span>
+<span class="fc" id="L977">            case &quot;high&quot;   -&gt; 80;</span>
+<span class="fc" id="L978">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
+<span class="fc" id="L979">            case &quot;low&quot;    -&gt; 20;</span>
+<span class="fc" id="L980">            case &quot;empty&quot;  -&gt; 0;</span>
             default -&gt; {
-<span class="fc" id="L956">                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }</span>
-<span class="fc" id="L957">                catch (NumberFormatException e) { yield 100; }</span>
+<span class="fc" id="L982">                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }</span>
+<span class="fc" id="L983">                catch (NumberFormatException e) { yield 100; }</span>
             }
         };
     }
@@ -962,7 +988,7 @@ public class CanonCcapiBackend implements CameraBackend {
     // ── CCAPI response DTOs ────────────────────────────────────────────────
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L965">    record DeviceInformation(</span>
+<span class="fc" id="L991">    record DeviceInformation(</span>
             @JsonProperty(&quot;productname&quot;)    String productname,
             @JsonProperty(&quot;serialnumber&quot;)   String serialnumber,
             @JsonProperty(&quot;firmwareversion&quot;) String firmwareversion,
@@ -970,7 +996,7 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L973">    record BatteryStatus(</span>
+<span class="fc" id="L999">    record BatteryStatus(</span>
             @JsonProperty(&quot;name&quot;)    String name,
             @JsonProperty(&quot;kind&quot;)    String kind,
             @JsonProperty(&quot;level&quot;)   String level,
@@ -978,14 +1004,14 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L981">    record StorageStatus(</span>
+<span class="fc" id="L1007">    record StorageStatus(</span>
             @JsonProperty(&quot;name&quot;)     String name,
             @JsonProperty(&quot;maxsize&quot;)  Long maxBytes,
             @JsonProperty(&quot;spacesize&quot;) Long spaceBytes
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L988">    record ContentEntry(</span>
+<span class="fc" id="L1014">    record ContentEntry(</span>
             @JsonProperty(&quot;name&quot;)     String name,
             @JsonProperty(&quot;size&quot;)     Long size,
             @JsonProperty(&quot;datetime&quot;) String datetime,
@@ -993,7 +1019,7 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L996">    record ContentListing(</span>
+<span class="fc" id="L1022">    record ContentListing(</span>
             @JsonProperty(&quot;dir&quot;) List&lt;ContentEntry&gt; dir
     ) {}
 }
