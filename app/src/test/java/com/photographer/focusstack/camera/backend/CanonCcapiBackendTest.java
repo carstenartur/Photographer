@@ -285,12 +285,13 @@ class CanonCcapiBackendTest {
                         new CanonCcapiBackend.ContentEntry(
                                 "IMG_0002.JPG", 4_450_000L, "2024-04-01T11:15:30+09:00", "A")));
 
-        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
-        String folderUrl = dcimUrl + "/100CANON";
+        // resolveContentsBase() returns /contents/sd (no /DCIM level in CCAPI)
+        String contentsUrl = BASE_URL + "/ccapi/ver100/contents/sd";
+        String folderUrl = contentsUrl + "/100CANON";
         String imageUrl = folderUrl + "/IMG_0002.JPG";
         byte[] imageBytes = new byte[]{1, 2, 3, 4, 5};
 
-        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+        when(restTemplate.getForObject(eq(contentsUrl), eq(CanonCcapiBackend.ContentListing.class)))
                 .thenReturn(folderListing);
         when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
                 .thenReturn(preCaptureFiles)   // first call: pre-capture snapshot
@@ -320,12 +321,13 @@ class CanonCcapiBackendTest {
                 List.of(new CanonCcapiBackend.ContentEntry(
                         "IMG_0001.JPG", 4_371_156L, "2024-04-01T11:15:03+09:00", "A")));
 
-        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
-        String folderUrl = dcimUrl + "/100CANON";
+        // resolveContentsBase() returns /contents/sd (no /DCIM level in CCAPI)
+        String contentsUrl = BASE_URL + "/ccapi/ver100/contents/sd";
+        String folderUrl = contentsUrl + "/100CANON";
         String imageUrl = folderUrl + "/IMG_0001.JPG";
         byte[] imageBytes = new byte[]{10, 20, 30};
 
-        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+        when(restTemplate.getForObject(eq(contentsUrl), eq(CanonCcapiBackend.ContentListing.class)))
                 .thenReturn(emptyFolder);
         when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
                 .thenReturn(emptyFiles)        // pre-capture: no files
@@ -417,8 +419,8 @@ class CanonCcapiBackendTest {
                 .thenThrow(otherEx);
 
         assertThrows(CameraException.class, () -> backend.capture());
-        // Only one POST attempt — no retries.
-        verify(restTemplate, times(1)).exchange(anyString(), eq(HttpMethod.POST),
+        // Two POST attempts: 1 for stopLiveView (caught internally) + 1 for shutter (throws).
+        verify(restTemplate, times(2)).exchange(anyString(), eq(HttpMethod.POST),
                 any(HttpEntity.class), eq(String.class));
     }
 
@@ -1020,12 +1022,13 @@ class CanonCcapiBackendTest {
                         new CanonCcapiBackend.ContentEntry(
                                 "IMG_0002.JPG", 2_000_000L, "2024-04-01T10:01:00+09:00", "A")));
 
-        String dcimUrl = BASE_URL + "/ccapi/ver100/contents/sd/DCIM";
-        String folderUrl = dcimUrl + "/100CANON";
+        // resolveContentsBase() returns /contents/sd (no /DCIM level in CCAPI)
+        String contentsUrl = BASE_URL + "/ccapi/ver100/contents/sd";
+        String folderUrl = contentsUrl + "/100CANON";
         String imageUrl = folderUrl + "/IMG_0002.JPG";
         byte[] imageBytes = new byte[]{1, 2, 3};
 
-        when(restTemplate.getForObject(eq(dcimUrl), eq(CanonCcapiBackend.ContentListing.class)))
+        when(restTemplate.getForObject(eq(contentsUrl), eq(CanonCcapiBackend.ContentListing.class)))
                 .thenReturn(folderListing);
         when(restTemplate.getForObject(eq(folderUrl), eq(CanonCcapiBackend.ContentListing.class)))
                 .thenReturn(preCaptureFiles)

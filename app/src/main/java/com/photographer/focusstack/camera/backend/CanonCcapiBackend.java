@@ -470,6 +470,33 @@ public class CanonCcapiBackend implements CameraBackend {
     }
 
     @Override
+    public void stopLiveView() {
+        // Use exact-match loop (same as startLiveView) to avoid matching
+        // sub-paths like /liveview/flip or /liveview/scroll.
+        String url = null;
+        for (Map.Entry<String, String> entry : endpoints.entrySet()) {
+            if (entry.getKey().endsWith("/shooting/liveview")) {
+                url = entry.getValue();
+                break;
+            }
+        }
+        if (url == null) {
+            log.debug("No /shooting/liveview endpoint discovered, cannot stop live view.");
+            liveViewStarted.set(false);
+            return;
+        }
+        try {
+            ccapiPost(url, Map.of("liveviewsize", "off"));
+            log.info("Live view stopped.");
+        } catch (RestClientException e) {
+            // Camera may already be idle — log and continue.
+            log.debug("Failed to stop live view (may already be off): {}", e.getMessage());
+        }
+        // Reset the flag so getLiveView() will re-start LV on next call.
+        liveViewStarted.set(false);
+    }
+
+    @Override
     public CaptureResult capture() {
         // Prefer shutterbutton/manual for the 3-phase sequence (Canon SDK §4.8.2).
         // Fall back to the plain shutterbutton endpoint for older firmware.
@@ -477,14 +504,21 @@ public class CanonCcapiBackend implements CameraBackend {
         String regularUrl = resolveEndpoint("shutterbutton",
                 "/ccapi/ver100/shooting/control/shutterbutton");
         String triggerUrl = manualUrl != null ? manualUrl : regularUrl;
+
+        // Stop live view before capture to prevent "Device busy" errors.
+        // The camera cannot capture while the live view stream is active.
+        stopLiveView();
+        sleepMs(250); // Give camera a moment to settle
+
         try {
             // Record the newest image datetime before triggering the shutter so we
             // can detect the newly written file during the polling phase.
             // Only do this when a contents endpoint was actually discovered — avoids
             // unnecessary network calls on cameras that don't expose contents browsing.
-            boolean contentsDiscovered = findEndpoint("contents/sd") != null;
-            String dcimUrl = contentsDiscovered ? resolveContentsBase() : null;
-            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(dcimUrl) : null;
+            boolean contentsDiscovered = findEndpoint("contents/sd") != null
+                    || findEndpoint("contents") != null;
+            String contentsBaseUrl = contentsDiscovered ? resolveContentsBase() : null;
+            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(contentsBaseUrl) : null;
 
             if (manualUrl != null) {
                 // 3-phase shutter sequence per Canon SDK:
@@ -510,7 +544,7 @@ public class CanonCcapiBackend implements CameraBackend {
             // cameras that expose shutter control but no contents endpoint.
             byte[] imageData = downloadNewImageViaEventPolling();
             if (imageData == null && contentsDiscovered) {
-                imageData = downloadNewImage(dcimUrl, preNewestDatetime);
+                imageData = downloadNewImage(contentsBaseUrl, preNewestDatetime);
             }
 
             return new CaptureResult(
@@ -530,20 +564,52 @@ public class CanonCcapiBackend implements CameraBackend {
     // ── content browse & download ──────────────────────────────────────────
 
     /**
-     * Resolves the base URL for the DCIM folder on the camera's SD card.
-     * Prefers a discovered {@code contents/sd} endpoint; falls back to the
-     * well-known CCAPI path.
+     * Resolves the base URL for browsing image folders on the camera's SD card.
+     *
+     * <p>Canon CCAPI places image folders (e.g. {@code 100CANON}) <strong>directly
+     * under {@code /contents/sd}</strong> — there is no intermediate {@code /DCIM}
+     * directory level as on a physical SD card.  The storage API
+     * ({@code /devicestatus/storage}) returns a {@code storagelist[].url} field
+     * pointing to the correct base (e.g.
+     * {@code http://192.168.0.206:8080/ccapi/ver100/contents/sd}).
+     *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>Discovered endpoint containing {@code contents/sd}</li>
+     *   <li>URL from the {@code /devicestatus/storage} storagelist</li>
+     *   <li>Well-known fallback {@code /ccapi/ver100/contents/sd}</li>
+     * </ol>
      */
     private String resolveContentsBase() {
+        // 1. Try discovered endpoint map
         String found = findEndpoint("contents/sd");
         if (found != null) {
-            // Ensure the URL ends at /DCIM so subsequent path concatenation works.
-            if (!found.endsWith("/DCIM")) {
-                return found.endsWith("/") ? found + "DCIM" : found + "/DCIM";
-            }
             return found;
         }
-        return baseUrl + "/ccapi/ver100/contents/sd/DCIM";
+        // Also check for a "contents" endpoint and append "/sd"
+        found = findEndpoint("contents");
+        if (found != null) {
+            return found.endsWith("/") ? found + "sd" : found + "/sd";
+        }
+        // 2. Try reading the storage API for the URL
+        try {
+            @SuppressWarnings("unchecked")
+            var storage = restTemplate.getForObject(
+                    resolveEndpoint("storage", "/ccapi/ver100/devicestatus/storage"),
+                    Map.class);
+            if (storage != null) {
+                @SuppressWarnings("unchecked")
+                var list = (List<Map<String, Object>>) storage.get("storagelist");
+                if (list != null && !list.isEmpty()) {
+                    String url = (String) list.get(0).get("url");
+                    if (url != null) return url;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not read storage URL from /devicestatus/storage: {}", e.getMessage());
+        }
+        // 3. Well-known fallback (no /DCIM — Canon CCAPI doesn't use it)
+        return baseUrl + "/ccapi/ver100/contents/sd";
     }
 
     /**
@@ -676,26 +742,40 @@ public class CanonCcapiBackend implements CameraBackend {
         if (pollingUrl == null) {
             return null;
         }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restTemplate.getForObject(pollingUrl, Map.class);
-            if (response == null) return null;
-
-            List<String> contentUrls = extractContentUrls(response);
-            for (String contentUrl : contentUrls) {
-                String fullUrl = contentUrl.startsWith("http") ? contentUrl : baseUrl + contentUrl;
-                try {
-                    byte[] data = restTemplate.getForObject(fullUrl, byte[].class);
-                    if (data != null && data.length > 0) {
-                        log.info("Downloaded {} bytes via event/polling ({})", data.length, fullUrl);
-                        return data;
+        // Retry loop: Canon cameras write the image file asynchronously after the
+        // shutter fires. The first event/polling call may return an empty response if
+        // the file is still being written to the SD card. We poll repeatedly until a
+        // content URL appears or the timeout expires.
+        long deadline = System.currentTimeMillis() + captureTimeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> response = restTemplate.getForObject(pollingUrl, Map.class);
+                if (response != null && !response.isEmpty()) {
+                    List<String> contentUrls = extractContentUrls(response);
+                    for (String contentUrl : contentUrls) {
+                        String fullUrl = contentUrl.startsWith("http") ? contentUrl : baseUrl + contentUrl;
+                        try {
+                            byte[] data = restTemplate.getForObject(fullUrl, byte[].class);
+                            if (data != null && data.length > 0) {
+                                log.info("Downloaded {} bytes via event/polling ({})", data.length, fullUrl);
+                                return data;
+                            }
+                        } catch (RestClientException e) {
+                            log.debug("Failed to download image {} from event/polling: {}", fullUrl, e.getMessage());
+                        }
                     }
-                } catch (RestClientException e) {
-                    log.debug("Failed to download image {} from event/polling: {}", fullUrl, e.getMessage());
                 }
+            } catch (RestClientException e) {
+                log.debug("event/polling unavailable: {}", e.getMessage());
             }
-        } catch (RestClientException e) {
-            log.debug("event/polling unavailable: {}", e.getMessage());
+            try {
+                if (Thread.currentThread().isInterrupted()) break;
+                Thread.sleep(capturePollIntervalMs);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
         return null;
     }

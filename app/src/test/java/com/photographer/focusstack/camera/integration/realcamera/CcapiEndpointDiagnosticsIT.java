@@ -228,6 +228,13 @@ class CcapiEndpointDiagnosticsIT {
             log.info("POST AF — Status: {}, Body: {}", response.getStatusCode(), response.getBody());
             assertTrue(response.getStatusCode().is2xxSuccessful(),
                     "POST to AF endpoint should succeed, got: " + response.getStatusCode());
+        } catch (org.springframework.web.client.HttpServerErrorException e) {
+            // 503 "Already started" is OK — means AF is already running (e.g. live view active)
+            if (e.getStatusCode().value() == 503 && e.getResponseBodyAsString().contains("Already started")) {
+                log.info("POST AF returned 503 'Already started' — AF is already active, acceptable");
+            } else {
+                fail("POST to AF endpoint should not throw: " + e.getMessage());
+            }
         } catch (RestClientException e) {
             fail("POST to AF endpoint should not throw: " + e.getMessage());
         }
