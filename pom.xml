@@ -31,6 +31,9 @@
         <module>session-core</module>
         <module>observer-core</module>
         <module>ai-vision</module>
+        <module>canon-cr3-core</module>
+        <module>canon-cr3-imageio</module>
+        <module>canon-cr3-cli</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>
