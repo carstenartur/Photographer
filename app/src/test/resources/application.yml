@@ -3,6 +3,10 @@ camera:
   mock:
     enabled: true
 
+focusstack:
+  storage:
+    images-dir: ${java.io.tmpdir}/focusstack-test-images
+
 # Use in-memory Lucene indexes in tests to avoid file-system write.lock
 # contention between Spring contexts that run in the same JVM
 spring:

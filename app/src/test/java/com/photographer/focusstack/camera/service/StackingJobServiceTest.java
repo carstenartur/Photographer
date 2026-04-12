@@ -16,11 +16,13 @@ import com.photographer.focusstack.common.model.StackingParameters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Optional;
@@ -40,6 +42,8 @@ class StackingJobServiceTest {
     @Mock private StackingAdvisor stackingAdvisor;
     @Mock private StackMerger stackMerger;
 
+    @TempDir Path tempDir;
+
     private StackingJobService service;
 
     private static final CameraProfile PROFILE =
@@ -57,7 +61,7 @@ class StackingJobServiceTest {
         // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
                 backendFactory, profileService, repository, messagingTemplate,
-                stackingAdvisor, stackMerger, new FrameDataStore(),
+                stackingAdvisor, stackMerger, new FrameDataStore(tempDir.toString()),
                 new SyncTaskExecutor(), "adaptive");
     }
 

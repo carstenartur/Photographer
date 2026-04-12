@@ -292,6 +292,10 @@ public class ImageJProcessor {
     /**
      * Reads image file bytes into an ImageJ ByteProcessor (8-bit grayscale).
      * Uses javax.imageio.ImageIO for format decoding, then wraps in ImageJ processor.
+     *
+     * <p>Real camera JPEGs are always RGB ({@code TYPE_INT_RGB} or similar).
+     * ImageJ's {@link ByteProcessor} constructor requires {@code TYPE_BYTE_GRAY},
+     * so we must convert non-grayscale images before wrapping them.
      */
     private ByteProcessor readAsByteProcessor(byte[] imageFileBytes) {
         if (imageFileBytes == null || imageFileBytes.length == 0) {
@@ -302,6 +306,14 @@ public class ImageJProcessor {
             if (bi == null) {
                 log.warn("Could not decode image from {} bytes", imageFileBytes.length);
                 return null;
+            }
+            // ByteProcessor requires TYPE_BYTE_GRAY; real camera JPEGs are RGB.
+            // Convert to grayscale if the image is not already 8-bit gray.
+            if (bi.getType() != BufferedImage.TYPE_BYTE_GRAY) {
+                BufferedImage gray = new BufferedImage(
+                        bi.getWidth(), bi.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+                gray.getGraphics().drawImage(bi, 0, 0, null);
+                bi = gray;
             }
             return new ByteProcessor(bi);
         } catch (IOException e) {

@@ -190,10 +190,19 @@ public class StackingJobService {
                 CaptureResult result = cameraBackend.capture();
                 frames.add(result.imageId());
 
-                // Cache frame data for later export
+                // Cache frame data for later export and image display
                 if (result.imageData() != null && result.imageData().length > 0) {
                     frameDataStore.put(result.imageId(), result.fileName(), result.imageData());
                     capturedFrameData.add(result.imageData());
+                    log.debug("Job {}: frame {} stored ({} bytes, file={})",
+                            id, result.imageId(), result.imageData().length, result.fileName());
+                } else {
+                    log.warn("Job {}: frame {} has NO image data (imageData={}). "
+                                    + "The image will not be available for display or export.",
+                            id, result.imageId(),
+                            result.imageData() == null ? "null" : "empty");
+                    sendJobLog(id, "WARN", "Frame " + (i + 1) + " captured but image data "
+                            + "is missing — the camera may have timed out");
                 }
 
                 // --- Send camera preview frame ---
@@ -205,9 +214,16 @@ public class StackingJobService {
                 // --- Analysis phase ---
                 AnalysisResult analysisResult = null;
                 if (result.imageData() != null) {
-                    analysisResult = stackingAdvisor
-                            .analyzeFrame(result.imageData(), previousFrameData,
-                                    analysisHistory, params);
+                    try {
+                        analysisResult = stackingAdvisor
+                                .analyzeFrame(result.imageData(), previousFrameData,
+                                        analysisHistory, params);
+                    } catch (Exception analysisEx) {
+                        log.warn("Job {}: frame analysis failed for frame {} — continuing capture. {}",
+                                id, i, analysisEx.getMessage());
+                        sendJobLog(id, "WARN", "Frame " + (i + 1) + " analysis failed: "
+                                + analysisEx.getMessage() + " — continuing capture");
+                    }
                 }
                 previousFrameData = result.imageData();
 
@@ -229,8 +245,12 @@ public class StackingJobService {
                         "Captured frame %d/%d at focus position %d%s",
                         i + 1, params.maxFrames(), result.focusPosition(),
                         analysisResult != null
-                                ? String.format(" (sharpness=%.3f)", analysisResult.sharpnessScore())
-                                : ""));
+                                ? String.format(" (sharpness=%.3f, gain=%.3f, motion=%.3f, continue=%b)",
+                                        analysisResult.sharpnessScore(),
+                                        analysisResult.newInformationGain(),
+                                        analysisResult.motionScore(),
+                                        analysisResult.recommendContinue())
+                                : " (no analysis — imageData missing)"));
 
                 // --- Early-stop check ---
                 if (analysisResult != null && !analysisResult.recommendContinue()) {
