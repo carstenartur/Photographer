@@ -14,11 +14,13 @@ COPY video-core/pom.xml video-core/pom.xml
 COPY face-analysis-core/pom.xml face-analysis-core/pom.xml
 COPY face-profile-core/pom.xml face-profile-core/pom.xml
 COPY session-core/pom.xml session-core/pom.xml
+COPY observer-core/pom.xml observer-core/pom.xml
+COPY ai-vision/pom.xml ai-vision/pom.xml
 COPY frontend-web/pom.xml frontend-web/pom.xml
 COPY app/pom.xml app/pom.xml
 
 # Download dependencies
-RUN mvn -B dependency:go-offline -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,app -am -DskipITs=true
+RUN mvn -B dependency:go-offline -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,app -am -DskipITs=true
 
 # Copy source code
 COPY common-api/src common-api/src
@@ -30,11 +32,13 @@ COPY video-core/src video-core/src
 COPY face-analysis-core/src face-analysis-core/src
 COPY face-profile-core/src face-profile-core/src
 COPY session-core/src session-core/src
+COPY observer-core/src observer-core/src
+COPY ai-vision/src ai-vision/src
 COPY frontend-web/ frontend-web/
 COPY app/src app/src
 
 # Build: compile all modules, build frontend, compile app, copy frontend into static/
-RUN mvn -B clean package -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,frontend-web,app -am \
+RUN mvn -B clean package -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,frontend-web,app -am \
     -DskipTests -DskipITs=true \
     -Djava.awt.headless=true
 
