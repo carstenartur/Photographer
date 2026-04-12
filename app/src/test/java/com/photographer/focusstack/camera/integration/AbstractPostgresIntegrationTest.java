@@ -31,7 +31,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  *   <li>Testcontainers Ryuk container for automatic cleanup</li>
  * </ul>
  */
-abstract class AbstractPostgresIntegrationTest {
+public abstract class AbstractPostgresIntegrationTest {
 
     static final PostgreSQLContainer<?> postgres;
 
