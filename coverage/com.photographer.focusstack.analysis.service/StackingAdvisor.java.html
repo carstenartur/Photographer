@@ -121,8 +121,8 @@ public class StackingAdvisor {
      * Falls back to {@link SharpnessAnalyzer} for raw/synthetic byte arrays.
      */
     private double computeSharpness(byte[] imageData) {
-<span class="pc bpc" id="L124" title="2 of 4 branches missed.">        if (imageData != null &amp;&amp; imageJProcessor.isImageFile(imageData)) {</span>
-<span class="nc" id="L125">            return imageJProcessor.calculateSharpness(imageData);</span>
+<span class="pc bpc" id="L124" title="1 of 4 branches missed.">        if (imageData != null &amp;&amp; imageJProcessor.isImageFile(imageData)) {</span>
+<span class="fc" id="L125">            return imageJProcessor.calculateSharpness(imageData);</span>
         }
 <span class="fc" id="L127">        return sharpnessAnalyzer.calculateSharpness(imageData);</span>
     }

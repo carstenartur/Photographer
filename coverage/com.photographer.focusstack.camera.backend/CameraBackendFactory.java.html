@@ -75,12 +75,12 @@ public class CameraBackendFactory {
 
     private CameraBackend createBackend(CameraProfile profile) {
 <span class="fc" id="L77">        String type = profile.backendType();</span>
-<span class="pc bpc" id="L78" title="1 of 2 branches missed.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
 <span class="fc" id="L79">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
 <span class="fc" id="L80">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
                     simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
         }
-<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (&quot;folder&quot;.equalsIgnoreCase(type)) {</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (&quot;folder&quot;.equalsIgnoreCase(type)) {</span>
 <span class="nc" id="L84">            String path = profile.host(); // host field reused as folder path</span>
 <span class="nc bnc" id="L85" title="All 4 branches missed.">            if (path == null || path.isBlank()) {</span>
 <span class="nc" id="L86">                throw new IllegalArgumentException(</span>
@@ -101,11 +101,11 @@ public class CameraBackendFactory {
 <span class="nc" id="L101">            return new FolderCameraBackend(folderPath);</span>
         }
         // Default: canon-ccapi
-<span class="nc" id="L104">        String host = profile.host();</span>
-<span class="nc bnc" id="L105" title="All 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
-<span class="nc" id="L106">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
-<span class="nc" id="L107">                profile.name(), profile.id(), baseUrl);</span>
-<span class="nc" id="L108">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
+<span class="fc" id="L104">        String host = profile.host();</span>
+<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
+<span class="fc" id="L106">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
+<span class="fc" id="L107">                profile.name(), profile.id(), baseUrl);</span>
+<span class="fc" id="L108">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
