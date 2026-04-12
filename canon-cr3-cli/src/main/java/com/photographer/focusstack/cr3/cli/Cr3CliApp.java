@@ -115,6 +115,17 @@ public final class Cr3CliApp {
     }
 
     /**
+     * Opens an ImageInputStream for the given file path, throwing if the file cannot be opened.
+     */
+    private static ImageInputStream openInput(String filePath) throws IOException {
+        ImageInputStream input = ImageIO.createImageInputStream(new File(filePath));
+        if (input == null) {
+            throw new IOException("Cannot open file: " + filePath);
+        }
+        return input;
+    }
+
+    /**
      * Dumps the raw ISO-BMFF box tree for any BMFF file (does not require CR3 validation).
      * Shows all boxes with offset, length, and type in a hierarchical tree format.
      *
@@ -122,10 +133,7 @@ public final class Cr3CliApp {
      * @throws Exception if an I/O error occurs
      */
     static void dumpBoxTree(String filePath) throws Exception {
-        try (ImageInputStream input = ImageIO.createImageInputStream(new File(filePath))) {
-            if (input == null) {
-                throw new IOException("Cannot open file: " + filePath);
-            }
+        try (ImageInputStream input = openInput(filePath)) {
             List<IsoBox> boxes = IsoBmffReader.readBoxes(input);
             StringBuilder sb = new StringBuilder();
             for (IsoBox box : boxes) {
@@ -160,10 +168,7 @@ public final class Cr3CliApp {
      * Dumps metadata extracted from the CR3 file.
      */
     static void dumpMetadata(String filePath) throws Exception {
-        try (ImageInputStream input = ImageIO.createImageInputStream(new File(filePath))) {
-            if (input == null) {
-                throw new IOException("Cannot open file: " + filePath);
-            }
+        try (ImageInputStream input = openInput(filePath)) {
             Cr3Decoder decoder = new Cr3Decoder();
             decoder.setInput(input);
 
@@ -189,10 +194,7 @@ public final class Cr3CliApp {
      * Dumps crop/sensor geometry information from the CR3 file.
      */
     static void dumpCrop(String filePath) throws Exception {
-        try (ImageInputStream input = ImageIO.createImageInputStream(new File(filePath))) {
-            if (input == null) {
-                throw new IOException("Cannot open file: " + filePath);
-            }
+        try (ImageInputStream input = openInput(filePath)) {
             Cr3Decoder decoder = new Cr3Decoder();
             decoder.setInput(input);
 
@@ -223,10 +225,7 @@ public final class Cr3CliApp {
      * Dumps RAW data layout information from the CR3 file.
      */
     static void dumpRawLayout(String filePath) throws Exception {
-        try (ImageInputStream input = ImageIO.createImageInputStream(new File(filePath))) {
-            if (input == null) {
-                throw new IOException("Cannot open file: " + filePath);
-            }
+        try (ImageInputStream input = openInput(filePath)) {
             Cr3Decoder decoder = new Cr3Decoder();
             decoder.setInput(input);
 

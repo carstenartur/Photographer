@@ -81,6 +81,9 @@ public record SensorCropGeometry(
      * Returns the best available output dimensions: default crop if available,
      * then active area, then full sensor.
      *
+     * <p>Note: Returns a new array on each call. Callers that need the result
+     * multiple times should cache the return value.</p>
+     *
      * @return a two-element array [width, height]
      */
     public int[] bestOutputDimensions() {
