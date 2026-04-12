@@ -126,7 +126,16 @@ public class SpeciesNormalizationService {
      */
     @Transactional
     public SpeciesRecordEntity getOrCreateSpecies(String rawLabel, String category) {
+        if (rawLabel == null || rawLabel.isBlank()) {
+            // Return a generic "unknown" record when no label is available
+            return speciesRepository.findByNormalizedNameDe("Unbekannt")
+                    .orElseGet(() -> speciesRepository.save(
+                            new SpeciesRecordEntity("Unbekannt", category != null ? category : "unknown")));
+        }
         String normalized = normalizeSpeciesName(rawLabel);
+        // Use the normalized key (lower-case) to retrieve lookup metadata, falling back to raw
+        String lookupKey = normalized.toLowerCase().trim();
+        String rawKey    = rawLabel.toLowerCase().trim();
         return speciesRepository.findByNormalizedNameDe(normalized)
                 .map(record -> {
                     record.setLastSeen(java.time.Instant.now());
@@ -134,14 +143,16 @@ public class SpeciesNormalizationService {
                     return speciesRepository.save(record);
                 })
                 .orElseGet(() -> {
-                    SpeciesRecordEntity record = new SpeciesRecordEntity(normalized, category);
-                    // Populate English/scientific names from lookup table if available
-                    String[] meta = LOOKUP.get(rawLabel.toLowerCase().trim());
+                    // Prefer metadata keyed by the normalized name; fall back to the raw label key
+                    String[] meta = LOOKUP.getOrDefault(lookupKey, LOOKUP.get(rawKey));
+                    // Determine category: use lookup table value if available, else caller-supplied fallback
+                    String resolvedCategory = meta != null ? meta[3] : (category != null ? category : "unknown");
+                    SpeciesRecordEntity record = new SpeciesRecordEntity(normalized, resolvedCategory);
                     if (meta != null) {
                         record.setNormalizedNameEn(meta[1]);
                         record.setScientificName(meta[2]);
                     }
-                    log.info("Created new species record: '{}' ({})", normalized, category);
+                    log.info("Created new species record: '{}' ({})", normalized, resolvedCategory);
                     return speciesRepository.save(record);
                 });
     }

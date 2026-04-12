@@ -62,7 +62,16 @@ public class TwoStageVisionProvider implements VisionProvider {
     public VisionResult describeImage(byte[] imageData, VisionContext context) {
         VisionResult preCheck = preFilter.classifyImage(imageData, context);
         if (shouldSkip(preCheck)) {
-            return preCheck;
+            log.debug("TwoStageVisionProvider: pre-filter returned '{}' (conf={}), skipping description",
+                    preCheck.primaryLabel(), String.format("%.2f", preCheck.confidence()));
+            // Return a properly-shaped description result instead of raw classification
+            return new VisionResult(
+                    preCheck.provider(), preCheck.model(), "description",
+                    preCheck.primaryLabel(), preCheck.alternativeLabels(),
+                    preCheck.confidence(), "No subject detected – description skipped",
+                    List.of(), preCheck.rawResponse(), preCheck.durationMs(),
+                    preCheck.successful(), preCheck.errorMessage()
+            );
         }
         return classifier.describeImage(imageData, context);
     }
@@ -71,7 +80,16 @@ public class TwoStageVisionProvider implements VisionProvider {
     public VisionResult detectObjects(byte[] imageData, VisionContext context) {
         VisionResult preCheck = preFilter.classifyImage(imageData, context);
         if (shouldSkip(preCheck)) {
-            return preCheck;
+            log.debug("TwoStageVisionProvider: pre-filter returned '{}' (conf={}), skipping object detection",
+                    preCheck.primaryLabel(), String.format("%.2f", preCheck.confidence()));
+            // Return an object-detection shaped result with empty bounding-box list
+            return new VisionResult(
+                    preCheck.provider(), preCheck.model(), "object_detection",
+                    preCheck.primaryLabel(), preCheck.alternativeLabels(),
+                    preCheck.confidence(), "No subject detected – object detection skipped",
+                    List.of(), preCheck.rawResponse(), preCheck.durationMs(),
+                    preCheck.successful(), preCheck.errorMessage()
+            );
         }
         return classifier.detectObjects(imageData, context);
     }

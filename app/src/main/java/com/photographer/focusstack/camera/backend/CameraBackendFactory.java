@@ -82,9 +82,20 @@ public class CameraBackendFactory {
         }
         if ("folder".equalsIgnoreCase(type)) {
             String path = profile.host(); // host field reused as folder path
+            if (path == null || path.isBlank()) {
+                throw new IllegalArgumentException(
+                        "Profile '" + profile.name() + "': host field must contain a valid folder path for folder backend");
+            }
+            java.nio.file.Path folderPath = java.nio.file.Path.of(path);
+            if (!folderPath.isAbsolute()) {
+                folderPath = folderPath.toAbsolutePath();
+            }
+            if (!folderPath.toFile().isDirectory()) {
+                log.warn("FolderCameraBackend: path does not exist or is not a directory: {}", folderPath);
+            }
             log.info("Creating FolderCameraBackend for profile '{}' ({}) → {}",
-                    profile.name(), profile.id(), path);
-            return new FolderCameraBackend(Path.of(path));
+                    profile.name(), profile.id(), folderPath);
+            return new FolderCameraBackend(folderPath);
         }
         // Default: canon-ccapi
         String host = profile.host();

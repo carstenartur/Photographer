@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -25,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * REST API for the Wildlife Observer.
@@ -36,10 +38,14 @@ import java.util.Optional;
 @RequestMapping("/api/observer")
 public class ObserverController {
 
-    private static final Map<String, ObserverProfile> PROFILE_MAP;
+    /**
+     * In-memory profile store. Pre-loaded with the 5 built-in profiles.
+     * Uses {@link ConcurrentHashMap} to allow safe concurrent mutation from
+     * the create/update profile endpoints.
+     */
+    private static final Map<String, ObserverProfile> PROFILE_MAP = new ConcurrentHashMap<>();
 
     static {
-        PROFILE_MAP = new LinkedHashMap<>();
         for (ObserverProfile p : List.of(
                 ObserverProfile.birdhouse(),
                 ObserverProfile.birdbath(),
@@ -301,6 +307,9 @@ public class ObserverController {
     /**
      * Updates an existing observer profile (stored in memory for the lifetime of this instance).
      *
+     * <p>The profile name in the request body (if provided) must match the {@code {name}} path
+     * parameter; a mismatch returns 400.</p>
+     *
      * @param name the profile name
      * @param body updated profile fields
      */
@@ -310,61 +319,109 @@ public class ObserverController {
         if (!PROFILE_MAP.containsKey(name)) {
             return ResponseEntity.notFound().build();
         }
-        ObserverProfile profile = buildProfileFromMap(body);
+        // Reject requests where body.name contradicts the path parameter
+        Object bodyName = body.get("name");
+        if (bodyName != null && !bodyName.toString().isBlank() && !name.equals(bodyName.toString())) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "Profile name in body must match path parameter. Expected: " + name));
+        }
+        // Force the name field to match the path parameter before building the profile
+        Map<String, Object> normalizedBody = new LinkedHashMap<>(body);
+        normalizedBody.put("name", name);
+        ObserverProfile profile = buildProfileFromMap(normalizedBody);
         PROFILE_MAP.put(name, profile);
         return ResponseEntity.ok(profileToMap(profile));
     }
 
     /**
-     * Tests the configured AI provider with a small sample image.
+     * Tests the configured AI provider availability by checking whether it is reachable/configured.
      *
-     * @param body optional: "imageBase64" (base64-encoded JPEG), "mode" (wildlife/macro_pollinator)
-     * @return a VisionResult-like map with provider, model, primaryLabel, confidence
+     * <p>For the Gemini provider, verifies that the API key is set.
+     * Always returns {@code true} for the built-in mock provider.</p>
+     *
+     * @param body optional: "mode" (wildlife/macro_pollinator) — for documentation purposes
+     * @return provider info including whether the provider is configured and available
      */
     @PostMapping("/ai/test")
     public ResponseEntity<Map<String, Object>> testAiProvider(@RequestBody Map<String, Object> body) {
-        // Return a synthetic test result (the real provider cannot be called without the full DI context here)
+        String preferredProvider = properties.getPreferredAiProvider();
         String mode = body.containsKey("mode") ? body.get("mode").toString() : "wildlife";
+
+        boolean available;
+        String reason;
+        if ("gemini".equalsIgnoreCase(preferredProvider)) {
+            String apiKey = properties.getGemini().getApiKey();
+            if (apiKey == null || apiKey.isBlank()) {
+                // Also check environment variable
+                String envKey = System.getenv("GEMINI_API_KEY");
+                available = envKey != null && !envKey.isBlank();
+                reason = available ? "API key found in environment" : "GEMINI_API_KEY not set";
+            } else {
+                available = true;
+                reason = "API key configured";
+            }
+        } else {
+            // Mock provider is always available
+            available = true;
+            reason = "Mock provider always available";
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("provider", properties.getPreferredAiProvider());
+        result.put("provider", preferredProvider);
         result.put("mode", mode);
-        result.put("primaryLabel", "test-ok");
-        result.put("confidence", 1.0);
-        result.put("summary", "AI provider test endpoint reachable");
-        result.put("successful", true);
+        result.put("available", available);
+        result.put("reason", reason);
+        result.put("successful", available);
         return ResponseEntity.ok(result);
     }
 
     /**
-     * Downloads the best image for a given observation event as JPEG bytes.
+     * Downloads the best image for a given observation event.
+     *
+     * <p>Content type is derived from the file extension. Only paths without {@code ..}
+     * segments are served to prevent path traversal.</p>
      *
      * @param id event UUID
-     * @return JPEG bytes or 404 if the event or image does not exist
+     * @return image bytes (JPEG/PNG) or 404 if not found
      */
-    @GetMapping(value = "/events/{id}/image", produces = MediaType.IMAGE_JPEG_VALUE)
+    @GetMapping("/events/{id}/image")
     public ResponseEntity<byte[]> getEventImage(@PathVariable String id) {
-        java.util.Optional<ObservationEventEntity> found = observerService.findEventById(id);
+        Optional<ObservationEventEntity> found = observerService.findEventById(id);
         if (found.isEmpty()) {
             return ResponseEntity.<byte[]>notFound().build();
         }
-        String path = found.get().getBestImagePath();
-        if (path == null || path.isBlank()) {
+        String pathStr = found.get().getBestImagePath();
+        if (pathStr == null || pathStr.isBlank()) {
             return ResponseEntity.<byte[]>notFound().build();
         }
+        // Security: reject paths that contain relative traversal segments
+        Path imagePath = Path.of(pathStr).normalize();
+        if (!imagePath.equals(Path.of(pathStr).toAbsolutePath().normalize())
+                || pathStr.contains("..")) {
+            return ResponseEntity.<byte[]>badRequest().build();
+        }
         try {
-            byte[] data = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(path));
-            return ResponseEntity.ok()
-                    .contentType(MediaType.IMAGE_JPEG)
-                    .body(data);
+            byte[] data = java.nio.file.Files.readAllBytes(imagePath);
+            MediaType contentType = detectContentType(pathStr);
+            return ResponseEntity.ok().contentType(contentType).body(data);
         } catch (java.io.IOException e) {
             return ResponseEntity.<byte[]>notFound().build();
         }
     }
 
+    /** Derives a {@link MediaType} from the file extension. Defaults to JPEG. */
+    private static MediaType detectContentType(String path) {
+        String lower = path.toLowerCase();
+        if (lower.endsWith(".png")) return MediaType.IMAGE_PNG;
+        if (lower.endsWith(".gif")) return MediaType.IMAGE_GIF;
+        if (lower.endsWith(".webp")) return MediaType.parseMediaType("image/webp");
+        return MediaType.IMAGE_JPEG;
+    }
+
     /**
      * Starts a replay session that re-runs stored images through the observer pipeline.
      *
-     * @param body JSON with "folderPath", "speedMultiplier" (default 1.0), "profileName" (default "birdhouse")
+     * @param body JSON with "folderPath", "speedMultiplier" (default 1.0, must be positive), "profileName"
      */
     @PostMapping("/replay")
     public ResponseEntity<Map<String, Object>> startReplay(@RequestBody Map<String, Object> body) {
@@ -372,8 +429,21 @@ public class ObserverController {
         if (folderPath == null || folderPath.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "folderPath is required"));
         }
-        double speed = body.containsKey("speedMultiplier")
-                ? ((Number) body.get("speedMultiplier")).doubleValue() : 1.0;
+        double speed;
+        if (body.containsKey("speedMultiplier")) {
+            try {
+                speed = Double.parseDouble(body.get("speedMultiplier").toString());
+            } catch (NumberFormatException e) {
+                return ResponseEntity.badRequest().body(Map.of("error",
+                        "speedMultiplier must be a positive number"));
+            }
+        } else {
+            speed = 1.0;
+        }
+        if (speed <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error",
+                    "speedMultiplier must be positive, got: " + speed));
+        }
         String profile = body.containsKey("profileName")
                 ? body.get("profileName").toString() : properties.getDefaultProfile();
 

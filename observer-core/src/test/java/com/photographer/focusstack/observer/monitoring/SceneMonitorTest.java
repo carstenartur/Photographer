@@ -83,17 +83,21 @@ class SceneMonitorTest {
                 3, false, 0, 30, "06:00", "21:00", 120,
                 null, "gemini", "auto", "jpeg");
 
-        // Motion detector with ROI-aware behavior:
-        // returns 0 for ROI (outside → no trigger), high outside ROI
-        StubMotionDetector roiAware = new StubMotionDetector();
-        roiAware.motionScore = 0.0; // ROI has no motion
+        // ROI-aware stub: only returns a high score when the ROI covers the full frame
+        // (i.e. no real ROI constraint). For a small ROI the motion is below threshold.
+        RoiAwareStubMotionDetector roiAware = new RoiAwareStubMotionDetector();
 
         RulesEngine rules = new RulesEngine(List.of(new MotionThresholdRule(0.1)));
         SceneMonitor monitor = new SceneMonitor(roiAware, rules, smallRoiProfile);
 
         monitor.analyzeFrame(frame(new byte[]{0})); // reference
         Optional<TriggerContext> result = monitor.analyzeFrame(frame(new byte[]{(byte) 200}));
+        // ROI is small, so roiAware returns 0.0 → should not trigger
         assertTrue(result.isEmpty(), "No motion in ROI should not trigger");
+
+        // Verify the stub was called with the ROI from the profile
+        assertEquals(smallRoiProfile.defaultRoi(), roiAware.lastRoi,
+                "SceneMonitor must pass the profile ROI to the motion detector");
     }
 
     // ---- helpers ----
@@ -119,6 +123,25 @@ class SceneMonitorTest {
         @Override
         public double estimateObjectSize(byte[] frame, RegionOfInterest roi) {
             return objectSize;
+        }
+    }
+
+    /**
+     * ROI-aware stub that records the last ROI passed to {@code detect()} and
+     * always returns 0.0, simulating no motion within the ROI.
+     */
+    static class RoiAwareStubMotionDetector implements MotionDetector {
+        RegionOfInterest lastRoi;
+
+        @Override
+        public double detect(byte[] reference, byte[] current, RegionOfInterest roi) {
+            this.lastRoi = roi;
+            return 0.0; // no motion in ROI
+        }
+
+        @Override
+        public double estimateObjectSize(byte[] frame, RegionOfInterest roi) {
+            return 0.0;
         }
     }
 }

@@ -82,10 +82,15 @@ public class GeminiResponseParser {
             double confidence = inner.path("confidence").asDouble(0.0);
             String summary = inner.path("summary").asText(null);
 
+            List<BoundingBox> boundingBoxes = List.of();
+            if ("object_detection".equals(taskType)) {
+                boundingBoxes = parseBoundingBoxes(inner);
+            }
+
             return new VisionResult(
                     provider, model, taskType,
                     primaryLabel, altLabels, confidence, summary,
-                    List.of(), rawResponse, durationMs,
+                    boundingBoxes, rawResponse, durationMs,
                     true, null
             );
         } catch (Exception e) {
@@ -94,5 +99,36 @@ public class GeminiResponseParser {
                     "none", List.of(), 0.0, text, List.of(), rawResponse, durationMs,
                     true, null);
         }
+    }
+
+    /**
+     * Parses the {@code objects} array from an object-detection response into
+     * {@link BoundingBox} instances.
+     *
+     * <p>Expected JSON format (normalized coordinates 0.0–1.0):</p>
+     * <pre>
+     * {
+     *   "objects": [
+     *     { "label": "bird", "confidence": 0.92, "x": 0.3, "y": 0.2, "width": 0.15, "height": 0.2 }
+     *   ]
+     * }
+     * </pre>
+     */
+    private static List<BoundingBox> parseBoundingBoxes(JsonNode inner) {
+        JsonNode objects = inner.path("objects");
+        if (!objects.isArray() || objects.isEmpty()) {
+            return List.of();
+        }
+        List<BoundingBox> boxes = new ArrayList<>();
+        for (JsonNode obj : objects) {
+            String label = obj.path("label").asText("unknown");
+            double conf   = obj.path("confidence").asDouble(0.0);
+            double x      = obj.path("x").asDouble(0.0);
+            double y      = obj.path("y").asDouble(0.0);
+            double width  = obj.path("width").asDouble(0.0);
+            double height = obj.path("height").asDouble(0.0);
+            boxes.add(new BoundingBox(x, y, width, height, label, conf));
+        }
+        return List.copyOf(boxes);
     }
 }

@@ -18,15 +18,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Service that re-runs stored image series through the observer pipeline for
- * testing trigger strategies and comparing AI providers.
+ * Service that replays stored image series from a folder for testing trigger strategies
+ * and comparing AI providers.
  *
- * <p>A replay session reads images from a folder via {@link FolderCameraBackend},
- * feeds them as {@link LiveViewFrame}s into an {@link ObserverPipeline}, and
- * records the resulting events.</p>
+ * <p>A replay session reads JPEG/PNG images from a folder via {@link FolderCameraBackend},
+ * iterates through them at a configurable speed, and records progress counters.
+ * The resulting frame counts are available via {@link #getStatus(String)}.</p>
  *
- * <p>Speed is controlled via {@code speedMultiplier}: 1.0 = real-time (500 ms between
- * frames), 2.0 = twice as fast, etc.</p>
+ * <p>Speed is controlled via {@code speedMultiplier}: 1.0 = one frame every 500 ms,
+ * 2.0 = twice as fast, etc. {@code speedMultiplier} must be positive.</p>
+ *
+ * <p>To evaluate trigger strategies or run AI comparison, register an
+ * {@link ObservationEventListener} via {@link #addListener} and wire the replay
+ * output to an {@link ObserverPipeline} externally.</p>
  */
 @Service
 public class ReplayService {
@@ -45,14 +49,18 @@ public class ReplayService {
      * Starts a replay session asynchronously.
      *
      * @param folderPath      path to the folder containing replay images
-     * @param speedMultiplier 1.0 = real-time, 2.0 = double speed, etc.
+     * @param speedMultiplier 1.0 = real-time, 2.0 = double speed, etc. Must be positive.
      * @param profileName     observer profile name to use during replay
      * @return a {@link ReplayStatus} describing the started session
+     * @throws IllegalArgumentException if {@code speedMultiplier} is not positive
      */
     public ReplayStatus startReplay(String folderPath, double speedMultiplier, String profileName) {
+        if (speedMultiplier <= 0) {
+            throw new IllegalArgumentException("speedMultiplier must be positive, got: " + speedMultiplier);
+        }
         String sessionId = java.util.UUID.randomUUID().toString();
         ReplayStatus status = new ReplayStatus(sessionId, folderPath, profileName,
-                speedMultiplier, "RUNNING", 0, 0, 0);
+                speedMultiplier, "RUNNING", 0, 0, 0, null);
         sessions.put(sessionId, status);
 
         executor.submit(() -> runReplay(sessionId, folderPath, speedMultiplier, profileName));
@@ -140,9 +148,11 @@ public class ReplayService {
     private void updateStatus(String sessionId, String state, int frames, int nonEmptyFrames, String error) {
         ReplayStatus old = sessions.get(sessionId);
         if (old != null) {
+            int updatedErrorCount = old.errorCount() + (error == null ? 0 : 1);
             sessions.put(sessionId, new ReplayStatus(
                     old.sessionId(), old.folderPath(), old.profileName(),
-                    old.speedMultiplier(), state, frames, nonEmptyFrames, error == null ? 0 : 1
+                    old.speedMultiplier(), state, frames, nonEmptyFrames,
+                    updatedErrorCount, error != null ? error : old.lastError()
             ));
         }
     }
@@ -152,7 +162,8 @@ public class ReplayService {
      *
      * @param framesProcessed total frames read from the folder
      * @param nonEmptyFrames  number of frames containing image data (not empty)
-     * @param errorCount      number of errors encountered during replay
+     * @param errorCount      cumulative number of errors encountered during replay
+     * @param lastError       message of the most recent error, or {@code null}
      */
     public record ReplayStatus(
             String sessionId,
@@ -162,7 +173,8 @@ public class ReplayService {
             String state,
             int framesProcessed,
             int nonEmptyFrames,
-            int errorCount
+            int errorCount,
+            String lastError
     ) {}
 
     // Expose listener support for future extension

@@ -18,6 +18,7 @@ import tools.jackson.databind.node.ObjectNode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /**
@@ -46,21 +47,32 @@ public class ObserverExportController {
      * Exports observation events in the given date range as CSV or JSON.
      *
      * @param format {@code csv} or {@code json} (default {@code json})
-     * @param from   ISO date string (inclusive), defaults to 30 days ago
-     * @param to     ISO date string (inclusive), defaults to today
+     * @param from   ISO date string (inclusive, e.g. "2026-01-01"), defaults to 30 days ago
+     * @param to     ISO date string (inclusive, e.g. "2026-12-31"), defaults to today
      */
     @GetMapping("/events")
     public ResponseEntity<byte[]> exportEvents(
             @RequestParam(defaultValue = "json") String format,
             @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String to) throws Exception {
 
-        Instant fromInstant = from != null
-                ? LocalDate.parse(from).atStartOfDay(ZoneOffset.UTC).toInstant()
-                : Instant.now().minusSeconds(30L * 24 * 3600);
-        Instant toInstant = to != null
-                ? LocalDate.parse(to).plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
-                : Instant.now().plusSeconds(86400);
+        Instant fromInstant;
+        Instant toInstant;
+        try {
+            fromInstant = from != null
+                    ? LocalDate.parse(from).atStartOfDay(ZoneOffset.UTC).toInstant()
+                    : Instant.now().minusSeconds(30L * 24 * 3600);
+            // toInstant is end-of-day (exclusive start of next day) to include the full last day
+            toInstant = to != null
+                    ? LocalDate.parse(to).plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()
+                    : Instant.now().plusSeconds(86400);
+        } catch (DateTimeParseException e) {
+            byte[] msg = ("Invalid date format. Use ISO format yyyy-MM-dd. " + e.getMessage())
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return ResponseEntity.badRequest()
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(msg);
+        }
 
         List<ObservationEventEntity> events =
                 eventRepository.findByTimestampBetweenOrderByTimestampDesc(fromInstant, toInstant);
@@ -78,7 +90,7 @@ public class ObserverExportController {
      */
     @GetMapping("/species")
     public ResponseEntity<byte[]> exportSpecies(
-            @RequestParam(defaultValue = "json") String format) {
+            @RequestParam(defaultValue = "json") String format) throws Exception {
 
         List<SpeciesRecordEntity> species =
                 speciesRepository.findAllByOrderByTotalSightingsDesc();
@@ -126,7 +138,7 @@ public class ObserverExportController {
 
     // ---- JSON builders ----
 
-    private String buildEventsJson(List<ObservationEventEntity> events) {
+    private String buildEventsJson(List<ObservationEventEntity> events) throws Exception {
         ArrayNode arr = objectMapper.createArrayNode();
         for (ObservationEventEntity e : events) {
             ObjectNode node = objectMapper.createObjectNode();
@@ -145,14 +157,10 @@ public class ObserverExportController {
             node.put("imagePath", e.getBestImagePath());
             arr.add(node);
         }
-        try {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);
-        } catch (Exception ex) {
-            return "[]";
-        }
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);
     }
 
-    private String buildSpeciesJson(List<SpeciesRecordEntity> species) {
+    private String buildSpeciesJson(List<SpeciesRecordEntity> species) throws Exception {
         ArrayNode arr = objectMapper.createArrayNode();
         for (SpeciesRecordEntity s : species) {
             ObjectNode node = objectMapper.createObjectNode();
@@ -165,11 +173,7 @@ public class ObserverExportController {
             node.put("lastSeen", s.getLastSeen() != null ? s.getLastSeen().toString() : null);
             arr.add(node);
         }
-        try {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);
-        } catch (Exception ex) {
-            return "[]";
-        }
+        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);
     }
 
     // ---- response helpers ----
@@ -190,12 +194,24 @@ public class ObserverExportController {
                 .body(bytes);
     }
 
-    /** Escapes a value for use in a CSV cell (wraps in quotes if needed). */
+    /**
+     * Escapes a value for use in a CSV cell and neutralizes spreadsheet formula injection.
+     * Values starting with {@code =}, {@code +}, {@code -}, or {@code @} are prefixed
+     * with a single quote to prevent execution when opened in Excel/Sheets.
+     */
     private static String csvEsc(String value) {
         if (value == null) return "";
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
+        // Neutralize formula injection characters
+        String sanitized = value;
+        if (!sanitized.isEmpty()) {
+            char first = sanitized.charAt(0);
+            if (first == '=' || first == '+' || first == '-' || first == '@') {
+                sanitized = "'" + sanitized;
+            }
         }
-        return value;
+        if (sanitized.contains(",") || sanitized.contains("\"") || sanitized.contains("\n")) {
+            return "\"" + sanitized.replace("\"", "\"\"") + "\"";
+        }
+        return sanitized;
     }
 }
