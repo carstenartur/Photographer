@@ -1,0 +1,42 @@
+package com.photographer.focusstack.cr3.imageio;
+
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+
+import javax.imageio.ImageReadParam;
+
+/**
+ * Extended read parameters for Canon CR3 images.
+ *
+ * <p>Extends {@link ImageReadParam} with CR3-specific options like output mode
+ * (preview vs. full RAW) and processing pipeline control.</p>
+ *
+ * <p>Usage:</p>
+ * <pre>{@code
+ * CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+ * param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
+ * ImageReader reader = ...;
+ * BufferedImage image = reader.read(0, param);
+ * }</pre>
+ */
+public class CanonCr3ImageReadParam extends ImageReadParam {
+
+    private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.defaults();
+
+    /**
+     * Returns the CR3-specific decode options.
+     *
+     * @return the decode options
+     */
+    public Cr3DecodeOptions getDecodeOptions() {
+        return decodeOptions;
+    }
+
+    /**
+     * Sets the CR3-specific decode options.
+     *
+     * @param options the decode options
+     */
+    public void setDecodeOptions(Cr3DecodeOptions options) {
+        this.decodeOptions = options;
+    }
+}
