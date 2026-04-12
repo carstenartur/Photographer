@@ -185,20 +185,46 @@ class CcapiEndpointDiagnosticsIT {
         tryGetAndDump("/ccapi/ver100/event/polling", "Event polling");
     }
 
-    // ── AF endpoint HTTP method verification ─────────────────────────────────
+    // ── Drive focus endpoint verification ──────────────────────────────────
+
+    @Test
+    void verifyDriveFocusEndpointAcceptsPost() {
+        // Per the Canon SDK, manual focus drive uses /drivefocus with {"value": "far1"}.
+        // NOTE: Not all cameras expose this endpoint (e.g. PowerShot G5 X Mark II
+        // with ver100 only does not have /drivefocus).  A 404 is acceptable.
+        String url = BASE_URL + "/ccapi/ver100/shooting/control/drivefocus";
+        byte[] body = "{\"value\":\"far1\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        log.info("POST {} with raw JSON body", url);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setAccept(List.of(MediaType.ALL));
+            headers.set("Accept-Encoding", "");
+            ResponseEntity<String> response = rest.exchange(
+                    url, HttpMethod.POST, new HttpEntity<>(body), String.class);
+            log.info("POST drivefocus — Status: {}, Body: {}", response.getStatusCode(), response.getBody());
+            assertTrue(response.getStatusCode().is2xxSuccessful(),
+                    "POST to drivefocus endpoint should succeed, got: " + response.getStatusCode());
+        } catch (HttpClientErrorException.NotFound e) {
+            log.info("drivefocus endpoint not available on this camera (404) — OK for cameras without MF drive");
+        } catch (RestClientException e) {
+            fail("POST to drivefocus endpoint should not throw: " + e.getMessage());
+        }
+    }
+
+    // ── AF endpoint verification (autofocus start/stop) ─────────────────────
 
     @Test
     void verifyAfEndpointAcceptsPost() {
-        // Send a raw POST to the AF endpoint — this is what the fixed code does.
-        // The camera should accept POST and drive the lens.
+        // Per the Canon SDK, /af is for autofocus start/stop, NOT manual focus drive.
+        // Body should be {"action": "start"} or {"action": "stop"}.
+        // NOTE: Canon CCAPI rejects unknown HTTP headers with 400 "Illegal request
+        // header".  Sending raw bytes with no custom headers matches the Canon SDK.
         String url = BASE_URL + "/ccapi/ver100/shooting/control/af";
-        Map<String, Object> body = Map.of("action", "on", "lensdrivecomposite", "far_small");
-        log.info("POST {} with body: {}", url, body);
+        byte[] body = "{\"action\":\"start\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        log.info("POST {} with raw JSON body", url);
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
             ResponseEntity<String> response = rest.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+                    url, HttpMethod.POST, new HttpEntity<>(body), String.class);
             log.info("POST AF — Status: {}, Body: {}", response.getStatusCode(), response.getBody());
             assertTrue(response.getStatusCode().is2xxSuccessful(),
                     "POST to AF endpoint should succeed, got: " + response.getStatusCode());
@@ -209,15 +235,12 @@ class CcapiEndpointDiagnosticsIT {
 
     @Test
     void verifyAfEndpointRejectsPut() {
-        // Send a raw PUT to the AF endpoint — this is what the OLD broken code did.
-        // The camera should reject it with 405 Method Not Allowed.
+        // PUT is not a valid method for the AF endpoint per the Canon SDK.
         String url = BASE_URL + "/ccapi/ver100/shooting/control/af";
-        Map<String, Object> body = Map.of("action", "on", "lensdrivecomposite", "near_small");
-        log.info("PUT {} with body: {}", url, body);
+        byte[] body = "{\"action\":\"start\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        log.info("PUT {} with raw JSON body", url);
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            rest.exchange(url, HttpMethod.PUT, new HttpEntity<>(body, headers), String.class);
+            rest.exchange(url, HttpMethod.PUT, new HttpEntity<>(body), String.class);
             // If PUT succeeds, the camera firmware differs from what we observed.
             // Log it but don't fail — the important thing is POST works.
             log.warn("PUT to AF endpoint unexpectedly succeeded — camera may accept both methods");

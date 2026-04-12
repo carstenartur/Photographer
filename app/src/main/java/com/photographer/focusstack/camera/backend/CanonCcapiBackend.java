@@ -384,19 +384,51 @@ public class CanonCcapiBackend implements CameraBackend {
         }
     }
 
+    /** Tracks whether we have already started live view on this backend instance. */
+    private final AtomicBoolean liveViewStarted = new AtomicBoolean(false);
+
     @Override
     public LiveViewFrame getLiveView() {
         // Prefer /liveview/flip (single JPEG frame) over /liveview (MJPEG stream).
-        // The camera returns 503 "Live view not started" if liveview has not been
-        // enabled yet — callers should invoke startLiveView() first.
         String url = findEndpoint("liveview/flip");
         if (url == null) url = resolveEndpoint("liveview", "/ccapi/ver100/shooting/liveview/flip");
+
+        // Per the Canon CCAPI spec (§4.11.1), live view must be started via
+        // POST /shooting/liveview before GET /liveview/flip returns image data.
+        // Auto-start on first call to avoid requiring callers to manage the
+        // live-view lifecycle explicitly.
+        if (liveViewStarted.compareAndSet(false, true)) {
+            try {
+                startLiveView("medium");
+                sleepMs(500); // give the camera time to initialise the stream
+            } catch (CameraException e) {
+                liveViewStarted.set(false);
+                log.warn("Failed to auto-start live view: {}", e.getMessage());
+            }
+        }
+
         try {
             byte[] data = restTemplate.getForObject(url, byte[].class);
             if (data == null) {
                 data = new byte[0];
             }
             return new LiveViewFrame(data, 960, 640, Instant.now(), MediaType.IMAGE_JPEG_VALUE);
+        } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {
+            // 503 "Live view not started" — the camera requires POST /liveview first.
+            // Try to start it and retry once.
+            log.info("Live view not started, attempting to start it now...");
+            liveViewStarted.set(false);
+            try {
+                startLiveView("medium");
+                liveViewStarted.set(true);
+                sleepMs(500);
+                byte[] data = restTemplate.getForObject(url, byte[].class);
+                if (data == null) data = new byte[0];
+                return new LiveViewFrame(data, 960, 640, Instant.now(), MediaType.IMAGE_JPEG_VALUE);
+            } catch (RestClientException retryEx) {
+                throw new CameraException(
+                        "Failed to get live view from " + url + " after auto-start: " + retryEx.getMessage(), retryEx);
+            }
         } catch (RestClientException e) {
             throw new CameraException("Failed to get live view from " + url + ": " + e.getMessage(), e);
         }
@@ -740,16 +772,15 @@ public class CanonCcapiBackend implements CameraBackend {
     @Override
     public void setFocus(FocusCommand command) {
         String direction = command.direction() == FocusCommand.Direction.NEAR ? "near" : "far";
-        String size = toMfDriveSize(command.steps());
         String magnitude = toDriveFocusMagnitude(command.steps());
 
-        // Try discovered endpoints in order of preference:
-        // 1. /shooting/control/drivefocus (Canon SDK format, e.g. {"value":"near1"})
-        // 2. /shooting/control/af (CCAPI §4.8.8, e.g. {"action":"on","lensdrivecomposite":"near_small"})
-        //    Use PUT if the endpoint descriptor explicitly allows it, otherwise POST.
-        // 3. /shooting/liveview/remocon (fallback for cameras without /af or /drivefocus)
-        //    Body: {"direction": "far", "magnitude": "medium"}
-        // 4. Log a warning if no focus endpoint is available.
+        // Per the Canon CCAPI SDK, manual focus drive is exclusively handled by:
+        //   POST /shooting/control/drivefocus  →  {"value": "near1"} | {"value": "far2"} etc.
+        // The allowed values are: near1, near2, near3, far1, far2, far3.
+        //
+        // NOTE: /shooting/control/af is for autofocus (start/stop), NOT manual
+        // focus drive.  Its body is {"action": "start"} or {"action": "stop"}.
+        // Using it for manual lens drive would be semantically incorrect.
 
         String driveFocusUrl = findEndpoint("/shooting/control/drivefocus");
         if (driveFocusUrl != null) {
@@ -760,41 +791,10 @@ public class CanonCcapiBackend implements CameraBackend {
                         "Failed to drive focus via " + driveFocusUrl + ": " + e.getMessage(), e);
             }
         } else {
-            String afUrl = findEndpoint("/shooting/control/af");
-            if (afUrl != null) {
-                Map<String, Object> body = Map.of(
-                        "action", "on",
-                        "lensdrivecomposite", direction + "_" + size);
-                try {
-                    if (endpointAllows("/shooting/control/af", HttpMethod.PUT, false)) {
-                        restTemplate.put(afUrl, ccapiEntity(body));
-                    } else {
-                        ccapiPost(afUrl, body);
-                    }
-                } catch (RestClientException e) {
-                    throw new CameraException(
-                            "Failed to trigger AF via " + afUrl + ": " + e.getMessage(), e);
-                }
-            } else {
-                // Camera without /drivefocus or /af — fall back to remocon.
-                String remoconUrl = findEndpoint("/shooting/liveview/remocon");
-                if (remoconUrl != null) {
-                    Map<String, Object> body = Map.of(
-                            "direction", direction,
-                            "magnitude", size);
-                    try {
-                        ccapiPost(remoconUrl, body);
-                    } catch (RestClientException e) {
-                        throw new CameraException(
-                                "Failed to drive focus via " + remoconUrl + ": " + e.getMessage(), e);
-                    }
-                } else {
-                    log.warn("No focus-control endpoint discovered on camera {}. "
-                            + "Available endpoints: {}. "
-                            + "Focus adjustment ignored.",
-                            baseUrl, endpoints.keySet());
-                }
-            }
+            log.warn("No /shooting/control/drivefocus endpoint discovered on camera {}. "
+                    + "Available endpoints: {}. "
+                    + "Manual focus adjustment is not supported on this camera.",
+                    baseUrl, endpoints.keySet());
         }
         // Update tracked position: NEAR decrements, FAR increments
         int delta = command.direction() == FocusCommand.Direction.NEAR
@@ -850,8 +850,7 @@ public class CanonCcapiBackend implements CameraBackend {
         return switch (operation) {
             case LIVE_VIEW -> findEndpoint("liveview") != null;
             case CAPTURE -> findEndpoint("shutterbutton") != null;
-            case FOCUS_CONTROL -> findEndpoint("/shooting/control/drivefocus") != null
-                    || findEndpoint("/shooting/control/af") != null;
+            case FOCUS_CONTROL -> findEndpoint("/shooting/control/drivefocus") != null;
             case SETTINGS_READ -> true;
             case ZOOM_CONTROL, SETTINGS_WRITE -> false;
         };
@@ -874,32 +873,56 @@ public class CanonCcapiBackend implements CameraBackend {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     /**
-     * Wraps a request body in an {@link HttpEntity} with a minimal header set.
-     * Canon CCAPI rejects Spring's default multi-value Accept header.
+     * Wraps a request body in an {@link HttpEntity} with the minimal header set
+     * that the Canon CCAPI embedded HTTP server accepts.
+     *
+     * <p>The Canon SDK sample ({@code HttpCommunication.java}) only sets
+     * {@code Accept-Encoding: ""} and does <strong>not</strong> send
+     * {@code Accept} or explicit {@code Content-Type} headers.  The camera's
+     * HTTP server rejects unknown request headers with
+     * {@code 400 "Illegal request header"}, so we must keep headers to the
+     * absolute minimum.
+     *
+     * <p>We still set {@code Content-Type: application/json} because Spring's
+     * {@link RestTemplate} needs it to serialise the body correctly, and the
+     * camera accepts it.  The {@code Accept} header is intentionally omitted.
      */
-    private static <T> HttpEntity<T> ccapiEntity(T body) {
+    private static HttpEntity<byte[]> ccapiEntity(Object body) {
+        // Serialize to JSON bytes manually — this prevents Spring's
+        // MappingJackson2HttpMessageConverter from being involved and adding
+        // "charset=UTF-8" to the Content-Type, which the Canon camera rejects.
+        byte[] jsonBytes;
+        if (body instanceof byte[]) {
+            jsonBytes = (byte[]) body;
+        } else {
+            try {
+                jsonBytes = JSON_MAPPER.writeValueAsBytes(body);
+            } catch (Exception e) {
+                throw new CameraException("Failed to serialise CCAPI request body: " + e.getMessage(), e);
+            }
+        }
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        return new HttpEntity<>(body, headers);
+        // No Accept, no Accept-Encoding — match the Canon SDK sample.
+        // Content-Type is omitted too; the Canon camera does not require it
+        // and rejects header values it doesn't understand.
+        return new HttpEntity<>(jsonBytes, headers);
     }
+
+    /** Shared Jackson mapper for CCAPI request serialisation. */
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
 
     /**
      * Sends a POST request to the given CCAPI URL with the supplied body,
      * using {@link #ccapiEntity(Object)} to set the required headers.
+     *
+     * <p>The body is pre-serialised to raw JSON bytes so that the only header
+     * the Canon camera sees is {@code Content-Length} (added automatically by
+     * the HTTP client).  This matches the Canon SDK sample which writes raw
+     * bytes via {@code OutputStream} without setting any custom headers.
      */
     private void ccapiPost(String url, Object body) {
-        restTemplate.postForObject(url, ccapiEntity(body), String.class);
-    }
-
-    /**
-     * Maps an abstract step count to a CCAPI focus-drive size string.
-     * CCAPI supports "small", "medium", "large".
-     */
-    static String toMfDriveSize(int steps) {
-        if (steps <= 1) return "small";
-        if (steps <= 5) return "medium";
-        return "large";
+        restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);
     }
 
     /**

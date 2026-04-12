@@ -13,6 +13,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mockito;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
@@ -29,6 +31,31 @@ class CanonCcapiBackendTest {
     private CanonCcapiBackend backend;
     private static final String BASE_URL = "http://192.168.1.2:8080";
 
+    /** Stub exchange() to return an empty 200 OK response for any POST. */
+    private void stubExchangeOk() {
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{}"));
+    }
+
+    /** Stub exchange() to throw on any POST. */
+    private void stubExchangeThrows(RuntimeException ex) {
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+                .thenThrow(ex);
+    }
+
+    /** ArgMatcher: the HttpEntity body is a byte[] whose JSON content contains the given substring. */
+    private static HttpEntity<byte[]> entityWithJson(String jsonSubstring) {
+        return argThat(arg -> {
+            if (arg == null) return false;
+            Object body = arg.getBody();
+            if (body instanceof byte[] bytes) {
+                String json = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                return json.contains(jsonSubstring);
+            }
+            return false;
+        });
+    }
+
     // Simulated CCAPI endpoint list returned by GET /ccapi/ver100
     private static final List<String> DISCOVERED_ENDPOINTS = List.of(
             "/ccapi/ver100/deviceinformation",
@@ -37,6 +64,7 @@ class CanonCcapiBackendTest {
             "/ccapi/ver100/shooting/liveview",
             "/ccapi/ver100/shooting/liveview/flip",
             "/ccapi/ver100/shooting/control/shutterbutton",
+            "/ccapi/ver100/shooting/control/drivefocus",
             "/ccapi/ver100/shooting/control/af",
             "/ccapi/ver100/event/polling",
             "/ccapi/ver100/contents/sd"
@@ -204,8 +232,7 @@ class CanonCcapiBackendTest {
 
     @Test
     void capture_triggersShutterViaDiscoveredEndpoint() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
-                .thenReturn("{\"message\": \"ok\"}");
+        stubExchangeOk();
 
         CaptureResult result = backend.capture();
 
@@ -214,15 +241,16 @@ class CanonCcapiBackendTest {
         assertTrue(result.fileName().endsWith(".jpg"));
         assertNotNull(result.capturedAt());
         assertNull(result.imageData());
-        verify(restTemplate).postForObject(
+        verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton"),
-                argThat(arg -> arg instanceof HttpEntity<?> he && Map.of("af", false).equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("\"af\""),
                 eq(String.class));
     }
 
     @Test
     void capture_reportsFocusPositionFromLastSetFocus() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 5));
         CaptureResult result = backend.capture();
@@ -232,8 +260,7 @@ class CanonCcapiBackendTest {
 
     @Test
     void capture_throwsCameraExceptionOnNetworkError() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
-                .thenThrow(new ResourceAccessException("timeout"));
+        stubExchangeThrows(new ResourceAccessException("timeout"));
 
         assertThrows(CameraException.class, () -> backend.capture());
     }
@@ -243,7 +270,7 @@ class CanonCcapiBackendTest {
         // Backend with 0 ms poll interval and generous timeout so mock responds immediately.
         CanonCcapiBackend downloadBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         // Pre-capture: one existing image with an older datetime.
         CanonCcapiBackend.ContentListing folderListing = new CanonCcapiBackend.ContentListing(
@@ -283,7 +310,7 @@ class CanonCcapiBackendTest {
         // Backend with 0 ms poll interval so the mock responds in the first loop iteration.
         CanonCcapiBackend downloadBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         // Pre-capture: SD card is empty (no files).
         CanonCcapiBackend.ContentListing emptyFolder = new CanonCcapiBackend.ContentListing(
@@ -317,7 +344,7 @@ class CanonCcapiBackendTest {
         // Use a very short timeout and no mocked contents → download times out.
         CanonCcapiBackend timeoutBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 1);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         CaptureResult result = timeoutBackend.capture();
 
@@ -336,7 +363,7 @@ class CanonCcapiBackendTest {
         // Use a generous timeout — if browsing were attempted the poll loop would run.
         CanonCcapiBackend noContentsBackend =
                 new CanonCcapiBackend(BASE_URL, restTemplate, 0, 5_000);
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         long before = System.currentTimeMillis();
         CaptureResult result = noContentsBackend.capture();
@@ -353,47 +380,47 @@ class CanonCcapiBackendTest {
     // ── setFocus ──────────────────────────────────────────────────────────────
 
     @Test
-    void setFocus_usesAfEndpointWithSmallStep() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+    void setFocus_usesDriveFocusWithSmallStep() {
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 1));
 
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "on", "lensdrivecomposite", "near_small").equals(he.getBody())),
+        verify(restTemplate).exchange(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
+                eq(HttpMethod.POST),
+                entityWithJson("\"near1\""),
                 eq(String.class));
     }
 
     @Test
-    void setFocus_usesAfEndpointWithMediumStep() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+    void setFocus_usesDriveFocusWithMediumStep() {
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
 
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "on", "lensdrivecomposite", "far_medium").equals(he.getBody())),
+        verify(restTemplate).exchange(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
+                eq(HttpMethod.POST),
+                entityWithJson("\"far2\""),
                 eq(String.class));
     }
 
     @Test
-    void setFocus_usesAfEndpointWithLargeStep() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+    void setFocus_usesDriveFocusWithLargeStep() {
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 10));
 
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "on", "lensdrivecomposite", "far_large").equals(he.getBody())),
+        verify(restTemplate).exchange(
+                eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
+                eq(HttpMethod.POST),
+                entityWithJson("\"far3\""),
                 eq(String.class));
     }
 
     @Test
     void setFocus_accumulatesFocusPositionAcrossMultipleCalls() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 10));
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 5));
@@ -405,31 +432,26 @@ class CanonCcapiBackendTest {
     }
 
     @Test
-    void setFocus_fallsBackToRemoconWhenAfNotDiscovered() {
-        // Override discovery: no /af endpoint, but has /remocon
+    void setFocus_logsWarningWhenDriveFocusNotDiscovered() {
+        // Override discovery: no /drivefocus endpoint
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
                 .thenReturn(List.of(
                         "/ccapi/ver100/deviceinformation",
-                        "/ccapi/ver100/shooting/liveview/remocon",
                         "/ccapi/ver100/shooting/liveview/flip"
                 ));
         backend = new CanonCcapiBackend(BASE_URL, restTemplate);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
-
+        // Should not throw — just logs a warning and still updates focus position
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
 
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/liveview/remocon"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("direction", "far", "magnitude", "medium").equals(he.getBody())),
-                eq(String.class));
+        // No HTTP call should have been made for focus
+        verify(restTemplate, never()).exchange(
+                contains("/shooting/control"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
     }
 
     @Test
     void setFocus_throwsCameraExceptionOnNetworkError() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
-                .thenThrow(new ResourceAccessException("timeout"));
+        stubExchangeThrows(new ResourceAccessException("timeout"));
 
         assertThrows(CameraException.class,
                 () -> backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 1)));
@@ -491,7 +513,7 @@ class CanonCcapiBackendTest {
 
     @Test
     void getState_reportsFocusPositionFromLastSetFocus() {
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        stubExchangeOk();
         when(restTemplate.getForObject(
                 eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
                 eq(CanonCcapiBackend.BatteryStatus.class)))
@@ -538,16 +560,6 @@ class CanonCcapiBackendTest {
         assertEquals(100, CanonCcapiBackend.parseBatteryLevel("unknown"));
     }
 
-    // ── toMfDriveSize ─────────────────────────────────────────────────────────
-
-    @Test
-    void toMfDriveSize_mapsStepCountsCorrectly() {
-        assertEquals("small", CanonCcapiBackend.toMfDriveSize(1));
-        assertEquals("medium", CanonCcapiBackend.toMfDriveSize(3));
-        assertEquals("medium", CanonCcapiBackend.toMfDriveSize(5));
-        assertEquals("large", CanonCcapiBackend.toMfDriveSize(10));
-    }
-
     // ── supports ─────────────────────────────────────────────────────────────
 
     @Test
@@ -566,12 +578,13 @@ class CanonCcapiBackendTest {
     }
 
     @Test
-    void supports_focusControlFalseWhenNeitherAfNorRemoconDiscovered() {
-        // Override discovery: no /af and no /remocon
+    void supports_focusControlFalseWhenDriveFocusNotDiscovered() {
+        // Override discovery: no /drivefocus endpoint (only /af, which is autofocus, not manual drive)
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
                 .thenReturn(List.of(
                         "/ccapi/ver100/deviceinformation",
-                        "/ccapi/ver100/shooting/liveview/flip"
+                        "/ccapi/ver100/shooting/liveview/flip",
+                        "/ccapi/ver100/shooting/control/af"
                 ));
         backend = new CanonCcapiBackend(BASE_URL, restTemplate);
 
@@ -680,49 +693,6 @@ class CanonCcapiBackendTest {
 
         // Should NOT have made a second GET call for the version root
         verify(restTemplate, never()).getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class));
-    }
-
-    @Test
-    void setFocus_usesPutWhenDescriptorExplicitlyAllowsPut() {
-        // Simulate a camera where the AF endpoint explicitly allows PUT
-        List<Map<String, Object>> descriptors = List.of(
-                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
-                Map.of("url", "/ccapi/ver100/shooting/control/af", "put", true)
-        );
-        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
-                .thenReturn(Map.of("ver100", descriptors));
-        doNothing().when(restTemplate).put(anyString(), any());
-
-        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
-        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 1));
-
-        verify(restTemplate).put(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "on", "lensdrivecomposite", "far_small").equals(he.getBody())));
-    }
-
-    @Test
-    void setFocus_usesPostWhenDescriptorAllowsPostNotPut() {
-        // Simulate real Canon camera where the AF endpoint allows POST (not PUT)
-        List<Map<String, Object>> descriptors = List.of(
-                Map.of("url", "/ccapi/ver100/deviceinformation", "get", true),
-                Map.of("url", "/ccapi/ver100/shooting/control/af", "post", true)
-        );
-        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
-                .thenReturn(Map.of("ver100", descriptors));
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
-
-        backend = new CanonCcapiBackend(BASE_URL, restTemplate);
-        backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 3));
-
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "on", "lensdrivecomposite", "near_medium").equals(he.getBody())),
-                eq(String.class));
-        // Should NOT have used PUT
-        verify(restTemplate, never()).put(anyString(), any());
     }
 
     // ── getState with no storage endpoint ────────────────────────────────────
@@ -848,68 +818,69 @@ class CanonCcapiBackendTest {
         CanonCcapiBackend manualBackend =
                 new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0, 0, 0, 0);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         manualBackend.capture();
 
         org.mockito.InOrder inOrder = Mockito.inOrder(restTemplate);
-        inOrder.verify(restTemplate).postForObject(
+        inOrder.verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton/manual"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "half_press", "af", false).equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("half_press"),
                 eq(String.class));
-        inOrder.verify(restTemplate).postForObject(
+        inOrder.verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton/manual"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "full_press", "af", false).equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("full_press"),
                 eq(String.class));
-        inOrder.verify(restTemplate).postForObject(
+        inOrder.verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton/manual"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "release", "af", false).equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("release"),
                 eq(String.class));
     }
 
     @Test
     void capture_fallsBackToSinglePostWhenManualEndpointNotDiscovered() {
         // Standard DISCOVERED_ENDPOINTS has shutterbutton but not shutterbutton/manual.
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
-                .thenReturn("{\"message\": \"ok\"}");
+        stubExchangeOk();
 
         backend.capture();
 
         // Should use single POST to shutterbutton, NOT the 3-phase sequence.
-        verify(restTemplate, times(1)).postForObject(
+        verify(restTemplate, times(1)).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("af", false).equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("\"af\""),
                 eq(String.class));
-        verify(restTemplate, never()).postForObject(
-                contains("shutterbutton/manual"), any(), eq(String.class));
+        verify(restTemplate, never()).exchange(
+                contains("shutterbutton/manual"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
     }
 
     // ── drivefocus endpoint preference ────────────────────────────────────────
 
     @Test
-    void setFocus_prefersDriveFocusOverAfEndpoint() {
+    void setFocus_usesDriveFocusAndIgnoresAfEndpoint() {
+        // Both drivefocus and af are discovered; only drivefocus should be used
+        // (/af is for autofocus start/stop, not manual focus drive).
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
                 .thenReturn(List.of(
                         "/ccapi/ver100/shooting/control/drivefocus",
                         "/ccapi/ver100/shooting/control/af"
                 ));
         backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 1));
 
-        verify(restTemplate).postForObject(
+        verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("value", "near1").equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("\"near1\""),
                 eq(String.class));
-        // Should NOT fall through to /af
-        verify(restTemplate, never()).postForObject(
-                contains("/shooting/control/af"), any(), eq(String.class));
+        // /af must NOT be called for focus drive
+        verify(restTemplate, never()).exchange(
+                contains("/shooting/control/af"), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
     }
 
     @Test
@@ -917,14 +888,14 @@ class CanonCcapiBackendTest {
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
                 .thenReturn(List.of("/ccapi/ver100/shooting/control/drivefocus"));
         backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
 
-        verify(restTemplate).postForObject(
+        verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("value", "far2").equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("\"far2\""),
                 eq(String.class));
     }
 
@@ -933,28 +904,14 @@ class CanonCcapiBackendTest {
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
                 .thenReturn(List.of("/ccapi/ver100/shooting/control/drivefocus"));
         backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 0);
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
+        stubExchangeOk();
 
         backend.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 10));
 
-        verify(restTemplate).postForObject(
+        verify(restTemplate).exchange(
                 eq(BASE_URL + "/ccapi/ver100/shooting/control/drivefocus"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("value", "near3").equals(he.getBody())),
-                eq(String.class));
-    }
-
-    @Test
-    void setFocus_fallsBackToAfWhenDriveFocusNotDiscovered() {
-        // Standard DISCOVERED_ENDPOINTS has /af but not /drivefocus.
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(null);
-
-        backend.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 3));
-
-        verify(restTemplate).postForObject(
-                eq(BASE_URL + "/ccapi/ver100/shooting/control/af"),
-                argThat(arg -> arg instanceof HttpEntity<?> he
-                        && Map.of("action", "on", "lensdrivecomposite", "far_medium").equals(he.getBody())),
+                eq(HttpMethod.POST),
+                entityWithJson("\"near3\""),
                 eq(String.class));
     }
 
@@ -975,7 +932,7 @@ class CanonCcapiBackendTest {
         // Backend with download enabled; event/polling is in the discovered list.
         CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         String newImagePath = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.JPG";
         when(restTemplate.getForObject(
@@ -998,7 +955,7 @@ class CanonCcapiBackendTest {
         // Backend with download enabled; event/polling returns nothing useful.
         CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
 
-        when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("{}");
+        stubExchangeOk();
 
         // event/polling returns an empty map (no content URLs).
         when(restTemplate.getForObject(
