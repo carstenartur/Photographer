@@ -118,11 +118,9 @@ public class CanonCr3ImageReader extends ImageReader {
 
         Cr3DecodeOptions options;
         if (param instanceof CanonCr3ImageReadParam cr3Param) {
+            options = cr3Param.getDecodeOptions();
             if (cr3Param.isPreviewOnly()) {
-                options = Cr3DecodeOptions.defaults()
-                        .outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
-            } else {
-                options = cr3Param.getDecodeOptions();
+                options = options.outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
             }
         } else {
             options = Cr3DecodeOptions.defaults();
@@ -214,11 +212,18 @@ public class CanonCr3ImageReader extends ImageReader {
     private int getPreviewWidth() throws IOException {
         Cr3Container container = decoder.getContainer();
         if (container != null) {
+            // Prefer JPEG_PREVIEW track, fall back to any track with non-zero width
+            int fallbackWidth = 0;
             for (var track : container.tracks()) {
-                if (track.width() > 0) {
+                if (track.type() == com.photographer.focusstack.cr3.container.Cr3Track.TrackType.JPEG_PREVIEW
+                        && track.width() > 0) {
                     return track.width();
                 }
+                if (fallbackWidth == 0 && track.width() > 0) {
+                    fallbackWidth = track.width();
+                }
             }
+            return fallbackWidth;
         }
         return 0;
     }
@@ -226,11 +231,18 @@ public class CanonCr3ImageReader extends ImageReader {
     private int getPreviewHeight() throws IOException {
         Cr3Container container = decoder.getContainer();
         if (container != null) {
+            // Prefer JPEG_PREVIEW track, fall back to any track with non-zero height
+            int fallbackHeight = 0;
             for (var track : container.tracks()) {
-                if (track.height() > 0) {
+                if (track.type() == com.photographer.focusstack.cr3.container.Cr3Track.TrackType.JPEG_PREVIEW
+                        && track.height() > 0) {
                     return track.height();
                 }
+                if (fallbackHeight == 0 && track.height() > 0) {
+                    fallbackHeight = track.height();
+                }
             }
+            return fallbackHeight;
         }
         return 0;
     }

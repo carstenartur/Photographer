@@ -138,14 +138,25 @@ public final class Cr3PreviewExtractor {
     }
 
     private static byte[] readTrackData(ImageInputStream input, Cr3Track track) throws IOException {
-        if (track.dataSize() <= 0) {
-            throw new IOException("Track " + track.index() + " has no data (size=" + track.dataSize() + ")");
+        long dataOffset = track.dataOffset();
+        long dataSize = track.dataSize();
+        if (dataSize <= 0) {
+            throw new IOException("Track " + track.index() + " has no data (size=" + dataSize + ")");
         }
-        if (track.dataSize() > 50 * 1024 * 1024) {
-            throw new IOException("Track " + track.index() + " data too large: " + track.dataSize() + " bytes");
+        if (dataSize > 50 * 1024 * 1024) {
+            throw new IOException("Track " + track.index() + " data too large: " + dataSize + " bytes");
         }
-        byte[] data = new byte[(int) track.dataSize()];
-        input.seek(track.dataOffset());
+        // Validate range against stream length before seeking/reading
+        long streamLength = input.length();
+        if (streamLength >= 0) {
+            if (dataOffset < 0 || dataOffset > streamLength || dataSize > streamLength - dataOffset) {
+                throw new IOException(
+                        "Track " + track.index() + " data range is out of bounds: offset=" + dataOffset
+                                + ", size=" + dataSize + ", streamLength=" + streamLength);
+            }
+        }
+        byte[] data = new byte[(int) dataSize];
+        input.seek(dataOffset);
         input.readFully(data);
         return data;
     }

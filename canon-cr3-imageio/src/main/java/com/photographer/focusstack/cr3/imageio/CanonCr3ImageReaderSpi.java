@@ -64,21 +64,24 @@ public class CanonCr3ImageReaderSpi extends ImageReaderSpi {
         input.setByteOrder(ByteOrder.BIG_ENDIAN);
         input.mark();
         try {
-            // CR3 files start with an ftyp box: [4 bytes size][4 bytes "ftyp"][4 bytes brand "crx "]
+            // CR3 files start with an ftyp box
             if (input.length() >= 0 && input.length() < 12) {
                 return false;
             }
 
-            input.readInt(); // size
+            long size = Integer.toUnsignedLong(input.readInt());
             byte[] type = new byte[4];
             input.readFully(type);
             if (!"ftyp".equals(new String(type, StandardCharsets.US_ASCII))) {
                 return false;
             }
 
-            byte[] brand = new byte[4];
-            input.readFully(brand);
-            return "crx ".equals(new String(brand, StandardCharsets.US_ASCII));
+            // Parse the full ftyp box to check major brand + compatible brands
+            com.photographer.focusstack.cr3.bmff.IsoBox ftypIsoBox =
+                    new com.photographer.focusstack.cr3.bmff.IsoBox("ftyp", size, 0);
+            com.photographer.focusstack.cr3.bmff.FtypBox ftypBox =
+                    com.photographer.focusstack.cr3.bmff.FtypBox.parse(input, ftypIsoBox);
+            return ftypBox.isCr3();
         } catch (IOException e) {
             return false;
         } finally {

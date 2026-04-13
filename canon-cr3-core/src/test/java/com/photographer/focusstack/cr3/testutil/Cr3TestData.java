@@ -78,7 +78,9 @@ public final class Cr3TestData {
     }
 
     /**
-     * Creates a minimal 1×1 red JPEG image as a byte array.
+     * Creates a minimal 2×2 JPEG image as a byte array.
+     *
+     * <p>Pixels: top-left red, top-right green, bottom-left blue, bottom-right white.</p>
      *
      * @return JPEG bytes
      */

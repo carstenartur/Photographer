@@ -94,6 +94,9 @@ public final class Cr3Parser {
     /**
      * Checks whether the given input stream starts with a valid CR3 file signature.
      *
+     * <p>Parses the full ftyp box to check both the major brand and compatible brands
+     * for "crx ", matching the detection behavior of {@link FtypBox#isCr3()}.</p>
+     *
      * @param input the image input stream
      * @return {@code true} if the file appears to be a CR3 file
      * @throws IOException if an I/O error occurs
@@ -103,13 +106,12 @@ public final class Cr3Parser {
         input.seek(0);
 
         // A CR3 file must start with an ftyp box
-        // Minimum ftyp box: 4 bytes size + 4 bytes "ftyp" + 4 bytes major brand
         if (input.length() >= 0 && input.length() < 12) {
             return false;
         }
 
         try {
-            int size = input.readInt();
+            long size = Integer.toUnsignedLong(input.readInt());
             byte[] type = new byte[4];
             input.readFully(type);
             String typeStr = new String(type, java.nio.charset.StandardCharsets.US_ASCII);
@@ -118,11 +120,10 @@ public final class Cr3Parser {
                 return false;
             }
 
-            byte[] brand = new byte[4];
-            input.readFully(brand);
-            String majorBrand = new String(brand, java.nio.charset.StandardCharsets.US_ASCII);
-
-            return FtypBox.CR3_BRAND.equals(majorBrand);
+            // Parse the full ftyp box to check major brand + compatible brands
+            IsoBox ftypIsoBox = new IsoBox("ftyp", size, 0);
+            FtypBox ftypBox = FtypBox.parse(input, ftypIsoBox);
+            return ftypBox.isCr3();
         } catch (java.io.EOFException e) {
             return false;
         } finally {
@@ -241,6 +242,18 @@ public final class Cr3Parser {
         // Determine track type based on index and codec
         Cr3Track.TrackType type = determineTrackType(index, codecType);
         CompressionMode compressionMode = determineCompressionMode(codecType, type);
+
+        // Validate track data offsets against mdat box bounds
+        if (dataOffset > 0 && dataSize > 0 && mdatBox.size() > 0) {
+            long mdatStart = mdatBox.dataOffset();
+            long mdatEnd = mdatBox.offset() + mdatBox.size();
+            long trackEnd = dataOffset + dataSize;
+            if (dataOffset < mdatStart || trackEnd > mdatEnd) {
+                LOG.warn("Track {} data range [{}, {}) falls outside mdat [{}, {})",
+                        index, dataOffset, trackEnd, mdatStart, mdatEnd);
+            }
+        }
+
         LOG.debug("Track {}: type={}, codec='{}', {}x{}, offset={}, size={}, compression={}",
                 index, type, codecType, width, height, dataOffset, dataSize, compressionMode);
 

@@ -113,6 +113,22 @@ public final class IsoBmffReader {
 
             LOG.debug("Box '{}' at offset {} size {}", type, pos, size);
 
+            // Validate that the box fits within the parent range
+            if (size > 0) {
+                // Overflow guard
+                long boxEnd = pos + size;
+                if (boxEnd < pos) {
+                    LOG.warn("Box '{}' at offset {} overflows (size {})", type, pos, size);
+                    break;
+                }
+                // Bounds check: box must not exceed parent end
+                if (end >= 0 && boxEnd > end) {
+                    LOG.warn("Box '{}' at offset {} (size {}) exceeds parent boundary {}",
+                            type, pos, size, end);
+                    break;
+                }
+            }
+
             // Parse children for known container types
             List<IsoBox> children;
             if (CONTAINER_TYPES.contains(type)) {

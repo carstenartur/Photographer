@@ -3,6 +3,7 @@ package com.photographer.focusstack.cr3.imageio;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
 
 import javax.imageio.ImageReadParam;
+import java.util.Objects;
 
 /**
  * Extended read parameters for Canon CR3 images.
@@ -35,10 +36,11 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
     /**
      * Sets the CR3-specific decode options.
      *
-     * @param options the decode options
+     * @param options the decode options (must not be null)
+     * @throws NullPointerException if options is null
      */
     public void setDecodeOptions(Cr3DecodeOptions options) {
-        this.decodeOptions = options;
+        this.decodeOptions = Objects.requireNonNull(options, "Decode options must not be null");
     }
 
     /**
