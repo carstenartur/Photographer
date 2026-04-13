@@ -31,8 +31,7 @@ public final class IsoBmffReader {
     private static final java.util.Set<String> CONTAINER_TYPES = java.util.Set.of(
             "moov", "trak", "mdia", "minf", "stbl", "dinf", "edts",
             "mvex", "moof", "traf", "mfra", "udta", "meta", "iloc",
-            // CR3-specific containers
-            "CMT1", "CMT2", "CMT3", "CMT4", "CNCV", "CCTP", "CTBO"
+            "CCTP", "CRAW", "CDI1", "uuid", "stsd"
     );
 
     private IsoBmffReader() {
@@ -133,10 +132,17 @@ public final class IsoBmffReader {
             List<IsoBox> children;
             if (CONTAINER_TYPES.contains(type)) {
                 long headerSize = extendedHeader ? 16 : 8;
-                // 'meta' box has a 4-byte version/flags field after the header
                 long childStart = pos + headerSize;
-                if ("meta".equals(type)) {
-                    childStart += 4;
+                if ("meta".equals(type) || "CDI1".equals(type)) {
+                    childStart += 4; // FullBox version/flags
+                } else if ("CCTP".equals(type)) {
+                    childStart += 12; // 3-long CCTP-specific header
+                } else if ("CRAW".equals(type)) {
+                    childStart += 82; // Visual SampleEntry: 82 bytes before children
+                } else if ("uuid".equals(type)) {
+                    childStart += 16; // 16-byte UUID value
+                } else if ("stsd".equals(type)) {
+                    childStart += 8; // FullBox 4 bytes + count 4 bytes
                 }
                 children = readBoxes(input, childStart, pos + size);
             } else {

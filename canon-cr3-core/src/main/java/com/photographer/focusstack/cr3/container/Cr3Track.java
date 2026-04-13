@@ -1,24 +1,10 @@
 package com.photographer.focusstack.cr3.container;
 
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
+import com.photographer.focusstack.cr3.bmff.Iad1Box;
+
 /**
  * Represents a single track within a CR3 file.
- *
- * <p>CR3 files typically contain 3-4 tracks:</p>
- * <ul>
- *   <li>Track 1 (JPEG thumbnail): small preview, ~160×120 pixels</li>
- *   <li>Track 2 (JPEG preview): main preview, ~1620×1080 pixels</li>
- *   <li>Track 3 (CRX RAW): lossless RAW sensor data, full resolution</li>
- *   <li>Track 4 (CRX HDR): optional HDR RAW data</li>
- * </ul>
- *
- * @param index           zero-based track index
- * @param type            the track type
- * @param dataOffset      absolute offset of the track's data within the file
- * @param dataSize        size of the track's data in bytes
- * @param width           image width in pixels (0 if unknown)
- * @param height          image height in pixels (0 if unknown)
- * @param codecType       codec four-character code (e.g. "CRAW")
- * @param compressionMode the compression mode (RAW_LOSSLESS, CRAW_LOSSY, or UNKNOWN)
  */
 public record Cr3Track(
         int index,
@@ -28,25 +14,40 @@ public record Cr3Track(
         int width,
         int height,
         String codecType,
-        CompressionMode compressionMode
+        CompressionMode compressionMode,
+        Cmp1Box cmp1,
+        Iad1Box iad1
 ) {
 
-    /**
-     * Backwards-compatible constructor without compression mode (defaults to UNKNOWN).
-     */
+    /** Backwards-compatible constructor without cmp1/iad1 (defaults to null). */
     public Cr3Track(int index, TrackType type, long dataOffset, long dataSize,
-                    int width, int height, String codecType) {
-        this(index, type, dataOffset, dataSize, width, height, codecType, CompressionMode.UNKNOWN);
+                    int width, int height, String codecType, CompressionMode compressionMode) {
+        this(index, type, dataOffset, dataSize, width, height, codecType, compressionMode, null, null);
     }
 
-    /**
-     * Enumeration of CR3 track types.
-     */
+    /** Backwards-compatible constructor without compression mode (defaults to UNKNOWN). */
+    public Cr3Track(int index, TrackType type, long dataOffset, long dataSize,
+                    int width, int height, String codecType) {
+        this(index, type, dataOffset, dataSize, width, height, codecType, CompressionMode.UNKNOWN, null, null);
+    }
+
     public enum TrackType {
         /** Small JPEG thumbnail. */
         JPEG_THUMBNAIL,
         /** Main JPEG preview image. */
         JPEG_PREVIEW,
+        /** Full-size JPEG track (main JPEG image). */
+        JPEG_BIG,
+        /** Small CRX RAW preview track. */
+        CRX_SMALL,
+        /** Full-resolution CRX RAW track. */
+        CRX_BIG,
+        /** Dual-pixel CRX RAW delta track. */
+        CRX_DUAL_PIXEL,
+        /** Canon Timed Metadata track. */
+        METADATA,
+        /** HEVC/HDR track (HDR CR3 files). */
+        HEVC_HDR,
         /** Lossless CRX RAW data. */
         CRX_RAW,
         /** Lossless CRX HDR RAW data. */
@@ -61,3 +62,4 @@ public record Cr3Track(
                 .formatted(index, type, dataOffset, dataSize, width, height, codecType, compressionMode);
     }
 }
+
