@@ -14,6 +14,8 @@ import java.io.IOException;
 public final class BitReader {
 
     private final byte[] data;
+    private final int startOffset;
+    private final int endOffset;
     private int bytePos;
     private int bitPos;  // bits remaining in current byte (8..1)
 
@@ -23,8 +25,29 @@ public final class BitReader {
      * @param data the byte array to read from
      */
     public BitReader(byte[] data) {
+        this(data, 0, data.length);
+    }
+
+    /**
+     * Creates a new BitReader over a slice of the given data.
+     *
+     * <p>Reads from {@code data[offset]} to {@code data[offset + length - 1]}
+     * without copying the underlying array.</p>
+     *
+     * @param data   the byte array to read from
+     * @param offset start offset within the array
+     * @param length number of bytes to read
+     */
+    public BitReader(byte[] data, int offset, int length) {
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new IllegalArgumentException(
+                    "Invalid slice: offset=%d, length=%d, array length=%d"
+                            .formatted(offset, length, data.length));
+        }
         this.data = data;
-        this.bytePos = 0;
+        this.startOffset = offset;
+        this.endOffset = offset + length;
+        this.bytePos = offset;
         this.bitPos = 8;
     }
 
@@ -35,8 +58,8 @@ public final class BitReader {
      * @throws IOException if end of data is reached
      */
     public int readBit() throws IOException {
-        if (bytePos >= data.length) {
-            throw new IOException("BitReader: end of data at byte " + bytePos);
+        if (bytePos >= endOffset) {
+            throw new IOException("BitReader: end of data at byte " + (bytePos - startOffset));
         }
         bitPos--;
         int bit = (data[bytePos] >> bitPos) & 1;
@@ -79,12 +102,12 @@ public final class BitReader {
         return count;
     }
 
-    /** Returns the current byte position. */
-    public int bytePosition() { return bytePos; }
+    /** Returns the current byte position relative to the start offset. */
+    public int bytePosition() { return bytePos - startOffset; }
 
-    /** Returns the total number of bytes. */
-    public int length() { return data.length; }
+    /** Returns the total number of bytes in this reader's slice. */
+    public int length() { return endOffset - startOffset; }
 
     /** Returns whether there is more data to read. */
-    public boolean hasMore() { return bytePos < data.length; }
+    public boolean hasMore() { return bytePos < endOffset; }
 }

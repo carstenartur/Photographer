@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Decoder for Canon CRX lossless RAW data.
@@ -101,7 +100,17 @@ public final class CrxLosslessRawDecoder {
                             + " in tile " + tile.index());
                 }
 
+                // Validate tile index is within expected range
+                if (tile.index() < 0 || tile.index() >= numTiles) {
+                    throw new Cr3Exception("Tile index " + tile.index()
+                            + " is out of range [0, " + numTiles + ")");
+                }
+
                 int tileXOffset = tile.index() * tilePixelWidth;
+                if (tileXOffset + tilePixelWidth > planeWidth) {
+                    throw new Cr3Exception("Tile " + tile.index() + " exceeds plane width: "
+                            + (tileXOffset + tilePixelWidth) + " > " + planeWidth);
+                }
 
                 for (CrxHeader.Plane plane : tile.planes()) {
                     if (plane.subbands().isEmpty()) {
@@ -163,9 +172,8 @@ public final class CrxLosslessRawDecoder {
         int[] result = new int[width * height];
         int maxVal = (1 << bitDepth) - 1;
 
-        // Extract the subband data
-        byte[] subData = Arrays.copyOfRange(data, offset, endOffset);
-        BitReader reader = new BitReader(subData);
+        // Read directly from the original data with offset/length to avoid extra buffer copies
+        BitReader reader = new BitReader(data, offset, endOffset - offset);
 
         // JPEG-LS-style adaptive parameters
         int k = 0;  // Rice parameter
@@ -266,16 +274,29 @@ public final class CrxLosslessRawDecoder {
      * Decodes a single unsigned value using Rice-Golomb coding.
      */
     private static int decodeAdaptiveRiceGolomb(BitReader reader, int k) throws IOException {
-        // Read unary part: count zero bits before a one bit
+        // Read unary part: count zero bits before a one bit.
+        // EOF is not a valid unary terminator; truncated streams must fail.
         int q = 0;
-        while (reader.hasMore() && reader.readBit() == 0) {
+        while (true) {
+            if (!reader.hasMore()) {
+                throw new IOException("Unexpected end of stream while reading Rice-Golomb unary code");
+            }
+            if (reader.readBit() != 0) {
+                break;
+            }
             q++;
             if (q > MAX_RICE_UNARY_COUNT) {
                 throw new IOException("Rice-Golomb unary overflow (>" + MAX_RICE_UNARY_COUNT + ")");
             }
         }
-        // Read k-bit remainder
-        int r = (k > 0 && reader.hasMore()) ? reader.readBits(k) : 0;
+        // Read k-bit remainder; truncated remainder bits must also fail.
+        int r = 0;
+        if (k > 0) {
+            if (!reader.hasMore()) {
+                throw new IOException("Unexpected end of stream while reading Rice-Golomb remainder");
+            }
+            r = reader.readBits(k);
+        }
         return (q << k) | r;
     }
 

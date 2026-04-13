@@ -237,9 +237,17 @@ public final class TiffIfdParser {
                 return null;
             }
 
-            case TYPE_LONG, TYPE_SLONG -> {
+            case TYPE_LONG -> {
                 if (count == 1) {
                     return new TagValue.LongValue(valueOrOffset);
+                }
+                return null;
+            }
+
+            case TYPE_SLONG -> {
+                if (count == 1) {
+                    // SLONG is a signed 32-bit integer; cast to preserve sign
+                    return new TagValue.LongValue((long) (int) valueOrOffset);
                 }
                 return null;
             }

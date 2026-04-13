@@ -17,9 +17,8 @@ import java.util.Map;
  * <ul>
  *   <li>CMT1 — TIFF IFD0 (camera make/model, orientation, date)</li>
  *   <li>CMT2 — EXIF IFD (ISO, exposure, aperture, focal length)</li>
- *   <li>CMT3 — Canon MakerNote (white balance, sensor info)</li>
- *   <li>CMT4 — GPS IFD (latitude, longitude, altitude)</li>
- *   <li>CTMD — Canon Timed Metadata (timestamp, exposure, focal length)</li>
+ *   <li>CMT3 — Canon MakerNote (presence logged only; proprietary structure)</li>
+ *   <li>CMT4 — GPS IFD (presence detected; tags not yet persisted into metadata)</li>
  * </ul>
  */
 public final class Cr3MetadataReader {
@@ -43,10 +42,13 @@ public final class Cr3MetadataReader {
                     metadata.setBitDepth(track.cmp1().bitsPerSample());
                 }
                 if (track.iad1() != null) {
-                    metadata.setActiveAreaLeft(track.iad1().activeLeft());
-                    metadata.setActiveAreaTop(track.iad1().activeTop());
-                    metadata.setActiveAreaRight(track.iad1().activeRight());
-                    metadata.setActiveAreaBottom(track.iad1().activeBottom());
+                    int sW = track.width();
+                    int sH = track.height();
+                    // Clamp active area to sensor bounds (some firmware produces overflow values)
+                    metadata.setActiveAreaLeft(Math.max(0, Math.min(track.iad1().activeLeft(), sW)));
+                    metadata.setActiveAreaTop(Math.max(0, Math.min(track.iad1().activeTop(), sH)));
+                    metadata.setActiveAreaRight(Math.max(0, Math.min(track.iad1().activeRight(), sW)));
+                    metadata.setActiveAreaBottom(Math.max(0, Math.min(track.iad1().activeBottom(), sH)));
                 }
                 break;
             }
@@ -177,9 +179,8 @@ public final class Cr3MetadataReader {
                                    Cr3Metadata metadata) throws IOException {
         Map<Integer, TiffIfdParser.TagValue> tags =
                 TiffIfdParser.parseIfd(input, cmt4.dataOffset(), cmt4.dataSize());
-        // GPS tags are parsed and stored in the map; they can be accessed
-        // via the metadata's GPS fields when needed.
-        // For now, log that GPS data was found.
+        // GPS tags are parsed here only to detect and report their presence.
+        // They are not currently persisted into Cr3Metadata.
         if (!tags.isEmpty()) {
             LOG.debug("Parsed {} GPS tags from CMT4", tags.size());
         }

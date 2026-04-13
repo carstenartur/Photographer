@@ -120,6 +120,22 @@ class TiffIfdParserTest {
         assertThat(tags).isEmpty();
     }
 
+    @Test
+    void parseSlongPreservesSign() throws IOException {
+        // Build a TIFF with a SLONG tag containing a negative value
+        byte[] tiffData = buildTiffWithSlong(0x9201, -5); // SLONG tag for ShutterSpeedValue
+
+        MemoryCacheImageInputStream input = new MemoryCacheImageInputStream(
+                new ByteArrayInputStream(tiffData));
+        Map<Integer, TiffIfdParser.TagValue> tags =
+                TiffIfdParser.parseIfd(input, 0, tiffData.length);
+
+        assertThat(tags).containsKey(0x9201);
+        if (tags.get(0x9201) instanceof TiffIfdParser.TagValue.LongValue lv) {
+            assertThat(lv.value()).isEqualTo(-5L);
+        }
+    }
+
     // --- Helper methods for building synthetic TIFF data ---
 
     record IfdEntry(int tagId, int dataType, String stringValue) {}
@@ -212,6 +228,21 @@ class TiffIfdParserTest {
         buf.putInt(0); // next IFD
         buf.putInt(num);
         buf.putInt(den);
+        return buf.array();
+    }
+
+    private static byte[] buildTiffWithSlong(int tagId, int value) {
+        ByteBuffer buf = ByteBuffer.allocate(8 + 2 + 12 + 4).order(ByteOrder.BIG_ENDIAN);
+        buf.put((byte) 'M');
+        buf.put((byte) 'M');
+        buf.putShort((short) 42);
+        buf.putInt(8);
+        buf.putShort((short) 1);
+        buf.putShort((short) tagId);
+        buf.putShort((short) 9); // SLONG type
+        buf.putInt(1);
+        buf.putInt(value); // signed 32-bit value
+        buf.putInt(0);
         return buf.array();
     }
 }
