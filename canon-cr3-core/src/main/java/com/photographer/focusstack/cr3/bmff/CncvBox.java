@@ -14,8 +14,13 @@ public record CncvBox(String versionString) {
         if (!"CNCV".equals(box.type())) {
             throw new IllegalArgumentException("Expected CNCV box, got: " + box.type());
         }
+        long dataSize = box.dataSize();
+        if (dataSize < 0) {
+            throw new IllegalArgumentException(
+                    "CNCV box has unknown size; cannot parse version string");
+        }
         input.seek(box.dataOffset());
-        long len = Math.min(box.dataSize(), 64);
+        long len = Math.min(dataSize, 64);
         byte[] bytes = new byte[(int) len];
         input.readFully(bytes);
         int end = bytes.length;

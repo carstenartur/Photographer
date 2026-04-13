@@ -64,4 +64,32 @@ class CtboBoxTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("CTBO");
     }
+
+    @Test
+    void rejectOverflowingEntryCount() throws Exception {
+        // Box declares count=1000 but only has 4 bytes of payload (just the count itself)
+        ByteBuffer payload = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+        payload.putInt(1000); // count far exceeds available payload
+        byte[] boxBytes = Cr3TestData.buildBox("CTBO", payload.array());
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(boxBytes));
+        var isoBox = new IsoBox("CTBO", boxBytes.length, 0);
+
+        assertThatThrownBy(() -> CtboBox.parse(input, isoBox))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("entry count");
+    }
+
+    @Test
+    void rejectNegativeEntryCount() throws Exception {
+        // Negative count from a malformed/corrupt box
+        ByteBuffer payload = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+        payload.putInt(-1);
+        byte[] boxBytes = Cr3TestData.buildBox("CTBO", payload.array());
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(boxBytes));
+        var isoBox = new IsoBox("CTBO", boxBytes.length, 0);
+
+        assertThatThrownBy(() -> CtboBox.parse(input, isoBox))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("entry count");
+    }
 }

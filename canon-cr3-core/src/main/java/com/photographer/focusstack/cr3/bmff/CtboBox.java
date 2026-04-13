@@ -15,8 +15,22 @@ public record CtboBox(List<CtboEntry> entries) {
         if (!"CTBO".equals(box.type())) {
             throw new IllegalArgumentException("Expected CTBO box, got: " + box.type());
         }
+        long dataSize = box.dataSize();
+        if (dataSize < 0) {
+            throw new IllegalArgumentException(
+                    "CTBO box has unknown size; cannot parse entries");
+        }
         input.seek(box.dataOffset());
         int count = input.readInt();
+        // Each entry: 4 (index) + 8 (offset) + 8 (size) = 20 bytes
+        final int entrySize = 20;
+        long available = dataSize - 4; // subtract the 4 bytes already read for count
+        int maxEntries = (int) (available / entrySize);
+        if (count < 0 || count > maxEntries) {
+            throw new IllegalArgumentException(
+                    "CTBO entry count %d exceeds available payload (%d bytes for %d max entries)"
+                            .formatted(count, available, maxEntries));
+        }
         List<CtboEntry> entries = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             int index = input.readInt();

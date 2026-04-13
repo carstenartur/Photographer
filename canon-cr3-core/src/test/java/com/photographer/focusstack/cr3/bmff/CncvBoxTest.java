@@ -67,4 +67,15 @@ class CncvBoxTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("CNCV");
     }
+
+    @Test
+    void rejectUnknownSizeBox() throws Exception {
+        // IsoBox with dataSize() == -1 (size == 0 in box header means "extends to EOF")
+        var isoBox = new IsoBox("CNCV", 0, 0); // size=0 → dataSize() returns -1
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[0]));
+
+        assertThatThrownBy(() -> CncvBox.parse(input, isoBox))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unknown size");
+    }
 }

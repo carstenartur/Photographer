@@ -31,5 +31,14 @@ public sealed interface CtmdRecord {
         }
     }
 
-    record UnknownRecord(int type, byte[] payload) implements CtmdRecord {}
+    record UnknownRecord(int type, byte[] payload) implements CtmdRecord {
+        public UnknownRecord {
+            payload = payload == null ? null : payload.clone();
+        }
+
+        @Override
+        public byte[] payload() {
+            return payload == null ? null : payload.clone();
+        }
+    }
 }

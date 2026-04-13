@@ -68,28 +68,28 @@ public final class Cr3Parser {
 
         IsoBox cncvIso = moovBox.findDescendant("CNCV");
         if (cncvIso != null) {
-            try { cncvBox = CncvBox.parse(input, cncvIso); } catch (IOException e) {
+            try { cncvBox = CncvBox.parse(input, cncvIso); } catch (IOException | RuntimeException e) {
                 LOG.warn("Failed to parse CNCV box", e);
             }
         }
 
         IsoBox cctpIso = moovBox.findDescendant("CCTP");
         if (cctpIso != null) {
-            try { cctpBox = CctpBox.parse(input, cctpIso); } catch (IOException e) {
+            try { cctpBox = CctpBox.parse(input, cctpIso); } catch (IOException | RuntimeException e) {
                 LOG.warn("Failed to parse CCTP box", e);
             }
         }
 
         IsoBox ctboIso = moovBox.findDescendant("CTBO");
         if (ctboIso != null) {
-            try { ctboBox = CtboBox.parse(input, ctboIso); } catch (IOException e) {
+            try { ctboBox = CtboBox.parse(input, ctboIso); } catch (IOException | RuntimeException e) {
                 LOG.warn("Failed to parse CTBO box", e);
             }
         }
 
         IsoBox thmbIso = moovBox.findDescendant("THMB");
         if (thmbIso != null) {
-            try { thmbBox = ThmbBox.parse(input, thmbIso); } catch (IOException e) {
+            try { thmbBox = ThmbBox.parse(input, thmbIso); } catch (IOException | RuntimeException e) {
                 LOG.warn("Failed to parse THMB box", e);
             }
         }
@@ -99,7 +99,7 @@ public final class Cr3Parser {
             if ("uuid".equals(box.type())) {
                 IsoBox prvwChild = box.findChild("PRVW");
                 if (prvwChild != null) {
-                    try { prvwBox = PrvwBox.parse(input, prvwChild); } catch (IOException e) {
+                    try { prvwBox = PrvwBox.parse(input, prvwChild); } catch (IOException | RuntimeException e) {
                         LOG.warn("Failed to parse PRVW box", e);
                     }
                 }
@@ -200,7 +200,7 @@ public final class Cr3Parser {
                     if (crawBox != null) {
                         IsoBox cmp1Iso = crawBox.findChild("CMP1");
                         if (cmp1Iso != null) {
-                            try { cmp1Box = Cmp1Box.parse(input, cmp1Iso); } catch (IOException e) {
+                            try { cmp1Box = Cmp1Box.parse(input, cmp1Iso); } catch (IOException | RuntimeException e) {
                                 LOG.warn("Failed to parse CMP1 box in track {}", index, e);
                             }
                         }
@@ -208,7 +208,7 @@ public final class Cr3Parser {
                         if (cdi1Box != null) {
                             IsoBox iad1Iso = cdi1Box.findChild("IAD1");
                             if (iad1Iso != null) {
-                                try { iad1Box = Iad1Box.parse(input, iad1Iso); } catch (IOException e) {
+                                try { iad1Box = Iad1Box.parse(input, iad1Iso); } catch (IOException | RuntimeException e) {
                                     LOG.warn("Failed to parse IAD1 box in track {}", index, e);
                                 }
                             }

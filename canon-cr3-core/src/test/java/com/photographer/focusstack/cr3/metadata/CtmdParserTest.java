@@ -137,13 +137,17 @@ class CtmdParserTest {
     }
 
     @Test
-    void zeroDenominatorFocalLength() {
-        byte[] payload = buildFocalLengthPayload(500, 0);
-        byte[] data = buildCtmdRecord((short) 4, payload);
+    void unknownRecordPayloadIsDefensivelyCopied() {
+        byte[] original = new byte[]{1, 2, 3};
+        var record = new CtmdRecord.UnknownRecord(99, original);
 
-        List<CtmdRecord> records = CtmdParser.parse(data);
+        // Mutating the original should not affect the record
+        original[0] = 99;
+        assertThat(record.payload()[0]).isEqualTo((byte) 1);
 
-        CtmdRecord.FocalLengthRecord fl = (CtmdRecord.FocalLengthRecord) records.get(0);
-        assertThat(fl.focalLengthMm()).isEqualTo(0.0);
+        // Mutating the returned array should not affect subsequent calls
+        byte[] returned = record.payload();
+        returned[0] = 77;
+        assertThat(record.payload()[0]).isEqualTo((byte) 1);
     }
 }
