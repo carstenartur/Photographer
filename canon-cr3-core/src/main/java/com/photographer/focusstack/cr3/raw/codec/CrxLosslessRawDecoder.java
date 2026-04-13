@@ -28,6 +28,11 @@ public final class CrxLosslessRawDecoder {
 
     private static final Logger LOG = LoggerFactory.getLogger(CrxLosslessRawDecoder.class);
 
+    /** Maximum unary code length before we consider the stream corrupt. */
+    private static final int MAX_RICE_UNARY_COUNT = 65536;
+    /** Threshold for periodic normalization of adaptation counters. */
+    private static final int NORMALIZATION_THRESHOLD = 1024;
+
     private CrxLosslessRawDecoder() {
         // utility class
     }
@@ -226,7 +231,7 @@ public final class CrxLosslessRawDecoder {
                 }
 
                 // Periodic normalization (prevent overflow)
-                if (sampleCount >= 1024) {
+                if (sampleCount >= NORMALIZATION_THRESHOLD) {
                     accumulator >>= 1;
                     sampleCount >>= 1;
                     if (sampleCount == 0) sampleCount = 1;
@@ -265,8 +270,8 @@ public final class CrxLosslessRawDecoder {
         int q = 0;
         while (reader.hasMore() && reader.readBit() == 0) {
             q++;
-            if (q > 65536) {
-                throw new IOException("Rice-Golomb unary overflow (>65536)");
+            if (q > MAX_RICE_UNARY_COUNT) {
+                throw new IOException("Rice-Golomb unary overflow (>" + MAX_RICE_UNARY_COUNT + ")");
             }
         }
         // Read k-bit remainder

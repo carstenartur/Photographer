@@ -23,6 +23,8 @@ public record Cmp1Box(
         int extendedHeaderSize,
         int medianBitDepth
 ) {
+    /** Extended header flag bit indicating median bit depth is present. */
+    private static final int MEDIAN_BIT_DEPTH_FLAG = 0x40;
     /** Backwards-compatible constructor without extended header details. */
     public Cmp1Box(short version, int imageWidth, int imageHeight, int tileWidth,
                    int tileHeight, int bitsPerSample, int numPlanes, int cfaLayout,
@@ -72,7 +74,8 @@ public record Cmp1Box(
             extendedHeaderSize = input.readInt();
             if (extendedHeaderSize > 0 && box.dataSize() > 56) {
                 int extFlags = input.readByte() & 0xFF; // +56
-                boolean hasMedianBitDepth = (extFlags & 0x40) != 0;
+                // Bit 6 (0x40) indicates median bit depth is present in the extended header
+                boolean hasMedianBitDepth = (extFlags & MEDIAN_BIT_DEPTH_FLAG) != 0;
                 // Skip remaining extended header fields
                 input.readByte(); // +57
                 input.readShort(); // +58-59

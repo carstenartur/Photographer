@@ -34,6 +34,13 @@ public final class TiffIfdParser {
     private static final int TYPE_SLONG = 9;
     private static final int TYPE_SRATIONAL = 10;
 
+    /** Maximum number of IFD entries considered valid (sanity check). */
+    private static final int MAX_IFD_ENTRY_COUNT = 1000;
+    /** Maximum length of an ASCII string tag (sanity check). */
+    private static final int MAX_ASCII_STRING_LENGTH = 10000;
+    /** TIFF magic number (always 42). */
+    private static final int TIFF_MAGIC_NUMBER = 42;
+
     // Standard EXIF tags (TIFF IFD0 / CMT1)
     static final int TAG_MAKE = 0x010F;
     static final int TAG_MODEL = 0x0110;
@@ -117,8 +124,8 @@ public final class TiffIfdParser {
 
         input.setByteOrder(tiffOrder);
         int magic = input.readUnsignedShort();
-        if (magic != 42) {
-            LOG.warn("Invalid TIFF magic number: {} (expected 42)", magic);
+        if (magic != TIFF_MAGIC_NUMBER) {
+            LOG.warn("Invalid TIFF magic number: {} (expected {})", magic, TIFF_MAGIC_NUMBER);
             input.setByteOrder(savedOrder);
             return tags;
         }
@@ -134,7 +141,7 @@ public final class TiffIfdParser {
         input.seek(ifdAbsoluteOffset);
         int entryCount = input.readUnsignedShort();
 
-        if (entryCount <= 0 || entryCount > 1000) {
+        if (entryCount <= 0 || entryCount > MAX_IFD_ENTRY_COUNT) {
             LOG.warn("Suspicious IFD entry count: {}", entryCount);
             input.setByteOrder(savedOrder);
             return tags;
@@ -176,14 +183,14 @@ public final class TiffIfdParser {
 
         switch (dataType) {
             case TYPE_ASCII -> {
-                if (count > 10000) return null; // sanity
+                if (count > MAX_ASCII_STRING_LENGTH) return null; // sanity
                 if (totalSize <= 4) {
                     // Value is inline in the 4-byte field
                     byte[] buf = new byte[(int) count];
-                    // The valueOrOffset contains the bytes packed
+                    boolean littleEndian = input.getByteOrder() == ByteOrder.LITTLE_ENDIAN;
                     for (int i = 0; i < count; i++) {
-                        buf[i] = (byte) ((valueOrOffset >> (8 * (input.getByteOrder() == ByteOrder.LITTLE_ENDIAN
-                                ? i : 3 - i))) & 0xFF);
+                        int shift = 8 * (littleEndian ? i : 3 - i);
+                        buf[i] = (byte) ((valueOrOffset >> shift) & 0xFF);
                     }
                     return new TagValue.StringValue(trimNull(new String(buf, StandardCharsets.US_ASCII)));
                 }
