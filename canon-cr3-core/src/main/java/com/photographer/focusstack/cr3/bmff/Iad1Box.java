@@ -72,9 +72,18 @@ public record Iad1Box(
 
     /**
      * Creates a SensorCropGeometry from this IAD1 data.
+     *
+     * <p>Active area values are clamped to valid sensor bounds because some Canon
+     * firmware versions produce values that overflow the actual sensor dimensions
+     * by a few pixels, especially in 1.6× crop mode.</p>
      */
     public SensorCropGeometry toSensorCropGeometry(int sensorW, int sensorH) {
+        // Clamp active area to sensor bounds (firmware may produce overflow values)
+        int clampedLeft = Math.max(0, Math.min(activeLeft(), sensorW));
+        int clampedTop = Math.max(0, Math.min(activeTop(), sensorH));
+        int clampedRight = Math.max(clampedLeft, Math.min(activeRight(), sensorW));
+        int clampedBottom = Math.max(clampedTop, Math.min(activeBottom(), sensorH));
         return SensorCropGeometry.withActiveArea(sensorW, sensorH,
-                activeLeft(), activeTop(), activeRight(), activeBottom());
+                clampedLeft, clampedTop, clampedRight, clampedBottom);
     }
 }

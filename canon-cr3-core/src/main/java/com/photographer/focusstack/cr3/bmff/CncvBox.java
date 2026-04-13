@@ -37,4 +37,14 @@ public record CncvBox(String versionString) {
     public boolean isRollBurst() {
         return versionString.contains("/01.");
     }
+
+    /**
+     * Returns the codec version number (1, 2, or 3) from the version string.
+     * Falls back to 1 if the version cannot be determined.
+     */
+    public int codecVersion() {
+        if (versionString.contains("CR3_003")) return 3;
+        if (versionString.contains("CR3_002")) return 2;
+        return 1;
+    }
 }
