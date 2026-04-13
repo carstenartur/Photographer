@@ -78,4 +78,40 @@ class CncvBoxTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("unknown size");
     }
+
+    @Test
+    void codecVersionV1() throws Exception {
+        String version = "CanonCR3_001/00.09.00/00.00.00";
+        byte[] payload = version.getBytes(StandardCharsets.US_ASCII);
+        byte[] boxBytes = Cr3TestData.buildBox("CNCV", payload);
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(boxBytes));
+        var isoBox = new IsoBox("CNCV", boxBytes.length, 0);
+
+        CncvBox box = CncvBox.parse(input, isoBox);
+        assertThat(box.codecVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void codecVersionV2() throws Exception {
+        String version = "CanonCR3_002/01.00.00/00.00.00";
+        byte[] payload = version.getBytes(StandardCharsets.US_ASCII);
+        byte[] boxBytes = Cr3TestData.buildBox("CNCV", payload);
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(boxBytes));
+        var isoBox = new IsoBox("CNCV", boxBytes.length, 0);
+
+        CncvBox box = CncvBox.parse(input, isoBox);
+        assertThat(box.codecVersion()).isEqualTo(2);
+    }
+
+    @Test
+    void codecVersionV3() throws Exception {
+        String version = "CanonCR3_003/01.00.00/00.00.00";
+        byte[] payload = version.getBytes(StandardCharsets.US_ASCII);
+        byte[] boxBytes = Cr3TestData.buildBox("CNCV", payload);
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(boxBytes));
+        var isoBox = new IsoBox("CNCV", boxBytes.length, 0);
+
+        CncvBox box = CncvBox.parse(input, isoBox);
+        assertThat(box.codecVersion()).isEqualTo(3);
+    }
 }

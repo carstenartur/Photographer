@@ -3,9 +3,18 @@ package com.photographer.focusstack.cr3.decode;
 import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
+import com.photographer.focusstack.cr3.container.Cr3Track;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.metadata.Cr3MetadataReader;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
+import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
+import com.photographer.focusstack.cr3.processing.BlackLevelProcessor;
+import com.photographer.focusstack.cr3.processing.ColorMatrixProcessor;
+import com.photographer.focusstack.cr3.processing.SrgbConverter;
+import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
+import com.photographer.focusstack.cr3.raw.Cr3RawImage;
+import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
+import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,9 +37,6 @@ import java.io.IOException;
  *     BufferedImage preview = decoder.decode(Cr3DecodeOptions.defaults());
  * }
  * }</pre>
- *
- * TODO: Implement full RAW decoding (lossless CRX)
- * TODO: Implement C-RAW (lossy CRX) decoding
  */
 public final class Cr3Decoder {
 
@@ -110,22 +116,106 @@ public final class Cr3Decoder {
         return Cr3MetadataReader.read(input, container);
     }
 
-    private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception {
-        // TODO: Implement full RAW processing pipeline:
-        //   1. CrxLosslessRawDecoder -> linear Bayer data
-        //   2. BlackLevelProcessor -> subtract black level
-        //   3. BayerDemosaicer -> RGB image
-        //   4. WhiteBalanceProcessor -> apply WB multipliers
-        //   5. ColorMatrixProcessor -> camera-to-XYZ-to-sRGB
-        //   6. SrgbConverter -> gamma correction
-        throw new Cr3Exception("Full RAW processing not yet implemented — use PREVIEW mode");
+    /**
+     * Full RAW processing pipeline:
+     * CrxLosslessRawDecoder → BlackLevel → WhiteBalance → Demosaic → ColorMatrix → sRGB
+     */
+    private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception, IOException {
+        Cr3RawImage rawImage = decodeRawBayer(options);
+
+        // 1. Black level subtraction
+        if (options.applyBlackLevel()) {
+            BlackLevelProcessor.process(rawImage);
+        }
+
+        // 2. White balance
+        if (options.applyWhiteBalance()) {
+            WhiteBalanceProcessor.process(rawImage);
+        }
+
+        // 3. Bayer demosaicing → full-colour RGB
+        BufferedImage rgb = BayerDemosaicer.demosaic(rawImage);
+
+        // 4. Color matrix correction
+        if (options.applyColorMatrix()) {
+            ColorMatrixProcessor.process(rgb);
+        }
+
+        // 5. sRGB gamma conversion
+        if (options.applySrgbConversion()) {
+            SrgbConverter.process(rgb);
+        }
+
+        return rgb;
     }
 
-    private BufferedImage decodeRawLinear(Cr3DecodeOptions options) throws Cr3Exception {
-        // TODO: Implement linear RAW output:
-        //   1. CrxLosslessRawDecoder -> linear Bayer data
-        //   2. BlackLevelProcessor -> subtract black level
-        //   3. Return as single-channel or Bayer-pattern image
-        throw new Cr3Exception("Linear RAW decoding not yet implemented — use PREVIEW mode");
+    /**
+     * Linear RAW output: CrxLosslessRawDecoder → BlackLevel → grayscale BufferedImage.
+     */
+    private BufferedImage decodeRawLinear(Cr3DecodeOptions options) throws Cr3Exception, IOException {
+        Cr3RawImage rawImage = decodeRawBayer(options);
+
+        if (options.applyBlackLevel()) {
+            BlackLevelProcessor.process(rawImage);
+        }
+
+        // Return as grayscale image (raw Bayer values)
+        int w = rawImage.width();
+        int h = rawImage.height();
+        int maxVal = rawImage.maxValue();
+        BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_USHORT_GRAY);
+        short[] outData = ((java.awt.image.DataBufferUShort) output.getRaster()
+                .getDataBuffer()).getData();
+        int[] rawData = rawImage.data();
+        for (int i = 0; i < rawData.length; i++) {
+            // Scale to 16-bit range
+            outData[i] = (short) Math.min(65535,
+                    (int) ((long) rawData[i] * 65535 / maxVal));
+        }
+
+        return output;
+    }
+
+    /**
+     * Reads the CRX RAW track data and decodes it into a Bayer-pattern image.
+     */
+    private Cr3RawImage decodeRawBayer(Cr3DecodeOptions options) throws Cr3Exception, IOException {
+        // Find the CRX RAW track
+        Cr3Track rawTrack = null;
+        for (var track : container.tracks()) {
+            if (track.type() == Cr3Track.TrackType.CRX_BIG
+                    || track.type() == Cr3Track.TrackType.CRX_RAW) {
+                rawTrack = track;
+                break;
+            }
+        }
+
+        if (rawTrack == null) {
+            throw new Cr3Exception("No CRX RAW track found in CR3 file");
+        }
+
+        if (rawTrack.dataSize() <= 0 || rawTrack.dataSize() > Integer.MAX_VALUE) {
+            throw new Cr3Exception("Invalid CRX RAW track size: " + rawTrack.dataSize());
+        }
+
+        LOG.info("Reading CRX RAW track: {}x{}, {} bytes at offset {}",
+                rawTrack.width(), rawTrack.height(), rawTrack.dataSize(), rawTrack.dataOffset());
+
+        // Read the raw CRX data
+        byte[] crxData = new byte[(int) rawTrack.dataSize()];
+        input.seek(rawTrack.dataOffset());
+        input.readFully(crxData);
+
+        // Determine codec version
+        CrxHeader.CodecVersion codecVersion = CrxHeader.CodecVersion.V1;
+        if (container.cncvBox() != null) {
+            codecVersion = CrxHeader.detectVersion(container.cncvBox().versionString());
+        }
+
+        // Determine bit depth
+        int bitDepth = metadata != null ? metadata.bitDepth() : 14;
+
+        return CrxLosslessRawDecoder.decode(crxData, rawTrack.width(), rawTrack.height(),
+                bitDepth, codecVersion);
     }
 }

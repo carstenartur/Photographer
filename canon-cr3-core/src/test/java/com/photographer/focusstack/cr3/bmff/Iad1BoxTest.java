@@ -89,4 +89,22 @@ class Iad1BoxTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("IAD1");
     }
+
+    @Test
+    void toSensorCropGeometryClampsOverflowingValues() throws Exception {
+        // Simulate firmware bug: active area extends past sensor edges
+        byte[] payload = buildIad1Payload48(6000, 4000, 0, 0, 0, 0, 20, 16, 6010, 4005);
+        byte[] boxBytes = Cr3TestData.buildBox("IAD1", payload);
+        var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(boxBytes));
+        var isoBox = new IsoBox("IAD1", boxBytes.length, 0);
+
+        Iad1Box box = Iad1Box.parse(input, isoBox);
+        SensorCropGeometry geometry = box.toSensorCropGeometry(6000, 4000);
+
+        // Right and bottom should be clamped to sensor dimensions
+        assertThat(geometry.activeRight()).isEqualTo(6000);
+        assertThat(geometry.activeBottom()).isEqualTo(4000);
+        assertThat(geometry.activeLeft()).isEqualTo(20);
+        assertThat(geometry.activeTop()).isEqualTo(16);
+    }
 }
