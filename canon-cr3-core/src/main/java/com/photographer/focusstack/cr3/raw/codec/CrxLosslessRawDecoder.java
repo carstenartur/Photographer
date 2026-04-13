@@ -103,7 +103,7 @@ public final class CrxLosslessRawDecoder {
                 // Validate tile index is within expected range
                 if (tile.index() < 0 || tile.index() >= numTiles) {
                     throw new Cr3Exception("Tile index " + tile.index()
-                            + " is out of range [0, " + numTiles + ")");
+                            + " must be between 0 and " + (numTiles - 1) + " (inclusive)");
                 }
 
                 int tileXOffset = tile.index() * tilePixelWidth;

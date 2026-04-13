@@ -131,9 +131,9 @@ class TiffIfdParserTest {
                 TiffIfdParser.parseIfd(input, 0, tiffData.length);
 
         assertThat(tags).containsKey(0x9201);
-        if (tags.get(0x9201) instanceof TiffIfdParser.TagValue.LongValue lv) {
-            assertThat(lv.value()).isEqualTo(-5L);
-        }
+        assertThat(tags.get(0x9201)).isInstanceOf(TiffIfdParser.TagValue.LongValue.class);
+        TiffIfdParser.TagValue.LongValue lv = (TiffIfdParser.TagValue.LongValue) tags.get(0x9201);
+        assertThat(lv.value()).isEqualTo(-5L);
     }
 
     // --- Helper methods for building synthetic TIFF data ---
