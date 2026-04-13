@@ -5,9 +5,12 @@ import com.photographer.focusstack.common.model.StackingParameters;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.FrameDataStore;
+import com.photographer.focusstack.camera.service.RawImagePreviewService;
 import com.photographer.focusstack.camera.service.StackingJobService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,89 +32,125 @@ import java.util.zip.ZipOutputStream;
 @RequestMapping(&quot;/api/jobs&quot;)
 public class JobController {
 
+<span class="fc" id="L35">    private static final Logger log = LoggerFactory.getLogger(JobController.class);</span>
+
     private final StackingJobService jobService;
     private final SearchService searchService;
     private final FrameDataStore frameDataStore;
+    private final RawImagePreviewService rawPreviewService;
 
     public JobController(StackingJobService jobService,
                          SearchService searchService,
-<span class="fc" id="L38">                         FrameDataStore frameDataStore) {</span>
-<span class="fc" id="L39">        this.jobService = jobService;</span>
-<span class="fc" id="L40">        this.searchService = searchService;</span>
-<span class="fc" id="L41">        this.frameDataStore = frameDataStore;</span>
-<span class="fc" id="L42">    }</span>
+                         FrameDataStore frameDataStore,
+<span class="fc" id="L45">                         RawImagePreviewService rawPreviewService) {</span>
+<span class="fc" id="L46">        this.jobService = jobService;</span>
+<span class="fc" id="L47">        this.searchService = searchService;</span>
+<span class="fc" id="L48">        this.frameDataStore = frameDataStore;</span>
+<span class="fc" id="L49">        this.rawPreviewService = rawPreviewService;</span>
+<span class="fc" id="L50">    }</span>
 
     @GetMapping
     public ResponseEntity&lt;List&lt;StackingJob&gt;&gt; listJobs() {
-<span class="fc" id="L46">        return ResponseEntity.ok(jobService.getAllJobs());</span>
+<span class="fc" id="L54">        return ResponseEntity.ok(jobService.getAllJobs());</span>
     }
 
     @PostMapping
     public ResponseEntity&lt;StackingJob&gt; createJob(@Valid @RequestBody CreateJobRequest request) {
-<span class="fc" id="L51">        StackingJob job = jobService.createJob(request.cameraProfileId(), request.parameters());</span>
-<span class="fc" id="L52">        return ResponseEntity.status(HttpStatus.CREATED).body(job);</span>
+<span class="fc" id="L59">        StackingJob job = jobService.createJob(request.cameraProfileId(), request.parameters());</span>
+<span class="fc" id="L60">        return ResponseEntity.status(HttpStatus.CREATED).body(job);</span>
     }
 
     @GetMapping(&quot;/{id}&quot;)
     public ResponseEntity&lt;StackingJob&gt; getJob(@PathVariable String id) {
-<span class="fc" id="L57">        return ResponseEntity.ok(jobService.getJob(id));</span>
+<span class="fc" id="L65">        return ResponseEntity.ok(jobService.getJob(id));</span>
     }
 
     @PostMapping(&quot;/{id}/start&quot;)
     public ResponseEntity&lt;StackingJob&gt; startJob(@PathVariable String id) {
-<span class="fc" id="L62">        StackingJob running = jobService.startJob(id);</span>
-<span class="fc" id="L63">        return ResponseEntity.accepted().body(running);</span>
+<span class="fc" id="L70">        StackingJob running = jobService.startJob(id);</span>
+<span class="fc" id="L71">        return ResponseEntity.accepted().body(running);</span>
     }
 
     @PostMapping(&quot;/{id}/pause&quot;)
     public ResponseEntity&lt;Void&gt; pauseJob(@PathVariable String id) {
-<span class="nc" id="L68">        jobService.pauseJob(id);</span>
-<span class="nc" id="L69">        return ResponseEntity.ok().build();</span>
+<span class="nc" id="L76">        jobService.pauseJob(id);</span>
+<span class="nc" id="L77">        return ResponseEntity.ok().build();</span>
     }
 
     @PostMapping(&quot;/{id}/cancel&quot;)
     public ResponseEntity&lt;Void&gt; cancelJob(@PathVariable String id) {
-<span class="nc" id="L74">        jobService.cancelJob(id);</span>
-<span class="nc" id="L75">        return ResponseEntity.ok().build();</span>
+<span class="nc" id="L82">        jobService.cancelJob(id);</span>
+<span class="nc" id="L83">        return ResponseEntity.ok().build();</span>
     }
 
     /**
-     * Serves the raw image data for a single captured frame.
+     * Serves a browser-displayable image for a single captured frame.
+     *
+     * &lt;p&gt;If the captured file is a Canon RAW (CR3/CR2), the embedded JPEG preview
+     * (~1620×1080) is extracted and served so the browser can display it without
+     * a RAW decoder. JPEG and PNG files are served directly.
      *
      * @param id      the job id
      * @param frameId the frame image id
-     * @return the raw image bytes with {@code application/octet-stream} content type,
-     *         or 404 if the job or frame is not found in the cache
+     * @return the image bytes with correct content type, or 404 if not found
      */
     @GetMapping(&quot;/{id}/frames/{frameId}/image&quot;)
     public ResponseEntity&lt;byte[]&gt; getFrameImage(
             @PathVariable String id,
             @PathVariable String frameId) {
         // Validate that the frame belongs to this job
-<span class="fc" id="L91">        StackingJob job = jobService.getJob(id);</span>
-<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (!job.frames().contains(frameId)) {</span>
-<span class="fc" id="L93">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L102">        StackingJob job = jobService.getJob(id);</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (!job.frames().contains(frameId)) {</span>
+<span class="fc" id="L104">            return ResponseEntity.notFound().build();</span>
         }
-<span class="fc" id="L95">        FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);</span>
-<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        if (entry == null) {</span>
-<span class="nc" id="L97">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L106">        FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);</span>
+<span class="pc bpc" id="L107" title="1 of 2 branches missed.">        if (entry == null) {</span>
+<span class="nc" id="L108">            return ResponseEntity.notFound().build();</span>
         }
-        // Derive content type from filename extension
-<span class="fc" id="L100">        String fileName = entry.fileName();</span>
-<span class="fc" id="L101">        MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;</span>
-<span class="pc bpc" id="L102" title="1 of 2 branches missed.">        if (fileName != null) {</span>
-<span class="fc" id="L103">            String lower = fileName.toLowerCase();</span>
-<span class="fc bfc" id="L104" title="All 2 branches covered.">            if (lower.endsWith(&quot;.png&quot;)) {</span>
-<span class="fc" id="L105">                contentType = MediaType.IMAGE_PNG;</span>
-<span class="pc bpc" id="L106" title="3 of 4 branches missed.">            } else if (lower.endsWith(&quot;.jpg&quot;) || lower.endsWith(&quot;.jpeg&quot;)) {</span>
-<span class="fc" id="L107">                contentType = MediaType.IMAGE_JPEG;</span>
+
+<span class="fc" id="L111">        String fileName = entry.fileName();</span>
+<span class="fc" id="L112">        byte[] imageBytes = entry.data();</span>
+        MediaType contentType;
+
+        // Canon RAW files (CR3/CR2) cannot be displayed by browsers.
+        // Extract the embedded JPEG preview for display.
+<span class="pc bpc" id="L117" title="1 of 2 branches missed.">        if (rawPreviewService.isRawFile(fileName)) {</span>
+<span class="nc" id="L118">            RawImagePreviewService.PreviewResult preview =</span>
+<span class="nc" id="L119">                    rawPreviewService.extractPreview(imageBytes, fileName);</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">            if (preview != null &amp;&amp; preview.jpegBytes() != null) {</span>
+<span class="nc" id="L121">                imageBytes = preview.jpegBytes();</span>
+<span class="nc" id="L122">                fileName = preview.fileName();</span>
+<span class="nc" id="L123">                contentType = MediaType.IMAGE_JPEG;</span>
+            } else {
+                // Fallback: serve the raw bytes as octet-stream (browser won't display it,
+                // but the user can still download it)
+<span class="nc" id="L127">                log.warn(&quot;Frame {} ({}): CR3 preview extraction failed — serving raw bytes&quot;,</span>
+<span class="nc" id="L128">                        frameId, entry.fileName());</span>
+<span class="nc" id="L129">                contentType = MediaType.APPLICATION_OCTET_STREAM;</span>
+            }
+<span class="nc" id="L131">        } else {</span>
+            // Derive content type from filename extension
+<span class="fc" id="L133">            contentType = deriveContentType(fileName);</span>
+        }
+
+<span class="fc" id="L136">        return ResponseEntity.ok()</span>
+<span class="fc" id="L137">                .contentType(contentType)</span>
+<span class="fc" id="L138">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
+                        &quot;inline; filename=\&quot;&quot; + fileName + &quot;\&quot;&quot;)
+<span class="fc" id="L140">                .body(imageBytes);</span>
+    }
+
+    /** Derives a browser-friendly {@link MediaType} from a filename extension. */
+    private static MediaType deriveContentType(String fileName) {
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (fileName != null) {</span>
+<span class="fc" id="L146">            String lower = fileName.toLowerCase();</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            if (lower.endsWith(&quot;.png&quot;)) {</span>
+<span class="fc" id="L148">                return MediaType.IMAGE_PNG;</span>
+<span class="pc bpc" id="L149" title="3 of 4 branches missed.">            } else if (lower.endsWith(&quot;.jpg&quot;) || lower.endsWith(&quot;.jpeg&quot;)) {</span>
+<span class="fc" id="L150">                return MediaType.IMAGE_JPEG;</span>
             }
         }
-<span class="fc" id="L110">        return ResponseEntity.ok()</span>
-<span class="fc" id="L111">                .contentType(contentType)</span>
-<span class="fc" id="L112">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
-                        &quot;inline; filename=\&quot;&quot; + fileName + &quot;\&quot;&quot;)
-<span class="fc" id="L114">                .body(entry.data());</span>
+<span class="nc" id="L153">        return MediaType.APPLICATION_OCTET_STREAM;</span>
     }
 
     /**
@@ -126,51 +165,51 @@ public class JobController {
      */
     @GetMapping(&quot;/{id}/export&quot;)
     public ResponseEntity&lt;StreamingResponseBody&gt; exportFrames(@PathVariable String id) {
-<span class="fc" id="L129">        StackingJob job = jobService.getJob(id);</span>
-<span class="fc" id="L130">        List&lt;String&gt; frameIds = job.frames();</span>
+<span class="fc" id="L168">        StackingJob job = jobService.getJob(id);</span>
+<span class="fc" id="L169">        List&lt;String&gt; frameIds = job.frames();</span>
 
-<span class="fc" id="L132">        StreamingResponseBody stream = outputStream -&gt; {</span>
-<span class="fc" id="L133">            try (ZipOutputStream zip = new ZipOutputStream(outputStream)) {</span>
-<span class="fc" id="L134">                int index = 1;</span>
-<span class="fc bfc" id="L135" title="All 2 branches covered.">                for (String frameId : frameIds) {</span>
-<span class="fc" id="L136">                    FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);</span>
-<span class="fc" id="L137">                    String entryName = String.format(&quot;frame_%03d_%s&quot;,</span>
-<span class="fc" id="L138">                            index++,</span>
-<span class="pc bpc" id="L139" title="1 of 2 branches missed.">                            entry != null ? entry.fileName() : frameId + &quot;.bin&quot;);</span>
-<span class="fc" id="L140">                    zip.putNextEntry(new ZipEntry(entryName));</span>
-<span class="pc bpc" id="L141" title="1 of 2 branches missed.">                    if (entry != null) {</span>
-<span class="fc" id="L142">                        zip.write(entry.data());</span>
+<span class="fc" id="L171">        StreamingResponseBody stream = outputStream -&gt; {</span>
+<span class="fc" id="L172">            try (ZipOutputStream zip = new ZipOutputStream(outputStream)) {</span>
+<span class="fc" id="L173">                int index = 1;</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">                for (String frameId : frameIds) {</span>
+<span class="fc" id="L175">                    FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);</span>
+<span class="fc" id="L176">                    String entryName = String.format(&quot;frame_%03d_%s&quot;,</span>
+<span class="fc" id="L177">                            index++,</span>
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">                            entry != null ? entry.fileName() : frameId + &quot;.bin&quot;);</span>
+<span class="fc" id="L179">                    zip.putNextEntry(new ZipEntry(entryName));</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">                    if (entry != null) {</span>
+<span class="fc" id="L181">                        zip.write(entry.data());</span>
                     }
-<span class="fc" id="L144">                    zip.closeEntry();</span>
-<span class="fc" id="L145">                }</span>
+<span class="fc" id="L183">                    zip.closeEntry();</span>
+<span class="fc" id="L184">                }</span>
             }
-<span class="fc" id="L147">        };</span>
+<span class="fc" id="L186">        };</span>
 
-<span class="fc" id="L149">        return ResponseEntity.ok()</span>
-<span class="fc" id="L150">                .contentType(MediaType.parseMediaType(&quot;application/zip&quot;))</span>
-<span class="fc" id="L151">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
+<span class="fc" id="L188">        return ResponseEntity.ok()</span>
+<span class="fc" id="L189">                .contentType(MediaType.parseMediaType(&quot;application/zip&quot;))</span>
+<span class="fc" id="L190">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
                         &quot;attachment; filename=\&quot;job-&quot; + id + &quot;-frames.zip\&quot;&quot;)
-<span class="fc" id="L153">                .body(stream);</span>
+<span class="fc" id="L192">                .body(stream);</span>
     }
 
     @GetMapping(&quot;/search&quot;)
     public ResponseEntity&lt;List&lt;StackingJob&gt;&gt; searchJobs(
             @RequestParam String q,
             @RequestParam(defaultValue = &quot;20&quot;) int maxResults) {
-<span class="fc" id="L160">        List&lt;StackingJob&gt; results = searchService.searchStackingJobs(q, maxResults)</span>
-<span class="fc" id="L161">                .stream()</span>
-<span class="fc" id="L162">                .map(StackingJobEntity::toRecord)</span>
-<span class="fc" id="L163">                .toList();</span>
-<span class="fc" id="L164">        return ResponseEntity.ok(results);</span>
+<span class="fc" id="L199">        List&lt;StackingJob&gt; results = searchService.searchStackingJobs(q, maxResults)</span>
+<span class="fc" id="L200">                .stream()</span>
+<span class="fc" id="L201">                .map(StackingJobEntity::toRecord)</span>
+<span class="fc" id="L202">                .toList();</span>
+<span class="fc" id="L203">        return ResponseEntity.ok(results);</span>
     }
 
     @PostMapping(&quot;/reindex&quot;)
     public ResponseEntity&lt;Void&gt; reindex() {
-<span class="fc" id="L169">        searchService.reindexAll();</span>
-<span class="fc" id="L170">        return ResponseEntity.ok().build();</span>
+<span class="fc" id="L208">        searchService.reindexAll();</span>
+<span class="fc" id="L209">        return ResponseEntity.ok().build();</span>
     }
 
-<span class="fc" id="L173">    public record CreateJobRequest(</span>
+<span class="fc" id="L212">    public record CreateJobRequest(</span>
             @NotBlank String cameraProfileId,
             @Valid StackingParameters parameters
     ) {}

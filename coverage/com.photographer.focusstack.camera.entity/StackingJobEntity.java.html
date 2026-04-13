@@ -66,93 +66,104 @@ public class StackingJobEntity {
     @KeywordField
     private QualityMode paramQualityMode;
 
+    private String stopReason;
+
     @Column(length = 10000)
     private String capturedFrameIds;
 
-<span class="fc" id="L72">    public StackingJobEntity() {</span>
-<span class="fc" id="L73">    }</span>
+<span class="fc" id="L74">    public StackingJobEntity() {</span>
+<span class="fc" id="L75">    }</span>
 
     public static StackingJobEntity fromRecord(StackingJob job) {
-<span class="fc" id="L76">        StackingJobEntity entity = new StackingJobEntity();</span>
-<span class="fc" id="L77">        entity.id = job.id();</span>
-<span class="fc" id="L78">        entity.cameraProfileId = job.cameraProfileId();</span>
-<span class="fc" id="L79">        entity.status = job.status();</span>
-<span class="fc" id="L80">        entity.startedAt = job.startedAt();</span>
-<span class="fc" id="L81">        entity.completedAt = job.completedAt();</span>
-<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        if (job.parameters() != null) {</span>
-<span class="fc" id="L83">            entity.paramStartPosition = job.parameters().startPosition();</span>
-<span class="fc" id="L84">            entity.paramStepSize = job.parameters().stepSize();</span>
-<span class="fc" id="L85">            entity.paramMaxFrames = job.parameters().maxFrames();</span>
-<span class="fc" id="L86">            entity.paramAbortThreshold = job.parameters().abortThreshold();</span>
-<span class="fc" id="L87">            entity.paramMotionDetectionEnabled = job.parameters().motionDetectionEnabled();</span>
-<span class="fc" id="L88">            entity.paramQualityMode = job.parameters().qualityMode();</span>
+<span class="fc" id="L78">        StackingJobEntity entity = new StackingJobEntity();</span>
+<span class="fc" id="L79">        entity.id = job.id();</span>
+<span class="fc" id="L80">        entity.cameraProfileId = job.cameraProfileId();</span>
+<span class="fc" id="L81">        entity.status = job.status();</span>
+<span class="fc" id="L82">        entity.startedAt = job.startedAt();</span>
+<span class="fc" id="L83">        entity.completedAt = job.completedAt();</span>
+<span class="fc" id="L84">        entity.stopReason = job.stopReason();</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">        if (job.parameters() != null) {</span>
+<span class="fc" id="L86">            entity.paramStartPosition = job.parameters().startPosition();</span>
+<span class="fc" id="L87">            entity.paramStepSize = job.parameters().stepSize();</span>
+<span class="fc" id="L88">            entity.paramMaxFrames = job.parameters().maxFrames();</span>
+<span class="fc" id="L89">            entity.paramAbortThreshold = job.parameters().abortThreshold();</span>
+<span class="fc" id="L90">            entity.paramMotionDetectionEnabled = job.parameters().motionDetectionEnabled();</span>
+<span class="fc" id="L91">            entity.paramQualityMode = job.parameters().qualityMode();</span>
         }
-<span class="pc bpc" id="L90" title="1 of 4 branches missed.">        if (job.frames() != null &amp;&amp; !job.frames().isEmpty()) {</span>
-<span class="fc" id="L91">            entity.capturedFrameIds = String.join(&quot;,&quot;, job.frames());</span>
+<span class="pc bpc" id="L93" title="1 of 4 branches missed.">        if (job.frames() != null &amp;&amp; !job.frames().isEmpty()) {</span>
+<span class="fc" id="L94">            entity.capturedFrameIds = String.join(&quot;,&quot;, job.frames());</span>
         } else {
-<span class="fc" id="L93">            entity.capturedFrameIds = &quot;&quot;;</span>
+<span class="fc" id="L96">            entity.capturedFrameIds = &quot;&quot;;</span>
         }
-<span class="fc" id="L95">        return entity;</span>
+<span class="fc" id="L98">        return entity;</span>
     }
 
     public StackingJob toRecord() {
-<span class="fc" id="L99">        StackingParameters params = new StackingParameters(</span>
+<span class="fc" id="L102">        StackingParameters params = new StackingParameters(</span>
                 paramStartPosition, paramStepSize, paramMaxFrames,
                 paramAbortThreshold, paramMotionDetectionEnabled, paramQualityMode
         );
-<span class="fc" id="L103">        List&lt;String&gt; frames = new ArrayList&lt;&gt;();</span>
-<span class="pc bpc" id="L104" title="1 of 4 branches missed.">        if (capturedFrameIds != null &amp;&amp; !capturedFrameIds.isEmpty()) {</span>
-<span class="fc" id="L105">            frames = new ArrayList&lt;&gt;(Arrays.asList(capturedFrameIds.split(&quot;,&quot;)));</span>
+<span class="fc" id="L106">        List&lt;String&gt; frames = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L107" title="1 of 4 branches missed.">        if (capturedFrameIds != null &amp;&amp; !capturedFrameIds.isEmpty()) {</span>
+<span class="fc" id="L108">            frames = new ArrayList&lt;&gt;(Arrays.asList(capturedFrameIds.split(&quot;,&quot;)));</span>
         }
-<span class="fc" id="L107">        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params, frames);</span>
+<span class="fc" id="L110">        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params, frames, stopReason);</span>
     }
 
     public String getId() {
-<span class="nc" id="L111">        return id;</span>
+<span class="nc" id="L114">        return id;</span>
     }
 
     public void setId(String id) {
-<span class="nc" id="L115">        this.id = id;</span>
-<span class="nc" id="L116">    }</span>
+<span class="nc" id="L118">        this.id = id;</span>
+<span class="nc" id="L119">    }</span>
 
     public String getCameraProfileId() {
-<span class="nc" id="L119">        return cameraProfileId;</span>
+<span class="nc" id="L122">        return cameraProfileId;</span>
     }
 
     public void setCameraProfileId(String cameraProfileId) {
-<span class="nc" id="L123">        this.cameraProfileId = cameraProfileId;</span>
-<span class="nc" id="L124">    }</span>
+<span class="nc" id="L126">        this.cameraProfileId = cameraProfileId;</span>
+<span class="nc" id="L127">    }</span>
 
     public JobStatus getStatus() {
-<span class="fc" id="L127">        return status;</span>
+<span class="fc" id="L130">        return status;</span>
     }
 
     public void setStatus(JobStatus status) {
-<span class="nc" id="L131">        this.status = status;</span>
-<span class="nc" id="L132">    }</span>
+<span class="nc" id="L134">        this.status = status;</span>
+<span class="nc" id="L135">    }</span>
 
     public Instant getStartedAt() {
-<span class="nc" id="L135">        return startedAt;</span>
+<span class="nc" id="L138">        return startedAt;</span>
     }
 
     public void setStartedAt(Instant startedAt) {
-<span class="nc" id="L139">        this.startedAt = startedAt;</span>
-<span class="nc" id="L140">    }</span>
+<span class="nc" id="L142">        this.startedAt = startedAt;</span>
+<span class="nc" id="L143">    }</span>
 
     public Instant getCompletedAt() {
-<span class="nc" id="L143">        return completedAt;</span>
+<span class="nc" id="L146">        return completedAt;</span>
     }
 
     public void setCompletedAt(Instant completedAt) {
-<span class="nc" id="L147">        this.completedAt = completedAt;</span>
-<span class="nc" id="L148">    }</span>
+<span class="nc" id="L150">        this.completedAt = completedAt;</span>
+<span class="nc" id="L151">    }</span>
 
     public String getCapturedFrameIds() {
-<span class="nc" id="L151">        return capturedFrameIds;</span>
+<span class="nc" id="L154">        return capturedFrameIds;</span>
     }
 
     public void setCapturedFrameIds(String capturedFrameIds) {
-<span class="nc" id="L155">        this.capturedFrameIds = capturedFrameIds;</span>
-<span class="nc" id="L156">    }</span>
+<span class="nc" id="L158">        this.capturedFrameIds = capturedFrameIds;</span>
+<span class="nc" id="L159">    }</span>
+
+    public String getStopReason() {
+<span class="nc" id="L162">        return stopReason;</span>
+    }
+
+    public void setStopReason(String stopReason) {
+<span class="nc" id="L166">        this.stopReason = stopReason;</span>
+<span class="nc" id="L167">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
