@@ -40,35 +40,39 @@ class BoundsCheckTest {
         @Test
         @DisplayName("Should accept offset 0 for non-empty stream")
         void acceptZeroOffset() throws IOException {
-            var input = createStream(100);
-            assertThatCode(() -> BoundsCheck.validateOffset(input, 0, "test"))
-                    .doesNotThrowAnyException();
+            try (var input = createStream(100)) {
+                assertThatCode(() -> BoundsCheck.validateOffset(input, 0, "test"))
+                        .doesNotThrowAnyException();
+            }
         }
 
         @Test
         @DisplayName("Should accept offset at stream end")
         void acceptOffsetAtEnd() throws IOException {
-            var input = createStream(100);
-            assertThatCode(() -> BoundsCheck.validateOffset(input, 100, "test"))
-                    .doesNotThrowAnyException();
+            try (var input = createStream(100)) {
+                assertThatCode(() -> BoundsCheck.validateOffset(input, 100, "test"))
+                        .doesNotThrowAnyException();
+            }
         }
 
         @Test
         @DisplayName("Should reject negative offset")
         void rejectNegativeOffset() throws IOException {
-            var input = createStream(100);
-            assertThatThrownBy(() -> BoundsCheck.validateOffset(input, -1, "test"))
-                    .isInstanceOf(Cr3FormatException.class)
-                    .hasMessageContaining("Negative offset");
+            try (var input = createStream(100)) {
+                assertThatThrownBy(() -> BoundsCheck.validateOffset(input, -1, "test"))
+                        .isInstanceOf(Cr3FormatException.class)
+                        .hasMessageContaining("Negative offset");
+            }
         }
 
         @Test
         @DisplayName("Should reject offset beyond stream length")
         void rejectBeyondStreamLength() throws IOException {
-            var input = createStream(100);
-            assertThatThrownBy(() -> BoundsCheck.validateOffset(input, 101, "test"))
-                    .isInstanceOf(Cr3FormatException.class)
-                    .hasMessageContaining("exceeds stream length");
+            try (var input = createStream(100)) {
+                assertThatThrownBy(() -> BoundsCheck.validateOffset(input, 101, "test"))
+                        .isInstanceOf(Cr3FormatException.class)
+                        .hasMessageContaining("exceeds stream length");
+            }
         }
     }
 
@@ -79,44 +83,49 @@ class BoundsCheckTest {
         @Test
         @DisplayName("Should accept valid range within stream")
         void acceptValidRange() throws IOException {
-            var input = createStream(100);
-            assertThatCode(() -> BoundsCheck.validateRange(input, 10, 50, "test"))
-                    .doesNotThrowAnyException();
+            try (var input = createStream(100)) {
+                assertThatCode(() -> BoundsCheck.validateRange(input, 10, 50, "test"))
+                        .doesNotThrowAnyException();
+            }
         }
 
         @Test
         @DisplayName("Should accept range exactly covering the stream")
         void acceptExactRange() throws IOException {
-            var input = createStream(100);
-            assertThatCode(() -> BoundsCheck.validateRange(input, 0, 100, "test"))
-                    .doesNotThrowAnyException();
+            try (var input = createStream(100)) {
+                assertThatCode(() -> BoundsCheck.validateRange(input, 0, 100, "test"))
+                        .doesNotThrowAnyException();
+            }
         }
 
         @Test
         @DisplayName("Should reject range exceeding stream")
         void rejectExceedingRange() throws IOException {
-            var input = createStream(100);
-            assertThatThrownBy(() -> BoundsCheck.validateRange(input, 50, 60, "test"))
-                    .isInstanceOf(Cr3FormatException.class)
-                    .hasMessageContaining("exceeds stream length");
+            try (var input = createStream(100)) {
+                assertThatThrownBy(() -> BoundsCheck.validateRange(input, 50, 60, "test"))
+                        .isInstanceOf(Cr3FormatException.class)
+                        .hasMessageContaining("exceeds stream length");
+            }
         }
 
         @Test
         @DisplayName("Should reject negative size")
         void rejectNegativeSize() throws IOException {
-            var input = createStream(100);
-            assertThatThrownBy(() -> BoundsCheck.validateRange(input, 0, -5, "test"))
-                    .isInstanceOf(Cr3FormatException.class)
-                    .hasMessageContaining("Negative size");
+            try (var input = createStream(100)) {
+                assertThatThrownBy(() -> BoundsCheck.validateRange(input, 0, -5, "test"))
+                        .isInstanceOf(Cr3FormatException.class)
+                        .hasMessageContaining("Negative size");
+            }
         }
 
         @Test
         @DisplayName("Should reject negative offset in range")
         void rejectNegativeOffsetInRange() throws IOException {
-            var input = createStream(100);
-            assertThatThrownBy(() -> BoundsCheck.validateRange(input, -1, 10, "test"))
-                    .isInstanceOf(Cr3FormatException.class)
-                    .hasMessageContaining("Negative offset");
+            try (var input = createStream(100)) {
+                assertThatThrownBy(() -> BoundsCheck.validateRange(input, -1, 10, "test"))
+                        .isInstanceOf(Cr3FormatException.class)
+                        .hasMessageContaining("Negative offset");
+            }
         }
     }
 
@@ -127,29 +136,32 @@ class BoundsCheckTest {
         @Test
         @DisplayName("Should accept box within stream bounds")
         void acceptValidBox() throws IOException {
-            var input = createStream(200);
-            IsoBox box = new IsoBox("test", 100, 50);
-            assertThatCode(() -> BoundsCheck.validateBox(box, input))
-                    .doesNotThrowAnyException();
+            try (var input = createStream(200)) {
+                IsoBox box = new IsoBox("test", 100, 50);
+                assertThatCode(() -> BoundsCheck.validateBox(box, input))
+                        .doesNotThrowAnyException();
+            }
         }
 
         @Test
         @DisplayName("Should reject box exceeding stream")
         void rejectOversizedBox() throws IOException {
-            var input = createStream(100);
-            IsoBox box = new IsoBox("test", 200, 0);
-            assertThatThrownBy(() -> BoundsCheck.validateBox(box, input))
-                    .isInstanceOf(Cr3FormatException.class)
-                    .hasMessageContaining("exceeds stream length");
+            try (var input = createStream(100)) {
+                IsoBox box = new IsoBox("test", 200, 0);
+                assertThatThrownBy(() -> BoundsCheck.validateBox(box, input))
+                        .isInstanceOf(Cr3FormatException.class)
+                        .hasMessageContaining("exceeds stream length");
+            }
         }
 
         @Test
         @DisplayName("Should accept box with size 0 (extends to EOF)")
         void acceptSizeZeroBox() throws IOException {
-            var input = createStream(100);
-            IsoBox box = new IsoBox("last", 0, 50);
-            assertThatCode(() -> BoundsCheck.validateBox(box, input))
-                    .doesNotThrowAnyException();
+            try (var input = createStream(100)) {
+                IsoBox box = new IsoBox("last", 0, 50);
+                assertThatCode(() -> BoundsCheck.validateBox(box, input))
+                        .doesNotThrowAnyException();
+            }
         }
     }
 

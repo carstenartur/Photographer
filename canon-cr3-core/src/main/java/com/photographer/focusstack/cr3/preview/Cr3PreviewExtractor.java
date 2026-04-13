@@ -35,37 +35,67 @@ public final class Cr3PreviewExtractor {
     /**
      * Extracts the main JPEG preview image from the CR3 file.
      *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>Track typed {@link Cr3Track.TrackType#JPEG_PREVIEW} (synthetic test CR3s)</li>
+     *   <li>{@code PRVW} box embedded in the top-level {@code uuid} box
+     *       (real Canon camera CR3 files, e.g. PowerShot G5 X Mark II)</li>
+     * </ol>
+     *
      * @param input     the image input stream for the CR3 file
      * @param container the parsed CR3 container
      * @return the preview image as a BufferedImage
-     * @throws Cr3Exception if no preview track is found
+     * @throws Cr3Exception if no preview source is found
      * @throws IOException  if an I/O error occurs
      */
     public static BufferedImage extractPreview(ImageInputStream input, Cr3Container container)
             throws Cr3Exception, IOException {
         Cr3Track previewTrack = findTrackByType(container, Cr3Track.TrackType.JPEG_PREVIEW);
-        if (previewTrack == null) {
-            throw new Cr3Exception("No JPEG preview track found in CR3 file");
+        if (previewTrack != null) {
+            return readJpegTrack(input, previewTrack);
         }
-        return readJpegTrack(input, previewTrack);
+        // Fall back to the PRVW box (present in real Canon camera files)
+        if (container.prvwBox() != null && container.prvwBox().jpegData() != null
+                && container.prvwBox().jpegData().length > 0) {
+            LOG.debug("No JPEG_PREVIEW track — using PRVW box ({}×{}, {} bytes)",
+                    container.prvwBox().width(), container.prvwBox().height(),
+                    container.prvwBox().jpegData().length);
+            return readJpegBytes(container.prvwBox().jpegData(), "PRVW");
+        }
+        throw new Cr3Exception("No JPEG preview track found in CR3 file");
     }
 
     /**
      * Extracts the JPEG thumbnail image from the CR3 file.
      *
+     * <p>Resolution order:
+     * <ol>
+     *   <li>Track typed {@link Cr3Track.TrackType#JPEG_THUMBNAIL}</li>
+     *   <li>{@code THMB} box embedded in {@code moov/uuid}
+     *       (real Canon camera CR3 files)</li>
+     * </ol>
+     *
      * @param input     the image input stream for the CR3 file
      * @param container the parsed CR3 container
      * @return the thumbnail image as a BufferedImage
-     * @throws Cr3Exception if no thumbnail track is found
+     * @throws Cr3Exception if no thumbnail source is found
      * @throws IOException  if an I/O error occurs
      */
     public static BufferedImage extractThumbnail(ImageInputStream input, Cr3Container container)
             throws Cr3Exception, IOException {
         Cr3Track thumbTrack = findTrackByType(container, Cr3Track.TrackType.JPEG_THUMBNAIL);
-        if (thumbTrack == null) {
-            throw new Cr3Exception("No JPEG thumbnail track found in CR3 file");
+        if (thumbTrack != null) {
+            return readJpegTrack(input, thumbTrack);
         }
-        return readJpegTrack(input, thumbTrack);
+        // Fall back to the THMB box (present in real Canon camera files)
+        if (container.thmbBox() != null && container.thmbBox().jpegData() != null
+                && container.thmbBox().jpegData().length > 0) {
+            LOG.debug("No JPEG_THUMBNAIL track — using THMB box ({}×{}, {} bytes)",
+                    container.thmbBox().width(), container.thmbBox().height(),
+                    container.thmbBox().jpegData().length);
+            return readJpegBytes(container.thmbBox().jpegData(), "THMB");
+        }
+        throw new Cr3Exception("No JPEG thumbnail track found in CR3 file");
     }
 
     /**
@@ -74,16 +104,20 @@ public final class Cr3PreviewExtractor {
      * @param input     the image input stream for the CR3 file
      * @param container the parsed CR3 container
      * @return the JPEG bytes
-     * @throws Cr3Exception if no preview track is found
+     * @throws Cr3Exception if no preview source is found
      * @throws IOException  if an I/O error occurs
      */
     public static byte[] extractPreviewBytes(ImageInputStream input, Cr3Container container)
             throws Cr3Exception, IOException {
         Cr3Track previewTrack = findTrackByType(container, Cr3Track.TrackType.JPEG_PREVIEW);
-        if (previewTrack == null) {
-            throw new Cr3Exception("No JPEG preview track found in CR3 file");
+        if (previewTrack != null) {
+            return readTrackData(input, previewTrack);
         }
-        return readTrackData(input, previewTrack);
+        if (container.prvwBox() != null && container.prvwBox().jpegData() != null
+                && container.prvwBox().jpegData().length > 0) {
+            return container.prvwBox().jpegData();
+        }
+        throw new Cr3Exception("No JPEG preview track found in CR3 file");
     }
 
     /**
@@ -92,36 +126,54 @@ public final class Cr3PreviewExtractor {
      * @param input     the image input stream for the CR3 file
      * @param container the parsed CR3 container
      * @return the JPEG bytes
-     * @throws Cr3Exception if no thumbnail track is found
+     * @throws Cr3Exception if no thumbnail source is found
      * @throws IOException  if an I/O error occurs
      */
     public static byte[] extractThumbnailBytes(ImageInputStream input, Cr3Container container)
             throws Cr3Exception, IOException {
         Cr3Track thumbTrack = findTrackByType(container, Cr3Track.TrackType.JPEG_THUMBNAIL);
-        if (thumbTrack == null) {
-            throw new Cr3Exception("No JPEG thumbnail track found in CR3 file");
+        if (thumbTrack != null) {
+            return readTrackData(input, thumbTrack);
         }
-        return readTrackData(input, thumbTrack);
+        if (container.thmbBox() != null && container.thmbBox().jpegData() != null
+                && container.thmbBox().jpegData().length > 0) {
+            return container.thmbBox().jpegData();
+        }
+        throw new Cr3Exception("No JPEG thumbnail track found in CR3 file");
     }
 
     /**
-     * Checks whether the container has a JPEG preview.
+     * Checks whether the container has a JPEG preview (track or PRVW box).
      *
      * @param container the CR3 container
-     * @return {@code true} if a preview track exists
+     * @return {@code true} if a preview source exists
      */
     public static boolean hasPreview(Cr3Container container) {
-        return findTrackByType(container, Cr3Track.TrackType.JPEG_PREVIEW) != null;
+        if (findTrackByType(container, Cr3Track.TrackType.JPEG_PREVIEW) != null) return true;
+        return container.prvwBox() != null && container.prvwBox().jpegData() != null
+                && container.prvwBox().jpegData().length > 0;
     }
 
     /**
-     * Checks whether the container has a JPEG thumbnail.
+     * Checks whether the container has a JPEG thumbnail (track or THMB box).
      *
      * @param container the CR3 container
-     * @return {@code true} if a thumbnail track exists
+     * @return {@code true} if a thumbnail source exists
      */
     public static boolean hasThumbnail(Cr3Container container) {
-        return findTrackByType(container, Cr3Track.TrackType.JPEG_THUMBNAIL) != null;
+        if (findTrackByType(container, Cr3Track.TrackType.JPEG_THUMBNAIL) != null) return true;
+        return container.thmbBox() != null && container.thmbBox().jpegData() != null
+                && container.thmbBox().jpegData().length > 0;
+    }
+
+    private static BufferedImage readJpegBytes(byte[] jpegData, String source)
+            throws IOException, Cr3Exception {
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(jpegData));
+        if (image == null) {
+            throw new Cr3Exception("Failed to decode JPEG data from " + source);
+        }
+        LOG.info("Extracted {}×{} JPEG from {}", image.getWidth(), image.getHeight(), source);
+        return image;
     }
 
     private static BufferedImage readJpegTrack(ImageInputStream input, Cr3Track track)

@@ -94,14 +94,18 @@ public final class Cr3Parser {
             }
         }
 
-        // Parse PRVW from top-level uuid boxes
+        // Parse PRVW from top-level uuid boxes.
+        // IsoBmffReader now identifies the Canon PRVW UUID (EA F4 2B 5E...) and correctly
+        // skips the 8-byte Canon header before the PRVW child box, so findChild("PRVW") works.
         for (IsoBox box : boxes) {
             if ("uuid".equals(box.type())) {
                 IsoBox prvwChild = box.findChild("PRVW");
                 if (prvwChild != null) {
-                    try { prvwBox = PrvwBox.parse(input, prvwChild); } catch (IOException | RuntimeException e) {
+                    try { prvwBox = PrvwBox.parse(input, prvwChild); }
+                    catch (IOException | RuntimeException e) {
                         LOG.warn("Failed to parse PRVW box", e);
                     }
+                    break;
                 }
             }
         }
@@ -279,6 +283,9 @@ public final class Cr3Parser {
                         case 1 -> Cr3Track.TrackType.CRX_SMALL;
                         case 2 -> Cr3Track.TrackType.JPEG_BIG;
                         case 4 -> Cr3Track.TrackType.CRX_DUAL_PIXEL;
+                        // imageType=16 (0x10): used by Canon PowerShot G5X Mark II and similar
+                        // compact cameras — large JPEG preview embedded in mdat (CRAW box with JPEG child)
+                        case 16 -> Cr3Track.TrackType.JPEG_BIG;
                         default -> Cr3Track.TrackType.UNKNOWN;
                     };
                 }

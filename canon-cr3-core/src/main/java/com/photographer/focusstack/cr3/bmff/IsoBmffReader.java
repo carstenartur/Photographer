@@ -27,6 +27,40 @@ public final class IsoBmffReader {
     /** Minimum valid box size (4 bytes size + 4 bytes type). */
     private static final int MIN_BOX_HEADER = 8;
 
+    /**
+     * Canon CMT (metadata) UUID — the moov-level uuid that contains CNCV/CCTP/CTBO/THMB/CMTx boxes.
+     * Bytes: 85 C0 B6 87 82 0F 11 E0 81 11 F4 CE 46 2B 6A 48
+     */
+    static final byte[] UUID_CANON_CMT = {
+        (byte)0x85,(byte)0xC0,(byte)0xB6,(byte)0x87,
+        (byte)0x82,(byte)0x0F,(byte)0x11,(byte)0xE0,
+        (byte)0x81,(byte)0x11,(byte)0xF4,(byte)0xCE,
+        (byte)0x46,(byte)0x2B,(byte)0x6A,(byte)0x48
+    };
+
+    /**
+     * Canon PRVW (preview) UUID — a top-level uuid that contains 8 unknown bytes
+     * followed by the PRVW child box.
+     * Bytes: EA F4 2B 5E 1C 98 4B 88 B9 FB B7 DC 40 6E 4D 16
+     */
+    static final byte[] UUID_CANON_PRVW = {
+        (byte)0xEA,(byte)0xF4,(byte)0x2B,(byte)0x5E,
+        (byte)0x1C,(byte)0x98,(byte)0x4B,(byte)0x88,
+        (byte)0xB9,(byte)0xFB,(byte)0xB7,(byte)0xDC,
+        (byte)0x40,(byte)0x6E,(byte)0x4D,(byte)0x16
+    };
+
+    /**
+     * XMP data UUID — a top-level uuid whose entire payload is raw XMP text, not BMFF boxes.
+     * Bytes: BE 7A CF CB 97 A9 42 E8 9C 71 99 94 91 E3 AF AC
+     */
+    static final byte[] UUID_XMP = {
+        (byte)0xBE,(byte)0x7A,(byte)0xCF,(byte)0xCB,
+        (byte)0x97,(byte)0xA9,(byte)0x42,(byte)0xE8,
+        (byte)0x9C,(byte)0x71,(byte)0x99,(byte)0x94,
+        (byte)0x91,(byte)0xE3,(byte)0xAF,(byte)0xAC
+    };
+
     /** Box types that are known containers and should be recursively parsed. */
     private static final java.util.Set<String> CONTAINER_TYPES = java.util.Set.of(
             "moov", "trak", "mdia", "minf", "stbl", "dinf", "edts",
@@ -140,7 +174,26 @@ public final class IsoBmffReader {
                 } else if ("CRAW".equals(type)) {
                     childStart += 82; // Visual SampleEntry: 82 bytes before children
                 } else if ("uuid".equals(type)) {
-                    childStart += 16; // 16-byte UUID value
+                    // Read 16-byte UUID to decide how to parse children
+                    byte[] uuid = new byte[16];
+                    input.seek(pos + headerSize);
+                    try { input.readFully(uuid); } catch (java.io.EOFException e) { uuid = new byte[16]; }
+                    childStart = pos + headerSize + 16; // skip header + UUID
+
+                    if (uuidEquals(uuid, UUID_CANON_PRVW)) {
+                        // Canon PRVW uuid has 8 extra bytes before the PRVW child box
+                        childStart += 8;
+                        LOG.debug("uuid at {} identified as Canon PRVW uuid, childStart={}", pos, childStart);
+                    } else if (uuidEquals(uuid, UUID_XMP)) {
+                        // XMP uuid payload is raw XML text, not BMFF boxes — skip child parsing
+                        LOG.debug("uuid at {} identified as XMP uuid, skipping child box parsing", pos);
+                        boxes.add(new IsoBox(type, size, pos, List.of(), extendedHeader));
+                        pos += size;
+                        continue;
+                    } else {
+                        LOG.debug("uuid at {} UUID={}, parsing children from offset {}",
+                                pos, uuidToHex(uuid), childStart);
+                    }
                 } else if ("stsd".equals(type)) {
                     childStart += 8; // FullBox 4 bytes + count 4 bytes
                 }
@@ -179,5 +232,21 @@ public final class IsoBmffReader {
         input.seek(box.dataOffset());
         input.readFully(data);
         return data;
+    }
+
+    /** Returns true if two 16-byte UUID arrays are equal. */
+    static boolean uuidEquals(byte[] a, byte[] b) {
+        if (a.length != 16 || b.length != 16) return false;
+        for (int i = 0; i < 16; i++) {
+            if (a[i] != b[i]) return false;
+        }
+        return true;
+    }
+
+    /** Formats a 16-byte UUID as a hex string for logging. */
+    private static String uuidToHex(byte[] uuid) {
+        StringBuilder sb = new StringBuilder(32);
+        for (byte b : uuid) sb.append(String.format("%02X", b));
+        return sb.toString();
     }
 }
