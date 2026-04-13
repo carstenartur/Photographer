@@ -1,28 +1,19 @@
 package com.photographer.focusstack.cr3.container;
 
+import com.photographer.focusstack.cr3.bmff.CcdtEntry;
+import com.photographer.focusstack.cr3.bmff.CctpBox;
+import com.photographer.focusstack.cr3.bmff.CncvBox;
+import com.photographer.focusstack.cr3.bmff.CtboBox;
 import com.photographer.focusstack.cr3.bmff.FtypBox;
 import com.photographer.focusstack.cr3.bmff.IsoBox;
+import com.photographer.focusstack.cr3.bmff.PrvwBox;
+import com.photographer.focusstack.cr3.bmff.ThmbBox;
 
 import java.util.Collections;
 import java.util.List;
 
 /**
  * Represents the parsed top-level structure of a Canon CR3 file.
- *
- * <p>A CR3 file is based on ISO BMFF (ISO 14496-12) and contains:</p>
- * <ul>
- *   <li>{@code ftyp} — file type identification (major brand "crx ")</li>
- *   <li>{@code moov} — movie box with metadata tracks</li>
- *   <li>{@code mdat} — media data containing JPEG previews and RAW sensor data</li>
- * </ul>
- *
- * <p>Track layout for Canon PowerShot G5 X Mark II:</p>
- * <ul>
- *   <li>Track 1: Small JPEG thumbnail (~160×120)</li>
- *   <li>Track 2: Main JPEG preview (~1620×1080)</li>
- *   <li>Track 3: Lossless CRX RAW data (full sensor resolution)</li>
- *   <li>Track 4: Lossless CRX HDR data (may not always be present)</li>
- * </ul>
  */
 public final class Cr3Container {
 
@@ -31,47 +22,59 @@ public final class Cr3Container {
     private final IsoBox mdatBox;
     private final List<IsoBox> allBoxes;
     private final List<Cr3Track> tracks;
+    private final CncvBox cncvBox;
+    private final CctpBox cctpBox;
+    private final CtboBox ctboBox;
+    private final ThmbBox thmbBox;
+    private final PrvwBox prvwBox;
 
-    /**
-     * Creates a new CR3 container.
-     *
-     * @param ftypBox  the parsed ftyp box
-     * @param moovBox  the moov box
-     * @param mdatBox  the mdat box
-     * @param allBoxes all top-level boxes
-     * @param tracks   parsed track information
-     */
+    /** Full constructor with all fields. */
     public Cr3Container(FtypBox ftypBox, IsoBox moovBox, IsoBox mdatBox,
-                        List<IsoBox> allBoxes, List<Cr3Track> tracks) {
+                        List<IsoBox> allBoxes, List<Cr3Track> tracks,
+                        CncvBox cncvBox, CctpBox cctpBox, CtboBox ctboBox,
+                        ThmbBox thmbBox, PrvwBox prvwBox) {
         this.ftypBox = ftypBox;
         this.moovBox = moovBox;
         this.mdatBox = mdatBox;
         this.allBoxes = Collections.unmodifiableList(allBoxes);
         this.tracks = Collections.unmodifiableList(tracks);
+        this.cncvBox = cncvBox;
+        this.cctpBox = cctpBox;
+        this.ctboBox = ctboBox;
+        this.thmbBox = thmbBox;
+        this.prvwBox = prvwBox;
     }
 
-    /** Returns the file type box. */
+    /** Backwards-compatible constructor (no canon-specific boxes). */
+    public Cr3Container(FtypBox ftypBox, IsoBox moovBox, IsoBox mdatBox,
+                        List<IsoBox> allBoxes, List<Cr3Track> tracks) {
+        this(ftypBox, moovBox, mdatBox, allBoxes, tracks, null, null, null, null, null);
+    }
+
     public FtypBox ftypBox() { return ftypBox; }
-
-    /** Returns the movie box containing metadata and track information. */
     public IsoBox moovBox() { return moovBox; }
-
-    /** Returns the media data box containing actual image data. */
     public IsoBox mdatBox() { return mdatBox; }
-
-    /** Returns all top-level boxes in file order. */
     public List<IsoBox> allBoxes() { return allBoxes; }
-
-    /** Returns the parsed tracks. */
     public List<Cr3Track> tracks() { return tracks; }
+    public CncvBox cncvBox() { return cncvBox; }
+    public CctpBox cctpBox() { return cctpBox; }
+    public CtboBox ctboBox() { return ctboBox; }
+    public ThmbBox thmbBox() { return thmbBox; }
+    public PrvwBox prvwBox() { return prvwBox; }
+
+    public int trackCount() { return tracks.size(); }
 
     /**
-     * Returns the number of tracks in this CR3 file.
-     *
-     * @return track count
+     * Returns the CCDT entry for a given track index (1-based), or null.
      */
-    public int trackCount() {
-        return tracks.size();
+    public CcdtEntry findCcdtForTrack(int trakIndex) {
+        if (cctpBox == null) return null;
+        for (CcdtEntry entry : cctpBox.entries()) {
+            if (entry.trakIndex() == trakIndex) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -80,3 +83,4 @@ public final class Cr3Container {
                 .formatted(ftypBox.majorBrand(), tracks.size(), allBoxes.size());
     }
 }
+

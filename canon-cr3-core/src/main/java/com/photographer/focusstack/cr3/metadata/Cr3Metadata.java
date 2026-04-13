@@ -29,6 +29,11 @@ public final class Cr3Metadata {
     private String focalLength = "";
     private String dateTaken = "";
     private int bitDepth = 14;  // CR3 typically uses 14-bit sensor data
+    private String compressorVersion = "";
+    private String captureDateTime = "";
+    private double focalLengthMm;
+    private double fNumber;
+    private double exposureTime;
 
     /** Returns the camera model name (e.g. "Canon PowerShot G5 X Mark II"). */
     public String cameraModel() { return cameraModel; }
@@ -113,6 +118,36 @@ public final class Cr3Metadata {
 
     /** Sets the bit depth. */
     public void setBitDepth(int bitDepth) { this.bitDepth = bitDepth; }
+
+    /** Returns the Canon compressor version string (e.g. "CanonCR3_001/00.09.00/00.00.00"). */
+    public String compressorVersion() { return compressorVersion; }
+
+    /** Sets the compressor version string. */
+    public void setCompressorVersion(String compressorVersion) { this.compressorVersion = compressorVersion; }
+
+    /** Returns the capture date/time as a string. */
+    public String captureDateTime() { return captureDateTime; }
+
+    /** Sets the capture date/time string. */
+    public void setCaptureDateTime(String captureDateTime) { this.captureDateTime = captureDateTime; }
+
+    /** Returns the focal length in millimetres. */
+    public double focalLengthMm() { return focalLengthMm; }
+
+    /** Sets the focal length in millimetres. */
+    public void setFocalLengthMm(double focalLengthMm) { this.focalLengthMm = focalLengthMm; }
+
+    /** Returns the f-number (aperture). */
+    public double fNumber() { return fNumber; }
+
+    /** Sets the f-number. */
+    public void setFNumber(double fNumber) { this.fNumber = fNumber; }
+
+    /** Returns the exposure time in seconds. */
+    public double exposureTime() { return exposureTime; }
+
+    /** Sets the exposure time in seconds. */
+    public void setExposureTime(double exposureTime) { this.exposureTime = exposureTime; }
 
     /**
      * Returns the visible (cropped) image width based on active area.
