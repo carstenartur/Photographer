@@ -43,6 +43,7 @@ public class AstroModeService {
     /** Tracks sessions that have been requested to abort. */
     private final Map<String, Boolean> abortFlags = new ConcurrentHashMap<>();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AstroModeService(AstroSessionRepository repository, CameraBackend cameraBackend) {
         this(repository, cameraBackend, "data/astro-sessions");
     }

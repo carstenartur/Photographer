@@ -31,7 +31,7 @@ jobs:
           cache-dependency-path: pom.xml
 
       - name: Build and verify (unit + Testcontainers integration tests)
-        run: mvn -B clean verify -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -Djava.awt.headless=true
+        run: mvn -B clean verify -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -Djava.awt.headless=true
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
