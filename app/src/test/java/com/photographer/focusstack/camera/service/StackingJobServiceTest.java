@@ -3,6 +3,7 @@ package com.photographer.focusstack.camera.service;
 import com.photographer.focusstack.analysis.service.StackMerger;
 import com.photographer.focusstack.analysis.service.StackingAdvisor;
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.config.PlainWebSocketBridge;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
@@ -41,6 +42,7 @@ class StackingJobServiceTest {
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private StackingAdvisor stackingAdvisor;
     @Mock private StackMerger stackMerger;
+    @Mock private PlainWebSocketBridge plainWebSocketBridge;
 
     @TempDir Path tempDir;
 
@@ -62,6 +64,7 @@ class StackingJobServiceTest {
         service = new StackingJobService(
                 backendFactory, profileService, repository, messagingTemplate,
                 stackingAdvisor, stackMerger, new FrameDataStore(tempDir.toString()),
+                plainWebSocketBridge,
                 new SyncTaskExecutor(), "adaptive");
     }
 
@@ -88,7 +91,7 @@ class StackingJobServiceTest {
         );
 
         StackingJob job = new StackingJob("job-1", "cam-1", JobStatus.RUNNING,
-                Instant.now(), null, PARAMS, Collections.emptyList());
+                Instant.now(), null, PARAMS, Collections.emptyList(), null);
 
         // Run synchronously for test
         service.executeStackingAsync(job);
@@ -120,7 +123,7 @@ class StackingJobServiceTest {
         );
 
         StackingJob job = new StackingJob("job-1", "cam-1", JobStatus.RUNNING,
-                Instant.now(), null, PARAMS, Collections.emptyList());
+                Instant.now(), null, PARAMS, Collections.emptyList(), null);
 
         service.executeStackingAsync(job);
 
@@ -142,7 +145,7 @@ class StackingJobServiceTest {
         );
 
         StackingJob job = new StackingJob("job-1", "cam-1", JobStatus.RUNNING,
-                Instant.now(), null, PARAMS, Collections.emptyList());
+                Instant.now(), null, PARAMS, Collections.emptyList(), null);
 
         service.executeStackingAsync(job);
 
@@ -154,7 +157,7 @@ class StackingJobServiceTest {
     @Test
     void cancelledJobShouldNotProceed() {
         StackingJob runningJob = new StackingJob("job-1", "cam-1", JobStatus.RUNNING,
-                Instant.now(), null, PARAMS, Collections.emptyList());
+                Instant.now(), null, PARAMS, Collections.emptyList(), null);
         when(repository.findById("job-1"))
                 .thenReturn(Optional.of(StackingJobEntity.fromRecord(runningJob)));
 

@@ -16,6 +16,7 @@ import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
+import com.photographer.focusstack.camera.config.PlainWebSocketBridge;
 import com.photographer.focusstack.camera.exception.CameraException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,7 @@ public class StackingJobService {
     private final FocusStepStrategy stepStrategy;
     private final TaskExecutor taskExecutor;
     private final FrameDataStore frameDataStore;
+    private final PlainWebSocketBridge plainWebSocketBridge;
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
@@ -62,6 +64,7 @@ public class StackingJobService {
                               StackingAdvisor stackingAdvisor,
                               StackMerger stackMerger,
                               FrameDataStore frameDataStore,
+                              PlainWebSocketBridge plainWebSocketBridge,
                               @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
                               @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
         this.backendFactory = backendFactory;
@@ -71,6 +74,7 @@ public class StackingJobService {
         this.stackingAdvisor = stackingAdvisor;
         this.stackMerger = stackMerger;
         this.frameDataStore = frameDataStore;
+        this.plainWebSocketBridge = plainWebSocketBridge;
         this.taskExecutor = taskExecutor;
         this.stepStrategy = "linear".equalsIgnoreCase(stepStrategyName)
                 ? new LinearStepStrategy()
@@ -88,7 +92,7 @@ public class StackingJobService {
         String id = UUID.randomUUID().toString();
         StackingJob job = new StackingJob(
                 id, cameraProfileId, JobStatus.CREATED,
-                null, null, parameters, new ArrayList<>()
+                null, null, parameters, new ArrayList<>(), null
         );
         repository.save(StackingJobEntity.fromRecord(job));
         return job;
@@ -110,7 +114,8 @@ public class StackingJobService {
 
         StackingJob running = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.RUNNING,
-                Instant.now(), null, job.parameters(), new ArrayList<>(job.frames())
+                Instant.now(), null, job.parameters(), new ArrayList<>(job.frames()),
+                null
         );
         repository.save(StackingJobEntity.fromRecord(running));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "RUNNING"));
@@ -130,7 +135,8 @@ public class StackingJobService {
         pausedJobs.add(id);
         StackingJob paused = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.PAUSED,
-                job.startedAt(), null, job.parameters(), job.frames()
+                job.startedAt(), null, job.parameters(), job.frames(),
+                "Paused by user"
         );
         repository.save(StackingJobEntity.fromRecord(paused));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "PAUSED"));
@@ -144,7 +150,8 @@ public class StackingJobService {
         cancelledJobs.add(id);
         StackingJob cancelled = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.CANCELLED,
-                job.startedAt(), Instant.now(), job.parameters(), job.frames()
+                job.startedAt(), Instant.now(), job.parameters(), job.frames(),
+                "Cancelled by user"
         );
         repository.save(StackingJobEntity.fromRecord(cancelled));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "CANCELLED"));
@@ -270,14 +277,25 @@ public class StackingJobService {
 
                 StackingJob updated = new StackingJob(
                         id, job.cameraProfileId(), JobStatus.RUNNING,
-                        job.startedAt(), null, params, new ArrayList<>(frames)
+                        job.startedAt(), null, params, new ArrayList<>(frames),
+                        null
                 );
                 repository.save(StackingJobEntity.fromRecord(updated));
             }
 
+            String stopReason = "Captured all frames";
+            if (cancelledJobs.contains(id)) {
+                stopReason = "Cancelled by user";
+            } else if (pausedJobs.contains(id)) {
+                stopReason = "Paused by user";
+            } else if (frames.size() < params.maxFrames()) {
+                stopReason = "Analysis recommended early stop";
+            }
+
             StackingJob completed = new StackingJob(
                     id, job.cameraProfileId(), JobStatus.COMPLETED,
-                    job.startedAt(), Instant.now(), params, frames
+                    job.startedAt(), Instant.now(), params, frames,
+                    stopReason
             );
             repository.save(StackingJobEntity.fromRecord(completed));
             sendJobEvent(id, "SEQUENCE_COMPLETED", Map.of("totalFrames", frames.size()));
@@ -288,7 +306,8 @@ public class StackingJobService {
             log.error("Stacking job {} failed: {}", id, e.getMessage(), e);
             StackingJob failed = new StackingJob(
                     id, job.cameraProfileId(), JobStatus.FAILED,
-                    job.startedAt(), Instant.now(), params, frames
+                    job.startedAt(), Instant.now(), params, frames,
+                    e.getMessage()
             );
             repository.save(StackingJobEntity.fromRecord(failed));
             sendJobEvent(id, "ERROR", Map.of("message", e.getMessage()));
@@ -307,10 +326,12 @@ public class StackingJobService {
                     "type", "camera",
                     "frameIndex", frameIndex,
                     "imageBase64", base64,
-                    "timestamp", Instant.now().toString()
+                    "timestamp", Instant.now().toString(),
+                    "jobId", jobId
             );
             messagingTemplate.convertAndSend(
                     "/topic/jobs/" + jobId + "/preview", (Object) preview);
+            plainWebSocketBridge.broadcast(preview);
         } catch (Exception e) {
             log.debug("Failed to send camera preview for job {}: {}", jobId, e.getMessage());
         }
@@ -346,10 +367,12 @@ public class StackingJobService {
                         "frameIndex", frameIndex,
                         "framesUsed", framesToMerge.size(),
                         "imageBase64", base64,
-                        "timestamp", Instant.now().toString()
+                        "timestamp", Instant.now().toString(),
+                        "jobId", jobId
                 );
                 messagingTemplate.convertAndSend(
                         "/topic/jobs/" + jobId + "/preview", (Object) preview);
+                plainWebSocketBridge.broadcast(preview);
             }
         } catch (Exception e) {
             log.debug("Failed to send stack preview for job {}: {}", jobId, e.getMessage());
@@ -362,6 +385,7 @@ public class StackingJobService {
         message.put("jobId", jobId);
         message.put("timestamp", Instant.now().toString());
         messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/progress", (Object) message);
+        plainWebSocketBridge.broadcast(message);
     }
 
     private void sendJobLog(String jobId, String level, String text) {
@@ -372,5 +396,6 @@ public class StackingJobService {
                 "timestamp", Instant.now().toString()
         );
         messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/logs", (Object) message);
+        plainWebSocketBridge.broadcast(message);
     }
 }

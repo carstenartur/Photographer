@@ -13,6 +13,7 @@ public record StackingJob(
         @JsonProperty("startedAt") Instant startedAt,
         @JsonProperty("completedAt") Instant completedAt,
         @JsonProperty("parameters") StackingParameters parameters,
-        @JsonProperty("frames") List<String> frames
+        @JsonProperty("frames") List<String> frames,
+        @JsonProperty("stopReason") String stopReason
 ) {
 }

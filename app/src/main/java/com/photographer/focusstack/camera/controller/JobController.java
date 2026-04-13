@@ -5,9 +5,12 @@ import com.photographer.focusstack.common.model.StackingParameters;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.FrameDataStore;
+import com.photographer.focusstack.camera.service.RawImagePreviewService;
 import com.photographer.focusstack.camera.service.StackingJobService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,16 +32,21 @@ import java.util.zip.ZipOutputStream;
 @RequestMapping("/api/jobs")
 public class JobController {
 
+    private static final Logger log = LoggerFactory.getLogger(JobController.class);
+
     private final StackingJobService jobService;
     private final SearchService searchService;
     private final FrameDataStore frameDataStore;
+    private final RawImagePreviewService rawPreviewService;
 
     public JobController(StackingJobService jobService,
                          SearchService searchService,
-                         FrameDataStore frameDataStore) {
+                         FrameDataStore frameDataStore,
+                         RawImagePreviewService rawPreviewService) {
         this.jobService = jobService;
         this.searchService = searchService;
         this.frameDataStore = frameDataStore;
+        this.rawPreviewService = rawPreviewService;
     }
 
     @GetMapping
@@ -76,12 +84,15 @@ public class JobController {
     }
 
     /**
-     * Serves the raw image data for a single captured frame.
+     * Serves a browser-displayable image for a single captured frame.
+     *
+     * <p>If the captured file is a Canon RAW (CR3/CR2), the embedded JPEG preview
+     * (~1620×1080) is extracted and served so the browser can display it without
+     * a RAW decoder. JPEG and PNG files are served directly.
      *
      * @param id      the job id
      * @param frameId the frame image id
-     * @return the raw image bytes with {@code application/octet-stream} content type,
-     *         or 404 if the job or frame is not found in the cache
+     * @return the image bytes with correct content type, or 404 if not found
      */
     @GetMapping("/{id}/frames/{frameId}/image")
     public ResponseEntity<byte[]> getFrameImage(
@@ -96,22 +107,50 @@ public class JobController {
         if (entry == null) {
             return ResponseEntity.notFound().build();
         }
-        // Derive content type from filename extension
+
         String fileName = entry.fileName();
-        MediaType contentType = MediaType.APPLICATION_OCTET_STREAM;
-        if (fileName != null) {
-            String lower = fileName.toLowerCase();
-            if (lower.endsWith(".png")) {
-                contentType = MediaType.IMAGE_PNG;
-            } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+        byte[] imageBytes = entry.data();
+        MediaType contentType;
+
+        // Canon RAW files (CR3/CR2) cannot be displayed by browsers.
+        // Extract the embedded JPEG preview for display.
+        if (rawPreviewService.isRawFile(fileName)) {
+            RawImagePreviewService.PreviewResult preview =
+                    rawPreviewService.extractPreview(imageBytes, fileName);
+            if (preview != null && preview.jpegBytes() != null) {
+                imageBytes = preview.jpegBytes();
+                fileName = preview.fileName();
                 contentType = MediaType.IMAGE_JPEG;
+            } else {
+                // Fallback: serve the raw bytes as octet-stream (browser won't display it,
+                // but the user can still download it)
+                log.warn("Frame {} ({}): CR3 preview extraction failed — serving raw bytes",
+                        frameId, entry.fileName());
+                contentType = MediaType.APPLICATION_OCTET_STREAM;
             }
+        } else {
+            // Derive content type from filename extension
+            contentType = deriveContentType(fileName);
         }
+
         return ResponseEntity.ok()
                 .contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "inline; filename=\"" + fileName + "\"")
-                .body(entry.data());
+                .body(imageBytes);
+    }
+
+    /** Derives a browser-friendly {@link MediaType} from a filename extension. */
+    private static MediaType deriveContentType(String fileName) {
+        if (fileName != null) {
+            String lower = fileName.toLowerCase();
+            if (lower.endsWith(".png")) {
+                return MediaType.IMAGE_PNG;
+            } else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) {
+                return MediaType.IMAGE_JPEG;
+            }
+        }
+        return MediaType.APPLICATION_OCTET_STREAM;
     }
 
     /**

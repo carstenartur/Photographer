@@ -9,6 +9,7 @@ export default function JobDetail() {
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
   const [logs, setLogs] = useState([]);
+  const [analysis, setAnalysis] = useState([]);
   const [cameraStatus, setCameraStatus] = useState(null);
   const logEndRef = useRef(null);
 
@@ -59,15 +60,21 @@ export default function JobDetail() {
   useEffect(() => {
     let ws;
     try {
-      const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8080')
-        .replace(/^http/, 'ws') + '/ws/sockjs';
-      // Simple WebSocket for log streaming — falls back gracefully
-      ws = new WebSocket(wsUrl.replace('/sockjs', ''));
+      const wsBase = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace(/^http/, 'ws').replace(/\/api$/, '')
+        : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+      const wsUrl = wsBase + '/ws/plain';
+      // Plain WebSocket — matches the /ws/plain handler on the server
+      ws = new WebSocket(wsUrl);
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
           if (msg.jobId === id) {
-            setLogs((prev) => [...prev.slice(-200), msg]);
+            if (msg.event === 'FRAME_CAPTURED') {
+              setAnalysis((prev) => [...prev.slice(-200), msg]);
+            } else {
+              setLogs((prev) => [...prev.slice(-200), msg]);
+            }
           }
         } catch { /* ignore non-JSON */ }
       };
@@ -226,6 +233,8 @@ export default function JobDetail() {
           <dd>{params.motionDetectionEnabled != null ? String(params.motionDetectionEnabled) : '—'}</dd>
           <dt>Quality Mode</dt>
           <dd>{params.qualityMode ?? '—'}</dd>
+          <dt>Stop Reason</dt>
+          <dd>{job.stopReason || '—'}</dd>
           <dt>Started</dt>
           <dd>
             {job.startedAt
@@ -248,7 +257,7 @@ export default function JobDetail() {
         ) : (
           <div className="frame-thumb-grid">
             {frames.map((frameId, i) => {
-              const imgUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/jobs/${id}/frames/${frameId}/image`;
+              const imgUrl = `${import.meta.env.VITE_API_URL || '/api'}/jobs/${id}/frames/${frameId}/image`;
               return (
                 <div key={frameId} className="frame-thumb-card">
                   <img
@@ -289,6 +298,29 @@ export default function JobDetail() {
             ))
           )}
           <div ref={logEndRef} />
+        </div>
+      </section>
+
+      <section className="detail-section">
+        <h2>Analysis</h2>
+        <div className="log-panel">
+          {analysis.length === 0 ? (
+            <p className="empty">No analysis messages yet.</p>
+          ) : (
+            analysis.map((entry, i) => (
+              <div key={i} className="log-entry">
+                <span className="log-time">
+                  {new Date(entry.timestamp).toLocaleTimeString()}
+                </span>
+                <span className="log-msg">
+                  Frame {entry.frameIndex + 1}: Sharpness={entry.sharpnessScore?.toFixed(3)},
+                  Gain={entry.newInformationGain?.toFixed(3)},
+                  Motion={entry.motionScore?.toFixed(3)},
+                  Continue={String(entry.recommendContinue)}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </section>
     </div>

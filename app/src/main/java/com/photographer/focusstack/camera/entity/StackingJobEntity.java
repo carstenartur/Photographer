@@ -66,6 +66,8 @@ public class StackingJobEntity {
     @KeywordField
     private QualityMode paramQualityMode;
 
+    private String stopReason;
+
     @Column(length = 10000)
     private String capturedFrameIds;
 
@@ -79,6 +81,7 @@ public class StackingJobEntity {
         entity.status = job.status();
         entity.startedAt = job.startedAt();
         entity.completedAt = job.completedAt();
+        entity.stopReason = job.stopReason();
         if (job.parameters() != null) {
             entity.paramStartPosition = job.parameters().startPosition();
             entity.paramStepSize = job.parameters().stepSize();
@@ -104,7 +107,7 @@ public class StackingJobEntity {
         if (capturedFrameIds != null && !capturedFrameIds.isEmpty()) {
             frames = new ArrayList<>(Arrays.asList(capturedFrameIds.split(",")));
         }
-        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params, frames);
+        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params, frames, stopReason);
     }
 
     public String getId() {
@@ -153,5 +156,13 @@ public class StackingJobEntity {
 
     public void setCapturedFrameIds(String capturedFrameIds) {
         this.capturedFrameIds = capturedFrameIds;
+    }
+
+    public String getStopReason() {
+        return stopReason;
+    }
+
+    public void setStopReason(String stopReason) {
+        this.stopReason = stopReason;
     }
 }

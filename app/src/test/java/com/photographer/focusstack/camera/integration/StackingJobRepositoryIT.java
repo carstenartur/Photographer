@@ -34,7 +34,7 @@ class StackingJobRepositoryIT extends AbstractPostgresIntegrationTest {
     @Test
     void saveAndRetrieveJob() {
         StackingParameters params = new StackingParameters(0, 5, 10, 0.05, true, QualityMode.BALANCED);
-        StackingJob job = new StackingJob("job-1", "cam-1", JobStatus.CREATED, null, null, params, new ArrayList<>());
+        StackingJob job = new StackingJob("job-1", "cam-1", JobStatus.CREATED, null, null, params, new ArrayList<>(), null);
 
         repository.save(StackingJobEntity.fromRecord(job));
 
@@ -50,11 +50,11 @@ class StackingJobRepositoryIT extends AbstractPostgresIntegrationTest {
     void findByStatus() {
         StackingParameters params = new StackingParameters(0, 5, 10, 0.05, true, QualityMode.FAST);
         repository.save(StackingJobEntity.fromRecord(
-                new StackingJob("j1", "cam-1", JobStatus.CREATED, null, null, params, new ArrayList<>())));
+                new StackingJob("j1", "cam-1", JobStatus.CREATED, null, null, params, new ArrayList<>(), null)));
         repository.save(StackingJobEntity.fromRecord(
-                new StackingJob("j2", "cam-1", JobStatus.RUNNING, null, null, params, new ArrayList<>())));
+                new StackingJob("j2", "cam-1", JobStatus.RUNNING, null, null, params, new ArrayList<>(), null)));
         repository.save(StackingJobEntity.fromRecord(
-                new StackingJob("j3", "cam-2", JobStatus.CREATED, null, null, params, new ArrayList<>())));
+                new StackingJob("j3", "cam-2", JobStatus.CREATED, null, null, params, new ArrayList<>(), null)));
 
         List<StackingJobEntity> created = repository.findByStatus(JobStatus.CREATED);
         assertEquals(2, created.size());
@@ -67,11 +67,11 @@ class StackingJobRepositoryIT extends AbstractPostgresIntegrationTest {
     void findByCameraProfileId() {
         StackingParameters params = new StackingParameters(0, 5, 10, 0.05, false, QualityMode.MAXIMUM_QUALITY);
         repository.save(StackingJobEntity.fromRecord(
-                new StackingJob("j1", "cam-1", JobStatus.CREATED, null, null, params, new ArrayList<>())));
+                new StackingJob("j1", "cam-1", JobStatus.CREATED, null, null, params, new ArrayList<>(), null)));
         repository.save(StackingJobEntity.fromRecord(
-                new StackingJob("j2", "cam-1", JobStatus.COMPLETED, null, null, params, new ArrayList<>())));
+                new StackingJob("j2", "cam-1", JobStatus.COMPLETED, null, null, params, new ArrayList<>(), null)));
         repository.save(StackingJobEntity.fromRecord(
-                new StackingJob("j3", "cam-2", JobStatus.CREATED, null, null, params, new ArrayList<>())));
+                new StackingJob("j3", "cam-2", JobStatus.CREATED, null, null, params, new ArrayList<>(), null)));
 
         List<StackingJobEntity> cam1Jobs = repository.findByCameraProfileId("cam-1");
         assertEquals(2, cam1Jobs.size());
@@ -81,7 +81,7 @@ class StackingJobRepositoryIT extends AbstractPostgresIntegrationTest {
     void jobWithFramesPersistence() {
         StackingParameters params = new StackingParameters(0, 5, 10, 0.05, true, QualityMode.BALANCED);
         List<String> frames = List.of("frame-1", "frame-2", "frame-3");
-        StackingJob job = new StackingJob("job-frames", "cam-1", JobStatus.COMPLETED, null, null, params, frames);
+        StackingJob job = new StackingJob("job-frames", "cam-1", JobStatus.COMPLETED, null, null, params, frames, null);
 
         repository.save(StackingJobEntity.fromRecord(job));
 

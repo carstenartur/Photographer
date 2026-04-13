@@ -20,8 +20,10 @@ export default function PreviewPanel({ jobId, isRunning, frames = [] }) {
 
     let ws;
     try {
-      const wsUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8080')
-        .replace(/^http/, 'ws') + '/ws';
+      const wsBase = import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace(/^http/, 'ws').replace(/\/api$/, '')
+        : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+      const wsUrl = wsBase + '/ws/plain';
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
@@ -49,7 +51,7 @@ export default function PreviewPanel({ jobId, isRunning, frames = [] }) {
   if (!isRunning && !cameraFrame && !stackFrame) {
     // For completed/non-running jobs with captured frames, show the last frame as a static preview
     if (frames.length > 0) {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      const apiBase = import.meta.env.VITE_API_URL || '/api';
       const lastFrameId = frames[frames.length - 1];
       const firstFrameId = frames[0];
       return (

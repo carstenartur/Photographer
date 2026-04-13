@@ -542,14 +542,22 @@ public class CanonCcapiBackend implements CameraBackend {
             // DCIM browsing is only attempted when the contents endpoint was discovered;
             // otherwise skip it to avoid adding captureTimeoutMs delay on every frame for
             // cameras that expose shutter control but no contents endpoint.
-            byte[] imageData = downloadNewImageViaEventPolling();
-            if (imageData == null && contentsDiscovered) {
-                imageData = downloadNewImage(contentsBaseUrl, preNewestDatetime);
+            DownloadResult download = downloadNewImageViaEventPolling();
+            if (download == null && contentsDiscovered) {
+                download = downloadNewImage(contentsBaseUrl, preNewestDatetime);
             }
+
+            byte[] imageData = download != null ? download.data() : null;
+            // Use the real filename from the camera (e.g. IMG_1234.CR3, IMG_1234.JPG)
+            // instead of a hardcoded .jpg extension, so that content-type detection
+            // and downstream RAW processing work correctly.
+            String fileName = download != null && download.fileName() != null
+                    ? download.fileName()
+                    : "capture-" + imageId + ".bin";
 
             return new CaptureResult(
                     imageId,
-                    "capture-" + imageId + ".jpg",
+                    fileName,
                     triggerUrl,
                     Instant.now(),
                     focusPosition.get(),
@@ -635,7 +643,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * {@link #captureTimeoutMs} milliseconds (graceful degradation).
      * Returns {@code null} immediately if {@link #captureTimeoutMs} is {@code 0}.
      */
-    private byte[] downloadNewImage(String dcimUrl, String preNewestDatetime) {
+    private DownloadResult downloadNewImage(String dcimUrl, String preNewestDatetime) {
         if (captureTimeoutMs <= 0) {
             return null;
         }
@@ -648,9 +656,10 @@ public class CanonCcapiBackend implements CameraBackend {
                             + "/" + newest.entry().name();
                     byte[] data = restTemplate.getForObject(imageUrl, byte[].class);
                     if (data != null && data.length > 0) {
-                        log.info("Downloaded {} bytes from camera SD card ({})",
-                                data.length, imageUrl);
-                        return data;
+                        String fileName = newest.entry().name();
+                        log.info("Downloaded {} bytes from camera SD card ({}, fileName={})",
+                                data.length, imageUrl, fileName);
+                        return new DownloadResult(fileName, data);
                     }
                 }
             } catch (Exception e) {
@@ -734,7 +743,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * <p>The polling response is searched recursively for URLs that contain
      * {@code /contents/} and end with a recognised image extension.
      */
-    private byte[] downloadNewImageViaEventPolling() {
+    private DownloadResult downloadNewImageViaEventPolling() {
         if (captureTimeoutMs <= 0) {
             return null;
         }
@@ -758,8 +767,10 @@ public class CanonCcapiBackend implements CameraBackend {
                         try {
                             byte[] data = restTemplate.getForObject(fullUrl, byte[].class);
                             if (data != null && data.length > 0) {
-                                log.info("Downloaded {} bytes via event/polling ({})", data.length, fullUrl);
-                                return data;
+                                String fileName = extractFileNameFromUrl(fullUrl);
+                                log.info("Downloaded {} bytes via event/polling ({}, fileName={})",
+                                        data.length, fullUrl, fileName);
+                                return new DownloadResult(fileName, data);
                             }
                         } catch (RestClientException e) {
                             log.debug("Failed to download image {} from event/polling: {}", fullUrl, e.getMessage());
@@ -827,6 +838,16 @@ public class CanonCcapiBackend implements CameraBackend {
                 || upper.endsWith(".CR2") || upper.endsWith(".CR3");
     }
 
+    /** Extracts the filename from a URL path (e.g. {@code /contents/sd/100CANON/IMG_1234.CR3} → {@code IMG_1234.CR3}). */
+    private static String extractFileNameFromUrl(String url) {
+        if (url == null) return null;
+        // Strip query string
+        int queryIdx = url.indexOf('?');
+        String path = queryIdx >= 0 ? url.substring(0, queryIdx) : url;
+        int lastSlash = path.lastIndexOf('/');
+        return lastSlash >= 0 ? path.substring(lastSlash + 1) : path;
+    }
+
     /**
      * Returns {@code true} if {@code dt1} is strictly after {@code dt2} when
      * both are parsed as ISO-8601 offset date-times.
@@ -848,6 +869,9 @@ public class CanonCcapiBackend implements CameraBackend {
 
     /** Holds the DCIM folder name and file entry for a located image. */
     record ImageLocation(String folderName, ContentEntry entry) {}
+
+    /** Holds downloaded image bytes together with the original filename from the camera. */
+    record DownloadResult(String fileName, byte[] data) {}
 
     @Override
     public void setFocus(FocusCommand command) {

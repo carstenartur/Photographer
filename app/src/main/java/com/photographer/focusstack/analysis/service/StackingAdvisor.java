@@ -98,13 +98,21 @@ public class StackingAdvisor {
         if (history != null && history.size() >= params.maxFrames()) {
             return false;
         }
+        // Never recommend stopping before the minimum number of frames —
+        // a focus stack with 1-2 frames is useless.
+        if (history == null || history.size() < InformationGainEstimator.MIN_FRAMES_BEFORE_STOP) {
+            return true;
+        }
         // Abort if motion detected (the structural-similarity strategy is
         // blur-invariant, so a positive here represents real subject motion)
         if (motionResult.motionDetected()) {
+            log.info("Recommending stop: motion detected (score={})", motionResult.motionScore());
             return false;
         }
         // Abort if information gain below threshold
         if (infoGain < params.abortThreshold()) {
+            log.info("Recommending stop: information gain {}<{} (threshold)",
+                    infoGain, params.abortThreshold());
             return false;
         }
         return true;

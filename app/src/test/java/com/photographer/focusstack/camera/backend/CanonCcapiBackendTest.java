@@ -237,8 +237,10 @@ class CanonCcapiBackendTest {
         CaptureResult result = backend.capture();
 
         assertNotNull(result.imageId());
-        assertTrue(result.fileName().startsWith("capture-"));
-        assertTrue(result.fileName().endsWith(".jpg"));
+        assertTrue(result.fileName().startsWith("capture-"),
+                "Fallback filename should start with 'capture-': " + result.fileName());
+        assertTrue(result.fileName().endsWith(".bin"),
+                "Fallback filename should end with '.bin' when no image was downloaded: " + result.fileName());
         assertNotNull(result.capturedAt());
         assertNull(result.imageData());
         verify(restTemplate).exchange(
@@ -304,6 +306,9 @@ class CanonCcapiBackendTest {
         assertNotNull(result.imageData());
         assertArrayEquals(imageBytes, result.imageData());
         assertEquals(imageBytes.length, result.fileSize());
+        // Real filename from SD card listing
+        assertEquals("IMG_0002.JPG", result.fileName(),
+                "fileName should be the real camera filename from SD card browse");
     }
 
     @Test
@@ -339,6 +344,8 @@ class CanonCcapiBackendTest {
 
         assertNotNull(result.imageData());
         assertArrayEquals(imageBytes, result.imageData());
+        assertEquals("IMG_0001.JPG", result.fileName(),
+                "fileName should be the real camera filename from SD card");
     }
 
     @Test
@@ -995,6 +1002,9 @@ class CanonCcapiBackendTest {
         assertNotNull(result.imageData());
         assertArrayEquals(imageBytes, result.imageData());
         assertEquals(imageBytes.length, result.fileSize());
+        // Real filename extracted from the event/polling content URL
+        assertEquals("IMG_0010.JPG", result.fileName(),
+                "fileName should be the real camera filename from the download URL");
     }
 
     @Test
@@ -1040,6 +1050,8 @@ class CanonCcapiBackendTest {
 
         assertNotNull(result.imageData());
         assertArrayEquals(imageBytes, result.imageData());
+        // Fell back to DCIM browsing → real filename from SD card listing
+        assertEquals("IMG_0002.JPG", result.fileName());
     }
 
     // ── extractContentUrls ────────────────────────────────────────────────────

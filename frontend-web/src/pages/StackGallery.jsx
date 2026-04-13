@@ -2,8 +2,8 @@ import JSZip from 'jszip';
 import { useEffect, useRef, useState } from 'react';
 import { getAllJobs } from '../api/jobApi';
 
-const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || 'http://localhost:8081/api';
-const CAMERA_BASE   = import.meta.env.VITE_API_URL       || 'http://localhost:8080/api';
+const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || '/api';
+const CAMERA_BASE   = import.meta.env.VITE_API_URL       || '/api';
 
 export default function StackGallery() {
   const [completedJobs, setCompletedJobs] = useState([]);

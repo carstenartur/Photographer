@@ -66,7 +66,13 @@ class StackingAdvisorTest {
 
         StackingParameters params = new StackingParameters(0, 1, 30, 0.01, true, QualityMode.BALANCED);
 
-        AnalysisResult result = advisor.analyzeFrame(shifted, original, Collections.emptyList(), params);
+        // Provide enough history so the min-frames guard is satisfied
+        List<AnalysisResult> history = new ArrayList<>();
+        history.add(new AnalysisResult("h1", 0.5, 0.3, false, 0.0, 0.5, true));
+        history.add(new AnalysisResult("h2", 0.5, 0.3, false, 0.0, 0.4, true));
+        history.add(new AnalysisResult("h3", 0.5, 0.3, false, 0.0, 0.3, true));
+
+        AnalysisResult result = advisor.analyzeFrame(shifted, original, history, params);
         assertTrue(result.motionDetected(),
                 "Structural-similarity strategy should detect real motion (shifted edges)");
         assertFalse(result.recommendContinue(),
