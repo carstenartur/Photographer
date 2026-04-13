@@ -5,7 +5,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.List;
 
-/** A single frame captured during an astrophotography session. */
+/**
+ * A single frame captured during an astrophotography session.
+ *
+ * @param qualityScore overall quality score in the range 0.0 (worst) to 1.0 (best)
+ * @param focusScore   focus sharpness score in the range 0.0 (worst) to 1.0 (best)
+ */
 public record AstroFrame(
         @JsonProperty("frameIndex") int frameIndex,
         @JsonProperty("timestamp") Instant timestamp,
