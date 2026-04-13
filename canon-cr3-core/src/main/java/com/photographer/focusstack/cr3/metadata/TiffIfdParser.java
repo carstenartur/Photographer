@@ -197,12 +197,24 @@ public final class TiffIfdParser {
 
             case TYPE_SHORT -> {
                 if (count == 1) {
-                    return new TagValue.IntValue((int) (valueOrOffset & 0xFFFF));
+                    // SHORT value is left-justified in the 4-byte field.
+                    // In BIG_ENDIAN, it's in the upper 16 bits; in LITTLE_ENDIAN, the lower 16 bits.
+                    if (input.getByteOrder() == java.nio.ByteOrder.BIG_ENDIAN) {
+                        return new TagValue.IntValue((int) ((valueOrOffset >> 16) & 0xFFFF));
+                    } else {
+                        return new TagValue.IntValue((int) (valueOrOffset & 0xFFFF));
+                    }
                 }
                 if (count == 2 && totalSize <= 4) {
                     // Two shorts packed into 4 bytes
-                    int v1 = (int) (valueOrOffset & 0xFFFF);
-                    int v2 = (int) ((valueOrOffset >> 16) & 0xFFFF);
+                    int v1, v2;
+                    if (input.getByteOrder() == java.nio.ByteOrder.BIG_ENDIAN) {
+                        v1 = (int) ((valueOrOffset >> 16) & 0xFFFF);
+                        v2 = (int) (valueOrOffset & 0xFFFF);
+                    } else {
+                        v1 = (int) (valueOrOffset & 0xFFFF);
+                        v2 = (int) ((valueOrOffset >> 16) & 0xFFFF);
+                    }
                     return new TagValue.IntArrayValue(new int[]{v1, v2});
                 }
                 if (count <= 100) {
