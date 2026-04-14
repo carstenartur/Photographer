@@ -1,10 +1,12 @@
 package com.photographer.focusstack.analysis.plugin;
 
 import com.photographer.focusstack.plugin.AnalysisPlugin;
+import org.pf4j.PluginManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,8 +18,8 @@ import java.util.stream.Collectors;
  * Spring bean that collects all {@link AnalysisPlugin} implementations and
  * provides look-up by name.
  *
- * <p>New plugins become available automatically as soon as they are annotated
- * with {@code @Component} (or any meta-annotation) and placed on the classpath.
+ * <p>Collects both Spring-managed beans (built-in plugins) and PF4J extensions
+ * (external runtime-loaded plugins).
  */
 @Service
 public class AnalysisPluginRegistry {
@@ -26,8 +28,21 @@ public class AnalysisPluginRegistry {
 
     private final Map<String, AnalysisPlugin> plugins;
 
-    public AnalysisPluginRegistry(List<AnalysisPlugin> pluginList) {
-        this.plugins = buildPluginMap(pluginList);
+    public AnalysisPluginRegistry(List<AnalysisPlugin> springPlugins,
+                                  PluginManager pluginManager) {
+        List<AnalysisPlugin> allPlugins = new ArrayList<>(springPlugins);
+
+        // Collect PF4J extensions
+        List<AnalysisPlugin> pf4jPlugins = pluginManager.getExtensions(AnalysisPlugin.class);
+        allPlugins.addAll(pf4jPlugins);
+
+        if (!pf4jPlugins.isEmpty()) {
+            log.info("Loaded {} external AnalysisPlugin(s) via PF4J: {}",
+                    pf4jPlugins.size(),
+                    pf4jPlugins.stream().map(AnalysisPlugin::name).toList());
+        }
+
+        this.plugins = buildPluginMap(allPlugins);
         log.info("AnalysisPluginRegistry: {} plugin(s) registered: {}",
                 plugins.size(), plugins.keySet());
     }

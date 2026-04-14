@@ -58,6 +58,9 @@ focusstack:
     ccapi-base-url: ${FOCUSSTACK_CAMERA_CCAPI_BASE_URL:http://192.168.1.2:8080}
     mock-enabled: ${FOCUSSTACK_CAMERA_MOCK_ENABLED:false}
     connection-timeout: ${FOCUSSTACK_CAMERA_CONNECTION_TIMEOUT:10s}
+  plugins:
+    directory: ${FOCUSSTACK_PLUGINS_DIR:./plugins}
+    enabled: ${FOCUSSTACK_PLUGINS_ENABLED:true}
 
 logging:
   level:

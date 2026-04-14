@@ -1,5 +1,7 @@
 package com.photographer.focusstack.plugin;
 
+import org.pf4j.ExtensionPoint;
+
 /**
  * SPI for pluggable image-analysis algorithms.
  *
@@ -9,7 +11,7 @@ package com.photographer.focusstack.plugin;
  * the {@code AnalysisPluginRegistry} and the REST endpoints at
  * {@code /api/analysis/plugins}.
  */
-public interface AnalysisPlugin {
+public interface AnalysisPlugin extends ExtensionPoint {
 
     /**
      * Unique, URL-safe name for this plugin (e.g. {@code "sharpness"}).

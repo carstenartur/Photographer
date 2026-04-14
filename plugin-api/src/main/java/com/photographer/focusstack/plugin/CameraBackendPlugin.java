@@ -1,5 +1,7 @@
 package com.photographer.focusstack.plugin;
 
+import org.pf4j.ExtensionPoint;
+
 /**
  * Extension point for camera backend plugins.
  *
@@ -10,7 +12,7 @@ package com.photographer.focusstack.plugin;
  * interface to provide plugin metadata alongside their existing
  * {@code CameraBackend} functionality.
  */
-public interface CameraBackendPlugin {
+public interface CameraBackendPlugin extends ExtensionPoint {
 
     /** Returns metadata describing this camera backend plugin. */
     PluginMetadata metadata();

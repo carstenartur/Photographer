@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.pf4j.PluginManager;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,10 +23,12 @@ class AnalysisPluginRegistryTest {
 
     @Mock private ImageJProcessor imageJProcessor;
     @Mock private SharpnessAnalyzer sharpnessAnalyzer;
+    @Mock private PluginManager pluginManager;
 
     private AnalysisPluginRegistry buildRegistry() {
         DefaultSharpnessPlugin plugin = new DefaultSharpnessPlugin(imageJProcessor, sharpnessAnalyzer);
-        return new AnalysisPluginRegistry(List.of(plugin));
+        when(pluginManager.getExtensions(AnalysisPlugin.class)).thenReturn(List.of());
+        return new AnalysisPluginRegistry(List.of(plugin), pluginManager);
     }
 
     @Test
@@ -79,8 +82,9 @@ class AnalysisPluginRegistryTest {
             @Override public AnalysisPluginResult analyze(byte[] d, AnalysisContext c) { return null; }
         };
 
+        when(pluginManager.getExtensions(AnalysisPlugin.class)).thenReturn(List.of());
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> new AnalysisPluginRegistry(List.of(duplicate1, duplicate2)));
+                () -> new AnalysisPluginRegistry(List.of(duplicate1, duplicate2), pluginManager));
         assertTrue(ex.getMessage().contains("sharpness"),
                 "Exception message should identify the duplicate plugin name");
     }
