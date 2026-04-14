@@ -107,6 +107,7 @@ public class AstroSessionEntity {
     public int getFrameCount() { return frameCount; }
     public long getExposureTimeMs() { return exposureTimeMs; }
     public int getIso() { return iso; }
+    public long getDelayBetweenFramesMs() { return delayBetweenFramesMs; }
     public AstroFocusStrategy getFocusStrategy() { return focusStrategy; }
     public int getScanSteps() { return scanSteps; }
     public int getScanStepSize() { return scanStepSize; }

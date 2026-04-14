@@ -45,10 +45,11 @@ public class AstroModeService {
     /** Tracks sessions that have been requested to abort. */
     private final Map<String, Boolean> abortFlags = new ConcurrentHashMap<>();
 
-    public AstroModeService(AstroSessionRepository repository, CameraBackendFactory cameraBackendFactory) {
+    public AstroModeService(AstroSessionRepository repository, CameraBackendFactory cameraBackendFactory,
+                            @org.springframework.beans.factory.annotation.Value("${astro.data-dir:data/astro-sessions}") String dataDir) {
         this.repository = repository;
         this.cameraBackendFactory = cameraBackendFactory;
-        this.dataDir = "data/astro-sessions";
+        this.dataDir = dataDir;
     }
 
     /**
@@ -149,7 +150,7 @@ public class AstroModeService {
                 ImageIO.write(img, "PNG", framePath.toFile());
 
                 if (entity.getExposureTimeMs() > 0 && i < frameCount - 1) {
-                    Thread.sleep(Math.min(entity.getExposureTimeMs(), 100));
+                    Thread.sleep(Math.min(entity.getDelayBetweenFramesMs(), 100));
                 }
             }
 
