@@ -65,3 +65,6 @@ surefire-reports/
 
 ### Runtime data ###
 data/
+
+### Runtime plugins directory ###
+plugins/

@@ -6,6 +6,7 @@ WORKDIR /app
 # Copy all POMs first for better layer caching
 COPY pom.xml pom.xml
 COPY common-api/pom.xml common-api/pom.xml
+COPY plugin-api/pom.xml plugin-api/pom.xml
 COPY capture-core/pom.xml capture-core/pom.xml
 COPY storage/pom.xml storage/pom.xml
 COPY camera-ptp/pom.xml camera-ptp/pom.xml
@@ -24,10 +25,11 @@ COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
 
 # Download dependencies
-RUN mvn -B dependency:go-offline -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -DskipITs=true
+RUN mvn -B dependency:go-offline -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -DskipITs=true
 
 # Copy source code
 COPY common-api/src common-api/src
+COPY plugin-api/src plugin-api/src
 COPY capture-core/src capture-core/src
 COPY storage/src storage/src
 COPY camera-ptp/src camera-ptp/src
@@ -46,7 +48,7 @@ COPY frontend-web/ frontend-web/
 COPY app/src app/src
 
 # Build: compile all modules, build frontend, compile app, copy frontend into static/
-RUN mvn -B clean package -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
+RUN mvn -B clean package -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
     -DskipTests -DskipITs=true \
     -Djava.awt.headless=true
 
@@ -62,7 +64,7 @@ COPY --from=build /app/app/target/focusstack.jar app.jar
 
 # Pre-create volume mount-points so they inherit appuser ownership
 # when Docker initializes empty named volumes.
-RUN mkdir -p /app/data/search-index /app/images \
+RUN mkdir -p /app/data/search-index /app/images /app/plugins \
     && chown -R appuser:appgroup /app
 USER appuser
 

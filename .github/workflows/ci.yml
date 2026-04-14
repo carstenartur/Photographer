@@ -31,7 +31,7 @@ jobs:
           cache-dependency-path: pom.xml
 
       - name: Build and verify (unit + Testcontainers integration tests)
-        run: mvn -B clean verify -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -Djava.awt.headless=true
+        run: mvn -B clean verify -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -Djava.awt.headless=true
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
@@ -47,7 +47,7 @@ jobs:
       - name: Generate test HTML reports and coverage data
         if: always()
         run: |
-          mvn site surefire-report:report --no-transfer-progress -DskipTests -pl common-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -Djava.awt.headless=true
+          mvn site surefire-report:report --no-transfer-progress -DskipTests -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -Djava.awt.headless=true
           # Copy the generated Surefire HTML report into the site directory that gets
           # deployed to GitHub Pages. The exact source path can vary with Maven/plugin
           # configuration, so prefer the canonical site output and fall back to other

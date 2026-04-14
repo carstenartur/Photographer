@@ -1,9 +1,9 @@
 package com.photographer.focusstack.analysis.controller;
 
-import com.photographer.focusstack.analysis.plugin.AnalysisContext;
-import com.photographer.focusstack.analysis.plugin.AnalysisPlugin;
 import com.photographer.focusstack.analysis.plugin.AnalysisPluginRegistry;
-import com.photographer.focusstack.analysis.plugin.AnalysisPluginResult;
+import com.photographer.focusstack.plugin.AnalysisContext;
+import com.photographer.focusstack.plugin.AnalysisPlugin;
+import com.photographer.focusstack.plugin.AnalysisPluginResult;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

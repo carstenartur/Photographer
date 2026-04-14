@@ -2,6 +2,10 @@ package com.photographer.focusstack.analysis.plugin;
 
 import com.photographer.focusstack.analysis.service.ImageJProcessor;
 import com.photographer.focusstack.analysis.service.SharpnessAnalyzer;
+import com.photographer.focusstack.app.plugin.FocusStackPluginManager;
+import com.photographer.focusstack.plugin.AnalysisContext;
+import com.photographer.focusstack.plugin.AnalysisPlugin;
+import com.photographer.focusstack.plugin.AnalysisPluginResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -19,10 +23,12 @@ class AnalysisPluginRegistryTest {
 
     @Mock private ImageJProcessor imageJProcessor;
     @Mock private SharpnessAnalyzer sharpnessAnalyzer;
+    @Mock private FocusStackPluginManager pluginManager;
 
     private AnalysisPluginRegistry buildRegistry() {
         DefaultSharpnessPlugin plugin = new DefaultSharpnessPlugin(imageJProcessor, sharpnessAnalyzer);
-        return new AnalysisPluginRegistry(List.of(plugin));
+        when(pluginManager.getExtensions(AnalysisPlugin.class)).thenReturn(List.of());
+        return new AnalysisPluginRegistry(List.of(plugin), pluginManager);
     }
 
     @Test
@@ -76,8 +82,9 @@ class AnalysisPluginRegistryTest {
             @Override public AnalysisPluginResult analyze(byte[] d, AnalysisContext c) { return null; }
         };
 
+        when(pluginManager.getExtensions(AnalysisPlugin.class)).thenReturn(List.of());
         IllegalStateException ex = assertThrows(IllegalStateException.class,
-                () -> new AnalysisPluginRegistry(List.of(duplicate1, duplicate2)));
+                () -> new AnalysisPluginRegistry(List.of(duplicate1, duplicate2), pluginManager));
         assertTrue(ex.getMessage().contains("sharpness"),
                 "Exception message should identify the duplicate plugin name");
     }

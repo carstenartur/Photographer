@@ -1,4 +1,6 @@
-package com.photographer.focusstack.analysis.plugin;
+package com.photographer.focusstack.plugin;
+
+import java.util.Map;
 
 /**
  * Result produced by an {@link AnalysisPlugin}.
@@ -12,10 +14,10 @@ public record AnalysisPluginResult(
         String pluginName,
         double score,
         String label,
-        java.util.Map<String, String> metadata) {
+        Map<String, String> metadata) {
 
     /** Convenience factory with no metadata. */
     public static AnalysisPluginResult of(String pluginName, double score, String label) {
-        return new AnalysisPluginResult(pluginName, score, label, java.util.Map.of());
+        return new AnalysisPluginResult(pluginName, score, label, Map.of());
     }
 }
