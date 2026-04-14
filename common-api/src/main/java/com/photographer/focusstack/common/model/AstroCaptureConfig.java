@@ -2,6 +2,7 @@ package com.photographer.focusstack.common.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 /** Capture configuration for an astrophotography session. */
 public record AstroCaptureConfig(
@@ -9,7 +10,7 @@ public record AstroCaptureConfig(
         @JsonProperty("exposureTimeMs") @Positive long exposureTimeMs,
         @JsonProperty("iso") @Positive int iso,
         @JsonProperty("aperture") String aperture,
-        @JsonProperty("delayBetweenFramesMs") long delayBetweenFramesMs,
+        @JsonProperty("delayBetweenFramesMs") @PositiveOrZero long delayBetweenFramesMs,
         @JsonProperty("imageFormat") String imageFormat,
         @JsonProperty("saveRaw") boolean saveRaw,
         @JsonProperty("saveJpeg") boolean saveJpeg,

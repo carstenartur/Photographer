@@ -24,6 +24,11 @@ public class FrameRegistrationService {
         this.maxRegistrationError = maxRegistrationError;
     }
 
+    /** Returns the configured maximum registration error threshold. */
+    public double getMaxRegistrationError() {
+        return maxRegistrationError;
+    }
+
     /**
      * Result of registering one frame to the reference.
      */

@@ -9,14 +9,12 @@ import com.photographer.focusstack.astro.StarDetectionService;
 import com.photographer.focusstack.astro.entity.AstroSessionEntity;
 import com.photographer.focusstack.astro.repository.AstroSessionRepository;
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
-import com.photographer.focusstack.camera.backend.MockCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -89,9 +87,9 @@ public class AstroModeService {
     }
 
     /**
-     * Executes the full astro session workflow asynchronously.
+     * Executes the full astro session workflow.
+     * Called via the bounded sessionTaskExecutor from the controller.
      */
-    @Async
     public void executeSession(String sessionId) {
         log.info("Starting astro session {}", sessionId);
 
@@ -149,8 +147,8 @@ public class AstroModeService {
                 Path framePath = framesDir.resolve("frame_" + String.format("%04d", i) + ".png");
                 ImageIO.write(img, "PNG", framePath.toFile());
 
-                if (entity.getExposureTimeMs() > 0 && i < frameCount - 1) {
-                    Thread.sleep(Math.min(entity.getDelayBetweenFramesMs(), 100));
+                if (entity.getDelayBetweenFramesMs() > 0 && i < frameCount - 1) {
+                    Thread.sleep(entity.getDelayBetweenFramesMs());
                 }
             }
 
@@ -237,7 +235,12 @@ public class AstroModeService {
 
     private boolean isAborted(String sessionId) {
         if (Boolean.TRUE.equals(abortFlags.get(sessionId))) {
-            updateStatus(sessionId, AstroSessionStatus.ABORTED);
+            repository.findById(sessionId).ifPresent(e -> {
+                e.setStatus(AstroSessionStatus.ABORTED);
+                e.setFinishedAt(Instant.now());
+                e.setErrorMessage("Session aborted by user");
+                repository.save(e);
+            });
             log.info("Astro session {} aborted", sessionId);
             return true;
         }

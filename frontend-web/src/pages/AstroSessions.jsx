@@ -49,12 +49,12 @@ export default function AstroSessions() {
   }, []);
 
   // Poll active session
+  const activeSessionId = activeSession?.id;
   useEffect(() => {
-    if (!activeSession || !polling) return;
-    const id = activeSession.id;
+    if (!activeSessionId || !polling) return;
     const interval = setInterval(async () => {
       try {
-        const session = await getAstroSession(id);
+        const session = await getAstroSession(activeSessionId);
         setActiveSession(session);
         if (TERMINAL.has(session.status)) {
           setPolling(false);
@@ -68,7 +68,7 @@ export default function AstroSessions() {
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [activeSession, polling]);
+  }, [activeSessionId, polling]);
 
   function handleCaptureChange(e) {
     const { name, value, type, checked } = e.target;

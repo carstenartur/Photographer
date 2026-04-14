@@ -30,11 +30,12 @@ public class AstroStackingService {
             throw new IllegalArgumentException("No frames to stack");
         }
 
-        // Accumulate pixel values
-        double[][] sumR = new double[height][width];
-        double[][] sumG = new double[height][width];
-        double[][] sumB = new double[height][width];
-        int[][] count = new int[height][width];
+        int size = width * height;
+        // Use 1D long arrays to reduce memory overhead vs double[][]
+        long[] sumR = new long[size];
+        long[] sumG = new long[size];
+        long[] sumB = new long[size];
+        int[] count = new int[size];
 
         for (FrameInput frame : frames) {
             BufferedImage img = frame.image();
@@ -51,28 +52,23 @@ public class AstroStackingService {
                     if (refX < 0 || refX >= width || refY < 0 || refY >= height) continue;
 
                     int rgb = img.getRGB(x, y);
-                    int r = (rgb >> 16) & 0xFF;
-                    int g = (rgb >> 8) & 0xFF;
-                    int b = rgb & 0xFF;
-
-                    sumR[refY][refX] += r;
-                    sumG[refY][refX] += g;
-                    sumB[refY][refX] += b;
-                    count[refY][refX]++;
+                    int idx = refY * width + refX;
+                    sumR[idx] += (rgb >> 16) & 0xFF;
+                    sumG[idx] += (rgb >> 8) & 0xFF;
+                    sumB[idx] += rgb & 0xFF;
+                    count[idx]++;
                 }
             }
         }
 
         // Compute mean
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if (count[y][x] == 0) continue;
-                int r = Math.min(255, (int) (sumR[y][x] / count[y][x]));
-                int g = Math.min(255, (int) (sumG[y][x] / count[y][x]));
-                int b = Math.min(255, (int) (sumB[y][x] / count[y][x]));
-                result.setRGB(x, y, (r << 16) | (g << 8) | b);
-            }
+        for (int i = 0; i < size; i++) {
+            if (count[i] == 0) continue;
+            int r = Math.min(255, (int) (sumR[i] / count[i]));
+            int g = Math.min(255, (int) (sumG[i] / count[i]));
+            int b = Math.min(255, (int) (sumB[i] / count[i]));
+            result.setRGB(i % width, i / width, (r << 16) | (g << 8) | b);
         }
         return result;
     }

@@ -4,6 +4,9 @@ import com.photographer.focusstack.astro.service.AstroModeService;
 import com.photographer.focusstack.common.model.AstroCaptureConfig;
 import com.photographer.focusstack.common.model.AstroFocusConfig;
 import com.photographer.focusstack.common.model.AstroSession;
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,32 +19,35 @@ import java.util.Map;
 public class AstroController {
 
     private final AstroModeService astroModeService;
+    private final TaskExecutor taskExecutor;
 
-    public AstroController(AstroModeService astroModeService) {
+    public AstroController(AstroModeService astroModeService,
+                           @Qualifier("sessionTaskExecutor") TaskExecutor taskExecutor) {
         this.astroModeService = astroModeService;
+        this.taskExecutor = taskExecutor;
     }
 
     /**
      * Request body for creating a new astro session.
      */
     public record CreateAstroSessionRequest(
-            AstroCaptureConfig captureConfig,
-            AstroFocusConfig focusConfig
+            @Valid AstroCaptureConfig captureConfig,
+            @Valid AstroFocusConfig focusConfig
     ) {}
 
     /**
-     * Creates a new astro session and starts it asynchronously.
+     * Creates a new astro session and starts it asynchronously via the bounded session executor.
      */
     @PostMapping("/sessions")
-    public ResponseEntity<AstroSession> createSession(@RequestBody(required = false) CreateAstroSessionRequest request) {
+    public ResponseEntity<AstroSession> createSession(@Valid @RequestBody(required = false) CreateAstroSessionRequest request) {
         AstroCaptureConfig captureConfig = (request != null && request.captureConfig() != null)
                 ? request.captureConfig() : AstroCaptureConfig.defaults();
         AstroFocusConfig focusConfig = (request != null && request.focusConfig() != null)
                 ? request.focusConfig() : AstroFocusConfig.manualFixed();
 
         AstroSession session = astroModeService.createSession(captureConfig, focusConfig);
-        // Start execution asynchronously
-        astroModeService.executeSession(session.id());
+        // Start execution on bounded session executor
+        taskExecutor.execute(() -> astroModeService.executeSession(session.id()));
 
         return ResponseEntity.created(URI.create("/api/astro/sessions/" + session.id()))
                 .body(session);

@@ -19,6 +19,7 @@ public class AstroCapturePipeline {
     private final FrameRegistrationService registrationService;
     private final AstroStackingService stackingService;
     private final StarTrailDeblurService deblurService;
+    private final double maxRegistrationError;
 
     public AstroCapturePipeline(StarDetectionService starDetectionService,
                                 FrameRegistrationService registrationService,
@@ -28,6 +29,7 @@ public class AstroCapturePipeline {
         this.registrationService = registrationService;
         this.stackingService = stackingService;
         this.deblurService = deblurService;
+        this.maxRegistrationError = registrationService.getMaxRegistrationError();
     }
 
     /**
@@ -101,7 +103,7 @@ public class AstroCapturePipeline {
                     null, // previewPath
                     allStars.get(i),
                     reg.transform(),
-                    reg.accepted() ? 1.0 - reg.error() / 20.0 : 0.0,
+                    reg.accepted() ? Math.max(0.0, Math.min(1.0, 1.0 - reg.error() / maxRegistrationError)) : 0.0,
                     focusScores.get(i),
                     used
             ));
