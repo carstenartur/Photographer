@@ -3,6 +3,7 @@ package com.photographer.focusstack.camera.backend;
 import com.photographer.focusstack.camera.backend.FolderCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.plugin.CameraBackendPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li>{@code mock} profiles → {@link MockCameraBackend}</li>
  *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiBackend} pointed at the profile's host</li>
+ *   <li>Unknown types → checks {@link CameraBackendRegistry} for external plugin backends</li>
  * </ul>
  *
  * Backends are cached per profile id so that focus-position state is preserved
@@ -36,6 +39,7 @@ public class CameraBackendFactory {
     private final int simulateEmptyFrameAt;
     private final int simulateMovementAt;
     private final RestTemplate restTemplate;
+    private final CameraBackendRegistry cameraBackendRegistry;
 
     /** Cache backends per profile-id so focus position state is preserved. */
     private final Map<String, CameraBackend> cache = new ConcurrentHashMap<>();
@@ -45,12 +49,14 @@ public class CameraBackendFactory {
             @Value("${camera.mock.simulate-timeout-after-frames:0}") int simulateTimeoutAfterFrames,
             @Value("${camera.mock.simulate-disconnect-after-frames:0}") int simulateDisconnectAfterFrames,
             @Value("${camera.mock.simulate-empty-frame-at:0}") int simulateEmptyFrameAt,
-            @Value("${camera.mock.simulate-movement-at:0}") int simulateMovementAt) {
+            @Value("${camera.mock.simulate-movement-at:0}") int simulateMovementAt,
+            CameraBackendRegistry cameraBackendRegistry) {
         this.mockDelayMs = mockDelayMs;
         this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;
         this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;
         this.simulateEmptyFrameAt = simulateEmptyFrameAt;
         this.simulateMovementAt = simulateMovementAt;
+        this.cameraBackendRegistry = cameraBackendRegistry;
         // Configure timeouts: 10 s connection, 30 s read (allows multi-MB JPEG downloads).
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
@@ -100,6 +106,15 @@ public class CameraBackendFactory {
                     profile.name(), profile.id(), folderPath);
             return new FolderCameraBackend(folderPath);
         }
+
+        // Check external plugin backends before falling back to CCAPI
+        Optional<CameraBackendPlugin> pluginBackend = cameraBackendRegistry.findByType(type);
+        if (pluginBackend.isPresent()) {
+            log.info("Using external CameraBackendPlugin '{}' for profile '{}' ({})",
+                    type, profile.name(), profile.id());
+            return pluginBackend.get();
+        }
+
         // Default: canon-ccapi
         String host = profile.host();
         String baseUrl = host.startsWith("http") ? host : "http://" + host + ":8080";
