@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AstroModeService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.astro.service</a> &gt; <span class="el_source">AstroModeService.java</span></div><h1>AstroModeService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.astro.service;
+
+import com.photographer.focusstack.astro.AstroCapturePipeline;
+import com.photographer.focusstack.astro.AstroFocusOptimizer;
+import com.photographer.focusstack.astro.AstroStackingService;
+import com.photographer.focusstack.astro.FrameRegistrationService;
+import com.photographer.focusstack.astro.NoOpStarTrailDeblurService;
+import com.photographer.focusstack.astro.StarDetectionService;
+import com.photographer.focusstack.astro.entity.AstroSessionEntity;
+import com.photographer.focusstack.astro.repository.AstroSessionRepository;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class AstroModeService {
+
+<span class="fc" id="L37">    private static final Logger log = LoggerFactory.getLogger(AstroModeService.class);</span>
+
+    private final AstroSessionRepository repository;
+    private final CameraBackendFactory cameraBackendFactory;
+    private final String dataDir;
+
+    /** Tracks sessions that have been requested to abort. */
+<span class="fc" id="L44">    private final Map&lt;String, Boolean&gt; abortFlags = new ConcurrentHashMap&lt;&gt;();</span>
+
+    public AstroModeService(AstroSessionRepository repository, CameraBackendFactory cameraBackendFactory,
+<span class="fc" id="L47">                            @org.springframework.beans.factory.annotation.Value(&quot;${astro.data-dir:data/astro-sessions}&quot;) String dataDir) {</span>
+<span class="fc" id="L48">        this.repository = repository;</span>
+<span class="fc" id="L49">        this.cameraBackendFactory = cameraBackendFactory;</span>
+<span class="fc" id="L50">        this.dataDir = dataDir;</span>
+<span class="fc" id="L51">    }</span>
+
+    /**
+     * Returns a CameraBackend for astro sessions.
+     * Uses a mock &quot;astro&quot; profile for the default backend from the factory.
+     */
+    private CameraBackend getDefaultBackend() {
+<span class="fc" id="L58">        CameraProfile astroProfile = new CameraProfile(</span>
+                &quot;astro-default&quot;, &quot;Astro Camera&quot;, &quot;mock&quot;, &quot;localhost&quot;, 1, 1000, 0.0);
+<span class="fc" id="L60">        return cameraBackendFactory.getBackend(astroProfile);</span>
+    }
+
+    @Transactional
+    public AstroSession createSession(AstroCaptureConfig captureConfig, AstroFocusConfig focusConfig) {
+<span class="fc" id="L65">        AstroSessionEntity entity = AstroSessionEntity.create(captureConfig, focusConfig);</span>
+<span class="fc" id="L66">        entity.setOutputDirectory(Path.of(dataDir, entity.getId()).toString());</span>
+<span class="fc" id="L67">        entity = repository.save(entity);</span>
+<span class="fc" id="L68">        log.info(&quot;Created astro session {}&quot;, entity.getId());</span>
+<span class="fc" id="L69">        return entity.toRecord();</span>
+    }
+
+    @Transactional(readOnly = true)
+    public Optional&lt;AstroSession&gt; getSession(String id) {
+<span class="fc" id="L74">        return repository.findById(id).map(AstroSessionEntity::toRecord);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;AstroSession&gt; listSessions() {
+<span class="fc" id="L79">        return repository.findAllByOrderByCreatedAtDesc().stream()</span>
+<span class="fc" id="L80">                .map(AstroSessionEntity::toRecord)</span>
+<span class="fc" id="L81">                .toList();</span>
+    }
+
+    public void requestAbort(String sessionId) {
+<span class="fc" id="L85">        abortFlags.put(sessionId, true);</span>
+<span class="fc" id="L86">        log.info(&quot;Abort requested for astro session {}&quot;, sessionId);</span>
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Executes the full astro session workflow.
+     * Called via the bounded sessionTaskExecutor from the controller.
+     */
+    public void executeSession(String sessionId) {
+<span class="fc" id="L94">        log.info(&quot;Starting astro session {}&quot;, sessionId);</span>
+
+        try {
+            // Update status to PREPARING
+<span class="fc" id="L98">            updateStatus(sessionId, AstroSessionStatus.PREPARING);</span>
+
+<span class="fc" id="L100">            AstroSessionEntity entity = repository.findById(sessionId).orElseThrow(</span>
+<span class="nc" id="L101">                    () -&gt; new IllegalStateException(&quot;Session not found: &quot; + sessionId));</span>
+
+            // Create output directories
+<span class="fc" id="L104">            Path sessionDir = Path.of(entity.getOutputDirectory());</span>
+<span class="fc" id="L105">            Path framesDir = sessionDir.resolve(&quot;frames&quot;);</span>
+<span class="fc" id="L106">            Path analysisDir = sessionDir.resolve(&quot;analysis&quot;);</span>
+<span class="fc" id="L107">            Path resultDir = sessionDir.resolve(&quot;result&quot;);</span>
+<span class="fc" id="L108">            Path focusScanDir = sessionDir.resolve(&quot;focus-scan&quot;);</span>
+<span class="fc" id="L109">            Files.createDirectories(framesDir);</span>
+<span class="fc" id="L110">            Files.createDirectories(analysisDir);</span>
+<span class="fc" id="L111">            Files.createDirectories(resultDir);</span>
+<span class="fc" id="L112">            Files.createDirectories(focusScanDir);</span>
+
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">            if (isAborted(sessionId)) return;</span>
+
+<span class="fc" id="L116">            CameraBackend cameraBackend = getDefaultBackend();</span>
+
+            // Focus strategy
+<span class="fc" id="L119">            AstroFocusStrategy strategy = entity.getFocusStrategy();</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">            if (strategy == AstroFocusStrategy.FOCUS_SCAN) {</span>
+<span class="nc" id="L121">                executeFocusScan(entity, focusScanDir, cameraBackend);</span>
+            } else {
+<span class="fc" id="L123">                log.info(&quot;Using MANUAL_FIXED focus strategy&quot;);</span>
+            }
+
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">            if (isAborted(sessionId)) return;</span>
+
+            // Capture frames
+<span class="fc" id="L129">            updateStatus(sessionId, AstroSessionStatus.CAPTURING);</span>
+<span class="fc" id="L130">            List&lt;BufferedImage&gt; capturedImages = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L131">            int frameCount = entity.getFrameCount();</span>
+
+<span class="fc bfc" id="L133" title="All 2 branches covered.">            for (int i = 0; i &lt; frameCount; i++) {</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">                if (isAborted(sessionId)) return;</span>
+
+<span class="fc" id="L136">                log.info(&quot;Capturing frame {}/{} for session {}&quot;, i + 1, frameCount, sessionId);</span>
+<span class="fc" id="L137">                CaptureResult result = cameraBackend.capture();</span>
+
+<span class="fc" id="L139">                BufferedImage img = ImageIO.read(new ByteArrayInputStream(result.imageData()));</span>
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">                if (img == null) {</span>
+<span class="nc" id="L141">                    log.warn(&quot;Frame {} returned null image, skipping&quot;, i);</span>
+<span class="nc" id="L142">                    continue;</span>
+                }
+<span class="fc" id="L144">                capturedImages.add(img);</span>
+
+                // Save frame to disk
+<span class="fc" id="L147">                Path framePath = framesDir.resolve(&quot;frame_&quot; + String.format(&quot;%04d&quot;, i) + &quot;.png&quot;);</span>
+<span class="fc" id="L148">                ImageIO.write(img, &quot;PNG&quot;, framePath.toFile());</span>
+
+<span class="pc bpc" id="L150" title="1 of 4 branches missed.">                if (entity.getDelayBetweenFramesMs() &gt; 0 &amp;&amp; i &lt; frameCount - 1) {</span>
+<span class="fc" id="L151">                    Thread.sleep(entity.getDelayBetweenFramesMs());</span>
+                }
+            }
+
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">            if (capturedImages.isEmpty()) {</span>
+<span class="nc" id="L156">                throw new IllegalStateException(&quot;No valid frames captured&quot;);</span>
+            }
+
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">            if (isAborted(sessionId)) return;</span>
+
+            // Process pipeline
+<span class="fc" id="L162">            updateStatus(sessionId, AstroSessionStatus.ANALYZING);</span>
+<span class="fc" id="L163">            log.info(&quot;Analyzing {} frames for session {}&quot;, capturedImages.size(), sessionId);</span>
+
+<span class="fc" id="L165">            StarDetectionService starDetection = new StarDetectionService();</span>
+<span class="fc" id="L166">            FrameRegistrationService registration = new FrameRegistrationService();</span>
+<span class="fc" id="L167">            AstroStackingService stacking = new AstroStackingService();</span>
+<span class="fc" id="L168">            AstroCapturePipeline pipeline = new AstroCapturePipeline(</span>
+                    starDetection, registration, stacking, new NoOpStarTrailDeblurService());
+
+<span class="fc" id="L171">            updateStatus(sessionId, AstroSessionStatus.STACKING);</span>
+<span class="fc" id="L172">            AstroCapturePipeline.PipelineResult pipelineResult = pipeline.process(capturedImages);</span>
+
+            // Log star counts
+<span class="fc bfc" id="L175" title="All 2 branches covered.">            for (AstroFrame frame : pipelineResult.frames()) {</span>
+<span class="fc" id="L176">                log.info(&quot;Frame #{}: {} stars, focusScore={}, used={}&quot;,</span>
+<span class="fc" id="L177">                        frame.frameIndex(), frame.starPoints().size(),</span>
+<span class="fc" id="L178">                        String.format(&quot;%.2f&quot;, frame.focusScore()), frame.usedInStack());</span>
+<span class="fc" id="L179">            }</span>
+
+            // Save result
+<span class="fc" id="L182">            Path resultPath = resultDir.resolve(&quot;stacked_result.png&quot;);</span>
+<span class="fc" id="L183">            ImageIO.write(pipelineResult.stackedImage(), &quot;PNG&quot;, resultPath.toFile());</span>
+<span class="fc" id="L184">            log.info(&quot;Stacked result saved to {}&quot;, resultPath);</span>
+
+            // Update session as completed
+<span class="fc" id="L187">            completeSession(sessionId, resultPath.toString(), pipelineResult.summary());</span>
+
+<span class="nc" id="L189">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L190">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L191">            failSession(sessionId, &quot;Session interrupted&quot;);</span>
+<span class="nc" id="L192">        } catch (Exception e) {</span>
+<span class="nc" id="L193">            log.error(&quot;Astro session {} failed&quot;, sessionId, e);</span>
+<span class="nc" id="L194">            failSession(sessionId, e.getMessage());</span>
+        } finally {
+<span class="fc" id="L196">            abortFlags.remove(sessionId);</span>
+        }
+<span class="fc" id="L198">    }</span>
+
+    private void executeFocusScan(AstroSessionEntity entity, Path focusScanDir, CameraBackend cameraBackend) throws IOException {
+<span class="nc" id="L201">        updateStatus(entity.getId(), AstroSessionStatus.FOCUS_SCANNING);</span>
+<span class="nc" id="L202">        log.info(&quot;Executing focus scan: {} steps, step size {}&quot;,</span>
+<span class="nc" id="L203">                entity.getScanSteps(), entity.getScanStepSize());</span>
+
+<span class="nc" id="L205">        StarDetectionService starDetection = new StarDetectionService();</span>
+<span class="nc" id="L206">        AstroFocusOptimizer optimizer = new AstroFocusOptimizer(starDetection);</span>
+<span class="nc" id="L207">        List&lt;AstroFocusOptimizer.FocusEvaluation&gt; evaluations = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L209" title="All 2 branches missed.">        for (int step = 0; step &lt; entity.getScanSteps(); step++) {</span>
+            // Move focus
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            FocusCommand.Direction dir = step &lt; entity.getScanSteps() / 2</span>
+<span class="nc" id="L212">                    ? FocusCommand.Direction.NEAR : FocusCommand.Direction.FAR;</span>
+<span class="nc" id="L213">            cameraBackend.setFocus(new FocusCommand(dir, Math.abs(entity.getScanStepSize())));</span>
+
+            // Capture test frame
+<span class="nc" id="L216">            CaptureResult result = cameraBackend.capture();</span>
+<span class="nc" id="L217">            BufferedImage img = ImageIO.read(new ByteArrayInputStream(result.imageData()));</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            if (img != null) {</span>
+<span class="nc" id="L219">                Path scanPath = focusScanDir.resolve(&quot;focus_scan_&quot; + step + &quot;.png&quot;);</span>
+<span class="nc" id="L220">                ImageIO.write(img, &quot;PNG&quot;, scanPath.toFile());</span>
+
+<span class="nc" id="L222">                AstroFocusOptimizer.FocusEvaluation eval = optimizer.evaluate(img, step);</span>
+<span class="nc" id="L223">                evaluations.add(eval);</span>
+<span class="nc" id="L224">                log.info(&quot;Focus scan step {}: position={}, score={}, stars={}&quot;,</span>
+<span class="nc" id="L225">                        step, eval.focusPosition(), String.format(&quot;%.2f&quot;, eval.score()), eval.starCount());</span>
+            }
+        }
+
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (!evaluations.isEmpty()) {</span>
+<span class="nc" id="L230">            int bestPos = optimizer.selectBestPosition(evaluations);</span>
+<span class="nc" id="L231">            log.info(&quot;Best focus position: {}&quot;, bestPos);</span>
+<span class="nc" id="L232">            updateBestFocusPosition(entity.getId(), bestPos);</span>
+        }
+<span class="nc" id="L234">    }</span>
+
+    private boolean isAborted(String sessionId) {
+<span class="fc bfc" id="L237" title="All 2 branches covered.">        if (Boolean.TRUE.equals(abortFlags.get(sessionId))) {</span>
+<span class="fc" id="L238">            repository.findById(sessionId).ifPresent(e -&gt; {</span>
+<span class="fc" id="L239">                e.setStatus(AstroSessionStatus.ABORTED);</span>
+<span class="fc" id="L240">                e.setFinishedAt(Instant.now());</span>
+<span class="fc" id="L241">                e.setErrorMessage(&quot;Session aborted by user&quot;);</span>
+<span class="fc" id="L242">                repository.save(e);</span>
+<span class="fc" id="L243">            });</span>
+<span class="fc" id="L244">            log.info(&quot;Astro session {} aborted&quot;, sessionId);</span>
+<span class="fc" id="L245">            return true;</span>
+        }
+<span class="fc" id="L247">        return false;</span>
+    }
+
+    @Transactional
+    void updateStatus(String sessionId, AstroSessionStatus status) {
+<span class="fc" id="L252">        repository.findById(sessionId).ifPresent(e -&gt; {</span>
+<span class="fc" id="L253">            e.setStatus(status);</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">            if (status == AstroSessionStatus.PREPARING) {</span>
+<span class="fc" id="L255">                e.setStartedAt(Instant.now());</span>
+            }
+<span class="fc" id="L257">            repository.save(e);</span>
+<span class="fc" id="L258">        });</span>
+<span class="fc" id="L259">    }</span>
+
+    @Transactional
+    void completeSession(String sessionId, String resultPath, String summary) {
+<span class="fc" id="L263">        repository.findById(sessionId).ifPresent(e -&gt; {</span>
+<span class="fc" id="L264">            e.setStatus(AstroSessionStatus.COMPLETED);</span>
+<span class="fc" id="L265">            e.setFinishedAt(Instant.now());</span>
+<span class="fc" id="L266">            e.setResultImagePath(resultPath);</span>
+<span class="fc" id="L267">            e.setStackingSummary(summary);</span>
+<span class="fc" id="L268">            repository.save(e);</span>
+<span class="fc" id="L269">        });</span>
+<span class="fc" id="L270">        log.info(&quot;Astro session {} completed&quot;, sessionId);</span>
+<span class="fc" id="L271">    }</span>
+
+    @Transactional
+    void failSession(String sessionId, String error) {
+<span class="nc" id="L275">        repository.findById(sessionId).ifPresent(e -&gt; {</span>
+<span class="nc" id="L276">            e.setStatus(AstroSessionStatus.FAILED);</span>
+<span class="nc" id="L277">            e.setFinishedAt(Instant.now());</span>
+<span class="nc" id="L278">            e.setErrorMessage(error);</span>
+<span class="nc" id="L279">            repository.save(e);</span>
+<span class="nc" id="L280">        });</span>
+<span class="nc" id="L281">        log.error(&quot;Astro session {} failed: {}&quot;, sessionId, error);</span>
+<span class="nc" id="L282">    }</span>
+
+    @Transactional
+    void updateBestFocusPosition(String sessionId, int position) {
+<span class="nc" id="L286">        repository.findById(sessionId).ifPresent(e -&gt; {</span>
+<span class="nc" id="L287">            e.setBestFocusPosition(position);</span>
+<span class="nc" id="L288">            repository.save(e);</span>
+<span class="nc" id="L289">        });</span>
+<span class="nc" id="L290">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
