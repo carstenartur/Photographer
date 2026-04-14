@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginManagementService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.plugin</a> &gt; <span class="el_source">PluginManagementService.java</span></div><h1>PluginManagementService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.plugin;
+
+import com.photographer.focusstack.app.config.PluginProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Service for managing the plugin lifecycle (install, enable, disable, uninstall).
+ *
+ * &lt;p&gt;Plugin JAR files are stored in the configured plugins directory and managed
+ * through the {@link FocusStackPluginManager}.
+ */
+@Service
+public class PluginManagementService {
+
+<span class="fc" id="L27">    private static final Logger log = LoggerFactory.getLogger(PluginManagementService.class);</span>
+
+    private final FocusStackPluginManager pluginManager;
+    private final PluginProperties pluginProperties;
+
+<span class="fc" id="L32">    public PluginManagementService(FocusStackPluginManager pluginManager, PluginProperties pluginProperties) {</span>
+<span class="fc" id="L33">        this.pluginManager = pluginManager;</span>
+<span class="fc" id="L34">        this.pluginProperties = pluginProperties;</span>
+<span class="fc" id="L35">    }</span>
+
+    /**
+     * Lists all installed plugins with their metadata and state.
+     */
+    public List&lt;Map&lt;String, Object&gt;&gt; listPlugins() {
+<span class="fc" id="L41">        return pluginManager.getPlugins().stream()</span>
+<span class="fc" id="L42">                .map(this::toPluginInfo)</span>
+<span class="fc" id="L43">                .toList();</span>
+    }
+
+    /**
+     * Returns details for a single plugin by ID.
+     */
+    public Optional&lt;Map&lt;String, Object&gt;&gt; getPlugin(String pluginId) {
+<span class="fc" id="L50">        return pluginManager.getPlugin(pluginId)</span>
+<span class="fc" id="L51">                .map(this::toPluginInfo);</span>
+    }
+
+    /**
+     * Installs a plugin from a JAR input stream.
+     *
+     * @param fileName     the original file name (must end with {@code .jar})
+     * @param inputStream  the JAR content
+     * @return the plugin ID of the newly installed plugin
+     * @throws IOException              if the file cannot be written
+     * @throws IllegalArgumentException if the file name is invalid
+     */
+    public String installPlugin(String fileName, InputStream inputStream) throws IOException {
+<span class="fc" id="L64">        validateFileName(fileName);</span>
+
+<span class="fc" id="L66">        Path pluginsDir = pluginProperties.directory();</span>
+<span class="fc" id="L67">        Files.createDirectories(pluginsDir);</span>
+
+        // Sanitize file name to prevent path traversal
+<span class="fc" id="L70">        String safeName = Path.of(fileName).getFileName().toString();</span>
+<span class="fc" id="L71">        Path targetPath = pluginsDir.resolve(safeName);</span>
+
+        // Verify the resolved path is within the plugins directory
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">        if (!targetPath.normalize().startsWith(pluginsDir.normalize())) {</span>
+<span class="nc" id="L75">            throw new IllegalArgumentException(&quot;Invalid file name: path traversal detected&quot;);</span>
+        }
+
+        // Write to a temporary file first so we never overwrite an existing
+        // plugin JAR before verifying the new one loads successfully.
+<span class="fc" id="L80">        Path tempFile = Files.createTempFile(pluginsDir, &quot;plugin-upload-&quot;, &quot;.tmp&quot;);</span>
+        try {
+<span class="fc" id="L82">            Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);</span>
+
+<span class="fc" id="L84">            String pluginId = pluginManager.loadPlugin(tempFile);</span>
+<span class="pc bpc" id="L85" title="1 of 2 branches missed.">            if (pluginId == null) {</span>
+<span class="nc" id="L86">                throw new IllegalArgumentException(&quot;Failed to load plugin from: &quot; + safeName);</span>
+            }
+
+            // Load succeeded — move the temp file to the final location
+<span class="fc" id="L90">            Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="fc" id="L91">            log.info(&quot;Plugin installed: {} → {}&quot;, pluginId, targetPath);</span>
+<span class="fc" id="L92">            return pluginId;</span>
+        } finally {
+            // Clean up the temp file if it still exists (i.e. load failed or move was skipped)
+<span class="fc" id="L95">            Files.deleteIfExists(tempFile);</span>
+        }
+    }
+
+    /**
+     * Enables a plugin by ID.
+     */
+    public boolean enablePlugin(String pluginId) {
+<span class="fc" id="L103">        return pluginManager.enablePlugin(pluginId);</span>
+    }
+
+    /**
+     * Disables a plugin by ID.
+     */
+    public boolean disablePlugin(String pluginId) {
+<span class="fc" id="L110">        return pluginManager.disablePlugin(pluginId);</span>
+    }
+
+    /**
+     * Uninstalls a plugin by ID — closes its classloader and deletes its JAR.
+     */
+    public boolean uninstallPlugin(String pluginId) {
+<span class="fc" id="L117">        return pluginManager.deletePlugin(pluginId);</span>
+    }
+
+    private Map&lt;String, Object&gt; toPluginInfo(FocusStackPluginManager.LoadedPlugin plugin) {
+<span class="fc" id="L121">        FocusStackPluginManager.PluginInfo info = plugin.info();</span>
+<span class="fc" id="L122">        return Map.of(</span>
+<span class="fc" id="L123">                &quot;id&quot;, info.id(),</span>
+<span class="fc" id="L124">                &quot;version&quot;, info.version(),</span>
+<span class="fc" id="L125">                &quot;description&quot;, info.description(),</span>
+<span class="fc" id="L126">                &quot;provider&quot;, info.provider(),</span>
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">                &quot;state&quot;, plugin.enabled() ? &quot;ENABLED&quot; : &quot;DISABLED&quot;,</span>
+<span class="fc" id="L128">                &quot;license&quot;, info.license()</span>
+        );
+    }
+
+    static void validateFileName(String fileName) {
+<span class="pc bpc" id="L133" title="1 of 4 branches missed.">        if (fileName == null || fileName.isBlank()) {</span>
+<span class="fc" id="L134">            throw new IllegalArgumentException(&quot;File name must not be empty&quot;);</span>
+        }
+<span class="fc bfc" id="L136" title="All 2 branches covered.">        if (!fileName.toLowerCase(Locale.ROOT).endsWith(&quot;.jar&quot;)) {</span>
+<span class="fc" id="L137">            throw new IllegalArgumentException(&quot;Only .jar plugin files are accepted&quot;);</span>
+        }
+        // Reject any path separator to prevent traversal
+<span class="pc bpc" id="L140" title="2 of 6 branches missed.">        if (fileName.contains(&quot;/&quot;) || fileName.contains(&quot;\\&quot;) || fileName.contains(&quot;..&quot;)) {</span>
+<span class="fc" id="L141">            throw new IllegalArgumentException(&quot;Invalid file name: must not contain path separators&quot;);</span>
+        }
+<span class="fc" id="L143">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

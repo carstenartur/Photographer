@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.config</a> &gt; <span class="el_source">PluginConfig.java</span></div><h1>PluginConfig.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.config;
+
+import com.photographer.focusstack.app.plugin.FocusStackPluginManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+/**
+ * Spring configuration for the Focus Stack plugin system.
+ *
+ * &lt;p&gt;Creates a {@link FocusStackPluginManager} bean that scans the configured
+ * plugins directory for external plugin JARs. Uses Java {@code ServiceLoader}
+ * and {@code URLClassLoader} for classloader-isolated plugin loading.
+ */
+@Configuration
+<span class="fc" id="L21">public class PluginConfig {</span>
+
+<span class="fc" id="L23">    private static final Logger log = LoggerFactory.getLogger(PluginConfig.class);</span>
+
+    @Bean(destroyMethod = &quot;close&quot;)
+    public FocusStackPluginManager pluginManager(PluginProperties pluginProperties) throws IOException {
+<span class="fc" id="L27">        Path pluginsDir = pluginProperties.directory();</span>
+
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        if (!pluginProperties.enabled()) {</span>
+<span class="fc" id="L30">            log.info(&quot;Plugin system is disabled via configuration&quot;);</span>
+<span class="fc" id="L31">            return new FocusStackPluginManager(pluginsDir);</span>
+        }
+
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (!Files.exists(pluginsDir)) {</span>
+<span class="nc" id="L35">            Files.createDirectories(pluginsDir);</span>
+<span class="nc" id="L36">            log.info(&quot;Created plugins directory: {}&quot;, pluginsDir.toAbsolutePath());</span>
+        }
+
+<span class="nc" id="L39">        FocusStackPluginManager manager = new FocusStackPluginManager(pluginsDir);</span>
+<span class="nc" id="L40">        manager.loadPlugins();</span>
+
+<span class="nc" id="L42">        int count = manager.getPlugins().size();</span>
+<span class="nc" id="L43">        log.info(&quot;Plugin system started: {} plugin(s) loaded from {}&quot;,</span>
+<span class="nc" id="L44">                count, pluginsDir.toAbsolutePath());</span>
+
+<span class="nc" id="L46">        return manager;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
