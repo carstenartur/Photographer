@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -155,7 +156,7 @@ public class PluginManagementService {
         if (fileName == null || fileName.isBlank()) {
             throw new IllegalArgumentException("File name must not be empty");
         }
-        if (!fileName.toLowerCase().endsWith(".jar")) {
+        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".jar")) {
             throw new IllegalArgumentException("Only .jar plugin files are accepted");
         }
         // Reject any path separator to prevent traversal
