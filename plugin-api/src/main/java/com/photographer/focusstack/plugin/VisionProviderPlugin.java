@@ -1,7 +1,5 @@
 package com.photographer.focusstack.plugin;
 
-import org.pf4j.ExtensionPoint;
-
 /**
  * Extension point for AI vision provider plugins.
  *
@@ -12,7 +10,7 @@ import org.pf4j.ExtensionPoint;
  * interface to provide plugin metadata alongside their existing
  * {@code VisionProvider} functionality.
  */
-public interface VisionProviderPlugin extends ExtensionPoint {
+public interface VisionProviderPlugin {
 
     /** Returns metadata describing this vision provider plugin. */
     PluginMetadata metadata();

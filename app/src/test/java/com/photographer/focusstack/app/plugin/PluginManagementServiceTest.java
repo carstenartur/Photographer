@@ -7,10 +7,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.pf4j.PluginDescriptor;
-import org.pf4j.PluginManager;
-import org.pf4j.PluginState;
-import org.pf4j.PluginWrapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -26,9 +22,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PluginManagementServiceTest {
 
-    @Mock private PluginManager pluginManager;
-    @Mock private PluginWrapper pluginWrapper;
-    @Mock private PluginDescriptor pluginDescriptor;
+    @Mock private FocusStackPluginManager pluginManager;
 
     @TempDir
     Path tempDir;
@@ -50,24 +44,21 @@ class PluginManagementServiceTest {
 
     @Test
     void listPlugins_returnsPluginInfo() {
-        when(pluginWrapper.getPluginId()).thenReturn("test-plugin");
-        when(pluginWrapper.getDescriptor()).thenReturn(pluginDescriptor);
-        when(pluginWrapper.getPluginState()).thenReturn(PluginState.STARTED);
-        when(pluginDescriptor.getVersion()).thenReturn("1.0.0");
-        when(pluginDescriptor.getPluginDescription()).thenReturn("Test");
-        when(pluginDescriptor.getProvider()).thenReturn("Author");
-        when(pluginDescriptor.getLicense()).thenReturn("MIT");
-        when(pluginManager.getPlugins()).thenReturn(List.of(pluginWrapper));
+        FocusStackPluginManager.PluginInfo info =
+                new FocusStackPluginManager.PluginInfo("test-plugin", "1.0.0", "Test", "Author", "MIT");
+        FocusStackPluginManager.LoadedPlugin loaded =
+                new FocusStackPluginManager.LoadedPlugin(info, tempDir.resolve("test.jar"), null, true);
+        when(pluginManager.getPlugins()).thenReturn(List.of(loaded));
 
         List<Map<String, Object>> result = service.listPlugins();
         assertEquals(1, result.size());
         assertEquals("test-plugin", result.get(0).get("id"));
-        assertEquals("STARTED", result.get(0).get("state"));
+        assertEquals("ENABLED", result.get(0).get("state"));
     }
 
     @Test
     void getPlugin_returnsEmptyForUnknown() {
-        when(pluginManager.getPlugin("unknown")).thenReturn(null);
+        when(pluginManager.getPlugin("unknown")).thenReturn(Optional.empty());
         Optional<Map<String, Object>> result = service.getPlugin("unknown");
         assertTrue(result.isEmpty());
     }
@@ -96,48 +87,42 @@ class PluginManagementServiceTest {
     @Test
     void installPlugin_savesAndLoadsJar() throws IOException {
         when(pluginManager.loadPlugin(any(Path.class))).thenReturn("new-plugin");
-        when(pluginManager.startPlugin("new-plugin")).thenReturn(PluginState.STARTED);
 
         String pluginId = service.installPlugin("test-plugin.jar",
                 new ByteArrayInputStream(new byte[]{1, 2, 3}));
 
         assertEquals("new-plugin", pluginId);
         verify(pluginManager).loadPlugin(any(Path.class));
-        verify(pluginManager).startPlugin("new-plugin");
     }
 
     @Test
     void enablePlugin_returnsFalseForUnknown() {
-        when(pluginManager.getPlugin("unknown")).thenReturn(null);
+        when(pluginManager.enablePlugin("unknown")).thenReturn(false);
         assertFalse(service.enablePlugin("unknown"));
     }
 
     @Test
-    void enablePlugin_returnsTrueWhenAlreadyStarted() {
-        when(pluginManager.getPlugin("test")).thenReturn(pluginWrapper);
-        when(pluginWrapper.getPluginState()).thenReturn(PluginState.STARTED);
-
+    void enablePlugin_delegatesToManager() {
+        when(pluginManager.enablePlugin("test")).thenReturn(true);
         assertTrue(service.enablePlugin("test"));
-        verify(pluginManager, never()).startPlugin(any());
+        verify(pluginManager).enablePlugin("test");
     }
 
     @Test
     void disablePlugin_returnsFalseForUnknown() {
-        when(pluginManager.getPlugin("unknown")).thenReturn(null);
+        when(pluginManager.disablePlugin("unknown")).thenReturn(false);
         assertFalse(service.disablePlugin("unknown"));
     }
 
     @Test
     void uninstallPlugin_returnsFalseForUnknown() {
-        when(pluginManager.getPlugin("unknown")).thenReturn(null);
+        when(pluginManager.deletePlugin("unknown")).thenReturn(false);
         assertFalse(service.uninstallPlugin("unknown"));
     }
 
     @Test
-    void uninstallPlugin_delegatesToPluginManager() {
-        when(pluginManager.getPlugin("test")).thenReturn(pluginWrapper);
+    void uninstallPlugin_delegatesToManager() {
         when(pluginManager.deletePlugin("test")).thenReturn(true);
-
         assertTrue(service.uninstallPlugin("test"));
         verify(pluginManager).deletePlugin("test");
     }

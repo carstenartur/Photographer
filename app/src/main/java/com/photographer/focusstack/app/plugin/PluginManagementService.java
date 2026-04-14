@@ -1,9 +1,6 @@
 package com.photographer.focusstack.app.plugin;
 
 import com.photographer.focusstack.app.config.PluginProperties;
-import org.pf4j.PluginManager;
-import org.pf4j.PluginState;
-import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -19,20 +16,20 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Service for managing the PF4J plugin lifecycle (install, enable, disable, uninstall).
+ * Service for managing the plugin lifecycle (install, enable, disable, uninstall).
  *
  * <p>Plugin JAR files are stored in the configured plugins directory and managed
- * through the PF4J {@link PluginManager}.
+ * through the {@link FocusStackPluginManager}.
  */
 @Service
 public class PluginManagementService {
 
     private static final Logger log = LoggerFactory.getLogger(PluginManagementService.class);
 
-    private final PluginManager pluginManager;
+    private final FocusStackPluginManager pluginManager;
     private final PluginProperties pluginProperties;
 
-    public PluginManagementService(PluginManager pluginManager, PluginProperties pluginProperties) {
+    public PluginManagementService(FocusStackPluginManager pluginManager, PluginProperties pluginProperties) {
         this.pluginManager = pluginManager;
         this.pluginProperties = pluginProperties;
     }
@@ -50,11 +47,8 @@ public class PluginManagementService {
      * Returns details for a single plugin by ID.
      */
     public Optional<Map<String, Object>> getPlugin(String pluginId) {
-        PluginWrapper wrapper = pluginManager.getPlugin(pluginId);
-        if (wrapper == null) {
-            return Optional.empty();
-        }
-        return Optional.of(toPluginInfo(wrapper));
+        return pluginManager.getPlugin(pluginId)
+                .map(this::toPluginInfo);
     }
 
     /**
@@ -90,69 +84,44 @@ public class PluginManagementService {
             throw new IllegalArgumentException("Failed to load plugin from: " + safeName);
         }
 
-        pluginManager.startPlugin(pluginId);
-        log.info("Plugin installed and started: {}", pluginId);
+        log.info("Plugin installed: {}", pluginId);
         return pluginId;
     }
 
     /**
-     * Enables (starts) a plugin by ID.
+     * Enables a plugin by ID.
      */
     public boolean enablePlugin(String pluginId) {
-        PluginWrapper wrapper = pluginManager.getPlugin(pluginId);
-        if (wrapper == null) {
-            return false;
-        }
-        if (wrapper.getPluginState() == PluginState.STARTED) {
-            return true; // already running
-        }
-        PluginState state = pluginManager.startPlugin(pluginId);
-        log.info("Plugin {} enabled → state: {}", pluginId, state);
-        return state == PluginState.STARTED;
+        return pluginManager.enablePlugin(pluginId);
     }
 
     /**
-     * Disables (stops) a plugin by ID.
+     * Disables a plugin by ID.
      */
     public boolean disablePlugin(String pluginId) {
-        PluginWrapper wrapper = pluginManager.getPlugin(pluginId);
-        if (wrapper == null) {
-            return false;
-        }
-        if (wrapper.getPluginState() == PluginState.STOPPED
-                || wrapper.getPluginState() == PluginState.DISABLED) {
-            return true; // already stopped
-        }
-        PluginState state = pluginManager.stopPlugin(pluginId);
-        log.info("Plugin {} disabled → state: {}", pluginId, state);
-        return state == PluginState.STOPPED;
+        return pluginManager.disablePlugin(pluginId);
     }
 
     /**
-     * Uninstalls a plugin by ID — stops it, unloads it, and deletes its JAR.
+     * Uninstalls a plugin by ID — closes its classloader and deletes its JAR.
      */
     public boolean uninstallPlugin(String pluginId) {
-        PluginWrapper wrapper = pluginManager.getPlugin(pluginId);
-        if (wrapper == null) {
-            return false;
-        }
-        boolean deleted = pluginManager.deletePlugin(pluginId);
-        log.info("Plugin {} uninstalled: {}", pluginId, deleted ? "success" : "failed");
-        return deleted;
+        return pluginManager.deletePlugin(pluginId);
     }
 
-    private Map<String, Object> toPluginInfo(PluginWrapper wrapper) {
+    private Map<String, Object> toPluginInfo(FocusStackPluginManager.LoadedPlugin plugin) {
+        FocusStackPluginManager.PluginInfo info = plugin.info();
         return Map.of(
-                "id", wrapper.getPluginId(),
-                "version", wrapper.getDescriptor().getVersion(),
-                "description", Optional.ofNullable(wrapper.getDescriptor().getPluginDescription()).orElse(""),
-                "provider", Optional.ofNullable(wrapper.getDescriptor().getProvider()).orElse(""),
-                "state", wrapper.getPluginState().toString(),
-                "license", Optional.ofNullable(wrapper.getDescriptor().getLicense()).orElse("")
+                "id", info.id(),
+                "version", info.version(),
+                "description", info.description(),
+                "provider", info.provider(),
+                "state", plugin.enabled() ? "ENABLED" : "DISABLED",
+                "license", info.license()
         );
     }
 
-    private static void validateFileName(String fileName) {
+    static void validateFileName(String fileName) {
         if (fileName == null || fileName.isBlank()) {
             throw new IllegalArgumentException("File name must not be empty");
         }
