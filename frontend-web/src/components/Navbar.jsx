@@ -33,6 +33,9 @@ export default function Navbar() {
         <li>
           <NavLink to="/astro">Astro</NavLink>
         </li>
+        <li>
+          <NavLink to="/plugins">Plugins</NavLink>
+        </li>
       </ul>
     </nav>
   );
