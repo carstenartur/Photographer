@@ -12,6 +12,7 @@ import ObserverEvents from './pages/ObserverEvents';
 import ObserverEventDetail from './pages/ObserverEventDetail';
 import ObserverGallery from './pages/ObserverGallery';
 import ObserverStatistics from './pages/ObserverStatistics';
+import AstroSessions from './pages/AstroSessions';
 import './App.css';
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/observer/events/:id" element={<ObserverEventDetail />} />
           <Route path="/observer/gallery" element={<ObserverGallery />} />
           <Route path="/observer/statistics" element={<ObserverStatistics />} />
+          <Route path="/astro" element={<AstroSessions />} />
         </Routes>
       </main>
     </div>

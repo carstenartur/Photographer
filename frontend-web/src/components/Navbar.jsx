@@ -30,6 +30,9 @@ export default function Navbar() {
         <li>
           <NavLink to="/observer">Observer</NavLink>
         </li>
+        <li>
+          <NavLink to="/astro">Astro</NavLink>
+        </li>
       </ul>
     </nav>
   );

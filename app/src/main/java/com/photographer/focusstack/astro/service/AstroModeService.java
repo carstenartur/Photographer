@@ -8,6 +8,8 @@ import com.photographer.focusstack.astro.NoOpStarTrailDeblurService;
 import com.photographer.focusstack.astro.StarDetectionService;
 import com.photographer.focusstack.astro.entity.AstroSessionEntity;
 import com.photographer.focusstack.astro.repository.AstroSessionRepository;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.backend.MockCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -37,21 +39,26 @@ public class AstroModeService {
     private static final Logger log = LoggerFactory.getLogger(AstroModeService.class);
 
     private final AstroSessionRepository repository;
-    private final CameraBackend cameraBackend;
+    private final CameraBackendFactory cameraBackendFactory;
     private final String dataDir;
 
     /** Tracks sessions that have been requested to abort. */
     private final Map<String, Boolean> abortFlags = new ConcurrentHashMap<>();
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public AstroModeService(AstroSessionRepository repository, CameraBackend cameraBackend) {
-        this(repository, cameraBackend, "data/astro-sessions");
+    public AstroModeService(AstroSessionRepository repository, CameraBackendFactory cameraBackendFactory) {
+        this.repository = repository;
+        this.cameraBackendFactory = cameraBackendFactory;
+        this.dataDir = "data/astro-sessions";
     }
 
-    public AstroModeService(AstroSessionRepository repository, CameraBackend cameraBackend, String dataDir) {
-        this.repository = repository;
-        this.cameraBackend = cameraBackend;
-        this.dataDir = dataDir;
+    /**
+     * Returns a CameraBackend for astro sessions.
+     * Uses a mock "astro" profile for the default backend from the factory.
+     */
+    private CameraBackend getDefaultBackend() {
+        CameraProfile astroProfile = new CameraProfile(
+                "astro-default", "Astro Camera", "mock", "localhost", 1, 1000, 0.0);
+        return cameraBackendFactory.getBackend(astroProfile);
     }
 
     @Transactional
@@ -107,10 +114,12 @@ public class AstroModeService {
 
             if (isAborted(sessionId)) return;
 
+            CameraBackend cameraBackend = getDefaultBackend();
+
             // Focus strategy
             AstroFocusStrategy strategy = entity.getFocusStrategy();
             if (strategy == AstroFocusStrategy.FOCUS_SCAN) {
-                executeFocusScan(entity, focusScanDir);
+                executeFocusScan(entity, focusScanDir, cameraBackend);
             } else {
                 log.info("Using MANUAL_FIXED focus strategy");
             }
@@ -189,7 +198,7 @@ public class AstroModeService {
         }
     }
 
-    private void executeFocusScan(AstroSessionEntity entity, Path focusScanDir) throws IOException {
+    private void executeFocusScan(AstroSessionEntity entity, Path focusScanDir, CameraBackend cameraBackend) throws IOException {
         updateStatus(entity.getId(), AstroSessionStatus.FOCUS_SCANNING);
         log.info("Executing focus scan: {} steps, step size {}",
                 entity.getScanSteps(), entity.getScanStepSize());
