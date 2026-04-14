@@ -62,3 +62,6 @@ surefire-reports/
 *.bak
 *.orig
 *.tmp
+
+### Runtime data ###
+data/
