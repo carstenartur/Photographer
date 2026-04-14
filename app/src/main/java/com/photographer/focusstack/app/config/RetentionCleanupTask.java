@@ -65,19 +65,15 @@ public class RetentionCleanupTask {
         // Clean old stacking jobs
         if (config.jobsMaxAgeDays() > 0) {
             Instant cutoff = Instant.now().minus(Duration.ofDays(config.jobsMaxAgeDays()));
-            List<StackingJobEntity> allJobs = jobRepository.findAllByOrderByStartedAtDesc();
+            List<StackingJobEntity> oldJobs = jobRepository.findByStatusInAndCompletedAtBefore(
+                    DELETABLE_JOB_STATES, cutoff);
             int jobsDeleted = 0;
-            for (StackingJobEntity entity : allJobs) {
-                if (DELETABLE_JOB_STATES.contains(entity.getStatus())) {
-                    Instant completedAt = entity.getCompletedAt();
-                    if (completedAt != null && completedAt.isBefore(cutoff)) {
-                        try {
-                            jobService.deleteJob(entity.getId());
-                            jobsDeleted++;
-                        } catch (Exception e) {
-                            log.warn("Failed to delete job {}: {}", entity.getId(), e.getMessage());
-                        }
-                    }
+            for (StackingJobEntity entity : oldJobs) {
+                try {
+                    jobService.deleteJob(entity.getId());
+                    jobsDeleted++;
+                } catch (Exception e) {
+                    log.warn("Failed to delete job {}: {}", entity.getId(), e.getMessage());
                 }
             }
             totalDeleted += jobsDeleted;
