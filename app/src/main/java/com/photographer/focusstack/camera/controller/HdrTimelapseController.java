@@ -80,10 +80,11 @@ public class HdrTimelapseController {
             return ResponseEntity.noContent().build();
         }
         String format = service.getVideoFormat();
+        String safeFormat = format != null ? format.replaceAll("[^a-zA-Z0-9]", "") : "mp4";
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"timelapse-" + sessionId + "." + format + "\"")
+                        "attachment; filename=\"timelapse-" + sessionId.replaceAll("[^a-zA-Z0-9\\-]", "_") + "." + safeFormat + "\"")
                 .body(video);
     }
 }

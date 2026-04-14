@@ -136,8 +136,17 @@ public class JobController {
         return ResponseEntity.ok()
                 .contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename=\"" + fileName + "\"")
+                        "inline; filename=\"" + sanitizeFileName(fileName) + "\"")
                 .body(imageBytes);
+    }
+
+    /** Sanitizes a filename for safe use in a Content-Disposition header value.
+     * Strips any characters that could enable header injection (CR, LF, etc.)
+     * and percent-encodes any remaining double-quote characters. */
+    static String sanitizeFileName(String fileName) {
+        if (fileName == null) return "download";
+        // Remove CR, LF and other control characters that could break the header
+        return fileName.replaceAll("[\\r\\n\\t\"\\\\]", "_");
     }
 
     /** Derives a browser-friendly {@link MediaType} from a filename extension. */

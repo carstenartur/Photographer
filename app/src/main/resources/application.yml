@@ -65,8 +65,8 @@ focusstack:
 logging:
   level:
     root: INFO
-    com.photographer.focusstack: DEBUG
-    org.springframework.security: DEBUG
+    com.photographer.focusstack: INFO
+    org.springframework.security: WARN
 
 # Wildlife Observer configuration
 observer:

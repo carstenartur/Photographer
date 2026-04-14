@@ -1,6 +1,7 @@
 package com.photographer.focusstack.session;
 
 import com.photographer.focusstack.capture.BracketCaptureService;
+import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.BracketSet;
 import com.photographer.focusstack.common.model.CaptureFrame;
 import com.photographer.focusstack.common.model.CaptureSession;
@@ -30,6 +31,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>The interval delay between captures is delegated to a {@link Sleeper}
  * so that tests can supply a no-op implementation instead of blocking on
  * {@code Thread.sleep}.</p>
+ *
+ * <p>For production use, construct with a {@link CameraBackendProvider} so that
+ * the correct camera backend is resolved at session-start time from the profile
+ * ID stored in {@link HdrSettings#cameraProfileId()}.  For tests, the legacy
+ * constructor accepting a pre-built {@link BracketCaptureService} can still be
+ * used.</p>
  */
 public class HdrTimelapseService {
 
@@ -46,7 +53,12 @@ public class HdrTimelapseService {
     /** Default sleeper that delegates to {@link Thread#sleep(long)}. */
     private static final Sleeper DEFAULT_SLEEPER = Thread::sleep;
 
+    /** Legacy fixed capture service (non-null when using test constructors). */
     private final BracketCaptureService captureService;
+
+    /** Provider that resolves a real backend per camera profile (non-null in production). */
+    private final CameraBackendProvider backendProvider;
+
     private final SessionStorage storage;
     private final HdrProcessor hdrProcessor;
     private final Tonemapper tonemapper;
@@ -58,6 +70,32 @@ public class HdrTimelapseService {
     private final Map<String, HdrSettings> sessionSettings = new ConcurrentHashMap<>();
     private final Map<String, AtomicBoolean> stopFlags = new ConcurrentHashMap<>();
 
+    /** Production constructor: resolves the camera backend via {@code backendProvider} at session start. */
+    public HdrTimelapseService(CameraBackendProvider backendProvider,
+                                SessionStorage storage,
+                                HdrProcessor hdrProcessor,
+                                Tonemapper tonemapper,
+                                VideoEncoder videoEncoder) {
+        this(backendProvider, storage, hdrProcessor, tonemapper, videoEncoder, DEFAULT_SLEEPER);
+    }
+
+    /** Production constructor with custom sleeper (for testing the production code path). */
+    public HdrTimelapseService(CameraBackendProvider backendProvider,
+                                SessionStorage storage,
+                                HdrProcessor hdrProcessor,
+                                Tonemapper tonemapper,
+                                VideoEncoder videoEncoder,
+                                Sleeper sleeper) {
+        this.backendProvider = backendProvider;
+        this.captureService = null;
+        this.storage = storage;
+        this.hdrProcessor = hdrProcessor;
+        this.tonemapper = tonemapper;
+        this.videoEncoder = videoEncoder;
+        this.sleeper = sleeper;
+    }
+
+    /** Legacy constructor for tests that supply a pre-built {@link BracketCaptureService}. */
     public HdrTimelapseService(BracketCaptureService captureService,
                                 SessionStorage storage,
                                 HdrProcessor hdrProcessor,
@@ -66,6 +104,7 @@ public class HdrTimelapseService {
         this(captureService, storage, hdrProcessor, tonemapper, videoEncoder, DEFAULT_SLEEPER);
     }
 
+    /** Legacy constructor with custom sleeper. */
     public HdrTimelapseService(BracketCaptureService captureService,
                                 SessionStorage storage,
                                 HdrProcessor hdrProcessor,
@@ -73,11 +112,30 @@ public class HdrTimelapseService {
                                 VideoEncoder videoEncoder,
                                 Sleeper sleeper) {
         this.captureService = captureService;
+        this.backendProvider = null;
         this.storage = storage;
         this.hdrProcessor = hdrProcessor;
         this.tonemapper = tonemapper;
         this.videoEncoder = videoEncoder;
         this.sleeper = sleeper;
+    }
+
+    /**
+     * Resolves the {@link BracketCaptureService} to use for the given session.
+     * Uses the {@link CameraBackendProvider} if set; otherwise falls back to the
+     * fixed {@code captureService} (test / mock mode).
+     */
+    private BracketCaptureService resolveCapture(HdrSettings settings) {
+        if (backendProvider != null && settings.cameraProfileId() != null) {
+            CameraBackend backend = backendProvider.getBackend(settings.cameraProfileId());
+            return new BracketCaptureService(backend);
+        }
+        if (captureService != null) {
+            return captureService;
+        }
+        throw new SessionException(
+                "No camera backend available: supply a cameraProfileId in HdrSettings or " +
+                "configure the application with a CameraBackendProvider.");
     }
 
     /**
@@ -133,6 +191,9 @@ public class HdrTimelapseService {
             throw new SessionException("No settings found for session: " + sessionId);
         }
 
+        // Resolve the capture service: use real backend from provider if cameraProfileId is set
+        BracketCaptureService resolvedCaptureService = resolveCapture(settings);
+
         AtomicBoolean stopFlag = new AtomicBoolean(false);
         stopFlags.put(sessionId, stopFlag);
 
@@ -153,7 +214,7 @@ public class HdrTimelapseService {
                 }
 
                 int startIndex = interval * settings.bracketCount();
-                BracketSet bracketSet = captureService.captureBracket(
+                BracketSet bracketSet = resolvedCaptureService.captureBracket(
                         sessionId, settings.bracketCount(), settings.evStep(), startIndex);
 
                 // Collect frame IDs

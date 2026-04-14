@@ -61,7 +61,7 @@ class HdrTimelapseServiceTest {
 
     @Test
     void executeSession_completesSuccessfully() {
-        HdrSettings settings = new HdrSettings(0, 3, 1.0, 2, false, true);
+        HdrSettings settings = new HdrSettings(null, 0, 3, 1.0, 2, false, true);
         CaptureSession session = service.createSession(settings);
 
         when(captureService.captureBracket(anyString(), eq(3), eq(1.0), anyInt()))
@@ -77,7 +77,7 @@ class HdrTimelapseServiceTest {
 
     @Test
     void executeSession_invalidState_throwsException() {
-        HdrSettings settings = new HdrSettings(0, 3, 1.0, 2, false, true);
+        HdrSettings settings = new HdrSettings(null, 0, 3, 1.0, 2, false, true);
         CaptureSession session = service.createSession(settings);
 
         when(captureService.captureBracket(anyString(), anyInt(), anyDouble(), anyInt()))
@@ -99,7 +99,7 @@ class HdrTimelapseServiceTest {
 
     @Test
     void getBrackets_returnsCaptureBrackets() {
-        HdrSettings settings = new HdrSettings(0, 3, 1.0, 1, false, false);
+        HdrSettings settings = new HdrSettings(null, 0, 3, 1.0, 1, false, false);
         CaptureSession session = service.createSession(settings);
 
         when(captureService.captureBracket(anyString(), eq(3), eq(1.0), anyInt()))

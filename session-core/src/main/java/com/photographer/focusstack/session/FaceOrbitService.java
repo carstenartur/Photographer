@@ -1,6 +1,7 @@
 package com.photographer.focusstack.session;
 
 import com.photographer.focusstack.capture.SequenceCaptureService;
+import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CaptureFrame;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.FaceOrbitSettings;
@@ -25,12 +26,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Orchestrates Face Orbit Capture sessions: guided image series of a face
  * over approximately 180 degrees with quality checks and 3D profile generation.
+ *
+ * <p>For production use, construct with a {@link CameraBackendProvider} so that
+ * the correct camera backend is resolved at session-start time from the profile
+ * ID stored in {@link FaceOrbitSettings#cameraProfileId()}.  For tests, the
+ * legacy constructor accepting a pre-built {@link SequenceCaptureService} can
+ * still be used.</p>
  */
 public class FaceOrbitService {
 
     private static final Logger log = LoggerFactory.getLogger(FaceOrbitService.class);
 
+    /** Legacy fixed capture service (non-null when using test constructors). */
     private final SequenceCaptureService captureService;
+
+    /** Provider that resolves a real backend per camera profile (non-null in production). */
+    private final CameraBackendProvider backendProvider;
+
     private final SessionStorage storage;
     private final FaceAnalysisEngine analysisEngine;
     private final FaceProfileEngine profileEngine;
@@ -42,14 +54,46 @@ public class FaceOrbitService {
     private final Map<String, FaceProfileJob> profileJobs = new ConcurrentHashMap<>();
     private final Map<String, AtomicBoolean> stopFlags = new ConcurrentHashMap<>();
 
+    /** Production constructor: resolves the camera backend via {@code backendProvider} at session start. */
+    public FaceOrbitService(CameraBackendProvider backendProvider,
+                             SessionStorage storage,
+                             FaceAnalysisEngine analysisEngine,
+                             FaceProfileEngine profileEngine) {
+        this.backendProvider = backendProvider;
+        this.captureService = null;
+        this.storage = storage;
+        this.analysisEngine = analysisEngine;
+        this.profileEngine = profileEngine;
+    }
+
+    /** Legacy constructor for tests that supply a pre-built {@link SequenceCaptureService}. */
     public FaceOrbitService(SequenceCaptureService captureService,
                              SessionStorage storage,
                              FaceAnalysisEngine analysisEngine,
                              FaceProfileEngine profileEngine) {
         this.captureService = captureService;
+        this.backendProvider = null;
         this.storage = storage;
         this.analysisEngine = analysisEngine;
         this.profileEngine = profileEngine;
+    }
+
+    /**
+     * Resolves the {@link SequenceCaptureService} to use for the given session.
+     * Uses the {@link CameraBackendProvider} if set; otherwise falls back to the
+     * fixed {@code captureService} (test / mock mode).
+     */
+    private SequenceCaptureService resolveCapture(FaceOrbitSettings settings) {
+        if (backendProvider != null && settings.cameraProfileId() != null) {
+            CameraBackend backend = backendProvider.getBackend(settings.cameraProfileId());
+            return new SequenceCaptureService(backend);
+        }
+        if (captureService != null) {
+            return captureService;
+        }
+        throw new SessionException(
+                "No camera backend available: supply a cameraProfileId in FaceOrbitSettings or " +
+                "configure the application with a CameraBackendProvider.");
     }
 
     /**
@@ -110,7 +154,7 @@ public class FaceOrbitService {
             sessions.put(sessionId, running);
         }
 
-        CaptureFrame frame = captureService.captureFrame(sessionId, stepIndex, angle);
+        CaptureFrame frame = resolveCapture(settings).captureFrame(sessionId, stepIndex, angle);
         frames.add(frame);
 
         // Quality check
@@ -167,6 +211,9 @@ public class FaceOrbitService {
         List<CaptureFrame> frames = sessionFrames.get(sessionId);
         List<String> frameIds = new ArrayList<>();
 
+        // Resolve capture service once for the entire auto mode run
+        SequenceCaptureService resolvedCaptureService = resolveCapture(settings);
+
         try {
             for (int step = 0; step < settings.totalSteps(); step++) {
                 if (stopFlag.get()) {
@@ -174,7 +221,7 @@ public class FaceOrbitService {
                 }
 
                 double angle = (settings.angleRange() / Math.max(1, settings.totalSteps() - 1)) * step;
-                CaptureFrame frame = captureService.captureFrame(sessionId, step, angle);
+                CaptureFrame frame = resolvedCaptureService.captureFrame(sessionId, step, angle);
                 frames.add(frame);
                 frameIds.add(frame.frameId());
 

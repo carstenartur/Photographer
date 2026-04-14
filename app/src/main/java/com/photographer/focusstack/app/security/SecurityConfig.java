@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/analysis/health").permitAll()
                 // Admin-only management endpoints
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/jobs/reindex").hasRole("ADMIN")
                 // All other requests (API, WebSocket) require authentication
                 .anyRequest().authenticated()
             )
