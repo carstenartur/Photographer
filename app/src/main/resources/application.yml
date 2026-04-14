@@ -61,6 +61,12 @@ focusstack:
   plugins:
     directory: ${FOCUSSTACK_PLUGINS_DIR:./plugins}
     enabled: ${FOCUSSTACK_PLUGINS_ENABLED:true}
+  retention:
+    enabled: ${FOCUSSTACK_RETENTION_ENABLED:false}
+    jobs-max-age-days: ${FOCUSSTACK_RETENTION_JOBS_MAX_AGE_DAYS:0}
+    events-max-age-days: ${FOCUSSTACK_RETENTION_EVENTS_MAX_AGE_DAYS:0}
+    astro-max-age-days: ${FOCUSSTACK_RETENTION_ASTRO_MAX_AGE_DAYS:0}
+    cron: ${FOCUSSTACK_RETENTION_CRON:0 0 3 * * *}
 
 logging:
   level:

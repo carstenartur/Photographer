@@ -81,6 +81,50 @@ public class AstroModeService {
                 .toList();
     }
 
+    /**
+     * Deletes an astro session and its associated files on disk.
+     * Only terminal sessions (COMPLETED, FAILED, ABORTED) can be deleted.
+     *
+     * @param id the session id
+     * @return {@code true} if the session was deleted, {@code false} if not found
+     * @throws IllegalStateException if the session is still active
+     */
+    @Transactional
+    public boolean deleteSession(String id) {
+        return repository.findById(id).map(entity -> {
+            AstroSessionStatus status = entity.getStatus();
+            if (status != AstroSessionStatus.COMPLETED
+                    && status != AstroSessionStatus.FAILED
+                    && status != AstroSessionStatus.ABORTED) {
+                throw new IllegalStateException(
+                        "Cannot delete session in state " + status + ". Abort it first.");
+            }
+            // Clean up output directory on disk
+            String outputDir = entity.getOutputDirectory();
+            if (outputDir != null) {
+                try {
+                    Path dir = Path.of(outputDir);
+                    if (Files.exists(dir)) {
+                        try (var walk = Files.walk(dir)) {
+                            walk.sorted(java.util.Comparator.reverseOrder())
+                                    .forEach(p -> {
+                                        try { Files.deleteIfExists(p); }
+                                        catch (IOException ex) {
+                                            log.warn("Failed to delete {}: {}", p, ex.getMessage());
+                                        }
+                                    });
+                        }
+                    }
+                } catch (IOException e) {
+                    log.warn("Failed to clean up session directory {}: {}", outputDir, e.getMessage());
+                }
+            }
+            repository.delete(entity);
+            log.info("Deleted astro session {}", id);
+            return true;
+        }).orElse(false);
+    }
+
     public void requestAbort(String sessionId) {
         abortFlags.put(sessionId, true);
         log.info("Abort requested for astro session {}", sessionId);

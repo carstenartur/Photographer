@@ -103,6 +103,30 @@ public class ObserverService implements ObservationEventListener {
         return false;
     }
 
+    @Transactional
+    public boolean deleteSpecies(Long id) {
+        if (speciesRepository.existsById(id)) {
+            speciesRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Deletes all observation events older than the given retention period.
+     *
+     * @param olderThan events with a timestamp before this instant are deleted
+     * @return the number of events deleted
+     */
+    @Transactional
+    public long deleteEventsOlderThan(java.time.Instant olderThan) {
+        List<ObservationEventEntity> old = eventRepository.findByTimestampBetweenOrderByTimestampDesc(
+                java.time.Instant.EPOCH, olderThan);
+        long count = old.size();
+        eventRepository.deleteAll(old);
+        return count;
+    }
+
     /**
      * Returns daily event counts for the last {@code days} days.
      * Each entry maps "date" → ISO date string and "count" → number of events.

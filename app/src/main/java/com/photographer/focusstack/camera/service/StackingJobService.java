@@ -169,6 +169,32 @@ public class StackingJobService {
                 .toList();
     }
 
+    /**
+     * Deletes a stacking job and its associated frame data from the frame store.
+     * Only completed, failed, or cancelled jobs can be deleted.
+     *
+     * @param id the job id
+     * @return {@code true} if the job was deleted, {@code false} if not found
+     * @throws CameraException if the job is still running
+     */
+    public boolean deleteJob(String id) {
+        return repository.findById(id).map(entity -> {
+            StackingJob job = entity.toRecord();
+            if (job.status() == JobStatus.RUNNING) {
+                throw new CameraException("Cannot delete a running job. Cancel it first.");
+            }
+            // Clean up cached frame data
+            for (String frameId : job.frames()) {
+                frameDataStore.remove(frameId);
+            }
+            cancelledJobs.remove(id);
+            pausedJobs.remove(id);
+            repository.delete(entity);
+            log.info("Deleted stacking job {} ({} frames removed)", id, job.frames().size());
+            return true;
+        }).orElse(false);
+    }
+
     void executeStackingAsync(StackingJob job) {
         String id = job.id();
         CameraBackend cameraBackend = backendFor(job.cameraProfileId());

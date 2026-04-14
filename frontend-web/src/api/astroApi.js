@@ -49,6 +49,14 @@ export function abortAstroSession(id) {
 }
 
 /**
+ * Delete a terminal astro session and its files.
+ * @param {string} id
+ */
+export function deleteAstroSession(id) {
+  return request(`/astro/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/**
  * Get result for a completed astro session.
  * @param {string} id
  */

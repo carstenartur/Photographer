@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getAllJobs, createJob, startJob, pauseJob, cancelJob } from '../api/jobApi';
+import { getAllJobs, createJob, startJob, pauseJob, cancelJob, deleteJob } from '../api/jobApi';
 import { getAllCameras, getCameraStatus } from '../api/cameraApi';
 
 const EMPTY_FORM = {
@@ -138,6 +138,26 @@ export default function JobList() {
       await refreshJobs();
     } catch (err) {
       setError(`Action failed: ${err.message}`);
+    }
+  }
+
+  async function handleCancel(id) {
+    if (!window.confirm('Are you sure you want to cancel this job? This will stop the capture and cannot be undone.')) {
+      return;
+    }
+    await handleAction(id, cancelJob);
+  }
+
+  async function handleDelete(id) {
+    if (!window.confirm('Are you sure you want to delete this job? This will permanently remove the job and all its captured frame data.')) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteJob(id);
+      await refreshJobs();
+    } catch (err) {
+      setError(`Delete failed: ${err.message}`);
     }
   }
 
@@ -331,9 +351,18 @@ export default function JobList() {
                   {(job.status === 'RUNNING' || job.status === 'PAUSED') && (
                     <button
                       className="btn btn-small btn-danger"
-                      onClick={() => handleAction(job.id, cancelJob)}
+                      onClick={() => handleCancel(job.id)}
                     >
                       Cancel
+                    </button>
+                  )}
+                  {(job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED') && (
+                    <button
+                      className="btn btn-small btn-danger"
+                      onClick={() => handleDelete(job.id)}
+                      title="Delete job and frame data"
+                    >
+                      Delete
                     </button>
                   )}
                 </td>

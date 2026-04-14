@@ -117,6 +117,18 @@ public class FrameDataStore {
         return Files.exists(storageDir.resolve(imageId));
     }
 
+    /** Removes a frame from both the in-memory cache and disk storage. */
+    public void remove(String imageId) {
+        if (imageId == null) return;
+        cache.remove(imageId);
+        try {
+            Files.deleteIfExists(storageDir.resolve(imageId));
+            Files.deleteIfExists(storageDir.resolve(imageId + ".meta"));
+        } catch (IOException e) {
+            log.warn("Failed to remove frame {} from disk: {}", imageId, e.getMessage());
+        }
+    }
+
     // ── Internal helpers ────────────────────────────────────────────────
 
     private FrameEntry loadFromDisk(String imageId) {

@@ -40,3 +40,7 @@ export function pauseJob(id) {
 export function cancelJob(id) {
   return request(`/jobs/${id}/cancel`, { method: 'POST' });
 }
+
+export function deleteJob(id) {
+  return request(`/jobs/${id}`, { method: 'DELETE' });
+}
