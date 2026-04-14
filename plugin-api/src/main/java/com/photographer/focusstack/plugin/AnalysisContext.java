@@ -1,4 +1,4 @@
-package com.photographer.focusstack.analysis.plugin;
+package com.photographer.focusstack.plugin;
 
 import java.util.Map;
 

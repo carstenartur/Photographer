@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.plugin;
 
+import com.photographer.focusstack.plugin.AnalysisPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

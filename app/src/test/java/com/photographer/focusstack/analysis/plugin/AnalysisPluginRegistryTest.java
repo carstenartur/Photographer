@@ -2,6 +2,9 @@ package com.photographer.focusstack.analysis.plugin;
 
 import com.photographer.focusstack.analysis.service.ImageJProcessor;
 import com.photographer.focusstack.analysis.service.SharpnessAnalyzer;
+import com.photographer.focusstack.plugin.AnalysisContext;
+import com.photographer.focusstack.plugin.AnalysisPlugin;
+import com.photographer.focusstack.plugin.AnalysisPluginResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;

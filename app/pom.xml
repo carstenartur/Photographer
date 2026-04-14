@@ -71,6 +71,11 @@
         </dependency>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
+            <artifactId>plugin-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
             <artifactId>capture-core</artifactId>
             <version>${project.version}</version>
         </dependency>

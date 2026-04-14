@@ -21,6 +21,7 @@
 
     <modules>
         <module>common-api</module>
+        <module>plugin-api</module>
         <module>capture-core</module>
         <module>storage</module>
         <module>camera-ptp</module>
