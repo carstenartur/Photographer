@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnalysisPluginRegistry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.plugin</a> &gt; <span class="el_source">AnalysisPluginRegistry.java</span></div><h1>AnalysisPluginRegistry.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.plugin;
 
+import com.photographer.focusstack.app.plugin.FocusStackPluginManager;
+import com.photographer.focusstack.plugin.AnalysisPlugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,57 +18,70 @@ import java.util.stream.Collectors;
  * Spring bean that collects all {@link AnalysisPlugin} implementations and
  * provides look-up by name.
  *
- * &lt;p&gt;New plugins become available automatically as soon as they are annotated
- * with {@code @Component} (or any meta-annotation) and placed on the classpath.
+ * &lt;p&gt;Collects both Spring-managed beans (built-in plugins) and ServiceLoader
+ * extensions from external runtime-loaded plugin JARs.
  */
 @Service
 public class AnalysisPluginRegistry {
 
-<span class="fc" id="L24">    private static final Logger log = LoggerFactory.getLogger(AnalysisPluginRegistry.class);</span>
+<span class="fc" id="L27">    private static final Logger log = LoggerFactory.getLogger(AnalysisPluginRegistry.class);</span>
 
     private final Map&lt;String, AnalysisPlugin&gt; plugins;
 
-<span class="fc" id="L28">    public AnalysisPluginRegistry(List&lt;AnalysisPlugin&gt; pluginList) {</span>
-<span class="fc" id="L29">        this.plugins = buildPluginMap(pluginList);</span>
-<span class="fc" id="L30">        log.info(&quot;AnalysisPluginRegistry: {} plugin(s) registered: {}&quot;,</span>
-<span class="fc" id="L31">                plugins.size(), plugins.keySet());</span>
-<span class="fc" id="L32">    }</span>
+    public AnalysisPluginRegistry(List&lt;AnalysisPlugin&gt; springPlugins,
+<span class="fc" id="L32">                                  FocusStackPluginManager pluginManager) {</span>
+<span class="fc" id="L33">        List&lt;AnalysisPlugin&gt; allPlugins = new ArrayList&lt;&gt;(springPlugins);</span>
+
+        // Collect extensions from external plugin JARs via ServiceLoader
+<span class="fc" id="L36">        List&lt;AnalysisPlugin&gt; externalPlugins = pluginManager.getExtensions(AnalysisPlugin.class);</span>
+<span class="fc" id="L37">        allPlugins.addAll(externalPlugins);</span>
+
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        if (!externalPlugins.isEmpty()) {</span>
+<span class="nc" id="L40">            log.info(&quot;Loaded {} external AnalysisPlugin(s) from plugin JARs: {}&quot;,</span>
+<span class="nc" id="L41">                    externalPlugins.size(),</span>
+<span class="nc" id="L42">                    externalPlugins.stream().map(AnalysisPlugin::name).toList());</span>
+        }
+
+<span class="fc" id="L45">        this.plugins = buildPluginMap(allPlugins);</span>
+<span class="fc" id="L46">        log.info(&quot;AnalysisPluginRegistry: {} plugin(s) registered: {}&quot;,</span>
+<span class="fc" id="L47">                plugins.size(), plugins.keySet());</span>
+<span class="fc" id="L48">    }</span>
 
     private static Map&lt;String, AnalysisPlugin&gt; buildPluginMap(List&lt;AnalysisPlugin&gt; pluginList) {
-<span class="fc" id="L35">        Map&lt;String, List&lt;AnalysisPlugin&gt;&gt; byName = pluginList.stream()</span>
-<span class="fc" id="L36">                .collect(Collectors.groupingBy(AnalysisPlugin::name,</span>
-<span class="fc" id="L37">                        LinkedHashMap::new, Collectors.toList()));</span>
+<span class="fc" id="L51">        Map&lt;String, List&lt;AnalysisPlugin&gt;&gt; byName = pluginList.stream()</span>
+<span class="fc" id="L52">                .collect(Collectors.groupingBy(AnalysisPlugin::name,</span>
+<span class="fc" id="L53">                        LinkedHashMap::new, Collectors.toList()));</span>
 
-<span class="fc" id="L39">        List&lt;Map.Entry&lt;String, List&lt;AnalysisPlugin&gt;&gt;&gt; duplicates = byName.entrySet().stream()</span>
-<span class="fc bfc" id="L40" title="All 2 branches covered.">                .filter(e -&gt; e.getValue().size() &gt; 1)</span>
-<span class="fc" id="L41">                .toList();</span>
+<span class="fc" id="L55">        List&lt;Map.Entry&lt;String, List&lt;AnalysisPlugin&gt;&gt;&gt; duplicates = byName.entrySet().stream()</span>
+<span class="fc bfc" id="L56" title="All 2 branches covered.">                .filter(e -&gt; e.getValue().size() &gt; 1)</span>
+<span class="fc" id="L57">                .toList();</span>
 
-<span class="fc bfc" id="L43" title="All 2 branches covered.">        if (!duplicates.isEmpty()) {</span>
-<span class="fc" id="L44">            String details = duplicates.stream()</span>
-<span class="fc" id="L45">                    .sorted(Map.Entry.comparingByKey())</span>
-<span class="fc" id="L46">                    .map(e -&gt; &quot;'&quot; + e.getKey() + &quot;' registered by: &quot; + e.getValue().stream()</span>
-<span class="fc" id="L47">                            .map(p -&gt; p.getClass().getName())</span>
-<span class="fc" id="L48">                            .sorted()</span>
-<span class="fc" id="L49">                            .collect(Collectors.joining(&quot;, &quot;)))</span>
-<span class="fc" id="L50">                    .collect(Collectors.joining(&quot;; &quot;));</span>
-<span class="fc" id="L51">            throw new IllegalStateException(</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (!duplicates.isEmpty()) {</span>
+<span class="fc" id="L60">            String details = duplicates.stream()</span>
+<span class="fc" id="L61">                    .sorted(Map.Entry.comparingByKey())</span>
+<span class="fc" id="L62">                    .map(e -&gt; &quot;'&quot; + e.getKey() + &quot;' registered by: &quot; + e.getValue().stream()</span>
+<span class="fc" id="L63">                            .map(p -&gt; p.getClass().getName())</span>
+<span class="fc" id="L64">                            .sorted()</span>
+<span class="fc" id="L65">                            .collect(Collectors.joining(&quot;, &quot;)))</span>
+<span class="fc" id="L66">                    .collect(Collectors.joining(&quot;; &quot;));</span>
+<span class="fc" id="L67">            throw new IllegalStateException(</span>
                     &quot;Duplicate AnalysisPlugin name(s) detected — each plugin must have a unique name. &quot;
                     + details);
         }
 
-<span class="fc" id="L56">        Map&lt;String, AnalysisPlugin&gt; result = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc" id="L57">        byName.forEach((name, list) -&gt; result.put(name, list.get(0)));</span>
-<span class="fc" id="L58">        return Collections.unmodifiableMap(result);</span>
+<span class="fc" id="L72">        Map&lt;String, AnalysisPlugin&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L73">        byName.forEach((name, list) -&gt; result.put(name, list.get(0)));</span>
+<span class="fc" id="L74">        return Collections.unmodifiableMap(result);</span>
     }
 
     /** Returns all registered plugins (unmodifiable). */
     public List&lt;AnalysisPlugin&gt; listAll() {
-<span class="fc" id="L63">        return Collections.unmodifiableList(List.copyOf(plugins.values()));</span>
+<span class="fc" id="L79">        return Collections.unmodifiableList(List.copyOf(plugins.values()));</span>
     }
 
     /** Looks up a plugin by its {@link AnalysisPlugin#name()}. */
     public Optional&lt;AnalysisPlugin&gt; findByName(String name) {
-<span class="fc" id="L68">        return Optional.ofNullable(plugins.get(name));</span>
+<span class="fc" id="L84">        return Optional.ofNullable(plugins.get(name));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

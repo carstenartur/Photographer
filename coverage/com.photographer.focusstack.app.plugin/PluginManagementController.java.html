@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginManagementController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.plugin</a> &gt; <span class="el_source">PluginManagementController.java</span></div><h1>PluginManagementController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.plugin;
+
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * REST endpoints for managing Focus Stack plugins (install, enable, disable, uninstall).
+ *
+ * &lt;p&gt;All endpoints are under {@code /api/admin/plugins} and require the {@code ADMIN} role
+ * (enforced by the security filter chain matching {@code /api/admin/**}).
+ *
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code GET    /api/admin/plugins}                — list all installed plugins&lt;/li&gt;
+ *   &lt;li&gt;{@code GET    /api/admin/plugins/{id}}            — get details of a plugin&lt;/li&gt;
+ *   &lt;li&gt;{@code POST   /api/admin/plugins/install}         — upload and install a plugin JAR&lt;/li&gt;
+ *   &lt;li&gt;{@code POST   /api/admin/plugins/{id}/enable}     — enable (start) a plugin&lt;/li&gt;
+ *   &lt;li&gt;{@code POST   /api/admin/plugins/{id}/disable}    — disable (stop) a plugin&lt;/li&gt;
+ *   &lt;li&gt;{@code DELETE  /api/admin/plugins/{id}}            — uninstall a plugin&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+@RestController
+@RequestMapping(&quot;/api/admin/plugins&quot;)
+public class PluginManagementController {
+
+    private final PluginManagementService pluginService;
+
+<span class="fc" id="L41">    public PluginManagementController(PluginManagementService pluginService) {</span>
+<span class="fc" id="L42">        this.pluginService = pluginService;</span>
+<span class="fc" id="L43">    }</span>
+
+    /** Lists all installed plugins with their metadata and state. */
+    @GetMapping
+    public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; listPlugins() {
+<span class="fc" id="L48">        return ResponseEntity.ok(pluginService.listPlugins());</span>
+    }
+
+    /** Returns details for a single plugin by ID. */
+    @GetMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getPlugin(@PathVariable String id) {
+<span class="fc" id="L54">        return pluginService.getPlugin(id)</span>
+<span class="fc" id="L55">                .map(ResponseEntity::ok)</span>
+<span class="fc" id="L56">                .orElseGet(() -&gt; ResponseEntity.notFound().build());</span>
+    }
+
+    /**
+     * Uploads and installs a plugin JAR.
+     *
+     * @param file the plugin JAR file
+     */
+    @PostMapping(value = &quot;/install&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; installPlugin(
+            @RequestPart(&quot;file&quot;) MultipartFile file) throws IOException {
+
+<span class="fc" id="L68">        String originalFilename = file.getOriginalFilename();</span>
+<span class="pc bpc" id="L69" title="1 of 4 branches missed.">        if (originalFilename == null || originalFilename.isBlank()) {</span>
+<span class="fc" id="L70">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;File name must not be empty&quot;));</span>
+        }
+
+<span class="fc" id="L73">        try (InputStream inputStream = file.getInputStream()) {</span>
+<span class="fc" id="L74">            String pluginId = pluginService.installPlugin(originalFilename, inputStream);</span>
+<span class="fc" id="L75">            return ResponseEntity.ok(Map.of(</span>
+                    &quot;pluginId&quot;, pluginId,
+                    &quot;status&quot;, &quot;installed&quot;));
+        }
+    }
+
+    /** Enables (starts) a plugin by ID. */
+    @PostMapping(&quot;/{id}/enable&quot;)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; enablePlugin(@PathVariable String id) {
+<span class="fc" id="L84">        boolean success = pluginService.enablePlugin(id);</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (!success) {</span>
+<span class="fc" id="L86">            return ResponseEntity.notFound().build();</span>
+        }
+<span class="fc" id="L88">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;enabled&quot;));</span>
+    }
+
+    /** Disables (stops) a plugin by ID. */
+    @PostMapping(&quot;/{id}/disable&quot;)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; disablePlugin(@PathVariable String id) {
+<span class="fc" id="L94">        boolean success = pluginService.disablePlugin(id);</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (!success) {</span>
+<span class="nc" id="L96">            return ResponseEntity.notFound().build();</span>
+        }
+<span class="fc" id="L98">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;disabled&quot;));</span>
+    }
+
+    /** Uninstalls a plugin by ID. */
+    @DeleteMapping(&quot;/{id}&quot;)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; uninstallPlugin(@PathVariable String id) {
+<span class="fc" id="L104">        boolean success = pluginService.uninstallPlugin(id);</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (!success) {</span>
+<span class="fc" id="L106">            return ResponseEntity.notFound().build();</span>
+        }
+<span class="fc" id="L108">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;uninstalled&quot;));</span>
+    }
+
+    /** Maps validation errors from the service layer to HTTP 400 responses. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity&lt;Map&lt;String, String&gt;&gt; handleIllegalArgument(IllegalArgumentException ex) {
+<span class="fc" id="L114">        return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, ex.getMessage()));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

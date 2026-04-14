@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FocusStackPluginManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.plugin</a> &gt; <span class="el_source">FocusStackPluginManager.java</span></div><h1>FocusStackPluginManager.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.plugin;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.ServiceLoader;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
+
+/**
+ * Lightweight plugin manager using Java {@link ServiceLoader} and {@link URLClassLoader}.
+ *
+ * &lt;p&gt;Each plugin JAR is loaded in its own isolated classloader. Plugins declare
+ * their implementations via the standard {@code META-INF/services/} SPI mechanism.
+ *
+ * &lt;p&gt;Plugin JAR manifests should contain these optional headers:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@code Plugin-Id} — unique identifier (defaults to file name without .jar)&lt;/li&gt;
+ *   &lt;li&gt;{@code Plugin-Version} — semver string (defaults to &quot;0.0.0&quot;)&lt;/li&gt;
+ *   &lt;li&gt;{@code Plugin-Description} — short description&lt;/li&gt;
+ *   &lt;li&gt;{@code Plugin-Provider} — author or organisation&lt;/li&gt;
+ *   &lt;li&gt;{@code Plugin-License} — SPDX identifier&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+public class FocusStackPluginManager implements Closeable {
+
+<span class="fc" id="L41">    private static final Logger log = LoggerFactory.getLogger(FocusStackPluginManager.class);</span>
+
+    private final Path pluginsDirectory;
+<span class="fc" id="L44">    private final Map&lt;String, LoadedPlugin&gt; plugins = new ConcurrentHashMap&lt;&gt;();</span>
+
+<span class="fc" id="L46">    public FocusStackPluginManager(Path pluginsDirectory) {</span>
+<span class="fc" id="L47">        this.pluginsDirectory = pluginsDirectory;</span>
+<span class="fc" id="L48">    }</span>
+
+    /**
+     * Scans the plugins directory for JAR files and loads each one.
+     */
+    public void loadPlugins() throws IOException {
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (!Files.isDirectory(pluginsDirectory)) {</span>
+<span class="nc" id="L55">            log.debug(&quot;Plugins directory does not exist: {}&quot;, pluginsDirectory);</span>
+<span class="nc" id="L56">            return;</span>
+        }
+<span class="nc" id="L58">        try (DirectoryStream&lt;Path&gt; jars = Files.newDirectoryStream(pluginsDirectory, &quot;*.jar&quot;)) {</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">            for (Path jarPath : jars) {</span>
+<span class="nc" id="L60">                loadPlugin(jarPath);</span>
+<span class="nc" id="L61">            }</span>
+        }
+<span class="nc" id="L63">    }</span>
+
+    /**
+     * Loads a single plugin JAR and returns its plugin ID, or {@code null} on failure.
+     */
+    public String loadPlugin(Path jarPath) {
+        try {
+<span class="nc" id="L70">            PluginInfo info = readPluginInfo(jarPath);</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">            if (plugins.containsKey(info.id())) {</span>
+<span class="nc" id="L72">                log.warn(&quot;Plugin {} already loaded — skipping {}&quot;, info.id(), jarPath);</span>
+<span class="nc" id="L73">                return null;</span>
+            }
+
+<span class="nc" id="L76">            URL jarUrl = jarPath.toUri().toURL();</span>
+<span class="nc" id="L77">            URLClassLoader classLoader = new URLClassLoader(</span>
+<span class="nc" id="L78">                    new URL[]{jarUrl}, getClass().getClassLoader());</span>
+
+<span class="nc" id="L80">            LoadedPlugin loaded = new LoadedPlugin(info, jarPath, classLoader, true);</span>
+<span class="nc" id="L81">            plugins.put(info.id(), loaded);</span>
+<span class="nc" id="L82">            log.info(&quot;Loaded plugin: {} v{} from {}&quot;, info.id(), info.version(), jarPath.getFileName());</span>
+<span class="nc" id="L83">            return info.id();</span>
+<span class="nc" id="L84">        } catch (Exception e) {</span>
+<span class="nc" id="L85">            log.error(&quot;Failed to load plugin from {}&quot;, jarPath, e);</span>
+<span class="nc" id="L86">            return null;</span>
+        }
+    }
+
+    /**
+     * Discovers all implementations of {@code extensionType} from loaded and enabled plugins.
+     */
+    public &lt;T&gt; List&lt;T&gt; getExtensions(Class&lt;T&gt; extensionType) {
+<span class="fc" id="L94">        List&lt;T&gt; extensions = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        for (LoadedPlugin loaded : plugins.values()) {</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">            if (!loaded.enabled()) {</span>
+<span class="nc" id="L97">                continue;</span>
+            }
+<span class="nc" id="L99">            ServiceLoader&lt;T&gt; loader = ServiceLoader.load(extensionType, loaded.classLoader());</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            for (T extension : loader) {</span>
+<span class="nc" id="L101">                extensions.add(extension);</span>
+<span class="nc" id="L102">            }</span>
+<span class="nc" id="L103">        }</span>
+<span class="fc" id="L104">        return Collections.unmodifiableList(extensions);</span>
+    }
+
+    /** Returns info for all loaded plugins. */
+    public List&lt;LoadedPlugin&gt; getPlugins() {
+<span class="nc" id="L109">        return List.copyOf(plugins.values());</span>
+    }
+
+    /** Returns info for a specific plugin, or empty. */
+    public Optional&lt;LoadedPlugin&gt; getPlugin(String pluginId) {
+<span class="nc" id="L114">        return Optional.ofNullable(plugins.get(pluginId));</span>
+    }
+
+    /** Enables a plugin. Returns {@code true} on success. */
+    public boolean enablePlugin(String pluginId) {
+<span class="nc" id="L119">        LoadedPlugin plugin = plugins.get(pluginId);</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">        if (plugin == null) {</span>
+<span class="nc" id="L121">            return false;</span>
+        }
+<span class="nc" id="L123">        plugins.put(pluginId, plugin.withEnabled(true));</span>
+<span class="nc" id="L124">        log.info(&quot;Plugin {} enabled&quot;, pluginId);</span>
+<span class="nc" id="L125">        return true;</span>
+    }
+
+    /** Disables a plugin. Returns {@code true} on success. */
+    public boolean disablePlugin(String pluginId) {
+<span class="nc" id="L130">        LoadedPlugin plugin = plugins.get(pluginId);</span>
+<span class="nc bnc" id="L131" title="All 2 branches missed.">        if (plugin == null) {</span>
+<span class="nc" id="L132">            return false;</span>
+        }
+<span class="nc" id="L134">        plugins.put(pluginId, plugin.withEnabled(false));</span>
+<span class="nc" id="L135">        log.info(&quot;Plugin {} disabled&quot;, pluginId);</span>
+<span class="nc" id="L136">        return true;</span>
+    }
+
+    /** Unloads a plugin and deletes its JAR. Returns {@code true} on success. */
+    public boolean deletePlugin(String pluginId) {
+<span class="nc" id="L141">        LoadedPlugin plugin = plugins.remove(pluginId);</span>
+<span class="nc bnc" id="L142" title="All 2 branches missed.">        if (plugin == null) {</span>
+<span class="nc" id="L143">            return false;</span>
+        }
+        try {
+<span class="nc" id="L146">            plugin.classLoader().close();</span>
+<span class="nc" id="L147">        } catch (IOException e) {</span>
+<span class="nc" id="L148">            log.warn(&quot;Could not close classloader for plugin {}: {}&quot;, pluginId, e.getMessage());</span>
+<span class="nc" id="L149">        }</span>
+        try {
+<span class="nc" id="L151">            Files.deleteIfExists(plugin.jarPath());</span>
+<span class="nc" id="L152">            log.info(&quot;Plugin {} uninstalled and JAR deleted&quot;, pluginId);</span>
+<span class="nc" id="L153">            return true;</span>
+<span class="nc" id="L154">        } catch (IOException e) {</span>
+<span class="nc" id="L155">            log.error(&quot;Failed to delete JAR for plugin {}: {}&quot;, pluginId, e.getMessage());</span>
+<span class="nc" id="L156">            return false;</span>
+        }
+    }
+
+    @Override
+    public void close() {
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        for (LoadedPlugin plugin : plugins.values()) {</span>
+            try {
+<span class="nc" id="L164">                plugin.classLoader().close();</span>
+<span class="nc" id="L165">            } catch (IOException e) {</span>
+<span class="nc" id="L166">                log.warn(&quot;Could not close classloader for plugin {}: {}&quot;,</span>
+<span class="nc" id="L167">                        plugin.info().id(), e.getMessage());</span>
+<span class="nc" id="L168">            }</span>
+<span class="nc" id="L169">        }</span>
+<span class="nc" id="L170">        plugins.clear();</span>
+<span class="nc" id="L171">    }</span>
+
+    private static PluginInfo readPluginInfo(Path jarPath) throws IOException {
+<span class="nc" id="L174">        try (JarFile jar = new JarFile(jarPath.toFile())) {</span>
+<span class="nc" id="L175">            Manifest manifest = jar.getManifest();</span>
+<span class="nc" id="L176">            String baseName = jarPath.getFileName().toString().replaceFirst(&quot;\\.jar$&quot;, &quot;&quot;);</span>
+
+<span class="nc bnc" id="L178" title="All 2 branches missed.">            if (manifest == null) {</span>
+<span class="nc" id="L179">                return new PluginInfo(baseName, &quot;0.0.0&quot;, &quot;&quot;, &quot;&quot;, &quot;&quot;);</span>
+            }
+
+<span class="nc" id="L182">            Attributes attrs = manifest.getMainAttributes();</span>
+<span class="nc" id="L183">            String id = getOrDefault(attrs, &quot;Plugin-Id&quot;, baseName);</span>
+<span class="nc" id="L184">            String version = getOrDefault(attrs, &quot;Plugin-Version&quot;, &quot;0.0.0&quot;);</span>
+<span class="nc" id="L185">            String description = getOrDefault(attrs, &quot;Plugin-Description&quot;, &quot;&quot;);</span>
+<span class="nc" id="L186">            String provider = getOrDefault(attrs, &quot;Plugin-Provider&quot;, &quot;&quot;);</span>
+<span class="nc" id="L187">            String license = getOrDefault(attrs, &quot;Plugin-License&quot;, &quot;&quot;);</span>
+
+<span class="nc" id="L189">            return new PluginInfo(id, version, description, provider, license);</span>
+<span class="nc" id="L190">        }</span>
+    }
+
+    private static String getOrDefault(Attributes attrs, String name, String defaultValue) {
+<span class="nc" id="L194">        String value = attrs.getValue(name);</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        return value != null ? value : defaultValue;</span>
+    }
+
+    /** Immutable metadata read from the plugin JAR manifest. */
+<span class="fc" id="L199">    public record PluginInfo(</span>
+            String id,
+            String version,
+            String description,
+            String provider,
+            String license) {
+    }
+
+    /** A loaded plugin with its classloader and enabled state. */
+<span class="fc" id="L208">    public record LoadedPlugin(</span>
+            PluginInfo info,
+            Path jarPath,
+            URLClassLoader classLoader,
+            boolean enabled) {
+
+        public LoadedPlugin withEnabled(boolean enabled) {
+<span class="nc" id="L215">            return new LoadedPlugin(info, jarPath, classLoader, enabled);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
