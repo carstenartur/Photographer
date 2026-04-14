@@ -53,6 +53,8 @@ public class FaceOrbitService {
     private final Map<String, List<QualityCheck>> sessionQualityChecks = new ConcurrentHashMap<>();
     private final Map<String, FaceProfileJob> profileJobs = new ConcurrentHashMap<>();
     private final Map<String, AtomicBoolean> stopFlags = new ConcurrentHashMap<>();
+    /** Per-session capture service resolved on first use from the backend provider. */
+    private final Map<String, SequenceCaptureService> sessionCaptureServices = new ConcurrentHashMap<>();
 
     /** Production constructor: resolves the camera backend via {@code backendProvider} at session start. */
     public FaceOrbitService(CameraBackendProvider backendProvider,
@@ -79,21 +81,25 @@ public class FaceOrbitService {
     }
 
     /**
-     * Resolves the {@link SequenceCaptureService} to use for the given session.
-     * Uses the {@link CameraBackendProvider} if set; otherwise falls back to the
-     * fixed {@code captureService} (test / mock mode).
+     * Resolves the {@link SequenceCaptureService} for the given session, creating
+     * and caching it on first access.  This avoids constructing a new service
+     * instance on every call to {@link #captureNextStep}.
+     * <p>Uses the {@link CameraBackendProvider} if set; otherwise falls back to
+     * the fixed {@code captureService} (test / mock mode).</p>
      */
-    private SequenceCaptureService resolveCapture(FaceOrbitSettings settings) {
-        if (backendProvider != null && settings.cameraProfileId() != null) {
-            CameraBackend backend = backendProvider.getBackend(settings.cameraProfileId());
-            return new SequenceCaptureService(backend);
-        }
-        if (captureService != null) {
-            return captureService;
-        }
-        throw new SessionException(
-                "No camera backend available: supply a cameraProfileId in FaceOrbitSettings or " +
-                "configure the application with a CameraBackendProvider.");
+    private SequenceCaptureService resolveCapture(String sessionId, FaceOrbitSettings settings) {
+        return sessionCaptureServices.computeIfAbsent(sessionId, id -> {
+            if (backendProvider != null && settings.cameraProfileId() != null) {
+                CameraBackend backend = backendProvider.getBackend(settings.cameraProfileId());
+                return new SequenceCaptureService(backend);
+            }
+            if (captureService != null) {
+                return captureService;
+            }
+            throw new SessionException(
+                    "No camera backend available: supply a cameraProfileId in FaceOrbitSettings or " +
+                    "configure the application with a CameraBackendProvider.");
+        });
     }
 
     /**
@@ -154,7 +160,7 @@ public class FaceOrbitService {
             sessions.put(sessionId, running);
         }
 
-        CaptureFrame frame = resolveCapture(settings).captureFrame(sessionId, stepIndex, angle);
+        CaptureFrame frame = resolveCapture(sessionId, settings).captureFrame(sessionId, stepIndex, angle);
         frames.add(frame);
 
         // Quality check
@@ -211,8 +217,8 @@ public class FaceOrbitService {
         List<CaptureFrame> frames = sessionFrames.get(sessionId);
         List<String> frameIds = new ArrayList<>();
 
-        // Resolve capture service once for the entire auto mode run
-        SequenceCaptureService resolvedCaptureService = resolveCapture(settings);
+        // Resolve capture service once for the entire auto mode run (cached per session)
+        SequenceCaptureService resolvedCaptureService = resolveCapture(sessionId, settings);
 
         try {
             for (int step = 0; step < settings.totalSteps(); step++) {

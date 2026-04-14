@@ -18,6 +18,8 @@ import com.photographer.focusstack.storage.FileSessionStorage;
 import com.photographer.focusstack.storage.SessionStorage;
 import com.photographer.focusstack.video.MockVideoEncoder;
 import com.photographer.focusstack.video.VideoEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +36,8 @@ import java.nio.file.Path;
  */
 @Configuration
 public class SessionConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SessionConfig.class);
 
     @Bean
     public SessionStorage sessionStorage(
@@ -77,9 +81,9 @@ public class SessionConfig {
             try {
                 return backendFactory.getBackend(profileService.getProfile(cameraProfileId));
             } catch (Exception ex) {
+                log.warn("Cannot resolve camera backend for profile '{}': {}", cameraProfileId, ex.getMessage());
                 throw new SessionException(
-                        "Cannot resolve camera backend for profile '" + cameraProfileId + "': "
-                        + ex.getMessage(), ex);
+                        "Cannot resolve camera backend for profile '" + cameraProfileId + "'");
             }
         };
     }

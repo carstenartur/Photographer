@@ -84,8 +84,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
     public ProblemDetail handleIllegalArgument(RuntimeException ex) {
+        log.debug("Bad request: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, ex.getMessage());
+                HttpStatus.BAD_REQUEST, "Invalid request parameters");
         problem.setTitle("Invalid Request");
         return problem;
     }
