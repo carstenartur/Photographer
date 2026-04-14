@@ -75,17 +75,25 @@ public class PluginManagementService {
             throw new IllegalArgumentException("Invalid file name: path traversal detected");
         }
 
-        Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
-        log.info("Plugin JAR written to: {}", targetPath);
+        // Write to a temporary file first so we never overwrite an existing
+        // plugin JAR before verifying the new one loads successfully.
+        Path tempFile = Files.createTempFile(pluginsDir, "plugin-upload-", ".tmp");
+        try {
+            Files.copy(inputStream, tempFile, StandardCopyOption.REPLACE_EXISTING);
 
-        String pluginId = pluginManager.loadPlugin(targetPath);
-        if (pluginId == null) {
-            Files.deleteIfExists(targetPath);
-            throw new IllegalArgumentException("Failed to load plugin from: " + safeName);
+            String pluginId = pluginManager.loadPlugin(tempFile);
+            if (pluginId == null) {
+                throw new IllegalArgumentException("Failed to load plugin from: " + safeName);
+            }
+
+            // Load succeeded — move the temp file to the final location
+            Files.move(tempFile, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            log.info("Plugin installed: {} → {}", pluginId, targetPath);
+            return pluginId;
+        } finally {
+            // Clean up the temp file if it still exists (i.e. load failed or move was skipped)
+            Files.deleteIfExists(tempFile);
         }
-
-        log.info("Plugin installed: {}", pluginId);
-        return pluginId;
     }
 
     /**

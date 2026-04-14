@@ -82,7 +82,7 @@ public class FocusStackPluginManager implements Closeable {
             log.info("Loaded plugin: {} v{} from {}", info.id(), info.version(), jarPath.getFileName());
             return info.id();
         } catch (Exception e) {
-            log.error("Failed to load plugin from {}: {}", jarPath, e.getMessage());
+            log.error("Failed to load plugin from {}", jarPath, e);
             return null;
         }
     }

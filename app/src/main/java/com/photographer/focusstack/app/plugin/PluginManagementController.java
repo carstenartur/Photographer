@@ -3,6 +3,7 @@ package com.photographer.focusstack.app.plugin;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -63,12 +65,17 @@ public class PluginManagementController {
     public ResponseEntity<Map<String, String>> installPlugin(
             @RequestPart("file") MultipartFile file) throws IOException {
 
-        String pluginId = pluginService.installPlugin(
-                file.getOriginalFilename(), file.getInputStream());
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "File name must not be empty"));
+        }
 
-        return ResponseEntity.ok(Map.of(
-                "pluginId", pluginId,
-                "status", "installed"));
+        try (InputStream inputStream = file.getInputStream()) {
+            String pluginId = pluginService.installPlugin(originalFilename, inputStream);
+            return ResponseEntity.ok(Map.of(
+                    "pluginId", pluginId,
+                    "status", "installed"));
+        }
     }
 
     /** Enables (starts) a plugin by ID. */
@@ -99,5 +106,11 @@ public class PluginManagementController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(Map.of("pluginId", id, "status", "uninstalled"));
+    }
+
+    /** Maps validation errors from the service layer to HTTP 400 responses. */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
 }

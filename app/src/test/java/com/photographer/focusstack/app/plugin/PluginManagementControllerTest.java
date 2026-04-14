@@ -98,6 +98,29 @@ class PluginManagementControllerTest {
     }
 
     @Test
+    void installPlugin_returnsBadRequestForInvalidFile() throws Exception {
+        when(pluginService.installPlugin(any(), any()))
+                .thenThrow(new IllegalArgumentException("Only .jar plugin files are accepted"));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "bad.exe", "application/octet-stream", new byte[]{1, 2});
+
+        mockMvc.perform(multipart("/api/admin/plugins/install").file(file).with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only .jar plugin files are accepted"));
+    }
+
+    @Test
+    void installPlugin_returnsBadRequestForNullFilename() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", null, "application/java-archive", new byte[]{1, 2, 3});
+
+        mockMvc.perform(multipart("/api/admin/plugins/install").file(file).with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("File name must not be empty"));
+    }
+
+    @Test
     void enablePlugin_returnsOkOnSuccess() throws Exception {
         when(pluginService.enablePlugin("my-plugin")).thenReturn(true);
 
