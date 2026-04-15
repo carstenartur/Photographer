@@ -1,5 +1,5 @@
 # Stage 1: Build — Maven (frontend-maven-plugin manages its own Node for React build)
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-25 AS build
 
 WORKDIR /app
 
@@ -53,7 +53,7 @@ RUN mvn -B clean package -pl common-api,plugin-api,capture-core,storage,camera-p
     -Djava.awt.headless=true
 
 # Stage 2: Runtime — slim JRE with fonts for ImageJ headless mode
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 
 RUN apk add --no-cache fontconfig freetype ttf-dejavu \
     && addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -70,4 +70,4 @@ USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Djava.awt.headless=true", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Djava.awt.headless=true", "--enable-native-access=ALL-UNNAMED", "-jar", "app.jar"]

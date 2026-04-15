@@ -45,7 +45,7 @@ Responsibilities:
 
 | | |
 |---|---|
-| **Language** | Java 21 |
+| **Language** | Java 25 |
 | **Framework** | Spring Boot 3, Spring Web (REST + WebSocket) |
 | **Port** | 8080 |
 
@@ -62,7 +62,7 @@ Responsibilities:
 
 | | |
 |---|---|
-| **Language** | Java 21 |
+| **Language** | Java 25 |
 | **Framework** | Spring Boot 3, ImageJ 1.x (headless) |
 | **Port** | 8081 |
 

@@ -7,7 +7,7 @@
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
 [![GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?style=flat-square)](https://github.com/carstenartur/Photographer/releases)
 
-Focus Stack is a modular Java 21 + Spring Boot 4 photography platform with a React frontend for:
+Focus Stack is a modular Java 25 + Spring Boot 4 photography platform with a React frontend for:
 
 - Canon CCAPI camera control and adaptive focus stacking
 - HDR timelapse, face-orbit capture, and astro sessions
@@ -61,7 +61,7 @@ Optional demo seed:
 
 Prerequisites:
 
-- JDK 21
+- JDK 25
 - Maven 3.9+
 - Node.js 20.19+ (or 22.12+)
 - Docker / Docker Compose

@@ -4,6 +4,7 @@ import com.photographer.ptp.canon.*;
 import com.photographer.ptp.core.*;
 import com.photographer.ptp.usb.PtpTransport;
 import com.photographer.ptp.usb.UsbDeviceScanner;
+import com.photographer.ptp.wpd.WpdDeviceScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,11 +71,40 @@ public class PtpCamera implements AutoCloseable {
 
     /**
      * Opens a USB-connected Canon camera.
-     * Convenience factory method.
+     * <p>
+     * On <b>Windows</b>, this method first tries the native libusb transport
+     * (requires WinUSB driver).  If that fails (e.g. the default MTP driver is
+     * loaded), it automatically falls back to the <b>Windows Portable Devices
+     * (WPD)</b> API, which works with the standard MTP driver — no driver
+     * changes required.
+     * <p>
+     * On Linux / macOS, libusb is used directly.
      */
     public static PtpCamera openUsb() {
-        PtpTransport transport = UsbDeviceScanner.findCanon();
-        return openInitializedCamera(transport, Config.defaults());
+        PtpException usbError = null;
+
+        // Try libusb first (works on all platforms if driver is correct)
+        try {
+            PtpTransport transport = UsbDeviceScanner.findCanon();
+            return openInitializedCamera(transport, Config.defaults());
+        } catch (PtpException e) {
+            usbError = e;
+            log.debug("libusb transport failed: {}", e.getMessage());
+        }
+
+        // On Windows: fall back to WPD (uses the standard MTP driver)
+        if (WpdDeviceScanner.isAvailable()) {
+            log.info("Falling back to Windows Portable Devices (WPD) transport");
+            try {
+                PtpTransport transport = WpdDeviceScanner.findCanon();
+                return openInitializedCamera(transport, Config.defaults());
+            } catch (PtpException wpdError) {
+                log.error("WPD transport also failed: {}", wpdError.getMessage());
+                usbError.addSuppressed(wpdError);
+            }
+        }
+
+        throw usbError;
     }
 
     /**

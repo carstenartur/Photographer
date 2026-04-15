@@ -8,7 +8,7 @@
 mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true
 ```
 
-> **Note:** Requires Java 21. If `JAVA_HOME` is not set, configure it for your environment (e.g., `export JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64` on Ubuntu with Temurin).
+> **Note:** Requires Java 25. If `JAVA_HOME` is not set, configure it for your environment (e.g., `export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64` on Ubuntu with Temurin).
 
 This runs:
 - **Unit tests** via `maven-surefire-plugin` (`*Test.java`)

@@ -172,7 +172,7 @@ See [test-strategy.md](test-strategy.md) for the full testing philosophy.
 
 1. Open the repository root as a project.
 2. Import each Maven module (`camera-service`, `analysis-service`).
-3. Set the Project SDK to JDK 21.
+3. Set the Project SDK to JDK 25.
 4. Install the **Lombok** plugin if prompted.
 5. Enable annotation processing: **Settings → Build → Compiler → Annotation Processors**.
 

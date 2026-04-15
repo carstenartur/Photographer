@@ -39,7 +39,7 @@ public class UsbPtpTransport implements PtpTransport {
                         + "(device may need to be configured first)");
             }
             usbInterface = findPtpInterface(config);
-            usbInterface.claim();
+            usbInterface.claim(usbIface -> true);
 
             for (UsbEndpoint endpoint : (List<UsbEndpoint>) usbInterface.getUsbEndpoints()) {
                 byte direction = endpoint.getDirection();
