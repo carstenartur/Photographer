@@ -99,11 +99,22 @@ class ImageJProcessorTest {
     void shouldDetectImageFileFormat() throws IOException {
         byte[] jpegImage = createTestImageAs("jpg");
         byte[] pngImage = createTestImageAs("png");
+        byte[] cr3Header = createCr3HeaderBytes();
 
         assertTrue(processor.isImageFile(jpegImage), "Should detect JPEG");
         assertTrue(processor.isImageFile(pngImage), "Should detect PNG");
+        assertTrue(processor.isImageFile(cr3Header), "Should detect CR3 signature");
         assertFalse(processor.isImageFile(new byte[]{0, 0, 0, 0}), "Should reject random bytes");
         assertFalse(processor.isImageFile(null), "Should reject null");
+    }
+
+    @Test
+    void shouldGracefullyHandleInvalidCr3Payload() {
+        byte[] invalidCr3 = createCr3HeaderBytes();
+        assertEquals(0.0, processor.calculateSharpness(invalidCr3));
+        MotionDetector.MotionResult result = processor.detectMotion(invalidCr3, invalidCr3, 0.1);
+        assertNotNull(result);
+        assertFalse(result.motionDetected());
     }
 
     @Test
@@ -164,5 +175,14 @@ class ImageJProcessorTest {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(img, "png", baos);
         return baos.toByteArray();
+    }
+
+    private byte[] createCr3HeaderBytes() {
+        return new byte[]{
+                0, 0, 0, 16,
+                'f', 't', 'y', 'p',
+                'c', 'r', 'x', ' ',
+                0, 0, 0, 0
+        };
     }
 }

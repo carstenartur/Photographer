@@ -1,6 +1,9 @@
 package com.photographer.focusstack.analysis.service;
 
 import com.photographer.focusstack.common.analysis.SharpnessMap;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReadParam;
+import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReaderSpi;
 import ij.IJ;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
@@ -11,14 +14,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
  * Image processing engine backed by ImageJ (headless).
- * Provides real image analysis capabilities for JPEG, PNG, and BMP images
- * using the ImageJ library in headless mode.
+     * Provides real image analysis capabilities for JPEG, PNG, BMP, and CR3 images
+     * using the ImageJ library in headless mode.
  * <p>
  * Uses ImageJ's {@link ImageProcessor} directly (ByteProcessor, FloatProcessor)
  * to avoid GUI-dependent code paths in headless environments.
@@ -29,6 +34,8 @@ public class ImageJProcessor {
     private static final Logger log = LoggerFactory.getLogger(ImageJProcessor.class);
     private static final double MAX_LAPLACIAN_VARIANCE = 16256.25;
     private static final float[] LAPLACIAN_KERNEL = {0, 1, 0, 1, -4, 1, 0, 1, 0};
+    private static final byte[] FTYP_SIGNATURE = {'f', 't', 'y', 'p'};
+    private static final byte[] CRX_MAJOR_BRAND = {'c', 'r', 'x', ' '};
 
     public ImageJProcessor() {
         System.setProperty("java.awt.headless", "true");
@@ -36,10 +43,10 @@ public class ImageJProcessor {
     }
 
     /**
-     * Calculates sharpness of an actual image file (JPEG, PNG, BMP) using ImageJ
+     * Calculates sharpness of an actual image file (JPEG, PNG, BMP, CR3) using ImageJ
      * Laplacian variance method.
      *
-     * @param imageFileBytes raw bytes of an image file (JPEG, PNG, BMP)
+     * @param imageFileBytes raw bytes of an image file (JPEG, PNG, BMP, CR3)
      * @return normalized sharpness score 0.0 - 1.0
      */
     public double calculateSharpness(byte[] imageFileBytes) {
@@ -152,10 +159,10 @@ public class ImageJProcessor {
     /**
      * Checks if the given byte array represents a recognized image file format.
      * Only formats supported by {@link javax.imageio.ImageIO} are recognized:
-     * JPEG, PNG, and BMP. TIFF is not supported without additional plugins.
+     * JPEG, PNG, BMP, and Canon CR3.
      *
      * @param data raw bytes to check
-     * @return true if the data appears to be a JPEG, PNG, or BMP image
+     * @return true if the data appears to be a JPEG, PNG, BMP, or CR3 image
      */
     public boolean isImageFile(byte[] data) {
         if (data == null || data.length < 4) {
@@ -173,7 +180,7 @@ public class ImageJProcessor {
         if (data[0] == 0x42 && data[1] == 0x4D) {
             return true;
         }
-        return false;
+        return isCr3File(data);
     }
 
     /**
@@ -304,8 +311,13 @@ public class ImageJProcessor {
         try {
             BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageFileBytes));
             if (bi == null) {
-                log.warn("Could not decode image from {} bytes", imageFileBytes.length);
-                return null;
+                if (isCr3File(imageFileBytes)) {
+                    bi = decodeCr3WithFallback(imageFileBytes);
+                }
+                if (bi == null) {
+                    log.warn("Could not decode image from {} bytes", imageFileBytes.length);
+                    return null;
+                }
             }
             // ByteProcessor requires TYPE_BYTE_GRAY; real camera JPEGs are RGB.
             // Convert to grayscale if the image is not already 8-bit gray.
@@ -318,6 +330,39 @@ public class ImageJProcessor {
             return new ByteProcessor(bi);
         } catch (IOException e) {
             log.error("Error reading image: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    private static boolean isCr3File(byte[] data) {
+        if (data == null || data.length < 12) {
+            return false;
+        }
+        // Compare ftyp signature at offset 4 and CRX major brand at offset 8 inline
+        // to avoid allocating temporary arrays on every call
+        for (int i = 0; i < FTYP_SIGNATURE.length; i++) {
+            if (data[4 + i] != FTYP_SIGNATURE[i]) return false;
+        }
+        for (int i = 0; i < CRX_MAJOR_BRAND.length; i++) {
+            if (data[8 + i] != CRX_MAJOR_BRAND[i]) return false;
+        }
+        return true;
+    }
+
+    private BufferedImage decodeCr3WithFallback(byte[] imageFileBytes) {
+        try (MemoryCacheImageInputStream iis =
+                     new MemoryCacheImageInputStream(new ByteArrayInputStream(imageFileBytes))) {
+            ImageReader reader = new CanonCr3ImageReaderSpi().createReaderInstance(null);
+            try {
+                reader.setInput(iis);
+                CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
+                return reader.read(0, param);
+            } finally {
+                reader.dispose();
+            }
+        } catch (Exception e) {
+            log.warn("CR3 fallback decode failed: {}", e.getMessage(), e);
             return null;
         }
     }

@@ -1,9 +1,11 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
@@ -51,6 +53,53 @@ class CrxLosslessRawDecoderTest {
         assertThat(result.height()).isEqualTo(height);
         assertThat(result.bitDepth()).isEqualTo(bitDepth);
         assertThat(result.bayerPattern()).isEqualTo(Cr3RawImage.BayerPattern.RGGB);
+        assertThat(result.data()).hasSize(width * height);
+    }
+
+    @Test
+    void decodeSyntheticMedPatternWithCmp1Metadata() throws Cr3Exception {
+        int width = 4;
+        int height = 4;
+        int bitDepth = 14;
+
+        int[][] planes = new int[][]{
+                {1000, 1005, 1010, 1007}, // R
+                {1100, 1096, 1090, 1088}, // Gr
+                {1200, 1201, 1202, 1203}, // Gb
+                {1300, 1298, 1296, 1294}  // B
+        };
+        byte[] crxData = buildSyntheticCrxData(width, height, bitDepth, CrxHeader.CodecVersion.V1, planes);
+        Cmp1Box cmp1 = new Cmp1Box((short) 1, width, height, width, height,
+                bitDepth, 4, 0, 0, 0, false, 0, false, 0, 0);
+
+        Cr3RawImage result = CrxLosslessRawDecoder.decode(crxData, width, height, bitDepth,
+                CrxHeader.CodecVersion.V1, cmp1);
+
+        assertThat(result.getPixel(0, 0)).isEqualTo(1000); // R
+        assertThat(result.getPixel(1, 0)).isEqualTo(1100); // Gr
+        assertThat(result.getPixel(0, 1)).isEqualTo(1200); // Gb
+        assertThat(result.getPixel(1, 1)).isEqualTo(1300); // B
+        assertThat(result.getPixel(2, 0)).isEqualTo(1005); // R
+        assertThat(result.getPixel(3, 0)).isEqualTo(1096); // Gr
+    }
+
+    @Test
+    void decodeStripsMdatHeaderWhenProvidedByCmp1() throws Cr3Exception {
+        int width = 4;
+        int height = 4;
+        int bitDepth = 14;
+        byte[] payload = buildSyntheticCrxData(width, height, bitDepth, CrxHeader.CodecVersion.V1);
+        byte[] prefixed = new byte[12 + payload.length];
+        for (int i = 0; i < 12; i++) {
+            prefixed[i] = (byte) i;
+        }
+        System.arraycopy(payload, 0, prefixed, 12, payload.length);
+
+        Cmp1Box cmp1 = new Cmp1Box((short) 1, width, height, width, height,
+                bitDepth, 4, 0, 0, 0, false, 12, false, 0, 0);
+        Cr3RawImage result = CrxLosslessRawDecoder.decode(prefixed, width, height, bitDepth,
+                CrxHeader.CodecVersion.V1, cmp1);
+        assertThat(result).isNotNull();
         assertThat(result.data()).hasSize(width * height);
     }
 
@@ -110,39 +159,142 @@ class CrxLosslessRawDecoderTest {
      * All pixels encoded as zero residual (Rice-Golomb of 0 with k=0 = single 1-bit).
      */
     private byte[] buildSyntheticCrxData(int width, int height, int bitDepth,
-                                          CrxHeader.CodecVersion version) {
+                                         CrxHeader.CodecVersion version) {
+        return buildSyntheticCrxData(width, height, bitDepth, version, null);
+    }
+
+    private byte[] buildSyntheticCrxData(int width, int height, int bitDepth,
+                                         CrxHeader.CodecVersion version, int[][] planeValues) {
         int planeW = width / 2;
         int planeH = height / 2;
         int pixelsPerPlane = planeW * planeH;
-        int bytesPerPlane = (pixelsPerPlane + 7) / 8;
+        byte[][] planeData = new byte[4][];
+        int[] bytesPerPlane = new int[4];
+        for (int p = 0; p < 4; p++) {
+            if (planeValues == null) {
+                bytesPerPlane[p] = (pixelsPerPlane + 7) / 8;
+                planeData[p] = new byte[bytesPerPlane[p]];
+                for (int i = 0; i < planeData[p].length; i++) {
+                    planeData[p][i] = (byte) 0xFF; // all 1-bits = zero residuals
+                }
+            } else {
+                planeData[p] = encodePlane(planeValues[p], planeW, planeH, bitDepth);
+                bytesPerPlane[p] = planeData[p].length;
+            }
+        }
 
         ByteBuffer header = ByteBuffer.allocate(256).order(ByteOrder.BIG_ENDIAN);
-        long totalPlaneSize = bytesPerPlane;
-        long tileSize = 4 * totalPlaneSize;
+        long tileSize = 0;
+        for (int size : bytesPerPlane) {
+            tileSize += size;
+        }
 
         writeTileHeader(header, version.tileMarker, tileSize, 0);
         for (int p = 0; p < 4; p++) {
-            writePlaneHeader(header, version.planeMarker, totalPlaneSize, p);
-            writeSubbandHeader(header, version.subbandMarker, totalPlaneSize, 0);
+            writePlaneHeader(header, version.planeMarker, bytesPerPlane[p], p);
+            writeSubbandHeader(header, version.subbandMarker, bytesPerPlane[p], 0);
         }
         header.putInt(0); // null separator
 
         int actualHeaderSize = header.position();
-
-        byte[] planeData = new byte[bytesPerPlane];
-        for (int i = 0; i < planeData.length; i++) {
-            planeData[i] = (byte) 0xFF; // all 1-bits = zero residuals
+        int totalPlaneBytes = 0;
+        for (int size : bytesPerPlane) {
+            totalPlaneBytes += size;
         }
-
-        byte[] fullData = new byte[actualHeaderSize + (int) (4 * totalPlaneSize)];
+        byte[] fullData = new byte[actualHeaderSize + totalPlaneBytes];
         header.flip();
         header.get(fullData, 0, actualHeaderSize);
+        int pos = actualHeaderSize;
         for (int p = 0; p < 4; p++) {
-            System.arraycopy(planeData, 0, fullData, actualHeaderSize + p * bytesPerPlane,
-                    bytesPerPlane);
+            System.arraycopy(planeData[p], 0, fullData, pos, bytesPerPlane[p]);
+            pos += bytesPerPlane[p];
         }
 
         return fullData;
+    }
+
+    private byte[] encodePlane(int[] values, int width, int height, int bitDepth) {
+        assertThat(values).hasSize(width * height);
+        int midpoint = 1 << (bitDepth - 1);
+        int k = 0;
+        long accumulator = 0;
+        long sampleCount = 1;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        int bitBuffer = 0;
+        int bitCount = 0;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int idx = y * width + x;
+                int predicted;
+                if (x == 0 && y == 0) {
+                    predicted = midpoint;
+                } else if (y == 0) {
+                    predicted = values[idx - 1];
+                } else if (x == 0) {
+                    predicted = values[(y - 1) * width];
+                } else {
+                    int a = values[idx - 1];
+                    int b = values[(y - 1) * width + x];
+                    int c = values[(y - 1) * width + (x - 1)];
+                    predicted = CrxLosslessRawDecoder.medPredict(a, b, c);
+                }
+
+                int signedResidual = values[idx] - predicted;
+                int residual = signedResidual >= 0 ? (signedResidual << 1) : ((-signedResidual - 1) << 1) | 1;
+                int q = residual >> k;
+                int r = k == 0 ? 0 : (residual & ((1 << k) - 1));
+
+                for (int i = 0; i < q; i++) {
+                    bitBuffer <<= 1;
+                    bitCount++;
+                    if (bitCount == 8) {
+                        out.write(bitBuffer);
+                        bitBuffer = 0;
+                        bitCount = 0;
+                    }
+                }
+                bitBuffer = (bitBuffer << 1) | 1;
+                bitCount++;
+                if (bitCount == 8) {
+                    out.write(bitBuffer);
+                    bitBuffer = 0;
+                    bitCount = 0;
+                }
+                for (int i = k - 1; i >= 0; i--) {
+                    bitBuffer = (bitBuffer << 1) | ((r >> i) & 1);
+                    bitCount++;
+                    if (bitCount == 8) {
+                        out.write(bitBuffer);
+                        bitBuffer = 0;
+                        bitCount = 0;
+                    }
+                }
+
+                int absResidual = (residual + 1) >> 1;
+                accumulator += absResidual;
+                sampleCount++;
+                long threshold = sampleCount << k;
+                if (accumulator > threshold && k < bitDepth) {
+                    k++;
+                } else if (k > 0) {
+                    long lowerThreshold = sampleCount << (k - 1);
+                    if (accumulator <= lowerThreshold) {
+                        k--;
+                    }
+                }
+                if (sampleCount >= 1024) {
+                    accumulator >>= 1;
+                    sampleCount >>= 1;
+                    if (sampleCount == 0) sampleCount = 1;
+                }
+            }
+        }
+        if (bitCount > 0) {
+            bitBuffer <<= (8 - bitCount);
+            out.write(bitBuffer);
+        }
+        return out.toByteArray();
     }
 
     private static void writeTileHeader(ByteBuffer buf, int marker, long dataSize, int index) {
