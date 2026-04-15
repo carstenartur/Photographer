@@ -152,10 +152,14 @@ public class JobController {
     /** Sanitizes a filename for safe use in a Content-Disposition header value.
      * Keeps only alphanumerics, dots, hyphens, and underscores; replaces all
      * other characters (including CR, LF, quotes, semicolons, and equals signs
-     * that have meaning in HTTP header syntax) with underscores. */
+     * that have meaning in HTTP header syntax) with underscores.
+     * Rejects path traversal sequences. */
     static String sanitizeFileName(String fileName) {
         if (fileName == null) return "download";
-        return fileName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
+        String sanitized = fileName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
+        // Prevent path traversal via ".."
+        sanitized = sanitized.replace("..", "_");
+        return sanitized;
     }
 
     /** Derives a browser-friendly {@link MediaType} from a filename extension. */

@@ -133,7 +133,7 @@ public class AstroModeService {
                                     });
                         }
                     }
-                } catch (IOException e) {
+                } catch (Exception e) {
                     log.warn("Failed to clean up session directory {}: {}", outputDir, e.getMessage());
                 }
             }
