@@ -160,7 +160,7 @@ public class StackingJobService {
     public StackingJob getJob(String id) {
 <span class="fc" id="L161">        return repository.findById(id)</span>
 <span class="fc" id="L162">                .map(StackingJobEntity::toRecord)</span>
-<span class="pc" id="L163">                .orElseThrow(() -&gt; new CameraException(&quot;Job not found: &quot; + id));</span>
+<span class="fc" id="L163">                .orElseThrow(() -&gt; new CameraException(&quot;Job not found: &quot; + id));</span>
     }
 
     public List&lt;StackingJob&gt; getAllJobs() {
@@ -169,173 +169,208 @@ public class StackingJobService {
 <span class="fc" id="L169">                .toList();</span>
     }
 
+    /**
+     * Deletes a stacking job and its associated frame data from the frame store.
+     * Only terminal jobs (COMPLETED, FAILED, CANCELLED) can be deleted.
+     *
+     * @param id the job id
+     * @return {@code true} if the job was deleted, {@code false} if not found
+     * @throws CameraException if the job is not in a terminal state
+     */
+    public boolean deleteJob(String id) {
+<span class="fc" id="L181">        return repository.findById(id).map(entity -&gt; {</span>
+<span class="fc" id="L182">            StackingJob job = entity.toRecord();</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">            if (job.status() != JobStatus.COMPLETED</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">                    &amp;&amp; job.status() != JobStatus.FAILED</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">                    &amp;&amp; job.status() != JobStatus.CANCELLED) {</span>
+<span class="nc" id="L186">                throw new CameraException(</span>
+<span class="nc" id="L187">                        &quot;Cannot delete job in state &quot; + job.status() + &quot;. Only terminal jobs can be deleted.&quot;);</span>
+            }
+            // Delete DB row first so if it fails we don't lose frame data
+<span class="fc" id="L190">            List&lt;String&gt; frameIds = job.frames();</span>
+<span class="fc" id="L191">            cancelledJobs.remove(id);</span>
+<span class="fc" id="L192">            pausedJobs.remove(id);</span>
+<span class="fc" id="L193">            repository.delete(entity);</span>
+            // Best-effort cleanup of cached frame data (after DB delete succeeds)
+<span class="fc bfc" id="L195" title="All 2 branches covered.">            for (String frameId : frameIds) {</span>
+                try {
+<span class="fc" id="L197">                    frameDataStore.remove(frameId);</span>
+<span class="nc" id="L198">                } catch (Exception e) {</span>
+<span class="nc" id="L199">                    log.warn(&quot;Failed to remove frame data {}: {}&quot;, frameId, e.getMessage());</span>
+<span class="fc" id="L200">                }</span>
+<span class="fc" id="L201">            }</span>
+<span class="fc" id="L202">            log.info(&quot;Deleted stacking job {} ({} frames removed)&quot;, id, frameIds.size());</span>
+<span class="fc" id="L203">            return true;</span>
+<span class="fc" id="L204">        }).orElse(false);</span>
+    }
+
     void executeStackingAsync(StackingJob job) {
-<span class="fc" id="L173">        String id = job.id();</span>
-<span class="fc" id="L174">        CameraBackend cameraBackend = backendFor(job.cameraProfileId());</span>
-<span class="fc" id="L175">        List&lt;String&gt; frames = new ArrayList&lt;&gt;(job.frames());</span>
-<span class="fc" id="L176">        List&lt;AnalysisResult&gt; analysisHistory = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L177">        List&lt;byte[]&gt; capturedFrameData = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L178">        StackingParameters params = job.parameters();</span>
-<span class="fc" id="L179">        byte[] previousFrameData = null;</span>
+<span class="fc" id="L208">        String id = job.id();</span>
+<span class="fc" id="L209">        CameraBackend cameraBackend = backendFor(job.cameraProfileId());</span>
+<span class="fc" id="L210">        List&lt;String&gt; frames = new ArrayList&lt;&gt;(job.frames());</span>
+<span class="fc" id="L211">        List&lt;AnalysisResult&gt; analysisHistory = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L212">        List&lt;byte[]&gt; capturedFrameData = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L213">        StackingParameters params = job.parameters();</span>
+<span class="fc" id="L214">        byte[] previousFrameData = null;</span>
 
         try {
-<span class="fc" id="L182">            cameraBackend.setFocus(</span>
-<span class="fc" id="L183">                    new FocusCommand(FocusCommand.Direction.FAR, params.startPosition()));</span>
-<span class="fc" id="L184">            sendJobLog(id, &quot;INFO&quot;, &quot;Starting capture at focus position &quot; + params.startPosition());</span>
-<span class="fc" id="L185">            log.info(&quot;Job {}: starting with '{}' step strategy&quot;, id, stepStrategy.name());</span>
+<span class="fc" id="L217">            cameraBackend.setFocus(</span>
+<span class="fc" id="L218">                    new FocusCommand(FocusCommand.Direction.FAR, params.startPosition()));</span>
+<span class="fc" id="L219">            sendJobLog(id, &quot;INFO&quot;, &quot;Starting capture at focus position &quot; + params.startPosition());</span>
+<span class="fc" id="L220">            log.info(&quot;Job {}: starting with '{}' step strategy&quot;, id, stepStrategy.name());</span>
 
-<span class="fc bfc" id="L187" title="All 2 branches covered.">            for (int i = 0; i &lt; params.maxFrames(); i++) {</span>
-<span class="pc bpc" id="L188" title="1 of 2 branches missed.">                if (cancelledJobs.contains(id)) {</span>
-<span class="nc" id="L189">                    sendJobLog(id, &quot;INFO&quot;, &quot;Job cancelled at frame &quot; + i);</span>
-<span class="nc" id="L190">                    return;</span>
+<span class="fc bfc" id="L222" title="All 2 branches covered.">            for (int i = 0; i &lt; params.maxFrames(); i++) {</span>
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">                if (cancelledJobs.contains(id)) {</span>
+<span class="nc" id="L224">                    sendJobLog(id, &quot;INFO&quot;, &quot;Job cancelled at frame &quot; + i);</span>
+<span class="nc" id="L225">                    return;</span>
                 }
-<span class="pc bpc" id="L192" title="1 of 2 branches missed.">                if (pausedJobs.contains(id)) {</span>
-<span class="nc" id="L193">                    sendJobLog(id, &quot;INFO&quot;, &quot;Job paused at frame &quot; + i);</span>
-<span class="nc" id="L194">                    return;</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">                if (pausedJobs.contains(id)) {</span>
+<span class="nc" id="L228">                    sendJobLog(id, &quot;INFO&quot;, &quot;Job paused at frame &quot; + i);</span>
+<span class="nc" id="L229">                    return;</span>
                 }
 
-<span class="fc" id="L197">                CaptureResult result = cameraBackend.capture();</span>
-<span class="fc" id="L198">                frames.add(result.imageId());</span>
+<span class="fc" id="L232">                CaptureResult result = cameraBackend.capture();</span>
+<span class="fc" id="L233">                frames.add(result.imageId());</span>
 
                 // Cache frame data for later export and image display
-<span class="pc bpc" id="L201" title="1 of 4 branches missed.">                if (result.imageData() != null &amp;&amp; result.imageData().length &gt; 0) {</span>
-<span class="fc" id="L202">                    frameDataStore.put(result.imageId(), result.fileName(), result.imageData());</span>
-<span class="fc" id="L203">                    capturedFrameData.add(result.imageData());</span>
-<span class="fc" id="L204">                    log.debug(&quot;Job {}: frame {} stored ({} bytes, file={})&quot;,</span>
-<span class="fc" id="L205">                            id, result.imageId(), result.imageData().length, result.fileName());</span>
+<span class="pc bpc" id="L236" title="1 of 4 branches missed.">                if (result.imageData() != null &amp;&amp; result.imageData().length &gt; 0) {</span>
+<span class="fc" id="L237">                    frameDataStore.put(result.imageId(), result.fileName(), result.imageData());</span>
+<span class="fc" id="L238">                    capturedFrameData.add(result.imageData());</span>
+<span class="fc" id="L239">                    log.debug(&quot;Job {}: frame {} stored ({} bytes, file={})&quot;,</span>
+<span class="fc" id="L240">                            id, result.imageId(), result.imageData().length, result.fileName());</span>
                 } else {
-<span class="fc" id="L207">                    log.warn(&quot;Job {}: frame {} has NO image data (imageData={}). &quot;</span>
+<span class="fc" id="L242">                    log.warn(&quot;Job {}: frame {} has NO image data (imageData={}). &quot;</span>
                                     + &quot;The image will not be available for display or export.&quot;,
-<span class="fc" id="L209">                            id, result.imageId(),</span>
-<span class="pc bpc" id="L210" title="1 of 2 branches missed.">                            result.imageData() == null ? &quot;null&quot; : &quot;empty&quot;);</span>
-<span class="fc" id="L211">                    sendJobLog(id, &quot;WARN&quot;, &quot;Frame &quot; + (i + 1) + &quot; captured but image data &quot;</span>
+<span class="fc" id="L244">                            id, result.imageId(),</span>
+<span class="pc bpc" id="L245" title="1 of 2 branches missed.">                            result.imageData() == null ? &quot;null&quot; : &quot;empty&quot;);</span>
+<span class="fc" id="L246">                    sendJobLog(id, &quot;WARN&quot;, &quot;Frame &quot; + (i + 1) + &quot; captured but image data &quot;</span>
                             + &quot;is missing — the camera may have timed out&quot;);
                 }
 
                 // --- Send camera preview frame ---
-<span class="fc" id="L216">                sendPreviewFrame(id, result.imageData(), i);</span>
+<span class="fc" id="L251">                sendPreviewFrame(id, result.imageData(), i);</span>
 
                 // --- Progressive stack merge preview ---
-<span class="fc" id="L219">                sendStackPreview(id, capturedFrameData, i);</span>
+<span class="fc" id="L254">                sendStackPreview(id, capturedFrameData, i);</span>
 
                 // --- Analysis phase ---
-<span class="fc" id="L222">                AnalysisResult analysisResult = null;</span>
-<span class="fc bfc" id="L223" title="All 2 branches covered.">                if (result.imageData() != null) {</span>
+<span class="fc" id="L257">                AnalysisResult analysisResult = null;</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">                if (result.imageData() != null) {</span>
                     try {
-<span class="fc" id="L225">                        analysisResult = stackingAdvisor</span>
-<span class="fc" id="L226">                                .analyzeFrame(result.imageData(), previousFrameData,</span>
+<span class="fc" id="L260">                        analysisResult = stackingAdvisor</span>
+<span class="fc" id="L261">                                .analyzeFrame(result.imageData(), previousFrameData,</span>
                                         analysisHistory, params);
-<span class="nc" id="L228">                    } catch (Exception analysisEx) {</span>
-<span class="nc" id="L229">                        log.warn(&quot;Job {}: frame analysis failed for frame {} — continuing capture. {}&quot;,</span>
-<span class="nc" id="L230">                                id, i, analysisEx.getMessage());</span>
-<span class="nc" id="L231">                        sendJobLog(id, &quot;WARN&quot;, &quot;Frame &quot; + (i + 1) + &quot; analysis failed: &quot;</span>
-<span class="nc" id="L232">                                + analysisEx.getMessage() + &quot; — continuing capture&quot;);</span>
-<span class="fc" id="L233">                    }</span>
+<span class="nc" id="L263">                    } catch (Exception analysisEx) {</span>
+<span class="nc" id="L264">                        log.warn(&quot;Job {}: frame analysis failed for frame {} — continuing capture. {}&quot;,</span>
+<span class="nc" id="L265">                                id, i, analysisEx.getMessage());</span>
+<span class="nc" id="L266">                        sendJobLog(id, &quot;WARN&quot;, &quot;Frame &quot; + (i + 1) + &quot; analysis failed: &quot;</span>
+<span class="nc" id="L267">                                + analysisEx.getMessage() + &quot; — continuing capture&quot;);</span>
+<span class="fc" id="L268">                    }</span>
                 }
-<span class="fc" id="L235">                previousFrameData = result.imageData();</span>
+<span class="fc" id="L270">                previousFrameData = result.imageData();</span>
 
-<span class="fc" id="L237">                Map&lt;String, Object&gt; frameEvent = new HashMap&lt;&gt;();</span>
-<span class="fc" id="L238">                frameEvent.put(&quot;frameIndex&quot;, i);</span>
-<span class="fc" id="L239">                frameEvent.put(&quot;totalFrames&quot;, params.maxFrames());</span>
-<span class="fc" id="L240">                frameEvent.put(&quot;imageId&quot;, result.imageId());</span>
-<span class="fc" id="L241">                frameEvent.put(&quot;focusPosition&quot;, result.focusPosition());</span>
-<span class="fc bfc" id="L242" title="All 2 branches covered.">                if (analysisResult != null) {</span>
-<span class="fc" id="L243">                    frameEvent.put(&quot;sharpnessScore&quot;, analysisResult.sharpnessScore());</span>
-<span class="fc" id="L244">                    frameEvent.put(&quot;motionDetected&quot;, analysisResult.motionDetected());</span>
-<span class="fc" id="L245">                    frameEvent.put(&quot;recommendContinue&quot;, analysisResult.recommendContinue());</span>
-<span class="fc" id="L246">                    frameEvent.put(&quot;newInformationGain&quot;, analysisResult.newInformationGain());</span>
-<span class="fc" id="L247">                    analysisHistory.add(analysisResult);</span>
+<span class="fc" id="L272">                Map&lt;String, Object&gt; frameEvent = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L273">                frameEvent.put(&quot;frameIndex&quot;, i);</span>
+<span class="fc" id="L274">                frameEvent.put(&quot;totalFrames&quot;, params.maxFrames());</span>
+<span class="fc" id="L275">                frameEvent.put(&quot;imageId&quot;, result.imageId());</span>
+<span class="fc" id="L276">                frameEvent.put(&quot;focusPosition&quot;, result.focusPosition());</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">                if (analysisResult != null) {</span>
+<span class="fc" id="L278">                    frameEvent.put(&quot;sharpnessScore&quot;, analysisResult.sharpnessScore());</span>
+<span class="fc" id="L279">                    frameEvent.put(&quot;motionDetected&quot;, analysisResult.motionDetected());</span>
+<span class="fc" id="L280">                    frameEvent.put(&quot;recommendContinue&quot;, analysisResult.recommendContinue());</span>
+<span class="fc" id="L281">                    frameEvent.put(&quot;newInformationGain&quot;, analysisResult.newInformationGain());</span>
+<span class="fc" id="L282">                    analysisHistory.add(analysisResult);</span>
                 }
 
-<span class="fc" id="L250">                sendJobEvent(id, &quot;FRAME_CAPTURED&quot;, frameEvent);</span>
-<span class="fc" id="L251">                sendJobLog(id, &quot;DEBUG&quot;, String.format(</span>
+<span class="fc" id="L285">                sendJobEvent(id, &quot;FRAME_CAPTURED&quot;, frameEvent);</span>
+<span class="fc" id="L286">                sendJobLog(id, &quot;DEBUG&quot;, String.format(</span>
                         &quot;Captured frame %d/%d at focus position %d%s&quot;,
-<span class="fc" id="L253">                        i + 1, params.maxFrames(), result.focusPosition(),</span>
-<span class="fc bfc" id="L254" title="All 2 branches covered.">                        analysisResult != null</span>
-<span class="fc" id="L255">                                ? String.format(&quot; (sharpness=%.3f, gain=%.3f, motion=%.3f, continue=%b)&quot;,</span>
-<span class="fc" id="L256">                                        analysisResult.sharpnessScore(),</span>
-<span class="fc" id="L257">                                        analysisResult.newInformationGain(),</span>
-<span class="fc" id="L258">                                        analysisResult.motionScore(),</span>
-<span class="fc" id="L259">                                        analysisResult.recommendContinue())</span>
-<span class="fc" id="L260">                                : &quot; (no analysis — imageData missing)&quot;));</span>
+<span class="fc" id="L288">                        i + 1, params.maxFrames(), result.focusPosition(),</span>
+<span class="fc bfc" id="L289" title="All 2 branches covered.">                        analysisResult != null</span>
+<span class="fc" id="L290">                                ? String.format(&quot; (sharpness=%.3f, gain=%.3f, motion=%.3f, continue=%b)&quot;,</span>
+<span class="fc" id="L291">                                        analysisResult.sharpnessScore(),</span>
+<span class="fc" id="L292">                                        analysisResult.newInformationGain(),</span>
+<span class="fc" id="L293">                                        analysisResult.motionScore(),</span>
+<span class="fc" id="L294">                                        analysisResult.recommendContinue())</span>
+<span class="fc" id="L295">                                : &quot; (no analysis — imageData missing)&quot;));</span>
 
                 // --- Early-stop check ---
-<span class="fc bfc" id="L263" title="All 4 branches covered.">                if (analysisResult != null &amp;&amp; !analysisResult.recommendContinue()) {</span>
-<span class="fc" id="L264">                    sendJobLog(id, &quot;INFO&quot;, String.format(</span>
+<span class="fc bfc" id="L298" title="All 4 branches covered.">                if (analysisResult != null &amp;&amp; !analysisResult.recommendContinue()) {</span>
+<span class="fc" id="L299">                    sendJobLog(id, &quot;INFO&quot;, String.format(</span>
                             &quot;Analysis recommends stopping after frame %d (motion=%b, gain=%.3f)&quot;,
-<span class="fc" id="L266">                            i + 1, analysisResult.motionDetected(), analysisResult.newInformationGain()));</span>
-<span class="fc" id="L267">                    log.info(&quot;Job {}: early stop after frame {} on analysis recommendation&quot;, id, i);</span>
-<span class="fc" id="L268">                    break;</span>
+<span class="fc" id="L301">                            i + 1, analysisResult.motionDetected(), analysisResult.newInformationGain()));</span>
+<span class="fc" id="L302">                    log.info(&quot;Job {}: early stop after frame {} on analysis recommendation&quot;, id, i);</span>
+<span class="fc" id="L303">                    break;</span>
                 }
 
                 // --- Adaptive step computation ---
-<span class="fc" id="L272">                int nextStep = stepStrategy.nextStepSize(analysisHistory, params.stepSize());</span>
-<span class="fc" id="L273">                log.debug(&quot;Job {}: captured frame {} at focus position {}, next step={}&quot;,</span>
-<span class="fc" id="L274">                        id, i, result.focusPosition(), nextStep);</span>
-<span class="fc" id="L275">                cameraBackend.setFocus(</span>
+<span class="fc" id="L307">                int nextStep = stepStrategy.nextStepSize(analysisHistory, params.stepSize());</span>
+<span class="fc" id="L308">                log.debug(&quot;Job {}: captured frame {} at focus position {}, next step={}&quot;,</span>
+<span class="fc" id="L309">                        id, i, result.focusPosition(), nextStep);</span>
+<span class="fc" id="L310">                cameraBackend.setFocus(</span>
                         new FocusCommand(FocusCommand.Direction.FAR, nextStep));
 
-<span class="fc" id="L278">                StackingJob updated = new StackingJob(</span>
-<span class="fc" id="L279">                        id, job.cameraProfileId(), JobStatus.RUNNING,</span>
-<span class="fc" id="L280">                        job.startedAt(), null, params, new ArrayList&lt;&gt;(frames),</span>
+<span class="fc" id="L313">                StackingJob updated = new StackingJob(</span>
+<span class="fc" id="L314">                        id, job.cameraProfileId(), JobStatus.RUNNING,</span>
+<span class="fc" id="L315">                        job.startedAt(), null, params, new ArrayList&lt;&gt;(frames),</span>
                         null
                 );
-<span class="fc" id="L283">                repository.save(StackingJobEntity.fromRecord(updated));</span>
+<span class="fc" id="L318">                repository.save(StackingJobEntity.fromRecord(updated));</span>
             }
 
-<span class="fc" id="L286">            String stopReason = &quot;Captured all frames&quot;;</span>
-<span class="pc bpc" id="L287" title="1 of 2 branches missed.">            if (cancelledJobs.contains(id)) {</span>
-<span class="nc" id="L288">                stopReason = &quot;Cancelled by user&quot;;</span>
-<span class="pc bpc" id="L289" title="1 of 2 branches missed.">            } else if (pausedJobs.contains(id)) {</span>
-<span class="nc" id="L290">                stopReason = &quot;Paused by user&quot;;</span>
-<span class="fc bfc" id="L291" title="All 2 branches covered.">            } else if (frames.size() &lt; params.maxFrames()) {</span>
-<span class="fc" id="L292">                stopReason = &quot;Analysis recommended early stop&quot;;</span>
+<span class="fc" id="L321">            String stopReason = &quot;Captured all frames&quot;;</span>
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">            if (cancelledJobs.contains(id)) {</span>
+<span class="nc" id="L323">                stopReason = &quot;Cancelled by user&quot;;</span>
+<span class="pc bpc" id="L324" title="1 of 2 branches missed.">            } else if (pausedJobs.contains(id)) {</span>
+<span class="nc" id="L325">                stopReason = &quot;Paused by user&quot;;</span>
+<span class="fc bfc" id="L326" title="All 2 branches covered.">            } else if (frames.size() &lt; params.maxFrames()) {</span>
+<span class="fc" id="L327">                stopReason = &quot;Analysis recommended early stop&quot;;</span>
             }
 
-<span class="fc" id="L295">            StackingJob completed = new StackingJob(</span>
-<span class="fc" id="L296">                    id, job.cameraProfileId(), JobStatus.COMPLETED,</span>
-<span class="fc" id="L297">                    job.startedAt(), Instant.now(), params, frames,</span>
+<span class="fc" id="L330">            StackingJob completed = new StackingJob(</span>
+<span class="fc" id="L331">                    id, job.cameraProfileId(), JobStatus.COMPLETED,</span>
+<span class="fc" id="L332">                    job.startedAt(), Instant.now(), params, frames,</span>
                     stopReason
             );
-<span class="fc" id="L300">            repository.save(StackingJobEntity.fromRecord(completed));</span>
-<span class="fc" id="L301">            sendJobEvent(id, &quot;SEQUENCE_COMPLETED&quot;, Map.of(&quot;totalFrames&quot;, frames.size()));</span>
-<span class="fc" id="L302">            sendJobLog(id, &quot;INFO&quot;, &quot;Job completed with &quot; + frames.size() + &quot; frames&quot;);</span>
-<span class="fc" id="L303">            log.info(&quot;Stacking job {} completed with {} frames&quot;, id, frames.size());</span>
+<span class="fc" id="L335">            repository.save(StackingJobEntity.fromRecord(completed));</span>
+<span class="fc" id="L336">            sendJobEvent(id, &quot;SEQUENCE_COMPLETED&quot;, Map.of(&quot;totalFrames&quot;, frames.size()));</span>
+<span class="fc" id="L337">            sendJobLog(id, &quot;INFO&quot;, &quot;Job completed with &quot; + frames.size() + &quot; frames&quot;);</span>
+<span class="fc" id="L338">            log.info(&quot;Stacking job {} completed with {} frames&quot;, id, frames.size());</span>
 
-<span class="nc" id="L305">        } catch (Exception e) {</span>
-<span class="nc" id="L306">            log.error(&quot;Stacking job {} failed: {}&quot;, id, e.getMessage(), e);</span>
-<span class="nc" id="L307">            StackingJob failed = new StackingJob(</span>
-<span class="nc" id="L308">                    id, job.cameraProfileId(), JobStatus.FAILED,</span>
-<span class="nc" id="L309">                    job.startedAt(), Instant.now(), params, frames,</span>
-<span class="nc" id="L310">                    e.getMessage()</span>
+<span class="nc" id="L340">        } catch (Exception e) {</span>
+<span class="nc" id="L341">            log.error(&quot;Stacking job {} failed: {}&quot;, id, e.getMessage(), e);</span>
+<span class="nc" id="L342">            StackingJob failed = new StackingJob(</span>
+<span class="nc" id="L343">                    id, job.cameraProfileId(), JobStatus.FAILED,</span>
+<span class="nc" id="L344">                    job.startedAt(), Instant.now(), params, frames,</span>
+<span class="nc" id="L345">                    e.getMessage()</span>
             );
-<span class="nc" id="L312">            repository.save(StackingJobEntity.fromRecord(failed));</span>
-<span class="nc" id="L313">            sendJobEvent(id, &quot;ERROR&quot;, Map.of(&quot;message&quot;, e.getMessage()));</span>
-<span class="nc" id="L314">            sendJobLog(id, &quot;ERROR&quot;, &quot;Job failed: &quot; + e.getMessage());</span>
-<span class="fc" id="L315">        }</span>
-<span class="fc" id="L316">    }</span>
+<span class="nc" id="L347">            repository.save(StackingJobEntity.fromRecord(failed));</span>
+<span class="nc" id="L348">            sendJobEvent(id, &quot;ERROR&quot;, Map.of(&quot;message&quot;, e.getMessage()));</span>
+<span class="nc" id="L349">            sendJobLog(id, &quot;ERROR&quot;, &quot;Job failed: &quot; + e.getMessage());</span>
+<span class="fc" id="L350">        }</span>
+<span class="fc" id="L351">    }</span>
 
     /**
      * Sends the latest camera frame as a base64-encoded preview via WebSocket.
      */
     private void sendPreviewFrame(String jobId, byte[] imageData, int frameIndex) {
-<span class="pc bpc" id="L322" title="1 of 4 branches missed.">        if (imageData == null || imageData.length == 0) return;</span>
+<span class="pc bpc" id="L357" title="1 of 4 branches missed.">        if (imageData == null || imageData.length == 0) return;</span>
         try {
-<span class="fc" id="L324">            String base64 = Base64.getEncoder().encodeToString(imageData);</span>
-<span class="fc" id="L325">            Map&lt;String, Object&gt; preview = Map.of(</span>
+<span class="fc" id="L359">            String base64 = Base64.getEncoder().encodeToString(imageData);</span>
+<span class="fc" id="L360">            Map&lt;String, Object&gt; preview = Map.of(</span>
                     &quot;type&quot;, &quot;camera&quot;,
-<span class="fc" id="L327">                    &quot;frameIndex&quot;, frameIndex,</span>
+<span class="fc" id="L362">                    &quot;frameIndex&quot;, frameIndex,</span>
                     &quot;imageBase64&quot;, base64,
-<span class="fc" id="L329">                    &quot;timestamp&quot;, Instant.now().toString(),</span>
+<span class="fc" id="L364">                    &quot;timestamp&quot;, Instant.now().toString(),</span>
                     &quot;jobId&quot;, jobId
             );
-<span class="fc" id="L332">            messagingTemplate.convertAndSend(</span>
+<span class="fc" id="L367">            messagingTemplate.convertAndSend(</span>
                     &quot;/topic/jobs/&quot; + jobId + &quot;/preview&quot;, (Object) preview);
-<span class="fc" id="L334">            plainWebSocketBridge.broadcast(preview);</span>
-<span class="nc" id="L335">        } catch (Exception e) {</span>
-<span class="nc" id="L336">            log.debug(&quot;Failed to send camera preview for job {}: {}&quot;, jobId, e.getMessage());</span>
-<span class="fc" id="L337">        }</span>
-<span class="fc" id="L338">    }</span>
+<span class="fc" id="L369">            plainWebSocketBridge.broadcast(preview);</span>
+<span class="nc" id="L370">        } catch (Exception e) {</span>
+<span class="nc" id="L371">            log.debug(&quot;Failed to send camera preview for job {}: {}&quot;, jobId, e.getMessage());</span>
+<span class="fc" id="L372">        }</span>
+<span class="fc" id="L373">    }</span>
 
     /**
      * Produces a progressive stack-merged preview from captured frames so far
@@ -343,60 +378,60 @@ public class StackingJobService {
      * Uses at most {@value MAX_PREVIEW_MERGE_FRAMES} evenly-spaced frames for performance.
      */
     private void sendStackPreview(String jobId, List&lt;byte[]&gt; capturedFrameData, int frameIndex) {
-<span class="fc bfc" id="L346" title="All 2 branches covered.">        if (capturedFrameData.size() &lt; 2) return;</span>
+<span class="fc bfc" id="L381" title="All 2 branches covered.">        if (capturedFrameData.size() &lt; 2) return;</span>
         try {
             // Sample frames evenly if there are too many for quick merging
             List&lt;byte[]&gt; framesToMerge;
-<span class="pc bpc" id="L350" title="1 of 2 branches missed.">            if (capturedFrameData.size() &lt;= MAX_PREVIEW_MERGE_FRAMES) {</span>
-<span class="fc" id="L351">                framesToMerge = capturedFrameData;</span>
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">            if (capturedFrameData.size() &lt;= MAX_PREVIEW_MERGE_FRAMES) {</span>
+<span class="fc" id="L386">                framesToMerge = capturedFrameData;</span>
             } else {
-<span class="nc" id="L353">                framesToMerge = new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L354">                double step = (double) capturedFrameData.size() / MAX_PREVIEW_MERGE_FRAMES;</span>
-<span class="nc bnc" id="L355" title="All 2 branches missed.">                for (int i = 0; i &lt; MAX_PREVIEW_MERGE_FRAMES; i++) {</span>
-<span class="nc" id="L356">                    framesToMerge.add(capturedFrameData.get((int) (i * step)));</span>
+<span class="nc" id="L388">                framesToMerge = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L389">                double step = (double) capturedFrameData.size() / MAX_PREVIEW_MERGE_FRAMES;</span>
+<span class="nc bnc" id="L390" title="All 2 branches missed.">                for (int i = 0; i &lt; MAX_PREVIEW_MERGE_FRAMES; i++) {</span>
+<span class="nc" id="L391">                    framesToMerge.add(capturedFrameData.get((int) (i * step)));</span>
                 }
                 // Always include the latest frame
-<span class="nc" id="L359">                framesToMerge.add(capturedFrameData.get(capturedFrameData.size() - 1));</span>
+<span class="nc" id="L394">                framesToMerge.add(capturedFrameData.get(capturedFrameData.size() - 1));</span>
             }
 
-<span class="fc" id="L362">            byte[] merged = stackMerger.merge(framesToMerge);</span>
-<span class="pc bpc" id="L363" title="1 of 4 branches missed.">            if (merged != null &amp;&amp; merged.length &gt; 0) {</span>
-<span class="fc" id="L364">                String base64 = Base64.getEncoder().encodeToString(merged);</span>
-<span class="fc" id="L365">                Map&lt;String, Object&gt; preview = Map.of(</span>
+<span class="fc" id="L397">            byte[] merged = stackMerger.merge(framesToMerge);</span>
+<span class="pc bpc" id="L398" title="1 of 4 branches missed.">            if (merged != null &amp;&amp; merged.length &gt; 0) {</span>
+<span class="fc" id="L399">                String base64 = Base64.getEncoder().encodeToString(merged);</span>
+<span class="fc" id="L400">                Map&lt;String, Object&gt; preview = Map.of(</span>
                         &quot;type&quot;, &quot;stack&quot;,
-<span class="fc" id="L367">                        &quot;frameIndex&quot;, frameIndex,</span>
-<span class="fc" id="L368">                        &quot;framesUsed&quot;, framesToMerge.size(),</span>
+<span class="fc" id="L402">                        &quot;frameIndex&quot;, frameIndex,</span>
+<span class="fc" id="L403">                        &quot;framesUsed&quot;, framesToMerge.size(),</span>
                         &quot;imageBase64&quot;, base64,
-<span class="fc" id="L370">                        &quot;timestamp&quot;, Instant.now().toString(),</span>
+<span class="fc" id="L405">                        &quot;timestamp&quot;, Instant.now().toString(),</span>
                         &quot;jobId&quot;, jobId
                 );
-<span class="fc" id="L373">                messagingTemplate.convertAndSend(</span>
+<span class="fc" id="L408">                messagingTemplate.convertAndSend(</span>
                         &quot;/topic/jobs/&quot; + jobId + &quot;/preview&quot;, (Object) preview);
-<span class="fc" id="L375">                plainWebSocketBridge.broadcast(preview);</span>
+<span class="fc" id="L410">                plainWebSocketBridge.broadcast(preview);</span>
             }
-<span class="fc" id="L377">        } catch (Exception e) {</span>
-<span class="fc" id="L378">            log.debug(&quot;Failed to send stack preview for job {}: {}&quot;, jobId, e.getMessage());</span>
-<span class="fc" id="L379">        }</span>
-<span class="fc" id="L380">    }</span>
+<span class="fc" id="L412">        } catch (Exception e) {</span>
+<span class="fc" id="L413">            log.debug(&quot;Failed to send stack preview for job {}: {}&quot;, jobId, e.getMessage());</span>
+<span class="fc" id="L414">        }</span>
+<span class="fc" id="L415">    }</span>
 
     private void sendJobEvent(String jobId, String event, Map&lt;String, Object&gt; data) {
-<span class="fc" id="L383">        Map&lt;String, Object&gt; message = new HashMap&lt;&gt;(data);</span>
-<span class="fc" id="L384">        message.put(&quot;event&quot;, event);</span>
-<span class="fc" id="L385">        message.put(&quot;jobId&quot;, jobId);</span>
-<span class="fc" id="L386">        message.put(&quot;timestamp&quot;, Instant.now().toString());</span>
-<span class="fc" id="L387">        messagingTemplate.convertAndSend(&quot;/topic/jobs/&quot; + jobId + &quot;/progress&quot;, (Object) message);</span>
-<span class="fc" id="L388">        plainWebSocketBridge.broadcast(message);</span>
-<span class="fc" id="L389">    }</span>
+<span class="fc" id="L418">        Map&lt;String, Object&gt; message = new HashMap&lt;&gt;(data);</span>
+<span class="fc" id="L419">        message.put(&quot;event&quot;, event);</span>
+<span class="fc" id="L420">        message.put(&quot;jobId&quot;, jobId);</span>
+<span class="fc" id="L421">        message.put(&quot;timestamp&quot;, Instant.now().toString());</span>
+<span class="fc" id="L422">        messagingTemplate.convertAndSend(&quot;/topic/jobs/&quot; + jobId + &quot;/progress&quot;, (Object) message);</span>
+<span class="fc" id="L423">        plainWebSocketBridge.broadcast(message);</span>
+<span class="fc" id="L424">    }</span>
 
     private void sendJobLog(String jobId, String level, String text) {
-<span class="fc" id="L392">        Map&lt;String, Object&gt; message = Map.of(</span>
+<span class="fc" id="L427">        Map&lt;String, Object&gt; message = Map.of(</span>
                 &quot;level&quot;, level,
                 &quot;message&quot;, text,
                 &quot;jobId&quot;, jobId,
-<span class="fc" id="L396">                &quot;timestamp&quot;, Instant.now().toString()</span>
+<span class="fc" id="L431">                &quot;timestamp&quot;, Instant.now().toString()</span>
         );
-<span class="fc" id="L398">        messagingTemplate.convertAndSend(&quot;/topic/jobs/&quot; + jobId + &quot;/logs&quot;, (Object) message);</span>
-<span class="fc" id="L399">        plainWebSocketBridge.broadcast(message);</span>
-<span class="fc" id="L400">    }</span>
+<span class="fc" id="L433">        messagingTemplate.convertAndSend(&quot;/topic/jobs/&quot; + jobId + &quot;/logs&quot;, (Object) message);</span>
+<span class="fc" id="L434">        plainWebSocketBridge.broadcast(message);</span>
+<span class="fc" id="L435">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

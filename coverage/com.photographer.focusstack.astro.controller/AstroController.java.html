@@ -81,14 +81,25 @@ public class AstroController {
     }
 
     /**
+     * Deletes a terminal session and its files on disk.
+     */
+    @DeleteMapping(&quot;/sessions/{id}&quot;)
+    public ResponseEntity&lt;Void&gt; deleteSession(@PathVariable String id) {
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (astroModeService.deleteSession(id)) {</span>
+<span class="fc" id="L89">            return ResponseEntity.noContent().build();</span>
+        }
+<span class="fc" id="L91">        return ResponseEntity.notFound().build();</span>
+    }
+
+    /**
      * Returns the result info for a completed session.
      */
     @GetMapping(&quot;/sessions/{id}/result&quot;)
     public ResponseEntity&lt;AstroSession&gt; getResult(@PathVariable String id) {
-<span class="nc" id="L88">        return astroModeService.getSession(id)</span>
-<span class="nc bnc" id="L89" title="All 2 branches missed.">                .filter(s -&gt; s.resultImagePath() != null)</span>
-<span class="nc" id="L90">                .map(ResponseEntity::ok)</span>
-<span class="nc" id="L91">                .orElse(ResponseEntity.notFound().build());</span>
+<span class="nc" id="L99">        return astroModeService.getSession(id)</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">                .filter(s -&gt; s.resultImagePath() != null)</span>
+<span class="nc" id="L101">                .map(ResponseEntity::ok)</span>
+<span class="nc" id="L102">                .orElse(ResponseEntity.notFound().build());</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

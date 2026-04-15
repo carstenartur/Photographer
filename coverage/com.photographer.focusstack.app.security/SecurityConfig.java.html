@@ -42,20 +42,21 @@ import org.springframework.security.web.SecurityFilterChain;
 <span class="fc" id="L42">                .requestMatchers(HttpMethod.GET, &quot;/api/analysis/health&quot;).permitAll()</span>
                 // Admin-only management endpoints
 <span class="fc" id="L44">                .requestMatchers(&quot;/api/admin/**&quot;).hasRole(&quot;ADMIN&quot;)</span>
+<span class="fc" id="L45">                .requestMatchers(HttpMethod.POST, &quot;/api/jobs/reindex&quot;).hasRole(&quot;ADMIN&quot;)</span>
                 // All other requests (API, WebSocket) require authentication
-<span class="fc" id="L46">                .anyRequest().authenticated()</span>
+<span class="fc" id="L47">                .anyRequest().authenticated()</span>
             )
-<span class="fc" id="L48">            .formLogin(form -&gt; form</span>
-<span class="fc" id="L49">                .defaultSuccessUrl(&quot;/&quot;, false)</span>
-<span class="fc" id="L50">                .failureUrl(&quot;/login?error&quot;)</span>
-<span class="fc" id="L51">                .permitAll()</span>
+<span class="fc" id="L49">            .formLogin(form -&gt; form</span>
+<span class="fc" id="L50">                .defaultSuccessUrl(&quot;/&quot;, false)</span>
+<span class="fc" id="L51">                .failureUrl(&quot;/login?error&quot;)</span>
+<span class="fc" id="L52">                .permitAll()</span>
             )
-<span class="fc" id="L53">            .httpBasic(basic -&gt; {})</span>
-<span class="fc" id="L54">            .csrf(csrf -&gt; csrf</span>
+<span class="fc" id="L54">            .httpBasic(basic -&gt; {})</span>
+<span class="fc" id="L55">            .csrf(csrf -&gt; csrf</span>
                 // Disable CSRF for REST API endpoints (stateless clients use HTTP Basic)
-<span class="fc" id="L56">                .ignoringRequestMatchers(&quot;/api/**&quot;, &quot;/ws/**&quot;)</span>
+<span class="fc" id="L57">                .ignoringRequestMatchers(&quot;/api/**&quot;, &quot;/ws/**&quot;)</span>
             );
-<span class="fc" id="L58">        return http.build();</span>
+<span class="fc" id="L59">        return http.build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

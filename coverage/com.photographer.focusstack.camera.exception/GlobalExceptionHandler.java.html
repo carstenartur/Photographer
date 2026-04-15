@@ -3,69 +3,101 @@
 import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.session.SessionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.io.IOException;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
-<span class="fc" id="L15">public class GlobalExceptionHandler {</span>
+<span class="fc" id="L18">public class GlobalExceptionHandler {</span>
+
+<span class="fc" id="L20">    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);</span>
 
     @ExceptionHandler(CameraNotFoundException.class)
     public ProblemDetail handleCameraNotFound(CameraNotFoundException ex) {
-<span class="fc" id="L19">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
-<span class="fc" id="L20">                HttpStatus.NOT_FOUND, ex.getMessage());</span>
-<span class="fc" id="L21">        problem.setTitle(&quot;Camera Not Found&quot;);</span>
-<span class="fc" id="L22">        return problem;</span>
+<span class="fc" id="L24">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L25">                HttpStatus.NOT_FOUND, ex.getMessage());</span>
+<span class="fc" id="L26">        problem.setTitle(&quot;Camera Not Found&quot;);</span>
+<span class="fc" id="L27">        return problem;</span>
     }
 
     @ExceptionHandler(CameraException.class)
     public ProblemDetail handleCameraException(CameraException ex) {
-<span class="nc" id="L27">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
-<span class="nc" id="L28">                HttpStatus.BAD_REQUEST, ex.getMessage());</span>
-<span class="nc" id="L29">        problem.setTitle(&quot;Camera Error&quot;);</span>
-<span class="nc" id="L30">        return problem;</span>
+<span class="fc" id="L32">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L33">                HttpStatus.BAD_REQUEST, ex.getMessage());</span>
+<span class="fc" id="L34">        problem.setTitle(&quot;Camera Error&quot;);</span>
+<span class="fc" id="L35">        return problem;</span>
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidationErrors(MethodArgumentNotValidException ex) {
-<span class="fc" id="L35">        String details = ex.getBindingResult().getFieldErrors().stream()</span>
-<span class="fc" id="L36">                .map(e -&gt; e.getField() + &quot;: &quot; + e.getDefaultMessage())</span>
-<span class="fc" id="L37">                .collect(Collectors.joining(&quot;, &quot;));</span>
-<span class="fc" id="L38">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L40">        String details = ex.getBindingResult().getFieldErrors().stream()</span>
+<span class="fc" id="L41">                .map(e -&gt; e.getField() + &quot;: &quot; + e.getDefaultMessage())</span>
+<span class="fc" id="L42">                .collect(Collectors.joining(&quot;, &quot;));</span>
+<span class="fc" id="L43">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
                 HttpStatus.BAD_REQUEST, details);
-<span class="fc" id="L40">        problem.setTitle(&quot;Validation Error&quot;);</span>
-<span class="fc" id="L41">        return problem;</span>
+<span class="fc" id="L45">        problem.setTitle(&quot;Validation Error&quot;);</span>
+<span class="fc" id="L46">        return problem;</span>
     }
 
     @ExceptionHandler(SessionNotFoundException.class)
     public ProblemDetail handleSessionNotFound(SessionNotFoundException ex) {
-<span class="fc" id="L46">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
-<span class="fc" id="L47">                HttpStatus.NOT_FOUND, ex.getMessage());</span>
-<span class="fc" id="L48">        problem.setTitle(&quot;Session Not Found&quot;);</span>
-<span class="fc" id="L49">        return problem;</span>
+<span class="fc" id="L51">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L52">                HttpStatus.NOT_FOUND, ex.getMessage());</span>
+<span class="fc" id="L53">        problem.setTitle(&quot;Session Not Found&quot;);</span>
+<span class="fc" id="L54">        return problem;</span>
     }
 
     @ExceptionHandler(SessionException.class)
     public ProblemDetail handleSessionException(SessionException ex) {
-<span class="nc" id="L54">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
-<span class="nc" id="L55">                HttpStatus.BAD_REQUEST, ex.getMessage());</span>
-<span class="nc" id="L56">        problem.setTitle(&quot;Session Error&quot;);</span>
-<span class="nc" id="L57">        return problem;</span>
+<span class="nc" id="L59">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="nc" id="L60">                HttpStatus.BAD_REQUEST, ex.getMessage());</span>
+<span class="nc" id="L61">        problem.setTitle(&quot;Session Error&quot;);</span>
+<span class="nc" id="L62">        return problem;</span>
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ProblemDetail handleConstraintViolation(ConstraintViolationException ex) {
-<span class="nc" id="L62">        String details = ex.getConstraintViolations().stream()</span>
-<span class="nc" id="L63">                .map(v -&gt; v.getPropertyPath() + &quot;: &quot; + v.getMessage())</span>
-<span class="nc" id="L64">                .collect(Collectors.joining(&quot;, &quot;));</span>
-<span class="nc" id="L65">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="nc" id="L67">        String details = ex.getConstraintViolations().stream()</span>
+<span class="nc" id="L68">                .map(v -&gt; v.getPropertyPath() + &quot;: &quot; + v.getMessage())</span>
+<span class="nc" id="L69">                .collect(Collectors.joining(&quot;, &quot;));</span>
+<span class="nc" id="L70">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
                 HttpStatus.BAD_REQUEST, details);
-<span class="nc" id="L67">        problem.setTitle(&quot;Constraint Violation&quot;);</span>
-<span class="nc" id="L68">        return problem;</span>
+<span class="nc" id="L72">        problem.setTitle(&quot;Constraint Violation&quot;);</span>
+<span class="nc" id="L73">        return problem;</span>
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ProblemDetail handleIOException(IOException ex) {
+<span class="nc" id="L78">        log.warn(&quot;I/O error processing request: {}&quot;, ex.getMessage());</span>
+<span class="nc" id="L79">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.UNPROCESSABLE_ENTITY, &quot;Failed to read or process the uploaded file&quot;);
+<span class="nc" id="L81">        problem.setTitle(&quot;File Processing Error&quot;);</span>
+<span class="nc" id="L82">        return problem;</span>
+    }
+
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    public ProblemDetail handleIllegalArgument(RuntimeException ex) {
+<span class="nc" id="L87">        log.debug(&quot;Bad request: {}&quot;, ex.getMessage());</span>
+<span class="nc" id="L88">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.BAD_REQUEST, &quot;Invalid request parameters&quot;);
+<span class="nc" id="L90">        problem.setTitle(&quot;Invalid Request&quot;);</span>
+<span class="nc" id="L91">        return problem;</span>
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleGenericException(Exception ex) {
+<span class="nc" id="L96">        log.error(&quot;Unhandled exception&quot;, ex);</span>
+<span class="nc" id="L97">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.INTERNAL_SERVER_ERROR, &quot;An unexpected error occurred&quot;);
+<span class="nc" id="L99">        problem.setTitle(&quot;Internal Server Error&quot;);</span>
+<span class="nc" id="L100">        return problem;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
