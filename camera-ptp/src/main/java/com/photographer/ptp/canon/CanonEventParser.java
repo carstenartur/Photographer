@@ -73,6 +73,16 @@ public class CanonEventParser {
             return 0;
         }
 
+        /** Extracts the property value from a property-changed event. */
+        public int getPropertyValue() {
+            if (payload.length >= 8) {
+                PtpTypeReader r = new PtpTypeReader(payload);
+                r.readInt32(); // skip property code
+                return r.readInt32();
+            }
+            return 0;
+        }
+
         /** Extracts the object handle from an object-added event. */
         public int getObjectHandle() {
             if (payload.length >= 4) {

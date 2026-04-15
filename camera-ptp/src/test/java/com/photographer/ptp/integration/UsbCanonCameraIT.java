@@ -75,7 +75,7 @@ class UsbCanonCameraIT {
                 log.error("╚══════════════════════════════════════════════════════════════╝");
                 Assumptions.abort("USB claim denied — WinUSB driver not installed. " +
                         "Run Zadig to replace the MTP driver. See log above for instructions.");
-            } else if (msg.contains("No Canon PTP camera found")) {
+            } else if (msg.contains("No Canon") || msg.contains("No Canon camera found")) {
                 Assumptions.abort("No Canon camera connected via USB — skipping hardware tests.");
             }
             throw e; // unexpected error — let it fail normally
@@ -279,9 +279,12 @@ class UsbCanonCameraIT {
     @Test
     @Order(100)
     @DisplayName("Remote shutter release and image download")
-    void remoteCapture() {
+    void remoteCapture() throws InterruptedException {
         CameraCapabilities caps = camera.getCapabilities();
         Assumptions.assumeTrue(caps.capture(), "Camera does not support remote capture");
+
+        // Allow camera to settle after previous tests (LiveView, focus drive)
+        Thread.sleep(2000);
 
         ImageDownload result = camera.capture();
 

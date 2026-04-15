@@ -35,17 +35,8 @@
             <version>1.3.0</version>
         </dependency>
 
-        <!-- Windows Portable Devices (WPD) COM access via JNA — Windows -->
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna</artifactId>
-            <version>5.17.0</version>
-        </dependency>
-        <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna-platform</artifactId>
-            <version>5.17.0</version>
-        </dependency>
+        <!-- Windows Portable Devices (WPD) COM access via Foreign Function & Memory API (Java 22+) -->
+        <!-- No external dependency needed — uses java.lang.foreign from the JDK -->
 
         <!-- Logging -->
         <dependency>

@@ -181,12 +181,34 @@ public class MockPtpTransport implements PtpTransport {
     }
 
     private DataResponse handleGetEvent(PtpContainer req) {
-        // Return a mock Canon event blob: one EVENT_OBJ_ADDED with object handle 42.
+        // Return mock Canon event blob with property-changed events and an object-added event.
         // Event entry format: entryLength(4) + eventType(4) + payload(N)
-        ByteBuffer buf = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN);
-        buf.putInt(12);  // entryLength: 8-byte header + 4-byte payload
+        // Property-changed payload: propCode(4) + value(4)
+        int entrySize = 16; // 8-byte header + 8-byte payload (propCode + value)
+        int objEntrySize = 12; // 8-byte header + 4-byte payload (objectHandle)
+
+        int[][] props = {
+            { CanonConstants.DPC_EOS_APERTURE, 0x2B },       // f/4.0
+            { CanonConstants.DPC_EOS_SHUTTER_SPEED, 0x68 },  // 1/60
+            { CanonConstants.DPC_EOS_ISO, 0x48 },            // ISO 100
+            { CanonConstants.DPC_EOS_BATTERY_LEVEL, 3 },     // 75%
+        };
+
+        ByteBuffer buf = ByteBuffer.allocate(props.length * entrySize + objEntrySize)
+                .order(ByteOrder.LITTLE_ENDIAN);
+
+        for (int[] prop : props) {
+            buf.putInt(entrySize);
+            buf.putInt(CanonConstants.EVENT_PROP_CHANGED);
+            buf.putInt(prop[0]); // propCode
+            buf.putInt(prop[1]); // value
+        }
+
+        // Object-added event (for capture tests)
+        buf.putInt(objEntrySize);
         buf.putInt(CanonConstants.EVENT_OBJ_ADDED);
         buf.putInt(42);  // object handle
+
         return new DataResponse(buf.array(), okResponse(req));
     }
 

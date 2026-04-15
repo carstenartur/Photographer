@@ -140,6 +140,12 @@ public class PtpSession implements AutoCloseable {
         return transport.execute(request);
     }
 
+    /** Executes a generic PTP operation with data-write phase. */
+    public PtpContainer executeOperationWithData(int opCode, byte[] data, int... params) {
+        PtpContainer request = PtpContainer.createCommand(opCode, nextTransactionId(), params);
+        return transport.executeWithData(request, data);
+    }
+
     /** Executes a generic PTP operation with data receive phase. */
     public PtpTransport.DataResponse executeReceiveData(int opCode, int... params) {
         PtpContainer request = PtpContainer.createCommand(opCode, nextTransactionId(), params);

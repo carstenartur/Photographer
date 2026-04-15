@@ -9,6 +9,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Background event polling loop for PTP cameras.
@@ -26,6 +28,8 @@ public class EventLoop {
 
     private final PtpSession session;
     private final PtpTransport transport;
+    /** Canon property values cached from GetEvent responses. Thread-safe. */
+    private final ConcurrentMap<Integer, Integer> propertyCache = new ConcurrentHashMap<>();
     private volatile PtpEventListener listener;
     private volatile boolean running;
     private volatile boolean canonMode;
@@ -76,15 +80,37 @@ public class EventLoop {
 
     /**
      * Temporarily suspends event polling.
-     * Use this before performing a capture to avoid competing GetEvent calls.
+     * Use this before performing a capture or other PTP operation to avoid
+     * competing GetEvent calls on the WPD transport.
+     * Waits briefly for the current poll iteration to finish.
      */
     public void suspend() {
         suspended = true;
+        // Give the event loop thread time to finish its current poll cycle
+        try { Thread.sleep(50); } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Resumes event polling after a {@link #suspend()} call. */
     public void resume() {
         suspended = false;
+    }
+
+    /**
+     * Returns the last known value for a Canon property code, or 0 if unknown.
+     * Values are populated from Canon GetEvent (0x9116) property-changed events.
+     */
+    public int getPropertyValue(int propertyCode) {
+        return propertyCache.getOrDefault(propertyCode, 0);
+    }
+
+    /**
+     * Stores a Canon property value in the cache.
+     * Called during initialization to seed the cache before the event loop starts.
+     */
+    void cacheProperty(int propertyCode, int value) {
+        propertyCache.put(propertyCode, value);
     }
 
     private void pollEvents() {
@@ -133,6 +159,11 @@ public class EventLoop {
                 return;
             }
             List<CanonEventParser.CanonEvent> events = CanonEventParser.parse(dr.data());
+            for (CanonEventParser.CanonEvent event : events) {
+                if (event.isPropertyChanged()) {
+                    propertyCache.put(event.getPropertyCode(), event.getPropertyValue());
+                }
+            }
             if (listener != null) {
                 for (CanonEventParser.CanonEvent event : events) {
                     listener.onCanonEvent(event);

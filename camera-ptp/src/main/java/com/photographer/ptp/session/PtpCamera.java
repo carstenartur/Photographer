@@ -96,7 +96,7 @@ public class PtpCamera implements AutoCloseable {
         if (WpdDeviceScanner.isAvailable()) {
             log.info("Falling back to Windows Portable Devices (WPD) transport");
             try {
-                PtpTransport transport = WpdDeviceScanner.findCanon();
+                PtpTransport transport = WpdDeviceScanner.wakeAndFindCanon();
                 return openInitializedCamera(transport, Config.defaults());
             } catch (PtpException wpdError) {
                 log.error("WPD transport also failed: {}", wpdError.getMessage());
@@ -150,12 +150,37 @@ public class PtpCamera implements AutoCloseable {
 
         if (isCanon) {
             setupCanonRemoteMode();
+            seedPropertyCache();
         }
 
         eventLoop.setCanonMode(isCanon);
         eventLoop.start();
         log.info("Camera initialized: {} {} (Canon: {})",
                 deviceInfo.manufacturer(), deviceInfo.model(), isCanon);
+    }
+
+    /**
+     * Performs an initial GetEvent call to populate the property cache before the
+     * event loop starts.  Canon cameras deliver all current property values in
+     * the first GetEvent response after SetRemoteMode/SetEventMode.
+     */
+    private void seedPropertyCache() {
+        try {
+            PtpTransport.DataResponse dr = session.executeReceiveData(CanonConstants.OC_EOS_GET_EVENT);
+            if (dr.response().code() == PtpConstants.RC_OK && dr.data() != null) {
+                List<CanonEventParser.CanonEvent> events = CanonEventParser.parse(dr.data());
+                int cached = 0;
+                for (CanonEventParser.CanonEvent event : events) {
+                    if (event.isPropertyChanged()) {
+                        eventLoop.cacheProperty(event.getPropertyCode(), event.getPropertyValue());
+                        cached++;
+                    }
+                }
+                log.debug("Seeded property cache with {} values from initial GetEvent", cached);
+            }
+        } catch (Exception e) {
+            log.debug("Initial GetEvent for property seeding failed: {}", e.getMessage());
+        }
     }
 
     private void setupCanonRemoteMode() {
@@ -377,9 +402,14 @@ public class PtpCamera implements AutoCloseable {
         if (!isCanon) {
             throw new PtpException("LiveView is only supported on Canon cameras");
         }
-        PtpContainer response = session.executeOperation(CanonConstants.OC_EOS_SET_DEVICE_PROP,
-                CanonConstants.DPC_EOS_EVF_OUTPUT, CanonConstants.EVF_OUTPUT_PC);
-        requireOkResponse("Start LiveView", response);
+        eventLoop.suspend();
+        try {
+            // Canon EOS requires enabling EVF mode first, then routing output to PC
+            setCanonProperty(CanonConstants.DPC_EOS_EVF_MODE, 1);
+            setCanonProperty(CanonConstants.DPC_EOS_EVF_OUTPUT, CanonConstants.EVF_OUTPUT_PC);
+        } finally {
+            eventLoop.resume();
+        }
         log.info("LiveView started");
     }
 
@@ -387,15 +417,25 @@ public class PtpCamera implements AutoCloseable {
         if (!isCanon) {
             throw new PtpException("LiveView is only supported on Canon cameras");
         }
-        PtpTransport.DataResponse dr = session.executeReceiveData(
-                CanonConstants.OC_EOS_GET_LIVEVIEW_DATA, 0x00100000);
-        return CanonLiveViewDecoder.extractJpeg(dr.data());
+        eventLoop.suspend();
+        try {
+            PtpTransport.DataResponse dr = session.executeReceiveData(
+                    CanonConstants.OC_EOS_GET_LIVEVIEW_DATA, 0x00100000);
+            return CanonLiveViewDecoder.extractJpeg(dr.data());
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     public void stopLiveView() {
         if (!isCanon) return;
-        session.executeOperation(CanonConstants.OC_EOS_SET_DEVICE_PROP,
-                CanonConstants.DPC_EOS_EVF_OUTPUT, CanonConstants.EVF_OUTPUT_TFT);
+        eventLoop.suspend();
+        try {
+            setCanonProperty(CanonConstants.DPC_EOS_EVF_OUTPUT, CanonConstants.EVF_OUTPUT_TFT);
+            setCanonProperty(CanonConstants.DPC_EOS_EVF_MODE, 0);
+        } finally {
+            eventLoop.resume();
+        }
         log.info("LiveView stopped");
     }
 
@@ -409,14 +449,24 @@ public class PtpCamera implements AutoCloseable {
 
     public void driveFocusNear(int magnitude) {
         ensureCanonFocusDriveSupported();
-        CanonFocusDrive drive = new CanonFocusDrive(transport);
-        drive.driveNear(magnitude, session.nextTransactionId());
+        eventLoop.suspend();
+        try {
+            CanonFocusDrive drive = new CanonFocusDrive(transport);
+            drive.driveNear(magnitude, session.nextTransactionId());
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     public void driveFocusFar(int magnitude) {
         ensureCanonFocusDriveSupported();
-        CanonFocusDrive drive = new CanonFocusDrive(transport);
-        drive.driveFar(magnitude, session.nextTransactionId());
+        eventLoop.suspend();
+        try {
+            CanonFocusDrive drive = new CanonFocusDrive(transport);
+            drive.driveFar(magnitude, session.nextTransactionId());
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     // ── Properties ──
@@ -442,34 +492,68 @@ public class PtpCamera implements AutoCloseable {
     }
 
     private int getCanonPropertyValue(int propertyCode) {
-        PtpDeviceProperty prop = session.getDevicePropertyDesc(propertyCode);
-        return prop.currentValue() instanceof Number n ? n.intValue() : 0;
+        // Canon EOS cameras deliver properties through GetEvent (0x9116).
+        // The EventLoop caches property values in the background — read from there.
+        return eventLoop.getPropertyValue(propertyCode);
+    }
+
+    /**
+     * Sets a Canon EOS device property via the data-write phase.
+     * Canon's SetDevicePropValueEx (0x9110) sends a data payload with format:
+     * {@code [4-byte totalSize][4-byte propCode][4-byte value]}
+     * where totalSize includes itself (= 0x0C for a single UINT32 property).
+     */
+    private void setCanonProperty(int propertyCode, int value) {
+        byte[] data = new byte[12];
+        java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        buf.putInt(12);            // totalSize (includes this field)
+        buf.putInt(propertyCode);
+        buf.putInt(value);
+        PtpContainer response = session.executeOperationWithData(
+                CanonConstants.OC_EOS_SET_DEVICE_PROP, data);
+        requireOkResponse("SetCanonProperty 0x" + Integer.toHexString(propertyCode), response);
     }
 
     // ── Storage ──
 
     public List<StorageEntry> listImages() {
-        List<StorageEntry> entries = new ArrayList<>();
-        int[] storageIds = session.getStorageIds();
-        for (int storageId : storageIds) {
-            int[] handles = session.getObjectHandles(storageId);
-            for (int handle : handles) {
-                PtpObjectInfo info = session.getObjectInfo(handle);
-                entries.add(new StorageEntry(
-                        handle, info.filename(), info.objectFormat(),
-                        info.compressedSize(), info.imagePixWidth(),
-                        info.imagePixHeight(), info.captureDate()));
+        eventLoop.suspend();
+        try {
+            List<StorageEntry> entries = new ArrayList<>();
+            int[] storageIds = session.getStorageIds();
+            for (int storageId : storageIds) {
+                int[] handles = session.getObjectHandles(storageId);
+                for (int handle : handles) {
+                    PtpObjectInfo info = session.getObjectInfo(handle);
+                    entries.add(new StorageEntry(
+                            handle, info.filename(), info.objectFormat(),
+                            info.compressedSize(), info.imagePixWidth(),
+                            info.imagePixHeight(), info.captureDate()));
+                }
             }
+            return entries;
+        } finally {
+            eventLoop.resume();
         }
-        return entries;
     }
 
     public byte[] downloadImage(int objectHandle) {
-        return session.getObject(objectHandle);
+        eventLoop.suspend();
+        try {
+            return session.getObject(objectHandle);
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     public byte[] downloadThumbnail(int objectHandle) {
-        return session.getThumb(objectHandle);
+        eventLoop.suspend();
+        try {
+            return session.getThumb(objectHandle);
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     // ── Events ──
