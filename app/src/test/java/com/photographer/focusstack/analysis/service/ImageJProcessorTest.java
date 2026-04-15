@@ -178,19 +178,11 @@ class ImageJProcessorTest {
     }
 
     private byte[] createCr3HeaderBytes() {
-        byte[] bytes = new byte[16];
-        bytes[0] = 0;
-        bytes[1] = 0;
-        bytes[2] = 0;
-        bytes[3] = 16;
-        bytes[4] = 'f';
-        bytes[5] = 't';
-        bytes[6] = 'y';
-        bytes[7] = 'p';
-        bytes[8] = 'c';
-        bytes[9] = 'r';
-        bytes[10] = 'x';
-        bytes[11] = ' ';
-        return bytes;
+        return new byte[]{
+                0, 0, 0, 16,
+                'f', 't', 'y', 'p',
+                'c', 'r', 'x', ' ',
+                0, 0, 0, 0
+        };
     }
 }

@@ -271,7 +271,7 @@ class CrxLosslessRawDecoderTest {
                     }
                 }
 
-                int absResidual = Math.abs(signedResidual);
+                int absResidual = (residual + 1) >> 1;
                 accumulator += absResidual;
                 sampleCount++;
                 long threshold = sampleCount << k;

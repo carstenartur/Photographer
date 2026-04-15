@@ -19,6 +19,7 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Image processing engine backed by ImageJ (headless).
@@ -34,6 +35,8 @@ public class ImageJProcessor {
     private static final Logger log = LoggerFactory.getLogger(ImageJProcessor.class);
     private static final double MAX_LAPLACIAN_VARIANCE = 16256.25;
     private static final float[] LAPLACIAN_KERNEL = {0, 1, 0, 1, -4, 1, 0, 1, 0};
+    private static final byte[] FTYP_SIGNATURE = {'f', 't', 'y', 'p'};
+    private static final byte[] CR3_MAJOR_BRAND = {'c', 'r', 'x', ' '};
 
     public ImageJProcessor() {
         System.setProperty("java.awt.headless", "true");
@@ -336,8 +339,8 @@ public class ImageJProcessor {
         if (data == null || data.length < 12) {
             return false;
         }
-        return data[4] == 'f' && data[5] == 't' && data[6] == 'y' && data[7] == 'p'
-                && data[8] == 'c' && data[9] == 'r' && data[10] == 'x' && data[11] == ' ';
+        return Arrays.equals(FTYP_SIGNATURE, Arrays.copyOfRange(data, 4, 8))
+                && Arrays.equals(CR3_MAJOR_BRAND, Arrays.copyOfRange(data, 8, 12));
     }
 
     private BufferedImage decodeCr3WithFallback(byte[] imageFileBytes) {
