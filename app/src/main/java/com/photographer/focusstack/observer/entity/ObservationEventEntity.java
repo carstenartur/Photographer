@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
@@ -16,7 +17,10 @@ import java.time.Instant;
  * JPA entity for persisting observation events.
  */
 @Entity
-@Table(name = "observation_events")
+@Table(name = "observation_events", indexes = {
+        @Index(name = "idx_obs_event_mode", columnList = "mode"),
+        @Index(name = "idx_obs_event_timestamp", columnList = "timestamp")
+})
 public class ObservationEventEntity {
 
     @Id

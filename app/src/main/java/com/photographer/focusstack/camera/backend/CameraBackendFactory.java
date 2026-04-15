@@ -4,6 +4,7 @@ import com.photographer.focusstack.camera.backend.FolderCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.plugin.CameraBackendPlugin;
+import com.photographer.focusstack.app.config.CameraConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,16 +51,18 @@ public class CameraBackendFactory {
             @Value("${camera.mock.simulate-disconnect-after-frames:0}") int simulateDisconnectAfterFrames,
             @Value("${camera.mock.simulate-empty-frame-at:0}") int simulateEmptyFrameAt,
             @Value("${camera.mock.simulate-movement-at:0}") int simulateMovementAt,
-            CameraBackendRegistry cameraBackendRegistry) {
+            CameraBackendRegistry cameraBackendRegistry,
+            CameraConfig cameraConfig) {
         this.mockDelayMs = mockDelayMs;
         this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;
         this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;
         this.simulateEmptyFrameAt = simulateEmptyFrameAt;
         this.simulateMovementAt = simulateMovementAt;
         this.cameraBackendRegistry = cameraBackendRegistry;
-        // Configure timeouts: 10 s connection, 30 s read (allows multi-MB JPEG downloads).
+        // Configure timeouts from CameraConfig (connection timeout) and fixed read timeout.
+        int connectTimeoutMs = (int) cameraConfig.connectionTimeout().toMillis();
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(10_000);
+        factory.setConnectTimeout(connectTimeoutMs);
         factory.setReadTimeout(30_000);
         this.restTemplate = new RestTemplate(factory);
     }

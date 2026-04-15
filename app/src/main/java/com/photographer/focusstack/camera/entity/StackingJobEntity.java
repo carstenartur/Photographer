@@ -4,11 +4,17 @@ import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.QualityMode;
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -20,12 +26,13 @@ import org.hibernate.search.mapper.pojo.mapping.definition.annotation.KeywordFie
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Entity
 @Indexed
-@Table(name = "stacking_jobs")
+@Table(name = "stacking_jobs", indexes = {
+        @Index(name = "idx_stacking_job_started_at", columnList = "startedAt")
+})
 public class StackingJobEntity {
 
     @Id
@@ -68,8 +75,11 @@ public class StackingJobEntity {
 
     private String stopReason;
 
-    @Column(length = 10000)
-    private String capturedFrameIds;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "stacking_job_frames", joinColumns = @JoinColumn(name = "job_id"))
+    @OrderColumn(name = "frame_order")
+    @Column(name = "frame_id", nullable = false)
+    private List<String> capturedFrameIds = new ArrayList<>();
 
     public StackingJobEntity() {
     }
@@ -90,10 +100,8 @@ public class StackingJobEntity {
             entity.paramMotionDetectionEnabled = job.parameters().motionDetectionEnabled();
             entity.paramQualityMode = job.parameters().qualityMode();
         }
-        if (job.frames() != null && !job.frames().isEmpty()) {
-            entity.capturedFrameIds = String.join(",", job.frames());
-        } else {
-            entity.capturedFrameIds = "";
+        if (job.frames() != null) {
+            entity.capturedFrameIds = new ArrayList<>(job.frames());
         }
         return entity;
     }
@@ -103,11 +111,8 @@ public class StackingJobEntity {
                 paramStartPosition, paramStepSize, paramMaxFrames,
                 paramAbortThreshold, paramMotionDetectionEnabled, paramQualityMode
         );
-        List<String> frames = new ArrayList<>();
-        if (capturedFrameIds != null && !capturedFrameIds.isEmpty()) {
-            frames = new ArrayList<>(Arrays.asList(capturedFrameIds.split(",")));
-        }
-        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params, frames, stopReason);
+        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params,
+                new ArrayList<>(capturedFrameIds), stopReason);
     }
 
     public String getId() {
@@ -150,12 +155,12 @@ public class StackingJobEntity {
         this.completedAt = completedAt;
     }
 
-    public String getCapturedFrameIds() {
+    public List<String> getCapturedFrameIds() {
         return capturedFrameIds;
     }
 
-    public void setCapturedFrameIds(String capturedFrameIds) {
-        this.capturedFrameIds = capturedFrameIds;
+    public void setCapturedFrameIds(List<String> capturedFrameIds) {
+        this.capturedFrameIds = capturedFrameIds != null ? capturedFrameIds : new ArrayList<>();
     }
 
     public String getStopReason() {

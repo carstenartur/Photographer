@@ -1,0 +1,4 @@
+logging:
+  level:
+    com.photographer.focusstack: DEBUG
+    org.springframework.security: DEBUG

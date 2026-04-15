@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -83,6 +84,14 @@ public class JobController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteJob(@PathVariable String id) {
+        if (jobService.deleteJob(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     /**
      * Serves a browser-displayable image for a single captured frame.
      *
@@ -136,8 +145,21 @@ public class JobController {
         return ResponseEntity.ok()
                 .contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "inline; filename=\"" + fileName + "\"")
+                        "inline; filename=\"" + sanitizeFileName(fileName) + "\"")
                 .body(imageBytes);
+    }
+
+    /** Sanitizes a filename for safe use in a Content-Disposition header value.
+     * Keeps only alphanumerics, dots, hyphens, and underscores; replaces all
+     * other characters (including CR, LF, quotes, semicolons, and equals signs
+     * that have meaning in HTTP header syntax) with underscores.
+     * Rejects path traversal sequences. */
+    static String sanitizeFileName(String fileName) {
+        if (fileName == null) return "download";
+        String sanitized = fileName.replaceAll("[^a-zA-Z0-9._\\-]", "_");
+        // Prevent path traversal via ".."
+        sanitized = sanitized.replace("..", "_");
+        return sanitized;
     }
 
     /** Derives a browser-friendly {@link MediaType} from a filename extension. */

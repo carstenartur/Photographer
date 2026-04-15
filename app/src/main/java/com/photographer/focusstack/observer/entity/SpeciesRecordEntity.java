@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -13,7 +14,9 @@ import java.time.Instant;
  * JPA entity for tracking species/subject sightings across observation events.
  */
 @Entity
-@Table(name = "species_records")
+@Table(name = "species_records", indexes = {
+        @Index(name = "idx_species_total_sightings", columnList = "totalSightings")
+})
 public class SpeciesRecordEntity {
 
     @Id

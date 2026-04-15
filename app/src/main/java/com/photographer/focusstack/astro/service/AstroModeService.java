@@ -81,6 +81,66 @@ public class AstroModeService {
                 .toList();
     }
 
+    /**
+     * Returns terminal astro sessions that finished before the given cutoff.
+     * Used for efficient retention cleanup without loading all sessions.
+     */
+    @Transactional(readOnly = true)
+    public List<AstroSession> findTerminalSessionsBefore(Instant cutoff) {
+        var terminalStatuses = java.util.Set.of(
+                AstroSessionStatus.COMPLETED, AstroSessionStatus.FAILED, AstroSessionStatus.ABORTED);
+        return repository.findByStatusInAndFinishedAtBefore(terminalStatuses, cutoff)
+                .stream()
+                .map(AstroSessionEntity::toRecord)
+                .toList();
+    }
+
+    /**
+     * Deletes an astro session and its associated files on disk.
+     * Only terminal sessions (COMPLETED, FAILED, ABORTED) can be deleted.
+     *
+     * @param id the session id
+     * @return {@code true} if the session was deleted, {@code false} if not found
+     * @throws IllegalStateException if the session is still active
+     */
+    @Transactional
+    public boolean deleteSession(String id) {
+        return repository.findById(id).map(entity -> {
+            AstroSessionStatus status = entity.getStatus();
+            if (status != AstroSessionStatus.COMPLETED
+                    && status != AstroSessionStatus.FAILED
+                    && status != AstroSessionStatus.ABORTED) {
+                throw new IllegalStateException(
+                        "Cannot delete session in state " + status + ". Abort it first.");
+            }
+            // Clean up output directory on disk
+            String outputDir = entity.getOutputDirectory();
+            // Delete DB row first so if it fails we don't lose data
+            repository.delete(entity);
+            log.info("Deleted astro session {}", id);
+            // Best-effort cleanup of output directory (after DB delete succeeds)
+            if (outputDir != null) {
+                try {
+                    Path dir = Path.of(outputDir);
+                    if (Files.exists(dir)) {
+                        try (var walk = Files.walk(dir)) {
+                            walk.sorted(java.util.Comparator.reverseOrder())
+                                    .forEach(p -> {
+                                        try { Files.deleteIfExists(p); }
+                                        catch (Exception ex) {
+                                            log.warn("Failed to delete {}: {}", p, ex.getMessage());
+                                        }
+                                    });
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to clean up session directory {}: {}", outputDir, e.getMessage());
+                }
+            }
+            return true;
+        }).orElse(false);
+    }
+
     public void requestAbort(String sessionId) {
         abortFlags.put(sessionId, true);
         log.info("Abort requested for astro session {}", sessionId);

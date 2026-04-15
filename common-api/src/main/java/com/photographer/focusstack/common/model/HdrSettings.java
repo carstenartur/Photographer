@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /** Configuration for an HDR Timelapse session. */
 public record HdrSettings(
+        @JsonProperty("cameraProfileId") String cameraProfileId,
         @JsonProperty("intervalSeconds") int intervalSeconds,
         @JsonProperty("bracketCount") int bracketCount,
         @JsonProperty("evStep") double evStep,
@@ -12,6 +13,6 @@ public record HdrSettings(
         @JsonProperty("tonemapEnabled") boolean tonemapEnabled
 ) {
     public static HdrSettings defaults() {
-        return new HdrSettings(10, 3, 1.0, 100, false, true);
+        return new HdrSettings(null, 10, 3, 1.0, 100, false, true);
     }
 }

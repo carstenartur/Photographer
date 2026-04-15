@@ -195,6 +195,19 @@ public class ObserverController {
         return ResponseEntity.notFound().build();
     }
 
+    /**
+     * Deletes a single species record by its ID.
+     *
+     * @param id the numeric ID of the species record
+     */
+    @DeleteMapping("/species/{id}")
+    public ResponseEntity<Void> deleteSpecies(@PathVariable Long id) {
+        if (observerService.deleteSpecies(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     // ---- Extended statistics ----
 
     /**

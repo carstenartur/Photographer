@@ -68,7 +68,7 @@ class FaceOrbitServiceTest {
 
     @Test
     void executeAutoMode_completesSuccessfully() {
-        FaceOrbitSettings settings = new FaceOrbitSettings(3, 180.0, true, true, 0.5, 0.3, true);
+        FaceOrbitSettings settings = new FaceOrbitSettings(null, 3, 180.0, true, true, 0.5, 0.3, true);
         CaptureSession session = service.createSession(settings);
 
         when(captureService.captureFrame(anyString(), anyInt(), anyDouble()))
@@ -82,7 +82,7 @@ class FaceOrbitServiceTest {
 
     @Test
     void generateProfile_returnsCompletedJob() {
-        FaceOrbitSettings settings = new FaceOrbitSettings(2, 180.0, false, false, 0.5, 0.3, false);
+        FaceOrbitSettings settings = new FaceOrbitSettings(null, 2, 180.0, false, false, 0.5, 0.3, false);
         CaptureSession session = service.createSession(settings);
 
         when(captureService.captureFrame(anyString(), anyInt(), anyDouble()))

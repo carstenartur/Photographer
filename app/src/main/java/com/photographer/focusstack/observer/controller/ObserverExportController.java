@@ -33,12 +33,14 @@ public class ObserverExportController {
 
     private static final String CSV_MIME = "text/csv;charset=UTF-8";
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private final ObservationEventRepository eventRepository;
     private final SpeciesRecordRepository speciesRepository;
 
-    public ObserverExportController(ObservationEventRepository eventRepository,
+    public ObserverExportController(ObjectMapper objectMapper,
+                                    ObservationEventRepository eventRepository,
                                     SpeciesRecordRepository speciesRepository) {
+        this.objectMapper = objectMapper;
         this.eventRepository = eventRepository;
         this.speciesRepository = speciesRepository;
     }

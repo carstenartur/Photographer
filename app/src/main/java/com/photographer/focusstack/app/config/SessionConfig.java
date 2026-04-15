@@ -1,8 +1,7 @@
 package com.photographer.focusstack.app.config;
 
-import com.photographer.focusstack.capture.BracketCaptureService;
-import com.photographer.focusstack.capture.SequenceCaptureService;
-import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.photographer.focusstack.face.analysis.FaceAnalysisEngine;
 import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;
 import com.photographer.focusstack.face.profile.FaceProfileEngine;
@@ -11,13 +10,16 @@ import com.photographer.focusstack.hdr.HdrProcessor;
 import com.photographer.focusstack.hdr.MockHdrProcessor;
 import com.photographer.focusstack.hdr.MockTonemapper;
 import com.photographer.focusstack.hdr.Tonemapper;
+import com.photographer.focusstack.session.CameraBackendProvider;
 import com.photographer.focusstack.session.FaceOrbitService;
 import com.photographer.focusstack.session.HdrTimelapseService;
+import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.storage.FileSessionStorage;
 import com.photographer.focusstack.storage.SessionStorage;
 import com.photographer.focusstack.video.MockVideoEncoder;
 import com.photographer.focusstack.video.VideoEncoder;
-import com.photographer.focusstack.camera.backend.MockCameraBackend;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,10 +30,14 @@ import java.nio.file.Path;
 
 /**
  * Spring configuration for HDR Timelapse and Face Orbit session services.
- * Wires the core modules together using mock adapters by default.
+ * Wires the core modules together.  Camera backends are resolved at
+ * session-start time via {@link CameraBackendFactory} using the camera profile
+ * ID stored in the session settings.
  */
 @Configuration
 public class SessionConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SessionConfig.class);
 
     @Bean
     public SessionStorage sessionStorage(
@@ -64,26 +70,42 @@ public class SessionConfig {
         return new MockFaceProfileEngine();
     }
 
+    /**
+     * {@link CameraBackendProvider} that resolves camera backends at session-start
+     * time via {@link CameraBackendFactory}, just as {@code StackingJobService} does.
+     */
+    @Bean
+    public CameraBackendProvider cameraBackendProvider(CameraBackendFactory backendFactory,
+                                                        CameraProfileService profileService) {
+        return cameraProfileId -> {
+            try {
+                return backendFactory.getBackend(profileService.getProfile(cameraProfileId));
+            } catch (Exception ex) {
+                log.warn("Cannot resolve camera backend for profile '{}': {}", cameraProfileId, ex.getMessage());
+                throw new SessionException(
+                        "Cannot resolve camera backend for profile '" + cameraProfileId + "'");
+            }
+        };
+    }
+
     @Bean
     public HdrTimelapseService hdrTimelapseService(
+            CameraBackendProvider cameraBackendProvider,
             SessionStorage sessionStorage,
             HdrProcessor hdrProcessor,
             Tonemapper tonemapper,
             VideoEncoder videoEncoder) {
-        CameraBackend mockBackend = new MockCameraBackend(0);
-        BracketCaptureService captureService = new BracketCaptureService(mockBackend);
-        return new HdrTimelapseService(captureService, sessionStorage,
+        return new HdrTimelapseService(cameraBackendProvider, sessionStorage,
                 hdrProcessor, tonemapper, videoEncoder);
     }
 
     @Bean
     public FaceOrbitService faceOrbitService(
+            CameraBackendProvider cameraBackendProvider,
             SessionStorage sessionStorage,
             FaceAnalysisEngine faceAnalysisEngine,
             FaceProfileEngine faceProfileEngine) {
-        CameraBackend mockBackend = new MockCameraBackend(0);
-        SequenceCaptureService captureService = new SequenceCaptureService(mockBackend);
-        return new FaceOrbitService(captureService, sessionStorage,
+        return new FaceOrbitService(cameraBackendProvider, sessionStorage,
                 faceAnalysisEngine, faceProfileEngine);
     }
 

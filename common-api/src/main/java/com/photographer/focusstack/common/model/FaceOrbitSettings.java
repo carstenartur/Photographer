@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /** Configuration for a Face Orbit Capture session. */
 public record FaceOrbitSettings(
+        @JsonProperty("cameraProfileId") String cameraProfileId,
         @JsonProperty("totalSteps") int totalSteps,
         @JsonProperty("angleRange") double angleRange,
         @JsonProperty("autoMode") boolean autoMode,
@@ -13,6 +14,6 @@ public record FaceOrbitSettings(
         @JsonProperty("faceDetectionRequired") boolean faceDetectionRequired
 ) {
     public static FaceOrbitSettings defaults() {
-        return new FaceOrbitSettings(18, 180.0, false, true, 0.5, 0.3, true);
+        return new FaceOrbitSettings(null, 18, 180.0, false, true, 0.5, 0.3, true);
     }
 }

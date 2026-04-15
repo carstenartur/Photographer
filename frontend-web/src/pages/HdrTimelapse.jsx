@@ -5,6 +5,7 @@ import {
   startHdrSession,
   stopHdrSession,
   getHdrBrackets,
+  generateHdrVideo,
 } from '../api/hdrTimelapseApi';
 
 const DEFAULT_SETTINGS = {
@@ -24,6 +25,7 @@ export default function HdrTimelapse() {
   const [brackets, setBrackets] = useState([]);
   const [error, setError] = useState(null);
   const [polling, setPolling] = useState(false);
+  const [generatingVideo, setGeneratingVideo] = useState(false);
 
   // Poll active session status
   useEffect(() => {
@@ -92,6 +94,29 @@ export default function HdrTimelapse() {
       setPolling(false);
     } catch (err) {
       setError(`Stop failed: ${err.message}`);
+    }
+  }
+
+  async function handleGenerateVideo() {
+    if (!activeSession) return;
+    setError(null);
+    setGeneratingVideo(true);
+    try {
+      const blob = await generateHdrVideo(activeSession.sessionId, 24, 1920, 1080);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `hdr-timelapse-${activeSession.sessionId.substring(0, 8)}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      setError(`Video generation failed: ${err.message}`);
+    } finally {
+      setGeneratingVideo(false);
     }
   }
 
@@ -169,6 +194,15 @@ export default function HdrTimelapse() {
             )}
             {activeSession.status === 'RUNNING' && (
               <button className="btn btn-danger" onClick={handleStop}>Stop</button>
+            )}
+            {(activeSession.status === 'COMPLETED' || activeSession.status === 'CANCELLED') && brackets.length > 0 && (
+              <button
+                className="btn btn-primary"
+                onClick={handleGenerateVideo}
+                disabled={generatingVideo}
+              >
+                {generatingVideo ? 'Generating Video…' : 'Generate Timelapse Video'}
+              </button>
             )}
           </div>
 

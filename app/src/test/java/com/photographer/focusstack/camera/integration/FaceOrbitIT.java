@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.integration;
 
+import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.FaceOrbitSettings;
 import com.photographer.focusstack.common.model.QualityCheck;
@@ -25,9 +26,22 @@ class FaceOrbitIT extends AbstractPostgresIntegrationTest {
     @Autowired
     private TestRestTemplate restTemplate;
 
+    /** ID of the mock camera profile created during setup for capture tests. */
+    private String mockCameraProfileId;
+
     @BeforeEach
     void setUpAuth() {
         restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+
+        // Create a mock camera profile so that capture-related tests can resolve
+        // the camera backend via CameraBackendFactory (cameraProfileId must be set
+        // in FaceOrbitSettings whenever captureNextStep / executeAutoMode is called).
+        CameraProfile mockProfile = new CameraProfile(
+                "face-orbit-it-mock", "Face Orbit IT Mock Camera",
+                "mock", "localhost", 5, 20, 0.1);
+        restTemplate.postForEntity("/api/cameras", new HttpEntity<>(mockProfile, jsonHeaders()),
+                CameraProfile.class);
+        mockCameraProfileId = "face-orbit-it-mock";
     }
 
     @Test
@@ -52,7 +66,8 @@ class FaceOrbitIT extends AbstractPostgresIntegrationTest {
 
     @Test
     void captureNextStep() {
-        FaceOrbitSettings settings = FaceOrbitSettings.defaults();
+        FaceOrbitSettings settings = new FaceOrbitSettings(
+                mockCameraProfileId, 18, 180.0, false, true, 0.5, 0.3, true);
         HttpEntity<FaceOrbitSettings> entity = new HttpEntity<>(settings, jsonHeaders());
 
         ResponseEntity<CaptureSession> createResponse = restTemplate.postForEntity(
@@ -68,7 +83,8 @@ class FaceOrbitIT extends AbstractPostgresIntegrationTest {
 
     @Test
     void completeSession() {
-        FaceOrbitSettings settings = FaceOrbitSettings.defaults();
+        FaceOrbitSettings settings = new FaceOrbitSettings(
+                mockCameraProfileId, 18, 180.0, false, true, 0.5, 0.3, true);
         HttpEntity<FaceOrbitSettings> entity = new HttpEntity<>(settings, jsonHeaders());
 
         ResponseEntity<CaptureSession> createResponse = restTemplate.postForEntity(

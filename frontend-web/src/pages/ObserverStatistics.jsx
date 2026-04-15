@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSpeciesRanking, getStats, getEventsByDate, getProfiles, getDailyStats, getSpeciesDetail } from '../api/observerApi';
+import { getSpeciesRanking, getStats, getEventsByDate, getProfiles, getDailyStats, getSpeciesDetail, deleteSpecies } from '../api/observerApi';
 import SpeciesChart from '../components/observer/SpeciesChart';
 
 export default function ObserverStatistics() {
@@ -58,6 +58,21 @@ export default function ObserverStatistics() {
   });
   const maxHourly = Math.max(...hourlyDistribution, 1);
 
+  async function handleDeleteSpecies(speciesId, speciesName) {
+    if (!window.confirm(`Delete all records for species "${speciesName}"? This cannot be undone.`)) return;
+    setError(null);
+    try {
+      await deleteSpecies(speciesId);
+      const updated = await getSpeciesRanking();
+      setSpecies(updated || []);
+      if (selectedSpecies === speciesName) {
+        setSelectedSpecies(null);
+      }
+    } catch (err) {
+      setError(`Delete failed: ${err.message}`);
+    }
+  }
+
   return (
     <div className="page">
       <h1>Observer Statistics</h1>
@@ -105,7 +120,17 @@ export default function ObserverStatistics() {
         )}
         {speciesDetail && (
           <div className="form-card" style={{ marginTop: '1rem' }}>
-            <h3>{speciesDetail.normalizedNameDe}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>{speciesDetail.normalizedNameDe}</h3>
+              {speciesDetail.id && (
+                <button
+                  className="btn btn-small btn-danger"
+                  onClick={() => handleDeleteSpecies(speciesDetail.id, speciesDetail.normalizedNameDe)}
+                >
+                  Delete Species
+                </button>
+              )}
+            </div>
             <div className="detail-grid">
               <div className="detail-item">
                 <span className="detail-label">Category</span>

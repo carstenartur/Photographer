@@ -81,6 +81,17 @@ public class AstroController {
     }
 
     /**
+     * Deletes a terminal session and its files on disk.
+     */
+    @DeleteMapping("/sessions/{id}")
+    public ResponseEntity<Void> deleteSession(@PathVariable String id) {
+        if (astroModeService.deleteSession(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    /**
      * Returns the result info for a completed session.
      */
     @GetMapping("/sessions/{id}/result")

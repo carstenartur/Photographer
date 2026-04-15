@@ -125,3 +125,73 @@ export function updateConfig(config) {
 export function getAiProviders() {
   return request('/observer/ai/providers');
 }
+
+/**
+ * Delete a species record by numeric ID.
+ * @param {number} id - Species record ID
+ */
+export function deleteSpecies(id) {
+  return request(`/observer/species/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+/**
+ * Create a new observer profile.
+ * @param {Object} profile - Profile data
+ */
+export function createProfile(profile) {
+  return request('/observer/profiles', {
+    method: 'POST',
+    body: JSON.stringify(profile),
+  });
+}
+
+/**
+ * Update an existing observer profile.
+ * @param {string} name - Profile name
+ * @param {Object} profile - Updated profile data
+ */
+export function updateProfile(name, profile) {
+  return request(`/observer/profiles/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    body: JSON.stringify(profile),
+  });
+}
+
+/**
+ * Test an AI provider connection.
+ * @param {Object} testRequest - { provider: string }
+ */
+export function testAiProvider(testRequest) {
+  return request('/observer/ai/test', {
+    method: 'POST',
+    body: JSON.stringify(testRequest),
+  });
+}
+
+/**
+ * Export observer events as CSV or JSON.
+ * @param {string} format - 'csv' or 'json'
+ * @returns {Promise<Blob>} file content
+ */
+export async function exportEvents(format = 'json') {
+  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+  const res = await fetch(`${BASE_URL}/observer/export/events?format=${encodeURIComponent(format)}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.blob();
+}
+
+/**
+ * Export species records as CSV or JSON.
+ * @param {string} format - 'csv' or 'json'
+ * @returns {Promise<Blob>} file content
+ */
+export async function exportSpecies(format = 'json') {
+  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+  const res = await fetch(`${BASE_URL}/observer/export/species?format=${encodeURIComponent(format)}`, {
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.blob();
+}

@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getJob, startJob, pauseJob, cancelJob } from '../api/jobApi';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getJob, startJob, pauseJob, cancelJob, deleteJob, exportJobFrames } from '../api/jobApi';
 import { getCameraStatus } from '../api/cameraApi';
 import PreviewPanel from '../components/PreviewPanel';
 
 export default function JobDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -106,6 +107,36 @@ export default function JobDetail() {
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm('Are you sure you want to delete this job? This will permanently remove the job and all its captured frame data.')) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteJob(id);
+      navigate('/jobs');
+    } catch (err) {
+      setError(`Delete failed: ${err.message}`);
+    }
+  }
+
+  async function handleExport() {
+    setError(null);
+    try {
+      const blob = await exportJobFrames(id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `job-${id.substring(0, 8)}-frames.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Export failed: ${err.message}`);
+    }
+  }
+
   if (error && !job) {
     return (
       <div className="page">
@@ -170,7 +201,11 @@ export default function JobDetail() {
         {(job.status === 'RUNNING' || job.status === 'PAUSED') && (
           <button
             className="btn btn-danger"
-            onClick={() => handleAction(cancelJob)}
+            onClick={() => {
+              if (window.confirm('Are you sure you want to cancel this job? This will stop the capture and cannot be undone.')) {
+                handleAction(cancelJob);
+              }
+            }}
           >
             Cancel
           </button>
@@ -178,6 +213,16 @@ export default function JobDetail() {
         <button className="btn" onClick={refreshJob}>
           Refresh
         </button>
+        {frames.length > 0 && (
+          <button className="btn" onClick={handleExport}>
+            Export Frames (ZIP)
+          </button>
+        )}
+        {(job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED') && (
+          <button className="btn btn-danger" onClick={handleDelete}>
+            Delete Job
+          </button>
+        )}
       </section>
 
       <section className="detail-section">

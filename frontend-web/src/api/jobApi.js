@@ -40,3 +40,24 @@ export function pauseJob(id) {
 export function cancelJob(id) {
   return request(`/jobs/${id}/cancel`, { method: 'POST' });
 }
+
+export function deleteJob(id) {
+  return request(`/jobs/${id}`, { method: 'DELETE' });
+}
+
+/**
+ * Export all frames for a job as a ZIP file.
+ * @param {string} id - Job ID
+ * @returns {Promise<Blob>} ZIP file blob
+ */
+export async function exportJobFrames(id) {
+  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+  const res = await fetch(`${BASE_URL}/jobs/${encodeURIComponent(id)}/export`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  }
+  return res.blob();
+}

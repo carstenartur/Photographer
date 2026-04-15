@@ -4,6 +4,8 @@ import {
   getAstroSession,
   listAstroSessions,
   abortAstroSession,
+  deleteAstroSession,
+  downloadAstroResultImage,
 } from '../api/astroApi';
 
 const DEFAULT_CAPTURE = {
@@ -127,6 +129,40 @@ export default function AstroSessions() {
     }
   }
 
+  async function handleDelete(sessionId) {
+    if (!window.confirm('Are you sure you want to delete this astro session? This will permanently remove the session and all its captured files.')) {
+      return;
+    }
+    setError(null);
+    try {
+      await deleteAstroSession(sessionId);
+      if (activeSession?.id === sessionId) {
+        setActiveSession(null);
+      }
+      const data = await listAstroSessions();
+      setSessions(data || []);
+    } catch (err) {
+      setError(`Delete failed: ${err.message}`);
+    }
+  }
+
+  async function handleDownloadResult(sessionId) {
+    setError(null);
+    try {
+      const blob = await downloadAstroResultImage(sessionId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `astro-${sessionId.substring(0, 8)}-result.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Download failed: ${err.message}`);
+    }
+  }
+
   function selectSession(session) {
     setActiveSession(session);
     if (!TERMINAL.has(session.status)) {
@@ -241,6 +277,16 @@ export default function AstroSessions() {
                 Abort
               </button>
             )}
+            {activeSession.status === 'COMPLETED' && (
+              <button className="btn btn-primary" onClick={() => handleDownloadResult(activeSession.id)}>
+                Download Result
+              </button>
+            )}
+            {TERMINAL.has(activeSession.status) && (
+              <button className="btn btn-danger" onClick={() => handleDelete(activeSession.id)}>
+                Delete Session
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -258,6 +304,7 @@ export default function AstroSessions() {
                 <th>Frames</th>
                 <th>Focus</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -272,6 +319,17 @@ export default function AstroSessions() {
                   <td>{s.captureConfig?.frameCount || '—'}</td>
                   <td>{s.focusConfig?.strategy || '—'}</td>
                   <td>{s.createdAt ? new Date(s.createdAt).toLocaleString() : '—'}</td>
+                  <td className="action-cell">
+                    {TERMINAL.has(s.status) && (
+                      <button
+                        className="btn btn-small btn-danger"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+                        title="Delete session and files"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
