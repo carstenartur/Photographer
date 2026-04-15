@@ -80,11 +80,15 @@ public class HdrTimelapseController {
 <span class="nc" id="L80">            return ResponseEntity.noContent().build();</span>
         }
 <span class="nc" id="L82">        String format = service.getVideoFormat();</span>
-<span class="nc" id="L83">        return ResponseEntity.ok()</span>
-<span class="nc" id="L84">                .contentType(MediaType.APPLICATION_OCTET_STREAM)</span>
-<span class="nc" id="L85">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
-                        &quot;attachment; filename=\&quot;timelapse-&quot; + sessionId + &quot;.&quot; + format + &quot;\&quot;&quot;)
-<span class="nc" id="L87">                .body(video);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        String safeFormat = format != null ? format.replaceAll(&quot;[^a-zA-Z0-9]&quot;, &quot;&quot;) : &quot;&quot;;</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (safeFormat.isEmpty()) {</span>
+<span class="nc" id="L85">            safeFormat = &quot;mp4&quot;;</span>
+        }
+<span class="nc" id="L87">        return ResponseEntity.ok()</span>
+<span class="nc" id="L88">                .contentType(MediaType.APPLICATION_OCTET_STREAM)</span>
+<span class="nc" id="L89">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
+<span class="nc" id="L90">                        &quot;attachment; filename=\&quot;timelapse-&quot; + sessionId.replaceAll(&quot;[^a-zA-Z0-9\\-]&quot;, &quot;_&quot;) + &quot;.&quot; + safeFormat + &quot;\&quot;&quot;)</span>
+<span class="nc" id="L91">                .body(video);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
