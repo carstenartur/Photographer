@@ -86,6 +86,9 @@ export default function ObserverDashboard() {
           <Link to="/observer/statistics" className="btn btn-secondary">
             Statistics
           </Link>
+          <Link to="/observer/settings" className="btn btn-secondary">
+            Settings
+          </Link>
         </div>
       </section>
 

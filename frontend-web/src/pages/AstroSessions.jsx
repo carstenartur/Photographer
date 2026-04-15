@@ -5,6 +5,7 @@ import {
   listAstroSessions,
   abortAstroSession,
   deleteAstroSession,
+  downloadAstroResultImage,
 } from '../api/astroApi';
 
 const DEFAULT_CAPTURE = {
@@ -145,6 +146,23 @@ export default function AstroSessions() {
     }
   }
 
+  async function handleDownloadResult(sessionId) {
+    setError(null);
+    try {
+      const blob = await downloadAstroResultImage(sessionId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `astro-${sessionId.substring(0, 8)}-result.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(`Download failed: ${err.message}`);
+    }
+  }
+
   function selectSession(session) {
     setActiveSession(session);
     if (!TERMINAL.has(session.status)) {
@@ -257,6 +275,11 @@ export default function AstroSessions() {
             {!TERMINAL.has(activeSession.status) && (
               <button className="btn btn-danger" onClick={handleAbort}>
                 Abort
+              </button>
+            )}
+            {activeSession.status === 'COMPLETED' && (
+              <button className="btn btn-primary" onClick={() => handleDownloadResult(activeSession.id)}>
+                Download Result
               </button>
             )}
             {TERMINAL.has(activeSession.status) && (

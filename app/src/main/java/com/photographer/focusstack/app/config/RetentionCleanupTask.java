@@ -98,16 +98,14 @@ public class RetentionCleanupTask {
         if (config.astroMaxAgeDays() > 0) {
             Instant cutoff = Instant.now().minus(Duration.ofDays(config.astroMaxAgeDays()));
             int astroDeleted = 0;
-            for (var session : astroModeService.listSessions()) {
-                if (session.finishedAt() != null && session.finishedAt().isBefore(cutoff)) {
-                    try {
-                        if (astroModeService.deleteSession(session.id())) {
-                            astroDeleted++;
-                        }
-                    } catch (Exception e) {
-                        log.warn("Failed to delete astro session {}: {}",
-                                session.id(), e.getMessage());
+            for (var session : astroModeService.findTerminalSessionsBefore(cutoff)) {
+                try {
+                    if (astroModeService.deleteSession(session.id())) {
+                        astroDeleted++;
                     }
+                } catch (Exception e) {
+                    log.warn("Failed to delete astro session {}: {}",
+                            session.id(), e.getMessage());
                 }
             }
             totalDeleted += astroDeleted;

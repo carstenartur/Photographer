@@ -120,11 +120,7 @@ public class ObserverService implements ObservationEventListener {
      */
     @Transactional
     public long deleteEventsOlderThan(java.time.Instant olderThan) {
-        List<ObservationEventEntity> old = eventRepository.findByTimestampBetweenOrderByTimestampDesc(
-                java.time.Instant.EPOCH, olderThan);
-        long count = old.size();
-        eventRepository.deleteAll(old);
-        return count;
+        return eventRepository.deleteByTimestampBefore(olderThan);
     }
 
     /**

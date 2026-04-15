@@ -82,6 +82,20 @@ public class AstroModeService {
     }
 
     /**
+     * Returns terminal astro sessions that finished before the given cutoff.
+     * Used for efficient retention cleanup without loading all sessions.
+     */
+    @Transactional(readOnly = true)
+    public List<AstroSession> findTerminalSessionsBefore(Instant cutoff) {
+        var terminalStatuses = java.util.Set.of(
+                AstroSessionStatus.COMPLETED, AstroSessionStatus.FAILED, AstroSessionStatus.ABORTED);
+        return repository.findByStatusInAndFinishedAtBefore(terminalStatuses, cutoff)
+                .stream()
+                .map(AstroSessionEntity::toRecord)
+                .toList();
+    }
+
+    /**
      * Deletes an astro session and its associated files on disk.
      * Only terminal sessions (COMPLETED, FAILED, ABORTED) can be deleted.
      *
@@ -101,6 +115,10 @@ public class AstroModeService {
             }
             // Clean up output directory on disk
             String outputDir = entity.getOutputDirectory();
+            // Delete DB row first so if it fails we don't lose data
+            repository.delete(entity);
+            log.info("Deleted astro session {}", id);
+            // Best-effort cleanup of output directory (after DB delete succeeds)
             if (outputDir != null) {
                 try {
                     Path dir = Path.of(outputDir);
@@ -109,7 +127,7 @@ public class AstroModeService {
                             walk.sorted(java.util.Comparator.reverseOrder())
                                     .forEach(p -> {
                                         try { Files.deleteIfExists(p); }
-                                        catch (IOException ex) {
+                                        catch (Exception ex) {
                                             log.warn("Failed to delete {}: {}", p, ex.getMessage());
                                         }
                                     });
@@ -119,8 +137,6 @@ public class AstroModeService {
                     log.warn("Failed to clean up session directory {}: {}", outputDir, e.getMessage());
                 }
             }
-            repository.delete(entity);
-            log.info("Deleted astro session {}", id);
             return true;
         }).orElse(false);
     }

@@ -14,6 +14,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.concurrent.TimeUnit;
 
@@ -94,9 +96,9 @@ class DataLifecycleIT extends AbstractPostgresIntegrationTest {
         // Verify it's gone
         ResponseEntity<String> getResp = restTemplate.getForEntity(
                 "/api/jobs/" + jobId, String.class);
-        // The service throws CameraException("Job not found") which returns an error status
-        assertTrue(getResp.getStatusCode().is4xxClientError() || getResp.getStatusCode().is5xxServerError(),
-                "Expected error response after deletion, got " + getResp.getStatusCode());
+        // The service throws CameraException("Job not found") which maps to 400 via GlobalExceptionHandler
+        assertEquals(HttpStatus.BAD_REQUEST, getResp.getStatusCode(),
+                "Expected 400 BAD_REQUEST after deletion, got " + getResp.getStatusCode());
     }
 
     @Test
@@ -134,10 +136,12 @@ class DataLifecycleIT extends AbstractPostgresIntegrationTest {
                 "/api/astro/sessions", new HttpEntity<>(sessionJson, headers), String.class);
         assertEquals(HttpStatus.CREATED, createResp.getStatusCode());
 
-        // Extract session ID from response
+        // Extract session ID from response using proper JSON parsing
         String body = createResp.getBody();
         assertNotNull(body);
-        String sessionId = body.replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(body);
+        String sessionId = node.get("id").asText();
         assertNotNull(sessionId);
 
         // Wait for terminal state

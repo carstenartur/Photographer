@@ -63,3 +63,19 @@ export function deleteAstroSession(id) {
 export function getAstroResult(id) {
   return request(`/astro/sessions/${encodeURIComponent(id)}/result`);
 }
+
+/**
+ * Download the stacked result image for a completed astro session.
+ * @param {string} id
+ * @returns {Promise<Blob>} image blob
+ */
+export async function downloadAstroResultImage(id) {
+  const res = await fetch(`${BASE_URL}/astro/sessions/${encodeURIComponent(id)}/result`, {
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  }
+  return res.blob();
+}

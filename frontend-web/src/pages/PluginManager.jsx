@@ -16,18 +16,17 @@ export default function PluginManager() {
 
   useEffect(() => {
     let cancelled = false;
-    loadPlugins(cancelled);
+    async function load() {
+      try {
+        const data = await listPlugins();
+        if (!cancelled) setPlugins(data || []);
+      } catch (err) {
+        if (!cancelled) setError(`Failed to load plugins: ${err.message}`);
+      }
+    }
+    load();
     return () => { cancelled = true; };
   }, []);
-
-  async function loadPlugins(cancelled) {
-    try {
-      const data = await listPlugins();
-      if (!cancelled) setPlugins(data || []);
-    } catch (err) {
-      if (!cancelled) setError(`Failed to load plugins: ${err.message}`);
-    }
-  }
 
   async function refreshPlugins() {
     setError(null);
