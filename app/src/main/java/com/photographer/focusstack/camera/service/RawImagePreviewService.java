@@ -2,11 +2,14 @@ package com.photographer.focusstack.camera.service;
 
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.awt.image.BufferedImage;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.io.ByteArrayInputStream;
@@ -78,6 +81,26 @@ public class RawImagePreviewService {
             return new PreviewResult(jpegBytes, previewName);
         } catch (Exception e) {
             log.error("Failed to extract JPEG preview from {}: {}", originalFileName, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Decodes a full RAW-processed image from CR3 bytes for high-quality analysis pipelines.
+     *
+     * @param rawBytes CR3 bytes
+     * @return decoded RGB image, or {@code null} if decoding fails
+     */
+    public BufferedImage decodeFullRaw(byte[] rawBytes) {
+        if (rawBytes == null || rawBytes.length == 0) {
+            return null;
+        }
+        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {
+            Cr3Decoder decoder = new Cr3Decoder();
+            decoder.setInput(iis);
+            return decoder.decode(Cr3DecodeOptions.rawProcessed());
+        } catch (Exception e) {
+            log.error("Failed to decode full CR3 RAW image: {}", e.getMessage(), e);
             return null;
         }
     }

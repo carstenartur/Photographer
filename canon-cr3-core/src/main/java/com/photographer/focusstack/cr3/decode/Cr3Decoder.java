@@ -1,6 +1,7 @@
 package com.photographer.focusstack.cr3.decode;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.container.Cr3Track;
@@ -198,8 +199,29 @@ public final class Cr3Decoder {
             throw new Cr3Exception("Invalid CRX RAW track size: " + rawTrack.dataSize());
         }
 
+        int rawWidth = rawTrack.width();
+        int rawHeight = rawTrack.height();
+        int bitDepth = metadata != null ? metadata.bitDepth() : 14;
+        Cmp1Box cmp1 = rawTrack.cmp1();
+        if (cmp1 != null) {
+            if (cmp1.imageWidth() > 0) {
+                rawWidth = cmp1.imageWidth();
+            }
+            if (cmp1.imageHeight() > 0) {
+                rawHeight = cmp1.imageHeight();
+            }
+            if (cmp1.bitsPerSample() > 0) {
+                bitDepth = cmp1.bitsPerSample();
+            }
+            LOG.info("Using CMP1 metadata: {}x{}, bitDepth={}, tiles={}x{}, planes={}, "
+                            + "waveletLevels={}, encodingType={}, multipleHTiles={}, mdatHeaderSize={}",
+                    rawWidth, rawHeight, bitDepth, cmp1.tileWidth(), cmp1.tileHeight(),
+                    cmp1.numPlanes(), cmp1.waveletLevels(), cmp1.encodingType(),
+                    cmp1.multipleHTiles(), cmp1.mdatHeaderSize());
+        }
+
         LOG.info("Reading CRX RAW track: {}x{}, {} bytes at offset {}",
-                rawTrack.width(), rawTrack.height(), rawTrack.dataSize(), rawTrack.dataOffset());
+                rawWidth, rawHeight, rawTrack.dataSize(), rawTrack.dataOffset());
 
         // Read the raw CRX data
         byte[] crxData = new byte[(int) rawTrack.dataSize()];
@@ -212,10 +234,47 @@ public final class Cr3Decoder {
             codecVersion = CrxHeader.detectVersion(container.cncvBox().versionString());
         }
 
-        // Determine bit depth
-        int bitDepth = metadata != null ? metadata.bitDepth() : 14;
+        Cr3RawImage decoded = CrxLosslessRawDecoder.decode(crxData, rawWidth, rawHeight,
+                bitDepth, codecVersion, cmp1);
 
-        return CrxLosslessRawDecoder.decode(crxData, rawTrack.width(), rawTrack.height(),
-                bitDepth, codecVersion);
+        if (options.cropToActiveArea()) {
+            return cropToActiveArea(decoded);
+        }
+        return decoded;
+    }
+
+    private Cr3RawImage cropToActiveArea(Cr3RawImage image) {
+        if (metadata == null) {
+            return image;
+        }
+
+        int left = clamp(metadata.activeAreaLeft(), 0, image.width());
+        int top = clamp(metadata.activeAreaTop(), 0, image.height());
+        int right = clamp(metadata.activeAreaRight(), 0, image.width());
+        int bottom = clamp(metadata.activeAreaBottom(), 0, image.height());
+
+        if (right <= left || bottom <= top) {
+            return image;
+        }
+
+        int croppedWidth = right - left;
+        int croppedHeight = bottom - top;
+        if (croppedWidth == image.width() && croppedHeight == image.height()) {
+            return image;
+        }
+
+        int[] src = image.data();
+        int[] cropped = new int[croppedWidth * croppedHeight];
+        for (int y = 0; y < croppedHeight; y++) {
+            int srcOffset = (top + y) * image.width() + left;
+            int dstOffset = y * croppedWidth;
+            System.arraycopy(src, srcOffset, cropped, dstOffset, croppedWidth);
+        }
+        return new Cr3RawImage(croppedWidth, croppedHeight, cropped,
+                image.bitDepth(), image.bayerPattern());
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(value, max));
     }
 }

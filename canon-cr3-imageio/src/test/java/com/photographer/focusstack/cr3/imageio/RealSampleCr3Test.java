@@ -264,6 +264,45 @@ class RealSampleCr3Test {
                 assertThat(img.getHeight()).as("thumbnail height").isEqualTo(120);
             }
         }
+
+        @Test
+        @DisplayName("RAW_PROCESSED mode decodes full RAW dimensions")
+        void decodesRawProcessed() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+                Cr3Metadata meta = decoder.getMetadata();
+
+                BufferedImage img = decoder.decode(Cr3DecodeOptions.rawProcessed());
+                assertThat(img).isNotNull();
+                assertThat(img.getWidth()).as("raw processed width")
+                        .isEqualTo(meta.visibleWidth());
+                assertThat(img.getHeight()).as("raw processed height")
+                        .isEqualTo(meta.visibleHeight());
+                assertThat(img.getWidth()).isGreaterThan(1620);
+                assertThat(img.getHeight()).isGreaterThan(1080);
+            }
+        }
+
+        @Test
+        @DisplayName("RAW_LINEAR mode respects cropToActiveArea option")
+        void rawLinearCropToActiveArea() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+                Cr3Metadata meta = decoder.getMetadata();
+
+                BufferedImage cropped = decoder.decode(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
+                BufferedImage full = decoder.decode(Cr3DecodeOptions.rawLinear().cropToActiveArea(false));
+
+                assertThat(cropped.getWidth()).isEqualTo(meta.visibleWidth());
+                assertThat(cropped.getHeight()).isEqualTo(meta.visibleHeight());
+                assertThat(full.getWidth()).isEqualTo(meta.sensorWidth());
+                assertThat(full.getHeight()).isEqualTo(meta.sensorHeight());
+                assertThat(cropped.getWidth()).isLessThanOrEqualTo(full.getWidth());
+                assertThat(cropped.getHeight()).isLessThanOrEqualTo(full.getHeight());
+            }
+        }
     }
 
     // ── CanonCr3ImageReader (ImageIO) ──────────────────────────────────────

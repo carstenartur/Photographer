@@ -1,11 +1,14 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
 
 /**
  * Decoder for Canon CRX lossless RAW data.
@@ -48,7 +51,7 @@ public final class CrxLosslessRawDecoder {
      */
     public static Cr3RawImage decode(byte[] data, int width, int height, int bitDepth)
             throws Cr3Exception {
-        return decode(data, width, height, bitDepth, CrxHeader.CodecVersion.V1);
+        return decode(data, width, height, bitDepth, CrxHeader.CodecVersion.V1, null);
     }
 
     /**
@@ -63,14 +66,43 @@ public final class CrxLosslessRawDecoder {
      * @throws Cr3Exception if decoding fails
      */
     public static Cr3RawImage decode(byte[] data, int width, int height,
-                                      int bitDepth, CrxHeader.CodecVersion version)
+                                       int bitDepth, CrxHeader.CodecVersion version)
             throws Cr3Exception {
+        return decode(data, width, height, bitDepth, version, null);
+    }
+
+    /**
+     * Decodes CRX lossless RAW data with codec version and CMP1 metadata.
+     *
+     * @param data     the raw CRX compressed data
+     * @param width    expected image width
+     * @param height   expected image height
+     * @param bitDepth expected bit depth
+     * @param version  the CRX codec version
+     * @param cmp1     optional CMP1 metadata from the track
+     * @return the decoded RAW image
+     * @throws Cr3Exception if decoding fails
+     */
+    public static Cr3RawImage decode(byte[] data, int width, int height,
+                                     int bitDepth, CrxHeader.CodecVersion version, Cmp1Box cmp1)
+            throws Cr3Exception {
+        if (data == null || data.length == 0) {
+            throw new Cr3Exception("CRX data is empty");
+        }
+        if (width <= 0 || height <= 0) {
+            throw new Cr3Exception("Invalid RAW dimensions: " + width + "x" + height);
+        }
+        if (bitDepth <= 0 || bitDepth > 16) {
+            throw new Cr3Exception("Unsupported bit depth: " + bitDepth);
+        }
+
         LOG.info("CRX lossless decode: {}x{}, {}-bit, {} bytes compressed, codec {}",
                 width, height, bitDepth, data.length, version);
 
         try {
-            // 1. Parse CRX header
-            CrxHeader header = CrxHeader.parse(data, version);
+            ParsedCrx parsedCrx = parseCrxData(data, version, cmp1);
+            byte[] crxData = parsedCrx.data();
+            CrxHeader header = parsedCrx.header();
             LOG.debug("Parsed CRX header: {} tiles, header size={}", header.tiles().size(),
                     header.headerSize());
 
@@ -78,15 +110,25 @@ public final class CrxLosslessRawDecoder {
                 throw new Cr3Exception("No tiles found in CRX header");
             }
 
+            if (cmp1 != null && !cmp1.isLossless()) {
+                throw new Cr3Exception("Unsupported CRX mode: waveletLevels="
+                        + cmp1.waveletLevels() + " (only lossless is supported)");
+            }
+
             // 2. Determine plane dimensions
             // Each Bayer plane is half the width and half the height
-            int planeWidth = width / 2;
-            int planeHeight = height / 2;
+            int planeWidth = (width + 1) / 2;
+            int planeHeight = (height + 1) / 2;
+            int requiredPlanes = cmp1 != null && cmp1.numPlanes() > 0 ? cmp1.numPlanes() : 4;
+            if (requiredPlanes < 4) {
+                throw new Cr3Exception("Unsupported number of planes: " + requiredPlanes
+                        + " (expected at least 4 for Bayer)");
+            }
 
             // 3. Decode each tile's planes
-            // For big images with 2 tiles: left half and right half
             int numTiles = header.tiles().size();
-            int tilePixelWidth = numTiles > 1 ? planeWidth / 2 : planeWidth;
+            int nominalTilePlaneWidth = resolveTilePlaneWidth(cmp1, numTiles, planeWidth, width);
+            int tilePlaneHeight = resolveTilePlaneHeight(cmp1, planeHeight);
 
             // Allocate output planes (one per Bayer channel)
             int[][] planes = new int[4][];
@@ -94,7 +136,12 @@ public final class CrxLosslessRawDecoder {
                 planes[i] = new int[planeWidth * planeHeight];
             }
 
-            for (CrxHeader.Tile tile : header.tiles()) {
+            CrxHeader.Tile[] sortedTiles = header.tiles().toArray(new CrxHeader.Tile[0]);
+            Arrays.sort(sortedTiles, Comparator.comparingInt(CrxHeader.Tile::index));
+            int tileXOffset = 0;
+
+            for (int tilePosition = 0; tilePosition < sortedTiles.length; tilePosition++) {
+                CrxHeader.Tile tile = sortedTiles[tilePosition];
                 if (tile.planes().size() < 4) {
                     throw new Cr3Exception("Expected 4 planes, got " + tile.planes().size()
                             + " in tile " + tile.index());
@@ -106,8 +153,12 @@ public final class CrxLosslessRawDecoder {
                             + " must be between 0 and " + (numTiles - 1) + " (inclusive)");
                 }
 
-                int tileXOffset = tile.index() * tilePixelWidth;
-                if (tileXOffset + tilePixelWidth > planeWidth) {
+                int remainingPlaneWidth = planeWidth - tileXOffset;
+                int tilePixelWidth = tilePosition == sortedTiles.length - 1
+                        ? remainingPlaneWidth
+                        : Math.min(nominalTilePlaneWidth, remainingPlaneWidth);
+
+                if (tilePixelWidth <= 0 || tileXOffset + tilePixelWidth > planeWidth) {
                     throw new Cr3Exception("Tile " + tile.index() + " exceeds plane width: "
                             + (tileXOffset + tilePixelWidth) + " > " + planeWidth);
                 }
@@ -129,22 +180,39 @@ public final class CrxLosslessRawDecoder {
                     int subDataOffset = (int) subband.dataOffset();
                     int subDataEnd = subDataOffset + (int) subband.dataSize();
 
-                    if (subDataEnd > data.length) {
-                        throw new Cr3Exception("Subband data extends past end of CRX data: "
-                                + subDataEnd + " > " + data.length);
+                    if (subDataOffset >= crxData.length) {
+                        throw new Cr3Exception("Subband offset past end of CRX data: "
+                                + subDataOffset + " >= " + crxData.length);
+                    }
+                    if (subDataEnd > crxData.length) {
+                        LOG.debug("Subband {} in plane {} tile {} extends {} bytes past CRX payload; "
+                                        + "clamping to available data", subband.index(), planeIdx,
+                                tile.index(), (subDataEnd - crxData.length));
+                        subDataEnd = crxData.length;
+                    }
+                    if (subDataEnd <= subDataOffset) {
+                        throw new Cr3Exception("Invalid subband range: [" + subDataOffset + ", "
+                                + subDataEnd + ")");
                     }
 
                     // Decode this plane's subband
-                    int[] decoded = decodePlane(data, subDataOffset, subDataEnd,
-                            tilePixelWidth, planeHeight, bitDepth);
+                    int[] decoded = decodePlane(crxData, subDataOffset, subDataEnd,
+                            tilePixelWidth, tilePlaneHeight, bitDepth);
 
                     // Copy decoded tile data into the full plane array
-                    for (int row = 0; row < planeHeight; row++) {
+                    for (int row = 0; row < tilePlaneHeight; row++) {
                         System.arraycopy(decoded, row * tilePixelWidth,
                                 planes[planeIdx], row * planeWidth + tileXOffset,
                                 tilePixelWidth);
                     }
                 }
+
+                tileXOffset += tilePixelWidth;
+            }
+
+            if (tileXOffset != planeWidth) {
+                throw new Cr3Exception("CRX tile widths do not cover full image plane: "
+                        + tileXOffset + " != " + planeWidth);
             }
 
             // 4. Interleave planes into Bayer pattern
@@ -159,6 +227,51 @@ public final class CrxLosslessRawDecoder {
             throw new Cr3Exception("CRX lossless decoding failed: " + e.getMessage(), e);
         }
     }
+
+    private static ParsedCrx parseCrxData(byte[] data, CrxHeader.CodecVersion version, Cmp1Box cmp1)
+            throws IOException {
+        try {
+            CrxHeader header = CrxHeader.parse(data, version);
+            if (!header.tiles().isEmpty()) {
+                return new ParsedCrx(data, header);
+            }
+            int headerSize = cmp1 != null ? cmp1.mdatHeaderSize() : 0;
+            if (headerSize > 0 && headerSize < data.length) {
+                byte[] stripped = Arrays.copyOfRange(data, headerSize, data.length);
+                LOG.debug("CRX header had no tiles at offset 0, retrying with CMP1 mdatHeaderSize={} "
+                        + "bytes stripped", headerSize);
+                return new ParsedCrx(stripped, CrxHeader.parse(stripped, version));
+            }
+            return new ParsedCrx(data, header);
+        } catch (IOException firstError) {
+            int headerSize = cmp1 != null ? cmp1.mdatHeaderSize() : 0;
+            if (headerSize > 0 && headerSize < data.length) {
+                byte[] stripped = Arrays.copyOfRange(data, headerSize, data.length);
+                LOG.debug("CRX header parse failed at offset 0, retrying with CMP1 mdatHeaderSize={} "
+                        + "bytes stripped", headerSize);
+                return new ParsedCrx(stripped, CrxHeader.parse(stripped, version));
+            }
+            throw firstError;
+        }
+    }
+
+    private static int resolveTilePlaneWidth(Cmp1Box cmp1, int numTiles, int planeWidth, int rawWidth) {
+        if (cmp1 != null && cmp1.tileWidth() > 0) {
+            int cmp1PlaneTileWidth = Math.max(1, (cmp1.tileWidth() + 1) / 2);
+            return Math.min(cmp1PlaneTileWidth, planeWidth);
+        }
+        return numTiles > 1 ? Math.max(1, (rawWidth / numTiles + 1) / 2) : planeWidth;
+    }
+
+    private static int resolveTilePlaneHeight(Cmp1Box cmp1, int planeHeight) {
+        if (cmp1 != null && cmp1.tileHeight() > 0) {
+            int cmp1PlaneTileHeight = Math.max(1, (cmp1.tileHeight() + 1) / 2);
+            return Math.min(cmp1PlaneTileHeight, planeHeight);
+        }
+        return planeHeight;
+    }
+
+    private record ParsedCrx(byte[] data, CrxHeader header) {}
 
     /**
      * Decodes a single plane using adaptive Rice-Golomb coding with MED prediction.
@@ -181,6 +294,7 @@ public final class CrxLosslessRawDecoder {
         long sampleCount = 1;
         int range = maxVal + 1;
         int near = 0; // lossless: near = 0
+        boolean streamExhausted = false;
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
@@ -205,7 +319,23 @@ public final class CrxLosslessRawDecoder {
                 }
 
                 // Adaptive Rice-Golomb decode of the prediction residual
-                int residual = decodeAdaptiveRiceGolomb(reader, k);
+                int residual;
+                if (streamExhausted) {
+                    residual = 0;
+                } else {
+                    try {
+                        residual = decodeAdaptiveRiceGolomb(reader, k);
+                    } catch (IOException e) {
+                        if (e.getMessage() != null && e.getMessage().contains("Unexpected end of stream")) {
+                            LOG.debug("CRX plane bitstream ended early at ({},{}), padding remaining "
+                                    + "pixels with predicted values", x, y);
+                            streamExhausted = true;
+                            residual = 0;
+                        } else {
+                            throw e;
+                        }
+                    }
+                }
 
                 // Zigzag decode: even→positive, odd→negative
                 int signedResidual;
