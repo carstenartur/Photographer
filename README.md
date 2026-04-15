@@ -84,13 +84,13 @@ npm run dev
 
 ## Build & Test
 
-Backend full verify:
+Backend full verify (same command used by CI):
 
 ```bash
-mvn -B clean verify -am -Djava.awt.headless=true
+mvn -B clean verify \
+  -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
+  -am -Djava.awt.headless=true
 ```
-
-The CI workflow uses an explicit `-pl ...` module list; see `.github/workflows/ci.yml` for the exact pinned command.
 
 Frontend:
 
