@@ -1,4 +1,4 @@
-# Focus Stack
+# Focus Stack (Photographer)
 
 [![CI](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/coverage/badge.json)](https://carstenartur.github.io/Photographer/coverage/)
@@ -7,168 +7,115 @@
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
 [![GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?style=flat-square)](https://github.com/carstenartur/Photographer/releases)
 
-**Adaptive Focus Stacking over Wi-Fi for Canon cameras with live analysis and browser-based control**
+Focus Stack is a modular Java 21 + Spring Boot 4 photography platform with a React frontend for:
 
-Focus Stack automates focus-stacking workflows for cameras equipped
-with CCAPI (Camera Control API). A browser-based UI lets you frame the shot with
-Live View, configure a focus sweep, and launch an adaptive capture sequence that
-analyses each frame in real time—stopping automatically when it detects the
-subject has moved or the entire depth of field has been covered.
+- Canon CCAPI camera control and adaptive focus stacking
+- HDR timelapse, face-orbit capture, and astro sessions
+- Observer workflows with AI vision providers
+- Runtime plugin loading (ServiceLoader-based, no PF4J)
+- Canon CR3 decoding libraries and CLI/ImageIO integration
 
----
+## Current Status
 
-## Features
+The repository is an active multi-module monorepo with:
 
-| Feature | Description |
+- 18 Maven modules (core app + domain modules + plugin/CR3/frontend modules)
+- CI running full `mvn clean verify` (unit + integration tests) and frontend lint/build
+- Docker-first local setup with PostgreSQL and mock camera defaults
+
+## Key Modules
+
+| Module | Purpose |
 |---|---|
-| **Canon CCAPI support** | Control compatible Canon cameras over Wi-Fi using the official Camera Control API. |
-| **Browser UI** | Responsive React front-end for live preview, capture control, and stack review. |
-| **Live View preview** | Real-time MJPEG stream from the camera displayed in the browser. |
-| **Adaptive focus stacking** | Automatically steps through the focus range, analysing sharpness to decide the next position. |
-| **Movement-aware capture stop** | Detects subject or camera movement and halts the sequence to avoid blurred frames. |
-| **Dockerized local deployment** | Single `docker compose up` to run the full stack on any machine. |
-| **Mock camera for CI/testing** | Built-in mock CCAPI server so the entire pipeline can be tested without hardware. |
-| **Optional headless ImageJ/Fiji integration** | Post-capture stack merging via headless Fiji for maximum quality. |
+| `app` | Main Spring Boot application (REST API, workflows, plugin management, serves frontend). |
+| `frontend-web` | React/Vite UI (Dashboard, Cameras, Jobs, Gallery, HDR, Face Orbit, Observer, Astro, Plugins). |
+| `common-api` | Shared records/contracts across modules. |
+| `plugin-api` | Public plugin extension interfaces (`AnalysisPlugin`, `CameraBackendPlugin`, `VisionProviderPlugin`). |
+| `capture-core`, `camera-ptp`, `storage`, `session-core` | Capture orchestration, camera backend integration, persistence, and session workflows. |
+| `hdr-core`, `video-core`, `face-analysis-core`, `face-profile-core`, `observer-core`, `ai-vision`, `astro-core` | Domain-specific imaging/AI workflows. |
+| `canon-cr3-core`, `canon-cr3-imageio`, `canon-cr3-cli` | Canon CR3 decoding stack, Java ImageIO support, and CLI tooling. |
 
-## Supported Cameras
-
-The following Canon cameras expose CCAPI and have been tested:
-
-- **Canon PowerShot G5 X Mark II**
-- **Canon PowerShot G7 X Mark III**
-
-> Other Canon cameras with CCAPI support may work but are not officially tested.
-
----
-
-## Quickstart
-
-### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) ≥ 24
-- [Docker Compose](https://docs.docker.com/compose/) ≥ 2.20
-
-### Run with Docker Compose
+## Quickstart (Docker)
 
 ```bash
-# Clone the repository
 git clone https://github.com/carstenartur/Photographer.git
 cd Photographer
-
-# Create your local environment file (required — sets the admin password and other defaults)
-cp .env.example .env        # Linux / macOS
-# copy .env.example .env    # Windows (cmd)
-
-# Start all services (focusstack app + PostgreSQL)
+cp .env.example .env
 docker compose up --build
-
-# Open the UI
-open http://localhost:8080
 ```
 
-The default profile uses the **mock camera** so you can explore the UI without
-hardware. To connect a real camera, see [Camera Setup](docs/camera-setup.md).
+Open: http://localhost:8080
 
-### Default Login
+Default login:
 
-| Username | Password |
-|----------|----------|
-| `admin`  | `focusstack` (default from `.env`; change `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` for production) |
+- Username: `admin`
+- Password: value of `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in `.env` (default `focusstack`)
 
-When running **without** Docker (i.e. `mvn spring-boot:run`), the password
-also defaults to `focusstack`.
-
-### Seed demo data (optional)
+Optional demo seed:
 
 ```bash
 ./scripts/seed-demo-data.sh
 ```
 
-For the full setup guide, including development mode, see
-[docs/quickstart.md](docs/quickstart.md).
+## Local Development
 
----
+Prerequisites:
 
-## Architecture
+- JDK 21
+- Maven 3.9+
+- Node.js 20.19+ (or 22.12+)
+- Docker / Docker Compose
 
-Focus Stack is a **single Spring Boot application** that serves the React
-frontend as static resources and handles all backend logic (camera control,
-analysis, storage).
-
-```
-┌────────────────┐     HTTP/WS      ┌──────────────────┐     CCAPI     ┌───────────┐
-│  Browser UI    │ ◄──────────────► │   focusstack     │ ◄───────────► │  Canon    │
-│  (React/Vite)  │                  │   (Spring Boot)  │               │  Camera   │
-└────────────────┘                  └────────┬─────────┘               └───────────┘
-                                             │
-                                             ▼
-                                   ┌──────────────────┐
-                                   │   PostgreSQL +    │
-                                   │   Local Volumes   │
-                                   └──────────────────┘
-```
-
-| Component | Tech | Role |
-|---|---|---|
-| **frontend-web** | React 19, Vite | Browser UI: Live View, capture controls, stack gallery. Bundled into the app JAR for production. |
-| **app** | Java 21, Spring Boot | Camera orchestration via CCAPI, sharpness analysis, movement detection, REST API, serves the frontend. |
-| **common-api** | Java 21 | Shared model records (e.g. `CameraProfile`, `StackingJob`). |
-| **storage** | PostgreSQL 16, local Docker volumes | Metadata in Postgres; raw frames on a shared volume. |
-
-For a deeper dive, see [docs/architecture.md](docs/architecture.md).
-
----
-
-## Development
+Run backend:
 
 ```bash
-# Start infrastructure (Postgres) in Docker
-./scripts/dev-up.sh
-
-# Run the Spring Boot app locally (from repository root)
 mvn spring-boot:run -pl app -am -Djava.awt.headless=true
-
-# Run frontend-web locally (dev server with hot-reload on http://localhost:5173)
-cd frontend-web && npm install && npm run dev
 ```
 
-See [docs/development.md](docs/development.md) for IDE setup, coding standards,
-and contribution guidelines.
+`-am` builds required dependent modules automatically for local runs.
 
----
+Run frontend dev server:
 
-## Roadmap
+```bash
+cd frontend-web
+npm ci
+npm run dev
+```
 
-### ✅ Milestone 1 — Foundation
-- Project scaffolding (monorepo, CI, Docker Compose)
-- Mock CCAPI camera server
-- Basic Spring Boot camera-service with Live View proxy
+## Build & Test
 
-### ✅ Milestone 2 — Core Capture
-- Focus-step sweep with configurable range and step size
-- Per-frame sharpness analysis (Laplacian variance)
-- Adaptive step algorithm that narrows around peak sharpness
+Backend full verify (same command used by CI):
 
-### ✅ Milestone 3 — Intelligence
-- Movement detection (frame-diff + optical flow via ImageJ)
-- Auto-stop on movement or full-range coverage
-- Headless ImageJ integration for final stack merge
+```bash
+mvn -B clean verify \
+  -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
+  -am -Djava.awt.headless=true
+```
 
-### Milestone 4 — Polish & Extensibility
-- ✅ Stack gallery with before/after comparison
-- ✅ Export & sharing workflows (ZIP download, merged PNG download)
-- ✅ Plugin API for third-party analysis modules
-- ✅ MockCameraBackend failure simulation (timeout, disconnect, empty frame, movement)
-- ✅ Preset quality modes (Fast / Balanced / Maximum Quality)
+Frontend:
 
-### Milestone 5 — Future Work
-- Real Canon CCAPI integration with hardware-in-the-loop tests
-- GPU-accelerated stack analysis (CUDA/OpenCL via JVM bindings)
-- Multi-camera support (parallel capture from multiple bodies)
-- RAW image support (Canon CR3 / CR2 via LibRaw)
+```bash
+cd frontend-web
+npm ci
+npm run lint
+npm run build
+```
 
----
+## Supported Cameras
+
+Tested CCAPI models:
+
+- Canon PowerShot G5 X Mark II
+- Canon PowerShot G7 X Mark III
+
+Other Canon cameras with CCAPI may work but are not officially verified.
+
+## Documentation
+
+- [Quickstart](docs/quickstart.md)
+- [Development Guide](docs/development.md)
+- [Camera Setup](docs/camera-setup.md)
 
 ## License
 
-This project is licensed under the terms of the [MIT License](LICENSE).
+MIT — see [LICENSE](LICENSE).
