@@ -13,7 +13,7 @@ Focus Stack - App,com.photographer.focusstack.camera.controller,CameraController
 Focus Stack - App,com.photographer.focusstack.analysis.controller,PluginController,47,6,4,0,11,3,5,1,3,1
 Focus Stack - App,com.photographer.focusstack.analysis.controller,StackMergeController,92,16,16,0,25,5,10,1,2,1
 Focus Stack - App,com.photographer.focusstack.analysis.controller,AnalysisController,17,146,4,8,3,32,4,8,0,6
-Focus Stack - App,com.photographer.focusstack.analysis.controller,StackMergeController.new LinkedHashMap() {...},8,9,2,0,1,1,2,1,1,1
+Focus Stack - App,com.photographer.focusstack.analysis.controller,StackMergeController.new LinkedHashMap() {...},8,12,2,0,1,1,2,1,1,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,AnalyzeRequest,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,MotionResponse,0,12,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,SharpnessResponse,0,6,0,0,0,1,0,1,0,1
@@ -23,7 +23,7 @@ Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewServ
 Focus Stack - App,com.photographer.focusstack.camera.service,CameraProfileService,0,93,0,4,0,21,0,9,0,7
 Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewService.PreviewResult,9,0,0,0,1,0,1,0,1,0
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.FrameEntry,0,9,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.new LinkedHashMap() {...},2,15,1,1,0,2,1,2,0,2
+Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.new LinkedHashMap() {...},2,18,1,1,0,2,1,2,0,2
 Focus Stack - App,com.photographer.focusstack.camera.search,HibernateSearchInitializer,13,23,0,0,5,11,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.camera.search,SearchService,25,95,0,0,9,20,0,7,0,7
 Focus Stack - App,com.photographer.focusstack.astro.service,AstroModeService,273,546,22,22,58,118,23,23,7,17
