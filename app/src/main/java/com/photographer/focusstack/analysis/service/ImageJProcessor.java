@@ -19,7 +19,6 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Image processing engine backed by ImageJ (headless).
@@ -36,7 +35,7 @@ public class ImageJProcessor {
     private static final double MAX_LAPLACIAN_VARIANCE = 16256.25;
     private static final float[] LAPLACIAN_KERNEL = {0, 1, 0, 1, -4, 1, 0, 1, 0};
     private static final byte[] FTYP_SIGNATURE = {'f', 't', 'y', 'p'};
-    private static final byte[] CR3_MAJOR_BRAND = {'c', 'r', 'x', ' '};
+    private static final byte[] CRX_MAJOR_BRAND = {'c', 'r', 'x', ' '};
 
     public ImageJProcessor() {
         System.setProperty("java.awt.headless", "true");
@@ -339,8 +338,15 @@ public class ImageJProcessor {
         if (data == null || data.length < 12) {
             return false;
         }
-        return Arrays.equals(FTYP_SIGNATURE, Arrays.copyOfRange(data, 4, 8))
-                && Arrays.equals(CR3_MAJOR_BRAND, Arrays.copyOfRange(data, 8, 12));
+        // Compare ftyp signature at offset 4 and CRX major brand at offset 8 inline
+        // to avoid allocating temporary arrays on every call
+        for (int i = 0; i < FTYP_SIGNATURE.length; i++) {
+            if (data[4 + i] != FTYP_SIGNATURE[i]) return false;
+        }
+        for (int i = 0; i < CRX_MAJOR_BRAND.length; i++) {
+            if (data[8 + i] != CRX_MAJOR_BRAND[i]) return false;
+        }
+        return true;
     }
 
     private BufferedImage decodeCr3WithFallback(byte[] imageFileBytes) {
@@ -356,7 +362,7 @@ public class ImageJProcessor {
                 reader.dispose();
             }
         } catch (Exception e) {
-            log.warn("CR3 fallback decode failed: {}", e.getMessage());
+            log.warn("CR3 fallback decode failed: {}", e.getMessage(), e);
             return null;
         }
     }

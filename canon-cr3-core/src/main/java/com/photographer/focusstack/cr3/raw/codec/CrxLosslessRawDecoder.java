@@ -298,11 +298,6 @@ public final class CrxLosslessRawDecoder {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                if (!reader.hasMore()) {
-                    // Pad remaining pixels with zero
-                    break;
-                }
-
                 // MED prediction (Median Edge Detection, from JPEG-LS / ITU T.87)
                 int predicted;
                 if (x == 0 && y == 0) {
@@ -318,15 +313,24 @@ public final class CrxLosslessRawDecoder {
                     predicted = medPredict(a, b, c);
                 }
 
-                // Adaptive Rice-Golomb decode of the prediction residual
+                // Adaptive Rice-Golomb decode of the prediction residual.
+                // When the bitstream is exhausted (truncated CRX data), use residual=0
+                // so remaining pixels are padded with predicted values rather than zeros.
                 int residual;
-                if (streamExhausted) {
+                if (streamExhausted || !reader.hasMore()) {
+                    if (!streamExhausted) {
+                        LOG.debug("CRX plane bitstream has no more data at ({},{}), padding remaining "
+                                + "pixels with predicted values", x, y);
+                        streamExhausted = true;
+                    }
                     residual = 0;
                 } else {
                     try {
                         residual = decodeAdaptiveRiceGolomb(reader, k);
                     } catch (IOException e) {
-                        if (e.getMessage() != null && e.getMessage().contains("Unexpected end of stream")) {
+                        if (e.getMessage() != null
+                                && (e.getMessage().contains("Unexpected end of stream")
+                                    || e.getMessage().contains("end of data"))) {
                             LOG.debug("CRX plane bitstream ended early at ({},{}), padding remaining "
                                     + "pixels with predicted values", x, y);
                             streamExhausted = true;
