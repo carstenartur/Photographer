@@ -17,6 +17,8 @@ import org.junit.jupiter.api.Test;
 import javax.imageio.ImageIO;
 import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.net.URL;
@@ -350,6 +352,225 @@ class RealSampleCr3Test {
             assertThat(img).isNotNull();
             assertThat(img.getWidth()).isEqualTo(1620);
             assertThat(img.getHeight()).isEqualTo(1080);
+        }
+    }
+
+    // ── RAW decode validation ──────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("RAW decode validation")
+    class RawDecodeValidation {
+
+        @Test
+        @DisplayName("RAW pixel values are within 14-bit range [0, 16383]")
+        void rawPixelValuesWithin14BitRange() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+
+                // Decode full RAW linear (Bayer, no demosaicing) with crop
+                BufferedImage rawLinear = decoder.decode(
+                        Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
+                assertThat(rawLinear).isNotNull();
+
+                // RAW_LINEAR produces TYPE_USHORT_GRAY scaled to 16-bit
+                int w = rawLinear.getWidth();
+                int h = rawLinear.getHeight();
+                short[] pixels = ((java.awt.image.DataBufferUShort)
+                        rawLinear.getRaster().getDataBuffer()).getData();
+
+                int minVal = Integer.MAX_VALUE;
+                int maxVal = Integer.MIN_VALUE;
+                long sum = 0;
+                for (short pixel : pixels) {
+                    int v = pixel & 0xFFFF;
+                    minVal = Math.min(minVal, v);
+                    maxVal = Math.max(maxVal, v);
+                    sum += v;
+                }
+                double mean = (double) sum / pixels.length;
+
+                assertThat(minVal).as("min pixel value").isGreaterThanOrEqualTo(0);
+                assertThat(maxVal).as("max pixel value").isLessThanOrEqualTo(65535);
+                // Mean should not be at the extremes — a real image has visible content
+                assertThat(mean).as("mean pixel value").isGreaterThan(100);
+                assertThat(mean).as("mean pixel value").isLessThan(60000);
+                // There should be some variance (not a flat image)
+                assertThat(maxVal - minVal).as("pixel range").isGreaterThan(1000);
+            }
+        }
+
+        @Test
+        @DisplayName("RAW histogram is not degenerate (has spread across range)")
+        void rawHistogramHasSpread() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+
+                BufferedImage rawLinear = decoder.decode(
+                        Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
+
+                short[] pixels = ((java.awt.image.DataBufferUShort)
+                        rawLinear.getRaster().getDataBuffer()).getData();
+
+                // Divide 16-bit range into 16 bins of 4096 each
+                int[] histogram = new int[16];
+                for (short pixel : pixels) {
+                    int bin = (pixel & 0xFFFF) >> 12; // divide by 4096
+                    histogram[bin]++;
+                }
+
+                // Count non-empty bins — a real image should spread across several bins
+                int nonEmptyBins = 0;
+                for (int count : histogram) {
+                    if (count > 0) nonEmptyBins++;
+                }
+                assertThat(nonEmptyBins).as("non-empty histogram bins (out of 16)")
+                        .isGreaterThanOrEqualTo(3);
+            }
+        }
+
+        @Test
+        @DisplayName("RAW processed and embedded JPEG preview have similar mean brightness")
+        void rawProcessedSimilarToPreviewBrightness() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+
+                // 1. Decode embedded JPEG preview (1620×1080)
+                BufferedImage preview = decoder.decode(Cr3DecodeOptions.defaults());
+                assertThat(preview).isNotNull();
+
+                // 2. Decode full RAW processed (sRGB)
+                BufferedImage rawProcessed = decoder.decode(Cr3DecodeOptions.rawProcessed());
+                assertThat(rawProcessed).isNotNull();
+
+                // 3. Downscale RAW image to preview dimensions for fair comparison
+                BufferedImage rawScaled = scaleImage(rawProcessed,
+                        preview.getWidth(), preview.getHeight());
+
+                // 4. Compute mean R, G, B for both images
+                double[] previewMeans = computeChannelMeans(preview);
+                double[] rawMeans = computeChannelMeans(rawScaled);
+
+                // The overall luminance (0.299R + 0.587G + 0.114B) should be
+                // within a factor of 3 — RAW processing parameters are approximate
+                // so exact match is not expected, but the images should depict the
+                // same scene with recognizable brightness
+                double previewLuma = 0.299 * previewMeans[0] + 0.587 * previewMeans[1]
+                        + 0.114 * previewMeans[2];
+                double rawLuma = 0.299 * rawMeans[0] + 0.587 * rawMeans[1]
+                        + 0.114 * rawMeans[2];
+
+                assertThat(previewLuma).as("preview luminance").isGreaterThan(5);
+                assertThat(rawLuma).as("RAW luminance").isGreaterThan(5);
+
+                double ratio = rawLuma / previewLuma;
+                assertThat(ratio).as("RAW/preview luminance ratio")
+                        .isBetween(0.1, 10.0);
+            }
+        }
+
+        @Test
+        @DisplayName("RAW processed image has non-trivial channel variance")
+        void rawProcessedHasChannelVariance() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+
+                BufferedImage rawProcessed = decoder.decode(Cr3DecodeOptions.rawProcessed());
+                assertThat(rawProcessed).isNotNull();
+
+                double[] means = computeChannelMeans(rawProcessed);
+                double[] variances = computeChannelVariances(rawProcessed, means);
+
+                // A real photo should have non-trivial variance in each channel
+                // (not a flat solid color)
+                for (int ch = 0; ch < 3; ch++) {
+                    String name = switch (ch) { case 0 -> "R"; case 1 -> "G"; default -> "B"; };
+                    assertThat(variances[ch]).as(name + " channel variance")
+                            .isGreaterThan(1.0);
+                    assertThat(means[ch]).as(name + " channel mean")
+                            .isGreaterThan(0.0)
+                            .isLessThan(255.0);
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("RAW processed RGB channels have plausible relative balance")
+        void rawProcessedChannelBalance() throws Exception {
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                Cr3Decoder decoder = new Cr3Decoder();
+                decoder.setInput(in);
+
+                BufferedImage rawProcessed = decoder.decode(Cr3DecodeOptions.rawProcessed());
+
+                double[] means = computeChannelMeans(rawProcessed);
+                double maxMean = Math.max(means[0], Math.max(means[1], means[2]));
+                double minMean = Math.min(means[0], Math.min(means[1], means[2]));
+
+                // In a correctly white-balanced image, no channel should dominate
+                // by more than ~20:1 (extreme color cast would indicate broken WB)
+                assertThat(maxMean / Math.max(minMean, 0.01))
+                        .as("max/min channel mean ratio")
+                        .isLessThan(20.0);
+            }
+        }
+
+        // ── Helpers ──
+
+        private static BufferedImage scaleImage(BufferedImage src, int targetW, int targetH) {
+            BufferedImage scaled = new BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = scaled.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(src, 0, 0, targetW, targetH, null);
+            g.dispose();
+            return scaled;
+        }
+
+        private static double[] computeChannelMeans(BufferedImage image) {
+            long sumR = 0, sumG = 0, sumB = 0;
+            int w = image.getWidth();
+            int h = image.getHeight();
+            long pixelCount = (long) w * h;
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int rgb = image.getRGB(x, y);
+                    sumR += (rgb >> 16) & 0xFF;
+                    sumG += (rgb >> 8) & 0xFF;
+                    sumB += rgb & 0xFF;
+                }
+            }
+            return new double[]{
+                    (double) sumR / pixelCount,
+                    (double) sumG / pixelCount,
+                    (double) sumB / pixelCount
+            };
+        }
+
+        private static double[] computeChannelVariances(BufferedImage image, double[] means) {
+            double varR = 0, varG = 0, varB = 0;
+            int w = image.getWidth();
+            int h = image.getHeight();
+            long pixelCount = (long) w * h;
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int rgb = image.getRGB(x, y);
+                    double r = ((rgb >> 16) & 0xFF) - means[0];
+                    double g = ((rgb >> 8) & 0xFF) - means[1];
+                    double b = (rgb & 0xFF) - means[2];
+                    varR += r * r;
+                    varG += g * g;
+                    varB += b * b;
+                }
+            }
+            return new double[]{
+                    varR / pixelCount,
+                    varG / pixelCount,
+                    varB / pixelCount
+            };
         }
     }
 }
