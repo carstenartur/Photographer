@@ -476,14 +476,66 @@ public class PtpCamera implements AutoCloseable {
         return "Unsupported";
     }
 
+    public int getApertureRaw() {
+        if (isCanon) return getCanonPropertyValue(CanonConstants.DPC_EOS_APERTURE);
+        return 0;
+    }
+
     public String getShutterSpeed() {
         if (isCanon) return CanonPropertyDecoder.decodeShutterSpeed(getCanonPropertyValue(CanonConstants.DPC_EOS_SHUTTER_SPEED));
         return "Unsupported";
     }
 
+    public int getShutterSpeedRaw() {
+        if (isCanon) return getCanonPropertyValue(CanonConstants.DPC_EOS_SHUTTER_SPEED);
+        return 0;
+    }
+
     public String getIso() {
         if (isCanon) return CanonPropertyDecoder.decodeIso(getCanonPropertyValue(CanonConstants.DPC_EOS_ISO));
         return "Unsupported";
+    }
+
+    public int getIsoRaw() {
+        if (isCanon) return getCanonPropertyValue(CanonConstants.DPC_EOS_ISO);
+        return 0;
+    }
+
+    public String getExposureCompensation() {
+        if (isCanon) return CanonPropertyDecoder.decodeExposureCompensation(
+                getCanonPropertyValue(CanonConstants.DPC_EOS_EXPOSURE_COMPENSATION));
+        return "0";
+    }
+
+    public int getExposureCompensationRaw() {
+        if (isCanon) return getCanonPropertyValue(CanonConstants.DPC_EOS_EXPOSURE_COMPENSATION);
+        return 0;
+    }
+
+    // ── Property setters ──
+
+    /** Sets the aperture (Canon EOS raw value). */
+    public void setAperture(int rawValue) {
+        if (!isCanon) throw new PtpException("Setting aperture not supported on non-Canon cameras");
+        setCanonProperty(CanonConstants.DPC_EOS_APERTURE, rawValue);
+        log.info("Aperture set to {} (raw=0x{} )", CanonPropertyDecoder.decodeAperture(rawValue),
+                Integer.toHexString(rawValue));
+    }
+
+    /** Sets the shutter speed (Canon EOS raw value). */
+    public void setShutterSpeed(int rawValue) {
+        if (!isCanon) throw new PtpException("Setting shutter speed not supported on non-Canon cameras");
+        setCanonProperty(CanonConstants.DPC_EOS_SHUTTER_SPEED, rawValue);
+        log.info("Shutter speed set to {} (raw=0x{})", CanonPropertyDecoder.decodeShutterSpeed(rawValue),
+                Integer.toHexString(rawValue));
+    }
+
+    /** Sets the ISO (Canon EOS raw value). */
+    public void setIso(int rawValue) {
+        if (!isCanon) throw new PtpException("Setting ISO not supported on non-Canon cameras");
+        setCanonProperty(CanonConstants.DPC_EOS_ISO, rawValue);
+        log.info("ISO set to {} (raw=0x{})", CanonPropertyDecoder.decodeIso(rawValue),
+                Integer.toHexString(rawValue));
     }
 
     public int getBatteryLevel() {

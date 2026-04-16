@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.plugin.CameraBackendPlugin;
 import com.photographer.focusstack.app.config.CameraConfig;
+import com.photographer.ptp.backend.PtpCameraBackendFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -108,6 +109,11 @@ public class CameraBackendFactory {
             log.info("Creating FolderCameraBackend for profile '{}' ({}) → {}",
                     profile.name(), profile.id(), folderPath);
             return new FolderCameraBackend(folderPath);
+        }
+
+        if ("canon-usb".equalsIgnoreCase(type)) {
+            log.info("Creating PtpCameraBackend (USB) for profile '{}' ({})", profile.name(), profile.id());
+            return PtpCameraBackendFactory.createUsbBackend();
         }
 
         // Check external plugin backends before falling back to CCAPI

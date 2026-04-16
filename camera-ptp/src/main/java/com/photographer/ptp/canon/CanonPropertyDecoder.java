@@ -79,4 +79,22 @@ public class CanonPropertyDecoder {
             default -> value;
         };
     }
+
+    /**
+     * Decodes Canon EOS exposure compensation raw value to a human-readable string.
+     * Canon encodes EV in 1/3-stop increments relative to a zero point.
+     * Common values: 0x00=0, 0x03=+1/3, 0x05=+2/3, 0x08=+1, 0xFD=-1/3, etc.
+     */
+    public static String decodeExposureCompensation(int value) {
+        // Canon stores EV as a signed byte (two's complement within an int).
+        // Each unit ≈ 1/3 stop. Convert to signed.
+        int signed = (byte) value;
+        if (signed == 0) return "0";
+        double ev = signed / 3.0;
+        // Format nicely
+        if (ev == (int) ev) {
+            return (ev > 0 ? "+" : "") + (int) ev + ".0";
+        }
+        return (ev > 0 ? "+" : "") + String.format("%.1f", ev);
+    }
 }

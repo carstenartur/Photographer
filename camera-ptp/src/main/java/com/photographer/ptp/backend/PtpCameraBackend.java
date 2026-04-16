@@ -59,6 +59,14 @@ public class PtpCameraBackend implements CameraBackend {
     }
 
     @Override
+    public void stopLiveView() {
+        if (liveViewActive) {
+            camera.stopLiveView();
+            liveViewActive = false;
+        }
+    }
+
+    @Override
     public void setFocus(FocusCommand command) {
         int magnitude = mapStepsToMagnitude(command.steps());
         if (command.direction() == FocusCommand.Direction.NEAR) {
@@ -113,6 +121,34 @@ public class PtpCameraBackend implements CameraBackend {
             case SETTINGS_READ  -> caps.propertiesRead();
             case SETTINGS_WRITE -> caps.propertiesWrite();
         };
+    }
+
+    @Override
+    public ExposureInfo getExposureInfo() {
+        try {
+            return new ExposureInfo(
+                    camera.getAperture(), camera.getApertureRaw(),
+                    camera.getShutterSpeed(), camera.getShutterSpeedRaw(),
+                    camera.getIso(), camera.getIsoRaw(),
+                    camera.getExposureCompensation(), camera.getExposureCompensationRaw());
+        } catch (Exception e) {
+            return ExposureInfo.ofStrings("unknown", "unknown", "unknown");
+        }
+    }
+
+    @Override
+    public void setIso(int rawValue) {
+        camera.setIso(rawValue);
+    }
+
+    @Override
+    public void setShutterSpeed(int rawValue) {
+        camera.setShutterSpeed(rawValue);
+    }
+
+    @Override
+    public void setAperture(int rawValue) {
+        camera.setAperture(rawValue);
     }
 
     /**
