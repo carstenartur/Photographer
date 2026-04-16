@@ -24,6 +24,7 @@ Focus Stack - App,com.photographer.focusstack.camera.service,CameraProfileServic
 Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewService.PreviewResult,9,0,0,0,1,0,1,0,1,0
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.FrameEntry,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore.new LinkedHashMap() {...},2,18,1,1,0,2,1,2,0,2
+Focus Stack - App,com.photographer.focusstack.camera.service,ExposureValidator,411,7,26,0,61,2,16,2,3,2
 Focus Stack - App,com.photographer.focusstack.camera.search,HibernateSearchInitializer,13,23,0,0,5,11,0,3,0,3
 Focus Stack - App,com.photographer.focusstack.camera.search,SearchService,25,95,0,0,9,20,0,7,0,7
 Focus Stack - App,com.photographer.focusstack.astro.service,AstroModeService,273,546,22,22,58,118,23,23,7,17
@@ -87,7 +88,7 @@ Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.S
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ContentEntry,0,15,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ContentListing,0,6,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendRegistry,0,95,0,6,0,26,0,9,0,6
-Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,83,147,11,5,15,30,7,7,0,6
+Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,92,151,12,6,17,31,8,7,0,6
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ImageLocation,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,MockCameraBackend,20,412,3,31,8,77,2,27,0,12
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.DownloadResult,0,9,0,0,0,1,0,1,0,1

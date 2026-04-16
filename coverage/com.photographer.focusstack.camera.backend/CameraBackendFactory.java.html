@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.plugin.CameraBackendPlugin;
 import com.photographer.focusstack.app.config.CameraConfig;
+import com.photographer.ptp.backend.PtpCameraBackendFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class CameraBackendFactory {
 
-<span class="fc" id="L35">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
+<span class="fc" id="L36">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
 
     private final long mockDelayMs;
     private final int simulateTimeoutAfterFrames;
@@ -43,7 +44,7 @@ public class CameraBackendFactory {
     private final CameraBackendRegistry cameraBackendRegistry;
 
     /** Cache backends per profile-id so focus position state is preserved. */
-<span class="fc" id="L46">    private final Map&lt;String, CameraBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L47">    private final Map&lt;String, CameraBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
 
     public CameraBackendFactory(
             @Value(&quot;${camera.mock.delay-ms:50}&quot;) long mockDelayMs,
@@ -52,20 +53,20 @@ public class CameraBackendFactory {
             @Value(&quot;${camera.mock.simulate-empty-frame-at:0}&quot;) int simulateEmptyFrameAt,
             @Value(&quot;${camera.mock.simulate-movement-at:0}&quot;) int simulateMovementAt,
             CameraBackendRegistry cameraBackendRegistry,
-<span class="fc" id="L55">            CameraConfig cameraConfig) {</span>
-<span class="fc" id="L56">        this.mockDelayMs = mockDelayMs;</span>
-<span class="fc" id="L57">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
-<span class="fc" id="L58">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
-<span class="fc" id="L59">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
-<span class="fc" id="L60">        this.simulateMovementAt = simulateMovementAt;</span>
-<span class="fc" id="L61">        this.cameraBackendRegistry = cameraBackendRegistry;</span>
+<span class="fc" id="L56">            CameraConfig cameraConfig) {</span>
+<span class="fc" id="L57">        this.mockDelayMs = mockDelayMs;</span>
+<span class="fc" id="L58">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
+<span class="fc" id="L59">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
+<span class="fc" id="L60">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
+<span class="fc" id="L61">        this.simulateMovementAt = simulateMovementAt;</span>
+<span class="fc" id="L62">        this.cameraBackendRegistry = cameraBackendRegistry;</span>
         // Configure timeouts from CameraConfig (connection timeout) and fixed read timeout.
-<span class="fc" id="L63">        int connectTimeoutMs = (int) cameraConfig.connectionTimeout().toMillis();</span>
-<span class="fc" id="L64">        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();</span>
-<span class="fc" id="L65">        factory.setConnectTimeout(connectTimeoutMs);</span>
-<span class="fc" id="L66">        factory.setReadTimeout(30_000);</span>
-<span class="fc" id="L67">        this.restTemplate = new RestTemplate(factory);</span>
-<span class="fc" id="L68">    }</span>
+<span class="fc" id="L64">        int connectTimeoutMs = (int) cameraConfig.connectionTimeout().toMillis();</span>
+<span class="fc" id="L65">        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();</span>
+<span class="fc" id="L66">        factory.setConnectTimeout(connectTimeoutMs);</span>
+<span class="fc" id="L67">        factory.setReadTimeout(30_000);</span>
+<span class="fc" id="L68">        this.restTemplate = new RestTemplate(factory);</span>
+<span class="fc" id="L69">    }</span>
 
     /**
      * Returns a {@link CameraBackend} appropriate for the given profile.
@@ -74,56 +75,61 @@ public class CameraBackendFactory {
      * to force re-creation.
      */
     public CameraBackend getBackend(CameraProfile profile) {
-<span class="fc" id="L77">        return cache.computeIfAbsent(profile.id(), id -&gt; createBackend(profile));</span>
+<span class="fc" id="L78">        return cache.computeIfAbsent(profile.id(), id -&gt; createBackend(profile));</span>
     }
 
     /** Removes a cached backend (e.g. when a profile is updated or deleted). */
     public void evict(String profileId) {
-<span class="fc" id="L82">        cache.remove(profileId);</span>
-<span class="fc" id="L83">    }</span>
+<span class="fc" id="L83">        cache.remove(profileId);</span>
+<span class="fc" id="L84">    }</span>
 
     private CameraBackend createBackend(CameraProfile profile) {
-<span class="fc" id="L86">        String type = profile.backendType();</span>
-<span class="fc bfc" id="L87" title="All 2 branches covered.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
-<span class="fc" id="L88">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
-<span class="fc" id="L89">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
+<span class="fc" id="L87">        String type = profile.backendType();</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
+<span class="fc" id="L89">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
+<span class="fc" id="L90">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
                     simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
         }
-<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        if (&quot;folder&quot;.equalsIgnoreCase(type)) {</span>
-<span class="nc" id="L93">            String path = profile.host(); // host field reused as folder path</span>
-<span class="nc bnc" id="L94" title="All 4 branches missed.">            if (path == null || path.isBlank()) {</span>
-<span class="nc" id="L95">                throw new IllegalArgumentException(</span>
-<span class="nc" id="L96">                        &quot;Profile '&quot; + profile.name() + &quot;': host field must contain a valid folder path for folder backend&quot;);</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (&quot;folder&quot;.equalsIgnoreCase(type)) {</span>
+<span class="nc" id="L94">            String path = profile.host(); // host field reused as folder path</span>
+<span class="nc bnc" id="L95" title="All 4 branches missed.">            if (path == null || path.isBlank()) {</span>
+<span class="nc" id="L96">                throw new IllegalArgumentException(</span>
+<span class="nc" id="L97">                        &quot;Profile '&quot; + profile.name() + &quot;': host field must contain a valid folder path for folder backend&quot;);</span>
             }
-<span class="nc" id="L98">            java.nio.file.Path folderPath = java.nio.file.Path.of(path);</span>
-<span class="nc bnc" id="L99" title="All 2 branches missed.">            if (!folderPath.isAbsolute()) {</span>
-<span class="nc" id="L100">                folderPath = folderPath.toAbsolutePath();</span>
+<span class="nc" id="L99">            java.nio.file.Path folderPath = java.nio.file.Path.of(path);</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (!folderPath.isAbsolute()) {</span>
+<span class="nc" id="L101">                folderPath = folderPath.toAbsolutePath();</span>
             }
-<span class="nc bnc" id="L102" title="All 2 branches missed.">            if (!folderPath.toFile().isDirectory()) {</span>
+<span class="nc bnc" id="L103" title="All 2 branches missed.">            if (!folderPath.toFile().isDirectory()) {</span>
                 // Log a warning but allow creation; the directory may be created at runtime
                 // (e.g., replay session starts before images are written). Actual failures
                 // will be surfaced when getLiveView() is called on the backend.
-<span class="nc" id="L106">                log.warn(&quot;FolderCameraBackend: path does not exist or is not a directory: {}&quot;, folderPath);</span>
+<span class="nc" id="L107">                log.warn(&quot;FolderCameraBackend: path does not exist or is not a directory: {}&quot;, folderPath);</span>
             }
-<span class="nc" id="L108">            log.info(&quot;Creating FolderCameraBackend for profile '{}' ({}) → {}&quot;,</span>
-<span class="nc" id="L109">                    profile.name(), profile.id(), folderPath);</span>
-<span class="nc" id="L110">            return new FolderCameraBackend(folderPath);</span>
+<span class="nc" id="L109">            log.info(&quot;Creating FolderCameraBackend for profile '{}' ({}) → {}&quot;,</span>
+<span class="nc" id="L110">                    profile.name(), profile.id(), folderPath);</span>
+<span class="nc" id="L111">            return new FolderCameraBackend(folderPath);</span>
+        }
+
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">        if (&quot;canon-usb&quot;.equalsIgnoreCase(type)) {</span>
+<span class="nc" id="L115">            log.info(&quot;Creating PtpCameraBackend (USB) for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
+<span class="nc" id="L116">            return PtpCameraBackendFactory.createUsbBackend();</span>
         }
 
         // Check external plugin backends before falling back to CCAPI
-<span class="fc" id="L114">        Optional&lt;CameraBackendPlugin&gt; pluginBackend = cameraBackendRegistry.findByType(type);</span>
-<span class="pc bpc" id="L115" title="1 of 2 branches missed.">        if (pluginBackend.isPresent()) {</span>
-<span class="nc" id="L116">            log.info(&quot;Using external CameraBackendPlugin '{}' for profile '{}' ({})&quot;,</span>
-<span class="nc" id="L117">                    type, profile.name(), profile.id());</span>
-<span class="nc" id="L118">            return pluginBackend.get();</span>
+<span class="fc" id="L120">        Optional&lt;CameraBackendPlugin&gt; pluginBackend = cameraBackendRegistry.findByType(type);</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (pluginBackend.isPresent()) {</span>
+<span class="nc" id="L122">            log.info(&quot;Using external CameraBackendPlugin '{}' for profile '{}' ({})&quot;,</span>
+<span class="nc" id="L123">                    type, profile.name(), profile.id());</span>
+<span class="nc" id="L124">            return pluginBackend.get();</span>
         }
 
         // Default: canon-ccapi
-<span class="fc" id="L122">        String host = profile.host();</span>
-<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
-<span class="fc" id="L124">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
-<span class="fc" id="L125">                profile.name(), profile.id(), baseUrl);</span>
-<span class="fc" id="L126">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
+<span class="fc" id="L128">        String host = profile.host();</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
+<span class="fc" id="L130">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
+<span class="fc" id="L131">                profile.name(), profile.id(), baseUrl);</span>
+<span class="fc" id="L132">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

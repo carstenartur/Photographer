@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExposureValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.service</a> &gt; <span class="el_source">ExposureValidator.java</span></div><h1>ExposureValidator.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.service;
+
+import com.photographer.focusstack.common.camera.ExposureAssessment;
+import com.photographer.focusstack.common.camera.ExposureAssessment.Verdict;
+import com.photographer.focusstack.common.camera.ExposureInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+
+/**
+ * Analyses captured JPEG frames for exposure problems.
+ *
+ * &lt;p&gt;This service provides two complementary checks:
+ * &lt;ol&gt;
+ *   &lt;li&gt;&lt;b&gt;Image brightness analysis&lt;/b&gt; — examines actual pixel data to detect
+ *       over/underexposure regardless of camera mode or metering.&lt;/li&gt;
+ *   &lt;li&gt;&lt;b&gt;Settings plausibility&lt;/b&gt; — logs the current camera settings so the
+ *       operator can spot obviously wrong values (e.g. ISO 12800 in daylight).&lt;/li&gt;
+ * &lt;/ol&gt;
+ *
+ * &lt;p&gt;The first captured frame is analysed &lt;em&gt;before&lt;/em&gt; the remaining stack
+ * frames are taken, so the job can abort early instead of filling the SD card
+ * with useless images.
+ */
+@Service
+<span class="fc" id="L30">public class ExposureValidator {</span>
+
+<span class="fc" id="L32">    private static final Logger log = LoggerFactory.getLogger(ExposureValidator.class);</span>
+
+    /** Pixels with luminance above this (0–255 scale) are &quot;highlight-clipped&quot;. */
+    private static final int HIGHLIGHT_THRESHOLD = 250;
+    /** Pixels with luminance below this (0–255 scale) are &quot;shadow-clipped&quot;. */
+    private static final int SHADOW_THRESHOLD = 5;
+    /** Mean brightness above this → WARN overexposed. */
+    private static final double MEAN_BRIGHT_WARN = 0.80;
+    /** Mean brightness above this → CRITICAL overexposed. */
+    private static final double MEAN_BRIGHT_CRITICAL = 0.92;
+    /** Mean brightness below this → WARN underexposed. */
+    private static final double MEAN_DARK_WARN = 0.15;
+    /** Mean brightness below this → CRITICAL underexposed. */
+    private static final double MEAN_DARK_CRITICAL = 0.06;
+    /** Percentage of clipped highlights that triggers WARN. */
+    private static final double CLIP_WARN_PCT = 10.0;
+    /** Percentage of clipped highlights that triggers CRITICAL. */
+    private static final double CLIP_CRITICAL_PCT = 40.0;
+
+    /**
+     * Analyses the brightness distribution of a JPEG frame.
+     *
+     * @param jpegData raw JPEG bytes (as returned by {@code CaptureResult.imageData()})
+     * @return exposure assessment; never null
+     */
+    public ExposureAssessment analyzeFrame(byte[] jpegData) {
+<span class="nc bnc" id="L58" title="All 4 branches missed.">        if (jpegData == null || jpegData.length == 0) {</span>
+<span class="nc" id="L59">            return new ExposureAssessment(0, 0, 0, Verdict.OK,</span>
+                    &quot;No image data available for exposure analysis&quot;);
+        }
+        try {
+<span class="nc" id="L63">            BufferedImage image = ImageIO.read(new ByteArrayInputStream(jpegData));</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">            if (image == null) {</span>
+<span class="nc" id="L65">                return new ExposureAssessment(0, 0, 0, Verdict.OK,</span>
+                        &quot;Could not decode image for exposure analysis&quot;);
+            }
+<span class="nc" id="L68">            return analyzeImage(image);</span>
+<span class="nc" id="L69">        } catch (Exception e) {</span>
+<span class="nc" id="L70">            log.debug(&quot;Exposure analysis failed: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L71">            return new ExposureAssessment(0, 0, 0, Verdict.OK,</span>
+<span class="nc" id="L72">                    &quot;Exposure analysis error: &quot; + e.getMessage());</span>
+        }
+    }
+
+    private ExposureAssessment analyzeImage(BufferedImage image) {
+<span class="nc" id="L77">        int width = image.getWidth();</span>
+<span class="nc" id="L78">        int height = image.getHeight();</span>
+
+        // Sample every Nth pixel for performance on large images
+<span class="nc" id="L81">        int step = Math.max(1, (width * height) / 100_000);</span>
+<span class="nc" id="L82">        long totalLuminance = 0;</span>
+<span class="nc" id="L83">        long highlightClipped = 0;</span>
+<span class="nc" id="L84">        long shadowClipped = 0;</span>
+<span class="nc" id="L85">        long sampleCount = 0;</span>
+
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        for (int y = 0; y &lt; height; y += step) {</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">            for (int x = 0; x &lt; width; x += step) {</span>
+<span class="nc" id="L89">                int rgb = image.getRGB(x, y);</span>
+<span class="nc" id="L90">                int r = (rgb &gt;&gt; 16) &amp; 0xFF;</span>
+<span class="nc" id="L91">                int g = (rgb &gt;&gt; 8) &amp; 0xFF;</span>
+<span class="nc" id="L92">                int b = rgb &amp; 0xFF;</span>
+                // ITU-R BT.601 luminance
+<span class="nc" id="L94">                int lum = (int) (0.299 * r + 0.587 * g + 0.114 * b);</span>
+<span class="nc" id="L95">                totalLuminance += lum;</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">                if (lum &gt;= HIGHLIGHT_THRESHOLD) highlightClipped++;</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">                if (lum &lt;= SHADOW_THRESHOLD) shadowClipped++;</span>
+<span class="nc" id="L98">                sampleCount++;</span>
+            }
+        }
+
+<span class="nc" id="L102">        double meanBrightness = (totalLuminance / (double) sampleCount) / 255.0;</span>
+<span class="nc" id="L103">        double overPct = (highlightClipped * 100.0) / sampleCount;</span>
+<span class="nc" id="L104">        double underPct = (shadowClipped * 100.0) / sampleCount;</span>
+
+        // Determine verdict
+<span class="nc" id="L107">        Verdict verdict = Verdict.OK;</span>
+<span class="nc" id="L108">        StringBuilder msg = new StringBuilder();</span>
+
+<span class="nc bnc" id="L110" title="All 4 branches missed.">        if (meanBrightness &gt;= MEAN_BRIGHT_CRITICAL || overPct &gt;= CLIP_CRITICAL_PCT) {</span>
+<span class="nc" id="L111">            verdict = Verdict.CRITICAL;</span>
+<span class="nc" id="L112">            msg.append(String.format(&quot;SEVERELY OVEREXPOSED — mean brightness %.0f%%, %.1f%% highlights clipped. &quot;,</span>
+<span class="nc" id="L113">                    meanBrightness * 100, overPct));</span>
+<span class="nc" id="L114">            msg.append(&quot;Images will be blown out. Consider reducing ISO, using a faster shutter speed, or closing the aperture.&quot;);</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        } else if (meanBrightness &lt;= MEAN_DARK_CRITICAL) {</span>
+<span class="nc" id="L116">            verdict = Verdict.CRITICAL;</span>
+<span class="nc" id="L117">            msg.append(String.format(&quot;SEVERELY UNDEREXPOSED — mean brightness only %.0f%%, %.1f%% in deep shadow. &quot;,</span>
+<span class="nc" id="L118">                    meanBrightness * 100, underPct));</span>
+<span class="nc" id="L119">            msg.append(&quot;Images will be mostly black. Consider increasing ISO, using a slower shutter speed, or opening the aperture.&quot;);</span>
+<span class="nc bnc" id="L120" title="All 4 branches missed.">        } else if (meanBrightness &gt;= MEAN_BRIGHT_WARN || overPct &gt;= CLIP_WARN_PCT) {</span>
+<span class="nc" id="L121">            verdict = Verdict.WARN;</span>
+<span class="nc" id="L122">            msg.append(String.format(&quot;Slightly overexposed — mean brightness %.0f%%, %.1f%% highlights clipped.&quot;,</span>
+<span class="nc" id="L123">                    meanBrightness * 100, overPct));</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">        } else if (meanBrightness &lt;= MEAN_DARK_WARN) {</span>
+<span class="nc" id="L125">            verdict = Verdict.WARN;</span>
+<span class="nc" id="L126">            msg.append(String.format(&quot;Slightly underexposed — mean brightness %.0f%%, %.1f%% in deep shadow.&quot;,</span>
+<span class="nc" id="L127">                    meanBrightness * 100, underPct));</span>
+        } else {
+<span class="nc" id="L129">            msg.append(String.format(&quot;Exposure OK — mean brightness %.0f%%, highlights clipped %.1f%%, shadows clipped %.1f%%.&quot;,</span>
+<span class="nc" id="L130">                    meanBrightness * 100, overPct, underPct));</span>
+        }
+
+<span class="nc" id="L133">        log.info(&quot;Exposure analysis: mean={}%, over={}%, under={}% → {}&quot;,</span>
+<span class="nc" id="L134">                String.format(&quot;%.1f&quot;, meanBrightness * 100),</span>
+<span class="nc" id="L135">                String.format(&quot;%.1f&quot;, overPct),</span>
+<span class="nc" id="L136">                String.format(&quot;%.1f&quot;, underPct), verdict);</span>
+
+<span class="nc" id="L138">        return new ExposureAssessment(meanBrightness, overPct, underPct, verdict, msg.toString());</span>
+    }
+
+    /**
+     * Logs the current camera exposure settings for diagnostic purposes.
+     */
+    public void logExposureSettings(ExposureInfo info) {
+<span class="nc" id="L145">        log.info(&quot;Camera exposure settings: aperture={}, shutter={}, ISO={}, EV={}&quot;,</span>
+<span class="nc" id="L146">                info.aperture(), info.shutterSpeed(), info.iso(), info.exposureCompensation());</span>
+<span class="nc" id="L147">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
