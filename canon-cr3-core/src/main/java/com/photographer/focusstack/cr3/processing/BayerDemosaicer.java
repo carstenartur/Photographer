@@ -121,7 +121,7 @@ public final class BayerDemosaicer {
                 g = averageCross(img, x, y);
                 b = img.getPixel(x, y);
             }
-            default -> { r = 0; g = 0; b = 0; }
+            default -> throw new IllegalStateException("Unexpected pixel color: " + color);
         }
         return new int[]{r, g, b};
     }
