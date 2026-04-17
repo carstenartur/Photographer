@@ -35,9 +35,6 @@ import java.util.List;
  * <ul>
  *   <li>Thumbnail 0 of image 0: Embedded JPEG thumbnail</li>
  * </ul>
- *
- * TODO: Support multiple images (preview + full RAW)
- * TODO: Expose CR3 metadata as IIOMetadata
  */
 public class CanonCr3ImageReader extends ImageReader {
 
@@ -100,14 +97,42 @@ public class CanonCr3ImageReader extends ImageReader {
     }
 
     @Override
+    public boolean canReadRaster() {
+        return true;
+    }
+
+    @Override
+    public ImageTypeSpecifier getRawImageType(int imageIndex) throws IOException {
+        checkIndex(imageIndex);
+        // RAW data is unsigned 16-bit grayscale (Bayer pattern)
+        return ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_USHORT_GRAY);
+    }
+
+    @Override
+    public java.awt.image.Raster readRaster(int imageIndex, ImageReadParam param) throws IOException {
+        checkIndex(imageIndex);
+        ensureParsed();
+
+        try {
+            Cr3DecodeOptions options = Cr3DecodeOptions.rawLinear();
+            BufferedImage linear = decoder.decode(options);
+            return linear.getRaster();
+        } catch (Cr3Exception e) {
+            throw new IOException("Failed to read CR3 raster: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public IIOMetadata getStreamMetadata() {
-        // TODO: Return CR3 stream metadata
+        // CR3 stream-level metadata is not exposed as IIOMetadata.
+        // Use getDecoder().getMetadata() for programmatic access to CR3 metadata.
         return null;
     }
 
     @Override
     public IIOMetadata getImageMetadata(int imageIndex) {
-        // TODO: Return CR3 image metadata (EXIF, MakerNote, etc.)
+        // CR3 image metadata (EXIF, MakerNote) is not exposed as IIOMetadata.
+        // Use getDecoder().getMetadata() for programmatic access to CR3 metadata.
         return null;
     }
 
@@ -150,8 +175,12 @@ public class CanonCr3ImageReader extends ImageReader {
         ensureParsed();
 
         try {
-            return Cr3PreviewExtractor.extractThumbnail(
-                    (ImageInputStream) getInput(), decoder.getContainer());
+            Object rawInput = getInput();
+            if (!(rawInput instanceof ImageInputStream iis)) {
+                throw new IOException("Input must be an ImageInputStream, got: "
+                        + (rawInput == null ? "null" : rawInput.getClass()));
+            }
+            return Cr3PreviewExtractor.extractThumbnail(iis, decoder.getContainer());
         } catch (Cr3Exception e) {
             throw new IOException("Failed to extract thumbnail: " + e.getMessage(), e);
         }
