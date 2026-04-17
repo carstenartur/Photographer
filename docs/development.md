@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide covers building, testing, and contributing to Canon Focus Stack.
+This guide covers building, testing, and contributing to Focus Stack.
 
 ---
 
@@ -8,12 +8,12 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 
 | Tool | Version | Notes |
 |---|---|---|
-| JDK | 21+ | [Eclipse Temurin](https://adoptium.net/) recommended |
+| JDK | 25 | [Eclipse Temurin](https://adoptium.net/) recommended |
 | Maven | 3.9+ | Or use the included `mvnw` wrapper |
-| Node.js | 20 LTS | For the frontend |
-| npm | 10+ | Bundled with Node.js 20 |
+| Node.js | 20.19+ (or 22.12+) | For the frontend |
+| npm | 10+ | Bundled with Node.js |
 | Docker | 24+ | For infrastructure and integration tests |
-| Docker Compose | 2.20+ | Multi-service orchestration |
+| Docker Compose | 2.20+ | Service orchestration |
 | RAM | 4 GB minimum | 8 GB recommended for integration tests |
 
 ---
@@ -22,13 +22,27 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 
 ```
 /
-├── frontend-web/          # React / Vite (JSX)
-├── common-api/            # Shared interfaces and models
-├── app/                   # Spring Boot — camera orchestration + image analysis
+├── common-api/            # Shared records and interfaces
+├── plugin-api/            # Public plugin SPI
+├── capture-core/          # Bracket and sequence capture
+├── storage/               # Session file-system persistence
+├── camera-ptp/            # PTP/USB Canon backend
+├── hdr-core/              # HDR merge and tonemapping
+├── video-core/            # Video encoding
+├── face-analysis-core/    # Face detection and quality
+├── face-profile-core/     # 3D face profiles
+├── session-core/          # HDR timelapse and face orbit
+├── observer-core/         # Wildlife observer rules engine
+├── ai-vision/             # AI vision providers
+├── astro-core/            # Astrophotography
+├── canon-cr3-core/        # CR3 RAW parser
+├── canon-cr3-imageio/     # ImageIO adapter for CR3
+├── canon-cr3-cli/         # CR3 debug CLI
+├── frontend-web/          # React / Vite SPA
+├── app/                   # Spring Boot application (REST API, workflows)
 ├── docs/                  # Documentation
 ├── scripts/               # Helper scripts
 ├── fixtures/              # Sample images for tests & demos
-├── docker-compose.yml     # Full-stack composition
 └── .github/               # CI workflows
 ```
 
@@ -36,11 +50,17 @@ This guide covers building, testing, and contributing to Canon Focus Stack.
 
 ## Building
 
-### Java services
+### Java backend
 
 ```bash
-# From repository root
-mvn clean verify -pl common-api,app -am -Djava.awt.headless=true
+# From repository root — builds all backend modules including integration tests
+# (frontend-web is built separately; see below)
+mvn -B clean verify \
+  -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
+  -am -Djava.awt.headless=true
+
+# Quick unit tests only
+mvn -B test -pl common-api,app -am -DskipITs=true -Djava.awt.headless=true
 ```
 
 ### Frontend
@@ -62,9 +82,9 @@ npm run lint       # ESLint
 ./scripts/dev-up.sh
 ```
 
-This starts PostgreSQL and the mock camera container.
+This starts PostgreSQL in Docker.
 
-### 2. Start services
+### 2. Start the application
 
 In separate terminals:
 
@@ -171,10 +191,9 @@ See [test-strategy.md](test-strategy.md) for the full testing philosophy.
 ### IntelliJ IDEA
 
 1. Open the repository root as a project.
-2. Import each Maven module (`camera-service`, `analysis-service`).
+2. Import the Maven modules (IntelliJ detects them automatically from `pom.xml`).
 3. Set the Project SDK to JDK 25.
-4. Install the **Lombok** plugin if prompted.
-5. Enable annotation processing: **Settings → Build → Compiler → Annotation Processors**.
+4. Enable annotation processing: **Settings → Build → Compiler → Annotation Processors**.
 
 ### VS Code
 
@@ -195,7 +214,7 @@ the `dev` Spring profile sets sensible defaults:
 | `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/focusstack` |
 | `SPRING_DATASOURCE_USERNAME` | `focusstack` |
 | `SPRING_DATASOURCE_PASSWORD` | `focusstack` |
-| `ANALYSIS_SERVICE_URL` | `http://localhost:8081` |
+| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | `focusstack` |
 
 ---
 

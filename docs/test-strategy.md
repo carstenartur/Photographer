@@ -1,8 +1,7 @@
 # Test Strategy
 
-This document outlines the testing approach for Canon Focus Stack, covering
-unit tests, integration tests with the mock camera, and hardware-in-the-loop
-tests.
+This document outlines the testing approach for Focus Stack, covering
+unit tests, integration tests, and hardware-in-the-loop tests.
 
 ---
 
@@ -12,7 +11,7 @@ tests.
 
 | Resource | Minimum | Recommended | Notes |
 |---|---|---|---|
-| JDK | 21 | 21 (Temurin) | Required for all Java tests |
+| JDK | 25 | 25 (Temurin) | Required for all Java tests |
 | Docker | 24+ | 24+ | Required for Testcontainers integration tests |
 | RAM | 4 GB | 8 GB | Integration tests run PostgreSQL + Spring Boot + ImageJ concurrently |
 | Disk | 2 GB free | 5 GB free | Docker images (PostgreSQL, Ryuk) and Maven cache |
@@ -45,9 +44,8 @@ Testcontainers automatically manages Docker containers during tests:
 
 | Container | Image | RAM | Purpose |
 |---|---|---|---|
-| PostgreSQL | `postgres:16-alpine` | ~100 MB | camera-service integration tests |
+| PostgreSQL | `postgres:16-alpine` | ~100 MB | Integration tests |
 | Ryuk | `testcontainers/ryuk` | ~20 MB | Automatic container cleanup |
-| analysis-service | Built from Dockerfile | ~300 MB | Docker-based IT (optional, `@Tag("docker")`) |
 | fiji-worker | Built from Dockerfile | ~500 MB | Docker-based IT (optional, `@Tag("docker")`) |
 
 ---
@@ -87,10 +85,9 @@ real-hardware behaviour.
 
 ### Tools
 
-| Service | Framework | Mocking |
+| Module | Framework | Mocking |
 |---|---|---|
-| camera-service | JUnit 5, AssertJ | Mockito |
-| analysis-service | JUnit 5, AssertJ | Mockito |
+| Java (app + library modules) | JUnit 5, AssertJ | Mockito |
 | frontend-web | ESLint | — |
 
 ### Conventions
@@ -126,7 +123,7 @@ cd frontend-web && npm run lint
 
 | Concern | Tool |
 |---|---|
-| Database | Testcontainers 1.20.4 (PostgreSQL 16-alpine) |
+| Database | Testcontainers 1.21.4 (PostgreSQL 16-alpine) |
 | Image processing | ImageJ 1.54j (headless) |
 | HTTP | Spring TestRestTemplate |
 | Test runner | maven-failsafe-plugin |
@@ -136,12 +133,12 @@ cd frontend-web && npm run lint
 - Integration test classes are suffixed with `IT` (e.g., `CameraServiceIT`).
 - They live in `src/test/java` under the same package as the code they test.
 - Run via `maven-failsafe-plugin` in the `integration-test` / `verify` phase.
-- camera-service ITs extend `AbstractPostgresIntegrationTest` which provides
+- App ITs extend `AbstractPostgresIntegrationTest` which provides
   a shared (singleton) PostgreSQL container for all test classes.
 
 ### Shared PostgreSQL Container (Singleton Pattern)
 
-All camera-service integration tests share a single PostgreSQL container
+All integration tests share a single PostgreSQL container
 through the `AbstractPostgresIntegrationTest` base class. This uses the
 [singleton container pattern](https://java.testcontainers.org/test_framework_integration/manual_lifecycle_control/#singleton-containers):
 
@@ -173,8 +170,8 @@ mvn verify -pl common-api,app -am -DskipTests=true -Djava.awt.headless=true
 
 ### Docker-Based Integration Tests
 
-Heavy integration tests that build Docker images (analysis-service container,
-Fiji worker container) are tagged with `@Tag("docker")` and **excluded from
+Heavy integration tests that build Docker images (e.g. Fiji worker container)
+are tagged with `@Tag("docker")` and **excluded from
 the default build**. These tests:
 
 - Build Docker images from the project Dockerfiles using Testcontainers'
@@ -224,7 +221,7 @@ This script:
 ### When to Run
 
 - Before any release.
-- After changes to CCAPI interaction code in camera-service.
+- After changes to CCAPI interaction code.
 - After updating the mock camera to ensure it still matches real behaviour.
 
 ### Setup
@@ -236,7 +233,7 @@ This script:
 ### Running
 
 ```bash
-cd camera-service && ./mvnw verify -Phil -DCAMERA_CCAPI_URL=http://192.168.1.42:8080
+mvn verify -pl app -am -DCAMERA_CCAPI_URL=http://192.168.1.42:8080 -Djava.awt.headless=true
 ```
 
 ### Test Cases
@@ -283,9 +280,9 @@ open app/target/site/jacoco/index.html
 
 The GitHub Actions CI pipeline runs the following on every pull request:
 
-1. **Unit tests** — All services (maven-surefire-plugin).
+1. **Unit tests** — All modules (maven-surefire-plugin).
 2. **Integration tests** — With Testcontainers and PostgreSQL (maven-failsafe-plugin).
-3. **Docker build** — Smoke-test Docker images for all services.
+3. **Docker build** — Smoke-test Docker image.
 
 Docker-based ITs (`@Tag("docker")`) and HIL tests are **not** run in the
 default CI pipeline due to resource and time constraints.
@@ -300,7 +297,9 @@ JVM memory is configured in the parent POM:
 
 ### Test Summary
 
-| Service | Unit Tests | Integration Tests | Docker ITs |
+| Area | Unit Tests | Integration Tests | Docker ITs |
 |---|---|---|---|
-| camera-service | 19 (surefire) | 25 (failsafe, Testcontainers+PostgreSQL) | — |
-| analysis-service | 29 (surefire) | 13 (failsafe, ImageJ headless) | 8 (opt-in, `@Tag("docker")`) |
+| Camera / Jobs / Search | surefire | failsafe (Testcontainers + PostgreSQL) | — |
+| Analysis / Stacking | surefire | failsafe (ImageJ headless) | opt-in (`@Tag("docker")`) |
+| Domain modules | surefire | — | — |
+| CR3 decoding | surefire | — | — |

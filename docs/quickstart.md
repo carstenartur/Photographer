@@ -1,6 +1,6 @@
 # Quick Start
 
-Get Canon Focus Stack running in under five minutes.
+Get Focus Stack running in under five minutes.
 
 ---
 
@@ -15,10 +15,10 @@ For **development mode** you will also need:
 
 | Tool | Minimum Version |
 |---|---|
-| Java (JDK) | 21 |
-| Maven | 3.9+ | For building Java services |
-| Node.js | 20 LTS |
-| npm | 10 |
+| Java (JDK) | 25 |
+| Maven | 3.9+ |
+| Node.js | 20.19+ (or 22.12+) |
+| npm | 10+ |
 
 ---
 
@@ -27,8 +27,8 @@ For **development mode** you will also need:
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/<your-org>/canon-focus-stack.git
-cd canon-focus-stack
+git clone https://github.com/carstenartur/Photographer.git
+cd Photographer
 ```
 
 ### 2. Start all services
@@ -38,7 +38,7 @@ docker compose up --build
 ```
 
 This starts:
-- **focusstack** (Spring Boot app serving the UI and API) on [http://localhost:8080](http://localhost:8080)
+- **focusstack** (Spring Boot app serving the UI and REST API) on [http://localhost:8080](http://localhost:8080)
 - **PostgreSQL** on port `5432`
 
 The default profile uses the **mock camera**, so no hardware is needed.
@@ -84,7 +84,7 @@ run natively for fast iteration and hot-reload.
 ./scripts/dev-up.sh
 ```
 
-This launches PostgreSQL and the mock camera in Docker.
+This launches PostgreSQL in Docker.
 
 ### 2. Start the application
 

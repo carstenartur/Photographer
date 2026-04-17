@@ -1,233 +1,287 @@
 # Architecture
 
-This document describes the high-level design of the Canon Focus Stack system.
+This document describes the high-level design of Focus Stack.
 
 ---
 
 ## Overview
 
-Canon Focus Stack is organized as a **multi-service monorepo**. Each service
-runs in its own container and communicates over well-defined HTTP (REST)
-interfaces. The repository layout is:
+Focus Stack is a **modular monolith** built as a Maven multi-module project.
+A single Spring Boot application (`app`) orchestrates all functionality and
+serves a React frontend as static resources. Domain logic is extracted into
+independent library modules with no Spring dependency, keeping the core
+portable and testable.
+
+### Repository Layout
 
 ```
 /
-├── frontend-web/        # React single-page application
-├── backend/
-│   ├── common-api/      # Shared interfaces and models
-│   ├── camera-service/  # Spring Boot service — camera orchestration
-│   └── analysis-service/# Java service — image analysis & stacking
-├── docker-compose.yml   # Full-stack composition
-├── docs/                # Documentation
-├── scripts/             # Developer & CI helper scripts
-└── fixtures/            # Sample images for testing
+├── common-api/            # Shared records and interfaces (no framework dependency)
+├── plugin-api/            # Public plugin SPI (AnalysisPlugin, CameraBackendPlugin, VisionProviderPlugin)
+├── capture-core/          # Bracket and sequence capture abstractions
+├── storage/               # Session file-system persistence
+├── camera-ptp/            # Clean-room PTP/USB Canon backend (5-layer architecture)
+├── hdr-core/              # HDR merge and tonemapping interfaces
+├── video-core/            # Video encoding interface
+├── face-analysis-core/    # Face detection, landmarks, quality scoring
+├── face-profile-core/     # 3D face profile generation
+├── session-core/          # HDR timelapse and face-orbit session orchestration
+├── observer-core/         # Wildlife observer rules engine (pure Java, no Spring)
+├── ai-vision/             # AI vision abstraction (Gemini + mock providers)
+├── astro-core/            # Star detection, frame registration, astrophotography stacking
+├── canon-cr3-core/        # Canon CR3 RAW parser (ISO-BMFF, CRX codec, metadata, processing)
+├── canon-cr3-imageio/     # Java ImageIO adapter for CR3
+├── canon-cr3-cli/         # CLI tool for CR3 inspection
+├── frontend-web/          # React 19 / Vite SPA
+├── app/                   # Spring Boot application (REST API, workflows, plugin management)
+├── docs/                  # Project documentation
+├── docker/                # Additional Docker images (e.g. Fiji worker)
+├── scripts/               # Developer and CI helper scripts
+├── fixtures/              # Sample images for testing
+└── sample-data/           # Synthetic test data (e.g. astro star fields)
 ```
 
 ---
 
-## Services
+## Module Layers
 
-### frontend-web — Browser UI
+The modules form a layered dependency graph:
+
+```
+                        ┌────────────┐
+                        │    app     │  ← Spring Boot monolith
+                        └─────┬──────┘
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+   ┌─────────────┐   ┌──────────────┐   ┌──────────────┐
+   │ session-core│   │ observer-core│   │ astro-core   │
+   └──────┬──────┘   └──────┬───────┘   └──────┬───────┘
+          ▼                  ▼                  ▼
+   ┌─────────────┐   ┌──────────────┐   ┌──────────────┐
+   │capture-core │   │  ai-vision   │   │   hdr-core   │
+   │  storage    │   │              │   │  video-core  │
+   └──────┬──────┘   └──────┬───────┘   └──────────────┘
+          ▼                  ▼
+   ┌─────────────┐   ┌──────────────┐
+   │ camera-ptp  │   │  plugin-api  │
+   └──────┬──────┘   └──────┬───────┘
+          ▼                  ▼
+   ┌────────────────────────────────┐
+   │          common-api            │  ← shared records, interfaces
+   └────────────────────────────────┘
+
+   Canon CR3 stack (independent):
+   ┌──────────────┐   ┌──────────────────┐   ┌──────────────┐
+   │ canon-cr3-cli│──►│ canon-cr3-imageio│──►│ canon-cr3-core│
+   └──────────────┘   └──────────────────┘   └──────────────┘
+```
+
+---
+
+## The `app` Module (Spring Boot Monolith)
+
+The `app` module wires all library modules into a single deployable Spring Boot
+application. Key responsibilities:
+
+- **REST API** — camera profiles, stacking jobs, analysis, HDR timelapse,
+  face orbit, observer, astro sessions, plugin management
+- **Camera backends** — `CanonCcapiBackend` (Wi-Fi), `MockCameraBackend` (CI/demos),
+  `PtpCameraBackend` (USB), plus external backends via `plugin-api`
+- **Image analysis** — sharpness (Laplacian variance via ImageJ), motion detection
+  (pixel diff, optical flow, structural similarity), stack merging (EDF)
+- **Session workflows** — HDR timelapse, face orbit capture, wildlife observer,
+  astro sessions — all scheduled on a bounded `sessionTaskExecutor`
+- **Persistence** — JPA (PostgreSQL / H2) with Hibernate Search (Lucene)
+- **Security** — Spring Security with form login and admin user initialization
+- **Frontend** — serves the React build from `static/` resources
+- **WebSocket** — STOMP/SockJS for real-time capture progress and logs
+
+### Package Structure
+
+```
+com.photographer.focusstack
+├── analysis/       # Sharpness, motion, plugins, stack merging
+├── ai/             # AI vision provider wiring and registry
+├── app/            # Config, security, plugin loading
+├── astro/          # Astro session controller and service
+├── camera/         # Backends, entities, controllers, services, strategies
+└── observer/       # Observer session controller and service
+```
+
+---
+
+## Frontend
 
 | | |
 |---|---|
 | **Language** | JavaScript (JSX) |
 | **Framework** | React 19, Vite |
-| **Port** | 3000 (Docker) / 5173 (dev) |
+| **Port** | 5173 (dev) / served by Spring Boot in production |
 
-Responsibilities:
-- Display the Live View MJPEG stream proxied through camera-service.
-- Provide controls for starting, pausing, and stopping a focus-stack capture.
-- Render a gallery of completed stacks with per-frame sharpness overlays.
-- Communicate with camera-service via REST and WebSocket (STOMP/SockJS).
+The frontend is built by `frontend-maven-plugin` during `mvn package` and
+copied into `app/src/main/resources/static/`. In development, the Vite dev
+server proxies API calls to the Spring Boot backend.
 
-### camera-service — Camera Orchestration
+Pages: Dashboard, Cameras, Jobs, Gallery, HDR Timelapse, Face Orbit,
+Wildlife Observer, Astro Sessions, Plugins.
 
-| | |
+---
+
+## Domain Modules
+
+### Camera Control
+
+| Module | Role |
 |---|---|
-| **Language** | Java 25 |
-| **Framework** | Spring Boot 3, Spring Web (REST + WebSocket) |
-| **Port** | 8080 |
+| `camera-ptp` | Clean-room PTP/USB implementation with Canon EOS extensions (5 layers: core → usb → canon → session → backend) |
+| `capture-core` | `BracketCaptureService` and `SequenceCaptureService` — plain Java, no Spring |
+| `storage` | File-system session persistence (`data/sessions/{id}/frames/`, `brackets/`, `results/`) |
 
-Responsibilities:
-- Wrap Canon CCAPI calls behind a stable internal REST API.
-- Proxy the Live View MJPEG stream to the browser.
-- Execute focus-stack sequences: iterate focus positions, trigger shutter, collect frames.
-- Delegate per-frame analysis to analysis-service via HTTP (`RestClient`).
-- Apply the **adaptive step strategy** — narrows focus steps near the sharpness peak.
-- Persist capture metadata to PostgreSQL.
-- Expose a WebSocket endpoint (STOMP/SockJS) for real-time capture progress and logs.
+### Imaging & Analysis
 
-### analysis-service — Image Analysis
-
-| | |
+| Module | Role |
 |---|---|
-| **Language** | Java 25 |
-| **Framework** | Spring Boot 3, ImageJ 1.x (headless) |
-| **Port** | 8081 |
+| `hdr-core` | `HdrProcessor` and `Tonemapper` interfaces with mock adapters |
+| `video-core` | `VideoEncoder` interface for timelapse video generation |
+| `face-analysis-core` | Face detection, landmark extraction, quality scoring |
+| `face-profile-core` | 3D face profile generation from multi-angle captures |
+| `astro-core` | `StarDetectionService`, `FrameRegistrationService`, `AstroStackingService`, focus optimization |
 
-Responsibilities:
-- Compute per-frame sharpness metrics (Laplacian variance via ImageJ).
-- Detect movement between consecutive frames using a pluggable **motion detection strategy**
-  (`optical-flow` using ImageJ pixel comparison, or `pixel-diff` for raw byte comparison).
-- Advise camera-service whether to continue capturing or stop.
-- Merge a completed focus stack into a single all-in-focus image using
-  ImageJ-based **Extended Depth of Field** (EDF) algorithm.
+### Session Orchestration
 
-### Storage — PostgreSQL + Local Volumes
-
-| | |
+| Module | Role |
 |---|---|
-| **Engine** | PostgreSQL 16 |
-| **Port** | 5432 |
+| `session-core` | `HdrTimelapseService` (bracket → merge → tonemap → video), `FaceOrbitService` (capture → quality → profile) |
+| `observer-core` | Wildlife observer: state machine, rules engine, scene monitor, capture orchestrator (pure Java, no Spring) |
 
-- **PostgreSQL** stores structured metadata: sessions, captures, frames, analysis results.
-- **Docker volumes** hold raw image files (JPEG/CR3) and generated stack outputs.
+### AI & Plugins
+
+| Module | Role |
+|---|---|
+| `ai-vision` | `VisionProvider` interface with Gemini and mock implementations |
+| `plugin-api` | Stable SPI for external plugins: `AnalysisPlugin`, `CameraBackendPlugin`, `VisionProviderPlugin` |
+
+### Canon CR3
+
+| Module | Role |
+|---|---|
+| `canon-cr3-core` | ISO-BMFF parser, CRX codec, TIFF/EXIF metadata, Bayer demosaicing, wavelet transforms |
+| `canon-cr3-imageio` | Java ImageIO adapter (`CanonCr3ImageReader`, `CanonCr3ImageReaderSpi`) |
+| `canon-cr3-cli` | Debug CLI (commands: `info`, `boxes`, `preview`, `thumb`) |
 
 ---
 
 ## Adaptive Focus Stacking Cycle
 
-The core loop runs inside camera-service and proceeds as follows:
+The core capture loop runs inside the `app` module:
 
 ```
  ┌─────────────────────────────────────────────────────────────────┐
  │                     CAPTURE SEQUENCE                            │
  │                                                                 │
  │  1. User sets near-focus and far-focus limits in the UI.        │
- │  2. camera-service positions the lens at the near limit.        │
+ │  2. App positions the lens at the near limit via the backend.   │
  │  3. LOOP:                                                       │
- │     a. Trigger shutter via CCAPI → capture frame with imageData.│
- │     b. Send frame to analysis-service via HTTP multipart POST.  │
- │     c. Receive AnalysisResult (sharpness, motion, recommendCont.│
- │     d. IF motion detected OR gain below threshold → STOP.       │
- │     e. Compute next step via FocusStepStrategy:                 │
- │        - Rising sharpness → keep full step (far from peak).     │
+ │     a. Trigger shutter → capture frame.                         │
+ │     b. Analyse frame: sharpness (Laplacian) + motion detection. │
+ │     c. IF motion detected OR gain below threshold → STOP.       │
+ │     d. Compute next step via FocusStepStrategy:                 │
+ │        - Rising sharpness → full step (far from peak).          │
  │        - Plateau → halve step (approaching peak).               │
  │        - Falling sharpness → quarter step (past peak).          │
- │     f. Advance focus by computed step size via CCAPI.           │
- │  4. Broadcast analysis result per frame via WebSocket.          │
- │  5. Persist completed stack metadata; notify UI via WebSocket.  │
+ │     e. Advance focus by computed step size.                     │
+ │  4. Broadcast progress per frame via WebSocket.                 │
+ │  5. Persist completed stack metadata; notify UI.                │
  └─────────────────────────────────────────────────────────────────┘
 ```
 
-### FocusStepStrategy (camera-service)
+### FocusStepStrategy
 
 Configured via `camera.focus.step-strategy` (default: `adaptive`):
 
 | Strategy | Behaviour |
 |---|---|
 | `adaptive` | Gradient-based narrowing around sharpness peak (default) |
-| `linear` | Fixed step size for every move (original behaviour, safe fallback) |
+| `linear` | Fixed step size for every move (safe fallback) |
 
-### MotionDetectionStrategy (analysis-service)
+### MotionDetectionStrategy
 
-Configured via `analysis.motion.strategy` (default: `optical-flow`):
+Configured via `analysis.motion.strategy`:
 
 | Strategy | Behaviour |
 |---|---|
 | `optical-flow` | ImageJ-decoded per-pixel comparison (accurate for compressed images) |
 | `pixel-diff` | Raw byte comparison (fast, works on any byte array) |
-
-### Sharpness Analysis
-
-Each frame is decoded and converted to an ImageJ FloatProcessor, then convolved
-with a Laplacian kernel. The variance of the response (normalised to 0–1) serves
-as the sharpness score.
-
-### Stack Merging
-
-After a job completes, the `/api/analysis/merge-stack` endpoint accepts all
-captured frames and returns a single merged PNG using the **EDF (Extended Depth of
-Field)** algorithm: for each pixel, the frame with the highest local Laplacian
-response is selected.
+| `structural-similarity` | SSIM-based comparison |
 
 ---
 
 ## Communication
 
 ```
-Browser ──HTTP/WS──► camera-service ──HTTP (RestClient)──► analysis-service
-                          │
-                          ▼
-                      PostgreSQL
+Browser ──HTTP/WS──► app (Spring Boot) ──CCAPI──► Canon Camera
+                        │
+                        ▼
+                    PostgreSQL
 ```
 
-- **Browser ↔ camera-service**: REST for commands; STOMP/SockJS WebSocket for
-  real-time progress events and logs; MJPEG for Live View.
-- **camera-service → analysis-service**: REST (Spring `RestClient`), multipart
-  POST per captured frame. Falls back to linear mode if the service is unreachable.
-- **camera-service → Canon camera**: Canon CCAPI over Wi-Fi (HTTP).
-- **Both services → PostgreSQL**: JDBC via HikariCP connection pool.
+- **Browser ↔ app**: REST for commands; STOMP/SockJS WebSocket for real-time
+  progress events and logs; MJPEG proxy for Live View.
+- **app → Canon camera**: Canon CCAPI over Wi-Fi (HTTP) or PTP over USB.
+- **app → PostgreSQL**: JDBC via HikariCP connection pool.
+
+---
+
+## Plugin System
+
+Focus Stack uses a custom `FocusStackPluginManager` based on `ServiceLoader` +
+`URLClassLoader` for runtime plugin loading. External plugins implement SPIs
+from `plugin-api` and register via `META-INF/services/`.
+
+### Extension Points
+
+| SPI | Purpose |
+|---|---|
+| `AnalysisPlugin` | Custom image analysis algorithms |
+| `CameraBackendPlugin` | Additional camera backends |
+| `VisionProviderPlugin` | Alternative AI vision providers |
+
+Plugins are discovered at startup from the `plugins/` directory.
+`CameraBackendRegistry` and `VisionProviderRegistry` integrate external
+plugins into the backend and AI provider selection.
 
 ---
 
 ## Configuration
 
-All services read configuration from environment variables. Defaults are defined
-in each service's `application.yml` and overridden in `docker-compose.yml`.
+Configuration is read from environment variables and `application.yml`,
+overridden in `docker-compose.yml` for Docker deployments.
 
-| Variable | Service | Description |
-|---|---|---|
-| `CAMERA_CCAPI_URL` | camera-service | Base URL of the Canon CCAPI (e.g., `http://192.168.1.2:8080`) |
-| `CAMERA_MOCK_ENABLED` | camera-service | `true` to use the built-in mock camera |
-| `CAMERA_FOCUS_STEP_STRATEGY` | camera-service | `adaptive` or `linear` (default: `adaptive`) |
-| `ANALYSIS_SERVICE_ENABLED` | camera-service | `true` to enable per-frame analysis calls |
-| `ANALYSIS_SERVICE_URL` | camera-service | URL of the analysis-service (e.g., `http://analysis-service:8081`) |
-| `ANALYSIS_MOTION_STRATEGY` | analysis-service | `optical-flow` or `pixel-diff` (default: `optical-flow`) |
-| `SPRING_DATASOURCE_URL` | camera-service | JDBC URL for PostgreSQL |
-
----
-
-## Security Considerations
-
-- The system is designed for **local-network use only**. There is no built-in
-  authentication. Do not expose the services to the public internet without
-  adding an authentication layer.
-- CCAPI communication is unencrypted HTTP on the local Wi-Fi network. Use a
-  dedicated or isolated network for camera control.
-
+| Variable | Description |
+|---|---|
+| `CAMERA_CCAPI_URL` | Base URL of the Canon CCAPI (e.g. `http://192.168.1.2:8080`) |
+| `CAMERA_MOCK_ENABLED` | `true` to use the built-in mock camera |
+| `CAMERA_FOCUS_STEP_STRATEGY` | `adaptive` or `linear` (default: `adaptive`) |
+| `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL |
+| `SPRING_DATASOURCE_USERNAME` | Database username |
+| `SPRING_DATASOURCE_PASSWORD` | Database password |
+| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password |
 
 ---
 
-## Plugin API (analysis-service)
+## Security
 
-The analysis-service exposes a lightweight plugin system for third-party analysis
-algorithms.
+- Spring Security with form-based login and HTTP Basic for API access.
+- `DefaultAdminInitializer` creates the admin user on first start.
+- CCAPI communication is unencrypted HTTP on the local Wi-Fi network.
+  Use a dedicated or isolated network for camera control.
 
-### Interface
+---
 
-```java
-public interface AnalysisPlugin {
-    String name();                                                       // unique, URL-safe name
-    AnalysisPluginResult analyze(byte[] imageData, AnalysisContext ctx); // returns score + metadata
-}
-```
+## Mock Camera Failure Simulation
 
-### Registration
-
-Any Spring bean implementing `AnalysisPlugin` is automatically collected by
-`AnalysisPluginRegistry` via `@Autowired List<AnalysisPlugin>`. No manual
-registration is required — add a `@Component` class and it will appear in the
-plugin list on next startup.
-
-### Endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `GET`  | `/api/analysis/plugins` | Lists all registered plugins by name |
-| `POST` | `/api/analysis/plugins/{name}/analyze` | Runs the named plugin on an uploaded image |
-
-### Bundled Plugins
-
-| Name | Class | Description |
-|---|---|---|
-| `sharpness` | `DefaultSharpnessPlugin` | Laplacian-variance sharpness score via ImageJ (with `SharpnessAnalyzer` fallback on raw grayscale bytes) |
-
-### Mock Camera Failure Simulation
-
-`MockCameraBackend` supports the following configuration flags for testing error
-scenarios without real hardware:
+`MockCameraBackend` supports configuration flags for testing error scenarios
+without real hardware:
 
 | Property | Default | Description |
 |---|---|---|
