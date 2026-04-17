@@ -71,7 +71,9 @@ public class CanonCr3ImageReader extends ImageReader {
         ensureParsed();
         Cr3Metadata meta = decoder.getMetadata();
         if (meta != null && meta.sensorWidth() > 0) {
-            return meta.visibleWidth();
+            int[] dims = com.photographer.focusstack.cr3.processing.ExifOrientationTransformer
+                    .outputDimensions(meta.visibleWidth(), meta.visibleHeight(), meta.orientation());
+            return dims[0];
         }
         // Fall back to preview dimensions
         return getPreviewWidth();
@@ -83,7 +85,9 @@ public class CanonCr3ImageReader extends ImageReader {
         ensureParsed();
         Cr3Metadata meta = decoder.getMetadata();
         if (meta != null && meta.sensorHeight() > 0) {
-            return meta.visibleHeight();
+            int[] dims = com.photographer.focusstack.cr3.processing.ExifOrientationTransformer
+                    .outputDimensions(meta.visibleWidth(), meta.visibleHeight(), meta.orientation());
+            return dims[1];
         }
         return getPreviewHeight();
     }
@@ -131,8 +135,16 @@ public class CanonCr3ImageReader extends ImageReader {
 
     @Override
     public IIOMetadata getImageMetadata(int imageIndex) {
-        // CR3 image metadata (EXIF, MakerNote) is not exposed as IIOMetadata.
-        // Use getDecoder().getMetadata() for programmatic access to CR3 metadata.
+        try {
+            checkIndex(imageIndex);
+            ensureParsed();
+            Cr3Metadata meta = decoder.getMetadata();
+            if (meta != null) {
+                return new Cr3ImageMetadata(meta);
+            }
+        } catch (IOException e) {
+            LOG.warn("Failed to get CR3 image metadata: {}", e.getMessage());
+        }
         return null;
     }
 
