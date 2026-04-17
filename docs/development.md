@@ -53,7 +53,8 @@ This guide covers building, testing, and contributing to Focus Stack.
 ### Java backend
 
 ```bash
-# From repository root — builds all modules including integration tests
+# From repository root — builds all backend modules including integration tests
+# (frontend-web is built separately; see below)
 mvn -B clean verify \
   -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
   -am -Djava.awt.headless=true

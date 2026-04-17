@@ -3,8 +3,9 @@
 The REST API is documented via **SpringDoc OpenAPI / Swagger UI**. When the
 application is running, open the interactive documentation at:
 
-| Swagger UI | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
+| | |
 |---|---|
+| **Swagger UI** | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
 
 The raw OpenAPI spec (JSON) is available at `/v3/api-docs`.
 
