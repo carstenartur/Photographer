@@ -34,7 +34,6 @@ public class CameraProfileEntity {
     @KeywordField
     private String backendType;
 
-    @NotBlank
     @FullTextField(analyzer = &quot;standard&quot;)
     private String host;
 
@@ -52,85 +51,85 @@ public class CameraProfileEntity {
     @Max(1)
     private double movementThreshold;
 
-<span class="fc" id="L55">    public CameraProfileEntity() {</span>
-<span class="fc" id="L56">    }</span>
+<span class="fc" id="L54">    public CameraProfileEntity() {</span>
+<span class="fc" id="L55">    }</span>
 
     public CameraProfileEntity(String id, String name, String backendType, String host,
-<span class="fc" id="L59">                                int defaultStepSize, int maxFrames, double movementThreshold) {</span>
-<span class="fc" id="L60">        this.id = id;</span>
-<span class="fc" id="L61">        this.name = name;</span>
-<span class="fc" id="L62">        this.backendType = backendType;</span>
-<span class="fc" id="L63">        this.host = host;</span>
-<span class="fc" id="L64">        this.defaultStepSize = defaultStepSize;</span>
-<span class="fc" id="L65">        this.maxFrames = maxFrames;</span>
-<span class="fc" id="L66">        this.movementThreshold = movementThreshold;</span>
-<span class="fc" id="L67">    }</span>
+<span class="fc" id="L58">                                int defaultStepSize, int maxFrames, double movementThreshold) {</span>
+<span class="fc" id="L59">        this.id = id;</span>
+<span class="fc" id="L60">        this.name = name;</span>
+<span class="fc" id="L61">        this.backendType = backendType;</span>
+<span class="fc" id="L62">        this.host = host;</span>
+<span class="fc" id="L63">        this.defaultStepSize = defaultStepSize;</span>
+<span class="fc" id="L64">        this.maxFrames = maxFrames;</span>
+<span class="fc" id="L65">        this.movementThreshold = movementThreshold;</span>
+<span class="fc" id="L66">    }</span>
 
     public static CameraProfileEntity fromRecord(CameraProfile profile) {
-<span class="fc" id="L70">        return new CameraProfileEntity(</span>
-<span class="fc" id="L71">                profile.id(), profile.name(), profile.backendType(), profile.host(),</span>
-<span class="fc" id="L72">                profile.defaultStepSize(), profile.maxFrames(), profile.movementThreshold()</span>
+<span class="fc" id="L69">        return new CameraProfileEntity(</span>
+<span class="fc" id="L70">                profile.id(), profile.name(), profile.backendType(), profile.host(),</span>
+<span class="fc" id="L71">                profile.defaultStepSize(), profile.maxFrames(), profile.movementThreshold()</span>
         );
     }
 
     public CameraProfile toRecord() {
-<span class="fc" id="L77">        return new CameraProfile(id, name, backendType, host, defaultStepSize, maxFrames, movementThreshold);</span>
+<span class="fc" id="L76">        return new CameraProfile(id, name, backendType, host, defaultStepSize, maxFrames, movementThreshold);</span>
     }
 
     public String getId() {
-<span class="fc" id="L81">        return id;</span>
+<span class="fc" id="L80">        return id;</span>
     }
 
     public void setId(String id) {
-<span class="nc" id="L85">        this.id = id;</span>
-<span class="nc" id="L86">    }</span>
+<span class="nc" id="L84">        this.id = id;</span>
+<span class="nc" id="L85">    }</span>
 
     public String getName() {
-<span class="fc" id="L89">        return name;</span>
+<span class="fc" id="L88">        return name;</span>
     }
 
     public void setName(String name) {
-<span class="fc" id="L93">        this.name = name;</span>
-<span class="fc" id="L94">    }</span>
+<span class="fc" id="L92">        this.name = name;</span>
+<span class="fc" id="L93">    }</span>
 
     public String getBackendType() {
-<span class="fc" id="L97">        return backendType;</span>
+<span class="fc" id="L96">        return backendType;</span>
     }
 
     public void setBackendType(String backendType) {
-<span class="fc" id="L101">        this.backendType = backendType;</span>
-<span class="fc" id="L102">    }</span>
+<span class="fc" id="L100">        this.backendType = backendType;</span>
+<span class="fc" id="L101">    }</span>
 
     public String getHost() {
-<span class="nc" id="L105">        return host;</span>
+<span class="nc" id="L104">        return host;</span>
     }
 
     public void setHost(String host) {
-<span class="nc" id="L109">        this.host = host;</span>
-<span class="nc" id="L110">    }</span>
+<span class="nc" id="L108">        this.host = host;</span>
+<span class="nc" id="L109">    }</span>
 
     public int getDefaultStepSize() {
-<span class="nc" id="L113">        return defaultStepSize;</span>
+<span class="nc" id="L112">        return defaultStepSize;</span>
     }
 
     public void setDefaultStepSize(int defaultStepSize) {
-<span class="nc" id="L117">        this.defaultStepSize = defaultStepSize;</span>
-<span class="nc" id="L118">    }</span>
+<span class="nc" id="L116">        this.defaultStepSize = defaultStepSize;</span>
+<span class="nc" id="L117">    }</span>
 
     public int getMaxFrames() {
-<span class="nc" id="L121">        return maxFrames;</span>
+<span class="nc" id="L120">        return maxFrames;</span>
     }
 
     public void setMaxFrames(int maxFrames) {
-<span class="nc" id="L125">        this.maxFrames = maxFrames;</span>
-<span class="nc" id="L126">    }</span>
+<span class="nc" id="L124">        this.maxFrames = maxFrames;</span>
+<span class="nc" id="L125">    }</span>
 
     public double getMovementThreshold() {
-<span class="nc" id="L129">        return movementThreshold;</span>
+<span class="nc" id="L128">        return movementThreshold;</span>
     }
 
     public void setMovementThreshold(double movementThreshold) {
-<span class="nc" id="L133">        this.movementThreshold = movementThreshold;</span>
-<span class="nc" id="L134">    }</span>
+<span class="nc" id="L132">        this.movementThreshold = movementThreshold;</span>
+<span class="nc" id="L133">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
