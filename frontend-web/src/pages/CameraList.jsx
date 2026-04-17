@@ -122,10 +122,12 @@ function CameraCard({ cam, onDelete }) {
           <span className="cam-info-label">Firmware</span>
           <span className="cam-info-value">{info?.firmwareVersion || '—'}</span>
         </div>
-        <div className="cam-info-row">
-          <span className="cam-info-label">Host</span>
-          <span className="cam-info-value">{cam.host || '—'}</span>
-        </div>
+        {cam.host && (
+          <div className="cam-info-row">
+            <span className="cam-info-label">{cam.backendType === 'folder' ? 'Path' : 'Host'}</span>
+            <span className="cam-info-value">{cam.host}</span>
+          </div>
+        )}
         {status && (
           <>
             <div className="cam-info-row">
@@ -258,18 +260,34 @@ export default function CameraList() {
             >
               <option value="mock">Mock</option>
               <option value="canon-ccapi">Canon CCAPI</option>
+              <option value="canon-usb">Canon USB (PTP)</option>
+              <option value="folder">Folder</option>
             </select>
           </label>
-          <label>
-            Host IP
-            <input
-              name="host"
-              value={form.host}
-              onChange={handleChange}
-              placeholder="192.168.1.100"
-              required
-            />
-          </label>
+          {form.backendType === 'canon-ccapi' && (
+            <label>
+              Host IP
+              <input
+                name="host"
+                value={form.host}
+                onChange={handleChange}
+                placeholder="192.168.1.100"
+                required
+              />
+            </label>
+          )}
+          {form.backendType === 'folder' && (
+            <label>
+              Folder Path
+              <input
+                name="host"
+                value={form.host}
+                onChange={handleChange}
+                placeholder="/path/to/image/folder"
+                required
+              />
+            </label>
+          )}
           <label>
             Step Size
             <input

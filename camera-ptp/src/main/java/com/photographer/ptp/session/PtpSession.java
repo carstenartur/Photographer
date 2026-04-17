@@ -116,6 +116,15 @@ public class PtpSession implements AutoCloseable {
         return dr.data();
     }
 
+    /** Downloads an object by handle using the Canon vendor-specific command (0x9101). */
+    public byte[] getCanonObject(int objectHandle) {
+        PtpContainer request = PtpContainer.createCommand(
+                com.photographer.ptp.canon.CanonConstants.OC_EOS_GET_OBJECT, nextTransactionId(), objectHandle);
+        PtpTransport.DataResponse dr = transport.executeReceiveData(request);
+        PtpOperationResponse.from(dr.response()).checkOk();
+        return dr.data();
+    }
+
     /** Downloads a thumbnail by handle. */
     public byte[] getThumb(int objectHandle) {
         PtpContainer request = PtpContainer.createCommand(

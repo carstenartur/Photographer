@@ -125,38 +125,51 @@ public final class Cr3Decoder {
 
     /**
      * Full RAW processing pipeline:
-     * CrxLosslessRawDecoder → BlackLevel → WhiteBalance → Demosaic → ColorMatrix → sRGB → Orientation
+     * CrxLosslessRawDecoder → BlackLevel (on uncropped) → Crop → WhiteBalance → Demosaic → ColorMatrix → sRGB → Orientation
+     *
+     * <p><b>Important:</b> OB (optical black) column estimation must happen
+     * <em>before</em> cropping to the active area. The OB columns sit outside
+     * the active area; if we crop first, the estimator would read real image
+     * pixels instead of masked OB pixels, producing wildly wrong black levels.</p>
      */
     private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception, IOException {
-        Cr3RawImage rawImage = decodeRawBayer(options);
+        boolean shouldCrop = options.cropToActiveArea();
 
-        // 1. Black level subtraction — use OB/per-channel if available from metadata
+        // Always decode uncropped — OB columns are needed for black level estimation
+        Cr3RawImage rawImage = decodeRawBayerUncropped(options);
+
+        // 1. Black level subtraction on the UNCROPPED image (OB columns still present)
         if (options.applyBlackLevel()) {
             BlackLevel blackLevel = resolveBlackLevel(rawImage);
             BlackLevelProcessor.process(rawImage, blackLevel);
         }
 
-        // 2. White balance — use MakerNote multipliers if available
+        // 2. Now crop to active area (OB columns removed after estimation)
+        if (shouldCrop) {
+            rawImage = cropToActiveArea(rawImage);
+        }
+
+        // 3. White balance — use MakerNote multipliers if available
         if (options.applyWhiteBalance()) {
             double[] wbMultipliers = resolveWhiteBalance();
             WhiteBalanceProcessor.process(rawImage, wbMultipliers);
         }
 
-        // 3. Bayer demosaicing → full-colour RGB
+        // 4. Bayer demosaicing → full-colour RGB
         BufferedImage rgb = BayerDemosaicer.demosaic(rawImage);
 
-        // 4. Color matrix correction — use camera-specific if available
+        // 5. Color matrix correction — use camera-specific if available
         if (options.applyColorMatrix()) {
             double[][] colorMatrix = resolveColorMatrix();
             ColorMatrixProcessor.process(rgb, colorMatrix);
         }
 
-        // 5. sRGB gamma conversion
+        // 6. sRGB gamma conversion
         if (options.applySrgbConversion()) {
             SrgbConverter.process(rgb);
         }
 
-        // 6. Apply EXIF orientation (rotation/flip)
+        // 7. Apply EXIF orientation (rotation/flip)
         if (metadata != null && metadata.orientation() > 1) {
             rgb = ExifOrientationTransformer.apply(rgb, metadata.orientation());
         }
@@ -263,6 +276,21 @@ public final class Cr3Decoder {
             return cropToActiveArea(decoded);
         }
         return decoded;
+    }
+
+    /**
+     * Decodes the CRX RAW track WITHOUT cropping, regardless of the options.
+     * Used by the RAW_PROCESSED pipeline which needs OB columns for black level
+     * estimation before cropping.
+     */
+    private Cr3RawImage decodeRawBayerUncropped(Cr3DecodeOptions options) throws Cr3Exception, IOException {
+        boolean savedCrop = options.cropToActiveArea();
+        try {
+            options.cropToActiveArea(false);
+            return decodeRawBayer(options);
+        } finally {
+            options.cropToActiveArea(savedCrop);
+        }
     }
 
     private Cr3RawImage cropToActiveArea(Cr3RawImage image) {

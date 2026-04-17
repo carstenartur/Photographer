@@ -307,8 +307,12 @@ public class PtpCamera implements AutoCloseable {
     }
 
     /**
-     * Polls Canon GetEvent (0x9116) until an {@code EVENT_OBJ_ADDED} event is
-     * received, then downloads the image.
+     * Polls Canon GetEvent (0x9116) until an {@code EVENT_OBJ_ADDED} or
+     * {@code EVENT_OBJ_INFO_EX} event is received, then downloads the image.
+     *
+     * <p>On EOS R-series cameras, a single capture produces two events (CR3 + JPEG
+     * sidecar).  We collect all object handles from the batch and return the
+     * largest download (the CR3).
      */
     private ImageDownload pollForCapturedImageCanon() {
         long deadline = System.currentTimeMillis() + config.captureTimeoutMs();
@@ -318,25 +322,69 @@ public class PtpCamera implements AutoCloseable {
                         session.executeReceiveData(CanonConstants.OC_EOS_GET_EVENT);
                 PtpOperationResponse.from(dr.response()).checkOk();
                 List<CanonEventParser.CanonEvent> events = CanonEventParser.parse(dr.data());
+
+                // Collect all object handles from this event batch
+                List<Integer> objectHandles = new java.util.ArrayList<>();
                 for (CanonEventParser.CanonEvent event : events) {
+                    log.debug("Canon event: type=0x{}, payloadLen={}",
+                            String.format("%04X", event.type()), event.payload().length);
                     if (event.isObjectAdded()) {
-                        int objectHandle = event.getObjectHandle();
-                        // Acknowledge the object to the camera
-                        PtpContainer transferCompleteResponse = session.executeOperation(
-                                CanonConstants.OC_EOS_TRANSFER_COMPLETE, objectHandle);
-                        if (transferCompleteResponse.code() != PtpConstants.RC_OK) {
-                            throw new PtpException(
-                                    transferCompleteResponse.code(),
-                                    "Canon transfer complete failed for object 0x%08X: 0x%04X"
-                                            .formatted(objectHandle, transferCompleteResponse.code()));
+                        int handle = event.getObjectHandle();
+                        log.info("Canon object-added event: handle=0x{}, eventType=0x{}",
+                                Integer.toHexString(handle), String.format("%04X", event.type()));
+                        objectHandles.add(handle);
+                    }
+                }
+
+                if (!objectHandles.isEmpty()) {
+                    // Download all objects, pick the largest (typically the CR3)
+                    ImageDownload best = null;
+                    for (int objectHandle : objectHandles) {
+                        try {
+                            // Try Canon vendor command first, fall back to standard PTP
+                            byte[] data = null;
+                            try {
+                                data = session.getCanonObject(objectHandle);
+                            } catch (PtpException e) {
+                                log.debug("Canon GetObject failed for 0x{}, trying standard PTP: {}",
+                                        Integer.toHexString(objectHandle), e.getMessage());
+                            }
+                            if (data == null || data.length <= 8) {
+                                log.debug("Canon GetObject returned {} bytes, trying standard PTP GetObject",
+                                        data != null ? data.length : 0);
+                                data = session.getObject(objectHandle);
+                            }
+                            String filename = "object_" + Integer.toHexString(objectHandle);
+                            try {
+                                PtpObjectInfo info = session.getObjectInfo(objectHandle);
+                                filename = info.filename();
+                            } catch (PtpException e) {
+                                log.debug("Could not get ObjectInfo for 0x{}: {}",
+                                        Integer.toHexString(objectHandle), e.getMessage());
+                            }
+                            log.info("Canon capture: downloaded {} bytes as {}",
+                                    data.length, filename);
+
+                            // Acknowledge the object to the camera
+                            try {
+                                session.executeOperation(
+                                        CanonConstants.OC_EOS_TRANSFER_COMPLETE, objectHandle);
+                            } catch (PtpException e) {
+                                log.debug("TransferComplete for 0x{}: {}",
+                                        Integer.toHexString(objectHandle), e.getMessage());
+                            }
+
+                            if (best == null || data.length > best.size()) {
+                                best = new ImageDownload(
+                                        String.valueOf(objectHandle), filename, data);
+                            }
+                        } catch (PtpException e) {
+                            log.warn("Failed to download object 0x{}: {}",
+                                    Integer.toHexString(objectHandle), e.getMessage());
                         }
-                        // Download the image
-                        byte[] data = session.getObject(objectHandle);
-                        PtpObjectInfo info = session.getObjectInfo(objectHandle);
-                        log.info("Canon capture: downloaded {} bytes as {}",
-                                data.length, info.filename());
-                        return new ImageDownload(
-                                String.valueOf(objectHandle), info.filename(), data);
+                    }
+                    if (best != null && best.data().length > 0) {
+                        return best;
                     }
                 }
             } catch (PtpException e) {
@@ -554,8 +602,11 @@ public class PtpCamera implements AutoCloseable {
      * Canon's SetDevicePropValueEx (0x9110) sends a data payload with format:
      * {@code [4-byte totalSize][4-byte propCode][4-byte value]}
      * where totalSize includes itself (= 0x0C for a single UINT32 property).
+     *
+     * <p>Public so callers (e.g. integration tests) can set arbitrary EOS
+     * properties such as image quality, white balance, etc.</p>
      */
-    private void setCanonProperty(int propertyCode, int value) {
+    public void setCanonProperty(int propertyCode, int value) {
         byte[] data = new byte[12];
         java.nio.ByteBuffer buf = java.nio.ByteBuffer.wrap(data)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN);

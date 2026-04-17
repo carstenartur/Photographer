@@ -1,6 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
+import AuthProvider from './components/AuthContext';
+import { useAuth } from './components/useAuth';
+import LoginPage from './pages/LoginPage';
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/ErrorBoundary';
+import StatusBar from './components/StatusBar';
 import Dashboard from './pages/Dashboard';
 import CameraList from './pages/CameraList';
 import JobList from './pages/JobList';
@@ -18,7 +22,7 @@ import AstroSessions from './pages/AstroSessions';
 import PluginManager from './pages/PluginManager';
 import './App.css';
 
-export default function App() {
+function AuthenticatedApp() {
   return (
     <div className="app">
       <Navbar />
@@ -43,6 +47,20 @@ export default function App() {
           </Routes>
         </ErrorBoundary>
       </main>
+      <StatusBar />
     </div>
+  );
+}
+
+function AppShell() {
+  const { authed } = useAuth();
+  return authed ? <AuthenticatedApp /> : <LoginPage />;
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }

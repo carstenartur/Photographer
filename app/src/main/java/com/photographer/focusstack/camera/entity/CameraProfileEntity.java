@@ -34,7 +34,6 @@ public class CameraProfileEntity {
     @KeywordField
     private String backendType;
 
-    @NotBlank
     @FullTextField(analyzer = "standard")
     private String host;
 

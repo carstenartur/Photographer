@@ -1,18 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
-async function request(path, options = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
-  }
-  if (res.status === 204) return null;
-  return res.json();
-}
+import { request } from './auth';
 
 export function createFaceOrbitSession(settings) {
   return request('/face-orbit', {

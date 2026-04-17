@@ -54,9 +54,10 @@ public class CanonEventParser {
             return type == CanonConstants.EVENT_PROP_CHANGED;
         }
 
-        /** Checks if this is an object-added event. */
+        /** Checks if this is an object-added event (classic or extended). */
         public boolean isObjectAdded() {
-            return type == CanonConstants.EVENT_OBJ_ADDED;
+            return type == CanonConstants.EVENT_OBJ_ADDED
+                    || type == CanonConstants.EVENT_OBJ_INFO_EX;
         }
 
         /** Checks if this is a request-complete event. */

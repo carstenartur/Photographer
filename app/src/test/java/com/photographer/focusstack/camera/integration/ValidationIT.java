@@ -62,23 +62,21 @@ class ValidationIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void createProfile_withBlankHost_returns400() {
-        String json = """
-                {
-                    "id": "val-cam-bad2",
-                    "name": "Valid Name",
-                    "backendType": "mock",
-                    "host": "",
-                    "defaultStepSize": 5,
-                    "maxFrames": 20,
-                    "movementThreshold": 0.15
-                }
-                """;
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/cameras", new HttpEntity<>(json, headers), String.class);
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+    void createProfile_withEmptyHost_forMock_succeeds() {
+        CameraProfile profile = new CameraProfile(
+                "val-cam-nohost", "Mock No Host", "mock", "", 5, 20, 0.15);
+        ResponseEntity<CameraProfile> response = restTemplate.postForEntity(
+                "/api/cameras", profile, CameraProfile.class);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+    }
+
+    @Test
+    void createProfile_withNullHost_forUsb_succeeds() {
+        CameraProfile profile = new CameraProfile(
+                "val-cam-usb", "USB Camera", "canon-usb", null, 5, 20, 0.15);
+        ResponseEntity<CameraProfile> response = restTemplate.postForEntity(
+                "/api/cameras", profile, CameraProfile.class);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
     }
 
     @Test

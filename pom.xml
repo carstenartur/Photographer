@@ -110,7 +110,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
-                        <argLine>-Xmx1g -Djava.awt.headless=true --enable-native-access=ALL-UNNAMED @{argLine}</argLine>
+                        <argLine>-Xmx4g -Djava.awt.headless=true --enable-native-access=ALL-UNNAMED @{argLine}</argLine>
                         <excludedGroups>${excludedGroups}</excludedGroups>
                     </configuration>
                 </plugin>

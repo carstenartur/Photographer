@@ -48,9 +48,17 @@ public final class CanonConstants {
     public static final int FOCUS_FAR_3  = 0x0003; // Far, large step
 
     // ── Canon Event Types (in GetEvent response) ──
-    public static final int EVENT_PROP_CHANGED    = 0xC189;
-    public static final int EVENT_OBJ_ADDED       = 0xC181;
-    public static final int EVENT_REQUEST_COMPLETE = 0xC18A;
+    public static final int EVENT_PROP_CHANGED       = 0xC189;
+    public static final int EVENT_OBJ_ADDED          = 0xC181;
+    public static final int EVENT_REQUEST_COMPLETE   = 0xC18A;
+    public static final int EVENT_AVAIL_LIST_CHANGED = 0xC185;
+    public static final int EVENT_SHUTDOWN           = 0xC18B;
+    /**
+     * Extended object-info event fired by newer Canon mirrorless cameras
+     * (EOS R, R5, R6, etc.) instead of or in addition to {@link #EVENT_OBJ_ADDED}.
+     * The 56-byte payload contains the object handle at offset 0.
+     */
+    public static final int EVENT_OBJ_INFO_EX        = 0xC1A7;
 
     // ── EVF Output Device Values ──
     public static final int EVF_OUTPUT_TFT = 0x01;  // Camera LCD

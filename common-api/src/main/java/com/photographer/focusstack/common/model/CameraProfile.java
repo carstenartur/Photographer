@@ -8,7 +8,7 @@ public record CameraProfile(
         @JsonProperty("id") @NotBlank String id,
         @JsonProperty("name") @NotBlank String name,
         @JsonProperty("backendType") @NotBlank String backendType,
-        @JsonProperty("host") @NotBlank String host,
+        @JsonProperty("host") String host,
         @JsonProperty("defaultStepSize") @Positive int defaultStepSize,
         @JsonProperty("maxFrames") @Positive int maxFrames,
         @JsonProperty("movementThreshold") double movementThreshold

@@ -55,7 +55,7 @@ RUN mvn -B clean package -pl common-api,plugin-api,capture-core,storage,camera-p
 # Stage 2: Runtime — slim JRE with fonts for ImageJ headless mode
 FROM eclipse-temurin:25-jre-alpine
 
-RUN apk add --no-cache fontconfig freetype ttf-dejavu \
+RUN apk add --no-cache fontconfig freetype ttf-dejavu libusb \
     && addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app

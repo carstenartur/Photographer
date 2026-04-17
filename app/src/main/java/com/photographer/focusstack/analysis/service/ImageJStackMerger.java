@@ -135,6 +135,82 @@ public class ImageJStackMerger implements StackMerger {
     }
 
     @Override
+    public BufferedImage mergeImages(List<BufferedImage> images) {
+        if (images == null || images.isEmpty()) {
+            throw new IllegalArgumentException("images must not be null or empty");
+        }
+
+        int width = images.getFirst().getWidth();
+        int height = images.getFirst().getHeight();
+        int n = images.size();
+        int totalPixels = width * height;
+
+        log.info("Starting ImageJ RGB EDF stack merge of {} frames ({}×{})", n, width, height);
+
+        for (int i = 1; i < n; i++) {
+            if (images.get(i).getWidth() != width || images.get(i).getHeight() != height) {
+                throw new IllegalArgumentException(
+                        "All frames must have identical dimensions; frame " + i
+                                + " was " + images.get(i).getWidth() + "×" + images.get(i).getHeight()
+                                + " but expected " + width + "×" + height);
+            }
+        }
+
+        // Memory-efficient: keep only best-response and best-frame-index arrays
+        // instead of all N Laplacian maps at once
+        float[] bestResponse = new float[totalPixels];
+        int[] bestFrameIndex = new int[totalPixels];
+
+        for (int i = 0; i < n; i++) {
+            log.info("  Computing sharpness map for frame {}/{}...", i + 1, n);
+            FloatProcessor luminance = toLuminance(images.get(i));
+            luminance.convolve(LAPLACIAN, 3, 3);
+            float[] laplacian = (float[]) luminance.getPixels();
+
+            for (int p = 0; p < totalPixels; p++) {
+                float response = Math.abs(laplacian[p]);
+                if (response > bestResponse[p]) {
+                    bestResponse[p] = response;
+                    bestFrameIndex[p] = i;
+                }
+            }
+            // laplacian array is GC-eligible now
+        }
+        bestResponse = null; // free ~120 MB
+
+        // Compose output — preserve original colour
+        log.info("  Compositing output image...");
+        BufferedImage output = new BufferedImage(width, height, images.getFirst().getType());
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int idx = y * width + x;
+                output.setRGB(x, y, images.get(bestFrameIndex[idx]).getRGB(x, y));
+            }
+        }
+
+        log.info("RGB stack merge completed: {}×{} px", width, height);
+        return output;
+    }
+
+    /** Converts a BufferedImage to a luminance FloatProcessor for sharpness analysis. */
+    private FloatProcessor toLuminance(BufferedImage img) {
+        int w = img.getWidth();
+        int h = img.getHeight();
+        FloatProcessor fp = new FloatProcessor(w, h);
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int rgb = img.getRGB(x, y);
+                int r = (rgb >> 16) & 0xFF;
+                int g = (rgb >> 8) & 0xFF;
+                int b = rgb & 0xFF;
+                // ITU-R BT.709 luminance
+                fp.setf(x, y, 0.2126f * r + 0.7152f * g + 0.0722f * b);
+            }
+        }
+        return fp;
+    }
+
+    @Override
     public String name() {
         return "imagej-edf";
     }
