@@ -13,7 +13,9 @@ import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.processing.BlackLevelProcessor;
 import com.photographer.focusstack.cr3.processing.CameraColorMatrixRegistry;
 import com.photographer.focusstack.cr3.processing.ColorMatrixProcessor;
+import com.photographer.focusstack.cr3.processing.DualIlluminantColorMatrix;
 import com.photographer.focusstack.cr3.processing.ExifOrientationTransformer;
+import com.photographer.focusstack.cr3.processing.ObBlackLevelEstimator;
 import com.photographer.focusstack.cr3.processing.SrgbConverter;
 import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
@@ -128,9 +130,9 @@ public final class Cr3Decoder {
     private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception, IOException {
         Cr3RawImage rawImage = decodeRawBayer(options);
 
-        // 1. Black level subtraction — use per-channel if available from metadata
+        // 1. Black level subtraction — use OB/per-channel if available from metadata
         if (options.applyBlackLevel()) {
-            BlackLevel blackLevel = resolveBlackLevel();
+            BlackLevel blackLevel = resolveBlackLevel(rawImage);
             BlackLevelProcessor.process(rawImage, blackLevel);
         }
 
@@ -300,12 +302,26 @@ public final class Cr3Decoder {
 
     /**
      * Resolves the best available black level for the current image.
-     * Priority: per-channel from metadata &gt; global default.
+     * Priority: OB per-row estimation &gt; per-channel from metadata &gt; global default.
+     *
+     * @param rawImage the raw image (used for OB estimation if metadata indicates OB columns)
      */
-    private BlackLevel resolveBlackLevel() {
+    private BlackLevel resolveBlackLevel(Cr3RawImage rawImage) {
+        // Try OB-based per-row estimation first (highest accuracy)
+        if (metadata != null && metadata.activeAreaLeft() >= ObBlackLevelEstimator.MIN_OB_COLUMNS) {
+            BlackLevel obLevel = ObBlackLevelEstimator.estimate(rawImage, metadata.activeAreaLeft());
+            if (obLevel != null) {
+                LOG.debug("Using OB-estimated per-row black level");
+                return obLevel;
+            }
+        }
+
+        // Fall back to per-channel from MakerNote metadata
         if (metadata != null && metadata.perChannelBlackLevels() != null) {
             return BlackLevel.perChannel(metadata.perChannelBlackLevels());
         }
+
+        // Final fallback: global default
         return BlackLevel.defaultLevel();
     }
 
@@ -322,12 +338,24 @@ public final class Cr3Decoder {
 
     /**
      * Resolves the best available color matrix for the camera model.
-     * Priority: camera-specific &gt; generic fallback.
+     * Priority: dual-illuminant interpolated (if color temp available) &gt; camera-specific &gt; generic fallback.
      */
     private double[][] resolveColorMatrix() {
-        if (metadata != null && metadata.cameraModel() != null && !metadata.cameraModel().isEmpty()) {
-            return CameraColorMatrixRegistry.getMatrix(metadata.cameraModel());
+        if (metadata == null || metadata.cameraModel() == null || metadata.cameraModel().isEmpty()) {
+            return CameraColorMatrixRegistry.GENERIC_CANON_D65;
         }
-        return CameraColorMatrixRegistry.GENERIC_CANON_D65;
+
+        String model = metadata.cameraModel();
+
+        // Try dual-illuminant interpolation if color temperature is available
+        if (DualIlluminantColorMatrix.hasDualProfile(model)
+                && metadata.makerNoteData() != null
+                && metadata.makerNoteData().colorTemperature() > 0) {
+            int colorTemp = metadata.makerNoteData().colorTemperature();
+            LOG.debug("Using dual-illuminant matrix interpolation for '{}' at {}K", model, colorTemp);
+            return DualIlluminantColorMatrix.getInterpolatedMatrix(model, colorTemp);
+        }
+
+        return CameraColorMatrixRegistry.getMatrix(model);
     }
 }

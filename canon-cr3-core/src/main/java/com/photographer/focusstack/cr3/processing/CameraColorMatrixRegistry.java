@@ -66,6 +66,78 @@ public final class CameraColorMatrixRegistry {
                 {-0.10,  1.30, -0.20},
                 { 0.02, -0.18,  1.16}
         });
+
+        // Canon EOS R — full-frame CMOS (30 MP)
+        // Generic Canon full-frame approximation, same sensor family as R5/R6.
+        register("Canon EOS R", new double[][]{
+                { 1.15, -0.25,  0.10},
+                {-0.10,  1.30, -0.20},
+                { 0.02, -0.18,  1.16}
+        });
+
+        // Canon EOS R3 — full-frame stacked BSI-CMOS (24 MP)
+        // Similar sensor characteristics to R5. Approximation.
+        register("Canon EOS R3", new double[][]{
+                { 1.16, -0.26,  0.10},
+                {-0.09,  1.29, -0.20},
+                { 0.02, -0.19,  1.17}
+        });
+
+        // Canon EOS R7 — APS-C CMOS (33 MP)
+        // APS-C variant, slightly different spectral response than full-frame.
+        register("Canon EOS R7", new double[][]{
+                { 1.20, -0.30,  0.10},
+                {-0.08,  1.25, -0.17},
+                { 0.01, -0.20,  1.19}
+        });
+
+        // Canon EOS R8 — full-frame CMOS (24 MP)
+        // Same sensor family as R6, similar colour response.
+        register("Canon EOS R8", new double[][]{
+                { 1.15, -0.25,  0.10},
+                {-0.10,  1.30, -0.20},
+                { 0.02, -0.18,  1.16}
+        });
+
+        // Canon EOS R10 — APS-C CMOS (24 MP)
+        // APS-C sensor, similar to R7 family.
+        register("Canon EOS R10", new double[][]{
+                { 1.20, -0.30,  0.10},
+                {-0.08,  1.25, -0.17},
+                { 0.01, -0.20,  1.19}
+        });
+
+        // Canon EOS R50 — APS-C CMOS (24 MP)
+        // Entry-level mirrorless, APS-C.
+        register("Canon EOS R50", new double[][]{
+                { 1.20, -0.30,  0.10},
+                {-0.08,  1.25, -0.17},
+                { 0.01, -0.20,  1.19}
+        });
+
+        // Canon EOS 90D — APS-C CMOS (32 MP)
+        // DSLR APS-C sensor.
+        register("Canon EOS 90D", new double[][]{
+                { 1.20, -0.30,  0.10},
+                {-0.08,  1.25, -0.17},
+                { 0.01, -0.20,  1.19}
+        });
+
+        // Canon EOS M6 Mark II — APS-C CMOS (32 MP)
+        // Mirrorless APS-C, similar sensor to 90D.
+        register("Canon EOS M6 Mark II", new double[][]{
+                { 1.20, -0.30,  0.10},
+                {-0.08,  1.25, -0.17},
+                { 0.01, -0.20,  1.19}
+        });
+
+        // Canon PowerShot G7 X Mark III — 1" CMOS (20 MP)
+        // Same sensor family as G5X II.
+        register("Canon PowerShot G7 X Mark III", new double[][]{
+                { 1.18, -0.28,  0.10},
+                {-0.08,  1.28, -0.20},
+                { 0.02, -0.22,  1.20}
+        });
     }
 
     private CameraColorMatrixRegistry() {}

@@ -22,12 +22,26 @@ public final class BlackLevel {
     /** Default global black level for Canon 14-bit sensors. */
     public static final int DEFAULT_14BIT = 512;
 
+    /** Modes of black level specification. */
+    public enum Mode {
+        /** Single value for all pixels. */
+        GLOBAL,
+        /** One value per Bayer channel [R, Gr, Gb, B]. */
+        PER_CHANNEL,
+        /** Per-row black levels (one value per row, after Bayer channel separation). */
+        PER_ROW
+    }
+
+    private final Mode mode;
     private final int globalLevel;
     private final int[] perChannelLevels;  // [R, Gr, Gb, B] or null
+    private final int[][] perRowLevels;    // [4][height/2] — one array per Bayer channel, or null
 
-    private BlackLevel(int globalLevel, int[] perChannelLevels) {
+    private BlackLevel(Mode mode, int globalLevel, int[] perChannelLevels, int[][] perRowLevels) {
+        this.mode = mode;
         this.globalLevel = globalLevel;
         this.perChannelLevels = perChannelLevels;
+        this.perRowLevels = perRowLevels;
     }
 
     /**
@@ -37,7 +51,7 @@ public final class BlackLevel {
      * @return a global black level
      */
     public static BlackLevel global(int level) {
-        return new BlackLevel(level, null);
+        return new BlackLevel(Mode.GLOBAL, level, null, null);
     }
 
     /**
@@ -50,7 +64,7 @@ public final class BlackLevel {
      * @return a per-channel black level
      */
     public static BlackLevel perChannel(int r, int gr, int gb, int b) {
-        return new BlackLevel(0, new int[]{r, gr, gb, b});
+        return new BlackLevel(Mode.PER_CHANNEL, 0, new int[]{r, gr, gb, b}, null);
     }
 
     /**
@@ -64,7 +78,40 @@ public final class BlackLevel {
         if (levels.length != 4) {
             throw new IllegalArgumentException("Per-channel black level needs 4 values [R,Gr,Gb,B], got " + levels.length);
         }
-        return new BlackLevel(0, Arrays.copyOf(levels, 4));
+        return new BlackLevel(Mode.PER_CHANNEL, 0, Arrays.copyOf(levels, 4), null);
+    }
+
+    /**
+     * Creates a per-row black level from OB (optical black) region estimation.
+     *
+     * <p>Each Bayer channel has a separate per-row array. The arrays are indexed
+     * by the half-row within that channel (e.g., for an image height H, each
+     * channel array has H/2 entries).</p>
+     *
+     * @param perRowLevels 4 arrays of per-row black levels [R, Gr, Gb, B].
+     *                     Each array must have the same length.
+     * @return a per-row black level
+     * @throws IllegalArgumentException if the structure is invalid
+     */
+    public static BlackLevel perRow(int[][] perRowLevels) {
+        if (perRowLevels.length != 4) {
+            throw new IllegalArgumentException(
+                    "Per-row black level needs 4 channel arrays [R,Gr,Gb,B], got " + perRowLevels.length);
+        }
+        int len = perRowLevels[0].length;
+        for (int ch = 1; ch < 4; ch++) {
+            if (perRowLevels[ch].length != len) {
+                throw new IllegalArgumentException(
+                        "Per-row channel arrays must all have the same length; channel 0 has "
+                        + len + ", channel " + ch + " has " + perRowLevels[ch].length);
+            }
+        }
+        // Defensive copy
+        int[][] copy = new int[4][];
+        for (int ch = 0; ch < 4; ch++) {
+            copy[ch] = Arrays.copyOf(perRowLevels[ch], perRowLevels[ch].length);
+        }
+        return new BlackLevel(Mode.PER_ROW, 0, null, copy);
     }
 
     /**
@@ -78,7 +125,17 @@ public final class BlackLevel {
 
     /** Returns {@code true} if this is a per-channel black level. */
     public boolean isPerChannel() {
-        return perChannelLevels != null;
+        return mode == Mode.PER_CHANNEL;
+    }
+
+    /** Returns {@code true} if this is a per-row black level. */
+    public boolean isPerRow() {
+        return mode == Mode.PER_ROW;
+    }
+
+    /** Returns the mode of this black level. */
+    public Mode mode() {
+        return mode;
     }
 
     /** Returns the global black level value. */
@@ -103,12 +160,22 @@ public final class BlackLevel {
      */
     public int levelAt(int x, int y,
                        com.photographer.focusstack.cr3.raw.Cr3RawImage.BayerPattern pattern) {
-        if (perChannelLevels == null) {
+        if (mode == Mode.GLOBAL) {
             return globalLevel;
         }
-        // Map Bayer position to channel index: 0=R, 1=Gr, 2=Gb, 3=B
         int channel = bayerChannelIndex(x, y, pattern);
-        return perChannelLevels[channel];
+        if (mode == Mode.PER_ROW && perRowLevels != null) {
+            // Map from full-image row to half-row index for this channel
+            int halfRow = y / 2;
+            if (halfRow < perRowLevels[channel].length) {
+                return perRowLevels[channel][halfRow];
+            }
+            // Fall through to per-channel if row index out of bounds
+        }
+        if (perChannelLevels != null) {
+            return perChannelLevels[channel];
+        }
+        return globalLevel;
     }
 
     /**
@@ -148,6 +215,9 @@ public final class BlackLevel {
 
     @Override
     public String toString() {
+        if (mode == Mode.PER_ROW && perRowLevels != null) {
+            return "BlackLevel[perRow, %d rows per channel]".formatted(perRowLevels[0].length);
+        }
         if (perChannelLevels != null) {
             return "BlackLevel[perChannel=R:%d,Gr:%d,Gb:%d,B:%d]".formatted(
                     perChannelLevels[0], perChannelLevels[1],

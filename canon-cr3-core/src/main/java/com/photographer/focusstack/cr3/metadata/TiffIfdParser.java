@@ -65,6 +65,7 @@ public final class TiffIfdParser {
     static final int TAG_GPS_LONGITUDE = 0x0004;
     static final int TAG_GPS_ALTITUDE_REF = 0x0005;
     static final int TAG_GPS_ALTITUDE = 0x0006;
+    static final int TAG_GPS_TIMESTAMP = 0x0007;
 
     private TiffIfdParser() {}
 
@@ -81,6 +82,39 @@ public final class TiffIfdParser {
             }
         }
         record IntArrayValue(int[] values) implements TagValue {}
+
+        /**
+         * An array of RATIONAL or SRATIONAL values.
+         *
+         * <p>Used for EXIF tags that store multiple rationals, such as
+         * GPSTimeStamp (tag 0x0007) which stores 3 RATIONALs for
+         * hours, minutes, and seconds.</p>
+         *
+         * @param numerators   array of numerator values
+         * @param denominators array of denominator values (same length as numerators)
+         */
+        record RationalArrayValue(int[] numerators, int[] denominators) implements TagValue {
+            /**
+             * Returns the number of RATIONAL components.
+             */
+            public int count() {
+                return numerators.length;
+            }
+
+            /**
+             * Returns the double value of the i-th RATIONAL.
+             *
+             * @param index 0-based index
+             * @return the value as double, or 0.0 if the denominator is zero
+             */
+            public double toDouble(int index) {
+                if (index < 0 || index >= numerators.length) {
+                    throw new IndexOutOfBoundsException(
+                            "Index %d out of bounds for %d rationals".formatted(index, numerators.length));
+                }
+                return denominators[index] != 0 ? (double) numerators[index] / denominators[index] : 0.0;
+            }
+        }
     }
 
     /**
@@ -261,6 +295,19 @@ public final class TiffIfdParser {
                     int den = input.readInt();
                     return new TagValue.RationalValue(num, den);
                 }
+                // Multi-RATIONAL: e.g. GPSTimeStamp (3 RATIONALs for HH, MM, SS)
+                if (count <= 20) {
+                    long ratOffset = tiffBase + valueOrOffset;
+                    if (ratOffset + count * 8 > tiffBase + boxDataSize) return null;
+                    input.seek(ratOffset);
+                    int[] nums = new int[(int) count];
+                    int[] dens = new int[(int) count];
+                    for (int i = 0; i < count; i++) {
+                        nums[i] = input.readInt();
+                        dens[i] = input.readInt();
+                    }
+                    return new TagValue.RationalArrayValue(nums, dens);
+                }
                 return null;
             }
 
@@ -272,6 +319,19 @@ public final class TiffIfdParser {
                     int num = input.readInt();
                     int den = input.readInt();
                     return new TagValue.RationalValue(num, den);
+                }
+                // Multi-SRATIONAL
+                if (count <= 20) {
+                    long ratOffset = tiffBase + valueOrOffset;
+                    if (ratOffset + count * 8 > tiffBase + boxDataSize) return null;
+                    input.seek(ratOffset);
+                    int[] nums = new int[(int) count];
+                    int[] dens = new int[(int) count];
+                    for (int i = 0; i < count; i++) {
+                        nums[i] = input.readInt();
+                        dens[i] = input.readInt();
+                    }
+                    return new TagValue.RationalArrayValue(nums, dens);
                 }
                 return null;
             }

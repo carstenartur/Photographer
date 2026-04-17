@@ -63,4 +63,46 @@ class CameraColorMatrixRegistryTest {
         double[][] upper = CameraColorMatrixRegistry.getMatrix("CANON POWERSHOT G5 X MARK II");
         assertThat(lower).isEqualTo(upper);
     }
+
+    @Test
+    @DisplayName("Canon EOS R has a specific matrix")
+    void eosR() {
+        assertThat(CameraColorMatrixRegistry.hasMatrix("Canon EOS R")).isTrue();
+        double[][] matrix = CameraColorMatrixRegistry.getMatrix("Canon EOS R");
+        assertThat(matrix).isNotNull();
+        assertThat(matrix.length).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Canon EOS R3 has a specific matrix")
+    void eosR3() {
+        assertThat(CameraColorMatrixRegistry.hasMatrix("Canon EOS R3")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Canon EOS R7 has an APS-C specific matrix")
+    void eosR7() {
+        assertThat(CameraColorMatrixRegistry.hasMatrix("Canon EOS R7")).isTrue();
+        double[][] matrix = CameraColorMatrixRegistry.getMatrix("Canon EOS R7");
+        // APS-C matrix has different values than full-frame
+        assertThat(matrix[0][0]).isNotEqualTo(CameraColorMatrixRegistry.getMatrix("Canon EOS R5")[0][0]);
+    }
+
+    @Test
+    @DisplayName("Canon EOS R10 has a specific matrix")
+    void eosR10() {
+        assertThat(CameraColorMatrixRegistry.hasMatrix("Canon EOS R10")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Canon EOS 90D has a specific matrix")
+    void eos90D() {
+        assertThat(CameraColorMatrixRegistry.hasMatrix("Canon EOS 90D")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Canon PowerShot G7 X Mark III has a specific matrix")
+    void g7xIii() {
+        assertThat(CameraColorMatrixRegistry.hasMatrix("Canon PowerShot G7 X Mark III")).isTrue();
+    }
 }

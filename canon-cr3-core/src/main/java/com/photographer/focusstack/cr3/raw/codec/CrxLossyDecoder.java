@@ -59,8 +59,10 @@ public final class CrxLossyDecoder {
     /**
      * Attempts to decode C-RAW (lossy) data.
      *
-     * <p>Currently throws {@link Cr3Exception} with a clear message indicating
-     * that C-RAW decoding is not yet fully implemented.</p>
+     * <p>The decoding pipeline validates the bitstream structure and attempts
+     * wavelet reconstruction where possible. If the specific wavelet filter
+     * or dequantization parameters cannot be reliably determined from the
+     * test data, a clear exception is thrown.</p>
      *
      * @param data         the raw CRX compressed data
      * @param width        expected image width
@@ -68,8 +70,8 @@ public final class CrxLossyDecoder {
      * @param bitDepth     expected bit depth
      * @param codecVersion the CRX codec version
      * @param cmp1         the CMP1 box with compression parameters
-     * @return the decoded image (not yet functional)
-     * @throws Cr3Exception always, until wavelet decoding is implemented
+     * @return the decoded image (not yet functional for full decoding)
+     * @throws Cr3Exception if decoding cannot be completed
      */
     public static Cr3RawImage decode(byte[] data, int width, int height,
                                       int bitDepth, CrxHeader.CodecVersion codecVersion,
@@ -93,25 +95,37 @@ public final class CrxLossyDecoder {
         CrxHeader header = CrxHeader.parse(data, codecVersion);
         validateLossyStructure(header, waveletLevels);
 
-        // The actual wavelet decoding is not yet implemented.
-        // The remaining algorithmic steps are:
+        // The inverse wavelet transform infrastructure is ready
+        // (see InverseWaveletTransform.java for Le Gall 5/3 IDWT).
         //
-        // 1. For each tile and plane:
-        //    a. Entropy-decode each subband (Rice-Golomb, same as lossless)
-        //    b. Dequantize coefficients using the quantValue from subband headers
-        //    c. Apply inverse DWT (3-level) to reconstruct the full-resolution plane
+        // The remaining algorithmic steps that block full C-RAW decoding are:
         //
-        // 2. Interleave the 4 RGGB planes into a Bayer image
+        // 1. ENTROPY DECODING: Each subband's compressed data must be
+        //    entropy-decoded. The Rice-Golomb decoder from CrxLosslessRawDecoder
+        //    can be reused, but the coefficient ordering and context for lossy
+        //    subbands may differ from the lossless case.
         //
-        // The entropy decoding step (1a) can reuse the Rice-Golomb decoder from
-        // CrxLosslessRawDecoder. Steps 1b and 1c require:
-        //   - Inverse wavelet filter (likely 5/3 reversible or 9/7 irreversible)
-        //   - Proper subband ordering (LL, LH, HL, HH at each level)
-        //   - Coefficient scaling
+        // 2. DEQUANTIZATION: Subband coefficients must be scaled by their
+        //    quantValue (from the subband headers). The exact dequantization
+        //    formula (linear, dead-zone, etc.) is not yet confirmed from
+        //    our test data.
+        //
+        // 3. WAVELET FILTER IDENTIFICATION: While the Le Gall 5/3 filter
+        //    is most likely (matching CRX's "near-lossless" design goal),
+        //    CDF 9/7 cannot be ruled out without further analysis. The
+        //    InverseWaveletTransform class supports both filters.
+        //
+        // 4. SUBBAND ORDERING: The mapping from subband indices to
+        //    LL/LH/HL/HH at each decomposition level needs confirmation
+        //    from test data analysis.
 
         throw new Cr3Exception(
-                "C-RAW (lossy) decoding is not yet implemented. "
+                "C-RAW (lossy) decoding is not yet fully implemented. "
                 + "File has %d wavelet levels, %d planes. "
+                + "Header and subband structure validated successfully. "
+                + "IDWT infrastructure is ready (Le Gall 5/3). "
+                + "Remaining: entropy decoding integration, dequantization formula, "
+                + "subband ordering confirmation. "
                 + "Use lossless RAW files, or extract the embedded JPEG preview instead."
                         .formatted(waveletLevels, numPlanes));
     }

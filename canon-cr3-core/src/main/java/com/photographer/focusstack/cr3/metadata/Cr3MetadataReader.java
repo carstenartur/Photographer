@@ -228,10 +228,27 @@ public final class Cr3MetadataReader {
             }
         }
 
-        // GPS Timestamp: tag 0x0007 (3 RATIONALs for HH, MM, SS)
-        // We don't have multi-rational parsing yet; log if present
-        if (tags.containsKey(0x0007)) {
-            LOG.debug("GPS timestamp tag present but multi-RATIONAL parsing not yet supported");
+        // GPS Timestamp: tag 0x0007 (3 RATIONALs for HH, MM, SS — per EXIF 2.3 spec)
+        if (tags.containsKey(TiffIfdParser.TAG_GPS_TIMESTAMP)) {
+            TiffIfdParser.TagValue tsVal = tags.get(TiffIfdParser.TAG_GPS_TIMESTAMP);
+            if (tsVal instanceof TiffIfdParser.TagValue.RationalArrayValue rav && rav.count() >= 3) {
+                double hours = rav.toDouble(0);
+                double minutes = rav.toDouble(1);
+                double seconds = rav.toDouble(2);
+                // Format as HH:MM:SS (UTC per EXIF spec)
+                int hh = (int) hours;
+                int mm = (int) minutes;
+                // Seconds may be fractional
+                String ts = "%02d:%02d:%06.3f".formatted(hh, mm, seconds);
+                metadata.setGpsTimestamp(ts);
+                LOG.debug("GPS timestamp (UTC): {}", ts);
+            } else if (tsVal instanceof TiffIfdParser.TagValue.RationalValue rv) {
+                // Single rational — treat as fractional hours or seconds
+                LOG.debug("GPS timestamp as single RATIONAL: {}", rv.toDouble());
+            } else {
+                LOG.debug("GPS timestamp tag present but unexpected type: {}",
+                        tsVal.getClass().getSimpleName());
+            }
         }
     }
 
@@ -259,9 +276,13 @@ public final class Cr3MetadataReader {
         if (coordVal instanceof TiffIfdParser.TagValue.RationalValue rv) {
             // Single RATIONAL — already in decimal degrees
             degrees = rv.toDouble();
+        } else if (coordVal instanceof TiffIfdParser.TagValue.RationalArrayValue rav && rav.count() >= 3) {
+            // 3 RATIONALs: degrees, minutes, seconds (standard EXIF GPS format)
+            double deg = rav.toDouble(0);
+            double min = rav.toDouble(1);
+            double sec = rav.toDouble(2);
+            degrees = deg + min / 60.0 + sec / 3600.0;
         } else {
-            // We currently only parse single-value RATIONAL tags.
-            // Multi-RATIONAL (degrees/minutes/seconds) would need array support.
             LOG.debug("GPS coordinate tag 0x{} has unsupported type: {}",
                     Integer.toHexString(coordTag), coordVal.getClass().getSimpleName());
             return null;

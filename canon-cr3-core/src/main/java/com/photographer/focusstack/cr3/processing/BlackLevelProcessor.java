@@ -50,7 +50,7 @@ public final class BlackLevelProcessor {
 
         int[] data = image.data();
 
-        if (blackLevel.isPerChannel()) {
+        if (blackLevel.isPerChannel() || blackLevel.isPerRow()) {
             int w = image.width();
             int h = image.height();
             for (int y = 0; y < h; y++) {

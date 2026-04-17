@@ -136,6 +136,69 @@ class TiffIfdParserTest {
         assertThat(lv.value()).isEqualTo(-5L);
     }
 
+    @Test
+    void parseMultiRationalGpsTimestamp() throws IOException {
+        // GPS Timestamp = 3 RATIONALs: 14/1 (hours), 30/1 (minutes), 45/1 (seconds)
+        byte[] tiffData = buildTiffWithMultiRational(
+                TiffIfdParser.TAG_GPS_TIMESTAMP, 3,
+                new int[]{14, 30, 45}, new int[]{1, 1, 1});
+
+        MemoryCacheImageInputStream input = new MemoryCacheImageInputStream(
+                new ByteArrayInputStream(tiffData));
+        Map<Integer, TiffIfdParser.TagValue> tags =
+                TiffIfdParser.parseIfd(input, 0, tiffData.length);
+
+        assertThat(tags).containsKey(TiffIfdParser.TAG_GPS_TIMESTAMP);
+        TiffIfdParser.TagValue val = tags.get(TiffIfdParser.TAG_GPS_TIMESTAMP);
+        assertThat(val).isInstanceOf(TiffIfdParser.TagValue.RationalArrayValue.class);
+        TiffIfdParser.TagValue.RationalArrayValue rav = (TiffIfdParser.TagValue.RationalArrayValue) val;
+        assertThat(rav.count()).isEqualTo(3);
+        assertThat(rav.toDouble(0)).isEqualTo(14.0);
+        assertThat(rav.toDouble(1)).isEqualTo(30.0);
+        assertThat(rav.toDouble(2)).isEqualTo(45.0);
+    }
+
+    @Test
+    void parseMultiRationalGpsCoordinateDms() throws IOException {
+        // GPS Latitude = 3 RATIONALs: 48/1 (degrees), 51/1 (minutes), 24/1 (seconds)
+        byte[] tiffData = buildTiffWithMultiRational(
+                TiffIfdParser.TAG_GPS_LATITUDE, 3,
+                new int[]{48, 51, 24}, new int[]{1, 1, 1});
+
+        MemoryCacheImageInputStream input = new MemoryCacheImageInputStream(
+                new ByteArrayInputStream(tiffData));
+        Map<Integer, TiffIfdParser.TagValue> tags =
+                TiffIfdParser.parseIfd(input, 0, tiffData.length);
+
+        assertThat(tags).containsKey(TiffIfdParser.TAG_GPS_LATITUDE);
+        TiffIfdParser.TagValue val = tags.get(TiffIfdParser.TAG_GPS_LATITUDE);
+        assertThat(val).isInstanceOf(TiffIfdParser.TagValue.RationalArrayValue.class);
+        TiffIfdParser.TagValue.RationalArrayValue rav = (TiffIfdParser.TagValue.RationalArrayValue) val;
+        assertThat(rav.count()).isEqualTo(3);
+        // 48 + 51/60 + 24/3600 ≈ 48.856667
+        assertThat(rav.toDouble(0)).isEqualTo(48.0);
+        assertThat(rav.toDouble(1)).isEqualTo(51.0);
+        assertThat(rav.toDouble(2)).isEqualTo(24.0);
+    }
+
+    @Test
+    void rationalArrayValueBoundsCheck() {
+        var rav = new TiffIfdParser.TagValue.RationalArrayValue(
+                new int[]{1, 2}, new int[]{1, 1});
+        assertThatThrownBy(() -> rav.toDouble(-1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        assertThatThrownBy(() -> rav.toDouble(2))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+    }
+
+    @Test
+    void rationalArrayValueWithZeroDenominator() {
+        var rav = new TiffIfdParser.TagValue.RationalArrayValue(
+                new int[]{10, 20}, new int[]{1, 0});
+        assertThat(rav.toDouble(0)).isEqualTo(10.0);
+        assertThat(rav.toDouble(1)).isEqualTo(0.0); // zero denominator → 0.0
+    }
+
     // --- Helper methods for building synthetic TIFF data ---
 
     record IfdEntry(int tagId, int dataType, String stringValue) {}
@@ -243,6 +306,39 @@ class TiffIfdParserTest {
         buf.putInt(1);
         buf.putInt(value); // signed 32-bit value
         buf.putInt(0);
+        return buf.array();
+    }
+
+    /**
+     * Builds a TIFF structure with a multi-component RATIONAL tag.
+     *
+     * @param tagId       the EXIF tag ID
+     * @param count       number of RATIONAL components
+     * @param numerators  array of numerators
+     * @param denominators array of denominators
+     * @return the raw TIFF bytes
+     */
+    private static byte[] buildTiffWithMultiRational(int tagId, int count,
+                                                      int[] numerators, int[] denominators) {
+        int rationalDataOffset = 8 + 2 + 12 + 4; // after TIFF header + IFD
+        int rationalDataSize = count * 8; // each RATIONAL is 8 bytes
+        ByteBuffer buf = ByteBuffer.allocate(rationalDataOffset + rationalDataSize)
+                .order(ByteOrder.BIG_ENDIAN);
+        buf.put((byte) 'M');
+        buf.put((byte) 'M');
+        buf.putShort((short) 42);
+        buf.putInt(8);
+        buf.putShort((short) 1); // 1 IFD entry
+        buf.putShort((short) tagId);
+        buf.putShort((short) 5); // RATIONAL type
+        buf.putInt(count);
+        buf.putInt(rationalDataOffset); // offset to rational data
+        buf.putInt(0); // next IFD
+        // Write RATIONAL data
+        for (int i = 0; i < count; i++) {
+            buf.putInt(numerators[i]);
+            buf.putInt(denominators[i]);
+        }
         return buf.array();
     }
 }
