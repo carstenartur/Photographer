@@ -135,18 +135,94 @@ import java.util.List;
     }
 
     @Override
+    public BufferedImage mergeImages(List&lt;BufferedImage&gt; images) {
+<span class="nc bnc" id="L139" title="All 4 branches missed.">        if (images == null || images.isEmpty()) {</span>
+<span class="nc" id="L140">            throw new IllegalArgumentException(&quot;images must not be null or empty&quot;);</span>
+        }
+
+<span class="nc" id="L143">        int width = images.getFirst().getWidth();</span>
+<span class="nc" id="L144">        int height = images.getFirst().getHeight();</span>
+<span class="nc" id="L145">        int n = images.size();</span>
+<span class="nc" id="L146">        int totalPixels = width * height;</span>
+
+<span class="nc" id="L148">        log.info(&quot;Starting ImageJ RGB EDF stack merge of {} frames ({}×{})&quot;, n, width, height);</span>
+
+<span class="nc bnc" id="L150" title="All 2 branches missed.">        for (int i = 1; i &lt; n; i++) {</span>
+<span class="nc bnc" id="L151" title="All 4 branches missed.">            if (images.get(i).getWidth() != width || images.get(i).getHeight() != height) {</span>
+<span class="nc" id="L152">                throw new IllegalArgumentException(</span>
+                        &quot;All frames must have identical dimensions; frame &quot; + i
+<span class="nc" id="L154">                                + &quot; was &quot; + images.get(i).getWidth() + &quot;×&quot; + images.get(i).getHeight()</span>
+                                + &quot; but expected &quot; + width + &quot;×&quot; + height);
+            }
+        }
+
+        // Memory-efficient: keep only best-response and best-frame-index arrays
+        // instead of all N Laplacian maps at once
+<span class="nc" id="L161">        float[] bestResponse = new float[totalPixels];</span>
+<span class="nc" id="L162">        int[] bestFrameIndex = new int[totalPixels];</span>
+
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        for (int i = 0; i &lt; n; i++) {</span>
+<span class="nc" id="L165">            log.info(&quot;  Computing sharpness map for frame {}/{}...&quot;, i + 1, n);</span>
+<span class="nc" id="L166">            FloatProcessor luminance = toLuminance(images.get(i));</span>
+<span class="nc" id="L167">            luminance.convolve(LAPLACIAN, 3, 3);</span>
+<span class="nc" id="L168">            float[] laplacian = (float[]) luminance.getPixels();</span>
+
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            for (int p = 0; p &lt; totalPixels; p++) {</span>
+<span class="nc" id="L171">                float response = Math.abs(laplacian[p]);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">                if (response &gt; bestResponse[p]) {</span>
+<span class="nc" id="L173">                    bestResponse[p] = response;</span>
+<span class="nc" id="L174">                    bestFrameIndex[p] = i;</span>
+                }
+            }
+            // laplacian array is GC-eligible now
+        }
+<span class="nc" id="L179">        bestResponse = null; // free ~120 MB</span>
+
+        // Compose output — preserve original colour
+<span class="nc" id="L182">        log.info(&quot;  Compositing output image...&quot;);</span>
+<span class="nc" id="L183">        BufferedImage output = new BufferedImage(width, height, images.getFirst().getType());</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        for (int y = 0; y &lt; height; y++) {</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">            for (int x = 0; x &lt; width; x++) {</span>
+<span class="nc" id="L186">                int idx = y * width + x;</span>
+<span class="nc" id="L187">                output.setRGB(x, y, images.get(bestFrameIndex[idx]).getRGB(x, y));</span>
+            }
+        }
+
+<span class="nc" id="L191">        log.info(&quot;RGB stack merge completed: {}×{} px&quot;, width, height);</span>
+<span class="nc" id="L192">        return output;</span>
+    }
+
+    /** Converts a BufferedImage to a luminance FloatProcessor for sharpness analysis. */
+    private FloatProcessor toLuminance(BufferedImage img) {
+<span class="nc" id="L197">        int w = img.getWidth();</span>
+<span class="nc" id="L198">        int h = img.getHeight();</span>
+<span class="nc" id="L199">        FloatProcessor fp = new FloatProcessor(w, h);</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">        for (int y = 0; y &lt; h; y++) {</span>
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            for (int x = 0; x &lt; w; x++) {</span>
+<span class="nc" id="L202">                int rgb = img.getRGB(x, y);</span>
+<span class="nc" id="L203">                int r = (rgb &gt;&gt; 16) &amp; 0xFF;</span>
+<span class="nc" id="L204">                int g = (rgb &gt;&gt; 8) &amp; 0xFF;</span>
+<span class="nc" id="L205">                int b = rgb &amp; 0xFF;</span>
+                // ITU-R BT.709 luminance
+<span class="nc" id="L207">                fp.setf(x, y, 0.2126f * r + 0.7152f * g + 0.0722f * b);</span>
+            }
+        }
+<span class="nc" id="L210">        return fp;</span>
+    }
+
+    @Override
     public String name() {
-<span class="fc" id="L139">        return &quot;imagej-edf&quot;;</span>
+<span class="fc" id="L215">        return &quot;imagej-edf&quot;;</span>
     }
 
     private ByteProcessor decode(byte[] data) {
-<span class="pc bpc" id="L143" title="1 of 4 branches missed.">        if (data == null || data.length == 0) return null;</span>
+<span class="pc bpc" id="L219" title="1 of 4 branches missed.">        if (data == null || data.length == 0) return null;</span>
         try {
-<span class="fc" id="L145">            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(data));</span>
-<span class="pc bpc" id="L146" title="1 of 2 branches missed.">            return bi != null ? new ByteProcessor(bi) : null;</span>
-<span class="nc" id="L147">        } catch (IOException e) {</span>
-<span class="nc" id="L148">            log.warn(&quot;Could not decode frame: {}&quot;, e.getMessage());</span>
-<span class="nc" id="L149">            return null;</span>
+<span class="fc" id="L221">            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(data));</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            return bi != null ? new ByteProcessor(bi) : null;</span>
+<span class="nc" id="L223">        } catch (IOException e) {</span>
+<span class="nc" id="L224">            log.warn(&quot;Could not decode frame: {}&quot;, e.getMessage());</span>
+<span class="nc" id="L225">            return null;</span>
         }
     }
 }
