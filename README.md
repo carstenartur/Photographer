@@ -114,6 +114,9 @@ Other Canon cameras with CCAPI may work but are not officially verified.
 
 - [Quickstart](docs/quickstart.md)
 - [Development Guide](docs/development.md)
+- [Architecture](docs/architecture.md)
+- [REST API Reference](docs/api.md)
+- [Test Strategy](docs/test-strategy.md)
 - [Camera Setup](docs/camera-setup.md)
 
 ## License

@@ -98,13 +98,12 @@ docker compose up --build
 
 ### Development Mode
 
-Export the variable before starting camera-service:
+Export the variable before starting the application:
 
 ```bash
 export CAMERA_CCAPI_URL=http://192.168.1.42:8080
 export CAMERA_MOCK_ENABLED=false
-cd camera-service
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+mvn spring-boot:run -pl app -am -Djava.awt.headless=true
 ```
 
 ---

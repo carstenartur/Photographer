@@ -1,18 +1,16 @@
 # REST API Reference
 
-The REST API is documented via **SpringDoc OpenAPI / Swagger UI**. When any
-backend service is running, open the interactive documentation at:
+The REST API is documented via **SpringDoc OpenAPI / Swagger UI**. When the
+application is running, open the interactive documentation at:
 
-| Service | Swagger UI |
+| Swagger UI | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
 |---|---|
-| **camera-service** | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
-| **analysis-service** | [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html) |
 
 The raw OpenAPI spec (JSON) is available at `/v3/api-docs`.
 
 ---
 
-## camera-service Endpoints (port 8080)
+## Endpoints (port 8080)
 
 ### Camera Profiles
 
@@ -42,6 +40,15 @@ The raw OpenAPI spec (JSON) is available at `/v3/api-docs`.
 | `GET` | `/api/jobs/search?q=...` | Full-text search jobs |
 | `POST` | `/api/jobs/reindex` | Trigger Hibernate Search reindex |
 
+### Analysis
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/analysis/sharpness` | Analyse frame sharpness |
+| `POST` | `/api/analysis/movement` | Detect movement between frames |
+| `GET`  | `/api/analysis/plugins` | List all registered analysis plugins |
+| `POST` | `/api/analysis/plugins/{name}/analyze` | Run a named plugin on an uploaded image |
+
 ### WebSocket — Real-time Progress
 
 | Endpoint | Protocol | Description |
@@ -52,14 +59,5 @@ The raw OpenAPI spec (JSON) is available at `/v3/api-docs`.
 
 ---
 
-## analysis-service Endpoints (port 8081)
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/analysis/sharpness` | Analyse frame sharpness |
-| `POST` | `/api/analysis/movement` | Detect movement between frames |
-
----
-
-> **Tip:** For full request/response schemas, use the Swagger UI links above.
+> **Tip:** For full request/response schemas, use the Swagger UI link above.
 > The interactive docs are auto-generated from the code and always up to date.
