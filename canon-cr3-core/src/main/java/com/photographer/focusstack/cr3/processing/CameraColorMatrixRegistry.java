@@ -9,7 +9,7 @@ import java.util.Map;
 /**
  * Registry of camera-model-specific color correction matrices for Canon cameras.
  *
- * <p>Each matrix maps camera-native RGB to sRGB linear colour space. Matrices
+ * <p>Each matrix maps camera-native RGB to sRGB linear color space. Matrices
  * are 3×3 and derived from publicly available DNG specification data and
  * self-calibrated reference values.</p>
  *
@@ -22,7 +22,7 @@ import java.util.Map;
  *       characteristics.</li>
  * </ul>
  *
- * <p>No proprietary colour profile data was copied. All matrices here are either
+ * <p>No proprietary color profile data was copied. All matrices here are either
  * generic approximations or derived from self-analysis of test images.</p>
  */
 public final class CameraColorMatrixRegistry {
@@ -30,7 +30,7 @@ public final class CameraColorMatrixRegistry {
     private static final Logger LOG = LoggerFactory.getLogger(CameraColorMatrixRegistry.class);
 
     /**
-     * Generic fallback colour matrix for Canon cameras.
+     * Generic fallback color matrix for Canon cameras.
      * Approximation for typical 1" and APS-C Canon sensors under D65 illuminant.
      */
     public static final double[][] GENERIC_CANON_D65 = {
@@ -39,13 +39,13 @@ public final class CameraColorMatrixRegistry {
             { 0.0, -0.2,  1.2}
     };
 
-    /** Map from normalised camera model name to D65 colour matrix. */
+    /** Map from normalized camera model name to D65 color matrix. */
     private static final Map<String, double[][]> MATRIX_DB = new HashMap<>();
 
     static {
         // Canon PowerShot G5 X Mark II — 1" BSI-CMOS sensor (20 MP)
         // Matrix derived from self-analysis of test CR3 images.
-        // This is an approximation; for colour-critical work, an ICC profile should be used.
+        // This is an approximation; for color-critical work, an ICC profile should be used.
         register("Canon PowerShot G5 X Mark II", new double[][]{
                 { 1.18, -0.28,  0.10},
                 {-0.08,  1.28, -0.20},
@@ -71,10 +71,10 @@ public final class CameraColorMatrixRegistry {
     private CameraColorMatrixRegistry() {}
 
     /**
-     * Registers a colour matrix for a camera model.
+     * Registers a color matrix for a camera model.
      *
      * @param modelName the camera model name (as stored in EXIF, case-insensitive match)
-     * @param matrix    the 3×3 D65 colour correction matrix
+     * @param matrix    the 3×3 D65 color correction matrix
      */
     public static void register(String modelName, double[][] matrix) {
         if (matrix.length != 3 || matrix[0].length != 3) {
@@ -84,34 +84,34 @@ public final class CameraColorMatrixRegistry {
     }
 
     /**
-     * Returns the best colour matrix for a camera model.
+     * Returns the best color matrix for a camera model.
      *
      * @param modelName the camera model name (from EXIF)
      * @return the model-specific matrix, or the generic fallback
      */
     public static double[][] getMatrix(String modelName) {
         if (modelName == null || modelName.isBlank()) {
-            LOG.debug("No camera model specified, using generic colour matrix");
+            LOG.debug("No camera model specified, using generic color matrix");
             return GENERIC_CANON_D65;
         }
 
         String key = normalise(modelName);
         double[][] matrix = MATRIX_DB.get(key);
         if (matrix != null) {
-            LOG.debug("Using camera-specific colour matrix for '{}'", modelName);
+            LOG.debug("Using camera-specific color matrix for '{}'", modelName);
             return matrix;
         }
 
         // Try partial match — some EXIF model names include extra whitespace or firmware suffixes
         for (Map.Entry<String, double[][]> entry : MATRIX_DB.entrySet()) {
             if (key.contains(entry.getKey()) || entry.getKey().contains(key)) {
-                LOG.debug("Using partial-match colour matrix for '{}' (matched '{}')",
+                LOG.debug("Using partial-match color matrix for '{}' (matched '{}')",
                         modelName, entry.getKey());
                 return entry.getValue();
             }
         }
 
-        LOG.debug("No camera-specific colour matrix for '{}', using generic fallback", modelName);
+        LOG.debug("No camera-specific color matrix for '{}', using generic fallback", modelName);
         return GENERIC_CANON_D65;
     }
 

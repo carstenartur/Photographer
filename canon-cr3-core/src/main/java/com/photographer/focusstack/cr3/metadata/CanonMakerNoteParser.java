@@ -57,8 +57,10 @@ public final class CanonMakerNoteParser {
     static final int TAG_COLOR_BALANCE = 0x4001;
     /** Canon color temperature tag. */
     static final int TAG_COLOR_TEMPERATURE = 0x00A0;
-    /** Canon WB info embedded in tag 0x4001 sub-structure. */
-    static final int TAG_MEASURED_COLOR = 0x4003;
+    /** Minimum expected value for a raw WB channel reading. */
+    private static final int MIN_WB_RAW_VALUE = 100;
+    /** Maximum expected value for a raw WB channel reading (16-bit unsigned). */
+    private static final int MAX_WB_RAW_VALUE = 65535;
 
     private CanonMakerNoteParser() {}
 
@@ -138,10 +140,10 @@ public final class CanonMakerNoteParser {
             int[] candidateOffsets = {63, 67, 1, 0};
             for (int offset : candidateOffsets) {
                 if (offset + 3 < values.length
-                        && values[offset] > 100 && values[offset] < 65535
-                        && values[offset + 1] > 100 && values[offset + 1] < 65535
-                        && values[offset + 2] > 100 && values[offset + 2] < 65535
-                        && values[offset + 3] > 100 && values[offset + 3] < 65535) {
+                        && values[offset] > MIN_WB_RAW_VALUE && values[offset] < MAX_WB_RAW_VALUE
+                        && values[offset + 1] > MIN_WB_RAW_VALUE && values[offset + 1] < MAX_WB_RAW_VALUE
+                        && values[offset + 2] > MIN_WB_RAW_VALUE && values[offset + 2] < MAX_WB_RAW_VALUE
+                        && values[offset + 3] > MIN_WB_RAW_VALUE && values[offset + 3] < MAX_WB_RAW_VALUE) {
                     int r = values[offset];
                     int g1 = values[offset + 1];
                     int g2 = values[offset + 2];
