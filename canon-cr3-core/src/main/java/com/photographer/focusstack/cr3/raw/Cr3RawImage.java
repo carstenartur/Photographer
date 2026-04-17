@@ -9,9 +9,6 @@ package com.photographer.focusstack.cr3.raw;
  * <p>The data includes the full sensor area including optical black regions.
  * Use {@link com.photographer.focusstack.cr3.metadata.Cr3Metadata} active area
  * coordinates to crop to the visible image.</p>
- *
- * TODO: Support different Bayer patterns (RGGB, BGGR, GRBG, GBRG)
- * TODO: Support different bit depths (12, 14, 16)
  */
 public final class Cr3RawImage {
 
@@ -73,6 +70,10 @@ public final class Cr3RawImage {
      * @return the pixel value
      */
     public int getPixel(int x, int y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            throw new IndexOutOfBoundsException(
+                    "Pixel (%d,%d) is outside image bounds (%dx%d)".formatted(x, y, width, height));
+        }
         return data[y * width + x];
     }
 
@@ -82,8 +83,13 @@ public final class Cr3RawImage {
      * @param x     column (0-based)
      * @param y     row (0-based)
      * @param value the pixel value
+     * @throws IndexOutOfBoundsException if coordinates are outside the image
      */
     public void setPixel(int x, int y, int value) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            throw new IndexOutOfBoundsException(
+                    "Pixel (%d,%d) is outside image bounds (%dx%d)".formatted(x, y, width, height));
+        }
         data[y * width + x] = value;
     }
 

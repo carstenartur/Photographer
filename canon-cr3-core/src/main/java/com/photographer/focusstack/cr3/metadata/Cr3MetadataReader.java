@@ -17,8 +17,8 @@ import java.util.Map;
  * <ul>
  *   <li>CMT1 — TIFF IFD0 (camera make/model, orientation, date)</li>
  *   <li>CMT2 — EXIF IFD (ISO, exposure, aperture, focal length)</li>
- *   <li>CMT3 — Canon MakerNote (presence logged only; proprietary structure)</li>
- *   <li>CMT4 — GPS IFD (presence detected; tags not yet persisted into metadata)</li>
+ *   <li>CMT3 — Canon MakerNote (white balance, color temperature, shot info)</li>
+ *   <li>CMT4 — GPS IFD (latitude, longitude, altitude)</li>
  * </ul>
  */
 public final class Cr3MetadataReader {
@@ -96,8 +96,11 @@ public final class Cr3MetadataReader {
         IsoBox cmt3 = moovBox.findDescendant("CMT3");
         if (cmt3 != null) {
             LOG.debug("Found CMT3 (Canon MakerNote) at offset {}, size {}", cmt3.offset(), cmt3.size());
-            // MakerNote has a proprietary internal structure;
-            // we only log its presence for now
+            try {
+                parseCmt3(input, cmt3, metadata);
+            } catch (IOException e) {
+                LOG.warn("Failed to parse CMT3: {}", e.getMessage());
+            }
         }
 
         // CMT4: GPS IFD
@@ -130,6 +133,15 @@ public final class Cr3MetadataReader {
         if (tags.containsKey(TiffIfdParser.TAG_DATETIME)) {
             if (tags.get(TiffIfdParser.TAG_DATETIME) instanceof TiffIfdParser.TagValue.StringValue sv) {
                 metadata.setDateTaken(sv.value());
+            }
+        }
+        if (tags.containsKey(TiffIfdParser.TAG_ORIENTATION)) {
+            if (tags.get(TiffIfdParser.TAG_ORIENTATION) instanceof TiffIfdParser.TagValue.IntValue iv) {
+                int orient = iv.value();
+                if (orient >= 1 && orient <= 8) {
+                    metadata.setOrientation(orient);
+                    LOG.debug("EXIF orientation: {}", orient);
+                }
             }
         }
     }
@@ -179,10 +191,127 @@ public final class Cr3MetadataReader {
                                    Cr3Metadata metadata) throws IOException {
         Map<Integer, TiffIfdParser.TagValue> tags =
                 TiffIfdParser.parseIfd(input, cmt4.dataOffset(), cmt4.dataSize());
-        // GPS tags are parsed here only to detect and report their presence.
-        // They are not currently persisted into Cr3Metadata.
-        if (!tags.isEmpty()) {
-            LOG.debug("Parsed {} GPS tags from CMT4", tags.size());
+
+        if (tags.isEmpty()) {
+            return;
+        }
+        LOG.debug("Parsed {} GPS tags from CMT4", tags.size());
+
+        // GPS Latitude: tag 0x0002 = degrees/minutes/seconds (3 RATIONALs or array)
+        // GPS Latitude Ref: tag 0x0001 = "N" or "S"
+        Double latitude = parseGpsCoordinate(tags,
+                TiffIfdParser.TAG_GPS_LATITUDE, TiffIfdParser.TAG_GPS_LATITUDE_REF, "S");
+        if (latitude != null) {
+            metadata.setGpsLatitude(latitude);
+        }
+
+        // GPS Longitude: tag 0x0004, Ref: tag 0x0003 = "E" or "W"
+        Double longitude = parseGpsCoordinate(tags,
+                TiffIfdParser.TAG_GPS_LONGITUDE, TiffIfdParser.TAG_GPS_LONGITUDE_REF, "W");
+        if (longitude != null) {
+            metadata.setGpsLongitude(longitude);
+        }
+
+        // GPS Altitude: tag 0x0006 = RATIONAL, Ref: tag 0x0005 = 0(above) or 1(below)
+        if (tags.containsKey(TiffIfdParser.TAG_GPS_ALTITUDE)) {
+            TiffIfdParser.TagValue altVal = tags.get(TiffIfdParser.TAG_GPS_ALTITUDE);
+            if (altVal instanceof TiffIfdParser.TagValue.RationalValue rv) {
+                double alt = rv.toDouble();
+                // Check altitude ref — 1 means below sea level
+                if (tags.containsKey(TiffIfdParser.TAG_GPS_ALTITUDE_REF)) {
+                    TiffIfdParser.TagValue refVal = tags.get(TiffIfdParser.TAG_GPS_ALTITUDE_REF);
+                    if (refVal instanceof TiffIfdParser.TagValue.IntValue iv && iv.value() == 1) {
+                        alt = -alt;
+                    }
+                }
+                metadata.setGpsAltitude(alt);
+            }
+        }
+
+        // GPS Timestamp: tag 0x0007 (3 RATIONALs for HH, MM, SS — per EXIF 2.3 spec)
+        if (tags.containsKey(TiffIfdParser.TAG_GPS_TIMESTAMP)) {
+            TiffIfdParser.TagValue tsVal = tags.get(TiffIfdParser.TAG_GPS_TIMESTAMP);
+            if (tsVal instanceof TiffIfdParser.TagValue.RationalArrayValue rav && rav.count() >= 3) {
+                double hours = rav.toDouble(0);
+                double minutes = rav.toDouble(1);
+                double seconds = rav.toDouble(2);
+                // Format as HH:MM:SS (UTC per EXIF spec)
+                int hh = (int) hours;
+                int mm = (int) minutes;
+                // Seconds may be fractional
+                String ts = "%02d:%02d:%06.3f".formatted(hh, mm, seconds);
+                metadata.setGpsTimestamp(ts);
+                LOG.debug("GPS timestamp (UTC): {}", ts);
+            } else if (tsVal instanceof TiffIfdParser.TagValue.RationalValue rv) {
+                // Single rational — treat as fractional hours or seconds
+                LOG.debug("GPS timestamp as single RATIONAL: {}", rv.toDouble());
+            } else {
+                LOG.debug("GPS timestamp tag present but unexpected type: {}",
+                        tsVal.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /**
+     * Parses a GPS coordinate from EXIF GPS tags.
+     *
+     * <p>GPS coordinates in EXIF are stored as 3 RATIONAL values (degrees, minutes, seconds)
+     * with a separate reference tag indicating hemisphere. For single-RATIONAL storage
+     * (already in decimal degrees), we handle that too.</p>
+     *
+     * @param tags          the parsed GPS IFD tags
+     * @param coordTag      tag ID for the coordinate (latitude or longitude)
+     * @param refTag        tag ID for the reference (N/S or E/W)
+     * @param negativeRef   the reference value that makes the coordinate negative ("S" or "W")
+     * @return decimal degrees with sign, or null if not parseable
+     */
+    private static Double parseGpsCoordinate(Map<Integer, TiffIfdParser.TagValue> tags,
+                                              int coordTag, int refTag, String negativeRef) {
+        TiffIfdParser.TagValue coordVal = tags.get(coordTag);
+        if (coordVal == null) {
+            return null;
+        }
+
+        double degrees;
+        if (coordVal instanceof TiffIfdParser.TagValue.RationalValue rv) {
+            // Single RATIONAL — already in decimal degrees
+            degrees = rv.toDouble();
+        } else if (coordVal instanceof TiffIfdParser.TagValue.RationalArrayValue rav && rav.count() >= 3) {
+            // 3 RATIONALs: degrees, minutes, seconds (standard EXIF GPS format)
+            double deg = rav.toDouble(0);
+            double min = rav.toDouble(1);
+            double sec = rav.toDouble(2);
+            degrees = deg + min / 60.0 + sec / 3600.0;
+        } else {
+            LOG.debug("GPS coordinate tag 0x{} has unsupported type: {}",
+                    Integer.toHexString(coordTag), coordVal.getClass().getSimpleName());
+            return null;
+        }
+
+        // Apply hemisphere sign
+        if (tags.containsKey(refTag)) {
+            TiffIfdParser.TagValue refVal = tags.get(refTag);
+            if (refVal instanceof TiffIfdParser.TagValue.StringValue sv
+                    && negativeRef.equalsIgnoreCase(sv.value().trim())) {
+                degrees = -Math.abs(degrees);
+            }
+        }
+
+        return degrees;
+    }
+
+    private static void parseCmt3(ImageInputStream input, IsoBox cmt3,
+                                   Cr3Metadata metadata) throws IOException {
+        CanonMakerNoteData makerNote = CanonMakerNoteParser.parse(
+                input, cmt3.dataOffset(), cmt3.dataSize());
+
+        metadata.setMakerNoteData(makerNote);
+
+        if (makerNote.hasWhiteBalance()) {
+            metadata.setWhiteBalanceMultipliers(makerNote.whiteBalanceMultipliers());
+            LOG.debug("Set WB multipliers from MakerNote: R={}, G=1.0, B={}",
+                    makerNote.whiteBalanceMultipliers()[0],
+                    makerNote.whiteBalanceMultipliers()[2]);
         }
     }
 }

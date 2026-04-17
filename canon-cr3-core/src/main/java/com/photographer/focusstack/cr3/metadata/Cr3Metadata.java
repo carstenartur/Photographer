@@ -4,14 +4,16 @@ package com.photographer.focusstack.cr3.metadata;
  * Metadata extracted from a Canon CR3 file.
  *
  * <p>Contains camera model information, sensor geometry, EXIF data references,
- * and Canon-specific MakerNote information.</p>
+ * GPS coordinates, orientation, white balance, black level and Canon-specific
+ * MakerNote information.</p>
  *
- * <p>Initially populated from the moov/uuid and CMT boxes. Additional metadata
- * can be extracted from EXIF segments embedded in JPEG previews.</p>
- *
- * TODO: Parse full EXIF from CMT1/CMT2 boxes
- * TODO: Parse Canon MakerNote from CMT3 box
- * TODO: Extract GPS data from CMT4 box
+ * <p>Initially populated from the moov/uuid and CMT boxes:</p>
+ * <ul>
+ *   <li>CMT1 — IFD0: make, model, orientation, date</li>
+ *   <li>CMT2 — EXIF IFD: ISO, exposure, aperture, focal length</li>
+ *   <li>CMT3 — Canon MakerNote: WB multipliers, shot info</li>
+ *   <li>CMT4 — GPS IFD: latitude, longitude, altitude</li>
+ * </ul>
  */
 public final class Cr3Metadata {
 
@@ -34,6 +36,24 @@ public final class Cr3Metadata {
     private double focalLengthMm;
     private double fNumber;
     private double exposureTime;
+
+    // EXIF orientation (1-8, per EXIF spec; default 1 = normal)
+    private int orientation = 1;
+
+    // GPS data from CMT4
+    private Double gpsLatitude;
+    private Double gpsLongitude;
+    private Double gpsAltitude;
+    private String gpsTimestamp;
+
+    // White balance multipliers from CMT3 MakerNote [R, G, B]
+    private double[] whiteBalanceMultipliers;
+
+    // Per-channel black levels from MakerNote [R, Gr, Gb, B] or global
+    private int[] perChannelBlackLevels;
+
+    // Canon MakerNote raw data for advanced access
+    private CanonMakerNoteData makerNoteData;
 
     /** Returns the camera model name (e.g. "Canon PowerShot G5 X Mark II"). */
     public String cameraModel() { return cameraModel; }
@@ -150,6 +170,82 @@ public final class Cr3Metadata {
     public void setExposureTime(double exposureTime) { this.exposureTime = exposureTime; }
 
     /**
+     * Returns the EXIF orientation tag value (1-8).
+     * <ul>
+     *   <li>1 = Normal (no rotation)</li>
+     *   <li>3 = Rotated 180°</li>
+     *   <li>6 = Rotated 90° CW</li>
+     *   <li>8 = Rotated 90° CCW</li>
+     *   <li>2, 4, 5, 7 include horizontal/vertical flips</li>
+     * </ul>
+     */
+    public int orientation() { return orientation; }
+
+    /** Sets the EXIF orientation tag value. */
+    public void setOrientation(int orientation) { this.orientation = orientation; }
+
+    /**
+     * Returns the GPS latitude in decimal degrees, or {@code null} if not available.
+     * Positive = North, negative = South.
+     */
+    public Double gpsLatitude() { return gpsLatitude; }
+
+    /** Sets the GPS latitude in decimal degrees. */
+    public void setGpsLatitude(Double gpsLatitude) { this.gpsLatitude = gpsLatitude; }
+
+    /**
+     * Returns the GPS longitude in decimal degrees, or {@code null} if not available.
+     * Positive = East, negative = West.
+     */
+    public Double gpsLongitude() { return gpsLongitude; }
+
+    /** Sets the GPS longitude in decimal degrees. */
+    public void setGpsLongitude(Double gpsLongitude) { this.gpsLongitude = gpsLongitude; }
+
+    /**
+     * Returns the GPS altitude in metres, or {@code null} if not available.
+     * Positive = above sea level, negative = below.
+     */
+    public Double gpsAltitude() { return gpsAltitude; }
+
+    /** Sets the GPS altitude in metres. */
+    public void setGpsAltitude(Double gpsAltitude) { this.gpsAltitude = gpsAltitude; }
+
+    /** Returns the GPS timestamp string (UTC), or {@code null} if not available. */
+    public String gpsTimestamp() { return gpsTimestamp; }
+
+    /** Sets the GPS timestamp string. */
+    public void setGpsTimestamp(String gpsTimestamp) { this.gpsTimestamp = gpsTimestamp; }
+
+    /**
+     * Returns the white balance multipliers from Canon MakerNote, or {@code null}
+     * if not available. Array of 3 values: [R, G, B].
+     */
+    public double[] whiteBalanceMultipliers() { return whiteBalanceMultipliers; }
+
+    /** Sets the white balance multipliers. */
+    public void setWhiteBalanceMultipliers(double[] multipliers) {
+        this.whiteBalanceMultipliers = multipliers;
+    }
+
+    /**
+     * Returns per-channel black levels [R, Gr, Gb, B], or {@code null} if not available.
+     * When available, these should be used instead of the default global black level.
+     */
+    public int[] perChannelBlackLevels() { return perChannelBlackLevels; }
+
+    /** Sets the per-channel black levels. */
+    public void setPerChannelBlackLevels(int[] levels) {
+        this.perChannelBlackLevels = levels;
+    }
+
+    /** Returns the Canon MakerNote parsed data, or {@code null} if not parsed. */
+    public CanonMakerNoteData makerNoteData() { return makerNoteData; }
+
+    /** Sets the Canon MakerNote parsed data. */
+    public void setMakerNoteData(CanonMakerNoteData data) { this.makerNoteData = data; }
+
+    /**
      * Returns the visible (cropped) image width based on active area.
      *
      * @return visible width, or sensor width if active area is not set
@@ -175,9 +271,19 @@ public final class Cr3Metadata {
 
     @Override
     public String toString() {
-        return "Cr3Metadata[model=%s, sensor=%dx%d, active=[%d,%d,%d,%d], ISO=%d, %s %s %s]"
+        StringBuilder sb = new StringBuilder();
+        sb.append("Cr3Metadata[model=%s, sensor=%dx%d, active=[%d,%d,%d,%d], ISO=%d, %s %s %s, orient=%d"
                 .formatted(cameraModel, sensorWidth, sensorHeight,
                         activeAreaLeft, activeAreaTop, activeAreaRight, activeAreaBottom,
-                        isoSpeed, shutterSpeed, aperture, focalLength);
+                        isoSpeed, shutterSpeed, aperture, focalLength, orientation));
+        if (gpsLatitude != null && gpsLongitude != null) {
+            sb.append(", GPS=%.6f,%.6f".formatted(gpsLatitude, gpsLongitude));
+        }
+        if (whiteBalanceMultipliers != null) {
+            sb.append(", WB=[%.2f,%.2f,%.2f]".formatted(
+                    whiteBalanceMultipliers[0], whiteBalanceMultipliers[1], whiteBalanceMultipliers[2]));
+        }
+        sb.append(']');
+        return sb.toString();
     }
 }

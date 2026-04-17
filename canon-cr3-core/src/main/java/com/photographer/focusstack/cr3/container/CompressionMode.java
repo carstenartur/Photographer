@@ -36,7 +36,6 @@ public enum CompressionMode {
      * @return {@code true} if decoding is implemented for this mode
      */
     public boolean isSupported() {
-        // TODO: Update when CRAW_LOSSY support is implemented
         return this == RAW_LOSSLESS;
     }
 }

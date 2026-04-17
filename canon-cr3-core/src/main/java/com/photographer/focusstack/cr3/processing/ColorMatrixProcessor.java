@@ -10,28 +10,18 @@ import java.awt.image.BufferedImage;
  * to a standard color space (e.g. sRGB linear).
  *
  * <p>The color matrix maps camera-native RGB values to a device-independent
- * color space. For Canon cameras, this matrix is typically provided in the
- * DNG specification or can be derived from the camera's color profile.</p>
- *
- * TODO: Load color matrix from Canon MakerNote or DNG profile
- * TODO: Support different illuminant matrices (D65, StdA)
- * TODO: Interpolate matrices based on color temperature
+ * color space. Camera-specific matrices are looked up via
+ * {@link CameraColorMatrixRegistry} based on the EXIF camera model.</p>
  */
 public final class ColorMatrixProcessor {
 
     private static final Logger LOG = LoggerFactory.getLogger(ColorMatrixProcessor.class);
 
     /**
-     * Approximate color matrix for Canon PowerShot G5 X Mark II (D65 illuminant).
-     * Maps camera RGB to sRGB linear.
-     *
-     * TODO: Replace with accurate matrix from DNG profile
+     * Default color matrix — generic Canon approximation (D65 illuminant).
+     * Use {@link CameraColorMatrixRegistry} for camera-specific matrices.
      */
-    public static final double[][] DEFAULT_COLOR_MATRIX = {
-            { 1.2, -0.3,  0.1},
-            {-0.1,  1.3, -0.2},
-            { 0.0, -0.2,  1.2}
-    };
+    public static final double[][] DEFAULT_COLOR_MATRIX = CameraColorMatrixRegistry.GENERIC_CANON_D65;
 
     private ColorMatrixProcessor() {
         // utility class

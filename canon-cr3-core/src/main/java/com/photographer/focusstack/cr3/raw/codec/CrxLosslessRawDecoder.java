@@ -177,8 +177,16 @@ public final class CrxLosslessRawDecoder {
 
                     // For lossless, there is exactly 1 subband per plane (LL only)
                     CrxHeader.Subband subband = plane.subbands().getFirst();
-                    int subDataOffset = (int) subband.dataOffset();
-                    int subDataEnd = subDataOffset + (int) subband.dataSize();
+                    long rawOffset = subband.dataOffset();
+                    long rawSize = subband.dataSize();
+                    long rawEnd = rawOffset + rawSize;
+                    if (rawOffset > Integer.MAX_VALUE || rawSize > Integer.MAX_VALUE
+                            || rawEnd > Integer.MAX_VALUE || rawEnd < rawOffset) {
+                        throw new Cr3Exception("Subband data exceeds 2 GB limit: offset="
+                                + rawOffset + ", size=" + rawSize);
+                    }
+                    int subDataOffset = (int) rawOffset;
+                    int subDataEnd = (int) rawEnd;
 
                     if (subDataOffset >= crxData.length) {
                         throw new Cr3Exception("Subband offset past end of CRX data: "

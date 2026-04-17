@@ -9,11 +9,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>White balance corrects for the color temperature of the light source
  * by scaling the R, G, and B channels independently. The multipliers are
- * typically extracted from the camera's MakerNote metadata.</p>
- *
- * TODO: Extract WB multipliers from Canon MakerNote (CMT3 box)
- * TODO: Support user-specified color temperature
- * TODO: Support auto white balance calculation
+ * extracted from the Canon MakerNote (CMT3) metadata when available, or
+ * default daylight values are used as fallback.</p>
  */
 public final class WhiteBalanceProcessor {
 

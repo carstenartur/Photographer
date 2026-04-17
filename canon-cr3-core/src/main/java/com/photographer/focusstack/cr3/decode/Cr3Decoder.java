@@ -9,13 +9,19 @@ import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.metadata.Cr3MetadataReader;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
 import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
+import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.processing.BlackLevelProcessor;
+import com.photographer.focusstack.cr3.processing.CameraColorMatrixRegistry;
 import com.photographer.focusstack.cr3.processing.ColorMatrixProcessor;
+import com.photographer.focusstack.cr3.processing.DualIlluminantColorMatrix;
+import com.photographer.focusstack.cr3.processing.ExifOrientationTransformer;
+import com.photographer.focusstack.cr3.processing.ObBlackLevelEstimator;
 import com.photographer.focusstack.cr3.processing.SrgbConverter;
 import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,32 +125,40 @@ public final class Cr3Decoder {
 
     /**
      * Full RAW processing pipeline:
-     * CrxLosslessRawDecoder → BlackLevel → WhiteBalance → Demosaic → ColorMatrix → sRGB
+     * CrxLosslessRawDecoder → BlackLevel → WhiteBalance → Demosaic → ColorMatrix → sRGB → Orientation
      */
     private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception, IOException {
         Cr3RawImage rawImage = decodeRawBayer(options);
 
-        // 1. Black level subtraction
+        // 1. Black level subtraction — use OB/per-channel if available from metadata
         if (options.applyBlackLevel()) {
-            BlackLevelProcessor.process(rawImage);
+            BlackLevel blackLevel = resolveBlackLevel(rawImage);
+            BlackLevelProcessor.process(rawImage, blackLevel);
         }
 
-        // 2. White balance
+        // 2. White balance — use MakerNote multipliers if available
         if (options.applyWhiteBalance()) {
-            WhiteBalanceProcessor.process(rawImage);
+            double[] wbMultipliers = resolveWhiteBalance();
+            WhiteBalanceProcessor.process(rawImage, wbMultipliers);
         }
 
         // 3. Bayer demosaicing → full-colour RGB
         BufferedImage rgb = BayerDemosaicer.demosaic(rawImage);
 
-        // 4. Color matrix correction
+        // 4. Color matrix correction — use camera-specific if available
         if (options.applyColorMatrix()) {
-            ColorMatrixProcessor.process(rgb);
+            double[][] colorMatrix = resolveColorMatrix();
+            ColorMatrixProcessor.process(rgb, colorMatrix);
         }
 
         // 5. sRGB gamma conversion
         if (options.applySrgbConversion()) {
             SrgbConverter.process(rgb);
+        }
+
+        // 6. Apply EXIF orientation (rotation/flip)
+        if (metadata != null && metadata.orientation() > 1) {
+            rgb = ExifOrientationTransformer.apply(rgb, metadata.orientation());
         }
 
         return rgb;
@@ -234,8 +248,16 @@ public final class Cr3Decoder {
             codecVersion = CrxHeader.detectVersion(container.cncvBox().versionString());
         }
 
-        Cr3RawImage decoded = CrxLosslessRawDecoder.decode(crxData, rawWidth, rawHeight,
-                bitDepth, codecVersion, cmp1);
+        // Route to lossless or lossy decoder based on CMP1
+        Cr3RawImage decoded;
+        if (CrxLossyDecoder.isLossy(cmp1)) {
+            LOG.info("Detected C-RAW (lossy) compression — attempting lossy decode");
+            decoded = CrxLossyDecoder.decode(crxData, rawWidth, rawHeight,
+                    bitDepth, codecVersion, cmp1);
+        } else {
+            decoded = CrxLosslessRawDecoder.decode(crxData, rawWidth, rawHeight,
+                    bitDepth, codecVersion, cmp1);
+        }
 
         if (options.cropToActiveArea()) {
             return cropToActiveArea(decoded);
@@ -276,5 +298,64 @@ public final class Cr3Decoder {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(value, max));
+    }
+
+    /**
+     * Resolves the best available black level for the current image.
+     * Priority: OB per-row estimation &gt; per-channel from metadata &gt; global default.
+     *
+     * @param rawImage the raw image (used for OB estimation if metadata indicates OB columns)
+     */
+    private BlackLevel resolveBlackLevel(Cr3RawImage rawImage) {
+        // Try OB-based per-row estimation first (highest accuracy)
+        if (metadata != null && metadata.activeAreaLeft() >= ObBlackLevelEstimator.MIN_OB_COLUMNS) {
+            BlackLevel obLevel = ObBlackLevelEstimator.estimate(rawImage, metadata.activeAreaLeft());
+            if (obLevel != null) {
+                LOG.debug("Using OB-estimated per-row black level");
+                return obLevel;
+            }
+        }
+
+        // Fall back to per-channel from MakerNote metadata
+        if (metadata != null && metadata.perChannelBlackLevels() != null) {
+            return BlackLevel.perChannel(metadata.perChannelBlackLevels());
+        }
+
+        // Final fallback: global default
+        return BlackLevel.defaultLevel();
+    }
+
+    /**
+     * Resolves the best available white balance multipliers.
+     * Priority: MakerNote WB &gt; default daylight.
+     */
+    private double[] resolveWhiteBalance() {
+        if (metadata != null && metadata.whiteBalanceMultipliers() != null) {
+            return metadata.whiteBalanceMultipliers();
+        }
+        return WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS;
+    }
+
+    /**
+     * Resolves the best available color matrix for the camera model.
+     * Priority: dual-illuminant interpolated (if color temp available) &gt; camera-specific &gt; generic fallback.
+     */
+    private double[][] resolveColorMatrix() {
+        if (metadata == null || metadata.cameraModel() == null || metadata.cameraModel().isEmpty()) {
+            return CameraColorMatrixRegistry.GENERIC_CANON_D65;
+        }
+
+        String model = metadata.cameraModel();
+
+        // Try dual-illuminant interpolation if color temperature is available
+        if (DualIlluminantColorMatrix.hasDualProfile(model)
+                && metadata.makerNoteData() != null
+                && metadata.makerNoteData().colorTemperature() > 0) {
+            int colorTemp = metadata.makerNoteData().colorTemperature();
+            LOG.debug("Using dual-illuminant matrix interpolation for '{}' at {}K", model, colorTemp);
+            return DualIlluminantColorMatrix.getInterpolatedMatrix(model, colorTemp);
+        }
+
+        return CameraColorMatrixRegistry.getMatrix(model);
     }
 }
