@@ -95,6 +95,20 @@ public final class TiffIfdParser {
          */
         record RationalArrayValue(int[] numerators, int[] denominators) implements TagValue {
             /**
+             * Compact constructor: validates that numerators and denominators have equal length
+             * and makes defensive copies to ensure immutability.
+             */
+            public RationalArrayValue {
+                if (numerators.length != denominators.length) {
+                    throw new IllegalArgumentException(
+                            "Numerators length (%d) != denominators length (%d)"
+                                    .formatted(numerators.length, denominators.length));
+                }
+                numerators = numerators.clone();
+                denominators = denominators.clone();
+            }
+
+            /**
              * Returns the number of RATIONAL components.
              */
             public int count() {

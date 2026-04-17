@@ -49,7 +49,7 @@ public class CanonCr3ImageReaderSpi extends ImageReaderSpi {
                 null,                      // extraStreamMetadataFormatClassNames
                 false,                     // supportsStandardImageMetadataFormat
                 Cr3ImageMetadata.NATIVE_FORMAT_NAME, // nativeImageMetadataFormatName
-                "com.photographer.focusstack.cr3.imageio.Cr3ImageMetadata", // nativeImageMetadataFormatClassName
+                null,                      // nativeImageMetadataFormatClassName (no IIOMetadataFormat impl)
                 null,                      // extraImageMetadataFormatNames
                 null                       // extraImageMetadataFormatClassNames
         );

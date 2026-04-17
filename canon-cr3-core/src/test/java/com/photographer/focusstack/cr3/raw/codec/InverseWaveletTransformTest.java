@@ -68,6 +68,19 @@ class InverseWaveletTransformTest {
     }
 
     @Test
+    @DisplayName("1D inverse with multiple lowpass but no highpass returns all coefficients")
+    void inverseMultipleLowpassNoHighpass() {
+        int[] lowpass = {10, 20, 30};
+        int[] highpass = {};
+        int[] result = InverseWaveletTransform.inverseSynthesis1D(
+                lowpass, highpass, InverseWaveletTransform.FilterType.LEGALL_5_3);
+        assertThat(result).hasSize(3);
+        assertThat(result[0]).isEqualTo(10);
+        assertThat(result[1]).isEqualTo(20);
+        assertThat(result[2]).isEqualTo(30);
+    }
+
+    @Test
     @DisplayName("CDF 9/7 throws UnsupportedOperationException")
     void cdf97NotImplemented() {
         int[] lowpass = {10, 20};

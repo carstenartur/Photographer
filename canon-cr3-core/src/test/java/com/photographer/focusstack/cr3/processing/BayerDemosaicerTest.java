@@ -128,7 +128,17 @@ class BayerDemosaicerTest {
         }
 
         @Test
-        void demosaic16bit() {
+        void demosaicNormalized() {
+            Cr3RawImage raw = createSyntheticRGGBImage(10, 10);
+            BufferedImage result = BayerDemosaicer.demosaicNormalized(raw);
+            assertNotNull(result);
+            assertEquals(10, result.getWidth());
+            assertEquals(10, result.getHeight());
+        }
+
+        @SuppressWarnings("deprecation")
+        @Test
+        void demosaic16bitDeprecatedDelegates() {
             Cr3RawImage raw = createSyntheticRGGBImage(10, 10);
             BufferedImage result = BayerDemosaicer.demosaic16bit(raw);
             assertNotNull(result);

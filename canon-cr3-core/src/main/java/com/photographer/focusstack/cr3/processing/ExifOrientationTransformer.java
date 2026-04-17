@@ -19,9 +19,9 @@ import java.awt.image.BufferedImage;
  *   2 = Flip horizontal
  *   3 = Rotate 180°
  *   4 = Flip vertical
- *   5 = Transpose (flip horizontal + rotate 90° CW)
+ *   5 = Transpose (flip horizontal + rotate 270° CW)
  *   6 = Rotate 90° CW
- *   7 = Transverse (flip horizontal + rotate 270° CW)
+ *   7 = Transverse (flip horizontal + rotate 90° CW)
  *   8 = Rotate 270° CW (= 90° CCW)
  * </pre>
  *

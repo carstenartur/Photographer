@@ -54,28 +54,31 @@ public final class BayerDemosaicer {
     }
 
     /**
-     * Demosaics a Bayer-pattern RAW image to a 16-bit-per-channel BufferedImage.
+     * Demosaics a Bayer-pattern RAW image to a normalized 8-bit-per-channel BufferedImage.
+     *
+     * <p>This method scales the raw sensor values (which may be 14-bit or higher) down to
+     * the 8-bit-per-channel range (0–255) required by {@link BufferedImage#TYPE_INT_RGB}.
+     * For true high-bit-depth processing, callers should work with the raw {@code int[][]}
+     * planes from {@link Cr3RawImage} directly.</p>
      *
      * @param rawImage the RAW Bayer image
-     * @return a full-color RGB BufferedImage (TYPE_INT_RGB scaled to 16-bit precision)
+     * @return a full-color RGB BufferedImage (TYPE_INT_RGB, 8-bit per channel)
      */
-    public static BufferedImage demosaic16bit(Cr3RawImage rawImage) {
-        LOG.info("Demosaicing {}x{} {} image to 16-bit with bilinear interpolation",
+    public static BufferedImage demosaicNormalized(Cr3RawImage rawImage) {
+        LOG.info("Demosaicing {}x{} {} image to normalized 8-bit with bilinear interpolation",
                 rawImage.width(), rawImage.height(), rawImage.bayerPattern());
 
         int w = rawImage.width();
         int h = rawImage.height();
         int maxVal = rawImage.maxValue();
 
-        // Use TYPE_INT_RGB and scale values to [0, 65535] packed as 8-bit per channel.
-        // For true 16-bit output, callers should use the raw int[][] planes directly.
         BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
 
         for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int[] rgb = interpolatePixel(rawImage, x, y);
 
-                // Scale to 16-bit then down to 8-bit for TYPE_INT_RGB
+                // Scale sensor values to 8-bit range for TYPE_INT_RGB
                 int r = Math.min(255, Math.max(0, (int) ((long) rgb[0] * 255 / maxVal)));
                 int g = Math.min(255, Math.max(0, (int) ((long) rgb[1] * 255 / maxVal)));
                 int b = Math.min(255, Math.max(0, (int) ((long) rgb[2] * 255 / maxVal)));
@@ -85,6 +88,15 @@ public final class BayerDemosaicer {
         }
 
         return output;
+    }
+
+    /**
+     * @deprecated Use {@link #demosaicNormalized(Cr3RawImage)} instead.
+     *             This method was misleadingly named "16bit" but actually produces 8-bit output.
+     */
+    @Deprecated(since = "0.1.4", forRemoval = true)
+    public static BufferedImage demosaic16bit(Cr3RawImage rawImage) {
+        return demosaicNormalized(rawImage);
     }
 
     /**

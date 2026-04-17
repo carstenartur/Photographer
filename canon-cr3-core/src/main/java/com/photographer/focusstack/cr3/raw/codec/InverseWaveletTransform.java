@@ -173,7 +173,11 @@ public final class InverseWaveletTransform {
 
         // Handle degenerate cases
         if (nLow == 0) return new int[0];
-        if (nHigh == 0) return new int[]{lowpass[0]};
+        if (nHigh == 0) {
+            int[] result = new int[nLow];
+            System.arraycopy(lowpass, 0, result, 0, nLow);
+            return result;
+        }
 
         // Work on copies to avoid mutating input
         int[] even = new int[nLow]; // lowpass (s) = even samples

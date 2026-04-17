@@ -51,7 +51,7 @@ public class Cr3ImageMetadata extends IIOMetadata {
         super(
                 false,                  // standardMetadataFormatSupported
                 NATIVE_FORMAT_NAME,     // nativeMetadataFormatName
-                Cr3ImageMetadata.class.getName(), // nativeMetadataFormatClassName (self)
+                null,                   // nativeMetadataFormatClassName (no IIOMetadataFormat impl)
                 null,                   // extraMetadataFormatNames
                 null                    // extraMetadataFormatClassNames
         );
@@ -111,7 +111,7 @@ public class Cr3ImageMetadata extends IIOMetadata {
         image.setAttribute("bayerPattern", "RGGB");  // Canon standard
         int whiteLevel = (1 << metadata.bitDepth()) - 1;
         image.setAttribute("whiteLevel", String.valueOf(whiteLevel));
-        if (metadata.perChannelBlackLevels() != null) {
+        if (metadata.perChannelBlackLevels() != null && metadata.perChannelBlackLevels().length >= 4) {
             int[] bl = metadata.perChannelBlackLevels();
             image.setAttribute("blackLevel", "%d,%d,%d,%d".formatted(bl[0], bl[1], bl[2], bl[3]));
         } else {
@@ -119,8 +119,12 @@ public class Cr3ImageMetadata extends IIOMetadata {
         }
         root.appendChild(image);
 
-        // Crop
-        if (metadata.activeAreaLeft() > 0 || metadata.activeAreaTop() > 0) {
+        // Crop — emit whenever active area differs from full sensor area
+        boolean hasCrop = metadata.activeAreaLeft() > 0
+                || metadata.activeAreaTop() > 0
+                || (metadata.activeAreaRight() > 0 && metadata.activeAreaRight() < metadata.sensorWidth())
+                || (metadata.activeAreaBottom() > 0 && metadata.activeAreaBottom() < metadata.sensorHeight());
+        if (hasCrop) {
             IIOMetadataNode crop = new IIOMetadataNode("Crop");
             crop.setAttribute("left", String.valueOf(metadata.activeAreaLeft()));
             crop.setAttribute("top", String.valueOf(metadata.activeAreaTop()));

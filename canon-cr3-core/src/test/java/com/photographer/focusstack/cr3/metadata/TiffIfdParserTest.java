@@ -199,6 +199,14 @@ class TiffIfdParserTest {
         assertThat(rav.toDouble(1)).isEqualTo(0.0); // zero denominator → 0.0
     }
 
+    @Test
+    void rationalArrayValueRejectsMismatchedLengths() {
+        assertThatThrownBy(() -> new TiffIfdParser.TagValue.RationalArrayValue(
+                new int[]{1, 2, 3}, new int[]{1, 1}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Numerators length");
+    }
+
     // --- Helper methods for building synthetic TIFF data ---
 
     record IfdEntry(int tagId, int dataType, String stringValue) {}
