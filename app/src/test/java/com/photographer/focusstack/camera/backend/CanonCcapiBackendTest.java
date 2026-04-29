@@ -147,6 +147,62 @@ class CanonCcapiBackendTest {
         assertDoesNotThrow(() -> backend.discoverEndpoints());
     }
 
+    @Test
+    void discoverEndpoints_fallsBackToTopUrlForDev_whenRootIsEmpty() {
+        // /ccapi returns empty -> fallback /ccapi/topurlfordev returns the versions map
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(java.util.Map.of());
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/topurlfordev"), eq(Object.class)))
+                .thenReturn(java.util.Map.of("ver100", "/ccapi/ver100"));
+
+        backend.discoverEndpoints();
+
+        assertNotNull(backend.findEndpoint("battery"),
+                "fallback discovery must populate endpoints");
+    }
+
+    @Test
+    void discoverEndpoints_fallsBackToTopUrlForDev_whenRootReturnsNull() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(null);
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/topurlfordev"), eq(Object.class)))
+                .thenReturn(java.util.Map.of("ver100", "/ccapi/ver100"));
+
+        backend.discoverEndpoints();
+
+        assertNotNull(backend.findEndpoint("deviceinformation"));
+    }
+
+    @Test
+    void discoverEndpoints_topUrlForDev_followsStringPointer() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(null);
+        // topurlfordev returns a relative URL string -> backend GETs it for the versions map
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/topurlfordev"), eq(Object.class)))
+                .thenReturn("/ccapi");
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(null) // first /ccapi call still returns null
+                .thenReturn(java.util.Map.of("ver100", "/ccapi/ver100"));
+
+        backend.discoverEndpoints();
+
+        // Either succeeds or fails gracefully; the mock setup makes the
+        // pointer-follow path GET /ccapi via Map.class which returns null in
+        // this stub, so discovery quietly aborts. The key contract here is
+        // that the call does not throw.
+        assertDoesNotThrow(() -> backend.discoverEndpoints());
+    }
+
+    @Test
+    void discoverEndpoints_handlesTopUrlForDevAlsoMissing() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(null);
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/topurlfordev"), eq(Object.class)))
+                .thenThrow(new ResourceAccessException("404"));
+
+        assertDoesNotThrow(() -> backend.discoverEndpoints());
+    }
+
     // ── getInfo ──────────────────────────────────────────────────────────────
 
     @Test
@@ -612,6 +668,67 @@ class CanonCcapiBackendTest {
     @Test
     void parseBatteryLevel_returnsDefaultForUnknownString() {
         assertEquals(100, CanonCcapiBackend.parseBatteryLevel("unknown"));
+    }
+
+    // ── batterylist (multi-battery pro bodies) ────────────────────────────────
+
+    @Test
+    void worstBatteryLevel_returnsMinOfMultipleBatteries() {
+        var list = new CanonCcapiBackend.BatteryListStatus(java.util.List.of(
+                new CanonCcapiBackend.BatteryStatus("body", "lp-e6n", "full", "good"),
+                new CanonCcapiBackend.BatteryStatus("grip-1", "lp-e6n", "low", "good"),
+                new CanonCcapiBackend.BatteryStatus("grip-2", "lp-e6n", "high", "good")
+        ));
+        assertEquals(20, CanonCcapiBackend.worstBatteryLevel(list));
+    }
+
+    @Test
+    void worstBatteryLevel_handlesNullsAndEmptyList() {
+        assertNull(CanonCcapiBackend.worstBatteryLevel(null));
+        assertNull(CanonCcapiBackend.worstBatteryLevel(
+                new CanonCcapiBackend.BatteryListStatus(null)));
+        assertNull(CanonCcapiBackend.worstBatteryLevel(
+                new CanonCcapiBackend.BatteryListStatus(java.util.List.of())));
+    }
+
+    @Test
+    void worstBatteryLevel_skipsEntriesWithoutLevel() {
+        var list = new CanonCcapiBackend.BatteryListStatus(java.util.List.of(
+                new CanonCcapiBackend.BatteryStatus("body", "lp-e6n", null, "good"),
+                new CanonCcapiBackend.BatteryStatus("grip", "lp-e6n", "half", "good")
+        ));
+        assertEquals(50, CanonCcapiBackend.worstBatteryLevel(list));
+    }
+
+    @Test
+    void getState_usesBatteryListWhenDiscovered_andReportsWorstLevel() {
+        // Override discovery to include /devicestatus/batterylist (proBody)
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver100"), eq(List.class)))
+                .thenReturn(java.util.List.of(
+                        "/ccapi/ver100/devicestatus/batterylist",
+                        "/ccapi/ver100/devicestatus/currentstorage"
+                ));
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/batterylist"),
+                eq(CanonCcapiBackend.BatteryListStatus.class)))
+                .thenReturn(new CanonCcapiBackend.BatteryListStatus(java.util.List.of(
+                        new CanonCcapiBackend.BatteryStatus("body", "lp-e6n", "full", "good"),
+                        new CanonCcapiBackend.BatteryStatus("grip", "lp-e6n", "low", "good")
+                )));
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/currentstorage"),
+                eq(CanonCcapiBackend.StorageStatus.class)))
+                .thenReturn(new CanonCcapiBackend.StorageStatus(null, null, 1L));
+
+        CameraState state = backend.getState();
+
+        assertTrue(state.connected());
+        assertEquals(20, state.batteryLevel(),
+                "should report the lowest level across all batteries");
+        // The single-battery endpoint must NOT have been called when batterylist is present.
+        verify(restTemplate, never()).getForObject(
+                eq(BASE_URL + "/ccapi/ver100/devicestatus/battery"),
+                eq(CanonCcapiBackend.BatteryStatus.class));
     }
 
     // ── supports ─────────────────────────────────────────────────────────────

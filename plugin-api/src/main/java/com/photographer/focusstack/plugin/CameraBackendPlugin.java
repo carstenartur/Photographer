@@ -27,4 +27,20 @@ public interface CameraBackendPlugin extends CameraBackend {
      * This is used to match the plugin with camera profile configuration.
      */
     String backendType();
+
+    /**
+     * Returns the capability flags advertised by this backend.
+     *
+     * <p>The frontend uses these flags to gate UI controls — actions a backend
+     * does not support are hidden or disabled rather than failing at runtime.
+     * Higher-level services (e.g. the safe "delete after download" workflow)
+     * also consult these flags before invoking potentially destructive
+     * operations.</p>
+     *
+     * <p>The default returns {@link BackendCapabilities#none()}; plugins should
+     * override this method to advertise the flags they actually implement.</p>
+     */
+    default BackendCapabilities capabilities() {
+        return BackendCapabilities.none();
+    }
 }
