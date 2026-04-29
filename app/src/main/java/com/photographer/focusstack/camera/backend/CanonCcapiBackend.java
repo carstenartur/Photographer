@@ -164,8 +164,14 @@ public class CanonCcapiBackend implements CameraBackend {
             Map<String, Object> versions = restTemplate.getForObject(
                     baseUrl + "/ccapi", Map.class);
             if (versions == null || versions.isEmpty()) {
-                log.warn("CCAPI root returned no versions");
-                return;
+                // Some firmware exposes the API under /ccapi/topurlfordev instead
+                // of /ccapi (the "developer" landing endpoint). Try that as a
+                // secondary discovery hop before giving up.
+                versions = fetchVersionsViaTopUrlFallback();
+                if (versions == null || versions.isEmpty()) {
+                    log.warn("CCAPI root returned no versions (and topurlfordev fallback also yielded none)");
+                    return;
+                }
             }
             log.info("CCAPI versions available: {}", versions.keySet());
 
@@ -210,6 +216,53 @@ public class CanonCcapiBackend implements CameraBackend {
             registerEndpoints(eps);
         } catch (RestClientException e) {
             log.warn("CCAPI endpoint discovery failed ({}): {}", baseUrl, e.getMessage());
+        }
+    }
+
+    /**
+     * Secondary discovery hop: queries {@code GET /ccapi/topurlfordev}, which on
+     * some Canon firmwares is the only way to learn the API root URL when the
+     * direct {@code /ccapi} call returns nothing useful. The response is
+     * expected to contain the same version → URL/descriptor mapping that
+     * {@code /ccapi} would have returned.
+     *
+     * @return a versions map (same shape as {@code GET /ccapi}), or {@code null}
+     *         when the fallback is also unavailable or empty
+     */
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fetchVersionsViaTopUrlFallback() {
+        try {
+            String fallbackUrl = baseUrl + "/ccapi/topurlfordev";
+            log.info("Attempting CCAPI fallback discovery via {}", fallbackUrl);
+            Object response = restTemplate.getForObject(fallbackUrl, Object.class);
+            if (response == null) {
+                return null;
+            }
+            // Form 1: response is already a versions map (same as /ccapi).
+            if (response instanceof Map<?, ?> map && !map.isEmpty()) {
+                Map<String, Object> typed = new java.util.LinkedHashMap<>();
+                map.forEach((k, v) -> typed.put(String.valueOf(k), v));
+                return typed;
+            }
+            // Form 2: response is a single URL string pointing at the API root,
+            //         which we then GET to obtain the versions map.
+            String pointer = null;
+            if (response instanceof String s && !s.isBlank()) {
+                pointer = s;
+            } else if (response instanceof Map<?, ?> m && m.get("url") instanceof String s) {
+                pointer = s;
+            }
+            if (pointer != null) {
+                String url = pointer.startsWith("http") ? pointer : baseUrl + pointer;
+                Map<String, Object> follow = restTemplate.getForObject(url, Map.class);
+                if (follow != null && !follow.isEmpty()) {
+                    return follow;
+                }
+            }
+            return null;
+        } catch (RestClientException e) {
+            log.debug("CCAPI topurlfordev fallback failed: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -912,16 +965,35 @@ public class CanonCcapiBackend implements CameraBackend {
         long storageAvailable = 0L;
         boolean connected = false;
 
-        // Battery — look for discovered battery endpoint
-        String batteryUrl = resolveEndpoint("battery", "/ccapi/ver100/devicestatus/battery");
-        try {
-            BatteryStatus battery = restTemplate.getForObject(batteryUrl, BatteryStatus.class);
-            if (battery != null && battery.level() != null) {
-                batteryLevel = parseBatteryLevel(battery.level());
+        // Battery — pro bodies (R3, R5+BG-R10, ...) expose /devicestatus/batterylist
+        // returning multiple battery entries; single-battery bodies use
+        // /devicestatus/battery. When batterylist is present we use it
+        // exclusively and report the *worst* (lowest) level so a near-empty
+        // grip battery is not masked by a full body battery.
+        String batteryListUrl = findEndpoint("batterylist");
+        if (batteryListUrl != null) {
+            try {
+                BatteryListStatus list = restTemplate.getForObject(batteryListUrl, BatteryListStatus.class);
+                Integer worst = worstBatteryLevel(list);
+                if (worst != null) {
+                    batteryLevel = worst;
+                    connected = true;
+                }
+            } catch (RestClientException e) {
+                log.debug("CCAPI batterylist unavailable: {}", e.getMessage());
             }
-            connected = true;
-        } catch (RestClientException e) {
-            log.debug("CCAPI battery status unavailable: {}", e.getMessage());
+        } else {
+            // Single-battery body: query /devicestatus/battery directly.
+            String batteryUrl = resolveEndpoint("battery", "/ccapi/ver100/devicestatus/battery");
+            try {
+                BatteryStatus battery = restTemplate.getForObject(batteryUrl, BatteryStatus.class);
+                if (battery != null && battery.level() != null) {
+                    batteryLevel = parseBatteryLevel(battery.level());
+                }
+                connected = true;
+            } catch (RestClientException e) {
+                log.debug("CCAPI battery status unavailable: {}", e.getMessage());
+            }
         }
 
         // Storage — try discovered /currentstorage, then /storage.
@@ -1089,6 +1161,27 @@ public class CanonCcapiBackend implements CameraBackend {
         };
     }
 
+    /**
+     * Returns the lowest battery level (0–100) reported in a CCAPI
+     * {@code /devicestatus/batterylist} response, or {@code null} when the
+     * list is missing or contains no usable entries.
+     *
+     * <p>Used by pro bodies that carry multiple batteries (R3 dual cells,
+     * R5+BG-R10 grip): the camera may have one full and one near-empty
+     * battery, and reporting the worst level lets users avoid surprise
+     * shutdowns mid-session.</p>
+     */
+    static Integer worstBatteryLevel(BatteryListStatus list) {
+        if (list == null || list.batterylist() == null || list.batterylist().isEmpty()) {
+            return null;
+        }
+        return list.batterylist().stream()
+                .filter(b -> b != null && b.level() != null)
+                .map(b -> parseBatteryLevel(b.level()))
+                .min(Integer::compareTo)
+                .orElse(null);
+    }
+
     // ── CCAPI response DTOs ────────────────────────────────────────────────
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -1105,6 +1198,17 @@ public class CanonCcapiBackend implements CameraBackend {
             @JsonProperty("kind")    String kind,
             @JsonProperty("level")   String level,
             @JsonProperty("quality") String quality
+    ) {}
+
+    /**
+     * CCAPI {@code /devicestatus/batterylist} response wrapper used by pro
+     * bodies (R3, R5+BG-R10, ...). Each {@link BatteryStatus} entry describes
+     * one of the camera's batteries; {@link #worstBatteryLevel(BatteryListStatus)}
+     * collapses the list to the worst (lowest) reported level.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record BatteryListStatus(
+            @JsonProperty("batterylist") List<BatteryStatus> batterylist
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
