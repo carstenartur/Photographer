@@ -51,7 +51,9 @@ public enum PipelineBlockerKind {
      * class names. Callers that have richer context (e.g. a specific HTTP status)
      * should map the kind themselves rather than relying solely on this helper.</p>
      *
-     * @param t the exception to inspect; must not be {@code null}
+     * <p>Passing {@code null} is allowed and returns {@link #CAPTURE_FAILED}.</p>
+     *
+     * @param t the exception to inspect; may be {@code null}
      * @return the closest matching kind; defaults to {@link #CAPTURE_FAILED}
      */
     public static PipelineBlockerKind blockerKindFor(Throwable t) {
@@ -96,8 +98,8 @@ public enum PipelineBlockerKind {
             return MODE_NOT_SUPPORTED;
         }
 
-        // Emergency stop
-        if (msg.contains("emergency") || msg.contains("stop")) {
+        // Emergency stop (require both words to avoid false positives)
+        if (msg.contains("emergency") && msg.contains("stop")) {
             return EMERGENCY_STOP;
         }
 

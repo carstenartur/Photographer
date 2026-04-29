@@ -66,9 +66,15 @@ class PipelineBlockerKindTest {
     }
 
     @Test
-    void blockerKindFor_emergencyMessage_returnsEmergencyStop() {
+    void blockerKindFor_emergencyStopMessage_returnsEmergencyStop() {
         RuntimeException e = new RuntimeException("emergency stop requested");
         assertEquals(PipelineBlockerKind.EMERGENCY_STOP, PipelineBlockerKind.blockerKindFor(e));
+    }
+
+    @Test
+    void blockerKindFor_stopAlone_doesNotReturnEmergencyStop() {
+        RuntimeException e = new RuntimeException("cannot stop camera motor");
+        assertNotEquals(PipelineBlockerKind.EMERGENCY_STOP, PipelineBlockerKind.blockerKindFor(e));
     }
 
     @Test
