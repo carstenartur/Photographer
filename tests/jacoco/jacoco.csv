@@ -83,12 +83,13 @@ Focus Stack - App,com.photographer.focusstack.app.security,UserEntity,7,24,0,0,2
 Focus Stack - App,com.photographer.focusstack.astro.controller,AstroController,21,91,5,7,4,21,6,9,2,7
 Focus Stack - App,com.photographer.focusstack.astro.controller,AstroController.CreateAstroSessionRequest,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.BatteryStatus,0,15,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,337,1725,81,222,80,374,71,129,3,42
+Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,367,1912,98,253,88,415,85,145,3,48
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.EndpointDescriptor,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.StorageStatus,0,12,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ContentEntry,0,15,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ContentListing,0,6,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendRegistry,0,95,0,6,0,26,0,9,0,6
+Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.BatteryListStatus,0,6,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CameraBackendFactory,92,151,12,6,17,31,8,7,0,6
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ImageLocation,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,MockCameraBackend,20,412,3,31,8,77,2,27,0,12
