@@ -80,7 +80,7 @@ public class ObserverPipeline {
         this.stateMachine = stateMachine;
         this.profile = profile;
         this.eventListeners = new ArrayList<>(eventListeners);
-        this.safetyGuards = safetyGuards;
+        this.safetyGuards = java.util.Objects.requireNonNull(safetyGuards, "safetyGuards");
     }
 
     /** Returns the safety guards bound to this pipeline. Never {@code null}. */
@@ -100,15 +100,20 @@ public class ObserverPipeline {
             return; // Event in progress
         }
 
-        safetyGuards.recordEvent(PipelineEvent.observe("Frame received: " + frame.data().length + " bytes"));
+        // Per-frame OBSERVE events would churn the bounded log on high-FPS
+        // live view, evicting useful entries (triggers/captures/blocks). Only
+        // log significant pipeline events from here on.
 
         Optional<TriggerContext> trigger = sceneMonitor.analyzeFrame(frame);
         if (trigger.isEmpty()) {
             return;
         }
 
-        // Production-safety gate: emergency stop / connection / rate limit
-        boolean connected = camera.getState() != null && camera.getState().connected();
+        // Production-safety gate: emergency stop / connection / rate limit.
+        // Read camera state once: avoid NPE / inconsistent snapshot if the
+        // backend transitions between calls.
+        var cameraState = camera.getState();
+        boolean connected = cameraState != null && cameraState.connected();
         Optional<PipelineBlockerKind> blocker = safetyGuards.checkBeforeAction(connected);
         if (blocker.isPresent()) {
             log.warn("Observer trigger blocked: kind={} camera={}", blocker.get(), camera.getInfo().id());

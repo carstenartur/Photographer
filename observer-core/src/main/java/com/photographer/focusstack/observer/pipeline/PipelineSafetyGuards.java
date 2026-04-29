@@ -63,6 +63,8 @@ public class PipelineSafetyGuards {
     /**
      * Creates a fully configured guards instance. The custom {@link Clock} makes
      * the rate limit deterministically testable.
+     *
+     * @param clock must not be {@code null}
      */
     public PipelineSafetyGuards(int maxCapturesPerMinute, int eventLogCapacity, Clock clock) {
         if (eventLogCapacity <= 0) {
@@ -70,7 +72,7 @@ public class PipelineSafetyGuards {
         }
         this.maxCapturesPerMinute = maxCapturesPerMinute;
         this.eventLogCapacity = eventLogCapacity;
-        this.clock = clock;
+        this.clock = java.util.Objects.requireNonNull(clock, "clock");
     }
 
     // ---- emergency stop ----

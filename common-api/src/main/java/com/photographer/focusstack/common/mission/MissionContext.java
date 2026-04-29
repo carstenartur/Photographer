@@ -50,9 +50,9 @@ public record MissionContext(
             throw new IllegalArgumentException("moonPhase must be in [0.0, 1.0]; got " + moonPhase);
         }
         // Defensive copy + immutable view
-        populatedSources = Collections.unmodifiableSet(EnumSet.copyOf(
+        populatedSources = Collections.unmodifiableSet(
                 populatedSources.isEmpty() ? EnumSet.noneOf(ContextSource.class)
-                        : EnumSet.copyOf(populatedSources)));
+                        : EnumSet.copyOf(populatedSources));
     }
 
     /** Returns a minimal {@code MissionContext} containing only the wall-clock time. */

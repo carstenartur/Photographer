@@ -59,16 +59,29 @@ public class MultiClientSessionRegistry {
         requireNonBlank(sessionId, "sessionId");
         requireNonBlank(clientId, "clientId");
 
-        ConcurrentMap<String, ClientSession> session =
-                sessions.computeIfAbsent(sessionId, id -> new ConcurrentHashMap<>());
+        // Use sessions.compute(...) to serialise joins for the same sessionId,
+        // so that director election is atomic w.r.t. concurrent joins on
+        // different clientIds (otherwise two computes on different keys can
+        // each see an empty map and both promote themselves to DIRECTOR).
+        final ClientSession[] joined = new ClientSession[1];
+        sessions.compute(sessionId, (id, existingSession) -> {
+            ConcurrentMap<String, ClientSession> session =
+                    existingSession != null ? existingSession : new ConcurrentHashMap<>();
 
-        return session.compute(clientId, (cid, existing) -> {
+            ClientSession existing = session.get(clientId);
             if (existing != null) {
-                return existing;
+                joined[0] = existing;
+                return session;
             }
+
             SessionRole role = session.isEmpty() ? SessionRole.DIRECTOR : SessionRole.OBSERVER;
-            return new ClientSession(sessionId, clientId, role, clock.instant(), displayName);
+            ClientSession created =
+                    new ClientSession(sessionId, clientId, role, clock.instant(), displayName);
+            session.put(clientId, created);
+            joined[0] = created;
+            return session;
         });
+        return joined[0];
     }
 
     /**

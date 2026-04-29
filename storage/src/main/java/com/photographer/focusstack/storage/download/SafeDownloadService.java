@@ -43,7 +43,9 @@ public class SafeDownloadService {
     public interface DownloadStep {
         /**
          * @param fileName the file identifier on the camera
-         * @return the downloaded bytes (must be non-null, may be empty if the file is empty)
+         * @return the downloaded bytes; the {@link SafeDownloadService} treats
+         *         a {@code null} or empty array as
+         *         {@link SafeDownloadResult.Status#DOWNLOAD_FAILED}
          */
         byte[] download(String fileName) throws IOException;
     }
@@ -104,17 +106,23 @@ public class SafeDownloadService {
                     SafeDownloadResult.Status.DOWNLOAD_FAILED, null, false,
                     "Download failed: " + e.getMessage());
         }
-        if (bytes == null) {
+        if (bytes == null || bytes.length == 0) {
             return new SafeDownloadResult(
                     SafeDownloadResult.Status.DOWNLOAD_FAILED, null, false,
-                    "Download returned null bytes");
+                    bytes == null ? "Download returned null bytes"
+                            : "Download returned empty payload");
         }
 
         // 2. Validation (optional)
         if (options.validateAfterDownload()) {
+            if (validator == null) {
+                return new SafeDownloadResult(
+                        SafeDownloadResult.Status.VALIDATION_FAILED, bytes, false,
+                        "No validator provided");
+            }
             boolean ok;
             try {
-                ok = validator != null && validator.validate(fileName, bytes);
+                ok = validator.validate(fileName, bytes);
             } catch (RuntimeException e) {
                 log.warn("Safe download: validator threw for {}: {}", fileName, e.getMessage());
                 return new SafeDownloadResult(

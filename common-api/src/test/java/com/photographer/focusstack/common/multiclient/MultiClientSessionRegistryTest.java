@@ -48,16 +48,26 @@ class MultiClientSessionRegistryTest {
     }
 
     @Test
-    void leavingLastDirector_promotesOldestRemaining() throws InterruptedException {
-        // Use natural wall-clock with small sleeps so connectedAt ordering is deterministic.
-        registry.join("S1", "alice", null);
-        Thread.sleep(2);
-        registry.join("S1", "bob", null);
-        Thread.sleep(2);
-        registry.join("S1", "carol", null);
-        assertTrue(registry.leave("S1", "alice"));
+    void leavingLastDirector_promotesOldestRemaining() {
+        // Use a controllable clock so connectedAt ordering is deterministic
+        // without relying on Thread.sleep().
+        java.util.concurrent.atomic.AtomicReference<Instant> nowRef =
+                new java.util.concurrent.atomic.AtomicReference<>(Instant.parse("2025-01-01T00:00:00Z"));
+        java.time.Clock controlled = new java.time.Clock() {
+            @Override public java.time.ZoneId getZone() { return java.time.ZoneOffset.UTC; }
+            @Override public java.time.Clock withZone(java.time.ZoneId zone) { return this; }
+            @Override public Instant instant() { return nowRef.get(); }
+        };
+        MultiClientSessionRegistry r = new MultiClientSessionRegistry(controlled);
+
+        r.join("S1", "alice", null);
+        nowRef.set(nowRef.get().plusMillis(1));
+        r.join("S1", "bob", null);
+        nowRef.set(nowRef.get().plusMillis(1));
+        r.join("S1", "carol", null);
+        assertTrue(r.leave("S1", "alice"));
         // After alice (only director) leaves, oldest remaining (bob) should be promoted.
-        ClientSession bob = registry.find("S1", "bob").orElseThrow();
+        ClientSession bob = r.find("S1", "bob").orElseThrow();
         assertEquals(SessionRole.DIRECTOR, bob.role());
     }
 

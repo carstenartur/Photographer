@@ -123,11 +123,14 @@ public class AIGateway implements VisionProvider {
 
     /**
      * Returns {@code true} only when the delegate is available <em>and</em>
-     * the access level is at least {@link AIAccessLevel#READ_ONLY}.
+     * the permission allows the minimum requirements enforced by gateway image
+     * operations: {@link AIAccessLevel#READ_ONLY} access and
+     * {@link AIPrivacyScope#FULL_IMAGES} privacy scope.
      */
     @Override
     public boolean isAvailable() {
         return permission.accessLevel().allows(AIAccessLevel.READ_ONLY)
+                && permission.privacyScope().allows(AIPrivacyScope.FULL_IMAGES)
                 && delegate.isAvailable();
     }
 

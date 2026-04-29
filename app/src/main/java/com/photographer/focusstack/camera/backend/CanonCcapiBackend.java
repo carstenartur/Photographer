@@ -239,17 +239,28 @@ public class CanonCcapiBackend implements CameraBackend {
                 return null;
             }
             // Form 1: response is already a versions map (same as /ccapi).
+            // Some firmwares may instead return a pointer wrapper such as
+            // { "url": "/ccapi" }, so only treat the map as versions when it
+            // actually contains version keys (e.g. "ver100", "ver110", ...).
+            Map<String, Object> typedResponse = null;
             if (response instanceof Map<?, ?> map && !map.isEmpty()) {
-                Map<String, Object> typed = new java.util.LinkedHashMap<>();
+                final Map<String, Object> typed = new java.util.LinkedHashMap<>();
                 map.forEach((k, v) -> typed.put(String.valueOf(k), v));
-                return typed;
+                boolean looksLikeVersionsMap = typed.keySet().stream()
+                        .anyMatch(key -> key != null && key.startsWith("ver"));
+                if (looksLikeVersionsMap) {
+                    return typed;
+                }
+                typedResponse = typed;
             }
             // Form 2: response is a single URL string pointing at the API root,
             //         which we then GET to obtain the versions map.
             String pointer = null;
             if (response instanceof String s && !s.isBlank()) {
                 pointer = s;
-            } else if (response instanceof Map<?, ?> m && m.get("url") instanceof String s) {
+            } else if (typedResponse != null
+                    && typedResponse.get("url") instanceof String s
+                    && !s.isBlank()) {
                 pointer = s;
             }
             if (pointer != null) {
@@ -974,10 +985,13 @@ public class CanonCcapiBackend implements CameraBackend {
         if (batteryListUrl != null) {
             try {
                 BatteryListStatus list = restTemplate.getForObject(batteryListUrl, BatteryListStatus.class);
+                // The REST call returning successfully (no exception) is itself
+                // proof that the body is reachable, so report connected even if
+                // the payload contains no parseable battery levels.
+                connected = true;
                 Integer worst = worstBatteryLevel(list);
                 if (worst != null) {
                     batteryLevel = worst;
-                    connected = true;
                 }
             } catch (RestClientException e) {
                 log.debug("CCAPI batterylist unavailable: {}", e.getMessage());

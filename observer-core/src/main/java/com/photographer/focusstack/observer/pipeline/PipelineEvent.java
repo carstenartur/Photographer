@@ -23,6 +23,12 @@ public record PipelineEvent(
         String message
 ) {
 
+    public PipelineEvent {
+        java.util.Objects.requireNonNull(timestamp, "timestamp");
+        java.util.Objects.requireNonNull(phase, "phase");
+        java.util.Objects.requireNonNull(message, "message");
+    }
+
     /** Coarse pipeline phase, mirroring the Observe → Decide → Act loop. */
     public enum Phase {
         /** A preview frame was inspected. */

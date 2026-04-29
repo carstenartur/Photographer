@@ -80,7 +80,9 @@ public enum PipelineBlockerKind {
             return CAMERA_BUSY;
         }
 
-        // HTTP 503 / 502 / 504 service unavailable → not connected
+        // HTTP 502 / 504 service unavailable / network failures → not connected.
+        // (HTTP 503 is intentionally handled above as CAMERA_BUSY: Canon CCAPI
+        // returns 503 specifically when the body is mid-action.)
         if (msg.contains("502") || msg.contains("504")
                 || msg.contains("not connected") || msg.contains("connection refused")
                 || cls.contains("connect") || cls.contains("timeout")
