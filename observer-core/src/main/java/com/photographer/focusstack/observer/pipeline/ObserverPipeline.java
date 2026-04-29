@@ -2,6 +2,7 @@ package com.photographer.focusstack.observer.pipeline;
 
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.pipeline.PipelineBlockerKind;
 import com.photographer.focusstack.observer.capture.CaptureOrchestrator;
 import com.photographer.focusstack.observer.capture.CaptureSeriesResult;
 import com.photographer.focusstack.observer.events.EventState;
@@ -44,9 +45,15 @@ public class ObserverPipeline {
     private final ObserverProfile profile;
     private final CameraBackend camera;
     private final List<ObservationEventListener> eventListeners;
+    private final PipelineSafetyGuards safetyGuards;
 
     private volatile boolean active = false;
 
+    /**
+     * Backward-compatible constructor that disables rate limiting and uses the
+     * default event-log capacity. New callers should prefer the constructor
+     * that takes an explicit {@link PipelineSafetyGuards} instance.
+     */
     public ObserverPipeline(CameraBackend camera,
                              SceneMonitor sceneMonitor,
                              CaptureOrchestrator captureOrchestrator,
@@ -54,6 +61,18 @@ public class ObserverPipeline {
                              EventStateMachine stateMachine,
                              ObserverProfile profile,
                              List<ObservationEventListener> eventListeners) {
+        this(camera, sceneMonitor, captureOrchestrator, visionProvider,
+                stateMachine, profile, eventListeners, new PipelineSafetyGuards(0));
+    }
+
+    public ObserverPipeline(CameraBackend camera,
+                             SceneMonitor sceneMonitor,
+                             CaptureOrchestrator captureOrchestrator,
+                             VisionProviderPort visionProvider,
+                             EventStateMachine stateMachine,
+                             ObserverProfile profile,
+                             List<ObservationEventListener> eventListeners,
+                             PipelineSafetyGuards safetyGuards) {
         this.camera = camera;
         this.sceneMonitor = sceneMonitor;
         this.captureOrchestrator = captureOrchestrator;
@@ -61,6 +80,12 @@ public class ObserverPipeline {
         this.stateMachine = stateMachine;
         this.profile = profile;
         this.eventListeners = new ArrayList<>(eventListeners);
+        this.safetyGuards = safetyGuards;
+    }
+
+    /** Returns the safety guards bound to this pipeline. Never {@code null}. */
+    public PipelineSafetyGuards getSafetyGuards() {
+        return safetyGuards;
     }
 
     /**
@@ -75,10 +100,23 @@ public class ObserverPipeline {
             return; // Event in progress
         }
 
+        safetyGuards.recordEvent(PipelineEvent.observe("Frame received: " + frame.data().length + " bytes"));
+
         Optional<TriggerContext> trigger = sceneMonitor.analyzeFrame(frame);
         if (trigger.isEmpty()) {
             return;
         }
+
+        // Production-safety gate: emergency stop / connection / rate limit
+        boolean connected = camera.getState() != null && camera.getState().connected();
+        Optional<PipelineBlockerKind> blocker = safetyGuards.checkBeforeAction(connected);
+        if (blocker.isPresent()) {
+            log.warn("Observer trigger blocked: kind={} camera={}", blocker.get(), camera.getInfo().id());
+            sceneMonitor.resetAfterEvent(frame.data());
+            return;
+        }
+
+        safetyGuards.recordEvent(PipelineEvent.decide("Trigger fired: mode=" + profile.mode()));
 
         log.info("Observer triggered: mode={} profile={} camera={}", profile.mode(), profile.name(),
                 camera.getInfo().id());
@@ -93,6 +131,9 @@ public class ObserverPipeline {
             CaptureSeriesResult series = captureOrchestrator.captureSeries(trigger.get());
             stateMachine.imagesCaptured(series.allImages());
             stateMachine.bestImageSelected(series.bestImage().id());
+            safetyGuards.recordCapture();
+            safetyGuards.recordEvent(PipelineEvent.act("Captured " + series.allImages().size()
+                    + " image(s); best=" + series.bestImage().id()));
 
             // 3. AI analysis
             VisionResultData aiResult = null;
@@ -104,16 +145,22 @@ public class ObserverPipeline {
             if (aiResult != null && !"none".equals(aiResult.primaryLabel())) {
                 stateMachine.analysisComplete(aiResult);
                 ObservationEvent event = stateMachine.getCurrentEvent();
+                safetyGuards.recordEvent(PipelineEvent.act("Event completed: label="
+                        + aiResult.primaryLabel()));
                 notifyCompleted(event);
             } else {
                 String reason = aiResult != null ? "No subject detected by AI" : "AI unavailable";
                 stateMachine.discard(reason);
                 ObservationEvent event = stateMachine.getCurrentEvent();
+                safetyGuards.recordEvent(PipelineEvent.act("Event discarded: " + reason));
                 notifyDiscarded(event);
             }
 
         } catch (Exception e) {
             log.error("Error in observer pipeline", e);
+            PipelineBlockerKind kind = PipelineBlockerKind.blockerKindFor(e);
+            safetyGuards.recordEvent(PipelineEvent.blocked(kind,
+                    "Pipeline error: " + e.getMessage()));
             if (stateMachine.getState() != EventState.IDLE
                     && stateMachine.getState() != EventState.COMPLETED
                     && stateMachine.getState() != EventState.DISCARDED) {
