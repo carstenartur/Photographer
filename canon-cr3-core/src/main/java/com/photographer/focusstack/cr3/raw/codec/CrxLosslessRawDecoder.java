@@ -14,9 +14,27 @@ import java.util.Comparator;
  * Decoder for Canon CRX lossless RAW data.
  *
  * <p>CRX (Canon Raw eXtended) lossless compression uses adaptive Rice-Golomb
- * entropy coding with Median Edge Detection (MED) prediction, similar to
- * JPEG-LS (ITU T.87). This is a cleanroom implementation based on the
- * published JPEG-LS standard and public CR3 format documentation.</p>
+ * entropy coding with prediction over wavelet (or pseudo-wavelet) subbands.
+ * The current implementation is a JPEG-LS-style approximation (MED predictor
+ * over Bayer planes with JPEG-LS k-adaptation); see
+ * {@code docs/patent-us20160323602a1-analysis.md} for the clean-room evaluation
+ * of Canon patent US&nbsp;2016/0323602&nbsp;A1, which establishes that the
+ * actual algorithm is:</p>
+ * <ul>
+ *   <li>per-subband predictor (LL = MED, HL = above, LH = left, HH = 0),</li>
+ *   <li>symbol mapping {@code S = 2·Diff} for {@code Diff ≥ 0} else
+ *       {@code -2·Diff - 1},</li>
+ *   <li>Golomb-Rice with codeword {@code (S>>K) zeros + 1 + low-K-bits},</li>
+ *   <li>per-symbol lookahead-bracket K update (not the JPEG-LS accumulator
+ *       used here).</li>
+ * </ul>
+ * <p>See {@code docs/crx-cleanroom-spec.md} for the project-internal
+ * decoder specification derived from the patent. Replacing this implementation
+ * is gated on the validation work tracked in
+ * {@code canon-cr3-core/SubbandFixtures.md}.</p>
+ *
+ * <p>This is a cleanroom implementation; no third-party CRX decoder source
+ * was consulted.</p>
  *
  * <p>The decoding pipeline:</p>
  * <ol>

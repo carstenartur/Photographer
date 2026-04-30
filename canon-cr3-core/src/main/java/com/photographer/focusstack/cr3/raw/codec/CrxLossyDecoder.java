@@ -31,6 +31,12 @@ import org.slf4j.LoggerFactory;
  *       analysis rather than porting from existing decoders</li>
  * </ul>
  *
+ * <p>See {@code docs/patent-us20160323602a1-analysis.md} and
+ * {@code docs/crx-cleanroom-spec.md} for the project's clean-room evaluation of
+ * Canon patent US 2016/0323602 A1 against the open CRX questions, and for the
+ * suspected four-stage decoder pipeline (entropy decode → symbol→coefficient →
+ * dequantise → inverse wavelet) that the lossy path will need.</p>
+ *
  * <h3>What is implemented:</h3>
  * <ul>
  *   <li>Detection of C-RAW files via CMP1 waveletLevels &gt; 0</li>
