@@ -138,10 +138,16 @@ public final class Cr3Decoder {
         // Always decode uncropped — OB columns are needed for black level estimation
         Cr3RawImage rawImage = decodeRawBayerUncropped(options);
 
-        // 1. Black level subtraction on the UNCROPPED image (OB columns still present)
+        // 1. Black level subtraction on the UNCROPPED image (OB columns still present).
+        //    We also record the minimum subtracted level so the demosaic step can
+        //    normalise against the correct post-BL white level (avoids a slight
+        //    green-channel under-exposure when G_mult ≈ 1.0 but R/B are clipped
+        //    by the WB multiplier).
+        int minBlackLevelSubtracted = 0;
         if (options.applyBlackLevel()) {
             BlackLevel blackLevel = resolveBlackLevel(rawImage);
             BlackLevelProcessor.process(rawImage, blackLevel);
+            minBlackLevelSubtracted = effectiveMinBlackLevel(blackLevel);
         }
 
         // 2. Now crop to active area (OB columns removed after estimation)
@@ -155,8 +161,12 @@ public final class Cr3Decoder {
             WhiteBalanceProcessor.process(rawImage, wbMultipliers);
         }
 
-        // 4. Bayer demosaicing → full-colour RGB
-        BufferedImage rgb = BayerDemosaicer.demosaic(rawImage);
+        // 4. Bayer demosaicing → full-colour RGB.
+        //    The white level passed here is (maxValue − minBlackLevel) so that
+        //    the green channel (G_mult ≈ 1.0, not amplified by WB) reaches 255
+        //    at sensor saturation rather than stopping at ~97%.
+        int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
+        BufferedImage rgb = BayerDemosaicer.demosaic(rawImage, whiteLevel);
 
         // 5. Color matrix correction — use camera-specific if available
         if (options.applyColorMatrix()) {
@@ -175,6 +185,26 @@ public final class Cr3Decoder {
         }
 
         return rgb;
+    }
+
+    /**
+     * Returns the minimum black level subtracted across all channels.
+     * Used to compute the effective white level for demosaic normalisation.
+     */
+    private static int effectiveMinBlackLevel(BlackLevel blackLevel) {
+        return switch (blackLevel.mode()) {
+            case GLOBAL -> blackLevel.globalLevel();
+            case PER_CHANNEL -> {
+                int[] levels = blackLevel.perChannelLevels();
+                int min = levels[0];
+                for (int l : levels) {
+                    if (l < min) min = l;
+                }
+                yield min;
+            }
+            // For per-row, use the default 14-bit BL as a conservative estimate.
+            case PER_ROW -> BlackLevel.DEFAULT_14BIT;
+        };
     }
 
     /**

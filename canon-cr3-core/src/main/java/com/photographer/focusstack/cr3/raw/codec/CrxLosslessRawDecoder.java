@@ -227,13 +227,41 @@ public final class CrxLosslessRawDecoder {
             int[] bayerData = new int[width * height];
             interleaveBayerRGGB(planes, bayerData, width, height, planeWidth, planeHeight);
 
-            LOG.info("CRX lossless decode complete: {} pixels", bayerData.length);
-            return new Cr3RawImage(width, height, bayerData, bitDepth,
-                    Cr3RawImage.BayerPattern.RGGB);
+            // Resolve the actual CFA pattern from CMP1 (cfaLayout field).
+            // The CRX encoder stores planes in positional order (top-left, top-right,
+            // bottom-left, bottom-right) regardless of CFA pattern; we only need to
+            // set the BayerPattern so that downstream processors (WB, demosaic) apply
+            // the correct colour assignment at each pixel position.
+            Cr3RawImage.BayerPattern bayerPattern = resolveBayerPattern(cmp1);
+            LOG.info("CRX lossless decode complete: {} pixels, pattern={}", bayerData.length, bayerPattern);
+            return new Cr3RawImage(width, height, bayerData, bitDepth, bayerPattern);
 
         } catch (IOException e) {
             throw new Cr3Exception("CRX lossless decoding failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Maps the CMP1 cfaLayout field (0–3) to the corresponding {@link Cr3RawImage.BayerPattern}.
+     *
+     * <p>The CRX encoder always stores Bayer planes in positional order
+     * (plane 0 = top-left, plane 1 = top-right, plane 2 = bottom-left, plane 3 = bottom-right).
+     * The CFA layout only determines which colour occupies each position.</p>
+     */
+    private static Cr3RawImage.BayerPattern resolveBayerPattern(Cmp1Box cmp1) {
+        if (cmp1 == null) {
+            return Cr3RawImage.BayerPattern.RGGB; // Safe default for Canon
+        }
+        return switch (cmp1.cfaLayout()) {
+            case 0 -> Cr3RawImage.BayerPattern.RGGB;
+            case 1 -> Cr3RawImage.BayerPattern.GRBG;
+            case 2 -> Cr3RawImage.BayerPattern.GBRG;
+            case 3 -> Cr3RawImage.BayerPattern.BGGR;
+            default -> {
+                LOG.warn("Unknown CFA layout {} in CMP1, defaulting to RGGB", cmp1.cfaLayout());
+                yield Cr3RawImage.BayerPattern.RGGB;
+            }
+        };
     }
 
     private static ParsedCrx parseCrxData(byte[] data, CrxHeader.CodecVersion version, Cmp1Box cmp1)
