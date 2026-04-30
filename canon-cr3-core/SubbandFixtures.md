@@ -730,3 +730,128 @@ None of these justify a production-code change yet. The hypothesis space
 is materially narrower, but P_LEFT alone is not enough to cross the
 usability threshold.
 
+
+## Update 2026-04-30 (g) — Round-3 follow-up: P_LEFT reset, scan orders, gradient predictors, tile-cropped scoring
+
+The four §5.7 next-steps from Update (f) are measured by
+`canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/research/CrxPlaneFollowupRound3IT.java`
+on `sample.cr3`. Output dir `canon-cr3-imageio/target/crx-followup-round3/`
+contains `metrics.tsv`, `winners.txt`, and 4 PGM heatmaps for tile0/p0
+under representative variants. Single test, ~40 s. Strict test scope; no
+production code path is changed.
+
+### Section A — P_LEFT scanline reset
+
+Two variants of the previous-left predictor differing only in row-start
+behaviour:
+
+| variant              | left-edge fallback at `x==0` | best \|r\| (sample.cr3) |
+|----------------------|------------------------------|-------------------------|
+| `P_LEFT_BASE`        | pixel above (`r[(y-1)*w+x]`) | **0.390** (tile1/p0/Gr) |
+| `P_LEFT_LINE_RESET`  | midgrey (`predInit`)         | 0.061 (tile1/p1/R)      |
+
+Hard per-row reset *destroys* the correlation. The wraparound-to-pixel-above
+convention is structurally important and is preserved going forward.
+
+### Section B — Alternative scan orders
+
+Holding predictor = P_LEFT_LINE_RESET (so the "scan effect" is isolated
+from the strong P_LEFT_BASE baseline; otherwise scan and predictor mix):
+
+| scan              | best \|r\| over 4 planes × 2 tiles |
+|-------------------|------------------------------------|
+| ROW_MAJOR         | 0.061 |
+| ROW_MAJOR_RESET   | 0.061 (alias of P_LEFT_LINE_RESET row-major) |
+| COL_MAJOR         | 0.029 |
+| SNAKE             | ≤ 0.005 |
+| ZIGZAG            | 0.029 |
+
+All non-row-major traversals stay at the noise floor. The bitstream's
+natural traversal is row-major raster.
+
+### Section C — Gradient/averaging predictors
+
+On the best traversal of (B) (ROW_MAJOR_RESET):
+
+| predictor        | best \|r\| (best plane/tile)                      |
+|------------------|---------------------------------------------------|
+| `G_AVG = (a+b)/2`| **0.376** (tile1/p1, R) and 0.317 (tile1/p2, B)   |
+| `G_AVG_CLIP`     | 0.376 (identical to G_AVG within float precision) |
+| `G_PLANE = a+b-c`| ≤ 0.078                                           |
+| `G_2A_C = 2a-c`  | ≤ 0.018                                           |
+| `G_PLANE_CLIP`   | ≤ 0.078                                           |
+
+A 2D averaging predictor fits about as well as P_LEFT_BASE, but does
+**not exceed it**. Plane (`a+b-c`) and 2A-c models are decisively
+worse — the bitstream's residuals do not encode either model.
+
+### Section D — Tile-cropped reference scoring
+
+Top-3 of each section re-scored against `TileCroppedPreviewExtractor`
+(preview JPEG cropped to tile region, then scaled to plane size).
+
+| variant                                          | full r | tileCrop r | Δ      |
+|--------------------------------------------------|--------|------------|--------|
+| tile1/p0  P_LEFT_BASE/ROW_MAJOR                   | -0.390 | -0.328     | +0.062 |
+| tile1/p1  P_LEFT_BASE/ROW_MAJOR                   | +0.349 | +0.335     | -0.014 |
+| tile1/p1  G_AVG/ROW_MAJOR_RESET                   | +0.376 | +0.243     | -0.133 |
+| tile1/p2  G_AVG/ROW_MAJOR_RESET                   | +0.317 | +0.348     | +0.032 |
+| tile1/p1  P_LEFT_LINE_RESET/ROW_MAJOR(_RESET)     | +0.061 | +0.055     | -0.006 |
+
+Tile-cropped vs full differs by at most 0.13, with no consistent sign
+of improvement. Variant **ranking is preserved**. The ~0.4 ceiling is
+therefore **not** an artefact of the full-frame reference geometry —
+it is a real limit of the current decoder cascade.
+
+### Net narrowing after Update (g)
+
+Confirmed *not* the bottleneck (each ruled out by a measurement, not a guess):
+
+- per-line predictor reset (drops r from 0.39 → 0.06 — the convention
+  is closer to *fall back to pixel above* than *hard reset*)
+- column-major, snake, zig-zag scans (≤ 0.029 with line reset)
+- 2D plane / 2A-c gradient predictors (≤ 0.078)
+- full-frame vs tile-cropped reference geometry (Δr ≤ 0.13, ranking preserved)
+
+Newly **directionally favoured** by measurement (still ≤ 0.4 ceiling):
+
+- `P_LEFT_BASE` with pixel-above left-edge fallback — best |r| 0.390
+- `G_AVG = (a+b)/2` averaging predictor — best |r| 0.376 (ties P_LEFT_BASE
+  on different planes; suggests an averaging model is also plausible)
+
+### Tile asymmetry — first reproducible signal
+
+A separate observation visible in the metrics table: **tile1 dominates
+tile0** in correlation under every variant.
+
+| best |r| | tile0 | tile1 |
+|----------|-------|-------|
+| P_LEFT_BASE | 0.124 | **0.390** |
+| G_AVG       | 0.117 | 0.376 |
+
+The first tile of the bitstream may have a different leading state (k
+seed, predictor seed, an undocumented header byte) than subsequent
+tiles. Update (f) Finding 6 reported "tile 0 ≈ tile 1 statistically" on
+*output magnitude*; the new finding is on *Pearson r vs preview*, which
+is much more sensitive to systematic offsets. This warrants a focused
+follow-up.
+
+### Concrete next steps after Update (g)
+
+Each step is test-scope only:
+
+1. **Left-edge convention is the live wire.** P_LEFT with pixel-above
+   fallback gives 0.39; with hard reset gives 0.06. Try intermediate
+   variants: previous row's last pixel (`r[(y-1)*w + (w-1)]`), midpoint
+   of (above, midgrey), or wrap to first pixel of new row.
+2. **Tile asymmetry.** Investigate whether tile0 has an undocumented
+   leading byte / different k-seed by trying decoders that skip 1..32
+   bits of the tile0 bitstream prefix and comparing Pearson r.
+3. **Negative-r dominance.** Three of the top-8 absolute-r variants are
+   negative. A combined sign-flip × averaging-predictor sweep on tile1
+   may surface a higher-magnitude positive variant.
+
+None of these justifies a production-code change yet. The hypothesis
+space is materially narrower again, but the ceiling for the current
+single-pass adaptive Rice + predictor cascade family is firmly at
+|r| ≈ 0.4.

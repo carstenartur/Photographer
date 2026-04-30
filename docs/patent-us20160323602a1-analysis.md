@@ -570,6 +570,65 @@ Until one of these crosses the r > 0.7 promotion threshold on at least
 one Bayer channel of `sample.cr3`, **no production code path will be
 changed.**
 
+### 5.8 Round-3 follow-up — all four §5.7 hypotheses measured (Update (g))
+
+`canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/research/CrxPlaneFollowupRound3IT.java`
+runs each of the §5.7 next-steps against the same metric stack as Update
+(f). Single test, ~40 s on `sample.cr3`. Output:
+`canon-cr3-imageio/target/crx-followup-round3/`. Verdict for each
+hypothesis is below — **none crosses the 0.7 promotion threshold**, and
+the round-2 best (P_LEFT_BASE row-major, |r| ≈ 0.39) survives intact.
+
+**A. Per-scan-line predictor reset (`P_LEFT_LINE_RESET`).** Hard reset to
+midgrey at every row start. Result: best |r| = **0.061** (vs. 0.39 for
+P_LEFT_BASE). The wraparound to *pixel-above* at row start is
+structurally important — discarding it destroys the correlation. So the
+codec's left-edge convention is closer to "fall back to pixel above"
+than to "hard reset to midgrey".
+
+**B. Alternative scan orders (COL_MAJOR, SNAKE, ZIGZAG).** Holding the
+predictor at P_LEFT_LINE_RESET (the only fair comparison once the line
+reset is in play). All non-row-major scans stay at the noise floor
+(|r| ≤ 0.029). The bitstream's natural traversal is row-major raster.
+Snake and zig-zag are ruled out as full-plane traversals.
+
+**C. Gradient/averaging predictors with line reset.** `G_AVG = (a+b)/2`
+and `G_AVG_CLIP` reach |r| = **0.376** (tile1/p1, R) and 0.317
+(tile1/p2, B) — comparable to but not better than P_LEFT_BASE without
+line reset. `G_PLANE = a+b-c`, `G_2A_C = 2a-c`, `G_PLANE_CLIP` all stay
+≤ 0.078. So a 2D averaging predictor fits the data about as well as
+P_LEFT, but neither family crosses 0.4.
+
+**D. Tile-cropped reference scoring.** Top-3 of each section re-scored
+against `TileCroppedPreviewExtractor` (the preview JPEG cropped to the
+tile's image region before scaling, instead of the full image scaled to
+plane size). Tile-cropped vs full r differs by at most 0.06; the
+ranking of variants is preserved. So the ~0.4 ceiling is **not** a
+scoring artefact from the full-frame reference geometry — it is a real
+limit of the current decoder cascade.
+
+**Net narrowing after Update (g).** Confirmed *not* the bottleneck:
+
+- per-line predictor reset (drops r from 0.39 → 0.06)
+- column-major / snake / zig-zag scans (≤ 0.029 with line reset)
+- gradient predictors (`a+b-c`, `2a-c` ≤ 0.08; averaging ties P_LEFT)
+- full-frame vs tile-cropped reference geometry (Δr ≤ 0.06)
+
+**Open questions** (where measurement points next, still test scope):
+
+1. **Predictor's left-edge convention is the live wire.** P_LEFT with
+   pixel-above fallback gives 0.39; with hard reset gives 0.06. Try
+   intermediate variants: previous-row's last pixel, midpoint of (above,
+   midgrey), wrap to first pixel of new row.
+2. **Negative r persists** — the strongest correlations remain
+   sign-inverted vs the preview. If a residual sign convention or
+   post-decode flip would fix it, that should appear in some currently
+   untested mapping.
+3. **Tile asymmetry (tile1 ≫ tile0)** is now reproducible: best |r| on
+   tile0 is 0.124, on tile1 is 0.390. Worth investigating whether the
+   first tile of the bitstream has a different leading state (k seed,
+   predictor seed, header offset) than subsequent tiles.
+
 ---
 
 ## 6. Resolution of prior assumptions
