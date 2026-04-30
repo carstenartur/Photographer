@@ -380,10 +380,22 @@ against `eosr-iso-low.cr3`:
    §4 to replace the current `[hypothesis]` `±1` bracket. Update (d) shows
    the bracket is at least *adequate* for bit-budget purposes; whether the
    exact bounds widen or narrow accuracy is currently unknown.
-5. **TODO — gated by Step 3 actually reaching the threshold.** Promotion
+5. **TODO — gated by reaching a usability threshold.** Promotion
    into a production code path is *not justified* by the current evidence.
-   Update (d) makes clear that more downstream pipeline work is needed
-   before any patent-derived candidate beats the existing decoder.
+   Update (d) and (e) make clear that more downstream pipeline work is
+   needed before any patent-derived candidate beats the existing decoder.
+6. **DONE (2026-04-30) — wavelet hypothesis ruled out by container
+   metadata.** Implemented as `CrxPlaneSemanticsIT`. Key findings:
+   `CMP1.waveletLevels=0` (no wavelet), `cfaLayout=1=GRBG` (not RGGB),
+   five dequantisation variants give identical post-IDWT score (so
+   dequant cannot be the bottleneck). Best plane-as-Bayer-channel score
+   is r=0.073. See §5.4 and `SubbandFixtures.md` Update (e).
+7. **TODO.** Three concrete experiments to discriminate the remaining
+   hypotheses (predictor / sign / post-decode transform), per
+   `SubbandFixtures.md` Update (e) "Open question": (1) predictor-zero
+   baseline to test whether the LL output's 0.63 neighbour correlation is
+   real signal or predictor artefact; (2) half-pixel scanline interleave
+   trial; (3) repeat the diagnostics on tile 1 and compare.
 
 ---
 
@@ -449,22 +461,45 @@ A follow-up `CrxPatentIdwtValidationIT` (also test scope) feeds the
 patent-decoded planes through `InverseWaveletTransform.legall53(...)` and
 scores against the PRVW reference. Across six plane → role permutations,
 **no permutation reaches Pearson r > 0.05**, far below the r > 0.7
-acceptance threshold. The "four planes = LL/HL/LH/HH of one wavelet level"
-interpretation is therefore *not* sufficient on its own.
+acceptance threshold.
 
-This is a constructive negative result: it rules out the simplest possible
-downstream pipeline and points to multi-level decomposition, an unhandled
-dequantisation step, or a different interpretation of the four planes
-(e.g., directly as Bayer channels). See Update (d) of `SubbandFixtures.md`
-for the full table and follow-up suggestions.
+### 5.4 Diagnostic plane-semantics analysis — wavelet hypothesis ruled out
 
-### 5.4 Production code remains unchanged
+`CrxPlaneSemanticsIT` (test scope, also producing artefacts under
+`canon-cr3-imageio/target/crx-plane-semantics/`) decisively rules out the
+single-level *and* multi-level wavelet interpretations using container
+metadata alone:
+
+- `CMP1.waveletLevels = 0` for sample.cr3 → no wavelet decomposition at any
+  level. The four planes are NOT subbands.
+- `CMP1.cfaLayout = 1 = GRBG` (not RGGB as previously assumed). The four
+  planes correspond to the four Bayer positions of one GRBG cell.
+- Five dequantisation variants (identity, ×q, ×2^q, dead-zone q, dead-zone
+  2q) all give identical post-IDWT Pearson r = 0.02187 — a mathematical
+  proof that no scalar dequant can rescue the wavelet hypothesis.
+- Even with the corrected GRBG mapping, the patent decoder's LL output
+  scored as a Bayer channel reaches at best Pearson r ≈ 0.073 vs the
+  preview's matching channel — better than the IDWT permutations but still
+  far from any usability threshold.
+
+The decoded output does show genuine 2D structure (left-neighbour
+correlation r ≈ 0.63 for LL/MED), so the bytes are being consumed at the
+right rate (Update (c)) AND producing image-like values — but they don't
+spatially align with the preview. The bottleneck is now most likely the
+predictor convention, sign mapping, or an unidentified post-decode
+transform (line interleave, tile stitching, pre-decode delta), NOT the
+entropy coder and NOT a wavelet.
+
+See `canon-cr3-core/SubbandFixtures.md` Update (e) for the full table and
+the three concrete next experiments.
+
+### 5.5 Production code remains unchanged
 
 Despite the entropy-coder progress, **no production code path has been
-modified.** The C_patent_* candidates and the IDWT IT live in test scope
-(`canon-cr3-imageio/src/test`). Promotion behind a `Cr3DecodeOptions` flag
-is gated on Step 3 actually reaching its acceptance threshold — which it
-does not yet.
+modified.** The C_patent_* candidates and the diagnostic ITs all live in
+test scope (`canon-cr3-imageio/src/test`). Promotion behind a
+`Cr3DecodeOptions` flag is gated on actually reaching a usability threshold
+on the preview reference — which has not happened yet.
 
 ---
 

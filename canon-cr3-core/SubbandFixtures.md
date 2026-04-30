@@ -473,3 +473,91 @@ see whether the decoded image resembles the preview without any IDWT.
 Until one of these is validated, the patent decoder remains a research
 artefact — it correctly inverts the entropy coder but the downstream pipeline
 is not yet in place.
+
+---
+
+## Update 2026-04-30 (e) — Diagnostic plane semantics (A–E): four decisive findings
+
+`CrxPlaneSemanticsIT` (`canon-cr3-imageio/src/test`) — verified
+2026-04-30 via `mvn verify -Dit.test=CrxPlaneSemanticsIT`. Artefacts:
+`canon-cr3-imageio/target/crx-plane-semantics/{metrics.tsv, A_heat_*.pgm,
+A_hist_raw_*.csv, B_dequant_*.i16, B_recon_*.pgm, D_bayer_mosaic.pgm}`.
+
+### Finding 1 — Multi-level wavelet is structurally inapplicable (Section C)
+
+`CMP1.waveletLevels = 0` in sample.cr3. The lossless mode uses **no** wavelet
+decomposition at all. The four planes are NOT LL/HL/LH/HH of any level,
+neither at one level nor multi-level. This decisively closes hypothesis (i)
+in Update (d).
+
+### Finding 2 — CFA layout is GRBG (cfaLayout=1), not RGGB (Section C)
+
+`CMP1.cfaLayout = 1 → GRBG`. Several earlier experiments implicitly assumed
+RGGB (cfaLayout=0). Under the correct GRBG mapping, plane → preview channel:
+- plane 0 → Gr  (top-left of 2×2 cell)
+- plane 1 → R   (top-right)
+- plane 2 → B   (bottom-left)
+- plane 3 → Gb  (bottom-right)
+
+Future experiments on sample.cr3 must use this mapping.
+
+### Finding 3 — Dequantisation alone cannot save the IDWT hypothesis (Section B)
+
+Five dequant variants (identity, ×q, ×2^q, dead-zone q, dead-zone 2q) applied
+to the patent-decoded planes before Le Gall 5/3 IDWT (under permutation
+0,3,2,1) all produce **identical Pearson r = 0.02187**. This is mathematically
+expected — Pearson r is invariant under linear scaling, and dead-zone
+thresholds 4–8 are negligible compared to the 14-bit range — so the result
+is not an experimental artefact, it is a proof: **no dequantisation can
+rescue Update (d)'s near-zero IDWT score on this fixture.**
+
+### Finding 4 — Plane-as-Bayer-channel: structural data, but spatially misaligned (Section A + D)
+
+The patent decoder's LL output (MED predictor) shows:
+- left-neighbour correlation r ≈ 0.63 (real 2D image structure, not a
+  predictor artefact — see "open question" below),
+- mean ≈ 9200–9650 (centered near mid-grey 1<<13 = 8192, plausible for
+  developed Bayer values).
+
+But scored against the matching preview channel (with the corrected GRBG
+mapping):
+
+| plane | maps to | Pearson r | meanAbsErr |
+|-------|---------|----------:|-----------:|
+| p0    | Gr      |   0.0422  |   85.77    |
+| p1    | R       |   **0.0735**  |   80.45    |
+| p2    | B       |   0.0478  |   81.25    |
+| p3    | Gb      |  −0.0110  |   86.14    |
+| mosaic vs luma | — | 0.0361 | 83.35 |
+
+So the bytes-per-pixel is right (Update (c)), the wavelet hypothesis is
+ruled out (Findings 1–3), the GRBG plane-as-Bayer-channel hypothesis aligns
+the channels correctly — and yet the per-channel Pearson r tops out at 0.073.
+
+The LH decoder's r ≈ 0.998 column correlation is a self-fulfilling artefact
+(predictor=`a` + small residual ≡ same as `a`); it is **not** evidence of
+horizontal-detail content. The HH decoder's 58 % zeroFrac and 0.84-bit
+entropy is similarly an artefact of `predictor=0` + small residuals.
+
+### Open question for the next session
+
+The contradictory evidence is:
+- LL output has high 2D correlation (0.63) → looks like real image data
+- LL output does NOT correlate with the preview channel → spatial layout
+  or sign or predictor is wrong somewhere
+
+Concrete next experiments (still test scope, no production change):
+1. **Predictor-zero baseline**: re-decode each plane with `residual=0` for
+   every pixel (pure predictor cascade) and measure the resulting
+   neighbourhood correlation. If it stays high, the 0.63 is a predictor
+   artefact, not real structure. If it drops to ~0, the residuals carry
+   genuine image content and the bottleneck is the *output transform*
+   (e.g. line interleaving, tile stitching, or a pre-decode delta to subtract).
+2. **Half-pixel scanline interleave**: try treating the plane as 2 rows ×
+   half-height (some lossless RAW codecs interleave odd/even scanlines
+   inside one plane).
+3. **Try the second tile**: sample.cr3 has 2 tiles. If the per-channel score
+   on tile 1 mirrors tile 0 closely, the predictor is the bottleneck;
+   if it differs sharply, tile-stitching is the issue.
+
+Until one of these is run, **no production-code change is justified.**
