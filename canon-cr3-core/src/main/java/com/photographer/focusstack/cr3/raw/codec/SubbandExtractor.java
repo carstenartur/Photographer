@@ -134,7 +134,6 @@ public final class SubbandExtractor {
         int tileH = (cmp1 != null && cmp1.tileHeight() > 0) ? cmp1.tileHeight() : 0;
         int waveletLevels = cmp1 == null ? 0 : cmp1.waveletLevels();
         int encodingType = cmp1 == null ? 0 : cmp1.encodingType();
-        int numPlanes = (cmp1 != null && cmp1.numPlanes() > 0) ? cmp1.numPlanes() : 4;
         int trackWidth = raw.width();
         int trackHeight = raw.height();
         if (cmp1 != null && cmp1.imageWidth() > 0) {
@@ -179,10 +178,6 @@ public final class SubbandExtractor {
                 }
             }
             tileSeq++;
-            // Suppress unused-variable warning for numPlanes; it's documented above.
-            if (numPlanes < 0) {
-                throw new IllegalStateException();
-            }
         }
         return Collections.unmodifiableList(result);
     }
