@@ -26,6 +26,14 @@ import java.util.function.Function;
  */
 public final class CrxCandidateDecoders {
 
+    /**
+     * Defensive cap on the unary prefix length when probing candidate decoders.
+     * 64 is comfortably above any sane Rice-Golomb prefix for 14-bit residuals
+     * and exists only to prevent runaway loops on garbage input — accuracy
+     * scoring lives in the harness, not here.
+     */
+    private static final int MAX_UNARY_PROBE = 64;
+
     private CrxCandidateDecoders() {
         // utility class
     }
@@ -258,7 +266,7 @@ public final class CrxCandidateDecoders {
                 break;
             }
             q++;
-            if (q > 64) {
+            if (q > MAX_UNARY_PROBE) {
                 // Cap to prevent runaway on garbage; harness will flag accuracy elsewhere.
                 break;
             }
