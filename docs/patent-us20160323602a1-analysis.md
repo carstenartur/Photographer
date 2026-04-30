@@ -1,9 +1,9 @@
 # Clean-room evaluation of patent US 2016/0323602 A1 ("Image processing apparatus, image processing method, and storage medium")
 
 > **Scope.** This document is a *clean-room* engineering evaluation of the publicly
-> available Canon patent application **US 2016/0323602 A1** (filed 2016, related to
-> Canon's C-RAW / CRX compression) against the open questions in this repository's
-> CRX entropy decoder.
+> available Canon patent application **US 2016/0323602 A1** (published 2016,
+> filed 2015, related to Canon's C-RAW / CRX compression) against the open
+> questions in this repository's CRX entropy decoder.
 >
 > **Method.** Only the patent itself, public open standards (Exif 2.3, ITU-T T.800
 > JPEG 2000, ITU-T T.87 JPEG-LS), and our own measurements (`canon-cr3-core/SubbandFixtures.md`,
@@ -500,6 +500,75 @@ modified.** The C_patent_* candidates and the diagnostic ITs all live in
 test scope (`canon-cr3-imageio/src/test`). Promotion behind a
 `Cr3DecodeOptions` flag is gated on actually reaching a usability threshold
 on the preview reference — which has not happened yet.
+
+### 5.6 Follow-up experiments — predictor sweep narrows the search
+
+Two more test-scope ITs were added: `CrxPlaneFollowupIT` (the three
+experiments left open in Update (e)) and `CrxPlaneFollowupExtendedIT`
+(systematic Cartesian sweep over predictor × sign × layout × init).
+
+The four conclusive findings (full numbers in `SubbandFixtures.md` Update f,
+findings 5-9):
+
+1. **Predictor cascade alone produces zero 2D structure.** Forcing
+   `signed_residual = 0` for every sample collapses the output to a
+   constant. Therefore the left-neighbour Pearson r ≈ 0.63 measured on
+   the patent LL/MED decode is genuine bitstream signal — the residuals
+   carry real image content. This rules out "the LL output looks
+   correlated only because the MED predictor smooths things out".
+2. **Tile-stitching is not the bottleneck.** Tile 0 and tile 1 decode to
+   structurally equivalent statistics (mean, variance, neighCorr, per-
+   channel Pearson r all within ~5 %). The defect is per-tile, not
+   inter-tile.
+3. **`P_LEFT` predictor is ~5× better than `P_MED`.** Sweeping
+   {P_NONE, P_LEFT, P_UP, P_MED} × 7 sign mappings × all planes × both
+   tiles, the previous-left predictor (with conventional left-edge
+   fallback to the pixel above) reaches |Pearson r| = 0.409 against the
+   matching preview Bayer channel; the patent MED predictor tops out at
+   r = 0.085 on the same fixture. Top three results are *negative*
+   correlation (structural agreement, sign inverted). Still well below
+   the r > 0.7 promotion threshold, so this is a directional finding,
+   not a fix.
+4. **Bayer permutation, spatial shift, k-init and pred-init are
+   non-causal.** Sweeping all four cyclic CFA mappings × {identity,
+   ±1 row, ±1 col} keeps every score ≤ 0.09. Sweeping
+   `predInit ∈ {0, midgrey, max}` × `kInit ∈ {0, 4, 7}` keeps every
+   score in the 0.086–0.094 window.
+
+Two specific sign mappings beyond the patent's LSB-folded variant were
+also tested (`S_HI_BIT_SIGN`, `S_OFFSET_HALF`, `S_RAW_POS`, `S_RAW_NEG`):
+all collapse the output into a clipped/saturated range and score near
+zero. The LSB-folded family (`S_LSB`, `S_LSB_ALT`, `S_ZIGZAG_INV_LSB`)
+is internally consistent within ≤ 0.01 — the precise off-by-one in
+negative reconstruction is below this fixture's discriminating power.
+
+The patent's predictor table is therefore not strictly correct for this
+sample's lossless 1-subband-per-plane case: the per-subband role table
+of §3.4 (LL→MED, HL→`b`, LH→`a`, HH→0) was derived from the patent's
+multi-subband wavelet path. Lossless single-subband CRX appears to use a
+plain previous-left predictor instead, regardless of "subband role" (which
+is a degenerate label here since `waveletLevels = 0`).
+
+### 5.7 Concrete next steps after §5.6
+
+Each step is test-scope only:
+
+1. Pair `P_LEFT` with **per-scan-line predictor reset** (re-init to
+   `midgrey` at the start of every row) and re-sweep. Many lossless RAW
+   codecs do this; it would explain why the per-row signal aligns
+   internally but not against the preview.
+2. Try a **per-line scan order other than row-major raster** — e.g.
+   column-major, snake / boustrophedon, or zig-zag.
+3. Add **gradient / averaging predictors** (`(a+b)/2`, `2a-c`,
+   `a + b - c` clipped) to the predictor enum and sweep.
+4. Score against a **per-tile-cropped JPEG reference** instead of the
+   full-image preview scaled to one tile's plane size — the current
+   reference geometry guarantees a misalignment penalty even for a
+   perfect decode.
+
+Until one of these crosses the r > 0.7 promotion threshold on at least
+one Bayer channel of `sample.cr3`, **no production code path will be
+changed.**
 
 ---
 

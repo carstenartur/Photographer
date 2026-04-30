@@ -561,3 +561,172 @@ Concrete next experiments (still test scope, no production change):
    if it differs sharply, tile-stitching is the issue.
 
 Until one of these is run, **no production-code change is justified.**
+
+---
+
+## Update 2026-04-30 (f) — Three follow-up experiments + systematic predictor sweep
+
+Two new test-scope ITs run on `sample.cr3`:
+
+- `CrxPlaneFollowupIT` — addresses the three open questions of Update (e).
+- `CrxPlaneFollowupExtendedIT` — systematic Cartesian sweep over predictor,
+  sign mapping, Bayer permutation, spatial shift, and per-tile init.
+
+Both ITs live entirely in test scope (`canon-cr3-imageio/src/test/...`).
+**No production code change.** Artefacts under
+`canon-cr3-imageio/target/crx-followup/` and `target/crx-followup-ext/`
+(metrics.tsv + winners.txt + heatmaps).
+
+### Finding 5 — Predictor cascade alone produces ZERO 2D structure
+
+`CrxPlaneFollowupIT` Exp 1 — for each plane, decode twice with the patent
+LL/MED decoder: (a) real residuals from the bitstream, (b) every signed
+residual forced to zero (pure predictor cascade, no bitstream input):
+
+| plane | real neighR | zero neighR | delta |
+|-------|------------:|------------:|------:|
+| tile0.p0 | 0.6308 | 0.0000 | 0.6308 |
+| tile0.p1 | 0.6374 | 0.0000 | 0.6374 |
+| tile0.p2 | 0.6319 | 0.0000 | 0.6319 |
+| tile0.p3 | 0.3936 | 0.0000 | 0.3936 |
+| tile1.p0 | 0.6349 | 0.0000 | 0.6349 |
+| tile1.p1 | 0.5883 | 0.0000 | 0.5883 |
+| tile1.p2 | 0.6131 | 0.0000 | 0.6131 |
+| tile1.p3 | 0.3936 | 0.0000 | 0.3936 |
+
+The predictor cascade with residual = 0 collapses to a constant-mean image
+of value `predInit = midgrey = 8192` and zero variance — **all 2D
+correlation in the real decode comes from the bitstream residuals**, not
+from the predictor. This positively answers the Update (e) "open question":
+the bottleneck is not "the LL output looks correlated only because the
+predictor smooths things out" — it's something else.
+
+Note plane 3 is consistently weaker (~0.39 vs ~0.63 for planes 0-2) in
+both tiles. Plane 3 is the GRBG `Gb` channel; it has higher variance
+(~3.3e7 vs ~2.5e7), larger histogram spread, and a different residual
+distribution. This is structural, not noise.
+
+### Finding 6 — Tile-stitching is NOT the bottleneck
+
+`CrxPlaneFollowupIT` Exp 3 — repeat Exp 1 + plane-as-Bayer scoring on
+tile 1. Result: tile-1 means, variances, neighCorr and per-channel scores
+all within ~5 % of tile 0. So the per-tile decode produces structurally
+the same kind of output. Tile 1 is decoded just as (un)successfully as
+tile 0; the issue is not how tiles are joined, the issue is a per-tile
+decoding mismatch.
+
+### Finding 7 — `P_LEFT` predictor is materially better than `P_MED`
+
+`CrxPlaneFollowupExtendedIT` Exp 1 ext — Cartesian sweep of 4 predictors
+× 7 sign mappings × 4 planes × 2 tiles (224 candidates per scoring channel).
+Top 8 by absolute Pearson r vs the matching preview Bayer channel
+(P_LEFT uses conventional left-edge fallback: when `x == 0`, predictor
+is the pixel directly above `r[(y-1)*w + x]`):
+
+```
+   1. r=-0.4088  tile1/p0/P_LEFT/S_LSB_ALT/bayer_Gr
+   2. r=-0.3902  tile1/p0/P_LEFT/S_LSB/bayer_Gr
+   3. r=-0.3902  tile1/p0/P_LEFT/S_ZIGZAG_INV_LSB/bayer_Gr
+   4. r=+0.3494  tile1/p1/P_LEFT/S_LSB/bayer_R
+   5. r=+0.3494  tile1/p1/P_LEFT/S_ZIGZAG_INV_LSB/bayer_R
+   6. r=+0.3483  tile1/p1/P_LEFT/S_LSB_ALT/bayer_R
+   7. r=+0.1610  tile1/p0/P_UP/S_RAW_NEG/bayer_Gr
+   8. r=-0.1610  tile1/p0/P_UP/S_RAW_POS/bayer_Gr
+```
+
+Compare with previous best Pearson r:
+
+| variant                              | best |r| |
+|--------------------------------------|---------:|
+| P_MED (patent baseline, all signs)   |    0.085 |
+| **P_LEFT** (conventional edge)       |  **0.409** |
+| P_UP                                 |    0.161 |
+| P_NONE (constant midgrey + residual) | tiny     |
+
+So **the previous-left predictor with conventional left-edge fallback is
+structurally a much better fit for sample.cr3 than the patent JPEG-LS MED
+predictor** — by a factor ~5 on the per-channel Pearson r metric. With the
+non-conventional wrap-around fallback `P_LEFT` only reached r = 0.233; the
+edge-handling alone moves the score by 0.18, indicating that what little
+left-edge column there is (1 of 1408 columns per row) carries
+disproportionate alignment weight when the rest of the row has correct
+predictor agreement.
+
+Note that the top three results are **negative** Pearson r against the
+preview Bayer channel — the structural pattern matches but the sign is
+inverted. This is the kind of mismatch one expects when the sign mapping
+or the residual sign convention is off by a fixed flip; `S_LSB_ALT` is
+slightly stronger than `S_LSB`, suggesting the off-by-one in negative
+reconstruction does start to matter at r ≈ 0.4. The value is still well
+below the r > 0.7 promotion threshold.
+
+Sign convention summary: `S_LSB`, `S_LSB_ALT`, and `S_ZIGZAG_INV_LSB`
+cluster within 0.001–0.02 of each other in every cell of the table.
+`S_HI_BIT_SIGN`, `S_RAW_POS`, `S_RAW_NEG`, `S_OFFSET_HALF` collapse the
+output into clipped/saturated ranges → low correlation, although
+`P_UP/S_RAW_NEG` and `P_UP/S_RAW_POS` reach |r| = 0.161 (rank 7-8) —
+worth keeping in the candidate pool for the next round.
+
+### Finding 8 — Bayer permutation + spatial shift do not rescue P_MED
+
+`CrxPlaneFollowupExtendedIT` Exp 2 ext — using the patent LL/MED decoder,
+re-score every plane against every cyclic CFA mapping (RGGB / GRBG / GBRG /
+BGGR) under each spatial shift {identity, x±1, y±1}. Top 8:
+
+```
+   1. r=+0.0881  tile1/p1/RGGB_shift_y-1/bayer_Gr
+   2. r=+0.0881  tile1/p1/BGGR_shift_y-1/bayer_Gb
+   3. r=+0.0879  tile1/p0/GRBG_shift_x-1/bayer_Gr
+   …
+```
+
+All ≤ 0.09 → no spatial-realignment trick rescues P_MED. The cluster
+around 0.088 is the same noise floor seen in earlier sections; CFA
+permutations are interchangeable here because Gr ≈ Gb in the JPEG preview
+(the preview's R/G/B channels are not separated into Gr vs Gb).
+
+### Finding 9 — Tile-local reset/init is not the cause
+
+`CrxPlaneFollowupExtendedIT` Exp 3 ext — sweep `predInit ∈ {0, midgrey,
+max}` × `kInit ∈ {0, 4, 7}` (9 combinations) × 4 planes × 2 tiles. Top 8
+all in 0.086–0.094 range — barely above the 0.085 baseline. Initialisation
+differences cause a few %% wobble, never a structural change. So the patent
+choice of `kInit = 0` and `predInit = midgrey` is not the culprit.
+
+### Net narrowing of the hypothesis space after Update (f)
+
+Confirmed *not* the bottleneck (each ruled out by a measurement, not a guess):
+
+- entropy / bit budget (Update c, 100 % consumption)
+- single-level wavelet (Update d, r ≤ 0.022)
+- multi-level wavelet (Update e, `waveletLevels = 0`)
+- dequantisation (Update e, mathematically scale-invariant)
+- predictor cascade producing fake correlation (Update f Finding 5, neighR=0 with residual=0)
+- tile-stitching (Update f Finding 6, both tiles decode equivalently)
+- Bayer permutation / spatial shift (Update f Finding 8, max r = 0.088)
+- tile-local reset / kInit / predInit (Update f Finding 9, max r = 0.094)
+- LSB sign-mapping off-by-one (Update f, family-internal differences ≤ 0.01)
+
+Newly **directionally favoured** by measurement:
+
+- `P_LEFT` (previous-left) predictor — r reaches 0.233, ~3× the patent
+  MED baseline. Still well below the r > 0.7 promotion threshold.
+
+Concrete next steps (still test scope, no production change):
+1. Pair `P_LEFT` with **per-line context reset** (some Canon/Pentax codecs
+   reset the predictor at every scan line) and re-sweep.
+2. Try **2D plane = 2-row interleave** (decode w samples per "row" but
+   write them to alternating output rows) — this is the natural pattern
+   if Canon stores each Bayer channel as half-resolution but interleaves
+   sub-Bayer rows within the codec stream.
+3. Try **Pentax/cgo-style context predictor** ((a + b) / 2, (a + b - c),
+   simple gradient predictors) under the same harness.
+4. Score against the **JPEG_BIG track cropped to one tile's image region**
+   instead of the full-image preview; the current preview spans the whole
+   image at one tile's plane size, so even a perfect tile decode has no
+   chance of cleanly correlating with it.
+
+None of these justify a production-code change yet. The hypothesis space
+is materially narrower, but P_LEFT alone is not enough to cross the
+usability threshold.
+
