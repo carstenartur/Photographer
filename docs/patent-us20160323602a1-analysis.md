@@ -360,20 +360,30 @@ against `eosr-iso-low.cr3`:
    for all four planes of sample.cr3 and all four planes of eosr-iso-low.cr3.
    The Pearson r > 0.9 criterion is **not yet** met, but per-subband scoring
    against a single Bayer channel is fundamentally band-limited (see step 3).
-3. **TODO.** Validate the **plane-vs-subband interpretation** by feeding the
-   four "planes" of one tile (decoded by the patent candidates) into the
-   existing `InverseWaveletTransform.legall53(...)` and comparing the
-   reconstructed channel against the PRVW-derived reference channel. A
-   reasonable Pearson r threshold post-IDWT is > 0.7. This is the milestone
-   that turns the §5.2 finding into a usable production decoder.
-4. **TODO.** Transcribe the **exact `Kmin(Sn)` and `Kmax(Sn)` formulae** from
-   the patent text into `crx-cleanroom-spec.md` §4 to replace the current
-   `[hypothesis]` `±1` bracket. The current bracket already works — but if
-   the patent prescribes `±2` or asymmetric bounds, expect marginal accuracy
-   improvements once that is plugged in.
-5. **TODO.** Only after step 3 reaches its threshold: consider promoting the
-   winning candidate into a production code path. Even then, gate it behind
-   a `Cr3DecodeOptions` flag for one release.
+3. **DONE (2026-04-30) — but threshold NOT reached.** Implemented as
+   `CrxPatentIdwtValidationIT` in `canon-cr3-imageio/src/test`. Decoded all
+   four planes of tile 0 of `sample.cr3` with role-appropriate patent
+   candidates (LL → MED, HL → above (b), LH → left (a), HH → zero), ran
+   `InverseWaveletTransform.legall53(...)` over six permutations of the
+   plane → role mapping, scored against the PRVW R-channel reference.
+   **Best Pearson r = 0.0219**, well below the r > 0.7 acceptance threshold.
+   See `canon-cr3-core/SubbandFixtures.md` "Update 2026-04-30 (d)" for the
+   permutation table. The result *narrows* the hypothesis space — the bit
+   budget is exactly right (Update (c)) but a single-level wavelet
+   reconstruction is not the missing piece. Most likely next experiments:
+   (a) feed plane 0 directly into `BayerDemosaicer` as R, bypassing IDWT
+   entirely (cheapest); (b) handle the level field that the lossless CMP1
+   parser currently ignores and try multi-level IDWT; (c) interpose a
+   dequantisation step between entropy decode and IDWT.
+4. **TODO (no code change required).** Transcribe the **exact `Kmin(Sn)` and
+   `Kmax(Sn)` formulae** from the patent text into `crx-cleanroom-spec.md`
+   §4 to replace the current `[hypothesis]` `±1` bracket. Update (d) shows
+   the bracket is at least *adequate* for bit-budget purposes; whether the
+   exact bounds widen or narrow accuracy is currently unknown.
+5. **TODO — gated by Step 3 actually reaching the threshold.** Promotion
+   into a production code path is *not justified* by the current evidence.
+   Update (d) makes clear that more downstream pipeline work is needed
+   before any patent-derived candidate beats the existing decoder.
 
 ---
 
@@ -432,6 +442,29 @@ sanity result.
 
 See `canon-cr3-core/SubbandFixtures.md` "Update 2026-04-30 (c)" for the full
 sweep table.
+
+### 5.3 IDWT validation (Step 3) — bit budget alone is not enough
+
+A follow-up `CrxPatentIdwtValidationIT` (also test scope) feeds the
+patent-decoded planes through `InverseWaveletTransform.legall53(...)` and
+scores against the PRVW reference. Across six plane → role permutations,
+**no permutation reaches Pearson r > 0.05**, far below the r > 0.7
+acceptance threshold. The "four planes = LL/HL/LH/HH of one wavelet level"
+interpretation is therefore *not* sufficient on its own.
+
+This is a constructive negative result: it rules out the simplest possible
+downstream pipeline and points to multi-level decomposition, an unhandled
+dequantisation step, or a different interpretation of the four planes
+(e.g., directly as Bayer channels). See Update (d) of `SubbandFixtures.md`
+for the full table and follow-up suggestions.
+
+### 5.4 Production code remains unchanged
+
+Despite the entropy-coder progress, **no production code path has been
+modified.** The C_patent_* candidates and the IDWT IT live in test scope
+(`canon-cr3-imageio/src/test`). Promotion behind a `Cr3DecodeOptions` flag
+is gated on Step 3 actually reaching its acceptance threshold — which it
+does not yet.
 
 ---
 

@@ -408,3 +408,68 @@ Bayer channel against the preview reference.
 the all-zero baseline `C0_zero` (88.27 vs 88.49 etc.) — the expected
 behaviour for an HH subband whose coefficients carry no DC image structure.
 This is a positive sanity result: the decoder is not injecting noise.
+
+---
+
+## Update 2026-04-30 (d) — IDWT validation (Step 3): plane-vs-subband hypothesis NOT confirmed
+
+Following Update (c)'s bit-budget result, Step 3 of the patent-cleanroom roadmap
+runs `InverseWaveletTransform.legall53(...)` over the four planes of tile 0 of
+sample.cr3, each decoded by the role-appropriate patent candidate (LL → MED,
+HL → above (b), LH → left (a), HH → zero). Six permutations of the
+plane → role mapping were tested.
+
+Verified 2026-04-30 via
+`mvn verify -Dit.test=CrxPatentIdwtValidationIT` (`canon-cr3-imageio`).
+
+Reconstructed grid is `outW×outH = 2·w × 2·h = 2816 × 3710 = 10 447 360` pixels
+(matches the full Bayer-channel size for tile 0, i.e. the upper-left quadrant
+of the 5632×3710 RAW frame). Pearson r against the JPEG preview's R channel,
+downsampled to the same grid:
+
+| Permutation `(LL, HL, LH, HH)` | Pearson r | mean abs err | outLen |
+|--------------------------------|----------:|-------------:|-------:|
+| (0, 1, 2, 3) "natural"         |   0.0212  |   36.38      | 10 447 360 |
+| (0, 2, 1, 3) "FIG. 5 swap"     |   0.0210  |   35.54      | 10 447 360 |
+| (0, 1, 3, 2)                   |   0.0199  |   37.81      | 10 447 360 |
+| (3, 2, 1, 0) reverse           |  −0.0067  |   36.30      | 10 447 360 |
+| (0, 3, 2, 1)                   |   0.0219  |   35.98      | 10 447 360 |
+| (3, 0, 1, 2)                   |  −0.0067  |   36.08      | 10 447 360 |
+
+**None of the six permutations reaches the analysis-doc threshold r > 0.7.**
+
+This *narrows* the open hypothesis space rather than closing it:
+
+- **Bit budget is correct** (Update (c)) — the patent K-update fits the
+  bitstream exactly, on the same fixture, with the same payload bytes. So
+  the entropy coder is not the missing piece.
+- **The "four planes = four subbands of one wavelet level" interpretation
+  alone is insufficient.** Either:
+  1. The CR3 lossless track uses **multi-level wavelet decomposition**, not
+     single level. Each of the four planes itself recursively decomposes into
+     LL/HL/LH/HH, and `inverseSynthesis2D` would have to be called multiple
+     times. (The CMP1 box is known to carry a level count for lossy mode;
+     the lossless CMP1 in our fixture also reports a level field that the
+     parser currently ignores.)
+  2. The four planes are **four Bayer channels** (R, Gr, Gb, B) of a single
+     scanline of the RAW frame, with NO wavelet between subband decode and
+     final image. In that case the patent decoder produces the actual Bayer
+     samples directly. (The existing `BayerDemosaicer` would then take over.)
+  3. A **dequantisation step** is required before the IDWT, not handled by
+     the cleanroom candidate. Even though the subband reports `quantValue=4`
+     and the track is "lossless", the patent's two-stage decode (entropy
+     decode → dequant → inverse wavelet) leaves room for an integer divider
+     between coefficient and IDWT input.
+  4. The **predictor table is wrong for some role.** The patent text leaves
+     room for `LH = b, HL = a` (rows-first vs columns-first convention).
+     Three of the six permutations covered the natural HL/LH swap, so this
+     alone is unlikely to be the dominant cause.
+
+The next concrete experiment is **interpretation 2** (four planes = four
+Bayer channels), which is the cheapest to falsify: feed the patent-decoded
+plane 0 directly into the existing `BayerDemosaicer` as the R channel and
+see whether the decoded image resembles the preview without any IDWT.
+
+Until one of these is validated, the patent decoder remains a research
+artefact — it correctly inverts the entropy coder but the downstream pipeline
+is not yet in place.
