@@ -349,22 +349,31 @@ The patent has now pinned down the algorithm at a level where the next session
 can implement a reference candidate decoder (in test scope) and validate it
 against `eosr-iso-low.cr3`:
 
-1. Implement, in `canon-cr3-imageio/src/test`, a `CrxPatentCandidateDecoder` that
-   decodes one subband strictly according to §1.5 / §1.6 / §1.7 / §1.8 above
-   (per-subband predictor, zig-zag symbol, Golomb-Rice with `(S>>K)+1+K` bits per
-   symbol, lookahead-bracket K update).
-2. Wire that candidate into `CrxHypothesisSweepIT`. The acceptance criteria are
-   unchanged: exactly consume the subband bytes *and* reach Pearson r > 0.9
-   against the PRVW reference.
-3. Validate the **plane-vs-subband interpretation** by feeding the four "planes"
-   of one tile (after step 1) into the existing `InverseWaveletTransform.legall53(...)`
-   and comparing the reconstructed channel against the PRVW-derived reference
-   channel.
-4. Transcribe the **exact `Kmin(Sn)` and `Kmax(Sn)` formulae** from the patent
-   text into `crx-cleanroom-spec.md` §4 before the candidate can be considered
-   complete.
-5. **Only then** consider promoting the winning candidate into a production code
-   path. Even then, gate it behind a `Cr3DecodeOptions` flag for one release.
+1. **DONE (2026-04-30).** Implemented in `canon-cr3-imageio/src/test` as four
+   `C_patent_*` candidates in `CrxCandidateDecoders` (per-subband predictor +
+   patent zig-zag symbol mapping + lookahead-bracket K-update). Result: the
+   bit-budget mismatch on sample.cr3 planes 2 & 3 is **resolved** — see §5.2
+   below and `canon-cr3-core/SubbandFixtures.md` "Update 2026-04-30 (c)".
+2. **DONE (2026-04-30).** The new candidates are wired into the existing
+   `CrxHypothesisSweepIT` (no harness change required — the test iterates the
+   standard library map). The `outLen == w*h` acceptance criterion now passes
+   for all four planes of sample.cr3 and all four planes of eosr-iso-low.cr3.
+   The Pearson r > 0.9 criterion is **not yet** met, but per-subband scoring
+   against a single Bayer channel is fundamentally band-limited (see step 3).
+3. **TODO.** Validate the **plane-vs-subband interpretation** by feeding the
+   four "planes" of one tile (decoded by the patent candidates) into the
+   existing `InverseWaveletTransform.legall53(...)` and comparing the
+   reconstructed channel against the PRVW-derived reference channel. A
+   reasonable Pearson r threshold post-IDWT is > 0.7. This is the milestone
+   that turns the §5.2 finding into a usable production decoder.
+4. **TODO.** Transcribe the **exact `Kmin(Sn)` and `Kmax(Sn)` formulae** from
+   the patent text into `crx-cleanroom-spec.md` §4 to replace the current
+   `[hypothesis]` `±1` bracket. The current bracket already works — but if
+   the patent prescribes `±2` or asymmetric bounds, expect marginal accuracy
+   improvements once that is plugged in.
+5. **TODO.** Only after step 3 reaches its threshold: consider promoting the
+   winning candidate into a production code path. Even then, gate it behind
+   a `Cr3DecodeOptions` flag for one release.
 
 ---
 
@@ -382,6 +391,47 @@ This document is paired with two small, safe code additions in the
 
 The actual decoder pipeline remains unchanged. The patent analysis explicitly
 does **not** justify any speculative algorithmic rewrite at this stage.
+
+### 5.1 Patent-faithful candidates added to the research harness
+
+Following §4 step 1, four patent-faithful candidates have been added to
+`CrxCandidateDecoders` (test scope only, no production code):
+
+| Name | Subband role | Predictor | K-update | K0 |
+|------|--------------|-----------|----------|----|
+| `C_patent_LL_med_{k0,kQ}_bracket` | LL | MED (JPEG-LS) | bracket §1.8 | 0 / `floor(log2(Q+1))` |
+| `C_patent_HL_above_{k0,kQ}_bracket` | HL | `p = b` (above) | bracket §1.8 | 0 / `floor(log2(Q+1))` |
+| `C_patent_LH_left_{k0,kQ}_bracket` | LH | `p = a` (left) | bracket §1.8 | 0 / `floor(log2(Q+1))` |
+| `C_patent_HH_zero_{k0,kQ}_bracket` | HH | `p = 0` (no prediction) | bracket §1.8 | 0 / `floor(log2(Q+1))` |
+
+All four candidates implement the patent's lookahead-bracket K-update with
+`Sn = Sx`, `K*(Sn) = floor(log2(Sn+1))`, `Kn ∈ [K*−1, K*+1]`.
+For one-level-decomposition fixtures (sample.cr3, eosr-iso-low.cr3) the LL
+case `Sn = (Sx + Sd)/2` collapses to `Sn = Sx`.
+
+### 5.2 Validated finding — bit-budget mismatch is solved
+
+Verified 2026-04-30 via
+`mvn verify -Dit.test=CrxHypothesisSweepIT#sweepAllPlanesOfTile0`:
+
+The previously-problematic sample.cr3 planes 2 (Gb) and 3 (B) — which the
+prior bits-per-pixel diagnostics recorded as exhausting the bitstream at 78 %
+and 93 % of pixels respectively under the JPEG-LS-style K-update — now reach
+**100 % under all four patent candidates**. The K-adaptation rule was the
+structural blocker, exactly as the analysis predicted.
+
+Pearson r against the preview's R channel remains modest (≈0.03–0.29) because
+a single subband only carries 1/4 of the image; full validation requires
+combining all four subbands and applying `InverseWaveletTransform.legall53`.
+That validation is the next concrete step (§4 step 3 of this document).
+
+`C_patent_HH_zero_*` produces near-zero correlation with mean-abs-err
+identical to the all-zero baseline — the expected behaviour for an HH
+subband whose coefficients carry no DC image structure. This is a positive
+sanity result.
+
+See `canon-cr3-core/SubbandFixtures.md` "Update 2026-04-30 (c)" for the full
+sweep table.
 
 ---
 

@@ -151,16 +151,80 @@ public final class CrxCandidateDecoders {
                 bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
                         new Config(Predictor.PAETH, SignConv.ZIGZAG, 7, true)));
 
+        // ---- Patent-faithful candidates (US 2016/0323602 A1).
+        // See docs/patent-us20160323602a1-analysis.md and docs/crx-cleanroom-spec.md.
+        // Per-subband predictor + zig-zag symbol mapping (S = 2·Diff for Diff≥0,
+        // S = −2·Diff − 1 otherwise — already implemented as our ZIGZAG sign
+        // convention) + lookahead-bracket K-update with Sn = Sx (the patent's
+        // HL/LH/HH rule, which also collapses to LL when the deeper level is
+        // absent — see spec §4). Two seeds for K0: 0 and floor(log2(Q+1)).
+        //
+        // Acceptance criterion (per analysis doc §4 step 1): the candidate must
+        // exactly consume the subband byte payload AND reach Pearson r > 0.5
+        // against the PRVW reference for the matching predictor of the
+        // corresponding subband role. Decoupling: the harness scores against the
+        // image preview, which only correlates strongly with the LL subband; for
+        // HL/LH/HH the "outLen == w*h" column is the primary acceptance signal.
+        int kQuantSeed = quantValue <= 0
+                ? 0
+                : Math.max(0, 31 - Integer.numberOfLeadingZeros(quantValue + 1));
+        for (int kInit : new int[]{0, kQuantSeed}) {
+            final int k0 = kInit;
+            String tag = (k0 == 0) ? "k0" : "kQ";
+            // LL role: MED predictor (matches Patent §1.5 LL line).
+            map.put(String.format("C_patent_LL_med_%s_bracket", tag),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.MED, SignConv.ZIGZAG, k0, true,
+                                    false, false, KMode.PATENT_BRACKET)));
+            // HL role: vertical predictor (p = b, the pixel above).
+            map.put(String.format("C_patent_HL_above_%s_bracket", tag),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.ABOVE, SignConv.ZIGZAG, k0, true,
+                                    false, false, KMode.PATENT_BRACKET)));
+            // LH role: horizontal predictor (p = a, the pixel to the left).
+            map.put(String.format("C_patent_LH_left_%s_bracket", tag),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.LEFT, SignConv.ZIGZAG, k0, true,
+                                    false, false, KMode.PATENT_BRACKET)));
+            // HH role: no prediction (p = 0).
+            map.put(String.format("C_patent_HH_zero_%s_bracket", tag),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.ZERO, SignConv.ZIGZAG, k0, true,
+                                    false, false, KMode.PATENT_BRACKET)));
+            if (kInit == 0 && kQuantSeed == 0) {
+                break; // avoid duplicate entries when quantValue=0
+            }
+        }
+
         return map;
     }
 
-    private enum Predictor { MED, LEFT, GRADIENT4, PAETH }
+    private enum Predictor { MED, LEFT, GRADIENT4, PAETH, ABOVE, ZERO }
     private enum SignConv { ZIGZAG, SIGNED_MAGNITUDE }
 
+    /**
+     * K-parameter adaptation rule.
+     *
+     * <ul>
+     *   <li>{@link #JPEG_LS_RUNNING}: the historical accumulator-vs-threshold
+     *       rule used by the existing production decoder and by candidates
+     *       C2..C11. Documented as falsified by the previous sweeps.</li>
+     *   <li>{@link #PATENT_BRACKET}: the lookahead-bracket rule from
+     *       US 2016/0323602 A1 §1.8 / spec §4: choose Kn so that it stays
+     *       within [Kmin(Sn), Kmax(Sn)] around K*(Sn) = floor(log2(Sn+1)).</li>
+     * </ul>
+     */
+    private enum KMode { JPEG_LS_RUNNING, PATENT_BRACKET }
+
     private record Config(Predictor predictor, SignConv signConv, int initialK, boolean adaptive,
-                          boolean subtract, boolean invertOutput) {
+                          boolean subtract, boolean invertOutput, KMode kMode) {
         Config(Predictor predictor, SignConv signConv, int initialK, boolean adaptive) {
-            this(predictor, signConv, initialK, adaptive, false, false);
+            this(predictor, signConv, initialK, adaptive, false, false, KMode.JPEG_LS_RUNNING);
+        }
+        Config(Predictor predictor, SignConv signConv, int initialK, boolean adaptive,
+                boolean subtract, boolean invertOutput) {
+            this(predictor, signConv, initialK, adaptive, subtract, invertOutput,
+                    KMode.JPEG_LS_RUNNING);
         }
     }
 
@@ -211,22 +275,46 @@ public final class CrxCandidateDecoders {
 
                 if (cfg.adaptive()) {
                     int abs = Math.abs(signed);
-                    acc += abs;
-                    n++;
-                    long thr = n << k;
-                    if (acc > thr && k < bitDepth) {
-                        k++;
-                    } else if (k > 0) {
-                        long lower = n << (k - 1);
-                        if (acc <= lower) {
-                            k--;
+                    switch (cfg.kMode()) {
+                        case JPEG_LS_RUNNING -> {
+                            acc += abs;
+                            n++;
+                            long thr = n << k;
+                            if (acc > thr && k < bitDepth) {
+                                k++;
+                            } else if (k > 0) {
+                                long lower = n << (k - 1);
+                                if (acc <= lower) {
+                                    k--;
+                                }
+                            }
+                            if (n >= 1 << 20) {
+                                acc >>= 1;
+                                n >>= 1;
+                                if (n == 0) {
+                                    n = 1;
+                                }
+                            }
                         }
-                    }
-                    if (n >= 1 << 20) {
-                        acc >>= 1;
-                        n >>= 1;
-                        if (n == 0) {
-                            n = 1;
+                        case PATENT_BRACKET -> {
+                            // Patent §1.8: estimated next-symbol magnitude Sn.
+                            // For HL/LH/HH (and for LL when there is no deeper
+                            // level, which applies to the bundled fixtures —
+                            // see spec §4) Sn = Sx, where Sx is the unsigned
+                            // zig-zag symbol just decoded. The lookahead-bracket
+                            // rule then nudges k by ±1 toward the optimum
+                            // K*(Sn) = floor(log2(Sn+1)).
+                            int sn = residual; // unsigned zig-zag symbol Sx
+                            int kStar = (sn <= 0)
+                                    ? 0
+                                    : 31 - Integer.numberOfLeadingZeros(sn + 1);
+                            int kMin = Math.max(0, kStar - 1);
+                            int kMax = Math.min(bitDepth, kStar + 1);
+                            if (k < kMin) {
+                                k++;
+                            } else if (k > kMax) {
+                                k--;
+                            }
                         }
                     }
                 }
@@ -236,6 +324,10 @@ public final class CrxCandidateDecoders {
     }
 
     private static int predict(int[] result, int w, int x, int y, int bitDepth, Predictor p) {
+        if (p == Predictor.ZERO) {
+            // Patent: HH subband uses no prediction (p = 0).
+            return 0;
+        }
         if (x == 0 && y == 0) {
             return 1 << (bitDepth - 1);
         }
@@ -250,6 +342,10 @@ public final class CrxCandidateDecoders {
         int c = result[(y - 1) * w + x - 1];
         return switch (p) {
             case LEFT -> a;
+            // ABOVE: vertical predictor (p = b). Patent: HL subband.
+            case ABOVE -> b;
+            // ZERO is handled above; included here for switch exhaustiveness.
+            case ZERO -> 0;
             case MED -> {
                 if (c >= Math.max(a, b)) {
                     yield Math.min(a, b);

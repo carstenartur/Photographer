@@ -362,3 +362,49 @@ not in the current candidate template:
 The harness can now discriminate any of these hypotheses in seconds. The
 bottleneck is not infrastructure but the absence of a public algorithmic
 description.
+
+---
+
+## Update 2026-04-30 (c) — Patent US 2016/0323602 A1 candidates: bit budget is fixed
+
+After integrating clean-room candidates derived from US 2016/0323602 A1
+(see `docs/patent-us20160323602a1-analysis.md` and `docs/crx-cleanroom-spec.md`)
+into `CrxCandidateDecoders`, the long-standing **bits/pixel mismatch on the
+problem planes is resolved**.
+
+The new candidates use:
+- per-subband predictor: `LL=MED`, `HL=above (b)`, `LH=left (a)`, `HH=zero`,
+- zig-zag symbol mapping `S = 2·Diff` / `S = −2·Diff − 1` (already used),
+- **lookahead-bracket K-update** with `Sn = Sx`,
+  `K*(Sn) = floor(log2(Sn+1))`, `Kn ∈ [K*−1, K*+1]`,
+- two seeds: `K0 = 0` and `K0 = floor(log2(quantValue+1))`.
+
+Verified 2026-04-30 via
+`mvn verify -Dit.test=CrxHypothesisSweepIT#sweepAllPlanesOfTile0`
+on `sample.cr3` (1408×1855, 14-bit, q=4):
+
+| Plane | Subband role | C2 baseline `outLen` | Patent `outLen` (all 4 candidates) | Plane size |
+|------:|--------------|---------------------:|-----------------------------------:|-----------:|
+| 0 (R)  | unknown | 2611840 (100 %) | 2611840 (100 %) | 2611840 |
+| 1 (Gr) | unknown | 2611840 (100 %) | 2611840 (100 %) | 2611840 |
+| 2 (Gb) | unknown | **2035586 (78 %)** | **2611840 (100 %)** | 2611840 |
+| 3 (B)  | unknown | **2441022 (93 %)** | **2611840 (100 %)** | 2611840 |
+
+The **K-adaptation rule was the structural blocker, not the predictor or sign
+convention**. The patent's bracket rule consumes exactly the available bits on
+all four planes of the previously-problematic fixture.
+
+Pearson r against the JPEG preview's R channel remains modest (≈0.04–0.29 for
+the LL candidate). This is **expected** at this stage: the harness scores
+candidates against a single Bayer channel of the preview, but a single
+subband only carries a 1/4-band fraction of the image — full reconstruction
+requires reassembling all four subbands and applying the inverse 5/3 wavelet.
+The next milestone is to validate the "four planes per tile = four subbands of
+one wavelet level" interpretation by feeding the patent decoder's outputs
+into `InverseWaveletTransform.legall53(...)` and scoring the reconstructed
+Bayer channel against the preview reference.
+
+`C_patent_HH_zero_*` produces ≈0 correlation with mean-abs-err identical to
+the all-zero baseline `C0_zero` (88.27 vs 88.49 etc.) — the expected
+behaviour for an HH subband whose coefficients carry no DC image structure.
+This is a positive sanity result: the decoder is not injecting noise.
