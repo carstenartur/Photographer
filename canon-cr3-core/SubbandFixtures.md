@@ -190,7 +190,96 @@ var result = SubbandHypothesisHarness.evaluate(
 System.out.println(SubbandHypothesisHarness.report(List.of(result)));
 ```
 
-A reference grid extractor (PRVW → plane-grid pixel array) is the next
-obvious piece of infrastructure to add and is left for the session that
-first writes a candidate decoder good enough to be worth comparing against
-ground truth.
+## Update 2026-04-30: PRVW reference + first hypothesis sweep
+
+### New infrastructure (test-scope only)
+
+- **`PreviewReferenceExtractor`** (`canon-cr3-imageio/src/test`) — decodes the
+  embedded JPEG (`JPEG_BIG` track preferred, `PRVW` box fallback), downsamples
+  to a requested plane grid via area averaging, and extracts one colour
+  channel matching a Bayer plane index (R, Gr/Gb, B). Returns 8-bit
+  reference pixels.
+- **`CrxCandidateDecoders`** (`canon-cr3-imageio/src/test`) — concrete
+  `Function<byte[], int[]>` candidates. The library covers two controls
+  (zero output, identity) plus 10 hypothesis variants spanning four
+  predictors (LEFT, MED, GRADIENT4, PAETH), two sign conventions
+  (zigzag, signed-magnitude), two reconstruction polarities
+  (`pixel = predicted ± residual`), an output inversion control, and the
+  H1 `initial_k = quantValue` configuration.
+- **`CrxHypothesisSweepIT`** (`canon-cr3-imageio/src/test`) — runs the full
+  candidate library against subband 0 of `sample.cr3` plus all four planes
+  of tile 0 and the first plane of tile 1, scores each output by
+  Pearson r and mean abs error vs. the reference grid, and prints a table.
+
+### Findings
+
+For `sample.cr3` (subband sequence indices 0..7 = tile 0 planes 0..3,
+then tile 1 planes 0..3) — bitstream consumption (validPx / requested) and
+Pearson r for the strongest predictor (PAETH) under both reconstruction
+polarities:
+
+| Subband | Plane | All cands exhaust at | C7 (predicted+r) | C10 (predicted−r) |
+|---------|-------|---------------------:|-----------------:|------------------:|
+| 0 (T0)  | R     | full 2.61 M          | −0.39            | **+0.39**         |
+| 1 (T0)  | Gr    | full 2.61 M          | −0.34            | **+0.34**         |
+| 2 (T0)  | Gb    | 2.04 M (78 %)        | +0.03            | −0.03             |
+| 3 (T0)  | B     | 2.44 M (94 %)        | −0.47            | **+0.47**         |
+| 4 (T1)  | R     | 1.89 M (73 %)        | +0.07            | −0.07             |
+
+#### What the data conclusively rules in / out
+
+- **H1 falsified again.** With `initial_k = quantValue` (= 4) the bitstream
+  is exhausted after 1.7 M pixels (66 %) on plane 0, and Pearson r collapses
+  to ≈ 0 on every plane. Reconfirms the previous session's empirical
+  rejection.
+- **The k-adaptation is wrong.** With `initial_k = 0`, the bits consumed per
+  pixel vary inconsistently per plane (from full-coverage on R/Gr to 73 %
+  exhaustion on tile 1's R). A correct decoder consumes exactly the bits in
+  each subband. This proves the residuals being decoded are wider, on
+  average, than they actually are in the codec.
+- **Bit ordering (H5: MSB-first, no stuffing) remains supported.** The
+  identity-byte control C1 produces consistent ≈ 0 correlation with no
+  byte-skipping anomalies, and PAETH+subtract reaches r = +0.47 on plane 3
+  — both consistent with MSB-first bit reading.
+
+#### What the data does NOT support
+
+- **A blanket sign-flip of the residual is NOT a portable fix.** On the
+  three planes where the bitstream completes naturally (T0 R, T0 Gr,
+  T0 B), `pixel = predicted − residual` (zigzag) outperforms the current
+  `predicted + residual` by roughly the same magnitude. But on T0 Gb
+  (78 % exhaustion) and T1 R (73 % exhaustion) the sign of the correlation
+  flips — likely an artefact of the bitstream being truncated before the
+  high-frequency content arrives. **Until the k-adaptation issue is fixed,
+  flipping the sign is just trading one set of wrong outputs for another.**
+- The PAETH r ≈ +0.39 on plane 0 R does not warrant a production change in
+  isolation. JPEG previews differ from raw Bayer values by colour-matrix +
+  gamma + downsampling artefacts, so a Pearson r of 0.4 on one plane could
+  be a coincidence of large-scale luminance gradients aligning with whatever
+  partial structure a wrong decoder happens to emit.
+
+### Concrete next steps (still deferred from production code)
+
+1. **Fix the bits-per-pixel mismatch first.** Until the candidate decoders
+   consume exactly all of a subband's bytes for every plane, every other
+   conclusion is contaminated by the bitstream truncating mid-image.
+   Specifically: derive `(payload bytes × 8) / (planeWidth × planeHeight)`
+   per subband across multiple cameras and look for a relationship to
+   `quantValue`, plane index (R vs G vs B), or row position.
+2. **Once exhaustion is consistent**, re-run `CrxHypothesisSweepIT`. If a
+   single (predictor, sign) combination then dominates across all five
+   subbands, that is the basis for a one-line production change in
+   `CrxLosslessRawDecoder`.
+3. **Build a per-row reference** from the developed JPEG with proper
+   inverse-gamma + inverse-colour-matrix to give a stronger signal.
+
+### What this update explicitly does NOT do
+
+- It does not change `CrxLosslessRawDecoder` or `CrxLossyDecoder`. The data
+  collected in this session positively rules out the only candidate fix
+  the experiment surfaced ("subtract residual instead of add").
+- It does not change `Cr3VisualQualityTest`'s baseline.
+
+The takeaway for the next session: the harness now produces real,
+discriminative numerical signal. Use it to pin down the bits-per-pixel
+mismatch before touching the production decoder.
