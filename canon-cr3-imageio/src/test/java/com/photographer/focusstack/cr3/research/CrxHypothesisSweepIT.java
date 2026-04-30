@@ -38,28 +38,45 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CrxHypothesisSweepIT {
 
     private static final String SAMPLE = "src/test/resources/samples/sample.cr3";
+    private static final String EOSR_FIXTURE = "src/test/resources/samples/eosr-iso-low.cr3";
 
     @Test
     void sweepCandidatesAgainstFirstSubbandOfSampleCr3() throws Exception {
-        runSweepForSubband(0);
+        runSweepForSubband(SAMPLE, 0);
     }
 
     @Test
     void sweepAllPlanesOfTile0() throws Exception {
         for (int seq = 0; seq < 4; seq++) {
-            runSweepForSubband(seq);
+            runSweepForSubband(SAMPLE, seq);
         }
     }
 
     @Test
     void sweepFirstPlaneOfTile1() throws Exception {
         // Cross-tile sanity: same sign-convention conclusion should hold.
-        runSweepForSubband(4);
+        runSweepForSubband(SAMPLE, 4);
     }
 
-    private void runSweepForSubband(int sequence) throws Exception {
-        File f = new File(SAMPLE);
-        assertThat(f).as("bundled sample.cr3 fixture").exists();
+    @Test
+    void sweepRealEosrFixturePlane0() throws Exception {
+        // Real Canon CR3 fixture (eosr-iso-low.cr3) — bits/pixel ≈ 9.0, fixed-k=7
+        // consumes ≈100% of the bytes per CrxBitsPerPixelIT. This sweep is the
+        // critical experiment: if the empirical-k candidates score well above
+        // the noise floor here, we have the actual k for production.
+        runSweepForSubband(EOSR_FIXTURE, 0);
+    }
+
+    @Test
+    void sweepRealEosrFixtureAllPlanesTile0() throws Exception {
+        for (int seq = 0; seq < 4; seq++) {
+            runSweepForSubband(EOSR_FIXTURE, seq);
+        }
+    }
+
+    private void runSweepForSubband(String fixture, int sequence) throws Exception {
+        File f = new File(fixture);
+        assertThat(f).as(fixture + " fixture").exists();
 
         List<SubbandExtractor.SubbandRef> subs = SubbandExtractor.list(f);
         assertThat(subs).isNotEmpty();
@@ -80,10 +97,10 @@ class CrxHypothesisSweepIT {
 
         StringBuilder report = new StringBuilder();
         report.append(String.format(
-                "%n=== CRX Hypothesis Sweep — sample.cr3 seq=%d tile=%d plane %d (%s), "
-                        + "%dx%d, %d-bit, q=%d ===%n",
-                sequence, ref.tileSequence(), ref.planeIndex(), reference.channel(),
-                w, h, bitDepth, ref.quantValue()));
+                "%n=== CRX Hypothesis Sweep — %s seq=%d tile=%d plane %d (%s), "
+                        + "%dx%d, %d-bit, q=%d, payload=%d bytes ===%n",
+                f.getName(), sequence, ref.tileSequence(), ref.planeIndex(),
+                reference.channel(), w, h, bitDepth, ref.quantValue(), payload.length));
         report.append(String.format("%-36s %-10s %-10s %-12s %-12s%n",
                 "candidate", "outLen", "validPx", "pearsonR", "meanAbsErr"));
 

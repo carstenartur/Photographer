@@ -122,6 +122,35 @@ public final class CrxCandidateDecoders {
                 bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
                         new Config(Predictor.LEFT, SignConv.ZIGZAG, 0, true, true, false)));
 
+        // ---- Empirical-k variants. The CrxBitsPerPixelIT diagnostic showed that
+        // for real Canon CR3 files the bitstream is ≈ 9.0–9.4 bits/pixel and a
+        // pure fixed-k=7 Rice decoder consumes ≈97-100% of the bytes — i.e.
+        // initial_k for adaptive Rice is approximately 7, NOT 0 as the older
+        // candidates assumed. C12-C15 check fixed-k decoders without adaptation
+        // around that empirical value to discriminate "k init wrong" (the new
+        // hypothesis) from "predictor wrong" (the old hypothesis space).
+        for (int kInit : new int[]{5, 6, 7, 8}) {
+            final int kFinal = kInit;
+            map.put(String.format("C_med_zigzag_k%d_fixed", kFinal),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.MED, SignConv.ZIGZAG, kFinal, false)));
+            map.put(String.format("C_paeth_zigzag_k%d_fixed", kFinal),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.PAETH, SignConv.ZIGZAG, kFinal, false)));
+            map.put(String.format("C_left_zigzag_k%d_fixed", kFinal),
+                    bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                            new Config(Predictor.LEFT, SignConv.ZIGZAG, kFinal, false)));
+        }
+        // And: adaptive starting from k=7 (the empirical mean) — same predictor
+        // choices, but the k-counter is allowed to track per-pixel variance from
+        // a sane starting point instead of climbing from 0.
+        map.put("C_med_zigzag_k7_adaptive",
+                bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                        new Config(Predictor.MED, SignConv.ZIGZAG, 7, true)));
+        map.put("C_paeth_zigzag_k7_adaptive",
+                bytes -> safeDecode(bytes, planeWidth, planeHeight, bitDepth,
+                        new Config(Predictor.PAETH, SignConv.ZIGZAG, 7, true)));
+
         return map;
     }
 

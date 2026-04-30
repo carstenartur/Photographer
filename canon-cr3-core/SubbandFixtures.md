@@ -283,3 +283,82 @@ polarities:
 The takeaway for the next session: the harness now produces real,
 discriminative numerical signal. Use it to pin down the bits-per-pixel
 mismatch before touching the production decoder.
+
+## Update 2026-04-30 (b): bits-per-pixel measurement and empirical-k sweep
+
+### What was done
+
+- Added `CrxBitsPerPixelIT` — measures `(payload_bytes × 8) / pixels` for every
+  subband across all 8 bundled fixtures, plus a fixed-k Rice sweep that finds
+  the k value that exactly consumes each subband's bytes.
+- Added 14 new candidate decoders to `CrxCandidateDecoders` covering
+  `(predictor ∈ {MED, PAETH, LEFT}) × (initial_k ∈ {5, 6, 7, 8})` fixed-k,
+  plus adaptive-from-7 variants.
+- Re-ran `CrxHypothesisSweepIT` against `eosr-iso-low.cr3` (a *real* Canon CR3
+  fixture, in contrast to the synthetic `sample.cr3` family).
+
+### What was learned
+
+**1. The bit budget for real Canon files is consistently k≈7:**
+
+| fixture           | mean bits/px | bestFixedK |
+|-------------------|--------------|-----------:|
+| `eosr-iso-low.cr3`     | 9.0–9.4 | 7 |
+| `eosr-iso-mid.cr3`     | 9.0–9.4 | 7 |
+| `eosr-iso-high.cr3`    | 9.0–9.4 | 7 |
+| `sample-tele.cr3`      | 7.3–8.9 | 5–7 |
+| `sample-iso-high.cr3`  | 1.6–10.6 | 0–8 (highly variable per plane) |
+| `sample-wb-tungsten.cr3` | 1.5–10.6 | 0–9 (highly variable) |
+
+Real Canon files cluster *very tightly* on bits/px ≈ 9.2; the `sample.cr3`
+family looks like synthetic fixtures whose plane sizes vary wildly. Conclusion:
+**use `eosr-iso-*` as the primary entropy-codec fixtures** going forward.
+
+**2. The k-init=0 hypothesis is quantitatively wrong.** With initial k=0 and
+JPEG-LS-style adaptation, bitstream is exhausted at 70–94% of pixels because
+adaptation cannot climb to k=7 fast enough.
+
+**3. But k-init=7 is ALSO insufficient.** Even with `init_k=7` adaptive (the
+empirical bit-budget answer), the adaptation rule reads ~30% past the
+bitstream end (`C_med_zigzag_k7_adaptive` — only 2.7 M of 3.9 M pixels valid).
+
+**4. No predictor + sign + k variant clears Pearson r > 0.55 on any plane.**
+Best per-plane peaks on `eosr-iso-low.cr3` tile 0:
+
+| Plane | Best candidate                  | Best |r|  |
+|-------|---------------------------------|----------:|
+| 0 (R) | `C_med_zigzag_k6_fixed`         | −0.52     |
+| 1 (Gr)| `C_paeth_zigzag_k5_fixed`       | −0.35     |
+| 2 (Gb)| `C2_med_zigzag_k0_adaptive`     | +0.47     |
+| 3 (B) | `C_med_zigzag_k6_fixed`         | −0.45     |
+
+Different planes peak at different k values. No single (predictor, sign, k)
+combination dominates across all four planes. **The structural blocker is
+neither "wrong k init" nor "wrong predictor" alone — there is a missing
+mechanism (likely a run-length escape for zero residuals, mode switching, or
+an alternative coding regime mid-stream).**
+
+### What remains
+
+The sweep space (predictor × sign × k) has now been reasonably exhausted with
+no candidate breaking ~0.55. Further progress requires structural mechanisms
+not in the current candidate template:
+
+- **Zero-run RLE.** CRX is known to use a zero-run escape for long runs of
+  zero residuals (see e.g. the `RleZeroRun` test scaffolding). Adding an
+  RLE-escape variant to the candidate library is the next experiment.
+- **Per-row k reset / per-band k tracking.** Canon may use distinct Rice
+  parameters per scanline or per wavelet subband, with k reset at row
+  boundaries. The candidate template currently uses a single k accumulator
+  across the whole grid.
+- **Wavelet-domain coding.** Despite "1 lossless subband" reported by the
+  parser, the actual coded data may be wavelet-transformed before entropy
+  coding (the per-plane sizes on `sample-wb-tungsten.cr3` differ by 6.7×,
+  suggesting the four "planes" may actually be LL/LH/HL/HH subbands).
+- **Canon US patent 11,343,535 B2** (image coding, public document) may
+  describe enough of the codec to bootstrap a reference implementation
+  without recourse to LibRaw.
+
+The harness can now discriminate any of these hypotheses in seconds. The
+bottleneck is not infrastructure but the absence of a public algorithmic
+description.
