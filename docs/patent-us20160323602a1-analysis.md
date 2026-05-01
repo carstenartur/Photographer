@@ -697,6 +697,104 @@ steps:
 Promotion threshold remains `|r| > 0.7`. Currently 0.56 ⟹ no
 production code change.
 
+### 5.10 Round-5 follow-up — first-sample semantics, second-sample rules, error localization (Update (i))
+
+Driven by Update (h)'s next-step list, `CrxPlaneFollowupRound5IT`
+measures five hypothesis families on `sample.cr3`. Output dir
+`canon-cr3-imageio/target/crx-followup-round5/`. Strict test scope.
+
+**Section E5 — `LEAD_ZERO` scope.** Holding predictor = `P_LEFT_BASE`
+and varying *where* the forced-zero is injected (one residual is
+always still consumed so K-state is unchanged):
+
+| variant                      | tile0 p0 |r| | tile1 p0 |r| |
+|------------------------------|--------------|--------------|
+| `LZ_TILE_FIRST` (round-4)    | **0.4904**   | **0.5605**   |
+| `LZ_PLANE_FIRST`             | 0.4904       | 0.5605       |
+| `LZ_ROW_FIRST` (`ROW_LEAD_ZERO`) | 0.1009   | 0.0884       |
+| `LZ_BLOCK_FIRST_64/128/256/512`  | ≤0.10    | ≤0.10        |
+
+`LZ_PLANE_FIRST` is a control: for `sample.cr3` (1 subband per plane
+per tile) it is structurally identical to `LZ_TILE_FIRST` and the
+measurements confirm this. **`ROW_LEAD_ZERO` is decisively refuted**
+— forcing zero at every row start collapses |r| from 0.49/0.56 to
+0.10/0.09, the same regime as Update (g)'s `P_LEFT_LINE_RESET`.
+Block-first variants are equally fatal. The forced-zero rule is
+strictly a **per-tile** convention.
+
+**Section F5 — Second-sample rule (negative result).** With
+`LEAD_ZERO` active, replacing the second decoded sample's predictor
+with one of {`ABOVE`, `ZERO`, `AVG=(left+above)/2`,
+`GRAD=2·left−above`} changes |r| by at most **0.0004** — entirely
+within numerical noise. There is no second special-case rule
+immediately after the first pixel.
+
+**Section G5 — First-row / first-column override (negative result).**
+With `LEAD_ZERO` active, additionally overriding the entire first row
+of the tile (`ROW0_PREDINIT`, `ROW0_ZERO`,
+`ROW0_LINEAR_RAMP_FROM_LEFT`) gives at most Δ|r| = +0.0014 — within
+noise. Overriding the entire first column collapses |r| toward zero
+under every choice. Combining `ROW0_*` with `COL0_*` (Section I5)
+collapses |r| to ≈0 on every plane and tile — strong negative result.
+
+**Section H5 — Residual error localization.** With `LEAD_ZERO`
+baseline, the per-pixel absolute error vs the preview reference
+(after sign-fix and per-tile LSQ rescale) on plane 0 has:
+
+| zone          | tile0 p0 RMS | tile1 p0 RMS |
+|---------------|--------------|--------------|
+| row 0         | 27.9         | (similar order — see TSV) |
+| col 0         | 21.3         | (similar order) |
+| bulk (interior) | 13.9       | (similar order) |
+| any column mod 16 | 13.81–13.93 | flat |
+
+**Findings.** (a) Row 0 has 2× the bulk RMS, col 0 has 1.5× the bulk
+RMS — error *is* concentrated at the tile-leading boundary, exactly
+where the forced-zero rule operates. (b) The column-mod-16 RMS is
+**flat to within 0.7 %**, ruling out a 16-pixel-periodic
+reconstruction artefact at the LEAD_ZERO baseline. (c) The bulk error
+is the dominant integrated contributor and is *not* localized — it is
+distributed across the whole interior, which is consistent with the
+remaining gap to |r|=0.7 being a *global* sign / mapping issue rather
+than a *local* boundary fix.
+
+**Section I5 — Top-candidate refinement (negative result).** Combining
+`LZ_TILE_FIRST` + `second=ABOVE` + `ROW0_PREDINIT` + `COL0_PREDINIT`
+collapses |r| to ≤0.06 on every (tile, plane). Naive stacking of the
+Section E5/F5/G5 best variants is destructive: each override consumes
+a residual whose K-state evolution then no longer matches Canon's
+encoder. This rules out any combination of these surface-level
+interventions as the path to |r| > 0.7.
+
+**Net narrowing after Update (i).** The remaining gap to 0.7 is
+*not* explained by any small additional first-sample/early-sample/
+first-row/first-column rule. The most likely remaining causes are:
+
+1. The residual sign convention (all top variants remain *negative*
+   — every Section-E5 winner is signed `-0.49` / `-0.56`).
+2. A global Bayer-channel mapping mismatch between the decoded plane
+   and the preview reference (compounded with the sign issue).
+3. A non-`P_LEFT_BASE` predictor that is *also* `LEAD_ZERO`-friendly
+   (none of the Round-1/2/3 alternatives qualify in this respect).
+
+Concrete next steps:
+
+1. **`mapSignLsb` flip experiment under `LEAD_ZERO`** — re-run the
+   single-bit sign-convention sweep with the Round-4 winner active;
+   negative-r persistence is now strong enough to attribute to a
+   single bit in residual mapping, not a 50/50 convention guess.
+2. **Plane→Bayer-channel permutation re-sweep** under `LEAD_ZERO` —
+   Update (f) tested permutations under `predInit`; the |r| floor was
+   too low to discriminate. With LEAD_ZERO at 0.49/0.56 the tile0/p2
+   and tile1/p2 channels (B) are now also above 0.25, so a
+   permutation that aligns p0=Gr↔Gb may push the green channels
+   coherently.
+3. **Per-tile K-reset combined with `LEAD_ZERO`** — the only
+   remaining unmeasured surface-level intervention.
+
+Promotion threshold remains `|r| > 0.7`. Currently 0.56 ⟹ no
+production code change.
+
 ---
 
 ## 6. Resolution of prior assumptions
