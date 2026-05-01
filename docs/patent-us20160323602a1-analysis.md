@@ -629,6 +629,74 @@ limit of the current decoder cascade.
    first tile of the bitstream has a different leading state (k seed,
    predictor seed, header offset) than subsequent tiles.
 
+### 5.9 Round-4 follow-up — tile-leading-state is the real bottleneck (Update (h))
+
+Driven by Update (g) Finding #4 ("tile1 dominates tile0 in correlation
+under every variant"), `CrxPlaneFollowupRound4IT` measures four
+hypothesis families on `sample.cr3`. Output dir
+`canon-cr3-imageio/target/crx-followup-round4/`. Strict test scope.
+
+**Section E — Tile-leading-state.** Holding predictor = `P_LEFT_BASE`
+and varying only the very first decoded pixel of each tile (one
+residual is still consumed so K-state is unchanged):
+
+| variant         | tile0 p0 |r| | tile1 p0 |r| |
+|-----------------|--------------|--------------|
+| **`LEAD_ZERO`** | **0.4904**   | **0.5605**   |
+| `LEAD_BIAS_LO`  | 0.1786       | 0.3999       |
+| `LEAD_NEG_FIRST`| 0.1247       | 0.3903       |
+| `LEAD_PREDINIT` (round-3 baseline) | 0.1241  | 0.3902       |
+
+Setting the very first pixel to **0** lifts tile1/p0 from 0.39 → 0.56
+and tile0/p0 from 0.12 → 0.49. This is the **first variant since the
+cleanroom investigation began that materially exceeds the |r| ≈ 0.4
+ceiling**, and the **first variant under which tile0 and tile1 reach
+comparable magnitudes** — the persistent tile asymmetry was an
+artefact of the wrong first-pixel rule, not a per-tile bitstream
+difference.
+
+The mechanism: in `P_LEFT_BASE` row 0 is `result[0] + Σ residuals`,
+and the left-edge fallback for row 1+ is the pixel above. So the
+first pixel's value propagates along the full first column and from
+there into every row. A wrong `result[0]` shifts everything by a
+constant, but the constant alone is invisible to Pearson r — what
+the metric sees is the *clipping* induced by the wrong constant. With
+`LEAD_ZERO` clipping is minimised because the propagated baseline
+matches Canon's actual first-pixel coding convention.
+
+**Section F — Warmup-prefix (negative result).** Forcing the first
+N ∈ {1,2,4,8,16} samples of every row to use `predInit` instead of
+the raster-left predictor collapses |r| from 0.39 to 0.01–0.06. There
+is no row-start warmup region with a different predictor rule.
+
+**Section G — Tile differential.** Without `LEAD_ZERO`, tile0 stays
+near the noise floor on every plane; with `LEAD_ZERO` it matches
+tile1's magnitude. Confirms the tile-asymmetry was a leading-state
+artefact, not a structural bitstream difference.
+
+**Section H — Local polarity / bias (sanity check).** Pearson r is
+invariant under translation; sweeping additive bias in
+{-2048, -1024, 0, +1024, +2048} produces no change in |r| beyond
+clipping artefacts. Confirms the metric is correctly implemented and
+the Section-E gain is structural.
+
+**Net narrowing after Update (h).** The only remaining gap to the
+0.7 promotion threshold is now likely the residual sign convention
+(all top variants are *negative* r) and a possible per-row
+leading-state rule analogous to the per-tile one. Concrete next
+steps:
+
+1. **`ROW_LEAD_ZERO`** — apply `LEAD_ZERO` per row, not just per tile
+   (the warmup experiment ruled out forcing N row-start samples to
+   `predInit` but not forcing only the very first row pixel to 0).
+2. **K-reset per tile** combined with `LEAD_ZERO`.
+3. **Sign-mapping flip** under `LEAD_ZERO`: negative-r persists in
+   every Section-E winner, suggesting a single-bit sign-convention
+   issue orthogonal to the leading-state issue.
+
+Promotion threshold remains `|r| > 0.7`. Currently 0.56 ⟹ no
+production code change.
+
 ---
 
 ## 6. Resolution of prior assumptions

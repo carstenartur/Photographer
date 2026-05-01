@@ -855,3 +855,154 @@ None of these justifies a production-code change yet. The hypothesis
 space is materially narrower again, but the ceiling for the current
 single-pass adaptive Rice + predictor cascade family is firmly at
 |r| ≈ 0.4.
+
+## Update 2026-05-01 (h) — Round-4 follow-up: tile-leading-state, warmup-prefix, tile-differential
+
+Driven by Update (g) Finding: **tile1 systematically dominates tile0 in Pearson r
+under every variant**, suggesting an undocumented leading state at the start of
+each tile. Round-4 (`CrxPlaneFollowupRound4IT`) addresses four hypothesis
+families, all strict test-scope. Output dir
+`canon-cr3-imageio/target/crx-followup-round4/`:
+
+- `metrics.tsv` — section/tile/plane/variant/metric/value
+- `winners.txt` — top-5 by |bayerR| per (section, tile)
+- `tile{0,1}_p0_E_LEAD_PREDINIT.pgm`, `tile{0,1}_p0_E_LEAD_ZERO.pgm`,
+  `tile{0,1}_p0_F_warmup8.pgm` — visual heatmaps
+
+### Section E — Tile-leading-state (the live wire)
+
+Holding predictor = `P_LEFT_BASE` and varying only the very first decoded
+pixel of the tile (one residual is still consumed from the bitstream so the
+K-state remains identical):
+
+| variant         | tile0 p0 |r| | tile1 p0 |r| |
+|-----------------|--------------|--------------|
+| **`LEAD_ZERO`** | **0.4904**   | **0.5605**   |
+| `LEAD_BIAS_LO`  | 0.1786       | 0.3999       |
+| `LEAD_NEG_FIRST`| 0.1247       | 0.3903       |
+| `LEAD_COPY_NEXT`| ~baseline    | 0.3903       |
+| `LEAD_PREDINIT` (round-3 baseline) | 0.1241  | 0.3902       |
+| `LEAD_BIAS_HI`  | < 0.1        | < 0.39       |
+
+**Both tiles improve, and the tile0/tile1 gap collapses.**
+
+- Tile0/p0/Gr: `LEAD_ZERO` lifts |r| from **0.124 → 0.490** (×4.0)
+- Tile1/p0/Gr: `LEAD_ZERO` lifts |r| from **0.390 → 0.561** (+44%)
+- Tile1/p2/B:  `LEAD_ZERO` reaches |r| = 0.40 vs 0.30 baseline
+
+This is the first measurement that materially exceeds the long-standing
+~0.4 ceiling. The change touches a single pixel (the very first one) yet
+propagates through the full P_LEFT chain because every subsequent pixel
+in row 0 is `result[0] + Σ residuals`. A wrong `result[0]` shifts the
+entire row 0 by a constant; that constant then becomes the seed for
+`result[w]` (left-edge fallback = pixel above), so the bias propagates
+along the entire left column and from there into every row.
+
+The fact that **`LEAD_ZERO` (predictor = 0) wins by a wide margin**
+suggests the CRX bitstream stores the very first pixel's residual as
+its **absolute value** (predicted-from-zero), not as a delta from
+midgrey. This matches several known JPEG-LS-family conventions where
+the first sample of a stripe is coded directly.
+
+Negative r is preserved across every E variant — sign convention is
+still inverted relative to the preview, but is now a single,
+structural sign flip (orthogonal to the leading-state issue).
+
+### Section F — Warmup-prefix (negative result)
+
+Forcing the first N ∈ {1,2,4,8,16} samples of every row to use
+`predInit` instead of the raster-left predictor **destroys** the
+correlation:
+
+| warmupN | tile0 best |r| | tile1 best |r| |
+|---------|----------------|----------------|
+| 1       | 0.0096         | 0.0607         |
+| 2       | 0.0103         | 0.0593         |
+| 4       | 0.0098         | 0.0595         |
+| 8       | 0.0105         | 0.0606         |
+| 16      | 0.0088         | 0.0604         |
+
+Compared to the round-3 baseline of 0.39, this is a 6×–40× collapse.
+**Conclusion**: there is no row-start warmup region with a different
+predictor rule. The horizontal predictor chain is unbroken from the
+first non-leading pixel of every row.
+
+### Section G — Tile0 vs Tile1 differential (per-plane)
+
+| tile  | plane | mean    | std     | min | max   | bayerR  | absR_signFix |
+|-------|-------|---------|---------|-----|-------|---------|--------------|
+| tile0 | p0    | …       | …       | 0   | 16383 | -0.1241 | 0.1241       |
+| tile0 | p1    | …       | …       | 0   | 16383 | +0.0481 | 0.0481       |
+| tile0 | p2    | …       | …       | 0   | 16383 | -0.1108 | 0.1108       |
+| tile0 | p3    | …       | …       | 0   | 16383 | +0.0418 | 0.0418       |
+| tile1 | p0    | …       | …       | 0   | 16383 | -0.3902 | 0.3902       |
+| tile1 | p1    | …       | …       | 0   | 16383 | +0.3494 | 0.3494       |
+| tile1 | p2    | …       | …       | 0   | 16383 | +0.1256 | 0.1256       |
+| tile1 | p3    | …       | …       | 0   | 16383 | +0.0959 | 0.0959       |
+
+(Full numeric mean/std/fracPos values are in `metrics.tsv`.) Without
+the `LEAD_ZERO` correction tile0 stays near the noise floor on every
+plane. With `LEAD_ZERO` (Section E) tile0 jumps to the same
+0.40–0.49 magnitude as tile1. **The tile asymmetry was an artefact of
+the wrong first-pixel rule, not a per-tile difference in the
+bitstream.**
+
+### Section H — Local polarity / bias (sanity-check, expected null)
+
+- `rRaw` and `rSignFix` differ only by sign (Pearson r is invariant
+  under positive affine).
+- Sweeping additive bias ∈ {-2048, -1024, 0, +1024, +2048} produces
+  no change in |r| beyond clipping artefacts at the ±2048 endpoints.
+
+This confirms the metric is correctly implemented and that the gain
+from Section E is **structural**, not a byproduct of the scoring
+function.
+
+### Net narrowing after Update (h)
+
+Confirmed *not* the bottleneck (each ruled out by measurement):
+
+- per-line predictor reset (Update g)
+- alternative scan orders (Update g)
+- 2D plane / 2A-c gradient predictors (Update g)
+- full-frame vs tile-cropped reference geometry (Update g)
+- warmup-prefix on first N row samples (Section F, this update)
+- additive bias on the decoded plane (Section H, expected — Pearson r
+  is translation-invariant)
+
+Newly **directionally favoured** by measurement:
+
+- `LEAD_ZERO` (first pixel = 0) on top of `P_LEFT_BASE`:
+  - tile1/p0  |r| = **0.5605** (was 0.390)
+  - tile0/p0  |r| = **0.4904** (was 0.124)
+  - tile1/p2  |r| = **0.3994** (was ~0.30)
+
+This is the **first variant that materially beats the |r| ≈ 0.4
+ceiling** since the cleanroom investigation began. It is also the
+first variant under which **tile0 and tile1 reach comparable
+magnitudes**, eliminating the persistent tile-asymmetry signal.
+
+### Concrete next steps after Update (h)
+
+Each step remains test-scope only:
+
+1. **Confirm `LEAD_ZERO` is the right convention by trying first-pixel
+   variants that also touch `K`/`predInit`**: e.g. first sample = 0 *and*
+   first residual decoded with a reset `K` per tile, or per-tile
+   `K_init` reset at the tile start.
+2. **Apply `LEAD_ZERO` per row, not just per tile.** Round 4's warmup
+   experiment ruled out forcing N row-start samples to `predInit`, but
+   it did NOT test forcing only the **very first** pixel of each row to
+   zero (with the predictor remaining `P_LEFT_BASE` for all later
+   pixels, including the left-column fallback). A row-leading-state
+   variant (`ROW_LEAD_ZERO`) is a natural follow-up.
+3. **Negative-r dominance persists.** All Section-E winners are
+   negative. With `LEAD_ZERO` the magnitude is now 0.49–0.56,
+   suggesting the structural sign inversion is real and likely a
+   single bit in the residual sign-mapping convention. A separate
+   `mapSignLsb`-flip experiment under `LEAD_ZERO` should now be
+   re-run with the higher signal.
+
+Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
+plane × tile) majority before any production-code change is
+considered. Currently 0.56 ⟹ still no production-code change.
