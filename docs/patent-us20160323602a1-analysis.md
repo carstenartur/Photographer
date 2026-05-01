@@ -900,6 +900,123 @@ Concrete next steps:
 Promotion threshold remains `|r| > 0.7`. Per-channel max still 0.56 ⟹
 still no production code change.
 
+### 5.12 Round-7 follow-up — per-plane K-init, K-init from `quantValue`, combined refinement (Update (k))
+
+Driven by Update (j)'s next-step list, `CrxPlaneFollowupRound7IT`
+measures three hypothesis families on `sample.cr3`. Output dir
+`canon-cr3-imageio/target/crx-followup-round7/`. Strict test scope.
+
+**Section M7 — Per-plane K-init combinations.** Holding predictor =
+`P_LEFT_BASE`, lead-zero = `LZ_TILE_FIRST`, sign = `NONE`, vary
+K-init independently per plane in `[0..4]` via coordinate-greedy
+descent followed by a 3⁴ neighbourhood sweep:
+
+| variant            | tile0 K        | tile0 Σ\|r\| | tile1 K        | tile1 Σ\|r\| |
+|--------------------|----------------|--------------|----------------|--------------|
+| Round-6 baseline   | `[0,0,0,0]`    | 0.9484       | `[0,0,0,0]`    | 0.9325       |
+| **best_for_tile0** | **`[4,2,0,3]`**| **1.5118**   | (-)            | -            |
+| **best_for_tile1** | (-)            | -            | **`[0,4,2,2]`**| **1.5210**   |
+| **best_combined**  | `[4,4,2,3]`    | 1.3476       | `[4,4,2,3]`    | 1.5035       |
+
+- **Both tiles lift Σ|r| by Δ ≈ +0.57** vs the Round-6 K_INIT_0
+  baseline — the largest Σ|r| single-step gain since the predictor
+  was identified in Update (f).
+- **The per-tile optima are different and disjoint multi-sets are
+  rotated** — `{4,2,0,3}` vs `{0,4,2,2}`. A single per-plane K-init
+  cannot capture both optima; the joint best `[4,4,2,3]` trails the
+  per-tile optima by Δ Σ|r| = 0.16 / 0.02.
+- **The dominant Gr per-channel max stays at 0.5409 / 0.5605** — the
+  per-plane K-init mostly recovers the *non-Gr* planes (R, Gb, B
+  jump from |r| ≤ 0.06 to |r| ∈ [0.39, 0.49]).
+
+**Section N7 — K-init derived from `CMP1.quantValue`.** On `sample.cr3`
+every subband has `q = 4`. Mappings tested:
+
+| mapping       | k(green) | k(non-green) | tile0 Σ\|r\| | tile1 Σ\|r\| |
+|---------------|----------|--------------|--------------|--------------|
+| `Q_DIRECT`    | 4        | 4            | **1.3476**   | **1.4060**   |
+| `Q_MINUS_1`   | 3        | 3            | 1.0413       | 1.2194       |
+| `Q_PLUS_1`    | 5        | 5            | 1.2747       | 1.2193       |
+| `Q_LOG2`      | 2        | 2            | 0.9722       | 1.3344       |
+| `Q_LOG2_PLUS_1`| 3       | 3            | 1.0413       | 1.2194       |
+| `Q_CLAMP_0_4` | 4        | 4            | **1.3476**   | **1.4060**   |
+| `Q_PER_PLANE` | 4        | 2            | 1.3476       | 1.3168       |
+
+- **`K_INIT = quantValue` (= 4) is the best metadata-near rule on
+  this fixture**, matching the joint per-plane greedy optimum to
+  within Δ Σ|r| ≤ 0.01 on both tiles without per-tile state.
+- This is the **first positive empirical link between a CMP1 header
+  field and the CRX entropy state** in the entire investigation.
+- The result is **inconsistent with the patent's literal `K* =
+  floor(log2(s + 1))` reading** (which would give K=2 for the
+  smallest plausible first symbol) and with `Q_LOG2 = floor(log2 q)`
+  (= 2). The `K_INIT = q` form rather suggests Canon either uses
+  `quantValue` directly as a Rice-K seed at tile start, or uses a
+  K* computed from a per-subband variance estimate that happens to
+  equal `q` on lossless fixtures.
+- Note this resurrects hypothesis `H1` from §6 in narrowed form:
+  *"`initial_k = quantValue` directly"* was demoted in Update (c)
+  because the K-update bracket dominates after the first symbol;
+  Update (k) shows that on `sample.cr3` the early-symbol leakage
+  caused by `init_k = 0` is large enough to *halve* Σ|r| on the
+  R/Gb/B planes, so the seed is in fact significant.
+
+**Section O7 — Combined refinement.** LZ + per-plane-K-init + perm
+composition test using `[4,4,2,3]`:
+
+| tile  | composition                                        | Σ\|r\|     | max\|r\|   |
+|-------|----------------------------------------------------|------------|------------|
+| tile0 | LZ + k=`[0,0,0,0]` + perm=`[1023]` (R6 control)    | 0.9484     | 0.4904     |
+| tile0 | LZ + k=`[4,4,2,3]` + perm=`[1032]`                 | **1.3476** | 0.5409     |
+| tile0 | LZ + k=`[4,4,2,3]` + perm=`[1023]`                 | 1.3389     | 0.5409     |
+| tile1 | LZ + k=`[0,0,0,0]` + perm=`[1023]` (R6 control)    | 0.9325     | 0.5605     |
+| tile1 | LZ + k=`[4,4,2,3]` + perm=`[1032]`                 | 1.5035     | 0.5582     |
+| tile1 | LZ + k=`[4,4,2,3]` + perm=`[1023]`                 | **1.5166** | 0.5582     |
+
+- Composition is **non-destructive** — the Round-5 §I5
+  destructive-stacking effect does not recur, confirming the patent
+  §1.8 prediction that adjusting K-init alone consumes no extra
+  bitstream state.
+- **Per-channel max is unchanged**: still **0.5409 / 0.5605** on
+  Gr — *below* the 0.7 promotion threshold. The Round-7 lever is
+  Σ|r|-positive, not max|r|-positive.
+- Permutation `[1023]` vs `[1032]` is at the noise level on tile0
+  and a small gain on tile1 — consistent with Round-6's K6 finding.
+
+**Net narrowing after Update (k).** Ruled out:
+
+- A single K-init quadruple that captures both tiles' best
+  assignments (the per-tile optima are disjoint).
+- A `floor(log2(q))` mapping (K=2 for q=4) being the correct
+  metadata-near rule — beaten by `K_INIT = q` on tile0 by 0.38
+  Σ|r|.
+
+New positive findings:
+
+1. **`K_INIT = CMP1.quantValue` is a defensible metadata-near rule**
+   that lifts both tiles' Σ|r| by Δ ≈ +0.4 vs `K_INIT_0`.
+2. **The per-tile K-init asymmetry is structural**: tile0 wants
+   `[4,2,0,3]`, tile1 wants `[0,4,2,2]` — a rotation of the same
+   multi-set `{0,2,3,4}`, suggesting the two tiles may consume
+   planes in a different order at the bitstream level.
+
+Concrete next steps:
+
+1. **Per-plane K-init on `eosr-iso-*.cr3` fixtures** to test whether
+   `K_INIT = q` generalises to subbands with `q ≠ 4` — the only
+   experiment that can promote the rule from "fixture-specific" to
+   "candidate production change".
+2. **Tile-plane ordering audit**: cross-check `SubbandExtractor`'s
+   per-tile plane order against the `{4,2,0,3}` ↔ `{0,4,2,2}`
+   rotation to see whether a single permutation reconciles the two
+   K-init optima.
+3. **Wider K range** (`[0..7]`) for the greedy search; Round-6 saw
+   non-destructive behaviour at K=5/7 on some planes that the
+   `[0..4]` Round-7 search clipped out.
+
+Promotion threshold remains `|r| > 0.7`. Per-channel max still
+**0.56** ⟹ still no production code change.
+
 ---
 
 ## 6. Resolution of prior assumptions

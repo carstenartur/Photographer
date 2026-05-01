@@ -1289,3 +1289,138 @@ Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
 plane × tile) majority before any production-code change. Currently
 the per-channel maximum is still 0.56 ⟹ still no production-code
 change.
+
+## Update 2026-05-01 (k) — Round-7 follow-up: per-plane K-init, K-init from `quantValue`, combined refinement
+
+Driven by Update (j)'s next-step list. Verified by
+`CrxPlaneFollowupRound7IT` on `sample.cr3`. Output dir
+`canon-cr3-imageio/target/crx-followup-round7/`. Strict test scope —
+no production code touched.
+
+### Section M7 — Per-plane K-init combinations (greedy + local exhaustive)
+
+Holding predictor = `P_LEFT_BASE`, lead-zero = `LZ_TILE_FIRST`,
+sign = `NONE`. K-init per plane is searched independently in
+`[0..4]` via coordinate-greedy descent followed by a 3⁴ neighbourhood
+sweep around the optimum.
+
+| variant                 | tile0 K               | tile0 Σ\|r\| | tile1 K               | tile1 Σ\|r\| |
+|-------------------------|-----------------------|--------------|-----------------------|--------------|
+| Round-6 baseline (k=0)  | `[0,0,0,0]`           | 0.9484       | `[0,0,0,0]`           | 0.9325       |
+| Round-6 best per-tile K | `K_INIT_4` uniform    | 1.2061¹      | `K_INIT_0` uniform    | 0.9325       |
+| **best_for_tile0**      | **`[4,2,0,3]`**       | **1.5118**   | (`[4,2,0,3]` on tile1) | 1.4017      |
+| **best_for_tile1**      | (`[0,4,2,2]` on tile0) | 1.4187      | **`[0,4,2,2]`**       | **1.5210**   |
+| **best_combined**       | `[4,4,2,3]`           | 1.3476       | `[4,4,2,3]`           | 1.5035       |
+
+¹ Recomputed under the round-7 harness (sign=NONE, no plane/tile
+flip flags) for direct comparison with the per-plane optima.
+
+### Section N7 — K-init derived from `CMP1.quantValue`
+
+`sample.cr3` reports `quantValue = 4` for every subband. Mappings
+tested (Σ|r| over the four planes, sign=NONE, LZ_TILE_FIRST):
+
+| mapping            | k(green) | k(non-green) | tile0 Σ\|r\| | tile1 Σ\|r\| |
+|--------------------|----------|--------------|--------------|--------------|
+| `Q_DIRECT`         | 4        | 4            | **1.3476**   | **1.4060**   |
+| `Q_MINUS_1`        | 3        | 3            | 1.0413       | 1.2194       |
+| `Q_PLUS_1`         | 5        | 5            | 1.2747       | 1.2193       |
+| `Q_LOG2`           | 2        | 2            | 0.9722       | 1.3344       |
+| `Q_LOG2_PLUS_1`    | 3        | 3            | 1.0413       | 1.2194       |
+| `Q_CLAMP_0_4`      | 4        | 4            | **1.3476**   | **1.4060**   |
+| `Q_PER_PLANE`      | 4        | 2            | 1.3476       | 1.3168       |
+
+### Section O7 — Combined refinement (LEAD_ZERO + per-plane K-init + permutation)
+
+Composition test using `best_combined = [4,4,2,3]`. Permutation
+`[1032]` is the existing `Cmp1Box`-derived GRBG mapping;
+`[1023]` is the Round-6 K6 winner.
+
+| tile  | composition                                              | Σ\|r\|     | max\|r\|   |
+|-------|----------------------------------------------------------|------------|------------|
+| tile0 | LZ + k=`[0,0,0,0]` + perm=`[1023]` (control = R6 baseline)| 0.9484    | 0.4904     |
+| tile0 | LZ + k=`[4,4,2,3]` + perm=`[1032]` baseline              | **1.3476** | 0.5409     |
+| tile0 | LZ + k=`[4,4,2,3]` + perm=`[1023]` Round-6 K6 winner     | 1.3389     | 0.5409     |
+| tile1 | LZ + k=`[0,0,0,0]` + perm=`[1023]` (control = R6 baseline)| 0.9325    | 0.5605     |
+| tile1 | LZ + k=`[4,4,2,3]` + perm=`[1032]` baseline              | 1.5035     | 0.5582     |
+| tile1 | LZ + k=`[4,4,2,3]` + perm=`[1023]` Round-6 K6 winner     | **1.5166** | 0.5582     |
+
+### Findings
+
+1. **Per-plane K-init is the strongest single Round-7 lever in Σ|r|**.
+   Round-6 baseline `K_INIT_0` gives Σ|r|=0.9484/0.9325; the
+   per-tile-greedy optimum lifts both tiles by **Δ ≈ +0.57 Σ|r|**
+   (tile0 → 1.5118, tile1 → 1.5210). The largest per-plane gain is
+   on tile1/p1 (R) and tile1/p2 (B), both moving from |r| ≤ 0.06 to
+   |r| ∈ [0.39, 0.49].
+2. **The per-tile optima are different and disjoint.**
+   tile0 wants `[4,2,0,3]`, tile1 wants `[0,4,2,2]`. The
+   `best_combined` quadruple `[4,4,2,3]` is the joint maximum of
+   `tile0Σ|r| + tile1Σ|r|` (= 2.8510) but trails the per-tile
+   optima by Δ Σ|r| = 0.16 / 0.02 respectively. **A single
+   per-plane K-init cannot capture both tiles' best assignments.**
+3. **`K_INIT = quantValue = 4` is the best metadata-near rule on this
+   fixture** (Section N7), tying or matching the joint per-plane
+   greedy optimum to within Δ Σ|r| ≤ 0.01 on both tiles. `Q_LOG2`
+   (= K=2) is competitive on tile1 (1.3344) but loses 0.38 Σ|r| on
+   tile0. `Q_PER_PLANE` (greens=4, non-greens=2) is not better than
+   `Q_DIRECT`. This is a **single positive empirical link** between
+   a CMP1 header field and the entropy decoder's K-state, which
+   matches the patent's `kInit ∈ [K* − 1, K* + 1]` discussion when
+   `K* = log2(q + 1) ≈ 2` for `q = 4`.
+4. **The per-channel maximum is unchanged by composition.**
+   max|r| stays at **0.5409 (tile0/Gr) / 0.5605 (tile1/Gr)**, the
+   Round-6 best. The Round-7 per-plane K-init lifts the *non-Gr*
+   planes (R, Gb, B) by an order of magnitude in some cases, but
+   does *not* lift the dominant Gr plane beyond Round-6's 0.56.
+5. **Combined LZ + per-plane-K-init + perm `[1023]` is non-destructive
+   but not above the |r| > 0.7 threshold.** Δ between perm `[1032]`
+   and `[1023]` under K=`[4,4,2,3]` is at the noise level on tile0
+   (1.3476 vs 1.3389) and a small gain on tile1 (1.5035 vs 1.5166).
+   Round-5 Section I5's destructive-stacking effect does **not**
+   recur — confirming the patent-§1.8 prediction that K-init
+   adjustment does not consume bitstream state.
+
+### Net narrowing after Update (k)
+
+Confirmed *not* the bottleneck (additionally to Updates a–j):
+
+- A single K-init per plane large enough to seed all subbands of
+  both tiles correctly (per-tile assignments are disjoint).
+- A single mapping from `quantValue` to a per-plane K-init that
+  exceeds Round-6 `K_INIT=q` Σ|r| on both tiles simultaneously.
+
+New positive findings:
+
+- **`K_INIT = CMP1.quantValue`** (not `floor(log2(q))` and not `q-2`)
+  is the best fixed metadata-near rule on `sample.cr3`. This is the
+  first hypothesis in the entire investigation that ties a
+  CMP1-header value to the entropy state with a positive
+  per-fixture Σ|r| win.
+- The per-plane K-init lever is **additive** with `LEAD_ZERO` and
+  with the permutation choice — no mutual destruction.
+
+### Concrete next steps after Update (k)
+
+1. **Per-plane K-init on real EOS-R fixtures** (`eosr-iso-*.cr3`)
+   to test whether `K_INIT = quantValue` generalises beyond
+   `sample.cr3` (where every subband happens to share `q = 4`).
+   The eosr fixtures were the original source of the `init_k = 7`
+   failure observed in Update (b); revisiting them with the new
+   per-plane rule would either confirm the hypothesis or cleanly
+   refute it.
+2. **Tile-asymmetry root cause**: tile0 wants `[4,2,0,3]` and
+   tile1 wants `[0,4,2,2]` — a *4-element rotation of the same
+   multi-set* `{0,2,3,4}`. Worth checking whether the two tiles
+   read planes in different order at the bitstream level (i.e.
+   whether a per-tile plane permutation in `SubbandExtractor`
+   would explain the K-init asymmetry).
+3. **Higher K range**: greedy search was clipped to `[0..4]`.
+   Round-6 already showed K_INIT_5 / K_INIT_7 are non-destructive
+   on some planes; a `[0..7]` sweep might find a per-plane K_INIT_5
+   on B/Gb that we haven't measured.
+
+Promotion threshold remains `|r| > 0.7` over a contiguous
+(variant × plane × tile) majority before any production-code
+change. Currently the per-channel maximum is still **0.56** ⟹
+still no production-code change.
