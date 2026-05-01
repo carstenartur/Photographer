@@ -1424,3 +1424,185 @@ Promotion threshold remains `|r| > 0.7` over a contiguous
 (variant × plane × tile) majority before any production-code
 change. Currently the per-channel maximum is still **0.56** ⟹
 still no production-code change.
+
+## Update 2026-05-01 (l) — Round-8: K-evolution after init, multi-file `quantValue` validation, header-link audit
+
+Round-8 follow-up to Update (k), driven by the new working basis:
+
+- `LEAD_ZERO_TILE_FIRST` stays part of the best known path.
+- `K_INIT = CMP1.quantValue` (= 4 on `sample.cr3`) is the best fixed
+  metadata-near rule and matches the joint per-plane greedy optimum
+  to Δ Σ|r| ≤ 0.01.
+- Per-channel `max|r|` is still 0.56 (Gr) — therefore Round-8 looks
+  at the *K-evolution after init* rather than at additional K_INIT
+  sweeps.
+
+Implementation: `CrxPlaneFollowupRound8IT` (test-scope only). Output
+`canon-cr3-imageio/target/crx-followup-round8/{metrics.tsv,winners.txt}`.
+Strict test scope, no production-code changes.
+
+### Section P8 — K-evolution after init
+
+Holding predictor=`P_LEFT_BASE`, lead-zero=`LZ_TILE_FIRST`,
+sign=NONE, `K_INIT = CMP1.quantValue` (= 4), vary the K-update rule
+that runs *after* init:
+
+| K-update variant       | tile0 Σ\|r\| | tile1 Σ\|r\| | comment                                  |
+|------------------------|--------------|--------------|------------------------------------------|
+| **K_BRACKET_PATENT**   | **1.3476**   | **1.4060**   | Round-7 baseline — winner.               |
+| K_CONST                | 0.5184       | 0.5062       | Drops Σ\|r\| by ~0.85 — bracket essential.|
+| K_PER_ROW_RESET        | 0.4845       | 0.3904       | Destructive (worse than no update).      |
+| K_PREV_SYMBOL          | 0.4199       | 0.2395       | Destructive.                              |
+| K_BRACKET_TIGHT (±0)   | 0.4199       | 0.2395       | Identical to K_PREV_SYMBOL by construction.|
+| K_BRACKET_HI_ONLY      | 0.2232       | 0.1936       | Destructive — k can only drift down.     |
+| K_BRACKET_WIDE (±2)    | 0.1910       | 0.2107       | Destructive — bracket too loose.          |
+| K_BRACKET_LO_ONLY      | 0            | 0            | Bitstream exhausts — k drifts up unboundedly.|
+| K_RUNNING_MEAN (α=1/16)| 0            | 0            | Bitstream exhausts.                       |
+
+Findings:
+
+1. **The Round-6 patent ±1 bracket is load-bearing.** *Every*
+   alternative K-update rule tested loses Σ|r|. The tightest
+   competitor (`K_CONST`) collapses to 38 % / 36 % of the bracket
+   score on tile0 / tile1, so the per-symbol bracket adaptation is
+   not optional given `K_INIT = q`.
+2. **No K-evolution variant lifts max|r| above 0.56** — the
+   per-channel maximum stays at the Round-7 ceiling on Gr (0.5409
+   tile0 / 0.5582 tile1). The 0.56 ceiling is *not* explained by
+   the post-init K-update rule.
+3. **Two strictly monotone variants exhaust the bitstream**
+   (`K_BRACKET_LO_ONLY`, `K_RUNNING_MEAN` — both let `k` drift up
+   without bound). This is the same failure mode observed in
+   Update (b) for `init_k = 7` adaptive over-reading: any K-rule
+   that lets `k` grow beyond the symbol magnitude consumes too
+   many bits per pixel.
+4. **`K_PER_ROW_RESET` is decisively worse than no per-row reset**
+   (Δ Σ|r| = −0.86 / −1.02 vs `K_BRACKET_PATENT`). This refutes
+   Round-7's open question whether a per-row reset would help and
+   matches the patent's own implicit "no per-line state" position
+   (cf. §6 "`H4`" demotion).
+
+### Section Q8 — Multi-file validation of `K_INIT = CMP1.quantValue`
+
+Test the rule on three fixtures (the only ones whose subband list
+extracts cleanly under the current `SubbandExtractor`):
+
+| fixture                | tile0 q-vector  | best Σ\|r\| rule (Q8) | Σ\|r\| | Δ vs `K_INIT=0` |
+|------------------------|-----------------|-----------------------|--------|------------------|
+| `sample.cr3`           | `[4,4,4,4]`     | **`K_INIT=q`**        | 1.3476 | +0.41            |
+| `eosr-iso-low.cr3`     | `[4,4,4,4]`     | `K_INIT=q`            | 0.1449 | +0.002           |
+| `sample-iso-high.cr3`  | `[4,4,4,4]`     | `K_INIT=floor(log2 q)`| 0.0573 | +0.05            |
+
+**Negative result — the rule is not falsifiable on the available
+fixture set.** Every fixture reports `quantValue = 4` on every
+tile-0 plane, so the multi-file sweep cannot discriminate
+"`K_INIT = q`" from "`K_INIT = 4` (constant)". The only
+discrimination available is whether the global decoder shape
+matches the fixture at all:
+
+- `sample.cr3`: shape matches (Σ|r| ≈ 1.35); `K_INIT = q` is
+  unambiguously best (Δ +0.41 vs `K_INIT = 0`).
+- `eosr-iso-low.cr3`: shape barely matches (Σ|r| ≈ 0.14);
+  `K_INIT = q` wins by Δ +0.002 — within noise. Consistent with
+  Update (b)'s finding that *no* `(predictor × sign × k)` candidate
+  on `eosr-iso-*.cr3` clears |r| > 0.55.
+- `sample-iso-high.cr3`: shape does not match (Σ|r| < 0.06 for any
+  rule); `K_INIT = floor(log2 q)` wins but the absolute value is
+  uninterpretable.
+
+A fixture with `q ≠ 4` is required to truly validate or refute
+`K_INIT = q`; none exists in the test corpus today.
+
+### Section R8 — Additional CMP1/header links
+
+Audit of CMP1 and per-subband header fields across the same three
+fixtures (to find any per-tile / per-plane variability that could
+correlate with K-init):
+
+| field (CMP1)     | sample.cr3 | sample-iso-high.cr3 | eosr-iso-low.cr3 |
+|------------------|-----------:|---------------------:|------------------:|
+| encodingType     | 0          | 0                    | 0                 |
+| waveletLevels    | 0          | 0                    | 0                 |
+| bitsPerSample    | 14         | 14                   | 14                |
+| numPlanes        | 4          | 4                    | 4                 |
+| cfaLayout        | 1 (GRBG)   | 1                    | 1                 |
+| #subbands        | 8          | 8                    | 8                 |
+
+Per-subband fields (`quantValue`, `roundedBits`, `supportsPartial`,
+`encodingType`, `waveletLevels`) are **identical across all
+subbands of all tested fixtures**: `q=4, rb=0, sp=0, et=0, wl=0`.
+
+**Negative result — there is no per-tile or per-plane CMP1 / header
+variability available in the current test corpus that could
+correlate with the per-tile K-init asymmetry observed in
+Update (k) (`{4,2,0,3}` ↔ `{0,4,2,2}`).** The asymmetry must be
+explained by something *not* exposed in the parsed header (e.g.
+bitstream order, an undecoded subband-header byte, or an entropy
+state carried across tile boundaries).
+
+### Section S8 — Combined refinement
+
+Compose `LZ + K_INIT=q + best-K-update + perm`:
+
+| tile  | composition                                              | Σ\|r\|     | max\|r\|   |
+|-------|----------------------------------------------------------|------------|------------|
+| tile0 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1032]`          | **1.3476** | 0.5409     |
+| tile0 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1023]`          | 1.3389     | 0.5409     |
+| tile1 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1032]`          | **1.4060** | 0.5582     |
+| tile1 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1023]`          | 1.4043     | 0.5582     |
+
+- **Per-channel max stays at 0.5409 / 0.5582** — the 0.56 ceiling
+  is unchanged by Round-8.
+- The "best K-update" from Section P8 is `K_BRACKET_PATENT`, which
+  is already the Round-7 baseline — so Section S8 reproduces the
+  Round-7 numbers exactly. Round-8 introduces no new winner.
+- Permutation `[1032]` (existing GRBG mapping) marginally beats
+  `[1023]` on the *combined* per-tile composition by Δ Σ|r| ≈
+  +0.009 / +0.002 — note this *flips* the Round-6 K6 finding,
+  which had `[1023]` winning under K_INIT=0. Under
+  `K_INIT = q = 4` the choice of permutation reverts to the GRBG
+  default and the Round-6 K6 win is fully absorbed by the K-init
+  change.
+
+### Net narrowing after Update (l)
+
+Confirmed *not* the bottleneck:
+
+- Constant K, per-row K reset, prev-symbol-snap K, ±2 bracket,
+  monotone-up bracket, monotone-down bracket, and 16-tap running
+  mean — all worse than the Round-7 patent ±1 bracket.
+- Per-row reset (`K_PER_ROW_RESET`) — definitively refuted as a
+  candidate state-rule.
+- A per-tile / per-plane CMP1 header field that could explain the
+  Round-7 `{4,2,0,3}` ↔ `{0,4,2,2}` tile-asymmetry — none exists
+  in the available header parse.
+
+New positive findings:
+
+- **The patent ±1 bracket K-update rule is structurally correct
+  and load-bearing.** Every alternative tested degrades Σ|r|. This
+  was previously a "best of 4 patent variants" choice; Round-8
+  shows the bracket itself, not just the bracket family, is
+  necessary.
+
+### Concrete next steps after Update (l)
+
+1. **Find or generate a CR3 fixture with `quantValue ≠ 4`**
+   (lossy-compressed CRX track, or a different camera body) so
+   `K_INIT = q` can be discriminated from `K_INIT = 4` constant.
+   Without such a fixture the strongest current hypothesis is
+   experimentally circular.
+2. **Decode-from-`SubbandExtractor` audit on `eosr-iso-*.cr3`**
+   — Update (b) said adaptive `init_k = 7` over-reads by ~30 %
+   on these fixtures, but we have not rerun them under the
+   Round-8 `K_BRACKET_PATENT` + `K_INIT = q` decoder. The Σ|r|
+   ≈ 0.14 in Section Q8 is a far cry from `sample.cr3`'s 1.35,
+   so the subband-extraction step itself may be returning the
+   wrong subset of bytes for the eosr fixtures.
+3. **Investigate the tile-asymmetry root cause** at the
+   *bitstream-byte* level (per-tile MDAT-offset audit) rather
+   than at the K-state level, since Update (l) shows no
+   metadata-level link to it.
+
+Promotion threshold remains `|r| > 0.7`. Per-channel max is still
+**0.56** ⟹ still **no production code change**.
