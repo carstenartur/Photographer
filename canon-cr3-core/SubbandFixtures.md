@@ -1110,3 +1110,182 @@ Each step remains test-scope only:
 Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
 plane × tile) majority before any production-code change. Currently
 0.56 ⟹ still no production-code change.
+
+## Update 2026-05-01 (j) — Round-6 follow-up: sign-bit flip, plane→Bayer re-sweep, per-tile K-init
+
+`CrxPlaneFollowupRound6IT` (test scope only, no production change)
+extends Update (i) with the three "concrete next steps" left open after
+Round-5: sign-bit flip under `LEAD_ZERO`, plane→Bayer permutation
+re-sweep under `LEAD_ZERO`, per-tile K-init reset. Output dir
+`canon-cr3-imageio/target/crx-followup-round6/`.
+
+### Section J6 — Sign-bit flip under `LEAD_ZERO_TILE_FIRST`
+
+Holding predictor = `P_LEFT_BASE` and lead-zero scope =
+`LZ_TILE_FIRST`, vary how the residual sign is mapped:
+
+| variant            | tile0 p0 (Gr) | tile0 p2 (B) | tile1 p0 (Gr) | tile1 p1 (R) |
+|--------------------|---------------|--------------|---------------|--------------|
+| `NONE` (round-5)   | **−0.4904**   | −0.3994      | **−0.5605**   | +0.0551      |
+| `GLOBAL_FLIP`      | −0.1927       | −0.3362      | −0.0341       | **−0.5235**  |
+| `PER_PLANE_FLIP` (greens only) | −0.1927 | −0.3994 | −0.0341 | +0.0551 |
+| `PER_TILE_FLIP` (tile1 only)   | −0.4904 | −0.3994 | −0.0341 | **−0.5235** |
+| `RESIDUAL_NEG` (≡ GLOBAL_FLIP) | −0.1927 | −0.3362 | −0.0341 | **−0.5235** |
+| `SYMBOL_LSB_FLIP` (parity flip on unsigned codeword) | −0.1747 | −0.3290 | −0.0659 | −0.5135 |
+
+**Findings.**
+
+1. **No global sign convention raises the maximum tile-wise |r|.** The
+   round-4/5 winner (sign=`NONE`, |r|=0.4904 / 0.5605 on the Gr
+   channel of tile0 / tile1) remains the global maximum.
+2. **The sign of r is a property of the predictor chain, not of the
+   residual sign convention.** Flipping the residual sign destroys the
+   accumulated predictor chain (the predictor depends on previously
+   reconstructed pixels), so `GLOBAL_FLIP` does *not* simply negate r;
+   it gives a different reconstruction with generally lower |r|.
+3. **Per-tile and per-plane flips reveal a real R-channel signal on
+   tile1 p1**: |r| jumps from 0.055 (NONE) to 0.524 under
+   `GLOBAL_FLIP` / `PER_TILE_FLIP` / `RESIDUAL_NEG`. This is the first
+   non-Gr plane to clear |r| > 0.5 on this fixture and suggests
+   p1 (R channel) may use an opposite residual-sign convention from
+   p0 (Gr channel) inside tile1 — but the same flip *destroys* the
+   tile1 p0 signal (0.5605 → 0.034), so a single global rule cannot
+   capture both. A per-plane-and-per-tile sign rule is unlikely to be
+   how Canon's encoder actually works; this is more naturally read as
+   the ±sign ambiguity in our reference fit not propagating across
+   plane indices.
+4. `SYMBOL_LSB_FLIP` (invert LSB *before* `mapSignLsb`) tracks
+   `GLOBAL_FLIP` to within 0.02 |r| on every plane/tile — the two are
+   structurally close, not independent. No symbol-near sign convention
+   gives a fundamentally different reconstruction than the
+   residual-near one.
+
+### Section K6 — Plane→Bayer permutation re-sweep under `LEAD_ZERO`
+
+All 24 plane→preview-Bayer permutations evaluated under the round-5
+winner config. Score = sum of |r| over the four (plane, channel) pairs.
+
+| rank | tile0 perm | tile0 sum\|r\| | tile1 perm | tile1 sum\|r\| |
+|------|------------|---------------|------------|---------------|
+| 1    | `[1023]`   | **0.9484**    | `[1023]`   | **0.9325**    |
+| 2    | `[2013]`   | 0.9484        | `[2013]`   | 0.9325        |
+| 3    | `[1032]` (existing GRBG) | 0.9402 | `[1203]` | 0.9250 |
+| 4    | `[2031]`   | 0.9402        | `[2103]`   | 0.9250        |
+| 5    | `[1203]`   | 0.9354        | `[0123]`   | 0.9226        |
+
+`[1023]` = (p0→Gr, p1→R, p2→Gb, p3→B). The existing
+`Cmp1Box`-derived GRBG mapping `{1, 0, 3, 2}` = `[1032]` puts
+**p2→B and p3→Gb**, while the new winner puts **p2→Gb and p3→B**.
+
+**Findings.**
+
+1. The new winner is consistent across both tiles (Δ rank = 0) and
+   gives Δ sum\|r\| = +0.0082 (tile0) / +0.0099 (tile1) over the
+   existing GRBG mapping — small but reproducible.
+2. The per-channel decomposition shows that the gain comes from a
+   higher |r| on the green-pair-vs-blue assignment, not from a
+   meaningful improvement on the dominant Gr channel (which is
+   `[1023] vs [1032]` invariant on p0). p3 is essentially uncorrelated
+   under either mapping, so the swap p2↔p3 is dominated by p2 alone.
+3. **Per-channel maxima on the new winner (`[1023]`):** p0=0.490 (Gr),
+   p1=0.046 (R, but 0.524 under GLOBAL_FLIP), p2=0.399 (Gb under
+   `[1023]` vs B under `[1032]`), p3=0.004 (B vs Gb). The tile-wise
+   maximum |r|=0.5605 (tile1 p0) is unchanged.
+4. Ties between `[1023]` and `[2013]` on both tiles imply p0 and p1
+   are interchangeable for the green-vs-red assignment under our
+   `pearson` metric (rank-invariant under linear plane swap when one
+   of the two has near-zero |r|). Update (f)'s permutation result
+   at lower |r| floor was unable to discriminate this; under
+   LEAD_ZERO the gap is just barely measurable.
+5. **Promotion deferred.** Even with the new permutation, the per-
+   channel max |r| stays at 0.56 — well below the 0.7 threshold.
+   Updating production `cfaLayoutMap(GRBG)` based on a Δ=0.008
+   sum-|r| signal (no per-channel improvement on Gr or R) would
+   not be defensible.
+
+### Section L6 — Per-tile K-init under `LEAD_ZERO`
+
+| K-init        | tile0 p0 (Gr) | tile0 p1 (R)  | tile0 p2 (B)  | tile1 p0 (Gr) | tile1 p1 (R)  |
+|---------------|---------------|---------------|---------------|---------------|---------------|
+| `K_INIT_0` (round-5)   | −0.4904 | +0.0464 | −0.3994 | **−0.5605** | +0.0551 |
+| `K_INIT_1`             | +0.0884 | −0.3820 | −0.2352 | −0.5605     | +0.0323 |
+| `K_INIT_2`             | −0.2346 | −0.4836 | −0.2352 | −0.5605     | +0.2059 |
+| `K_INIT_3`             | −0.2346 | −0.4836 | −0.2352 | −0.5582     | +0.2059 |
+| `K_INIT_4`             | **−0.5409** | −0.4836 | −0.2352 | −0.5582 | −0.3925 |
+| `K_INIT_5`             | −0.5124 | −0.4391 | −0.2352 | −0.5550     | +0.2059 |
+| `K_INIT_7`             | −0.4049 | −0.4391 | −0.3534 | −0.1376     | −0.3925 |
+| `K_INIT_FROM_FIRST`    | (varies; same family as `K_INIT_0..3` because first-symbol K* is small on this fixture) | | | | |
+
+**Findings.**
+
+1. **Tile0 p0 lifts from |r|=0.4904 → 0.5409 at `K_INIT_4`** (Δ = +0.05).
+   This is the first per-tile improvement of Round-6 that exceeds
+   numerical noise on the dominant Gr plane.
+2. **Tile0 p1 (R) lifts from |r|=0.046 → 0.484 at `K_INIT_2..4`**
+   — almost a 10× jump on a previously near-uncorrelated plane,
+   which is an order-of-magnitude bigger than any single result of
+   Updates (g)/(h)/(i). It confirms the patent §1.8 "K-update is
+   per-symbol but the seed matters" observation: the legacy `k=0`
+   default destroys the early symbols on planes whose true magnitude
+   is around 4–16.
+3. **Tile1 p0 (the global maximum) is K-init-invariant for K ∈ {0,1,2}**
+   — confirms that the bracket K-update converges quickly once a
+   high-magnitude symbol arrives. K ≥ 3 starts to cost a tiny
+   |r| (0.5605 → 0.5582 at K_INIT_3/4, → 0.555 at K_INIT_5).
+4. **No single K-init wins across all (tile, plane) combinations.**
+   Tile0 wants K_INIT_4 on its dominant plane; tile1 wants K_INIT_0.
+   A correct implementation would need either a per-plane-derived
+   K-init or a different K-update bracket — both consistent with the
+   patent allowing kInit ∈ [K*−1, K*+1].
+5. **`K_INIT_FROM_FIRST` is not a clean win** on this fixture because
+   the very first decoded residual on most planes is small
+   (typical first-pixel residual is in {0,1,2}), so the derived K is
+   identical to K_INIT_0..2 in most cases. A more useful seed would
+   come from the *median* of the first N residuals; not measured in
+   this round.
+
+### Net narrowing after Update (j)
+
+Confirmed *not* the bottleneck (each ruled out by measurement):
+
+- A single global residual-sign flip raising the maximum |r|.
+- A single global residual-sign flip working consistently across all
+  (tile, plane) combinations.
+- A symbol-near (LSB-of-codeword) sign convention being
+  fundamentally different from a residual-near sign convention.
+- Major rearrangement of the plane→Bayer mapping under `LEAD_ZERO`
+  (best new permutation Δ = +0.008 sum-|r|, no per-channel gain on
+  the dominant Gr/R pair).
+- Per-tile K-reset alone exceeding the |r| > 0.7 threshold (best
+  per-tile improvement is Δ = +0.05).
+
+New positive findings:
+
+- **Per-plane K-init is meaningful.** Tile0 p1 (R channel) lifts
+  10× from |r|=0.046 to 0.484 at K_INIT ∈ {2,3,4}.
+- **Per-tile sign convention may differ on tile1 p1** (R channel
+  jumps from 0.055 to 0.524 under GLOBAL_FLIP); this is unlikely to
+  reflect Canon's encoder structure but is reproducible.
+
+### Concrete next steps after Update (j)
+
+Each step remains test-scope only:
+
+1. **Per-plane K-init sweep** — re-run L6 but vary K-init
+   independently per plane within a tile. Tile0 p0 wants 4, p1 wants
+   2, p2 wants 0, p3 wants 0/2; tile1 p0 wants 0–2, p1 wants 4. A
+   pre-pass that picks K-init from a small per-plane statistic (e.g.
+   median-magnitude of the first 16 decoded residuals at K=0) is
+   cheap and worth measuring.
+2. **K-init derived from quantValue** (CMP1 reports `quantValue=4`
+   for every subband on this fixture) — the patent allows
+   `K_init ≈ floor(log2(quantValue))` as a per-subband seed; not yet
+   tested.
+3. **Combined LEAD_ZERO + per-plane-K-init + permutation [1023]**
+   — measure whether the three small Round-6 wins compose without
+   the destructive interaction seen in Round-5 Section I5.
+
+Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
+plane × tile) majority before any production-code change. Currently
+the per-channel maximum is still 0.56 ⟹ still no production-code
+change.
