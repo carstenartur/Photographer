@@ -272,7 +272,10 @@ public final class TiffIfdParser {
                     }
                     return new TagValue.IntArrayValue(new int[]{v1, v2});
                 }
-                if (count <= 100) {
+                // Canon ColorBalance (tag 0x4001) and similar tags have up to ~582 SHORT values.
+                // Raise the limit to 8192 to support these large arrays while still
+                // guarding against unreasonably large / malicious payloads.
+                if (count <= 8192) {
                     long arrOffset = tiffBase + valueOrOffset;
                     if (arrOffset + totalSize > tiffBase + boxDataSize) return null;
                     input.seek(arrOffset);

@@ -14,9 +14,27 @@ import java.util.Comparator;
  * Decoder for Canon CRX lossless RAW data.
  *
  * <p>CRX (Canon Raw eXtended) lossless compression uses adaptive Rice-Golomb
- * entropy coding with Median Edge Detection (MED) prediction, similar to
- * JPEG-LS (ITU T.87). This is a cleanroom implementation based on the
- * published JPEG-LS standard and public CR3 format documentation.</p>
+ * entropy coding with prediction over wavelet (or pseudo-wavelet) subbands.
+ * The current implementation is a JPEG-LS-style approximation (MED predictor
+ * over Bayer planes with JPEG-LS k-adaptation); see
+ * {@code docs/patent-us20160323602a1-analysis.md} for the clean-room evaluation
+ * of Canon patent US&nbsp;2016/0323602&nbsp;A1, which establishes that the
+ * actual algorithm is:</p>
+ * <ul>
+ *   <li>per-subband predictor (LL = MED, HL = above, LH = left, HH = 0),</li>
+ *   <li>symbol mapping {@code S = 2·Diff} for {@code Diff ≥ 0} else
+ *       {@code -2·Diff - 1},</li>
+ *   <li>Golomb-Rice with codeword {@code (S>>K) zeros + 1 + low-K-bits},</li>
+ *   <li>per-symbol lookahead-bracket K update (not the JPEG-LS accumulator
+ *       used here).</li>
+ * </ul>
+ * <p>See {@code docs/crx-cleanroom-spec.md} for the project-internal
+ * decoder specification derived from the patent. Replacing this implementation
+ * is gated on the validation work tracked in
+ * {@code canon-cr3-core/SubbandFixtures.md}.</p>
+ *
+ * <p>This is a cleanroom implementation; no third-party CRX decoder source
+ * was consulted.</p>
  *
  * <p>The decoding pipeline:</p>
  * <ol>
@@ -223,17 +241,46 @@ public final class CrxLosslessRawDecoder {
                         + tileXOffset + " != " + planeWidth);
             }
 
-            // 4. Interleave planes into Bayer pattern
+            // 4. Interleave planes positionally into a 2×2-subsampled Bayer grid.
+            // The resolved BayerPattern determines the actual colour assignment downstream.
             int[] bayerData = new int[width * height];
-            interleaveBayerRGGB(planes, bayerData, width, height, planeWidth, planeHeight);
+            interleavePlanesByPosition(planes, bayerData, width, height, planeWidth, planeHeight);
 
-            LOG.info("CRX lossless decode complete: {} pixels", bayerData.length);
-            return new Cr3RawImage(width, height, bayerData, bitDepth,
-                    Cr3RawImage.BayerPattern.RGGB);
+            // Resolve the actual CFA pattern from CMP1 (cfaLayout field).
+            // The CRX encoder stores planes in positional order (top-left, top-right,
+            // bottom-left, bottom-right) regardless of CFA pattern; we only need to
+            // set the BayerPattern so that downstream processors (WB, demosaic) apply
+            // the correct colour assignment at each pixel position.
+            Cr3RawImage.BayerPattern bayerPattern = resolveBayerPattern(cmp1);
+            LOG.info("CRX lossless decode complete: {} pixels, pattern={}", bayerData.length, bayerPattern);
+            return new Cr3RawImage(width, height, bayerData, bitDepth, bayerPattern);
 
         } catch (IOException e) {
             throw new Cr3Exception("CRX lossless decoding failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Maps the CMP1 cfaLayout field (0–3) to the corresponding {@link Cr3RawImage.BayerPattern}.
+     *
+     * <p>The CRX encoder always stores Bayer planes in positional order
+     * (plane 0 = top-left, plane 1 = top-right, plane 2 = bottom-left, plane 3 = bottom-right).
+     * The CFA layout only determines which colour occupies each position.</p>
+     */
+    private static Cr3RawImage.BayerPattern resolveBayerPattern(Cmp1Box cmp1) {
+        if (cmp1 == null) {
+            return Cr3RawImage.BayerPattern.RGGB; // Safe default for Canon
+        }
+        return switch (cmp1.cfaLayout()) {
+            case 0 -> Cr3RawImage.BayerPattern.RGGB;
+            case 1 -> Cr3RawImage.BayerPattern.GRBG;
+            case 2 -> Cr3RawImage.BayerPattern.GBRG;
+            case 3 -> Cr3RawImage.BayerPattern.BGGR;
+            default -> {
+                LOG.warn("Unknown CFA layout {} in CMP1, defaulting to RGGB", cmp1.cfaLayout());
+                yield Cr3RawImage.BayerPattern.RGGB;
+            }
+        };
     }
 
     private static ParsedCrx parseCrxData(byte[] data, CrxHeader.CodecVersion version, Cmp1Box cmp1)
@@ -443,14 +490,20 @@ public final class CrxLosslessRawDecoder {
     }
 
     /**
-     * Interleaves 4 decoded Bayer planes into a single RGGB Bayer array.
+     * Interleaves 4 decoded planes into a single Bayer-grid array by <em>position</em>
+     * (independent of CFA pattern).
      *
-     * <p>Plane 0 = Red (even rows, even columns)<br>
-     * Plane 1 = Green in red row (even rows, odd columns)<br>
-     * Plane 2 = Green in blue row (odd rows, even columns)<br>
-     * Plane 3 = Blue (odd rows, odd columns)</p>
+     * <p>Plane 0 → top-left of each 2×2 cell (even row, even column)<br>
+     * Plane 1 → top-right of each 2×2 cell (even row, odd column)<br>
+     * Plane 2 → bottom-left of each 2×2 cell (odd row, even column)<br>
+     * Plane 3 → bottom-right of each 2×2 cell (odd row, odd column)</p>
+     *
+     * <p>The CRX encoder always stores planes in this positional order; the
+     * actual colour at each position is determined by the CFA layout (see
+     * {@link #resolveBayerPattern(Cmp1Box)}) and applied by downstream
+     * white-balance and demosaic stages.</p>
      */
-    private static void interleaveBayerRGGB(int[][] planes, int[] output,
+    private static void interleavePlanesByPosition(int[][] planes, int[] output,
                                              int bayerWidth, int bayerHeight,
                                              int planeWidth, int planeHeight) {
         for (int py = 0; py < planeHeight; py++) {
@@ -461,19 +514,19 @@ public final class CrxLosslessRawDecoder {
                 int bayerX0 = px * 2;
                 int bayerX1 = bayerX0 + 1;
 
-                // R (even row, even col)
+                // Plane 0 → top-left of 2×2 cell (even row, even col)
                 if (bayerY0 < bayerHeight && bayerX0 < bayerWidth) {
                     output[bayerY0 * bayerWidth + bayerX0] = planes[0][planeIdx];
                 }
-                // Gr (even row, odd col)
+                // Plane 1 → top-right (even row, odd col)
                 if (bayerY0 < bayerHeight && bayerX1 < bayerWidth) {
                     output[bayerY0 * bayerWidth + bayerX1] = planes[1][planeIdx];
                 }
-                // Gb (odd row, even col)
+                // Plane 2 → bottom-left (odd row, even col)
                 if (bayerY1 < bayerHeight && bayerX0 < bayerWidth) {
                     output[bayerY1 * bayerWidth + bayerX0] = planes[2][planeIdx];
                 }
-                // B (odd row, odd col)
+                // Plane 3 → bottom-right (odd row, odd col)
                 if (bayerY1 < bayerHeight && bayerX1 < bayerWidth) {
                     output[bayerY1 * bayerWidth + bayerX1] = planes[3][planeIdx];
                 }
