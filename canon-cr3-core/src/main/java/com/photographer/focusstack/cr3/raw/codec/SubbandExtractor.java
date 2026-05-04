@@ -122,7 +122,11 @@ public final class SubbandExtractor {
         }
         String cncvVersion = container.cncvBox() == null ? null : container.cncvBox().versionString();
 
-        byte[] crxBytes = new byte[(int) raw.dataSize()];
+        long rawSize = raw.dataSize();
+        if (rawSize < 0 || rawSize > Integer.MAX_VALUE) {
+            throw new IOException("RAW track size out of range for in-memory parse: " + rawSize);
+        }
+        byte[] crxBytes = new byte[(int) rawSize];
         input.seek(raw.dataOffset());
         input.readFully(crxBytes);
 
@@ -146,8 +150,12 @@ public final class SubbandExtractor {
         List<SubbandRef> result = new ArrayList<>();
         int tileSeq = 0;
         for (CrxHeader.Tile tile : header.tiles()) {
-            int planeW = (tileW > 0) ? tileW / 2 : trackWidth / Math.max(1, header.tiles().size()) / 2;
-            int planeH = (tileH > 0) ? tileH / 2 : trackHeight / 2;
+            // Use ceil-division so odd tile dimensions don't under-report the plane size.
+            // Note: this still assumes a single horizontal tile row; harness code can refine.
+            int planeW = (tileW > 0)
+                    ? (tileW + 1) / 2
+                    : ((trackWidth / Math.max(1, header.tiles().size())) + 1) / 2;
+            int planeH = (tileH > 0) ? (tileH + 1) / 2 : (trackHeight + 1) / 2;
             // For lossy with wavelet decomposition, the LL subband has dimensions
             // planeW >> waveletLevels × planeH >> waveletLevels, etc. We report
             // the un-decomposed plane grid here; harness code can refine.

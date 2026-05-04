@@ -202,8 +202,10 @@ public final class Cr3Decoder {
                 }
                 yield min;
             }
-            // For per-row, use the default 14-bit BL as a conservative estimate.
-            case PER_ROW -> BlackLevel.DEFAULT_14BIT;
+            // For per-row, use the minimum across all per-row entries so the
+            // effective white level reflects the actual OB-estimated levels rather
+            // than the 14-bit default.
+            case PER_ROW -> blackLevel.minPerRowLevel();
         };
     }
 

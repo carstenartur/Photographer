@@ -241,9 +241,10 @@ public final class CrxLosslessRawDecoder {
                         + tileXOffset + " != " + planeWidth);
             }
 
-            // 4. Interleave planes into Bayer pattern
+            // 4. Interleave planes positionally into a 2×2-subsampled Bayer grid.
+            // The resolved BayerPattern determines the actual colour assignment downstream.
             int[] bayerData = new int[width * height];
-            interleaveBayerRGGB(planes, bayerData, width, height, planeWidth, planeHeight);
+            interleavePlanesByPosition(planes, bayerData, width, height, planeWidth, planeHeight);
 
             // Resolve the actual CFA pattern from CMP1 (cfaLayout field).
             // The CRX encoder stores planes in positional order (top-left, top-right,
@@ -489,14 +490,20 @@ public final class CrxLosslessRawDecoder {
     }
 
     /**
-     * Interleaves 4 decoded Bayer planes into a single RGGB Bayer array.
+     * Interleaves 4 decoded planes into a single Bayer-grid array by <em>position</em>
+     * (independent of CFA pattern).
      *
-     * <p>Plane 0 = Red (even rows, even columns)<br>
-     * Plane 1 = Green in red row (even rows, odd columns)<br>
-     * Plane 2 = Green in blue row (odd rows, even columns)<br>
-     * Plane 3 = Blue (odd rows, odd columns)</p>
+     * <p>Plane 0 → top-left of each 2×2 cell (even row, even column)<br>
+     * Plane 1 → top-right of each 2×2 cell (even row, odd column)<br>
+     * Plane 2 → bottom-left of each 2×2 cell (odd row, even column)<br>
+     * Plane 3 → bottom-right of each 2×2 cell (odd row, odd column)</p>
+     *
+     * <p>The CRX encoder always stores planes in this positional order; the
+     * actual colour at each position is determined by the CFA layout (see
+     * {@link #resolveBayerPattern(Cmp1Box)}) and applied by downstream
+     * white-balance and demosaic stages.</p>
      */
-    private static void interleaveBayerRGGB(int[][] planes, int[] output,
+    private static void interleavePlanesByPosition(int[][] planes, int[] output,
                                              int bayerWidth, int bayerHeight,
                                              int planeWidth, int planeHeight) {
         for (int py = 0; py < planeHeight; py++) {
@@ -507,19 +514,19 @@ public final class CrxLosslessRawDecoder {
                 int bayerX0 = px * 2;
                 int bayerX1 = bayerX0 + 1;
 
-                // R (even row, even col)
+                // Plane 0 → top-left of 2×2 cell (even row, even col)
                 if (bayerY0 < bayerHeight && bayerX0 < bayerWidth) {
                     output[bayerY0 * bayerWidth + bayerX0] = planes[0][planeIdx];
                 }
-                // Gr (even row, odd col)
+                // Plane 1 → top-right (even row, odd col)
                 if (bayerY0 < bayerHeight && bayerX1 < bayerWidth) {
                     output[bayerY0 * bayerWidth + bayerX1] = planes[1][planeIdx];
                 }
-                // Gb (odd row, even col)
+                // Plane 2 → bottom-left (odd row, even col)
                 if (bayerY1 < bayerHeight && bayerX0 < bayerWidth) {
                     output[bayerY1 * bayerWidth + bayerX0] = planes[2][planeIdx];
                 }
-                // B (odd row, odd col)
+                // Plane 3 → bottom-right (odd row, odd col)
                 if (bayerY1 < bayerHeight && bayerX1 < bayerWidth) {
                     output[bayerY1 * bayerWidth + bayerX1] = planes[3][planeIdx];
                 }

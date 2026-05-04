@@ -293,11 +293,11 @@ public final class Cr3CliApp {
             return;
         }
         System.out.println();
-        System.out.printf("%-3s %-3s %-3s %-3s %-12s %-10s %-3s %-7s %-12s %-7s%n",
-                "seq", "ti", "pl", "sb", "fileOffset", "size", "q", "partial", "planeWxH", "ver");
+        System.out.printf("%-3s %-4s %-3s %-3s %-12s %-10s %-3s %-7s %-12s %-7s%n",
+                "seq", "tSeq", "pl", "sb", "fileOffset", "size", "q", "partial", "planeWxH", "ver");
         int seq = 0;
         for (SubbandExtractor.SubbandRef r : subs) {
-            System.out.printf("%-3d %-3d %-3d %-3d %-12d %-10d %-3d %-7s %dx%-9d %-7s%n",
+            System.out.printf("%-3d %-4d %-3d %-3d %-12d %-10d %-3d %-7s %dx%-9d %-7s%n",
                     seq++, r.tileSequence(), r.planeIndex(), r.subbandIndex(),
                     r.dataOffsetInFile(), r.dataSize(), r.quantValue(),
                     r.supportsPartial(), r.planeWidth(), r.planeHeight(),
