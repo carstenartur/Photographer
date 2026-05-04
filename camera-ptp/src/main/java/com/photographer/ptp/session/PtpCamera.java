@@ -613,9 +613,18 @@ public class PtpCamera implements AutoCloseable {
         buf.putInt(12);            // totalSize (includes this field)
         buf.putInt(propertyCode);
         buf.putInt(value);
-        PtpContainer response = session.executeOperationWithData(
-                CanonConstants.OC_EOS_SET_DEVICE_PROP, data);
-        requireOkResponse("SetCanonProperty 0x" + Integer.toHexString(propertyCode), response);
+        // Suspend the background event loop so its GetEvent (0x9116) poll does
+        // not collide with our SetDevicePropValueEx and trigger Device_Busy
+        // (0x2019). The event loop processes a single transaction at a time,
+        // and the camera rejects overlapping vendor commands.
+        eventLoop.suspend();
+        try {
+            PtpContainer response = session.executeOperationWithData(
+                    CanonConstants.OC_EOS_SET_DEVICE_PROP, data);
+            requireOkResponse("SetCanonProperty 0x" + Integer.toHexString(propertyCode), response);
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     // ── Storage ──
