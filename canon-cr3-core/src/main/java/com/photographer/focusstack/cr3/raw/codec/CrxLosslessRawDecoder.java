@@ -181,56 +181,38 @@ public final class CrxLosslessRawDecoder {
                             + (tileXOffset + tilePixelWidth) + " > " + planeWidth);
                 }
 
-                for (CrxHeader.Plane plane : tile.planes()) {
-                    if (plane.subbands().isEmpty()) {
-                        throw new Cr3Exception("No subbands in plane " + plane.index()
-                                + " of tile " + tile.index());
-                    }
+                final int finalTileXOffset = tileXOffset;
+                final int finalTilePixelWidth = tilePixelWidth;
+                final int finalTilePlaneHeight = tilePlaneHeight;
+                final int finalBitDepth = bitDepth;
+                final byte[] finalCrxData = crxData;
+                final int[][] finalPlanes = planes;
+                final int finalPlaneWidth = planeWidth;
+                final CrxHeader.Tile finalTile = tile;
 
-                    int planeIdx = plane.index();
-                    if (planeIdx < 0 || planeIdx >= 4) {
-                        LOG.warn("Unexpected plane index {}, skipping", planeIdx);
-                        continue;
+                // Decode the (typically 4) Bayer planes of this tile in parallel.
+                // Each plane is independent: decodePlane() is pure on a slice of
+                // crxData, and the per-plane writes target a distinct planes[planeIdx]
+                // slot (planeIdx ∈ {0,1,2,3}) so there is no data race.
+                try {
+                    finalTile.planes().parallelStream().forEach(plane -> {
+                        try {
+                            decodeTilePlane(plane, finalTile, finalCrxData, finalPlanes,
+                                    finalTileXOffset, finalTilePixelWidth, finalTilePlaneHeight,
+                                    finalPlaneWidth, finalBitDepth);
+                        } catch (Cr3Exception | IOException e) {
+                            throw new DecodePlaneException(e);
+                        }
+                    });
+                } catch (DecodePlaneException wrapped) {
+                    Throwable cause = wrapped.getCause();
+                    if (cause instanceof Cr3Exception ce) {
+                        throw ce;
                     }
-
-                    // For lossless, there is exactly 1 subband per plane (LL only)
-                    CrxHeader.Subband subband = plane.subbands().getFirst();
-                    long rawOffset = subband.dataOffset();
-                    long rawSize = subband.dataSize();
-                    long rawEnd = rawOffset + rawSize;
-                    if (rawOffset > Integer.MAX_VALUE || rawSize > Integer.MAX_VALUE
-                            || rawEnd > Integer.MAX_VALUE || rawEnd < rawOffset) {
-                        throw new Cr3Exception("Subband data exceeds 2 GB limit: offset="
-                                + rawOffset + ", size=" + rawSize);
+                    if (cause instanceof IOException ioe) {
+                        throw ioe;
                     }
-                    int subDataOffset = (int) rawOffset;
-                    int subDataEnd = (int) rawEnd;
-
-                    if (subDataOffset >= crxData.length) {
-                        throw new Cr3Exception("Subband offset past end of CRX data: "
-                                + subDataOffset + " >= " + crxData.length);
-                    }
-                    if (subDataEnd > crxData.length) {
-                        LOG.debug("Subband {} in plane {} tile {} extends {} bytes past CRX payload; "
-                                        + "clamping to available data", subband.index(), planeIdx,
-                                tile.index(), (subDataEnd - crxData.length));
-                        subDataEnd = crxData.length;
-                    }
-                    if (subDataEnd <= subDataOffset) {
-                        throw new Cr3Exception("Invalid subband range: [" + subDataOffset + ", "
-                                + subDataEnd + ")");
-                    }
-
-                    // Decode this plane's subband
-                    int[] decoded = decodePlane(crxData, subDataOffset, subDataEnd,
-                            tilePixelWidth, tilePlaneHeight, bitDepth);
-
-                    // Copy decoded tile data into the full plane array
-                    for (int row = 0; row < tilePlaneHeight; row++) {
-                        System.arraycopy(decoded, row * tilePixelWidth,
-                                planes[planeIdx], row * planeWidth + tileXOffset,
-                                tilePixelWidth);
-                    }
+                    throw wrapped;
                 }
 
                 tileXOffset += tilePixelWidth;
@@ -327,6 +309,83 @@ public final class CrxLosslessRawDecoder {
     }
 
     private record ParsedCrx(byte[] data, CrxHeader header) {}
+
+    /**
+     * Validates a single plane's subband range and decodes it into the shared
+     * {@code planes} grid. Extracted from {@link #decode} so it can be invoked
+     * from a {@code parallelStream} over the planes of a tile — each plane
+     * writes to a distinct {@code planes[planeIdx]} slot, so the four
+     * concurrent invocations share no mutable state.
+     */
+    private static void decodeTilePlane(CrxHeader.Plane plane, CrxHeader.Tile tile,
+                                        byte[] crxData, int[][] planes,
+                                        int tileXOffset, int tilePixelWidth, int tilePlaneHeight,
+                                        int planeWidth, int bitDepth)
+            throws Cr3Exception, IOException {
+        if (plane.subbands().isEmpty()) {
+            throw new Cr3Exception("No subbands in plane " + plane.index()
+                    + " of tile " + tile.index());
+        }
+
+        int planeIdx = plane.index();
+        if (planeIdx < 0 || planeIdx >= 4) {
+            LOG.warn("Unexpected plane index {}, skipping", planeIdx);
+            return;
+        }
+
+        // For lossless, there is exactly 1 subband per plane (LL only)
+        CrxHeader.Subband subband = plane.subbands().getFirst();
+        long rawOffset = subband.dataOffset();
+        long rawSize = subband.dataSize();
+        long rawEnd = rawOffset + rawSize;
+        if (rawOffset > Integer.MAX_VALUE || rawSize > Integer.MAX_VALUE
+                || rawEnd > Integer.MAX_VALUE || rawEnd < rawOffset) {
+            throw new Cr3Exception("Subband data exceeds 2 GB limit: offset="
+                    + rawOffset + ", size=" + rawSize);
+        }
+        int subDataOffset = (int) rawOffset;
+        int subDataEnd = (int) rawEnd;
+
+        if (subDataOffset >= crxData.length) {
+            throw new Cr3Exception("Subband offset past end of CRX data: "
+                    + subDataOffset + " >= " + crxData.length);
+        }
+        if (subDataEnd > crxData.length) {
+            LOG.debug("Subband {} in plane {} tile {} extends {} bytes past CRX payload; "
+                            + "clamping to available data", subband.index(), planeIdx,
+                    tile.index(), (subDataEnd - crxData.length));
+            subDataEnd = crxData.length;
+        }
+        if (subDataEnd <= subDataOffset) {
+            throw new Cr3Exception("Invalid subband range: [" + subDataOffset + ", "
+                    + subDataEnd + ")");
+        }
+
+        // Decode this plane's subband
+        int[] decoded = decodePlane(crxData, subDataOffset, subDataEnd,
+                tilePixelWidth, tilePlaneHeight, bitDepth);
+
+        // Copy decoded tile data into the full plane array.
+        // Different planes write to distinct planes[planeIdx] slots, so this
+        // is race-free across the parallel forEach over tile.planes().
+        for (int row = 0; row < tilePlaneHeight; row++) {
+            System.arraycopy(decoded, row * tilePixelWidth,
+                    planes[planeIdx], row * planeWidth + tileXOffset,
+                    tilePixelWidth);
+        }
+    }
+
+    /**
+     * Unchecked wrapper used to smuggle {@link Cr3Exception} / {@link IOException}
+     * out of the per-plane parallel stream in {@link #decode}. The caller
+     * unwraps and re-throws the original checked exception.
+     */
+    private static final class DecodePlaneException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        DecodePlaneException(Throwable cause) {
+            super(cause);
+        }
+    }
 
     /**
      * Decodes a single plane using adaptive Rice-Golomb coding with MED prediction.

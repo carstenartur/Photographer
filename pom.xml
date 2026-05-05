@@ -36,6 +36,7 @@
         <module>canon-cr3-core</module>
         <module>canon-cr3-imageio</module>
         <module>canon-cr3-cli</module>
+        <module>canon-cr3-benchmark</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>
