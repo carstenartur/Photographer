@@ -25,9 +25,14 @@ import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 /**
  * Main entry point for decoding Canon CR3 files.
@@ -52,6 +57,13 @@ public final class Cr3Decoder {
     private ImageInputStream input;
     private Cr3Container container;
     private Cr3Metadata metadata;
+    /**
+     * Source file path when {@link #setInput(Path)} was used; enables a fast
+     * memory-mapped read of the CRX RAW track in {@link #decodeRawBayer}.
+     * {@code null} when the decoder was driven by the
+     * {@link #setInput(ImageInputStream)} overload.
+     */
+    private Path sourceFile;
 
     /**
      * Sets the input stream for decoding.
@@ -62,9 +74,40 @@ public final class Cr3Decoder {
      */
     public void setInput(ImageInputStream input) throws IOException, Cr3Exception {
         this.input = input;
+        this.sourceFile = null;
         this.container = Cr3Parser.parse(input);
         this.metadata = extractMetadata();
         LOG.info("CR3 input set: {}", container);
+    }
+
+    /**
+     * File-based input variant. The file is opened with a {@code FileImageInputStream}
+     * for the parser/metadata/preview paths, and additionally retained so that
+     * {@link #decodeRawBayer} can pull the (typically multi-MB) CRX RAW track
+     * via a single {@link FileChannel#map memory-mapped read} instead of the
+     * {@code ImageInputStream.readFully(byte[])} bulk copy.
+     *
+     * <p>The caller must keep the decoder reachable for the lifetime of any
+     * returned {@link BufferedImage}; calling {@link #reset} or letting the
+     * decoder go out of scope releases the input stream.</p>
+     *
+     * @param file the CR3 file to decode
+     * @throws IOException if the file cannot be opened or parsed
+     * @throws Cr3Exception if the file is not a valid CR3 file
+     */
+    public void setInput(Path file) throws IOException, Cr3Exception {
+        if (file == null) {
+            throw new IllegalArgumentException("file must not be null");
+        }
+        ImageInputStream iis = ImageIO.createImageInputStream(file.toFile());
+        if (iis == null) {
+            throw new IOException("Could not open ImageInputStream for " + file);
+        }
+        this.input = iis;
+        this.sourceFile = file;
+        this.container = Cr3Parser.parse(iis);
+        this.metadata = extractMetadata();
+        LOG.info("CR3 input set (file={}): {}", file, container);
     }
 
     /**
@@ -116,6 +159,7 @@ public final class Cr3Decoder {
         this.input = null;
         this.container = null;
         this.metadata = null;
+        this.sourceFile = null;
     }
 
     private Cr3Metadata extractMetadata() throws IOException {
@@ -282,10 +326,18 @@ public final class Cr3Decoder {
         LOG.info("Reading CRX RAW track: {}x{}, {} bytes at offset {}",
                 rawWidth, rawHeight, rawTrack.dataSize(), rawTrack.dataOffset());
 
-        // Read the raw CRX data
-        byte[] crxData = new byte[(int) rawTrack.dataSize()];
-        input.seek(rawTrack.dataOffset());
-        input.readFully(crxData);
+        // Read the raw CRX data — prefer a memory-mapped read when the input
+        // is a known file (setInput(Path)). For multi-MB CRX tracks this avoids
+        // the ImageInputStream's intermediate buffering and the RandomAccessFile
+        // syscall loop that backs readFully(byte[]).
+        byte[] crxData;
+        if (sourceFile != null) {
+            crxData = readCrxTrackMmap(sourceFile, rawTrack.dataOffset(), (int) rawTrack.dataSize());
+        } else {
+            crxData = new byte[(int) rawTrack.dataSize()];
+            input.seek(rawTrack.dataOffset());
+            input.readFully(crxData);
+        }
 
         // Determine codec version
         CrxHeader.CodecVersion codecVersion = CrxHeader.CodecVersion.V1;
@@ -358,6 +410,25 @@ public final class Cr3Decoder {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(value, max));
+    }
+
+    /**
+     * Reads {@code length} bytes starting at {@code offset} from {@code file}
+     * via {@link FileChannel#map} and copies them into a fresh {@code byte[]}.
+     *
+     * <p>For the typical multi-megabyte CRX RAW track this is measurably
+     * faster than {@code RandomAccessFile.readFully}: the read becomes a single
+     * page-fault-driven copy instead of an 8 KB-buffered syscall loop, and the
+     * mapping is unmapped as soon as the channel is closed (try-with-resources)
+     * so no native handle leaks across decoder invocations.</p>
+     */
+    private static byte[] readCrxTrackMmap(Path file, long offset, int length) throws IOException {
+        try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
+            ByteBuffer mapped = ch.map(FileChannel.MapMode.READ_ONLY, offset, length);
+            byte[] dst = new byte[length];
+            mapped.get(dst);
+            return dst;
+        }
     }
 
     /**
