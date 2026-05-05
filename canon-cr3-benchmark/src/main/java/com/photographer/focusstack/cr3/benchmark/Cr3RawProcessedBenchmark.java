@@ -66,12 +66,11 @@ public class Cr3RawProcessedBenchmark {
     public void decodeRawProcessedMmap(Blackhole bh) throws Exception {
         // Variant of the same end-to-end pipeline that uses the new Path-based
         // setInput() overload backed by FileChannel.map for the CRX RAW read.
-        Cr3Decoder decoder = new Cr3Decoder();
-        decoder.setInput(file);
-        try {
+        // try-with-resources guarantees the internally-opened ImageInputStream
+        // is closed on every iteration (Cr3Decoder is AutoCloseable).
+        try (Cr3Decoder decoder = new Cr3Decoder()) {
+            decoder.setInput(file);
             bh.consume(decoder.decode(Cr3DecodeOptions.rawProcessed()));
-        } finally {
-            decoder.reset();
         }
     }
 }

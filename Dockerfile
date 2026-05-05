@@ -23,6 +23,7 @@ COPY app/pom.xml app/pom.xml
 COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
+COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
 
 # Download dependencies
 RUN mvn -B dependency:go-offline -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -DskipITs=true

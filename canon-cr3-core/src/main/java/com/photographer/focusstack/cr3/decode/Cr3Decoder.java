@@ -30,6 +30,7 @@ import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -50,7 +51,7 @@ import java.nio.file.StandardOpenOption;
  * }
  * }</pre>
  */
-public final class Cr3Decoder {
+public final class Cr3Decoder implements AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(Cr3Decoder.class);
 
@@ -64,17 +65,31 @@ public final class Cr3Decoder {
      * {@link #setInput(ImageInputStream)} overload.
      */
     private Path sourceFile;
+    /**
+     * {@code true} when the decoder itself opened {@link #input} (via
+     * {@link #setInput(Path)}) and therefore owns its lifecycle. {@code false}
+     * when the caller supplied the stream via {@link #setInput(ImageInputStream)}
+     * — in that case the caller retains ownership and {@link #reset} / {@link #close}
+     * must NOT close it.
+     */
+    private boolean ownsInput;
 
     /**
      * Sets the input stream for decoding.
+     *
+     * <p>The caller retains ownership of the supplied stream; {@link #reset} and
+     * {@link #close} will release the decoder's reference but will <em>not</em>
+     * close the stream.</p>
      *
      * @param input the image input stream positioned at the start of the CR3 file
      * @throws IOException if an I/O error occurs during initial parsing
      * @throws Cr3Exception if the file is not a valid CR3 file
      */
     public void setInput(ImageInputStream input) throws IOException, Cr3Exception {
+        closeOwnedInputQuietly();
         this.input = input;
         this.sourceFile = null;
+        this.ownsInput = false;
         this.container = Cr3Parser.parse(input);
         this.metadata = extractMetadata();
         LOG.info("CR3 input set: {}", container);
@@ -87,9 +102,12 @@ public final class Cr3Decoder {
      * via a single {@link FileChannel#map memory-mapped read} instead of the
      * {@code ImageInputStream.readFully(byte[])} bulk copy.
      *
-     * <p>The caller must keep the decoder reachable for the lifetime of any
-     * returned {@link BufferedImage}; calling {@link #reset} or letting the
-     * decoder go out of scope releases the input stream.</p>
+     * <p>The decoder takes ownership of the internally-opened stream; the caller
+     * must invoke {@link #reset} or {@link #close} (or use the decoder in a
+     * try-with-resources block) to release the underlying file handle.</p>
+     *
+     * <p>If parsing fails the internally-opened stream is closed before the
+     * exception propagates so no file descriptor leaks on the error path.</p>
      *
      * @param file the CR3 file to decode
      * @throws IOException if the file cannot be opened or parsed
@@ -99,14 +117,32 @@ public final class Cr3Decoder {
         if (file == null) {
             throw new IllegalArgumentException("file must not be null");
         }
+        closeOwnedInputQuietly();
         ImageInputStream iis = ImageIO.createImageInputStream(file.toFile());
         if (iis == null) {
             throw new IOException("Could not open ImageInputStream for " + file);
         }
+        // Parse into local variables first; only commit to the instance fields
+        // once parsing succeeded, otherwise close the stream we just opened so
+        // the file descriptor is released on the error path.
+        Cr3Container parsedContainer;
+        Cr3Metadata parsedMetadata;
+        try {
+            parsedContainer = Cr3Parser.parse(iis);
+            parsedMetadata = Cr3MetadataReader.read(iis, parsedContainer);
+        } catch (IOException | Cr3Exception | RuntimeException e) {
+            try {
+                iis.close();
+            } catch (IOException closeError) {
+                e.addSuppressed(closeError);
+            }
+            throw e;
+        }
         this.input = iis;
         this.sourceFile = file;
-        this.container = Cr3Parser.parse(iis);
-        this.metadata = extractMetadata();
+        this.ownsInput = true;
+        this.container = parsedContainer;
+        this.metadata = parsedMetadata;
         LOG.info("CR3 input set (file={}): {}", file, container);
     }
 
@@ -153,13 +189,39 @@ public final class Cr3Decoder {
     }
 
     /**
-     * Resets the decoder, releasing the input stream reference.
+     * Resets the decoder, releasing the input stream reference and closing the
+     * underlying {@link ImageInputStream} when the decoder owns it (i.e. the
+     * input was supplied via {@link #setInput(Path)}). Streams supplied through
+     * {@link #setInput(ImageInputStream)} are <em>not</em> closed — their
+     * lifecycle remains the caller's responsibility.
      */
     public void reset() {
+        closeOwnedInputQuietly();
         this.input = null;
         this.container = null;
         this.metadata = null;
         this.sourceFile = null;
+        this.ownsInput = false;
+    }
+
+    /**
+     * Equivalent to {@link #reset}; provided so the decoder can be used in a
+     * try-with-resources block when the input was opened internally via
+     * {@link #setInput(Path)}.
+     */
+    @Override
+    public void close() {
+        reset();
+    }
+
+    private void closeOwnedInputQuietly() {
+        if (ownsInput && input != null) {
+            try {
+                input.close();
+            } catch (IOException e) {
+                LOG.warn("Failed to close internally-owned ImageInputStream", e);
+            }
+        }
     }
 
     private Cr3Metadata extractMetadata() throws IOException {
@@ -418,9 +480,13 @@ public final class Cr3Decoder {
      *
      * <p>For the typical multi-megabyte CRX RAW track this is measurably
      * faster than {@code RandomAccessFile.readFully}: the read becomes a single
-     * page-fault-driven copy instead of an 8 KB-buffered syscall loop, and the
-     * mapping is unmapped as soon as the channel is closed (try-with-resources)
-     * so no native handle leaks across decoder invocations.</p>
+     * page-fault-driven copy instead of an 8 KB-buffered syscall loop.</p>
+     *
+     * <p>Note: the {@link MappedByteBuffer} returned by {@code FileChannel.map}
+     * is unmapped non-deterministically by the JVM's {@code Cleaner} — closing
+     * the {@link FileChannel} does not force-unmap it. That is harmless here
+     * because we copy the contents into a fresh {@code byte[]} before returning
+     * and the buffer becomes unreachable as soon as this method exits.</p>
      */
     private static byte[] readCrxTrackMmap(Path file, long offset, int length) throws IOException {
         try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
