@@ -7,6 +7,8 @@ target/
 *.log
 hs_err_pid*
 replay_pid*
+# maven-shade-plugin output (generated each build)
+dependency-reduced-pom.xml
 
 # Maven wrapper
 !.mvn/wrapper/maven-wrapper.jar

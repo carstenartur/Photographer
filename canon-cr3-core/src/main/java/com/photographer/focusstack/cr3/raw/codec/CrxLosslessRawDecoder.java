@@ -311,12 +311,6 @@ public final class CrxLosslessRawDecoder {
     private record ParsedCrx(byte[] data, CrxHeader header) {}
 
     /**
-     * Decodes a single plane using adaptive Rice-Golomb coding with MED prediction.
-     *
-     * <p>This implements the JPEG-LS-style prediction and entropy decoding that
-     * CRX lossless uses. The algorithm is based on the published ITU T.87 standard.</p>
-     */
-    /**
      * Validates a single plane's subband range and decodes it into the shared
      * {@code planes} grid. Extracted from {@link #decode} so it can be invoked
      * from a {@code parallelStream} over the planes of a tile — each plane
@@ -393,6 +387,12 @@ public final class CrxLosslessRawDecoder {
         }
     }
 
+    /**
+     * Decodes a single plane using adaptive Rice-Golomb coding with MED prediction.
+     *
+     * <p>This implements the JPEG-LS-style prediction and entropy decoding that
+     * CRX lossless uses. The algorithm is based on the published ITU T.87 standard.</p>
+     */
     private static int[] decodePlane(byte[] data, int offset, int endOffset,
                                       int width, int height, int bitDepth)
             throws IOException {
