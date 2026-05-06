@@ -128,6 +128,8 @@ Default credentials:
 - Username: `admin`
 - Password: value of `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in `.env` (default: `focusstack`)
 
+> **Security:** Change `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` to a strong, unique password before deploying to any non-local environment.
+
 Optional demo seed:
 
 ```bash
@@ -199,6 +201,8 @@ Key environment variables (see `.env.example` for defaults):
 | `FOCUSSTACK_CAMERA_CCAPI_BASE_URL` | Canon CCAPI base URL | `http://192.168.1.2:8080` |
 | `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` |
 | `GEMINI_API_KEY` | Google Gemini API key for AI vision | _(empty)_ |
+
+> **Security:** Never commit API keys or passwords to version control. Use environment variables, a secrets manager, or a `.env` file that is listed in `.gitignore`.
 | `OBSERVER_AI_PROVIDER` | Active AI provider (`gemini` or `mock`) | `mock` |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile (`docker`, `dev`, `postgres`) | `default` |
 

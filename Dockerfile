@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.m2 \
           -Dmaven.wagon.http.retryHandler.count=5 \
           -Daether.connector.http.retryHandler.count=5 \
           -Dmaven.wagon.http.pool=true \
-      && break || { echo "Attempt $i failed, retrying in 15s..."; sleep 15; }; \
+      && break || { [ "$i" -lt 3 ] && echo "Attempt $i failed, retrying in 15s..." && sleep 15 || exit 1; }; \
     done
 
 # Copy source code
