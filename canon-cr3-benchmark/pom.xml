@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.3-SNAPSHOT</version>
+        <version>0.1.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>canon-cr3-benchmark</artifactId>
-    <version>0.1.3-SNAPSHOT</version>
+    <version>0.1.3</version>
 
     <name>Canon CR3 - JMH Benchmarks</name>
     <description>JMH benchmarks for the Canon CR3 parser, metadata reader, preview extractor, and CRX RAW decoder.

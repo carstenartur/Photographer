@@ -13,7 +13,7 @@
 
     <groupId>com.photographer.focusstack</groupId>
     <artifactId>canon-focus-stack-parent</artifactId>
-    <version>0.1.3-SNAPSHOT</version>
+    <version>0.1.3</version>
     <packaging>pom</packaging>
 
     <name>Focus Stack - Parent</name>
