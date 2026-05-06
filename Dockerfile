@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # Stage 1: Build — Maven (frontend-maven-plugin manages its own Node for React build)
 FROM maven:3.9-eclipse-temurin-25 AS build
 
@@ -25,8 +26,17 @@ COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
 COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
 
-# Download dependencies
-RUN mvn -B dependency:go-offline -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -DskipITs=true
+# Download dependencies — retry up to 3 times to handle transient Maven Central failures
+RUN --mount=type=cache,target=/root/.m2 \
+    for i in 1 2 3; do \
+      mvn -B dependency:go-offline \
+          -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am \
+          -DskipITs=true \
+          -Dmaven.wagon.http.retryHandler.count=5 \
+          -Daether.connector.http.retryHandler.count=5 \
+          -Dmaven.wagon.http.pool=true \
+      && break || { echo "Attempt $i failed, retrying in 15s..."; sleep 15; }; \
+    done
 
 # Copy source code
 COPY common-api/src common-api/src
@@ -49,9 +59,13 @@ COPY frontend-web/ frontend-web/
 COPY app/src app/src
 
 # Build: compile all modules, build frontend, compile app, copy frontend into static/
-RUN mvn -B clean package -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
-    -DskipTests -DskipITs=true \
-    -Djava.awt.headless=true
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B clean package \
+        -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
+        -DskipTests -DskipITs=true \
+        -Djava.awt.headless=true \
+        -Dmaven.wagon.http.retryHandler.count=5 \
+        -Daether.connector.http.retryHandler.count=5
 
 # Stage 2: Runtime — slim JRE with fonts for ImageJ headless mode
 FROM eclipse-temurin:25-jre-alpine
