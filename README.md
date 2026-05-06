@@ -60,7 +60,7 @@ graph TD
     subgraph Camera Backends
         PTP["camera-ptp"]
         CCAPI["Canon CCAPI"]
-        MOCK["mock-camera"]
+        MOCK["Mock camera backend<br/>(built-in, no hardware needed)"]
     end
 
     subgraph CR3 Stack
@@ -161,11 +161,13 @@ npm run dev
 
 ## Build & Test
 
-Backend full verify (unit + integration tests — same command used by CI):
+Backend full verify (unit + integration tests):
 
 ```bash
 mvn -B clean verify -Djava.awt.headless=true
 ```
+
+This builds the full multi-module reactor. The CI workflow uses an equivalent `-pl <module list> -am` form; both produce the same result.
 
 To skip integration tests for faster feedback:
 
@@ -188,23 +190,23 @@ npm run build
 
 Key environment variables (see `.env.example` for defaults):
 
-| Variable | Description | Default |
-|---|---|---|
-| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password | `focusstack` |
-| `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL | `jdbc:postgresql://postgres:5432/focusstack` |
-| `SPRING_DATASOURCE_USERNAME` | Database username | `focusstack` |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | `focusstack` |
-| `POSTGRES_DB` | PostgreSQL database name (docker-compose) | `focusstack` |
-| `POSTGRES_USER` | PostgreSQL user (docker-compose) | `focusstack` |
-| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | `focusstack` |
-| `CAMERA_MOCK_ENABLED` | Enable mock camera backend | `false` |
-| `FOCUSSTACK_CAMERA_CCAPI_BASE_URL` | Canon CCAPI base URL | `http://192.168.1.2:8080` |
-| `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` |
-| `GEMINI_API_KEY` | Google Gemini API key for AI vision | _(empty)_ |
-
 > **Security:** Never commit API keys or passwords to version control. Use environment variables, a secrets manager, or a `.env` file that is listed in `.gitignore`.
-| `OBSERVER_AI_PROVIDER` | Active AI provider (`gemini` or `mock`) | `mock` |
-| `SPRING_PROFILES_ACTIVE` | Active Spring profile (`docker`, `dev`, `postgres`) | `default` |
+
+| Variable | Description | Default (Docker) | Default (local) |
+|---|---|---|---|
+| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password | `focusstack` | `focusstack` |
+| `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL | `jdbc:postgresql://postgres:5432/focusstack` | H2 in-memory |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `focusstack` | — |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | `focusstack` | — |
+| `POSTGRES_DB` | PostgreSQL database name (docker-compose) | `focusstack` | — |
+| `POSTGRES_USER` | PostgreSQL user (docker-compose) | `focusstack` | — |
+| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | `focusstack` | — |
+| `CAMERA_MOCK_ENABLED` | Enable mock camera backend | `true` | `false` |
+| `FOCUSSTACK_CAMERA_CCAPI_BASE_URL` | Canon CCAPI base URL | `http://192.168.1.2:8080` | `http://192.168.1.2:8080` |
+| `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` | `./plugins` |
+| `GEMINI_API_KEY` | Google Gemini API key for AI vision | _(empty)_ | _(empty)_ |
+| `OBSERVER_AI_PROVIDER` | Active AI provider (`gemini` or `mock`) | `mock` | `mock` |
+| `SPRING_PROFILES_ACTIVE` | Active Spring profile | `docker` | `default` |
 
 ## Plugins
 

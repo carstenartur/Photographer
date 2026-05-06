@@ -1,4 +1,7 @@
 # syntax=docker/dockerfile:1.7
+# NOTE: This Dockerfile uses BuildKit cache mounts (RUN --mount=type=cache).
+# BuildKit is the default builder in Docker 23.0+ and is always used by docker buildx.
+# If using an older Docker CLI, set DOCKER_BUILDKIT=1 before running docker build.
 # Stage 1: Build — Maven (frontend-maven-plugin manages its own Node for React build)
 FROM maven:3.9-eclipse-temurin-25 AS build
 
@@ -30,7 +33,7 @@ COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
 RUN --mount=type=cache,target=/root/.m2 \
     for i in 1 2 3; do \
       mvn -B dependency:go-offline \
-          -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am \
+          -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
           -DskipITs=true \
           -Dmaven.wagon.http.retryHandler.count=5 \
           -Daether.connector.http.retryHandler.count=5 \
