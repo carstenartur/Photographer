@@ -6,6 +6,10 @@ camera:
 focusstack:
   storage:
     images-dir: ${java.io.tmpdir}/focusstack-test-images
+  security:
+    # Non-default value required by AdminPasswordStartupValidator; used by IT
+    # tests via TestRestTemplate#withBasicAuth.
+    admin-password: TestAdminPassword!42
 
 # Use in-memory Lucene indexes in tests to avoid file-system write.lock
 # contention between Spring contexts that run in the same JVM

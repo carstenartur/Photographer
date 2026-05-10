@@ -128,6 +128,22 @@ class BayerDemosaicerTest {
         }
 
         @Test
+        void demosaicSnapshotIsByteIdenticalForUniformInput() {
+            int[] data = {8192, 8192, 8192, 8192};
+            Cr3RawImage raw = new Cr3RawImage(2, 2, data, 14, Cr3RawImage.BayerPattern.RGGB);
+            BufferedImage result = BayerDemosaicer.demosaic(raw);
+
+            int[] actual = {
+                    result.getRGB(0, 0) & 0xFFFFFF,
+                    result.getRGB(1, 0) & 0xFFFFFF,
+                    result.getRGB(0, 1) & 0xFFFFFF,
+                    result.getRGB(1, 1) & 0xFFFFFF
+            };
+            int[] expected = {0x7F7F7F, 0x7F7F7F, 0x7F7F7F, 0x7F7F7F};
+            assertArrayEquals(expected, actual);
+        }
+
+        @Test
         void demosaicNormalized() {
             Cr3RawImage raw = createSyntheticRGGBImage(10, 10);
             BufferedImage result = BayerDemosaicer.demosaicNormalized(raw);

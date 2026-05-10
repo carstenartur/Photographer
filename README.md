@@ -126,9 +126,9 @@ Open: http://localhost:8080
 Default credentials:
 
 - Username: `admin`
-- Password: value of `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in `.env` (default: `focusstack`)
+- Password: value of `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in `.env` (**required**)
 
-> **Security:** Change `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` to a strong, unique password before deploying to any non-local environment.
+> **Security:** `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` is mandatory at startup and must not be blank or a known default (`focusstack` / `changeme`).
 
 Optional demo seed:
 
@@ -194,7 +194,7 @@ Key environment variables (see `.env.example` for defaults):
 
 | Variable | Description | Default (Docker) | Default (local) |
 |---|---|---|---|
-| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password | `focusstack` | `focusstack` |
+| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password (required; must not be `focusstack`/`changeme`) | _(required)_ | _(required)_ |
 | `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL | `jdbc:postgresql://postgres:5432/focusstack` | H2 in-memory |
 | `SPRING_DATASOURCE_USERNAME` | Database username | `focusstack` | — |
 | `SPRING_DATASOURCE_PASSWORD` | Database password | `focusstack` | — |
@@ -264,4 +264,3 @@ Contributions are welcome. Please open an issue or pull request on GitHub. There
 ## License
 
 MIT — see [LICENSE](LICENSE).
-

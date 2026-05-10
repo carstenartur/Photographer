@@ -34,7 +34,7 @@ class HibernateSearchIT extends AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void setUp() {
-        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+        restTemplate = restTemplate.withBasicAuth("admin", "TestAdminPassword!42");
         cameraProfileRepository.deleteAll();
     }
 

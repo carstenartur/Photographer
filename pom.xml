@@ -48,6 +48,7 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <springdoc.version>3.0.3</springdoc.version>
         <imagej.version>1.54j</imagej.version>
+        <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.14</jacoco.version>
         <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
         <argLine/>
@@ -92,6 +93,11 @@
                 <artifactId>ij</artifactId>
                 <version>${imagej.version}</version>
             </dependency>
+            <dependency>
+                <groupId>info.picocli</groupId>
+                <artifactId>picocli</artifactId>
+                <version>${picocli.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -127,6 +133,7 @@
             <id>benchmarks</id>
             <modules>
                 <module>canon-cr3-benchmark</module>
+                <module>astro-core-benchmark</module>
             </modules>
         </profile>
     </profiles>

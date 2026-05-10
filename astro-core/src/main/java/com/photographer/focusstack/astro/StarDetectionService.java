@@ -84,14 +84,13 @@ public class StarDetectionService {
 
     private double[] toLuminance(BufferedImage image, int w, int h) {
         double[] lum = new double[w * h];
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int rgb = image.getRGB(x, y);
-                int r = (rgb >> 16) & 0xFF;
-                int g = (rgb >> 8) & 0xFF;
-                int b = rgb & 0xFF;
-                lum[y * w + x] = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
-            }
+        int[] pixels = Pixels.intBufferOf(image);
+        for (int i = 0; i < pixels.length; i++) {
+            int rgb = pixels[i];
+            int r = (rgb >> 16) & 0xFF;
+            int g = (rgb >> 8) & 0xFF;
+            int b = rgb & 0xFF;
+            lum[i] = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
         }
         return lum;
     }

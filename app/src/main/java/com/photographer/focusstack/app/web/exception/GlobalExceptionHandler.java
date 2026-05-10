@@ -1,5 +1,7 @@
-package com.photographer.focusstack.camera.exception;
+package com.photographer.focusstack.app.web.exception;
 
+import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.camera.exception.CameraNotFoundException;
 import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.session.SessionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
