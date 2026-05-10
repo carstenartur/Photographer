@@ -13,10 +13,14 @@ public enum DeletePolicy {
     NEVER,
     /** Mark for deletion but require an explicit user confirmation. */
     MANUAL_CONFIRM,
-    /** Delete automatically after a verified successful import. */
+    /**
+     * Delete automatically after a successful download, regardless of
+     * whether verification (size match / checksum) was requested or passed.
+     * Use {@link #AUTO_IF_VERIFIED} for the safer variant.
+     */
     AUTO_AFTER_IMPORT,
-    /** Auto-delete JPEG/HEIF only; keep RAW masters on the card. */
+    /** Auto-delete JPEG/HEIF only; keep RAW masters on the card. Requires verification to pass. */
     AUTO_JPEG_ONLY,
-    /** Like {@link #AUTO_AFTER_IMPORT} but only when verification passed. */
+    /** Auto-delete only when the import succeeded <em>and</em> the verification checks passed. */
     AUTO_IF_VERIFIED
 }

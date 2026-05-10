@@ -14,9 +14,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -74,6 +76,8 @@ public class MediaIngestService {
                                     Consumer<CameraEvent> eventSink) {
         if (!policy.acceptsType(item.mediaType())) {
             log.debug("ingest: skipping {} (type {} not in policy)", item.filename(), item.mediaType());
+            eventSink.accept(new CameraEvent.ImportSkipped(
+                    connection.cameraId(), Instant.now(), item, "type-not-in-policy"));
             return TransferResult.failed(item, "skipped-by-policy");
         }
 
@@ -102,10 +106,19 @@ public class MediaIngestService {
             return result;
         }
 
-        boolean verified = isVerified(result, policy, target);
+        // ---- verification ----------------------------------------------------
+        // Order matters: compute the checksum FIRST (when the policy asks for it),
+        // then derive the verified flag from size + checksum results. The previous
+        // implementation gated checksum computation on `verified`, which made the
+        // digest almost never run.
+        String computedChecksum = policy.verifyChecksum() ? sha256(target) : null;
+        boolean sizeOk     = checkSize(result, target, policy);
+        boolean checksumOk = checkChecksum(updated, computedChecksum, policy);
+        boolean verified   = sizeOk && checksumOk;
+
         MediaItem finalItem = updated
                 .withTransferState(verified ? TransferState.VERIFIED : TransferState.DOWNLOADED)
-                .withChecksum(verified && policy.verifyChecksum() ? sha256(target) : updated.checksum());
+                .withChecksum(computedChecksum != null ? computedChecksum : updated.checksum());
         repository.save(finalItem);
 
         eventSink.accept(new CameraEvent.ImportCompleted(
@@ -145,14 +158,29 @@ public class MediaIngestService {
         };
     }
 
-    private static boolean isVerified(TransferResult result, IngestPolicy policy, Path target) {
-        if (!result.success()) return false;
-        if (policy.requireSizeMatch() && result.item().size() >= 0) {
-            long onDisk;
-            try { onDisk = Files.size(target); } catch (IOException e) { return false; }
-            if (onDisk != result.item().size()) return false;
-        }
-        return result.verified() || !policy.verifyChecksum();
+    /** Returns {@code true} when the size check is either disabled or passes. */
+    private static boolean checkSize(TransferResult result, Path target, IngestPolicy policy) {
+        if (!policy.requireSizeMatch()) return true;
+        long expected = result.item().size();
+        if (expected < 0) return true; // size unknown -> cannot enforce, treat as pass
+        long onDisk;
+        try { onDisk = Files.size(target); } catch (IOException e) { return false; }
+        return onDisk == expected;
+    }
+
+    /**
+     * Returns {@code true} when the checksum check is satisfied. Two modes:
+     * <ul>
+     *   <li>{@code verifyChecksum=false}: always pass (no digest required).</li>
+     *   <li>{@code verifyChecksum=true}: a digest must have been computed; if the
+     *       item carries an expected checksum it must additionally match.</li>
+     * </ul>
+     */
+    private static boolean checkChecksum(MediaItem item, String computed, IngestPolicy policy) {
+        if (!policy.verifyChecksum()) return true;
+        if (computed == null) return false;
+        String expected = item.checksum();
+        return expected == null || expected.equalsIgnoreCase(computed);
     }
 
     private static String safeRelative(MediaItem item) {
@@ -162,10 +190,17 @@ public class MediaIngestService {
         return storage + "/" + dir + "/" + file;
     }
 
+    /** Streaming SHA-256 — does not load the file into memory. */
     private static String sha256(Path path) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(Files.readAllBytes(path));
+            try (InputStream in = Files.newInputStream(path);
+                 DigestInputStream dis = new DigestInputStream(in, md)) {
+                byte[] buf = new byte[8192];
+                while (dis.read(buf) != -1) {
+                    // DigestInputStream updates the digest as bytes are consumed
+                }
+            }
             return HexFormat.of().formatHex(md.digest());
         } catch (NoSuchAlgorithmException | IOException e) {
             log.warn("sha256 failed for {}: {}", path, e.toString());

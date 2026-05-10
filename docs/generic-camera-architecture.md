@@ -77,9 +77,10 @@ code branches on CCAPI keys or PTP opcodes.
 | `AUTO_JPEG_ONLY`       | as `AUTO_IF_VERIFIED`, restricted to JPEG/HEIF |
 
 Verification means: byte count on disk matches the camera-reported size
-*and*, if `IngestPolicy.verifyChecksum` is on, a SHA-256 has been computed.
-Every decision is emitted as a `CameraEvent.ImportCompleted` /
-`CameraEvent.DeleteCompleted` for audit logging — no silent data loss.
+*and*, if `IngestPolicy.verifyChecksum` is on, a SHA-256 has been computed
+(and matches the item-supplied digest, when one is present). Every decision
+is emitted as a `CameraEvent.ImportSkipped` / `ImportCompleted` /
+`DeleteCompleted` for audit logging — no silent data loss.
 
 ## Migration plan
 

@@ -116,6 +116,49 @@ class MediaIngestServiceTest {
         assertThat(results.get(0).success()).isFalse();
         assertThat(results.get(0).errorMessage()).isEqualTo("skipped-by-policy");
         assertThat(deleteCalled).isFalse();
+        assertThat(events).anyMatch(e -> e instanceof CameraEvent.ImportSkipped s
+                && "type-not-in-policy".equals(s.reason())
+                && "5".equals(s.item().id()));
+    }
+
+    @Test
+    void verifyChecksum_computesDigest_andDeletesUnderAutoIfVerified() {
+        AtomicBoolean deleteCalled = new AtomicBoolean(false);
+        MediaItem item = jpegItem("7", "IMG_0007.JPG", 4);
+        FakeBackend backend = new FakeBackend(List.of(item), 4, deleteCalled, true);
+
+        var svc = new MediaIngestService(backend, repo, tmp);
+        svc.ingest(connection(),
+                new IngestPolicy(/* verifyChecksum */ true, /* requireSizeMatch */ true,
+                        Set.of(), DeletePolicy.AUTO_IF_VERIFIED),
+                events::add);
+
+        // SHA-256 of four 0x42 bytes ("BBBB"):
+        String expected = "4a8d8134f29b0b7b60c126f5532bc9f5d9bb73037373cf6fb872d81f1dcefdfd";
+        assertThat(repo.findById("7")).get()
+                .extracting(MediaItem::checksum).asString().isEqualToIgnoringCase(expected);
+        assertThat(deleteCalled).isTrue();
+        assertThat(repo.findById("7")).get()
+                .extracting(MediaItem::transferState).isEqualTo(TransferState.VERIFIED);
+    }
+
+    @Test
+    void verifyChecksum_mismatchAgainstExpected_blocksDelete() {
+        AtomicBoolean deleteCalled = new AtomicBoolean(false);
+        // Item carries a deliberately wrong expected checksum -> verification must fail.
+        MediaItem item = jpegItem("8", "IMG_0008.JPG", 4)
+                .withChecksum("deadbeef");
+        FakeBackend backend = new FakeBackend(List.of(item), 4, deleteCalled, true);
+
+        var svc = new MediaIngestService(backend, repo, tmp);
+        svc.ingest(connection(),
+                new IngestPolicy(true, true, Set.of(), DeletePolicy.AUTO_IF_VERIFIED),
+                events::add);
+
+        assertThat(deleteCalled).isFalse();
+        assertThat(repo.findById("8")).get()
+                .extracting(MediaItem::transferState).isEqualTo(TransferState.DOWNLOADED);
+        assertThat(events).anyMatch(e -> e instanceof CameraEvent.ImportCompleted ic && !ic.verified());
     }
 
     @Test

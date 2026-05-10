@@ -9,8 +9,8 @@ import com.photographer.focusstack.common.device.DeviceInfo;
  * workflow code (capture, ingest, AI) can take a single handle and stop
  * worrying about backend specifics.
  *
- * <p>Intentionally minimal — see {@code CameraSessions} (in {@code app}) for
- * the default implementation that wires this together.
+ * <p>Intentionally minimal — see {@code DefaultCameraSession} (in {@code app})
+ * for the default implementation that wires this together.
  */
 public interface CameraSession extends AutoCloseable {
 

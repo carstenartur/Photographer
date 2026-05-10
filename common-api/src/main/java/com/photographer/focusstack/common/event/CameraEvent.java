@@ -26,6 +26,7 @@ public sealed interface CameraEvent {
     record StorageChanged(String cameraId, Instant timestamp)                           implements CameraEvent {}
     record NewMediaDetected(String cameraId, Instant timestamp, MediaItem item)         implements CameraEvent {}
     record CaptureCompleted(String cameraId, Instant timestamp, String captureId)       implements CameraEvent {}
+    record ImportSkipped(String cameraId, Instant timestamp, MediaItem item, String reason) implements CameraEvent {}
     record ImportCompleted(String cameraId, Instant timestamp, MediaItem item, boolean verified) implements CameraEvent {}
     record DeleteCompleted(String cameraId, Instant timestamp, MediaItem item, boolean success)   implements CameraEvent {}
     record BatteryCritical(String cameraId, Instant timestamp, int percent)             implements CameraEvent {}

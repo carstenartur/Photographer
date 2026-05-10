@@ -11,7 +11,11 @@ import java.nio.file.Path;
  * checked against the camera-reported size (and, when available, a checksum).
  * The auto-delete workflow refuses to delete unless this flag is set.
  *
- * <p>{@link #localPath()} is {@code null} on failure.
+ * <p>{@link #localPath()} is {@code null} on failure and may also be
+ * {@code null} for backends that stream bytes to a caller-supplied sink
+ * without materialising a file path themselves; callers that need the
+ * on-disk path should rely on the {@code Path} they handed to
+ * {@code downloadMedia(...)}.
  */
 public record TransferResult(
         @JsonProperty("item") MediaItem item,
