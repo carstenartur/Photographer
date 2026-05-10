@@ -51,15 +51,14 @@ public final class SrgbConverter {
 
         int w = image.getWidth();
         int h = image.getHeight();
+        int[] pixels = Pixels.intBufferOf(image);
 
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int rgb = image.getRGB(x, y);
-                int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
-                int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
-                int b = GAMMA_LUT[rgb & 0xFF];
-                image.setRGB(x, y, (r << 16) | (g << 8) | b);
-            }
+        for (int i = 0; i < w * h; i++) {
+            int rgb = pixels[i];
+            int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
+            int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
+            int b = GAMMA_LUT[rgb & 0xFF];
+            pixels[i] = (r << 16) | (g << 8) | b;
         }
     }
 

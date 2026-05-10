@@ -49,7 +49,10 @@ analysis:
 focusstack:
   security:
     # Change this via environment variable FOCUSSTACK_SECURITY_ADMIN_PASSWORD in production
-    admin-password: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:focusstack}
+    admin-password: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:}
+  cache:
+    frame-store:
+      max-bytes: ${FOCUSSTACK_CACHE_FRAME_STORE_MAX_BYTES:1073741824}
   storage:
     images-dir: ${FOCUSSTACK_STORAGE_IMAGES_DIR:./data/images}
     search-index-dir: ${FOCUSSTACK_STORAGE_SEARCH_INDEX_DIR:./data/search-index}

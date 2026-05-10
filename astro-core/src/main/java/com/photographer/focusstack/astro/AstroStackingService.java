@@ -4,6 +4,7 @@ import com.photographer.focusstack.common.model.FrameTransform;
 
 import java.awt.image.BufferedImage;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * Stacks registered astronomical frames into a final image.
@@ -39,11 +40,14 @@ public class AstroStackingService {
 
         for (FrameInput frame : frames) {
             BufferedImage img = frame.image();
+            int imgWidth = img.getWidth();
+            int[] pixels = Pixels.intBufferOf(img);
             FrameTransform t = frame.transform();
             double tx = t.translationX();
             double ty = t.translationY();
 
             for (int y = 0; y < img.getHeight(); y++) {
+                int rowOffset = y * imgWidth;
                 for (int x = 0; x < img.getWidth(); x++) {
                     // Transform: map frame pixel to reference coordinates
                     int refX = (int) Math.round(x + tx);
@@ -51,7 +55,7 @@ public class AstroStackingService {
 
                     if (refX < 0 || refX >= width || refY < 0 || refY >= height) continue;
 
-                    int rgb = img.getRGB(x, y);
+                    int rgb = pixels[rowOffset + x];
                     int idx = refY * width + refX;
                     sumR[idx] += (rgb >> 16) & 0xFF;
                     sumG[idx] += (rgb >> 8) & 0xFF;
@@ -63,13 +67,20 @@ public class AstroStackingService {
 
         // Compute mean
         BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        for (int i = 0; i < size; i++) {
-            if (count[i] == 0) continue;
-            int r = Math.min(255, (int) (sumR[i] / count[i]));
-            int g = Math.min(255, (int) (sumG[i] / count[i]));
-            int b = Math.min(255, (int) (sumB[i] / count[i]));
-            result.setRGB(i % width, i / width, (r << 16) | (g << 8) | b);
-        }
+        int[] resultPixels = Pixels.intBufferOf(result);
+        IntStream.range(0, height).parallel().forEach(y -> {
+            int rowOffset = y * width;
+            for (int x = 0; x < width; x++) {
+                int idx = rowOffset + x;
+                if (count[idx] == 0) {
+                    continue;
+                }
+                int r = Math.min(255, (int) (sumR[idx] / count[idx]));
+                int g = Math.min(255, (int) (sumG[idx] / count[idx]));
+                int b = Math.min(255, (int) (sumB[idx] / count[idx]));
+                resultPixels[idx] = (r << 16) | (g << 8) | b;
+            }
+        });
         return result;
     }
 }

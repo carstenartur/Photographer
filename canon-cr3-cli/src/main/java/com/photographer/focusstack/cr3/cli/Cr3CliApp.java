@@ -12,16 +12,24 @@ import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
 import com.photographer.focusstack.cr3.research.SubbandStatistics;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
+import picocli.CommandLine.Model.CommandSpec;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 /**
  * Command-line debug tool for Canon CR3 files.
@@ -34,11 +42,28 @@ import java.util.List;
  * java -jar canon-cr3-cli.jar thumb   &lt;file.cr3&gt; [output.jpg]
  * </pre>
  */
-public final class Cr3CliApp {
+@Command(
+        name = "cr3-cli",
+        mixinStandardHelpOptions = true,
+        version = "cr3-cli 0.1.4-SNAPSHOT",
+        exitCodeOnInvalidInput = 1,
+        description = {
+                "Command-line debug tool for Canon CR3 files.",
+                "Exit codes: 0=success, 1=usage error, 2=file-not-found, 3=decode/runtime error."
+        })
+public final class Cr3CliApp implements Callable<Integer> {
 
-    private Cr3CliApp() {
-        // main class
-    }
+    @Spec
+    private CommandSpec commandSpec;
+
+    @Parameters(index = "0", description = "Command name")
+    private String command;
+
+    @Parameters(index = "1", description = "Input CR3 file path or --bits sentinel for subband-stats")
+    private String filePath;
+
+    @Parameters(index = "2..*", arity = "0..*", description = "Additional command arguments")
+    private List<String> extraArgs = new ArrayList<>();
 
     /**
      * Main entry point.
@@ -46,38 +71,55 @@ public final class Cr3CliApp {
      * @param args command-line arguments
      */
     public static void main(String[] args) {
-        if (args.length < 2) {
-            printUsage();
-            System.exit(1);
-        }
+        int exitCode = new CommandLine(new Cr3CliApp()).execute(args);
+        System.exit(exitCode);
+    }
 
-        String command = args[0];
-        String filePath = args[1];
-
+    @Override
+    public Integer call() {
         try {
-            switch (command) {
-                case "info" -> showInfo(filePath);
-                case "boxes" -> showBoxes(filePath);
-                case "dump-box-tree" -> dumpBoxTree(filePath);
-                case "dump-metadata" -> dumpMetadata(filePath);
-                case "dump-crop" -> dumpCrop(filePath);
-                case "dump-raw-layout" -> dumpRawLayout(filePath);
-                case "list-subbands" -> listSubbands(filePath);
-                case "dump-subband" -> dumpSubband(filePath, args);
-                case "subband-stats" -> subbandStats(filePath, args);
-                case "preview" -> extractPreview(filePath, args.length > 2 ? args[2] : "preview.jpg");
-                case "thumb" -> extractThumbnail(filePath, args.length > 2 ? args[2] : "thumbnail.jpg");
-                default -> {
-                    System.err.println("Unknown command: " + command);
-                    printUsage();
-                    System.exit(1);
-                }
-            }
+            return runCommand();
+        } catch (CommandLine.ParameterException e) {
+            throw e;
+        } catch (FileNotFoundException e) {
+            System.err.println("File not found: " + e.getMessage());
+            return 2;
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(2);
+            return 3;
         }
+    }
+
+    private int runCommand() throws Exception {
+        if (!"subband-stats".equals(command) || !"--bits".equals(filePath)) {
+            Path inputPath = Path.of(filePath);
+            if (!Files.exists(inputPath)) {
+                throw new FileNotFoundException(filePath);
+            }
+        }
+
+        String[] fullArgs = new String[2 + extraArgs.size()];
+        fullArgs[0] = command;
+        fullArgs[1] = filePath;
+        for (int i = 0; i < extraArgs.size(); i++) {
+            fullArgs[2 + i] = extraArgs.get(i);
+        }
+
+        switch (command) {
+            case "info" -> showInfo(filePath);
+            case "boxes" -> showBoxes(filePath);
+            case "dump-box-tree" -> dumpBoxTree(filePath);
+            case "dump-metadata" -> dumpMetadata(filePath);
+            case "dump-crop" -> dumpCrop(filePath);
+            case "dump-raw-layout" -> dumpRawLayout(filePath);
+            case "list-subbands" -> listSubbands(filePath);
+            case "dump-subband" -> dumpSubband(filePath, fullArgs);
+            case "subband-stats" -> subbandStats(filePath, fullArgs);
+            case "preview" -> extractPreview(filePath, extraArgs.isEmpty() ? "preview.jpg" : extraArgs.getFirst());
+            case "thumb" -> extractThumbnail(filePath, extraArgs.isEmpty() ? "thumbnail.jpg" : extraArgs.getFirst());
+            default -> throw new CommandLine.ParameterException(commandSpec.commandLine(), "Unknown command: " + command);
+        }
+        return 0;
     }
 
     private static void showInfo(String filePath) throws Exception {
@@ -125,6 +167,9 @@ public final class Cr3CliApp {
      * Opens an ImageInputStream for the given file path, throwing if the file cannot be opened.
      */
     private static ImageInputStream openInput(String filePath) throws IOException {
+        if (!Files.exists(Path.of(filePath))) {
+            throw new FileNotFoundException(filePath);
+        }
         ImageInputStream input = ImageIO.createImageInputStream(new File(filePath));
         if (input == null) {
             throw new IOException("Cannot open file: " + filePath);
@@ -319,9 +364,8 @@ public final class Cr3CliApp {
      */
     static void dumpSubband(String filePath, String[] args) throws Exception {
         if (args.length < 3) {
-            System.err.println("Usage: cr3-cli dump-subband <file.cr3> <seq> [outBase]");
-            System.exit(1);
-            return;
+            throw new CommandLine.ParameterException(new CommandLine(new Cr3CliApp()),
+                    "Usage: cr3-cli dump-subband <file.cr3> <seq> [outBase]");
         }
         int seq = Integer.parseInt(args[2]);
         String outBase;
@@ -433,18 +477,16 @@ public final class Cr3CliApp {
         String label;
         if ("--bits".equals(filePath)) {
             if (args.length < 3) {
-                System.err.println("Usage: cr3-cli subband-stats --bits <file.bits>");
-                System.exit(1);
-                return;
+                throw new CommandLine.ParameterException(new CommandLine(new Cr3CliApp()),
+                        "Usage: cr3-cli subband-stats --bits <file.bits>");
             }
             String bitsFile = args[2];
             bytes = Files.readAllBytes(Path.of(bitsFile));
             label = bitsFile;
         } else {
             if (args.length < 3) {
-                System.err.println("Usage: cr3-cli subband-stats <file.cr3> <seq>");
-                System.exit(1);
-                return;
+                throw new CommandLine.ParameterException(new CommandLine(new Cr3CliApp()),
+                        "Usage: cr3-cli subband-stats <file.cr3> <seq>");
             }
             int seq = Integer.parseInt(args[2]);
             File cr3 = new File(filePath);
@@ -459,24 +501,5 @@ public final class Cr3CliApp {
         SubbandStatistics stats = SubbandStatistics.compute(bytes);
         System.out.println("=== Subband Statistics: " + label + " ===");
         System.out.print(stats.summary());
-    }
-
-    private static void printUsage() {
-        System.out.println("Canon CR3 Debug CLI");
-        System.out.println();
-        System.out.println("Usage:");
-        System.out.println("  cr3-cli info          <file.cr3>              Show file info and metadata");
-        System.out.println("  cr3-cli boxes         <file.cr3>              Dump box structure (CR3 only)");
-        System.out.println("  cr3-cli dump-box-tree <file.cr3>              Dump all ISO-BMFF boxes with offset/size");
-        System.out.println("  cr3-cli dump-metadata <file.cr3>              Dump extracted metadata (EXIF, MakerNote)");
-        System.out.println("  cr3-cli dump-crop     <file.cr3>              Dump sensor/crop geometry");
-        System.out.println("  cr3-cli dump-raw-layout <file.cr3>            Dump RAW data layout (tracks, codecs)");
-        System.out.println("  cr3-cli list-subbands   <file.cr3>            List CRX subbands in the RAW track (research)");
-        System.out.println("  cr3-cli dump-subband    <file.cr3> <seq> [outBase]");
-        System.out.println("                                                 Dump one CRX subband to <outBase>.bits + .meta.json");
-        System.out.println("  cr3-cli subband-stats   <file.cr3> <seq>      Print byte/bit statistics for one CRX subband");
-        System.out.println("  cr3-cli subband-stats   --bits <file.bits>   Print byte/bit statistics for a previously dumped .bits");
-        System.out.println("  cr3-cli preview       <file.cr3> [output.jpg] Extract JPEG preview");
-        System.out.println("  cr3-cli thumb         <file.cr3> [output.jpg] Extract JPEG thumbnail");
     }
 }

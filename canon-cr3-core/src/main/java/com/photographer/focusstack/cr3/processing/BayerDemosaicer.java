@@ -59,8 +59,10 @@ public final class BayerDemosaicer {
         int effectiveWhite = Math.max(1, whiteLevel);
 
         BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = Pixels.intBufferOf(output);
 
         for (int y = 0; y < h; y++) {
+            int rowOffset = y * w;
             for (int x = 0; x < w; x++) {
                 int[] rgb = interpolatePixel(rawImage, x, y);
 
@@ -68,7 +70,7 @@ public final class BayerDemosaicer {
                 int g = clamp8bit(rgb[1], effectiveWhite);
                 int b = clamp8bit(rgb[2], effectiveWhite);
 
-                output.setRGB(x, y, (r << 16) | (g << 8) | b);
+                pixels[rowOffset + x] = (r << 16) | (g << 8) | b;
             }
         }
 
@@ -95,8 +97,10 @@ public final class BayerDemosaicer {
         int maxVal = rawImage.maxValue();
 
         BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = Pixels.intBufferOf(output);
 
         for (int y = 0; y < h; y++) {
+            int rowOffset = y * w;
             for (int x = 0; x < w; x++) {
                 int[] rgb = interpolatePixel(rawImage, x, y);
 
@@ -105,7 +109,7 @@ public final class BayerDemosaicer {
                 int g = Math.min(255, Math.max(0, (int) ((long) rgb[1] * 255 / maxVal)));
                 int b = Math.min(255, Math.max(0, (int) ((long) rgb[2] * 255 / maxVal)));
 
-                output.setRGB(x, y, (r << 16) | (g << 8) | b);
+                pixels[rowOffset + x] = (r << 16) | (g << 8) | b;
             }
         }
 

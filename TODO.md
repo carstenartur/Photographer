@@ -73,7 +73,7 @@ analysis and PR reviews.
 
 ### P1 — Performance
 
-- [ ] **Replace `BufferedImage.getRGB`/`setRGB` with `DataBuffer` direct
+- [x] **Replace `BufferedImage.getRGB`/`setRGB` with `DataBuffer` direct
       access** in the hot paths:
       `astro-core/.../AstroStackingService`,
       `canon-cr3-imageio/.../BayerDemosaicer`,
@@ -86,7 +86,7 @@ analysis and PR reviews.
 - [ ] **Introduce `/api/v1/` REST versioning.**
       Coordinate with the `frontend-web` API client; current routes are
       unversioned. Frontend-breaking — bundle frontend changes in the same PR.
-- [ ] **Validate the default admin password at startup.**
+- [x] **Validate the default admin password at startup.**
       `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` defaults to `focusstack` in dev.
       Refuse to boot with the default value when the active profile is `prod`.
       Needs a security review before implementing.

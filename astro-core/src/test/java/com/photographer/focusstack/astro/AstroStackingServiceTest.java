@@ -59,4 +59,26 @@ class AstroStackingServiceTest {
     void throwsForEmptyList() {
         assertThrows(IllegalArgumentException.class, () -> service.stack(List.of(), 100, 100));
     }
+
+    @Test
+    void stackedPixelsMatchExpectedSnapshot() {
+        BufferedImage img = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+        img.setRGB(0, 0, 0x112233);
+        img.setRGB(1, 0, 0x445566);
+        img.setRGB(0, 1, 0x778899);
+        img.setRGB(1, 1, 0xAABBCC);
+
+        BufferedImage result = service.stack(
+                List.of(new AstroStackingService.FrameInput(img, FrameTransform.identity())),
+                2, 2);
+
+        int[] actual = {
+                result.getRGB(0, 0) & 0xFFFFFF,
+                result.getRGB(1, 0) & 0xFFFFFF,
+                result.getRGB(0, 1) & 0xFFFFFF,
+                result.getRGB(1, 1) & 0xFFFFFF
+        };
+        int[] expected = {0x112233, 0x445566, 0x778899, 0xAABBCC};
+        assertArrayEquals(expected, actual);
+    }
 }
