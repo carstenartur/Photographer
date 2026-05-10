@@ -30,7 +30,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-focusstack}
       FOCUSSTACK_SECURITY_ADMIN_PASSWORD: ${FOCUSSTACK_SECURITY_ADMIN_PASSWORD:?Set FOCUSSTACK_SECURITY_ADMIN_PASSWORD in .env}
       CAMERA_MOCK_ENABLED: ${CAMERA_MOCK_ENABLED:-true}
-      JAVA_TOOL_OPTIONS: "-Djava.awt.headless=true -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0 -XX:+UseG1GC"
+      # JVM tuning lives in the image ENTRYPOINT (see Dockerfile). Override
+      # JAVA_TOOL_OPTIONS only when a deploy needs to change those defaults.
     volumes:
       - image-storage:/app/images
       - search-index:/app/data/search-index
