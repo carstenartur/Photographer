@@ -59,6 +59,7 @@ public final class SrgbConverter {
                 pixels[i] = (r << 16) | (g << 8) | b;
             }
         } catch (IllegalArgumentException ex) {
+            LOG.debug("Falling back to getRGB/setRGB slow path for image type {}", image.getType());
             applySlowPath(image);
         }
     }
