@@ -81,6 +81,17 @@ class SrgbConverterTest {
             int[] expected = {0x0089BC, 0xFFBC89, 0x8900FF, 0xBCFF00};
             assertArrayEquals(expected, actual);
         }
+
+        @Test
+        void processUpdatesNonIntPackedImagesInPlace() {
+            BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_3BYTE_BGR);
+            image.setRGB(0, 0, (64 << 16) | (64 << 8) | 64);
+
+            SrgbConverter.process(image);
+
+            int rgb = image.getRGB(0, 0) & 0xFFFFFF;
+            assertEquals(0x898989, rgb);
+        }
     }
 
     @Nested

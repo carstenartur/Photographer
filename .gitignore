@@ -16,6 +16,7 @@ dependency-reduced-pom.xml
 
 ### Node.js / React ###
 node_modules/
+frontend-web/node/
 dist/
 build/
 .cache/

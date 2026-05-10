@@ -29,6 +29,13 @@ class Cr3CliPicocliTest {
     }
 
     @Test
+    void missingBitsFileExitsTwo() {
+        Path missing = tempDir.resolve("missing.bits");
+        int exitCode = new CommandLine(new Cr3CliApp()).execute("subband-stats", "--bits", missing.toString());
+        assertThat(exitCode).isEqualTo(2);
+    }
+
+    @Test
     void validInputExitsZero() throws Exception {
         Path sample = tempDir.resolve("sample.cr3");
         Files.write(sample, Cr3TestData.buildMinimalCr3WithJpeg());

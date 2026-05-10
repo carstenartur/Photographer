@@ -16,6 +16,7 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
+import picocli.CommandLine.Unmatched;
 import picocli.CommandLine.Model.CommandSpec;
 
 import javax.imageio.ImageIO;
@@ -65,6 +66,9 @@ public final class Cr3CliApp implements Callable<Integer> {
     @Parameters(index = "2..*", arity = "0..*", description = "Additional command arguments")
     private List<String> extraArgs = new ArrayList<>();
 
+    @Unmatched
+    private List<String> unmatched = new ArrayList<>();
+
     /**
      * Main entry point.
      *
@@ -91,18 +95,34 @@ public final class Cr3CliApp implements Callable<Integer> {
     }
 
     private int runCommand() throws Exception {
-        if (!"subband-stats".equals(command) || !"--bits".equals(filePath)) {
+        CommandLine parsedCommandLine = commandSpec.commandLine();
+        boolean bitsMode = "subband-stats".equals(command) && unmatched.contains("--bits");
+        if (bitsMode && (filePath == null || filePath.isBlank())) {
+            throw new CommandLine.ParameterException(parsedCommandLine,
+                    "Usage: cr3-cli subband-stats --bits <file.bits>");
+        }
+        if (!bitsMode) {
+            if (filePath == null || filePath.isBlank()) {
+                throw new CommandLine.ParameterException(parsedCommandLine, "Missing input file path");
+            }
             Path inputPath = Path.of(filePath);
             if (!Files.exists(inputPath)) {
                 throw new FileNotFoundException(filePath);
             }
         }
 
-        String[] fullArgs = new String[2 + extraArgs.size()];
+        List<String> mergedArgs = new ArrayList<>(extraArgs.size() + unmatched.size() + 1);
+        if (bitsMode) {
+            mergedArgs.add(filePath);
+        } else {
+            mergedArgs.addAll(extraArgs);
+            mergedArgs.addAll(unmatched);
+        }
+        String[] fullArgs = new String[2 + mergedArgs.size()];
         fullArgs[0] = command;
-        fullArgs[1] = filePath;
-        for (int i = 0; i < extraArgs.size(); i++) {
-            fullArgs[2 + i] = extraArgs.get(i);
+        fullArgs[1] = bitsMode ? "--bits" : filePath;
+        for (int i = 0; i < mergedArgs.size(); i++) {
+            fullArgs[2 + i] = mergedArgs.get(i);
         }
 
         switch (command) {
@@ -113,11 +133,11 @@ public final class Cr3CliApp implements Callable<Integer> {
             case "dump-crop" -> dumpCrop(filePath);
             case "dump-raw-layout" -> dumpRawLayout(filePath);
             case "list-subbands" -> listSubbands(filePath);
-            case "dump-subband" -> dumpSubband(filePath, fullArgs);
-            case "subband-stats" -> subbandStats(filePath, fullArgs);
+            case "dump-subband" -> dumpSubband(filePath, fullArgs, parsedCommandLine);
+            case "subband-stats" -> subbandStats(bitsMode ? "--bits" : filePath, fullArgs, parsedCommandLine);
             case "preview" -> extractPreview(filePath, extraArgs.isEmpty() ? "preview.jpg" : extraArgs.getFirst());
             case "thumb" -> extractThumbnail(filePath, extraArgs.isEmpty() ? "thumbnail.jpg" : extraArgs.getFirst());
-            default -> throw new CommandLine.ParameterException(commandSpec.commandLine(), "Unknown command: " + command);
+            default -> throw new CommandLine.ParameterException(parsedCommandLine, "Unknown command: " + command);
         }
         return 0;
     }
@@ -362,9 +382,9 @@ public final class Cr3CliApp implements Callable<Integer> {
      * @param args full argv
      * @throws Exception if the operation fails
      */
-    static void dumpSubband(String filePath, String[] args) throws Exception {
+    static void dumpSubband(String filePath, String[] args, CommandLine commandLine) throws Exception {
         if (args.length < 3) {
-            throw new CommandLine.ParameterException(new CommandLine(new Cr3CliApp()),
+            throw new CommandLine.ParameterException(commandLine,
                     "Usage: cr3-cli dump-subband <file.cr3> <seq> [outBase]");
         }
         int seq = Integer.parseInt(args[2]);
@@ -472,20 +492,23 @@ public final class Cr3CliApp implements Callable<Integer> {
      * @param args full argv
      * @throws Exception if the operation fails
      */
-    static void subbandStats(String filePath, String[] args) throws Exception {
+    static void subbandStats(String filePath, String[] args, CommandLine commandLine) throws Exception {
         byte[] bytes;
         String label;
         if ("--bits".equals(filePath)) {
             if (args.length < 3) {
-                throw new CommandLine.ParameterException(new CommandLine(new Cr3CliApp()),
+                throw new CommandLine.ParameterException(commandLine,
                         "Usage: cr3-cli subband-stats --bits <file.bits>");
             }
             String bitsFile = args[2];
+            if (!Files.exists(Path.of(bitsFile))) {
+                throw new FileNotFoundException(bitsFile);
+            }
             bytes = Files.readAllBytes(Path.of(bitsFile));
             label = bitsFile;
         } else {
             if (args.length < 3) {
-                throw new CommandLine.ParameterException(new CommandLine(new Cr3CliApp()),
+                throw new CommandLine.ParameterException(commandLine,
                         "Usage: cr3-cli subband-stats <file.cr3> <seq>");
             }
             int seq = Integer.parseInt(args[2]);
