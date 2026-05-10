@@ -31,7 +31,7 @@ class FaceOrbitIT extends AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void setUpAuth() {
-        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+        restTemplate = restTemplate.withBasicAuth("admin", "TestAdminPassword!42");
 
         // Create a mock camera profile so that capture-related tests can resolve
         // the camera backend via CameraBackendFactory (cameraProfileId must be set

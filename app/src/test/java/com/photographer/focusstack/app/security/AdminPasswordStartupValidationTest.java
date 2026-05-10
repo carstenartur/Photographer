@@ -30,8 +30,7 @@ class AdminPasswordStartupValidationTest {
         Throwable thrown = assertThatThrownBy(() -> {
             try (ConfigurableApplicationContext ignored = new SpringApplicationBuilder(FocusStackApplication.class)
                     .web(WebApplicationType.SERVLET)
-                    .properties("focusstack.security.admin-password=", "server.port=0")
-                    .run()) {
+                    .run("--focusstack.security.admin-password=", "--server.port=0")) {
                 // no-op
             }
         }).isInstanceOf(IllegalStateException.class).actual();
