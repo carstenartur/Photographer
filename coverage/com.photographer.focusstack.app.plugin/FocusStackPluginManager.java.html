@@ -159,7 +159,7 @@ public class FocusStackPluginManager implements Closeable {
 
     @Override
     public void close() {
-<span class="nc bnc" id="L162" title="All 2 branches missed.">        for (LoadedPlugin plugin : plugins.values()) {</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">        for (LoadedPlugin plugin : plugins.values()) {</span>
             try {
 <span class="nc" id="L164">                plugin.classLoader().close();</span>
 <span class="nc" id="L165">            } catch (IOException e) {</span>
@@ -167,8 +167,8 @@ public class FocusStackPluginManager implements Closeable {
 <span class="nc" id="L167">                        plugin.info().id(), e.getMessage());</span>
 <span class="nc" id="L168">            }</span>
 <span class="nc" id="L169">        }</span>
-<span class="nc" id="L170">        plugins.clear();</span>
-<span class="nc" id="L171">    }</span>
+<span class="fc" id="L170">        plugins.clear();</span>
+<span class="fc" id="L171">    }</span>
 
     private static PluginInfo readPluginInfo(Path jarPath) throws IOException {
 <span class="nc" id="L174">        try (JarFile jar = new JarFile(jarPath.toFile())) {</span>
