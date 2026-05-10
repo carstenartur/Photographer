@@ -460,74 +460,82 @@ public class ObserverController {
 <span class="nc bnc" id="L460" title="All 2 branches missed.">        String profile = body.containsKey(&quot;profileName&quot;)</span>
 <span class="nc" id="L461">                ? body.get(&quot;profileName&quot;).toString() : properties.getDefaultProfile();</span>
 
-<span class="nc" id="L463">        ReplayService.ReplayStatus status = replayService.startReplay(folderPath, speed, profile);</span>
-<span class="nc" id="L464">        Map&lt;String, Object&gt; result = new LinkedHashMap&lt;&gt;();</span>
-<span class="nc" id="L465">        result.put(&quot;sessionId&quot;, status.sessionId());</span>
-<span class="nc" id="L466">        result.put(&quot;folderPath&quot;, status.folderPath());</span>
-<span class="nc" id="L467">        result.put(&quot;profileName&quot;, status.profileName());</span>
-<span class="nc" id="L468">        result.put(&quot;speedMultiplier&quot;, status.speedMultiplier());</span>
-<span class="nc" id="L469">        result.put(&quot;state&quot;, status.state());</span>
-<span class="nc" id="L470">        result.put(&quot;framesProcessed&quot;, status.framesProcessed());</span>
-<span class="nc" id="L471">        result.put(&quot;nonEmptyFrames&quot;, status.nonEmptyFrames());</span>
-<span class="nc" id="L472">        return ResponseEntity.accepted().body(result);</span>
+        ReplayService.ReplayStatus status;
+        try {
+<span class="nc" id="L465">            status = replayService.startReplay(folderPath, speed, profile);</span>
+<span class="nc" id="L466">        } catch (java.util.concurrent.RejectedExecutionException rex) {</span>
+            // Replay pool + queue are saturated: signal back-pressure to the
+            // caller (HTTP 503) instead of blocking the request thread.
+<span class="nc" id="L469">            return ResponseEntity.status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)</span>
+<span class="nc" id="L470">                    .body(Map.of(&quot;error&quot;, &quot;replay queue saturated, retry later&quot;));</span>
+<span class="nc" id="L471">        }</span>
+<span class="nc" id="L472">        Map&lt;String, Object&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L473">        result.put(&quot;sessionId&quot;, status.sessionId());</span>
+<span class="nc" id="L474">        result.put(&quot;folderPath&quot;, status.folderPath());</span>
+<span class="nc" id="L475">        result.put(&quot;profileName&quot;, status.profileName());</span>
+<span class="nc" id="L476">        result.put(&quot;speedMultiplier&quot;, status.speedMultiplier());</span>
+<span class="nc" id="L477">        result.put(&quot;state&quot;, status.state());</span>
+<span class="nc" id="L478">        result.put(&quot;framesProcessed&quot;, status.framesProcessed());</span>
+<span class="nc" id="L479">        result.put(&quot;nonEmptyFrames&quot;, status.nonEmptyFrames());</span>
+<span class="nc" id="L480">        return ResponseEntity.accepted().body(result);</span>
     }
 
     // ---- helpers ----
 
     private ObserverProfile buildProfileFromMap(Map&lt;String, Object&gt; body) {
-<span class="nc" id="L478">        String name  = str(body, &quot;name&quot;, &quot;custom&quot;);</span>
-<span class="nc" id="L479">        String mode  = str(body, &quot;mode&quot;, &quot;wildlife&quot;);</span>
-<span class="nc" id="L480">        int previewIntervalMs   = intVal(body, &quot;previewIntervalMs&quot;, 500);</span>
-<span class="nc" id="L481">        double motionThreshold  = dblVal(body, &quot;motionThreshold&quot;, 0.15);</span>
-<span class="nc" id="L482">        double minObjectSize    = dblVal(body, &quot;minObjectSize&quot;, 0.05);</span>
-<span class="nc" id="L483">        int burstCount          = intVal(body, &quot;burstCount&quot;, 3);</span>
-<span class="nc" id="L484">        boolean focusBracketing = boolVal(body, &quot;focusBracketing&quot;, false);</span>
-<span class="nc" id="L485">        int focusBracketingSteps= intVal(body, &quot;focusBracketingSteps&quot;, 0);</span>
-<span class="nc" id="L486">        int cooldownSeconds     = intVal(body, &quot;cooldownSeconds&quot;, 30);</span>
-<span class="nc" id="L487">        String activeTimeStart  = str(body, &quot;activeTimeStart&quot;, &quot;06:00&quot;);</span>
-<span class="nc" id="L488">        String activeTimeEnd    = str(body, &quot;activeTimeEnd&quot;, &quot;21:00&quot;);</span>
-<span class="nc" id="L489">        int maxEventsPerHour    = intVal(body, &quot;maxEventsPerHour&quot;, 120);</span>
-<span class="nc" id="L490">        String aiPromptTemplate = str(body, &quot;aiPromptTemplate&quot;, null);</span>
-<span class="nc" id="L491">        String preferredAiProvider = str(body, &quot;preferredAiProvider&quot;, &quot;gemini&quot;);</span>
-<span class="nc" id="L492">        String focusMode        = str(body, &quot;focusMode&quot;, &quot;auto&quot;);</span>
-<span class="nc" id="L493">        String imageQuality     = str(body, &quot;imageQuality&quot;, &quot;jpeg&quot;);</span>
-<span class="nc" id="L494">        return new ObserverProfile(name, mode, previewIntervalMs, motionThreshold, minObjectSize,</span>
-<span class="nc" id="L495">                com.photographer.focusstack.observer.events.RegionOfInterest.fullFrame(),</span>
+<span class="nc" id="L486">        String name  = str(body, &quot;name&quot;, &quot;custom&quot;);</span>
+<span class="nc" id="L487">        String mode  = str(body, &quot;mode&quot;, &quot;wildlife&quot;);</span>
+<span class="nc" id="L488">        int previewIntervalMs   = intVal(body, &quot;previewIntervalMs&quot;, 500);</span>
+<span class="nc" id="L489">        double motionThreshold  = dblVal(body, &quot;motionThreshold&quot;, 0.15);</span>
+<span class="nc" id="L490">        double minObjectSize    = dblVal(body, &quot;minObjectSize&quot;, 0.05);</span>
+<span class="nc" id="L491">        int burstCount          = intVal(body, &quot;burstCount&quot;, 3);</span>
+<span class="nc" id="L492">        boolean focusBracketing = boolVal(body, &quot;focusBracketing&quot;, false);</span>
+<span class="nc" id="L493">        int focusBracketingSteps= intVal(body, &quot;focusBracketingSteps&quot;, 0);</span>
+<span class="nc" id="L494">        int cooldownSeconds     = intVal(body, &quot;cooldownSeconds&quot;, 30);</span>
+<span class="nc" id="L495">        String activeTimeStart  = str(body, &quot;activeTimeStart&quot;, &quot;06:00&quot;);</span>
+<span class="nc" id="L496">        String activeTimeEnd    = str(body, &quot;activeTimeEnd&quot;, &quot;21:00&quot;);</span>
+<span class="nc" id="L497">        int maxEventsPerHour    = intVal(body, &quot;maxEventsPerHour&quot;, 120);</span>
+<span class="nc" id="L498">        String aiPromptTemplate = str(body, &quot;aiPromptTemplate&quot;, null);</span>
+<span class="nc" id="L499">        String preferredAiProvider = str(body, &quot;preferredAiProvider&quot;, &quot;gemini&quot;);</span>
+<span class="nc" id="L500">        String focusMode        = str(body, &quot;focusMode&quot;, &quot;auto&quot;);</span>
+<span class="nc" id="L501">        String imageQuality     = str(body, &quot;imageQuality&quot;, &quot;jpeg&quot;);</span>
+<span class="nc" id="L502">        return new ObserverProfile(name, mode, previewIntervalMs, motionThreshold, minObjectSize,</span>
+<span class="nc" id="L503">                com.photographer.focusstack.observer.events.RegionOfInterest.fullFrame(),</span>
                 burstCount, focusBracketing, focusBracketingSteps, cooldownSeconds,
                 activeTimeStart, activeTimeEnd, maxEventsPerHour,
                 aiPromptTemplate, preferredAiProvider, focusMode, imageQuality);
     }
 
     private static String str(Map&lt;String, Object&gt; m, String key, String def) {
-<span class="nc bnc" id="L502" title="All 2 branches missed.">        Object v = m.get(key); return v != null ? v.toString() : def;</span>
+<span class="nc bnc" id="L510" title="All 2 branches missed.">        Object v = m.get(key); return v != null ? v.toString() : def;</span>
     }
     private static int intVal(Map&lt;String, Object&gt; m, String key, int def) {
-<span class="nc bnc" id="L505" title="All 2 branches missed.">        Object v = m.get(key); return v instanceof Number n ? n.intValue() : def;</span>
+<span class="nc bnc" id="L513" title="All 2 branches missed.">        Object v = m.get(key); return v instanceof Number n ? n.intValue() : def;</span>
     }
     private static double dblVal(Map&lt;String, Object&gt; m, String key, double def) {
-<span class="nc bnc" id="L508" title="All 2 branches missed.">        Object v = m.get(key); return v instanceof Number n ? n.doubleValue() : def;</span>
+<span class="nc bnc" id="L516" title="All 2 branches missed.">        Object v = m.get(key); return v instanceof Number n ? n.doubleValue() : def;</span>
     }
     private static boolean boolVal(Map&lt;String, Object&gt; m, String key, boolean def) {
-<span class="nc bnc" id="L511" title="All 2 branches missed.">        Object v = m.get(key); return v != null ? Boolean.parseBoolean(v.toString()) : def;</span>
+<span class="nc bnc" id="L519" title="All 2 branches missed.">        Object v = m.get(key); return v != null ? Boolean.parseBoolean(v.toString()) : def;</span>
     }
 
     private Map&lt;String, Object&gt; profileToMap(ObserverProfile p) {
-<span class="fc" id="L515">        Map&lt;String, Object&gt; m = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc" id="L516">        m.put(&quot;name&quot;, p.name());</span>
-<span class="fc" id="L517">        m.put(&quot;mode&quot;, p.mode());</span>
-<span class="fc" id="L518">        m.put(&quot;previewIntervalMs&quot;, p.previewIntervalMs());</span>
-<span class="fc" id="L519">        m.put(&quot;motionThreshold&quot;, p.motionThreshold());</span>
-<span class="fc" id="L520">        m.put(&quot;minObjectSize&quot;, p.minObjectSize());</span>
-<span class="fc" id="L521">        m.put(&quot;burstCount&quot;, p.burstCount());</span>
-<span class="fc" id="L522">        m.put(&quot;focusBracketing&quot;, p.focusBracketing());</span>
-<span class="fc" id="L523">        m.put(&quot;focusBracketingSteps&quot;, p.focusBracketingSteps());</span>
-<span class="fc" id="L524">        m.put(&quot;cooldownSeconds&quot;, p.cooldownSeconds());</span>
-<span class="fc" id="L525">        m.put(&quot;activeTimeStart&quot;, p.activeTimeStart());</span>
-<span class="fc" id="L526">        m.put(&quot;activeTimeEnd&quot;, p.activeTimeEnd());</span>
-<span class="fc" id="L527">        m.put(&quot;maxEventsPerHour&quot;, p.maxEventsPerHour());</span>
-<span class="fc" id="L528">        m.put(&quot;focusMode&quot;, p.focusMode());</span>
-<span class="fc" id="L529">        m.put(&quot;imageQuality&quot;, p.imageQuality());</span>
-<span class="fc" id="L530">        return m;</span>
+<span class="fc" id="L523">        Map&lt;String, Object&gt; m = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L524">        m.put(&quot;name&quot;, p.name());</span>
+<span class="fc" id="L525">        m.put(&quot;mode&quot;, p.mode());</span>
+<span class="fc" id="L526">        m.put(&quot;previewIntervalMs&quot;, p.previewIntervalMs());</span>
+<span class="fc" id="L527">        m.put(&quot;motionThreshold&quot;, p.motionThreshold());</span>
+<span class="fc" id="L528">        m.put(&quot;minObjectSize&quot;, p.minObjectSize());</span>
+<span class="fc" id="L529">        m.put(&quot;burstCount&quot;, p.burstCount());</span>
+<span class="fc" id="L530">        m.put(&quot;focusBracketing&quot;, p.focusBracketing());</span>
+<span class="fc" id="L531">        m.put(&quot;focusBracketingSteps&quot;, p.focusBracketingSteps());</span>
+<span class="fc" id="L532">        m.put(&quot;cooldownSeconds&quot;, p.cooldownSeconds());</span>
+<span class="fc" id="L533">        m.put(&quot;activeTimeStart&quot;, p.activeTimeStart());</span>
+<span class="fc" id="L534">        m.put(&quot;activeTimeEnd&quot;, p.activeTimeEnd());</span>
+<span class="fc" id="L535">        m.put(&quot;maxEventsPerHour&quot;, p.maxEventsPerHour());</span>
+<span class="fc" id="L536">        m.put(&quot;focusMode&quot;, p.focusMode());</span>
+<span class="fc" id="L537">        m.put(&quot;imageQuality&quot;, p.imageQuality());</span>
+<span class="fc" id="L538">        return m;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
