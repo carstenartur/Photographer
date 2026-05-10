@@ -42,6 +42,16 @@ docker-compose.override.yml
 .vscode/
 *.code-workspace
 
+### IDE — Eclipse ###
+.project
+.classpath
+.settings/
+
+### Spring Security generated default-login pages (do not commit) ###
+/login.html
+/login_page.html
+/loginpage.html
+
 ### OS files ###
 .DS_Store
 Thumbs.db

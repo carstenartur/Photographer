@@ -15,7 +15,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service that replays stored image series from a folder for testing trigger strategies
@@ -40,7 +43,34 @@ public class ReplayService {
     /** Default interval between replay frames in milliseconds. */
     private static final long BASE_FRAME_INTERVAL_MS = 500;
 
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    /**
+     * Bounded thread pool for replay sessions. Replaces the previous
+     * {@code Executors.newCachedThreadPool()} which allowed unbounded thread
+     * growth and could exhaust system resources under burst load. The bounded
+     * pool keeps a small core, scales up to {@value #MAX_REPLAY_THREADS}
+     * concurrent replays, and queues additional requests.
+     */
+    private static final int MAX_REPLAY_THREADS = 8;
+    private static final int REPLAY_QUEUE_CAPACITY = 32;
+
+    private final ExecutorService executor = new ThreadPoolExecutor(
+            2,
+            MAX_REPLAY_THREADS,
+            60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(REPLAY_QUEUE_CAPACITY),
+            new ThreadFactoryWithName("replay-"),
+            new ThreadPoolExecutor.CallerRunsPolicy());
+
+    private static final class ThreadFactoryWithName implements java.util.concurrent.ThreadFactory {
+        private final String prefix;
+        private final AtomicInteger counter = new AtomicInteger();
+        ThreadFactoryWithName(String prefix) { this.prefix = prefix; }
+        @Override public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, prefix + counter.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        }
+    }
 
     /** Active replay sessions keyed by session ID. */
     private final Map<String, ReplayStatus> sessions = new ConcurrentHashMap<>();

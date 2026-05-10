@@ -36,7 +36,6 @@
         <module>canon-cr3-core</module>
         <module>canon-cr3-imageio</module>
         <module>canon-cr3-cli</module>
-        <module>canon-cr3-benchmark</module>
         <module>frontend-web</module>
         <module>app</module>
     </modules>
@@ -118,4 +117,17 @@
             </plugins>
         </pluginManagement>
     </build>
+
+    <profiles>
+        <!--
+            JMH micro-benchmarks are isolated in this profile to keep the
+            default reactor build fast. Activate with: mvn -P benchmarks ...
+        -->
+        <profile>
+            <id>benchmarks</id>
+            <modules>
+                <module>canon-cr3-benchmark</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>
