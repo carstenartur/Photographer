@@ -17,7 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
     public CommandLineRunner initDefaultAdmin(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            @Value(&quot;${focusstack.security.admin-password:focusstack}&quot;) String adminPassword) {
+            @Value(&quot;${focusstack.security.admin-password:}&quot;) String adminPassword) {
 <span class="fc" id="L21">        return args -&gt; {</span>
 <span class="fc" id="L22">            var existing = userRepository.findByUsername(&quot;admin&quot;);</span>
 <span class="fc bfc" id="L23" title="All 2 branches covered.">            if (existing.isEmpty()) {</span>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GlobalExceptionHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.web.exception</a> &gt; <span class="el_source">GlobalExceptionHandler.java</span></div><h1>GlobalExceptionHandler.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.web.exception;
+
+import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.camera.exception.CameraNotFoundException;
+import com.photographer.focusstack.session.SessionException;
+import com.photographer.focusstack.session.SessionNotFoundException;
+import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+import java.io.IOException;
+import java.util.stream.Collectors;
+
+@ControllerAdvice
+<span class="fc" id="L20">public class GlobalExceptionHandler {</span>
+
+<span class="fc" id="L22">    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);</span>
+
+    @ExceptionHandler(CameraNotFoundException.class)
+    public ProblemDetail handleCameraNotFound(CameraNotFoundException ex) {
+<span class="fc" id="L26">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L27">                HttpStatus.NOT_FOUND, ex.getMessage());</span>
+<span class="fc" id="L28">        problem.setTitle(&quot;Camera Not Found&quot;);</span>
+<span class="fc" id="L29">        return problem;</span>
+    }
+
+    @ExceptionHandler(CameraException.class)
+    public ProblemDetail handleCameraException(CameraException ex) {
+<span class="fc" id="L34">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L35">                HttpStatus.BAD_REQUEST, ex.getMessage());</span>
+<span class="fc" id="L36">        problem.setTitle(&quot;Camera Error&quot;);</span>
+<span class="fc" id="L37">        return problem;</span>
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ProblemDetail handleValidationErrors(MethodArgumentNotValidException ex) {
+<span class="fc" id="L42">        String details = ex.getBindingResult().getFieldErrors().stream()</span>
+<span class="fc" id="L43">                .map(e -&gt; e.getField() + &quot;: &quot; + e.getDefaultMessage())</span>
+<span class="fc" id="L44">                .collect(Collectors.joining(&quot;, &quot;));</span>
+<span class="fc" id="L45">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.BAD_REQUEST, details);
+<span class="fc" id="L47">        problem.setTitle(&quot;Validation Error&quot;);</span>
+<span class="fc" id="L48">        return problem;</span>
+    }
+
+    @ExceptionHandler(SessionNotFoundException.class)
+    public ProblemDetail handleSessionNotFound(SessionNotFoundException ex) {
+<span class="fc" id="L53">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="fc" id="L54">                HttpStatus.NOT_FOUND, ex.getMessage());</span>
+<span class="fc" id="L55">        problem.setTitle(&quot;Session Not Found&quot;);</span>
+<span class="fc" id="L56">        return problem;</span>
+    }
+
+    @ExceptionHandler(SessionException.class)
+    public ProblemDetail handleSessionException(SessionException ex) {
+<span class="nc" id="L61">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+<span class="nc" id="L62">                HttpStatus.BAD_REQUEST, ex.getMessage());</span>
+<span class="nc" id="L63">        problem.setTitle(&quot;Session Error&quot;);</span>
+<span class="nc" id="L64">        return problem;</span>
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException ex) {
+<span class="nc" id="L69">        String details = ex.getConstraintViolations().stream()</span>
+<span class="nc" id="L70">                .map(v -&gt; v.getPropertyPath() + &quot;: &quot; + v.getMessage())</span>
+<span class="nc" id="L71">                .collect(Collectors.joining(&quot;, &quot;));</span>
+<span class="nc" id="L72">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.BAD_REQUEST, details);
+<span class="nc" id="L74">        problem.setTitle(&quot;Constraint Violation&quot;);</span>
+<span class="nc" id="L75">        return problem;</span>
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ProblemDetail handleIOException(IOException ex) {
+<span class="nc" id="L80">        log.warn(&quot;I/O error processing request: {}&quot;, ex.getMessage());</span>
+<span class="nc" id="L81">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.UNPROCESSABLE_ENTITY, &quot;Failed to read or process the uploaded file&quot;);
+<span class="nc" id="L83">        problem.setTitle(&quot;File Processing Error&quot;);</span>
+<span class="nc" id="L84">        return problem;</span>
+    }
+
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    public ProblemDetail handleIllegalArgument(RuntimeException ex) {
+<span class="nc" id="L89">        log.debug(&quot;Bad request: {}&quot;, ex.getMessage());</span>
+<span class="nc" id="L90">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.BAD_REQUEST, &quot;Invalid request parameters&quot;);
+<span class="nc" id="L92">        problem.setTitle(&quot;Invalid Request&quot;);</span>
+<span class="nc" id="L93">        return problem;</span>
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ProblemDetail handleGenericException(Exception ex) {
+<span class="nc" id="L98">        log.error(&quot;Unhandled exception&quot;, ex);</span>
+<span class="nc" id="L99">        ProblemDetail problem = ProblemDetail.forStatusAndDetail(</span>
+                HttpStatus.INTERNAL_SERVER_ERROR, &quot;An unexpected error occurred&quot;);
+<span class="nc" id="L101">        problem.setTitle(&quot;Internal Server Error&quot;);</span>
+<span class="nc" id="L102">        return problem;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
