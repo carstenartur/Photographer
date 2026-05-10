@@ -460,7 +460,15 @@ public class ObserverController {
         String profile = body.containsKey("profileName")
                 ? body.get("profileName").toString() : properties.getDefaultProfile();
 
-        ReplayService.ReplayStatus status = replayService.startReplay(folderPath, speed, profile);
+        ReplayService.ReplayStatus status;
+        try {
+            status = replayService.startReplay(folderPath, speed, profile);
+        } catch (java.util.concurrent.RejectedExecutionException rex) {
+            // Replay pool + queue are saturated: signal back-pressure to the
+            // caller (HTTP 503) instead of blocking the request thread.
+            return ResponseEntity.status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "replay queue saturated, retry later"));
+        }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sessionId", status.sessionId());
         result.put("folderPath", status.folderPath());

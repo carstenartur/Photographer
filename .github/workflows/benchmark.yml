@@ -46,6 +46,7 @@ jobs:
       - name: Build benchmarks uber-jar
         run: >-
           mvn -B --no-transfer-progress -DskipTests
+          -P benchmarks
           -pl canon-cr3-benchmark -am
           package
           -Djava.awt.headless=true

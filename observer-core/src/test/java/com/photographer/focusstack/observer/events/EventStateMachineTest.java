@@ -10,6 +10,30 @@ import static org.junit.jupiter.api.Assertions.*;
 class EventStateMachineTest {
 
     @Test
+    void removeListenerStopsNotifications() {
+        EventStateMachine sm = new EventStateMachine();
+        List<EventState> seen = new ArrayList<>();
+        EventStateListener listener = (prev, next, event) -> seen.add(next);
+
+        sm.addListener(listener);
+        sm.motionDetected("motion", RegionOfInterest.fullFrame());
+        assertEquals(List.of(EventState.MOTION_DETECTED), seen);
+
+        assertTrue(sm.removeListener(listener), "removeListener should return true for a registered listener");
+        sm.startTracking();
+        assertEquals(List.of(EventState.MOTION_DETECTED), seen,
+                "removed listener must not receive further notifications");
+    }
+
+    @Test
+    void removeListenerReturnsFalseWhenUnknown() {
+        EventStateMachine sm = new EventStateMachine();
+        EventStateListener neverRegistered = (prev, next, event) -> { };
+        assertFalse(sm.removeListener(neverRegistered),
+                "removeListener should return false when the listener was never added");
+    }
+
+    @Test
     void initialStateIsIdle() {
         EventStateMachine sm = new EventStateMachine();
         assertEquals(EventState.IDLE, sm.getState());

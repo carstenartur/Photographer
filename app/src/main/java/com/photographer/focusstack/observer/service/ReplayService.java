@@ -14,8 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor.AbortPolicy;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service that replays stored image series from a folder for testing trigger strategies
@@ -40,7 +44,51 @@ public class ReplayService {
     /** Default interval between replay frames in milliseconds. */
     private static final long BASE_FRAME_INTERVAL_MS = 500;
 
-    private final ExecutorService executor = Executors.newCachedThreadPool();
+    /**
+     * Bounded thread pool for replay sessions. Replaces the previous
+     * {@code Executors.newCachedThreadPool()} which allowed unbounded thread
+     * growth and could exhaust system resources under burst load.
+     *
+     * <p>Configuration: {@value #MAX_REPLAY_THREADS} concurrent replays are
+     * allowed before the queue is used. {@code corePoolSize == maxPoolSize}
+     * combined with {@code allowCoreThreadTimeOut=true} means a
+     * {@link LinkedBlockingQueue} is only consulted once all worker threads are
+     * busy (the standard {@link ThreadPoolExecutor} behavior of preferring
+     * queueing over creating new threads is intentionally bypassed here so the
+     * pool actually scales to {@code MAX_REPLAY_THREADS} concurrent replays as
+     * documented). Idle threads die after 60s. Excess submissions are
+     * <em>rejected</em> via {@link AbortPolicy} so callers can surface
+     * back-pressure (HTTP 503) instead of silently running the work on the
+     * request thread (which would defeat the asynchronous contract of
+     * {@link #startReplay(String, double, String)}).
+     */
+    private static final int MAX_REPLAY_THREADS = 8;
+    private static final int REPLAY_QUEUE_CAPACITY = 32;
+
+    private final ThreadPoolExecutor executor;
+
+    public ReplayService() {
+        ThreadPoolExecutor pool = new ThreadPoolExecutor(
+                MAX_REPLAY_THREADS,
+                MAX_REPLAY_THREADS,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(REPLAY_QUEUE_CAPACITY),
+                new ThreadFactoryWithName("replay-"),
+                new ThreadPoolExecutor.AbortPolicy());
+        pool.allowCoreThreadTimeOut(true);
+        this.executor = pool;
+    }
+
+    private static final class ThreadFactoryWithName implements java.util.concurrent.ThreadFactory {
+        private final String prefix;
+        private final AtomicInteger counter = new AtomicInteger();
+        ThreadFactoryWithName(String prefix) { this.prefix = prefix; }
+        @Override public Thread newThread(Runnable r) {
+            Thread t = new Thread(r, prefix + counter.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        }
+    }
 
     /** Active replay sessions keyed by session ID. */
     private final Map<String, ReplayStatus> sessions = new ConcurrentHashMap<>();
@@ -63,7 +111,19 @@ public class ReplayService {
                 speedMultiplier, "RUNNING", 0, 0, 0, null);
         sessions.put(sessionId, status);
 
-        executor.submit(() -> runReplay(sessionId, folderPath, speedMultiplier, profileName));
+        try {
+            executor.submit(() -> runReplay(sessionId, folderPath, speedMultiplier, profileName));
+        } catch (RejectedExecutionException rex) {
+            // Pool + queue saturated: surface back-pressure instead of running
+            // the replay synchronously on the caller's thread.
+            ReplayStatus rejected = new ReplayStatus(sessionId, folderPath, profileName,
+                    speedMultiplier, "REJECTED", 0, 0, 0,
+                    "Replay queue saturated; retry later");
+            sessions.put(sessionId, rejected);
+            log.warn("Replay session {} rejected — pool saturated (active={} queued={})",
+                    sessionId, executor.getActiveCount(), executor.getQueue().size());
+            throw rex;
+        }
         log.info("Started replay session {} folder={} profile={} speed={}x",
                 sessionId, folderPath, profileName, speedMultiplier);
         return status;

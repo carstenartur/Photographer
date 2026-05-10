@@ -50,6 +50,16 @@ public class EventStateMachine {
     }
 
     /**
+     * Removes a previously registered listener. Returns {@code true} if the
+     * listener was present and removed. Use this to avoid leaking long-lived
+     * references when the same {@code EventStateMachine} instance outlives a
+     * transient subscriber.
+     */
+    public boolean removeListener(EventStateListener listener) {
+        return listeners.remove(listener);
+    }
+
+    /**
      * Transitions to {@code next}. Throws {@link IllegalStateException} if the
      * transition is not allowed by {@link EventState#canTransitionTo(EventState)}.
      */

@@ -88,4 +88,10 @@ USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Djava.awt.headless=true", "--enable-native-access=ALL-UNNAMED", "-jar", "app.jar"]
+ENTRYPOINT ["java", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:InitialRAMPercentage=50.0", \
+    "-XX:+UseG1GC", \
+    "-Djava.awt.headless=true", \
+    "--enable-native-access=ALL-UNNAMED", \
+    "-jar", "app.jar"]
