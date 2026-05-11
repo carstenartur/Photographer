@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiCameraBackend.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.generic.backend</a> &gt; <span class="el_source">CcapiCameraBackend.java</span></div><h1>CcapiCameraBackend.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.generic.backend;
+
+import com.photographer.focusstack.camera.backend.CanonCcapiBackend;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraInfo;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.camera.Operation;
+import com.photographer.focusstack.common.capability.Capability;
+import com.photographer.focusstack.common.capability.CapabilitySet;
+import com.photographer.focusstack.common.device.BatteryInfo;
+import com.photographer.focusstack.common.device.DeviceInfo;
+import com.photographer.focusstack.common.device.LensInfo;
+import com.photographer.focusstack.common.device.StorageInfo;
+import com.photographer.focusstack.common.media.MediaItem;
+import com.photographer.focusstack.common.media.MediaType;
+import com.photographer.focusstack.common.media.TransferResult;
+import com.photographer.focusstack.common.media.TransferState;
+import com.photographer.focusstack.common.transport.CameraConnection;
+import com.photographer.focusstack.common.transport.GenericCameraBackend;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.OutputStream;
+import java.util.List;
+
+/**
+ * Adapts the existing {@link CanonCcapiBackend} (and any other legacy
+ * {@link CameraBackend}) to the new transport-independent
+ * {@link GenericCameraBackend} surface.
+ *
+ * &lt;p&gt;This is the seam that lets us migrate workflows over to the generic
+ * interface incrementally: today only {@code captureStill} and live-view
+ * actually delegate; the richer endpoints (storage / battery / lens / media
+ * list / download / delete) are wired up to safe defaults and marked
+ * &lt;strong&gt;missing&lt;/strong&gt; in the {@link CapabilitySet}, so UI code that
+ * binds to capabilities will simply not show those buttons until the real
+ * implementation lands.
+ *
+ * &lt;p&gt;TODO: when the CCAPI media-list / storage / battery probes are added
+ * to {@link CanonCcapiBackend}, drop the {@code unsupported} returns below
+ * and add the corresponding entries to {@link #getCapabilities}.
+ */
+public class CcapiCameraBackend implements GenericCameraBackend {
+
+<span class="nc" id="L46">    private static final Logger log = LoggerFactory.getLogger(CcapiCameraBackend.class);</span>
+
+    private final CameraBackend legacy;
+    private final String cameraId;
+
+<span class="nc" id="L51">    public CcapiCameraBackend(String cameraId, CameraBackend legacy) {</span>
+<span class="nc" id="L52">        this.cameraId = cameraId;</span>
+<span class="nc" id="L53">        this.legacy = legacy;</span>
+<span class="nc" id="L54">    }</span>
+
+    @Override
+    public CameraConnection connect() {
+<span class="nc" id="L58">        log.debug(&quot;Opening CCAPI connection to {}&quot;, cameraId);</span>
+<span class="nc" id="L59">        return new SimpleConnection(cameraId, &quot;canon-ccapi&quot;);</span>
+    }
+
+    @Override
+    public DeviceInfo getDeviceInfo(CameraConnection connection) {
+<span class="nc" id="L64">        CameraInfo info = legacy.getInfo();</span>
+<span class="nc" id="L65">        return new DeviceInfo(</span>
+                cameraId,
+<span class="nc" id="L67">                info.model(),</span>
+                /* serialNumber */ null,
+<span class="nc" id="L69">                info.firmwareVersion(),</span>
+                &quot;Canon&quot;,
+<span class="nc" id="L71">                info.name(),</span>
+                &quot;canon-ccapi&quot;,
+<span class="nc" id="L73">                info.host()</span>
+        );
+    }
+
+    @Override
+    public CapabilitySet getCapabilities(CameraConnection connection) {
+<span class="nc" id="L79">        CapabilitySet.Builder b = CapabilitySet.builder()</span>
+<span class="nc" id="L80">                .add(Capability.DEVICE_INFO);</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (legacy.supports(Operation.LIVE_VIEW))      b.add(Capability.LIVE_VIEW);</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (legacy.supports(Operation.CAPTURE))        b.add(Capability.CAPTURE_STILL);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (legacy.supports(Operation.FOCUS_CONTROL))  b.add(Capability.FOCUS_DRIVE);</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (legacy.supports(Operation.ZOOM_CONTROL))   b.add(Capability.ZOOM_CONTROL);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (legacy.supports(Operation.SETTINGS_READ))  b.add(Capability.EXPOSURE_READ);</span>
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (legacy.supports(Operation.SETTINGS_WRITE)) b.addRw(Capability.EXPOSURE_WRITE);</span>
+        // TODO: list storage/battery/lens/media capabilities once the legacy
+        //       backend exposes them. The adapter is the single switch-on
+        //       point — UI code will pick them up automatically.
+<span class="nc" id="L90">        return b.build();</span>
+    }
+
+    @Override
+    public StorageInfo getStorageInfo(CameraConnection connection) {
+        // TODO: wire to CanonCcapiBackend's /devicestatus/storage probe.
+<span class="nc" id="L96">        return StorageInfo.empty();</span>
+    }
+
+    @Override
+    public BatteryInfo getBatteryInfo(CameraConnection connection) {
+        // TODO: wire to CanonCcapiBackend's /devicestatus/battery probe.
+<span class="nc" id="L102">        return BatteryInfo.unknown();</span>
+    }
+
+    @Override
+    public LensInfo getLensInfo(CameraConnection connection) {
+        // TODO: wire to CanonCcapiBackend's /devicestatus/lens probe.
+<span class="nc" id="L108">        return LensInfo.none();</span>
+    }
+
+    @Override
+    public List&lt;MediaItem&gt; listMedia(CameraConnection connection) {
+        // TODO: implement /contents listing through the legacy backend.
+<span class="nc" id="L114">        return List.of();</span>
+    }
+
+    @Override
+    public TransferResult downloadMedia(CameraConnection connection, MediaItem item, OutputStream sink) {
+        // TODO: wire to CanonCcapiBackend's contents download.
+<span class="nc" id="L120">        return TransferResult.failed(item, &quot;downloadMedia not yet implemented for CCAPI adapter&quot;);</span>
+    }
+
+    @Override
+    public boolean deleteMedia(CameraConnection connection, MediaItem item) {
+        // TODO: wire to CanonCcapiBackend modify-contents (DELETE).
+<span class="nc" id="L126">        log.warn(&quot;deleteMedia: refusing — not yet implemented for CCAPI adapter, item={}&quot;, item.id());</span>
+<span class="nc" id="L127">        return false;</span>
+    }
+
+    @Override
+    public MediaItem captureStill(CameraConnection connection) {
+<span class="nc" id="L132">        legacy.stopLiveView();</span>
+<span class="nc" id="L133">        CaptureResult r = legacy.capture();</span>
+<span class="nc bnc" id="L134" title="All 4 branches missed.">        String id       = r != null &amp;&amp; r.imageId() != null ? r.imageId() : java.util.UUID.randomUUID().toString();</span>
+<span class="nc bnc" id="L135" title="All 4 branches missed.">        String filename = r != null &amp;&amp; r.fileName() != null ? r.fileName() : id;</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        String path     = r != null ? r.filePath() : null;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        long size       = r != null ? r.fileSize() : -1L;</span>
+<span class="nc" id="L138">        return MediaItem.newDiscovered(id, cameraId, &quot;primary&quot;, &quot;DCIM&quot;,</span>
+                filename, path, /* sourceUrl */ null, size)
+<span class="nc" id="L140">                .withTransferState(TransferState.DISCOVERED);</span>
+    }
+
+    @Override
+    public void startLiveView(CameraConnection connection) {
+        // The legacy interface starts live-view implicitly on first frame request.
+<span class="nc" id="L146">        legacy.getLiveView();</span>
+<span class="nc" id="L147">    }</span>
+
+    @Override
+    public void stopLiveView(CameraConnection connection) {
+<span class="nc" id="L151">        legacy.stopLiveView();</span>
+<span class="nc" id="L152">    }</span>
+
+    @Override
+    public LiveViewFrame nextLiveViewFrame(CameraConnection connection) {
+<span class="nc" id="L156">        return legacy.getLiveView();</span>
+    }
+
+    /** Lightweight connection holder; CCAPI keeps its own HTTP state inside the legacy backend. */
+    private static final class SimpleConnection implements CameraConnection {
+        private final String cameraId;
+        private final String transport;
+<span class="nc" id="L163">        private volatile boolean open = true;</span>
+<span class="nc" id="L164">        SimpleConnection(String cameraId, String transport) { this.cameraId = cameraId; this.transport = transport; }</span>
+<span class="nc" id="L165">        @Override public String cameraId() { return cameraId; }</span>
+<span class="nc" id="L166">        @Override public String transport() { return transport; }</span>
+<span class="nc" id="L167">        @Override public boolean isOpen() { return open; }</span>
+<span class="nc" id="L168">        @Override public void close() { open = false; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
