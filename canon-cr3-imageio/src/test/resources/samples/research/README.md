@@ -10,13 +10,18 @@ inside the same file under test.
 ## File naming
 
 ```
-g5xm2-<phase>-iso<ISO>-ss<shutter>-f<aperture>-<runId>-<seq>.cr3
+g5xm2-<phase>-iso<ISO>-ss<shutter>-f<aperture>-iq<imageQualityRaw>-<runId>-<seq>.cr3
 ```
 
 The label fields are sanitized renderings of the value the camera reports
 *after* the property write (with `/` and `.` stripped, `"` → `s`). The
-`runId` (UTC-ish wall clock at test start) keeps successive runs from
-overwriting each other when the operator captures the same settings twice.
+`iq<...>` segment is the lower-case hex of the Canon EOS
+`DPC_EOS_IMAGE_QUALITY` (0xD108) raw value as last broadcast in a GetEvent
+batch — `iqx` means the camera had not emitted the property yet
+(common on the first capture after USB connect; subsequent shots populate
+it). The `runId` (UTC-ish wall clock at test start) keeps successive
+runs from overwriting each other when the operator captures the same
+settings twice.
 
 ## Capture phases
 
@@ -119,6 +124,67 @@ including ISO. The current `camera-ptp` module only speaks PTP; a CCAPI
 backend would be a separate module / transport. Until that lands, the
 manual mode-dial workflow above is the supported path.
 
+## Capturing C-RAW (lossy CRX) fixtures — *strongly desired*
+
+Update (l) of `canon-cr3-core/SubbandFixtures.md` shows that the cleanroom
+research is currently blocked by the absence of a fixture with
+`CMP1.quantValue ≠ 4`. Every existing lossless fixture in the corpus
+reports `q = 4` on every plane, so the strongest current empirical rule
+(`K_INIT = CMP1.quantValue`) cannot be discriminated from
+`K_INIT = 4 (constant)`.
+
+The G5X II's **C-RAW** mode is the cheapest source of `q ≠ 4` bitstreams
+because Canon's lossy CRX wavelet quantiser scales the per-subband `q`
+with both ISO and target ratio. A panel that includes one C-RAW burst at
+each of ISO 125 / 1600 / 6400 against a `detail` scene would unblock the
+hypothesis check.
+
+### Recommended C-RAW workflow on the G5X II
+
+The PSREC firmware on the G-series PowerShots **rejects writes to most
+EOS properties** including `0xD103 ISO`, `0xD102 Tv`, `0xD101 Av`. Empirical
+data on `0xD108 ImageQuality` is not yet available — the IT now exposes
+a best-effort probe so the operator can measure the result on their body:
+
+```cmd
+:: 1) On the camera body, dial in M mode + ISO 125 + 1/60 s + f/8
+::    + record-quality "C-RAW" (Menu → Image Quality → C RAW).
+:: 2) Optionally probe whether the body lets us flip ImageQuality
+::    over USB. The rawValue you should pass is the value the camera
+::    reports back (visible in the `iq<...>` segment of an existing
+::    asis fixture filename, or in `manifest.tsv`'s imageQualityRaw
+::    column). Common Canon EOS values:
+::      0x10010003   RAW (lossless)
+::      0x10130003   C-RAW (lossy)
+mvn -B verify -pl camera-ptp -am ^
+    -Dptp.test.usb=true -DexcludedGroups= -Djava.awt.headless=true ^
+    -Dit.test=CleanroomCr3FixtureCaptureIT ^
+    -Dfixture.scene=detail ^
+    -Dfixture.imageQualityRaw=0x10130003
+```
+
+After the run, inspect the `iq<...>` segment of the resulting filenames
+and the `imageQualityRaw` column in `manifest.tsv`:
+
+* If the IT logs `ImageQuality probe write ACCEPTED` and the captured
+  files carry `iq10130003` (or whatever C-RAW raw value the body
+  reports), the over-USB flip works on this body — record the raw value
+  in this README so future runs can reuse it.
+* If the IT logs `ImageQuality probe write REJECTED` (most likely on the
+  G5X II based on the ISO/Tv/Av precedent), fall back to the manual
+  workflow:
+  1. Mode dial → M, ISO 125, 1/60 s, f/8.
+  2. Menu → Image Quality → **C RAW** (the CR3 file size will drop from
+     ~18 MB to ~7–9 MB — visible in `manifest.tsv`'s `bytes` column).
+  3. Run the IT with `-Dfixture.scene=detail`. The captured frames will
+     carry the C-RAW `imageQualityRaw` in their filename automatically.
+  4. Repeat steps 1–3 at ISO 1600 and ISO 6400 (panel of three).
+  5. Switch the body back to **RAW** for normal operation.
+
+The first C-RAW frame committed to this directory should ideally be paired
+with a same-scene RAW frame at the same ISO so that the two `quantValue`
+vectors can be compared side-by-side.
+
 ```
 
 ## Findings against the operator-shot fixtures (2026-05-04)
@@ -163,10 +229,10 @@ exists, the next concrete production change should be:
 
 * **In `CrxLosslessRawDecoder.decodePlane`:** replace the JPEG-LS K
   accumulator with the patent's per-symbol K bracket (`K* = floor(log2(s
-  + 1))`, K ∈ [K* − 1, K* + 1]) and seed K from `CMP1.quantValue` instead
-  of 0. The Round-8 research IT already converged on `K_INIT =
-  CMP1.quantValue` as the best fixed seed across fixtures with different
-  `quantValue` histograms.
+  + 1))`, K ∈ [K* − 1, K* + 1]). The seed `K_INIT = 0` is correct (see
+  Update (n) below); a previous edit of this README recommended seeding
+  K from `CMP1.quantValue`, but that recommendation has been falsified
+  by `CrxPlaneFollowupRound9IT` and is retracted.
 * **Predictor seed:** the current `1 << (bitDepth − 1)` (= 8192 at 14-bit)
   is wrong for a flat-field input near the OB pedestal — change to `0`
   (matching the Round-8 `LZ_TILE_FIRST` baseline) and let the first
@@ -177,3 +243,23 @@ to something near the OB pedestal and push the flat `fractionWithin1024`
 above 0.5 — the first hard regression-tightening that the
 `Dark/FlatFixtureLosslessDecoderIT` tests are pre-wired to assert as soon
 as it lands.
+
+### Update 2026-05-11 (n) — `K_INIT = quantValue` retracted
+
+`CrxPlaneFollowupRound9IT` ran a ground-truth-free bits-per-symbol
+discrimination on the first C-RAW fixture in the corpus
+(`g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3`,
+`q ∈ {4, 16, 22, 26, 32}` per subband — Update (m) of
+`canon-cr3-core/SubbandFixtures.md`).
+
+Result: **`K_INIT = 0` is the empirical optimum on 100 % of 160
+subbands across two frames**. Seeding `K_INIT = q` for `q ≥ 16`
+overruns the Rice remainder past end-of-stream inside the first
+symbol (`bps = ∞` for 128 / 160 subbands). The previous
+"Round-8 winner" `K_INIT = CMP1.quantValue` was a circular artefact
+of every earlier fixture having `q = 4`, in which case
+`K_INIT = q ≡ K_INIT = 4 ≡ K_INIT = 0`-after-bracket-decay.
+
+The production decoder already uses `int k = 0;` (line 406 of
+`CrxLosslessRawDecoder.java`); Round-9 has now empirically validated
+that choice. No production code change is warranted.

@@ -1,5 +1,6 @@
 package com.photographer.ptp.integration;
 
+import com.photographer.ptp.canon.CanonConstants;
 import com.photographer.ptp.canon.CanonPropertyDecoder;
 import com.photographer.ptp.core.PtpException;
 import com.photographer.ptp.session.CameraCapabilities;
@@ -132,6 +133,35 @@ class CleanroomCr3FixtureCaptureIT {
     private static final String SCENE_TAG =
             System.getProperty("fixture.scene", "asis").replaceAll("[^A-Za-z0-9_+-]", "");
 
+    /**
+     * Optional: when set to a non-zero hex value (e.g. {@code -Dfixture.imageQualityRaw=0x10130004}),
+     * the IT attempts a single best-effort write of {@code DPC_EOS_IMAGE_QUALITY (0xD108)}
+     * before Phase A. The current PowerShot G5X II PSREC firmware is known to reject most
+     * EOS-property writes with {@code Device_Busy 0x2019} (see README in the research
+     * fixture directory) — this hook lets us measure whether {@code 0xD108} happens to be
+     * an exception. The cached value is re-read after a 3 s settle and the difference is
+     * logged either way; capture proceeds regardless of outcome.
+     *
+     * <p>The original value is recorded at startup and a best-effort restore is attempted
+     * after the panel completes.</p>
+     */
+    private static final int FIXTURE_IMAGE_QUALITY_OVERRIDE = parseHexProperty(
+            "fixture.imageQualityRaw", 0);
+
+    private static int parseHexProperty(String key, int defVal) {
+        String s = System.getProperty(key, "");
+        if (s == null || s.isBlank()) return defVal;
+        s = s.trim();
+        try {
+            if (s.startsWith("0x") || s.startsWith("0X")) {
+                return (int) Long.parseLong(s.substring(2), 16);
+            }
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return defVal;
+        }
+    }
+
     private PtpCamera camera;
 
     @BeforeAll
@@ -177,10 +207,23 @@ class CleanroomCr3FixtureCaptureIT {
         int origIso      = safeRead(camera::getIsoRaw);
         int origShutter  = safeRead(camera::getShutterSpeedRaw);
         int origAperture = safeRead(camera::getApertureRaw);
+        int origImageQuality = safeRead(() -> camera.getCanonPropertyRaw(CanonConstants.DPC_EOS_IMAGE_QUALITY));
         log.info("═══ Original settings (will be restored if possible) ═══");
-        log.info("  ISO        : {} (raw=0x{})", camera.getIso(), Integer.toHexString(origIso));
-        log.info("  Shutter    : {} (raw=0x{})", camera.getShutterSpeed(), Integer.toHexString(origShutter));
-        log.info("  Aperture   : {} (raw=0x{})", camera.getAperture(), Integer.toHexString(origAperture));
+        log.info("  ISO          : {} (raw=0x{})", camera.getIso(), Integer.toHexString(origIso));
+        log.info("  Shutter      : {} (raw=0x{})", camera.getShutterSpeed(), Integer.toHexString(origShutter));
+        log.info("  Aperture     : {} (raw=0x{})", camera.getAperture(), Integer.toHexString(origAperture));
+        log.info("  ImageQuality : raw=0x{} (0 means camera has not yet emitted DPC 0xD108)",
+                Integer.toHexString(origImageQuality));
+
+        // ── Phase 0 — best-effort ImageQuality probe ───────────────────────────
+        if (FIXTURE_IMAGE_QUALITY_OVERRIDE != 0) {
+            log.info("═══ Phase 0 — attempting ImageQuality probe write 0x{} ═══",
+                    Integer.toHexString(FIXTURE_IMAGE_QUALITY_OVERRIDE));
+            boolean took = tryProbeImageQuality(FIXTURE_IMAGE_QUALITY_OVERRIDE);
+            log.info("ImageQuality probe write {} (cache now reads 0x{})",
+                    took ? "ACCEPTED" : "REJECTED",
+                    Integer.toHexString(safeRead(() -> camera.getCanonPropertyRaw(CanonConstants.DPC_EOS_IMAGE_QUALITY))));
+        }
 
         List<CapturedFixture> manifest = new ArrayList<>();
         String runId = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
@@ -236,6 +279,12 @@ class CleanroomCr3FixtureCaptureIT {
             try { camera.setShutterSpeed(origShutter); }
             catch (RuntimeException e) { log.debug("Shutter restore skipped: {}", e.getMessage()); }
         }
+        if (FIXTURE_IMAGE_QUALITY_OVERRIDE != 0 && origImageQuality != 0
+                && origImageQuality != FIXTURE_IMAGE_QUALITY_OVERRIDE) {
+            log.info("Restoring ImageQuality to original 0x{}",
+                    Integer.toHexString(origImageQuality));
+            tryProbeImageQuality(origImageQuality);
+        }
 
         writeManifest(manifest, runId);
 
@@ -263,6 +312,26 @@ class CleanroomCr3FixtureCaptureIT {
         }
     }
 
+    /**
+     * Best-effort ImageQuality (0xD108) write. The G5X II rejects most EOS
+     * property writes (Device_Busy 0x2019); this method swallows that and
+     * reports whether the cache reflects the requested value after a settle.
+     */
+    private boolean tryProbeImageQuality(int rawValue) {
+        try {
+            camera.setCanonProperty(CanonConstants.DPC_EOS_IMAGE_QUALITY, rawValue);
+        } catch (RuntimeException e) {
+            log.warn("setCanonProperty(0xD108=0x{}) rejected: {}",
+                    Integer.toHexString(rawValue), e.getMessage());
+            return false;
+        }
+        try { Thread.sleep(SETTLE_AFTER_PROP_MS); } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+        int back = safeRead(() -> camera.getCanonPropertyRaw(CanonConstants.DPC_EOS_IMAGE_QUALITY));
+        return back == rawValue;
+    }
+
     private CapturedFixture captureAndSave(String tag, int seq, String runId)
             throws IOException, InterruptedException {
         // Let the camera settle after the property change before tripping the shutter.
@@ -271,9 +340,11 @@ class CleanroomCr3FixtureCaptureIT {
         int isoRaw = camera.getIsoRaw();
         int ssRaw = camera.getShutterSpeedRaw();
         int avRaw = camera.getApertureRaw();
+        int iqRaw = safeRead(() -> camera.getCanonPropertyRaw(CanonConstants.DPC_EOS_IMAGE_QUALITY));
         String isoLbl = sanitize(CanonPropertyDecoder.decodeIso(isoRaw));
         String ssLbl = sanitize(CanonPropertyDecoder.decodeShutterSpeed(ssRaw));
         String avLbl = sanitize(CanonPropertyDecoder.decodeAperture(avRaw));
+        String iqLbl = iqRaw == 0 ? "x" : Integer.toHexString(iqRaw);
 
         ImageDownload dl;
         try {
@@ -294,20 +365,21 @@ class CleanroomCr3FixtureCaptureIT {
         // Include runId in the filename so successive runs accumulate fixtures
         // instead of overwriting each other (same-settings bursts naturally
         // produce identical labels).
-        String outName = String.format("g5xm2-%s-iso%s-ss%s-f%s-%s-%02d%s",
-                tag, isoLbl, ssLbl, avLbl, runId, seq, ext);
+        String outName = String.format("g5xm2-%s-iso%s-ss%s-f%s-iq%s-%s-%02d%s",
+                tag, isoLbl, ssLbl, avLbl, iqLbl, runId, seq, ext);
         Path outPath = OUT_DIR.resolve(outName);
         Files.write(outPath, dl.data(),
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        log.info("Saved {} ({} bytes) — iso={} ss={} f={} (camera filename: {})",
+        log.info("Saved {} ({} bytes) — iso={} ss={} f={} iq=0x{} (camera filename: {})",
                 outName, dl.size(),
                 CanonPropertyDecoder.decodeIso(isoRaw),
                 CanonPropertyDecoder.decodeShutterSpeed(ssRaw),
                 CanonPropertyDecoder.decodeAperture(avRaw),
+                iqLbl,
                 camFn);
 
         return new CapturedFixture(outName, runId, tag, seq,
-                isoRaw, ssRaw, avRaw, dl.size(), camFn);
+                isoRaw, ssRaw, avRaw, iqRaw, dl.size(), camFn);
     }
 
     private static String sanitize(String s) {
@@ -327,7 +399,7 @@ class CleanroomCr3FixtureCaptureIT {
         StringBuilder sb = new StringBuilder();
         if (fresh) {
             sb.append("filename\trunId\ttag\tseq\tisoLabel\tisoRaw\tshutterLabel\tshutterRaw")
-              .append("\tapertureLabel\tapertureRaw\tbytes\tcameraFilename\n");
+              .append("\tapertureLabel\tapertureRaw\timageQualityRaw\tbytes\tcameraFilename\n");
         }
         for (CapturedFixture r : rows) {
             sb.append(r.filename).append('\t')
@@ -340,6 +412,7 @@ class CleanroomCr3FixtureCaptureIT {
               .append("0x").append(Integer.toHexString(r.ssRaw)).append('\t')
               .append(CanonPropertyDecoder.decodeAperture(r.avRaw)).append('\t')
               .append("0x").append(Integer.toHexString(r.avRaw)).append('\t')
+              .append("0x").append(Integer.toHexString(r.iqRaw)).append('\t')
               .append(r.bytes).append('\t')
               .append(r.cameraFilename).append('\n');
         }
@@ -350,6 +423,6 @@ class CleanroomCr3FixtureCaptureIT {
 
     /** Per-frame manifest record. */
     private record CapturedFixture(String filename, String runId, String tag, int seq,
-                                   int isoRaw, int ssRaw, int avRaw, int bytes,
+                                   int isoRaw, int ssRaw, int avRaw, int iqRaw, int bytes,
                                    String cameraFilename) { }
 }

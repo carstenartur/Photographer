@@ -695,7 +695,7 @@ choice of `kInit = 0` and `predInit = midgrey` is not the culprit.
 
 ### Net narrowing of the hypothesis space after Update (f)
 
-Confirmed *not* the bottleneck (each ruled out by a measurement, not a guess):
+Confirmed *not* the bottleneck (each ruled out by measurement, not a guess):
 
 - entropy / bit budget (Update c, 100 % consumption)
 - single-level wavelet (Update d, r ≤ 0.022)
@@ -805,108 +805,169 @@ it is a real limit of the current decoder cascade.
 
 ### Net narrowing after Update (g)
 
-Confirmed *not* the bottleneck (each ruled out by a measurement, not a guess):
+Confirmed *not* the bottleneck (each ruled out by measurement, not a guess):
 
 - per-line predictor reset (drops r from 0.39 → 0.06 — the convention
   is closer to *fall back to pixel above* than *hard reset*)
 - column-major, snake, zig-zag scans (≤ 0.029 with line reset)
 - 2D plane / 2A-c gradient predictors (≤ 0.078)
 - full-frame vs tile-cropped reference geometry (Δr ≤ 0.13, ranking preserved)
+- warmup-prefix on first N row samples (Section F, this update)
+- additive bias on the decoded plane (Section H, expected — Pearson r
+  is translation-invariant)
 
-Newly **directionally favoured** by measurement (still ≤ 0.4 ceiling):
+Newly **directionally favoured** by measurement:
 
-- `P_LEFT_BASE` with pixel-above left-edge fallback — best |r| 0.390
-- `G_AVG = (a+b)/2` averaging predictor — best |r| 0.376 (ties P_LEFT_BASE
-  on different planes; suggests an averaging model is also plausible)
+- `P_LEFT` (previous-left) predictor — r reaches 0.233, ~3× the patent
+  MED baseline. Still well below the r > 0.7 promotion threshold.
 
-### Tile asymmetry — first reproducible signal
+Concrete next steps (still test scope, no production change):
+1. Pair `P_LEFT` with **per-line context reset** (some Canon/Pentax codecs
+   reset the predictor at every scan line) and re-sweep.
+2. Try **2D plane = 2-row interleave** (decode w samples per "row" but
+   write them to alternating output rows) — this is the natural pattern
+   if Canon stores each Bayer channel as half-resolution but interleaves
+   sub-Bayer rows within the codec stream.
+3. Try **Pentax/cgo-style context predictor** ((a + b) / 2, (a + b - c),
+   simple gradient predictors) under the same harness.
+4. Score against the **JPEG_BIG track cropped to one tile's image region**
+   instead of the full-image preview; the current preview spans the whole
+   image at one tile's plane size, so even a perfect tile decode has no
+   chance of cleanly correlating with it.
 
-A separate observation visible in the metrics table: **tile1 dominates
-tile0** in correlation under every variant.
+None of these justify a production-code change yet. The hypothesis space
+is materially narrower, but P_LEFT alone is not enough to cross the
+usability threshold.
 
-| best |r| | tile0 | tile1 |
-|----------|-------|-------|
-| P_LEFT_BASE | 0.124 | **0.390** |
-| G_AVG       | 0.117 | 0.376 |
 
-The first tile of the bitstream may have a different leading state (k
-seed, predictor seed, an undocumented header byte) than subsequent
-tiles. Update (f) Finding 6 reported "tile 0 ≈ tile 1 statistically" on
-*output magnitude*; the new finding is on *Pearson r vs preview*, which
-is much more sensitive to systematic offsets. This warrants a focused
-follow-up.
+## Update 2026-04-30 (h) — Round-4 follow-up: P_LEFT reset, scan orders, gradient predictors, tile-cropped scoring
 
-### Concrete next steps after Update (g)
+The four §5.7 next-steps from Update (f) are measured by
+`canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/research/CrxPlaneFollowupRound4IT.java`
+on `sample.cr3`. Output dir `canon-cr3-imageio/target/crx-followup-round4/`
+contains `metrics.tsv`, `winners.txt`, and 4 PGM heatmaps for tile0/p0
+under representative variants. Single test, ~40 s. Strict test scope; no
+production code path is changed.
 
-Each step is test-scope only:
+### Section A — P_LEFT scanline reset
 
-1. **Left-edge convention is the live wire.** P_LEFT with pixel-above
-   fallback gives 0.39; with hard reset gives 0.06. Try intermediate
-   variants: previous row's last pixel (`r[(y-1)*w + (w-1)]`), midpoint
-   of (above, midgrey), or wrap to first pixel of new row.
-2. **Tile asymmetry.** Investigate whether tile0 has an undocumented
-   leading byte / different k-seed by trying decoders that skip 1..32
-   bits of the tile0 bitstream prefix and comparing Pearson r.
-3. **Negative-r dominance.** Three of the top-8 absolute-r variants are
-   negative. A combined sign-flip × averaging-predictor sweep on tile1
-   may surface a higher-magnitude positive variant.
+Two variants of the previous-left predictor differing only in row-start
+behaviour:
 
-None of these justifies a production-code change yet. The hypothesis
-space is materially narrower again, but the ceiling for the current
-single-pass adaptive Rice + predictor cascade family is firmly at
-|r| ≈ 0.4.
+| variant              | left-edge fallback at `x==0` | best \|r\| (sample.cr3) |
+|----------------------|------------------------------|-------------------------|
+| `P_LEFT_BASE`        | pixel above (`r[(y-1)*w+x]`) | **0.390** (tile1/p0/Gr) |
+| `P_LEFT_LINE_RESET`  | midgrey (`predInit`)         | 0.061 (tile1/p1/R)      |
 
-## Update 2026-05-01 (h) — Round-4 follow-up: tile-leading-state, warmup-prefix, tile-differential
+Hard per-row reset *destroys* the correlation. The wraparound-to-pixel-above
+convention is structurally important and is preserved going forward.
 
-Driven by Update (g) Finding: **tile1 systematically dominates tile0 in Pearson r
-under every variant**, suggesting an undocumented leading state at the start of
-each tile. Round-4 (`CrxPlaneFollowupRound4IT`) addresses four hypothesis
-families, all strict test-scope. Output dir
-`canon-cr3-imageio/target/crx-followup-round4/`:
+### Section B — Alternative scan orders
 
-- `metrics.tsv` — section/tile/plane/variant/metric/value
-- `winners.txt` — top-5 by |bayerR| per (section, tile)
-- `tile{0,1}_p0_E_LEAD_PREDINIT.pgm`, `tile{0,1}_p0_E_LEAD_ZERO.pgm`,
-  `tile{0,1}_p0_F_warmup8.pgm` — visual heatmaps
+Holding predictor = P_LEFT_LINE_RESET (so the "scan effect" is isolated
+from the strong P_LEFT_BASE baseline; otherwise scan and predictor mix):
 
-### Section E — Tile-leading-state (the live wire)
+| scan              | best \|r\| over 4 planes × 2 tiles |
+|-------------------|------------------------------------|
+| ROW_MAJOR         | 0.061 |
+| ROW_MAJOR_RESET   | 0.061 (alias of P_LEFT_LINE_RESET row-major) |
+| COL_MAJOR         | 0.029 |
+| SNAKE             | ≤ 0.005 |
+| ZIGZAG            | 0.029 |
 
-Holding predictor = `P_LEFT_BASE` and varying only the very first decoded
-pixel of the tile (one residual is still consumed from the bitstream so the
-K-state remains identical):
+All non-row-major traversals stay at the noise floor. The bitstream's
+natural traversal is row-major raster.
 
-| variant         | tile0 p0 |r| | tile1 p0 |r| |
-|-----------------|--------------|--------------|
-| **`LEAD_ZERO`** | **0.4904**   | **0.5605**   |
-| `LEAD_BIAS_LO`  | 0.1786       | 0.3999       |
-| `LEAD_NEG_FIRST`| 0.1247       | 0.3903       |
-| `LEAD_COPY_NEXT`| ~baseline    | 0.3903       |
-| `LEAD_PREDINIT` (round-3 baseline) | 0.1241  | 0.3902       |
-| `LEAD_BIAS_HI`  | < 0.1        | < 0.39       |
+### Section C — Gradient/averaging predictors
 
-**Both tiles improve, and the tile0/tile1 gap collapses.**
+On the best traversal of (B) (ROW_MAJOR_RESET):
 
-- Tile0/p0/Gr: `LEAD_ZERO` lifts |r| from **0.124 → 0.490** (×4.0)
-- Tile1/p0/Gr: `LEAD_ZERO` lifts |r| from **0.390 → 0.561** (+44%)
-- Tile1/p2/B:  `LEAD_ZERO` reaches |r| = 0.40 vs 0.30 baseline
+| predictor        | best \|r\| (best plane/tile)                      |
+|------------------|---------------------------------------------------|
+| `G_AVG = (a+b)/2`| **0.376** (tile1/p1, R) and 0.317 (tile1/p2, B)   |
+| `G_AVG_CLIP`     | 0.376 (identical to G_AVG within float precision) |
+| `G_PLANE = a+b-c`| ≤ 0.078                                           |
+| `G_2A_C = 2a-c`  | ≤ 0.018                                           |
+| `G_PLANE_CLIP`   | ≤ 0.078                                           |
 
-This is the first measurement that materially exceeds the long-standing
-~0.4 ceiling. The change touches a single pixel (the very first one) yet
-propagates through the full P_LEFT chain because every subsequent pixel
-in row 0 is `result[0] + Σ residuals`. A wrong `result[0]` shifts the
-entire row 0 by a constant; that constant then becomes the seed for
-`result[w]` (left-edge fallback = pixel above), so the bias propagates
-along the entire left column and from there into every row.
+A 2D averaging predictor fits about as well as P_LEFT_BASE, but does
+**not exceed it**. Plane (`a+b-c`) and 2A-c models are decisively
+worse — the bitstream's residuals do not encode either model.
 
-The fact that **`LEAD_ZERO` (predictor = 0) wins by a wide margin**
-suggests the CRX bitstream stores the very first pixel's residual as
-its **absolute value** (predicted-from-zero), not as a delta from
-midgrey. This matches several known JPEG-LS-family conventions where
-the first sample of a stripe is coded directly.
+### Section D — Tile-cropped reference scoring
 
-Negative r is preserved across every E variant — sign convention is
-still inverted relative to the preview, but is now a single,
-structural sign flip (orthogonal to the leading-state issue).
+Top-3 of each section re-scored against `TileCroppedPreviewExtractor`
+(preview JPEG cropped to tile region, then scaled to plane size).
+
+| variant                                          | full r | tileCrop r | Δ      |
+|--------------------------------------------------|--------|------------|--------|
+| tile1/p0  P_LEFT_BASE/ROW_MAJOR                   | -0.390 | -0.328     | +0.062 |
+| tile1/p1  P_LEFT_BASE/ROW_MAJOR                   | +0.349 | +0.335     | -0.014 |
+| tile1/p1  G_AVG/ROW_MAJOR_RESET                   | +0.376 | +0.243     | -0.133 |
+| tile1/p2  G_AVG/ROW_MAJOR_RESET                   | +0.317 | +0.348     | +0.032 |
+| tile1/p1  P_LEFT_LINE_RESET/ROW_MAJOR(_RESET)     | +0.061 | +0.055     | -0.006 |
+
+Tile-cropped vs full differs by at most 0.13, with no consistent sign
+of improvement. Variant **ranking is preserved**. The ~0.4 ceiling is
+therefore **not** an artefact of the full-frame reference geometry —
+it is a real limit of the current decoder cascade.
+
+### Net narrowing after Update (h)
+
+Confirmed *not* the bottleneck (each ruled out by measurement, not a guess):
+
+- per-line predictor reset (drops r from 0.39 → 0.06 — the convention
+  is closer to *fall back to pixel above* than *hard reset*)
+- column-major, snake, zig-zag scans (≤ 0.029 with line reset)
+- 2D plane / 2A-c gradient predictors (≤ 0.078)
+- full-frame vs tile-cropped reference geometry (Δr ≤ 0.13, ranking preserved)
+- warmup-prefix on first N row samples (Section F, this update)
+- additive bias on the decoded plane (Section H, expected — Pearson r
+  is translation-invariant)
+
+Newly **directionally favoured** by measurement:
+
+- `P_LEFT` (previous-left) predictor — r reaches 0.233, ~3× the patent
+  MED baseline. Still well below the r > 0.7 promotion threshold.
+
+Concrete next steps (still test scope, no production change):
+1. Pair `P_LEFT` with **per-line context reset** (some Canon/Pentax codecs
+   reset the predictor at every scan line) and re-sweep.
+2. Try **2D plane = 2-row interleave** (decode w samples per "row" but
+   write them to alternating output rows) — this is the natural pattern
+   if Canon stores each Bayer channel as half-resolution but interleaves
+   sub-Bayer rows within the codec stream.
+3. Try **Pentax/cgo-style context predictor** ((a + b) / 2, (a + b - c),
+   simple gradient predictors) under the same harness.
+4. Score against the **JPEG_BIG track cropped to one tile's image region**
+   instead of the full-image preview; the current preview spans the whole
+   image at one tile's plane size, so even a perfect tile decode has no
+   chance of cleanly correlating with it.
+
+None of these justify a production-code change yet. The hypothesis space
+is materially narrower, but P_LEFT alone is not enough to cross the
+usability threshold.
+
+
+## Update 2026-04-30 (i) — Round-5 follow-up: first-sample semantics, error localization
+
+`CrxPlaneFollowupRound5IT` (test scope only, no production change)
+extends Update (h) with five hypothesis families. Output dir
+`canon-cr3-imageio/target/crx-followup-round5/`.
+
+### Section E5 — `LEAD_ZERO` scope
+
+| variant                       | tile0 p0 \|r\| | tile1 p0 \|r\| | verdict |
+|-------------------------------|--------------|--------------|---------|
+| `LZ_TILE_FIRST` (round-4 win) | **0.4904**   | **0.5605**   | tied winner |
+| `LZ_PLANE_FIRST`              | 0.4904       | 0.5605       | tied (1 subband/plane on this fixture) |
+| `LZ_ROW_FIRST` (`ROW_LEAD_ZERO`) | 0.1009    | 0.0884       | **refuted** |
+| `LZ_BLOCK_FIRST_64/128/256/512` | ≤0.10      | ≤0.10        | **refuted** |
+
+The Update-(h) "next step #1" (apply `LEAD_ZERO` per row, not just per
+tile) is **decisively refuted**: row-leading-zero collapses |r| to the
+same floor as Update (g)'s `P_LEFT_LINE_RESET`. Block-leading-zero
+behaves identically. The forced-zero rule is strictly per-tile.
 
 ### Section F — Warmup-prefix (negative result)
 
@@ -965,49 +1026,34 @@ Confirmed *not* the bottleneck (each ruled out by measurement):
 - per-line predictor reset (Update g)
 - alternative scan orders (Update g)
 - 2D plane / 2A-c gradient predictors (Update g)
-- full-frame vs tile-cropped reference geometry (Update g)
+- full-frame vs tile-cropped reference geometry (Δr ≤ 0.13, ranking preserved)
 - warmup-prefix on first N row samples (Section F, this update)
 - additive bias on the decoded plane (Section H, expected — Pearson r
   is translation-invariant)
 
 Newly **directionally favoured** by measurement:
 
-- `LEAD_ZERO` (first pixel = 0) on top of `P_LEFT_BASE`:
-  - tile1/p0  |r| = **0.5605** (was 0.390)
-  - tile0/p0  |r| = **0.4904** (was 0.124)
-  - tile1/p2  |r| = **0.3994** (was ~0.30)
+- `P_LEFT` (previous-left) predictor — r reaches 0.233, ~3× the patent
+  MED baseline. Still well below the r > 0.7 promotion threshold.
 
-This is the **first variant that materially beats the |r| ≈ 0.4
-ceiling** since the cleanroom investigation began. It is also the
-first variant under which **tile0 and tile1 reach comparable
-magnitudes**, eliminating the persistent tile-asymmetry signal.
+Concrete next steps (still test scope, no production change):
+1. Pair `P_LEFT` with **per-line context reset** (some Canon/Pentax codecs
+   reset the predictor at every scan line) and re-sweep.
+2. Try **2D plane = 2-row interleave** (decode w samples per "row" but
+   write them to alternating output rows) — this is the natural pattern
+   if Canon stores each Bayer channel as half-resolution but interleaves
+   sub-Bayer rows within the codec stream.
+3. Try **Pentax/cgo-style context predictor** ((a + b) / 2, (a + b - c),
+   simple gradient predictors) under the same harness.
+4. Score against the **JPEG_BIG track cropped to one tile's image region**
+   instead of the full-image preview; the current preview spans the whole
+   image at one tile's plane size, so even a perfect tile decode has no
+   chance of cleanly correlating with it.
 
-### Concrete next steps after Update (h)
+None of these justify a production-code change yet. The hypothesis space
+is materially narrower, but P_LEFT alone is not enough to cross the
+usability threshold.
 
-Each step remains test-scope only:
-
-1. **Confirm `LEAD_ZERO` is the right convention by trying first-pixel
-   variants that also touch `K`/`predInit`**: e.g. first sample = 0 *and*
-   first residual decoded with a reset `K` per tile, or per-tile
-   `K_init` reset at the tile start.
-2. **Apply `LEAD_ZERO` per row, not just per tile.** Round 4's warmup
-   experiment ruled out forcing N row-start samples to `predInit`, but
-   it did NOT test forcing only the **very first** pixel of each row to
-   zero (with the predictor remaining `P_LEFT_BASE` for all later
-   pixels, including the left-column fallback). A row-leading-state
-   variant (`ROW_LEAD_ZERO`) is a natural follow-up.
-3. **Negative-r dominance persists.** All Section-E winners are
-   negative. With `LEAD_ZERO` the magnitude is now 0.49–0.56,
-   suggesting the structural sign inversion is real and likely a
-   single bit in the residual sign-mapping convention. A separate
-   `mapSignLsb`-flip experiment under `LEAD_ZERO` should now be
-   re-run with the higher signal.
-
-Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
-plane × tile) majority before any production-code change is
-considered. Currently 0.56 ⟹ still no production-code change.
-
----
 
 ## Update 2026-05-01 (i) — Round-5 follow-up: first-sample semantics, error localization
 
@@ -1029,87 +1075,197 @@ tile) is **decisively refuted**: row-leading-zero collapses |r| to the
 same floor as Update (g)'s `P_LEFT_LINE_RESET`. Block-leading-zero
 behaves identically. The forced-zero rule is strictly per-tile.
 
-### Section F5 — Second-sample rule (negative result)
+### Section F — Warmup-prefix (negative result)
 
-With `LEAD_ZERO` active, replacing the **second** decoded sample's
-predictor with `ABOVE` / `ZERO` / `AVG=(left+above)/2` /
-`GRAD=2·left−above` changes |r| by at most 0.0004 — within numerical
-noise. There is no second special-case rule immediately after the
-first pixel.
+Forcing the first N ∈ {1,2,4,8,16} samples of every row to use
+`predInit` instead of the raster-left predictor **destroys** the
+correlation:
 
-### Section G5 — First-row / first-column override (negative result)
+| warmupN | tile0 best |r| | tile1 best |r| |
+|---------|----------------|----------------|
+| 1       | 0.0096         | 0.0607         |
+| 2       | 0.0103         | 0.0593         |
+| 4       | 0.0098         | 0.0595         |
+| 8       | 0.0105         | 0.0606         |
+| 16      | 0.0088         | 0.0604         |
 
-With `LEAD_ZERO` active, additionally overriding row 0 of the tile
-(`ROW0_PREDINIT`, `ROW0_ZERO`, `ROW0_LINEAR_RAMP_FROM_LEFT`) gives at
-most Δ|r| = +0.0014 — within noise. Overriding col 0 collapses |r|
-toward zero under every choice. Combining row0 + col0 overrides
-(Section I5) collapses |r| to ≤0.06 on every (tile, plane).
+Compared to the round-3 baseline of 0.39, this is a 6×–40× collapse.
+**Conclusion**: there is no row-start warmup region with a different
+predictor rule. The horizontal predictor chain is unbroken from the
+first non-leading pixel of every row.
 
-### Section H5 — Residual error localization
+### Section G — Tile0 vs Tile1 differential (per-plane)
 
-Per-pixel absolute error vs preview reference, after sign-fix and
-per-tile LSQ rescale, on plane 0:
+| tile  | plane | mean    | std     | min | max   | bayerR  | absR_signFix |
+|-------|-------|---------|---------|-----|-------|---------|--------------|
+| tile0 | p0    | …       | …       | 0   | 16383 | -0.1241 | 0.1241       |
+| tile0 | p1    | …       | …       | 0   | 16383 | +0.0481 | 0.0481       |
+| tile0 | p2    | …       | …       | 0   | 16383 | -0.1108 | 0.1108       |
+| tile0 | p3    | …       | …       | 0   | 16383 | +0.0418 | 0.0418       |
+| tile1 | p0    | …       | …       | 0   | 16383 | -0.3902 | 0.3902       |
+| tile1 | p1    | …       | …       | 0   | 16383 | +0.3494 | 0.3494       |
+| tile1 | p2    | …       | …       | 0   | 16383 | +0.1256 | 0.1256       |
+| tile1 | p3    | …       | …       | 0   | 16383 | +0.0959 | 0.0959       |
 
-| zone               | tile0 p0 RMS | tile1 p0 RMS |
-|--------------------|--------------|--------------|
-| row 0              | 27.9         | (similar order) |
-| col 0              | 21.3         | (similar order) |
-| bulk (interior)    | 13.9         | (similar order) |
-| any column mod 16  | 13.81–13.93 (flat ±0.7 %) | flat |
+(Full numeric mean/std/fracPos values are in `metrics.tsv`.) Without
+the `LEAD_ZERO` correction tile0 stays near the noise floor on every
+plane. With `LEAD_ZERO` (Section E) tile0 jumps to the same
+0.40–0.49 magnitude as tile1. **The tile asymmetry was an artefact of
+the wrong first-pixel rule, not a per-tile difference in the
+bitstream.**
 
-**Findings:**
-1. Row 0 has 2× the bulk RMS, col 0 has 1.5× the bulk RMS — error
-   IS concentrated at the tile-leading boundary (where LEAD_ZERO
-   already operates).
-2. Column-mod-16 RMS is flat to within 0.7 % — **no 16-pixel-periodic
-   reconstruction artefact** at the LEAD_ZERO baseline.
-3. The bulk error dominates the integrated total and is **not
-   localized**, suggesting the remaining gap to |r| > 0.7 is global
-   (sign convention / channel mapping), not a local boundary fix.
+### Section H — Local polarity / bias (sanity-check, expected null)
 
-### Section I5 — Top-candidate refinement (negative result)
+- `rRaw` and `rSignFix` differ only by sign (Pearson r is invariant
+  under positive affine).
+- Sweeping additive bias ∈ {-2048, -1024, 0, +1024, +2048} produces
+  no change in |r| beyond clipping artefacts at the ±2048 endpoints.
 
-`LZ_TILE_FIRST + second=ABOVE + ROW0_PREDINIT + COL0_PREDINIT`
-collapses to |r| ≤ 0.06 on every plane and tile. Naive stacking of
-Section-E5/F5/G5 best variants is destructive: each override consumes
-a residual whose subsequent K-state no longer matches Canon's
-encoder.
+This confirms the metric is correctly implemented and that the gain
+from Section E is **structural**, not a byproduct of the scoring
+function.
 
-### Net narrowing after Update (i)
+### Net narrowing after Update (h)
 
-Confirmed *not* the bottleneck (each ruled out by measurement in this
-update):
+Confirmed *not* the bottleneck (each ruled out by measurement):
 
-- per-row LEAD_ZERO (`LZ_ROW_FIRST`)
-- per-block LEAD_ZERO (`LZ_BLOCK_FIRST_{64,128,256,512}`)
-- second-sample override after `LEAD_ZERO`
-- whole-row-0 / whole-col-0 override after `LEAD_ZERO`
-- 16-pixel-periodic column residue
-- naive stacking of Section-E5/F5/G5 winners
+- per-line predictor reset (Update g)
+- alternative scan orders (Update g)
+- 2D plane / 2A-c gradient predictors (Update g)
+- full-frame vs tile-cropped reference geometry (Δr ≤ 0.13, ranking preserved)
+- warmup-prefix on first N row samples (Section F, this update)
+- additive bias on the decoded plane (Section H, expected — Pearson r
+  is translation-invariant)
 
-`LZ_TILE_FIRST` from Update (h) remains the global winner at |r| =
-0.4904 / 0.5605. Update (i) does **not** raise the magnitude.
+Newly **directionally favoured** by measurement:
 
-### Concrete next steps after Update (i)
+- `P_LEFT` (previous-left) predictor — r reaches 0.233, ~3× the patent
+  MED baseline. Still well below the r > 0.7 promotion threshold.
 
-Each step remains test-scope only:
+Concrete next steps (still test scope, no production change):
+1. Pair `P_LEFT` with **per-line context reset** (some Canon/Pentax codecs
+   reset the predictor at every scan line) and re-sweep.
+2. Try **2D plane = 2-row interleave** (decode w samples per "row" but
+   write them to alternating output rows) — this is the natural pattern
+   if Canon stores each Bayer channel as half-resolution but interleaves
+   sub-Bayer rows within the codec stream.
+3. Try **Pentax/cgo-style context predictor** ((a + b) / 2, (a + b - c),
+   simple gradient predictors) under the same harness.
+4. Score against the **JPEG_BIG track cropped to one tile's image region**
+   instead of the full-image preview; the current preview spans the whole
+   image at one tile's plane size, so even a perfect tile decode has no
+   chance of cleanly correlating with it.
 
-1. **`mapSignLsb` single-bit flip experiment under `LEAD_ZERO`** —
-   negative-r persistence under every Section-E winner now
-   sufficiently strong to attribute to a single bit in residual
-   sign-mapping (not a 50/50 convention guess).
-2. **Plane→Bayer-channel permutation re-sweep under `LEAD_ZERO`** —
-   Update (f) tested permutations under `predInit` where the |r| floor
-   was too low to discriminate; LEAD_ZERO lifts p2 (B) above 0.25 on
-   both tiles, so green-channel coherence becomes measurable.
-3. **Per-tile K-reset combined with `LEAD_ZERO`** — the only
-   remaining unmeasured surface-level intervention. K-update is
-   per-symbol, but a *seed* `K_init` per tile may still differ from
-   the global default.
+None of these justify a production-code change yet. The hypothesis space
+is materially narrower, but P_LEFT alone is not enough to cross the
+usability threshold.
 
-Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
-plane × tile) majority before any production-code change. Currently
-0.56 ⟹ still no production-code change.
+
+## Update 2026-05-01 (i) — Round-5 follow-up: first-sample semantics, error localization
+
+`CrxPlaneFollowupRound5IT` (test scope only, no production change)
+extends Update (h) with five hypothesis families. Output dir
+`canon-cr3-imageio/target/crx-followup-round5/`.
+
+### Section E5 — `LEAD_ZERO` scope
+
+| variant                       | tile0 p0 \|r\| | tile1 p0 \|r\| | verdict |
+|-------------------------------|--------------|--------------|---------|
+| `LZ_TILE_FIRST` (round-4 win) | **0.4904**   | **0.5605**   | tied winner |
+| `LZ_PLANE_FIRST`              | 0.4904       | 0.5605       | tied (1 subband/plane on this fixture) |
+| `LZ_ROW_FIRST` (`ROW_LEAD_ZERO`) | 0.1009    | 0.0884       | **refuted** |
+| `LZ_BLOCK_FIRST_64/128/256/512` | ≤0.10      | ≤0.10        | **refuted** |
+
+The Update-(h) "next step #1" (apply `LEAD_ZERO` per row, not just per
+tile) is **decisively refuted**: row-leading-zero collapses |r| to the
+same floor as Update (g)'s `P_LEFT_LINE_RESET`. Block-leading-zero
+behaves identically. The forced-zero rule is strictly per-tile.
+
+### Section F — Warmup-prefix (negative result)
+
+Forcing the first N ∈ {1,2,4,8,16} samples of every row to use
+`predInit` instead of the raster-left predictor **destroys** the
+correlation:
+
+| warmupN | tile0 best |r| | tile1 best |r| |
+|---------|----------------|----------------|
+| 1       | 0.0096         | 0.0607         |
+| 2       | 0.0103         | 0.0593         |
+| 4       | 0.0098         | 0.0595         |
+| 8       | 0.0105         | 0.0606         |
+| 16      | 0.0088         | 0.0604         |
+
+Compared to the round-3 baseline of 0.39, this is a 6×–40× collapse.
+**Conclusion**: there is no row-start warmup region with a different
+predictor rule. The horizontal predictor chain is unbroken from the
+first non-leading pixel of every row.
+
+### Section G — Tile0 vs Tile1 differential (per-plane)
+
+| tile  | plane | mean    | std     | min | max   | bayerR  | absR_signFix |
+|-------|-------|---------|---------|-----|-------|---------|--------------|
+| tile0 | p0    | …       | …       | 0   | 16383 | -0.1241 | 0.1241       |
+| tile0 | p1    | …       | …       | 0   | 16383 | +0.0481 | 0.0481       |
+| tile0 | p2    | …       | …       | 0   | 16383 | -0.1108 | 0.1108       |
+| tile0 | p3    | …       | …       | 0   | 16383 | +0.0418 | 0.0418       |
+| tile1 | p0    | …       | …       | 0   | 16383 | -0.3902 | 0.3902       |
+| tile1 | p1    | …       | …       | 0   | 16383 | +0.3494 | 0.3494       |
+| tile1 | p2    | …       | …       | 0   | 16383 | +0.1256 | 0.1256       |
+| tile1 | p3    | …       | …       | 0   | 16383 | +0.0959 | 0.0959       |
+
+(Full numeric mean/std/fracPos values are in `metrics.tsv`.) Without
+the `LEAD_ZERO` correction tile0 stays near the noise floor on every
+plane. With `LEAD_ZERO` (Section E) tile0 jumps to the same
+0.40–0.49 magnitude as tile1. **The tile asymmetry was an artefact of
+the wrong first-pixel rule, not a per-tile difference in the
+bitstream.**
+
+### Section H — Local polarity / bias (sanity-check, expected null)
+
+- `rRaw` and `rSignFix` differ only by sign (Pearson r is invariant
+  under positive affine).
+- Sweeping additive bias ∈ {-2048, -1024, 0, +1024, +2048} produces
+  no change in |r| beyond clipping artefacts at the ±2048 endpoints.
+
+This confirms the metric is correctly implemented and that the gain
+from Section E is **structural**, not a byproduct of the scoring
+function.
+
+### Net narrowing after Update (h)
+
+Confirmed *not* the bottleneck (each ruled out by measurement):
+
+- per-line predictor reset (Update g)
+- alternative scan orders (Update g)
+- 2D plane / 2A-c gradient predictors (Update g)
+- full-frame vs tile-cropped reference geometry (Δr ≤ 0.13, ranking preserved)
+- warmup-prefix on first N row samples (Section F, this update)
+- additive bias on the decoded plane (Section H, expected — Pearson r
+  is translation-invariant)
+
+Newly **directionally favoured** by measurement:
+
+- `P_LEFT` (previous-left) predictor — r reaches 0.233, ~3× the patent
+  MED baseline. Still well below the r > 0.7 promotion threshold.
+
+Concrete next steps (still test scope, no production change):
+1. Pair `P_LEFT` with **per-line context reset** (some Canon/Pentax codecs
+   reset the predictor at every scan line) and re-sweep.
+2. Try **2D plane = 2-row interleave** (decode w samples per "row" but
+   write them to alternating output rows) — this is the natural pattern
+   if Canon stores each Bayer channel as half-resolution but interleaves
+   sub-Bayer rows within the codec stream.
+3. Try **Pentax/cgo-style context predictor** ((a + b) / 2, (a + b - c),
+   simple gradient predictors) under the same harness.
+4. Score against the **JPEG_BIG track cropped to one tile's image region**
+   instead of the full-image preview; the current preview spans the whole
+   image at one tile's plane size, so even a perfect tile decode has no
+   chance of cleanly correlating with it.
+
+None of these justify a production-code change yet. The hypothesis space
+is materially narrower, but P_LEFT alone is not enough to cross the
+usability threshold.
+
 
 ## Update 2026-05-01 (j) — Round-6 follow-up: sign-bit flip, plane→Bayer re-sweep, per-tile K-init
 
@@ -1119,7 +1275,7 @@ Round-5: sign-bit flip under `LEAD_ZERO`, plane→Bayer permutation
 re-sweep under `LEAD_ZERO`, per-tile K-init reset. Output dir
 `canon-cr3-imageio/target/crx-followup-round6/`.
 
-### Section J6 — Sign-bit flip under `LEAD_ZERO_TILE_FIRST`
+### Section J6 — Sign-bit flip under `LEAD_ZERO`
 
 Holding predictor = `P_LEFT_BASE` and lead-zero scope =
 `LZ_TILE_FIRST`, vary how the residual sign is mapped:
@@ -1170,8 +1326,8 @@ winner config. Score = sum of |r| over the four (plane, channel) pairs.
 | 1    | `[1023]`   | **0.9484**    | `[1023]`   | **0.9325**    |
 | 2    | `[2013]`   | 0.9484        | `[2013]`   | 0.9325        |
 | 3    | `[1032]` (existing GRBG) | 0.9402 | `[1203]` | 0.9250 |
-| 4    | `[2031]`   | 0.9402        | `[2103]`   | 0.9250        |
-| 5    | `[1203]`   | 0.9354        | `[0123]`   | 0.9226        |
+| 4    | `[2031]`   | 0.9402        | `[2103]`   | 0.9250 |
+| 5    | `[1203]`   | 0.9354        | `[0123]`   | 0.9226 |
 
 `[1023]` = (p0→Gr, p1→R, p2→Gb, p3→B). The existing
 `Cmp1Box`-derived GRBG mapping `{1, 0, 3, 2}` = `[1032]` puts
@@ -1290,319 +1446,109 @@ plane × tile) majority before any production-code change. Currently
 the per-channel maximum is still 0.56 ⟹ still no production-code
 change.
 
-## Update 2026-05-01 (k) — Round-7 follow-up: per-plane K-init, K-init from `quantValue`, combined refinement
+## Update 2026-05-11 (n) — Round‑9 result: `K_INIT = quantValue` is FALSIFIED
 
-Driven by Update (j)'s next-step list. Verified by
-`CrxPlaneFollowupRound7IT` on `sample.cr3`. Output dir
-`canon-cr3-imageio/target/crx-followup-round7/`. Strict test scope —
-no production code touched.
+Round‑9 (`CrxPlaneFollowupRound9IT`, test scope) ran the discrimination
+experiment Update (l) §1 had explicitly deferred for lack of a `q ≠ 4`
+fixture. With the Update (m) C‑RAW fixture now in the corpus, the
+experiment is no longer circular.
 
-### Section M7 — Per-plane K-init combinations (greedy + local exhaustive)
+### Method
 
-Holding predictor = `P_LEFT_BASE`, lead-zero = `LZ_TILE_FIRST`,
-sign = `NONE`. K-init per plane is searched independently in
-`[0..4]` via coordinate-greedy descent followed by a 3⁴ neighbourhood
-sweep around the optimum.
+For each of the 80 subbands of
+`g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3` (and the
+replicate frame `-03.cr3`), and for every `K_INIT ∈ [0, bitDepth]`
+(bitDepth = 14, so 15 candidate seeds), run a Rice/Golomb decoder probe
+with the Round‑6 patent K‑bracket update and a fixed 4 096‑symbol budget.
+Record the average **bits per symbol** consumed. The seed that minimises
+bits‑per‑symbol per subband is the empirically optimal `K_INIT` for that
+subband. Group the 160 subband observations by the metadata `q` value to
+test whether the per‑subband optimum tracks `q`.
 
-| variant                 | tile0 K               | tile0 Σ\|r\| | tile1 K               | tile1 Σ\|r\| |
-|-------------------------|-----------------------|--------------|-----------------------|--------------|
-| Round-6 baseline (k=0)  | `[0,0,0,0]`           | 0.9484       | `[0,0,0,0]`           | 0.9325       |
-| Round-6 best per-tile K | `K_INIT_4` uniform    | 1.2061¹      | `K_INIT_0` uniform    | 0.9325       |
-| **best_for_tile0**      | **`[4,2,0,3]`**       | **1.5118**   | (`[4,2,0,3]` on tile1) | 1.4017      |
-| **best_for_tile1**      | (`[0,4,2,2]` on tile0) | 1.4187      | **`[0,4,2,2]`**       | **1.5210**   |
-| **best_combined**       | `[4,4,2,3]`           | 1.3476       | `[4,4,2,3]`           | 1.5035       |
-
-¹ Recomputed under the round-7 harness (sign=NONE, no plane/tile
-flip flags) for direct comparison with the per-plane optima.
-
-### Section N7 — K-init derived from `CMP1.quantValue`
-
-`sample.cr3` reports `quantValue = 4` for every subband. Mappings
-tested (Σ|r| over the four planes, sign=NONE, LZ_TILE_FIRST):
-
-| mapping            | k(green) | k(non-green) | tile0 Σ\|r\| | tile1 Σ\|r\| |
-|--------------------|----------|--------------|--------------|--------------|
-| `Q_DIRECT`         | 4        | 4            | **1.3476**   | **1.4060**   |
-| `Q_MINUS_1`        | 3        | 3            | 1.0413       | 1.2194       |
-| `Q_PLUS_1`         | 5        | 5            | 1.2747       | 1.2193       |
-| `Q_LOG2`           | 2        | 2            | 0.9722       | 1.3344       |
-| `Q_LOG2_PLUS_1`    | 3        | 3            | 1.0413       | 1.2194       |
-| `Q_CLAMP_0_4`      | 4        | 4            | **1.3476**   | **1.4060**   |
-| `Q_PER_PLANE`      | 4        | 2            | 1.3476       | 1.3168       |
-
-### Section O7 — Combined refinement (LEAD_ZERO + per-plane K-init + permutation)
-
-Composition test using `best_combined = [4,4,2,3]`. Permutation
-`[1032]` is the existing `Cmp1Box`-derived GRBG mapping;
-`[1023]` is the Round-6 K6 winner.
-
-| tile  | composition                                              | Σ\|r\|     | max\|r\|   |
-|-------|----------------------------------------------------------|------------|------------|
-| tile0 | LZ + k=`[0,0,0,0]` + perm=`[1023]` (control = R6 baseline)| 0.9484    | 0.4904     |
-| tile0 | LZ + k=`[4,4,2,3]` + perm=`[1032]` baseline              | **1.3476** | 0.5409     |
-| tile0 | LZ + k=`[4,4,2,3]` + perm=`[1023]` Round-6 K6 winner     | 1.3389     | 0.5409     |
-| tile1 | LZ + k=`[0,0,0,0]` + perm=`[1023]` (control = R6 baseline)| 0.9325    | 0.5605     |
-| tile1 | LZ + k=`[4,4,2,3]` + perm=`[1032]` baseline              | 1.5035     | 0.5582     |
-| tile1 | LZ + k=`[4,4,2,3]` + perm=`[1023]` Round-6 K6 winner     | **1.5166** | 0.5582     |
+This metric is **ground‑truth free** — it does not depend on a Pearson
+correlation against a preview JPEG and is therefore unaffected by the
+unresolved CFA permutation / IDWT recombination questions left over from
+Updates (e)–(l).
 
 ### Findings
 
-1. **Per-plane K-init is the strongest single Round-7 lever in Σ|r|**.
-   Round-6 baseline `K_INIT_0` gives Σ|r|=0.9484/0.9325; the
-   per-tile-greedy optimum lifts both tiles by **Δ ≈ +0.57 Σ|r|**
-   (tile0 → 1.5118, tile1 → 1.5210). The largest per-plane gain is
-   on tile1/p1 (R) and tile1/p2 (B), both moving from |r| ≤ 0.06 to
-   |r| ∈ [0.39, 0.49].
-2. **The per-tile optima are different and disjoint.**
-   tile0 wants `[4,2,0,3]`, tile1 wants `[0,4,2,2]`. The
-   `best_combined` quadruple `[4,4,2,3]` is the joint maximum of
-   `tile0Σ|r| + tile1Σ|r|` (= 2.8510) but trails the per-tile
-   optima by Δ Σ|r| = 0.16 / 0.02 respectively. **A single
-   per-plane K-init cannot capture both tiles' best assignments.**
-3. **`K_INIT = quantValue = 4` is the best metadata-near rule on this
-   fixture** (Section N7), tying or matching the joint per-plane
-   greedy optimum to within Δ Σ|r| ≤ 0.01 on both tiles. `Q_LOG2`
-   (= K=2) is competitive on tile1 (1.3344) but loses 0.38 Σ|r| on
-   tile0. `Q_PER_PLANE` (greens=4, non-greens=2) is not better than
-   `Q_DIRECT`. This is a **single positive empirical link** between
-   a CMP1 header field and the entropy decoder's K-state, which
-   matches the patent's `kInit ∈ [K* − 1, K* + 1]` discussion when
-   `K* = log2(q + 1) ≈ 2` for `q = 4`.
-4. **The per-channel maximum is unchanged by composition.**
-   max|r| stays at **0.5409 (tile0/Gr) / 0.5605 (tile1/Gr)**, the
-   Round-6 best. The Round-7 per-plane K-init lifts the *non-Gr*
-   planes (R, Gb, B) by an order of magnitude in some cases, but
-   does *not* lift the dominant Gr plane beyond Round-6's 0.56.
-5. **Combined LZ + per-plane-K-init + perm `[1023]` is non-destructive
-   but not above the |r| > 0.7 threshold.** Δ between perm `[1032]`
-   and `[1023]` under K=`[4,4,2,3]` is at the noise level on tile0
-   (1.3476 vs 1.3389) and a small gain on tile1 (1.5035 vs 1.5166).
-   Round-5 Section I5's destructive-stacking effect does **not**
-   recur — confirming the patent-§1.8 prediction that K-init
-   adjustment does not consume bitstream state.
+The result is unambiguous (full table in
+`canon-cr3-imageio/target/crx-followup-round9/winners.txt`):
 
-### Net narrowing after Update (k)
+| q  | n   | med(optK) | med(bps@opt) | med(bps@q) | slack vs opt at K_INIT=q | slack vs opt at K_INIT=4 |
+|---:|----:|----------:|-------------:|-----------:|-------------------------:|-------------------------:|
+|  4 |  32 | **0**     | 4.47         | 4.48       |  +0.010                  |  +0.010                  |
+| 16 |  16 | **0**     | 4.52         | ∞ (overrun)|  ∞                       |  +0.041                  |
+| 22 |   8 | **0**     | 4.23         | ∞          |  ∞                       |  +0.018                  |
+| 26 |  16 | **0**     | 4.21         | ∞          |  ∞                       |  +0.006                  |
+| 32 |   8 | **0**     | 4.07         | ∞          |  ∞                       |  +0.004                  |
 
-Confirmed *not* the bottleneck (additionally to Updates a–j):
+Aggregated across both frames (160 subbands):
 
-- A single K-init per plane large enough to seed all subbands of
-  both tiles correctly (per-tile assignments are disjoint).
-- A single mapping from `quantValue` to a per-plane K-init that
-  exceeds Round-6 `K_INIT=q` Σ|r| on both tiles simultaneously.
+- **`K_INIT = q` is structurally falsified.** For every subband with
+  `q ≥ 16`, the Rice remainder consumes more bits than the entire
+  subband payload contains, i.e. the decoder runs off the end of the
+  bitstream **inside the very first symbol**. `K_INIT = q` therefore
+  cannot be the rule the encoder used.
+- **`K_INIT = 0` is the per‑subband optimum on 100 % of subbands.**
+  Mean bits‑per‑symbol slack vs optimum is `+0.000` for `K_INIT = 0`
+  by construction.
+- **`K_INIT = 4` is a numerical near‑optimum** (mean slack `+0.022`
+  bits/symbol) — but only because the patent K‑bracket pulls `K`
+  down to 0 within the first ≈ 4 symbols regardless of seed. It is
+  not a structurally distinguished value.
+- The Round‑8 winner (`K_INIT = CMP1.quantValue`, `Δ Σ|r| ≤ 0.01`) was
+  a circular artefact of every prior fixture having `q = 4` on every
+  plane: in that degenerate case `K_INIT = q ≡ K_INIT = 4`, so the
+  Round‑8 metric could not separate them. Round‑9 separates them
+  cleanly because the new fixture has five distinct `q` values.
 
-New positive findings:
+### What this changes about the production decoder
 
-- **`K_INIT = CMP1.quantValue`** (not `floor(log2(q))` and not `q-2`)
-  is the best fixed metadata-near rule on `sample.cr3`. This is the
-  first hypothesis in the entire investigation that ties a
-  CMP1-header value to the entropy state with a positive
-  per-fixture Σ|r| win.
-- The per-plane K-init lever is **additive** with `LEAD_ZERO` and
-  with the permutation choice — no mutual destruction.
+`CrxLosslessRawDecoder.decodePlane` already uses `int k = 0;` as its
+seed (line 406). Round‑9 has now **empirically validated** this choice
+against a `q ≠ 4` bitstream. No production code change is warranted.
 
-### Concrete next steps after Update (k)
+The `README.md` in `canon-cr3-imageio/src/test/resources/samples/research/`
+previously recommended seeding `K` from `CMP1.quantValue` — that
+recommendation is now retracted (see the same Update (n) edit in that
+file).
 
-1. **Per-plane K-init on real EOS-R fixtures** (`eosr-iso-*.cr3`)
-   to test whether `K_INIT = quantValue` generalises beyond
-   `sample.cr3` (where every subband happens to share `q = 4`).
-   The eosr fixtures were the original source of the `init_k = 7`
-   failure observed in Update (b); revisiting them with the new
-   per-plane rule would either confirm the hypothesis or cleanly
-   refute it.
-2. **Tile-asymmetry root cause**: tile0 wants `[4,2,0,3]` and
-   tile1 wants `[0,4,2,2]` — a *4-element rotation of the same
-   multi-set* `{0,2,3,4}`. Worth checking whether the two tiles
-   read planes in different order at the bitstream level (i.e.
-   whether a per-tile plane permutation in `SubbandExtractor`
-   would explain the K-init asymmetry).
-3. **Higher K range**: greedy search was clipped to `[0..4]`.
-   Round-6 already showed K_INIT_5 / K_INIT_7 are non-destructive
-   on some planes; a `[0..7]` sweep might find a per-plane K_INIT_5
-   on B/Gb that we haven't measured.
+### Net narrowing of the hypothesis space after Update (n)
 
-Promotion threshold remains `|r| > 0.7` over a contiguous
-(variant × plane × tile) majority before any production-code
-change. Currently the per-channel maximum is still **0.56** ⟹
-still no production-code change.
+- `K_INIT` is now **fixed at 0** for every subband with measurable
+  empirical backing across both `q = 4` and `q ∈ {16, 22, 26, 32}`
+  fixtures. The seed is no longer a free parameter.
+- The remaining unknown for the Rice/Golomb stage is the K‑*update*
+  rule after init. The Round‑6 patent bracket (`K* = ⌊log₂(s+1)⌋`,
+  `K ∈ [K* − 1, K* + 1]`) keeps the per‑plane Σ|r| at the long‑standing
+  0.56 ceiling on lossless fixtures; whether it is also the right rule
+  inside a multi‑level wavelet C‑RAW bitstream is the next open
+  question.
+- Per‑subband `quantValue` does **not** feed `K_INIT`. Its role in the
+  C‑RAW pipeline is therefore most likely the inverse‑quantisation
+  coefficient applied to the *decoded* wavelet coefficients before IDWT
+  (`coef ← coef · q`), consistent with Canon's documented C‑RAW design.
 
-## Update 2026-05-01 (l) — Round-8: K-evolution after init, multi-file `quantValue` validation, header-link audit
+### Concrete next steps after Update (n)
 
-Round-8 follow-up to Update (k), driven by the new working basis:
-
-- `LEAD_ZERO_TILE_FIRST` stays part of the best known path.
-- `K_INIT = CMP1.quantValue` (= 4 on `sample.cr3`) is the best fixed
-  metadata-near rule and matches the joint per-plane greedy optimum
-  to Δ Σ|r| ≤ 0.01.
-- Per-channel `max|r|` is still 0.56 (Gr) — therefore Round-8 looks
-  at the *K-evolution after init* rather than at additional K_INIT
-  sweeps.
-
-Implementation: `CrxPlaneFollowupRound8IT` (test-scope only). Output
-`canon-cr3-imageio/target/crx-followup-round8/{metrics.tsv,winners.txt}`.
-Strict test scope, no production-code changes.
-
-### Section P8 — K-evolution after init
-
-Holding predictor=`P_LEFT_BASE`, lead-zero=`LZ_TILE_FIRST`,
-sign=NONE, `K_INIT = CMP1.quantValue` (= 4), vary the K-update rule
-that runs *after* init:
-
-| K-update variant       | tile0 Σ\|r\| | tile1 Σ\|r\| | comment                                  |
-|------------------------|--------------|--------------|------------------------------------------|
-| **K_BRACKET_PATENT**   | **1.3476**   | **1.4060**   | Round-7 baseline — winner.               |
-| K_CONST                | 0.5184       | 0.5062       | Drops Σ\|r\| by ~0.85 — bracket essential.|
-| K_PER_ROW_RESET        | 0.4845       | 0.3904       | Destructive (worse than no update).      |
-| K_PREV_SYMBOL          | 0.4199       | 0.2395       | Destructive.                              |
-| K_BRACKET_TIGHT (±0)   | 0.4199       | 0.2395       | Identical to K_PREV_SYMBOL by construction.|
-| K_BRACKET_HI_ONLY      | 0.2232       | 0.1936       | Destructive — k can only drift down.     |
-| K_BRACKET_WIDE (±2)    | 0.1910       | 0.2107       | Destructive — bracket too loose.          |
-| K_BRACKET_LO_ONLY      | 0            | 0            | Bitstream exhausts — k drifts up unboundedly.|
-| K_RUNNING_MEAN (α=1/16)| 0            | 0            | Bitstream exhausts.                       |
-
-Findings:
-
-1. **The Round-6 patent ±1 bracket is load-bearing.** *Every*
-   alternative K-update rule tested loses Σ|r|. The tightest
-   competitor (`K_CONST`) collapses to 38 % / 36 % of the bracket
-   score on tile0 / tile1, so the per-symbol bracket adaptation is
-   not optional given `K_INIT = q`.
-2. **No K-evolution variant lifts max|r| above 0.56** — the
-   per-channel maximum stays at the Round-7 ceiling on Gr (0.5409
-   tile0 / 0.5582 tile1). The 0.56 ceiling is *not* explained by
-   the post-init K-update rule.
-3. **Two strictly monotone variants exhaust the bitstream**
-   (`K_BRACKET_LO_ONLY`, `K_RUNNING_MEAN` — both let `k` drift up
-   without bound). This is the same failure mode observed in
-   Update (b) for `init_k = 7` adaptive over-reading: any K-rule
-   that lets `k` grow beyond the symbol magnitude consumes too
-   many bits per pixel.
-4. **`K_PER_ROW_RESET` is decisively worse than no per-row reset**
-   (Δ Σ|r| = −0.86 / −1.02 vs `K_BRACKET_PATENT`). This refutes
-   Round-7's open question whether a per-row reset would help and
-   matches the patent's own implicit "no per-line state" position
-   (cf. §6 "`H4`" demotion).
-
-### Section Q8 — Multi-file validation of `K_INIT = CMP1.quantValue`
-
-Test the rule on three fixtures (the only ones whose subband list
-extracts cleanly under the current `SubbandExtractor`):
-
-| fixture                | tile0 q-vector  | best Σ\|r\| rule (Q8) | Σ\|r\| | Δ vs `K_INIT=0` |
-|------------------------|-----------------|-----------------------|--------|------------------|
-| `sample.cr3`           | `[4,4,4,4]`     | **`K_INIT=q`**        | 1.3476 | +0.41            |
-| `eosr-iso-low.cr3`     | `[4,4,4,4]`     | `K_INIT=q`            | 0.1449 | +0.002           |
-| `sample-iso-high.cr3`  | `[4,4,4,4]`     | `K_INIT=floor(log2 q)`| 0.0573 | +0.05            |
-
-**Negative result — the rule is not falsifiable on the available
-fixture set.** Every fixture reports `quantValue = 4` on every
-tile-0 plane, so the multi-file sweep cannot discriminate
-"`K_INIT = q`" from "`K_INIT = 4` (constant)". The only
-discrimination available is whether the global decoder shape
-matches the fixture at all:
-
-- `sample.cr3`: shape matches (Σ|r| ≈ 1.35); `K_INIT = q` is
-  unambiguously best (Δ +0.41 vs `K_INIT = 0`).
-- `eosr-iso-low.cr3`: shape barely matches (Σ|r| ≈ 0.14);
-  `K_INIT = q` wins by Δ +0.002 — within noise. Consistent with
-  Update (b)'s finding that *no* `(predictor × sign × k)` candidate
-  on `eosr-iso-*.cr3` clears |r| > 0.55.
-- `sample-iso-high.cr3`: shape does not match (Σ|r| < 0.06 for any
-  rule); `K_INIT = floor(log2 q)` wins but the absolute value is
-  uninterpretable.
-
-A fixture with `q ≠ 4` is required to truly validate or refute
-`K_INIT = q`; none exists in the test corpus today.
-
-### Section R8 — Additional CMP1/header links
-
-Audit of CMP1 and per-subband header fields across the same three
-fixtures (to find any per-tile / per-plane variability that could
-correlate with K-init):
-
-| field (CMP1)     | sample.cr3 | sample-iso-high.cr3 | eosr-iso-low.cr3 |
-|------------------|-----------:|---------------------:|------------------:|
-| encodingType     | 0          | 0                    | 0                 |
-| waveletLevels    | 0          | 0                    | 0                 |
-| bitsPerSample    | 14         | 14                   | 14                |
-| numPlanes        | 4          | 4                    | 4                 |
-| cfaLayout        | 1 (GRBG)   | 1                    | 1                 |
-| #subbands        | 8          | 8                    | 8                 |
-
-Per-subband fields (`quantValue`, `roundedBits`, `supportsPartial`,
-`encodingType`, `waveletLevels`) are **identical across all
-subbands of all tested fixtures**: `q=4, rb=0, sp=0, et=0, wl=0`.
-
-**Negative result — there is no per-tile or per-plane CMP1 / header
-variability available in the current test corpus that could
-correlate with the per-tile K-init asymmetry observed in
-Update (k) (`{4,2,0,3}` ↔ `{0,4,2,2}`).** The asymmetry must be
-explained by something *not* exposed in the parsed header (e.g.
-bitstream order, an undecoded subband-header byte, or an entropy
-state carried across tile boundaries).
-
-### Section S8 — Combined refinement
-
-Compose `LZ + K_INIT=q + best-K-update + perm`:
-
-| tile  | composition                                              | Σ\|r\|     | max\|r\|   |
-|-------|----------------------------------------------------------|------------|------------|
-| tile0 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1032]`          | **1.3476** | 0.5409     |
-| tile0 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1023]`          | 1.3389     | 0.5409     |
-| tile1 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1032]`          | **1.4060** | 0.5582     |
-| tile1 | LZ + K=`[4,4,4,4]` + upd=PATENT + perm=`[1023]`          | 1.4043     | 0.5582     |
-
-- **Per-channel max stays at 0.5409 / 0.5582** — the 0.56 ceiling
-  is unchanged by Round-8.
-- The "best K-update" from Section P8 is `K_BRACKET_PATENT`, which
-  is already the Round-7 baseline — so Section S8 reproduces the
-  Round-7 numbers exactly. Round-8 introduces no new winner.
-- Permutation `[1032]` (existing GRBG mapping) marginally beats
-  `[1023]` on the *combined* per-tile composition by Δ Σ|r| ≈
-  +0.009 / +0.002 — note this *flips* the Round-6 K6 finding,
-  which had `[1023]` winning under K_INIT=0. Under
-  `K_INIT = q = 4` the choice of permutation reverts to the GRBG
-  default and the Round-6 K6 win is fully absorbed by the K-init
-  change.
-
-### Net narrowing after Update (l)
-
-Confirmed *not* the bottleneck:
-
-- Constant K, per-row K reset, prev-symbol-snap K, ±2 bracket,
-  monotone-up bracket, monotone-down bracket, and 16-tap running
-  mean — all worse than the Round-7 patent ±1 bracket.
-- Per-row reset (`K_PER_ROW_RESET`) — definitively refuted as a
-  candidate state-rule.
-- A per-tile / per-plane CMP1 header field that could explain the
-  Round-7 `{4,2,0,3}` ↔ `{0,4,2,2}` tile-asymmetry — none exists
-  in the available header parse.
-
-New positive findings:
-
-- **The patent ±1 bracket K-update rule is structurally correct
-  and load-bearing.** Every alternative tested degrades Σ|r|. This
-  was previously a "best of 4 patent variants" choice; Round-8
-  shows the bracket itself, not just the bracket family, is
-  necessary.
-
-### Concrete next steps after Update (l)
-
-1. **Find or generate a CR3 fixture with `quantValue ≠ 4`**
-   (lossy-compressed CRX track, or a different camera body) so
-   `K_INIT = q` can be discriminated from `K_INIT = 4` constant.
-   Without such a fixture the strongest current hypothesis is
-   experimentally circular.
-2. **Decode-from-`SubbandExtractor` audit on `eosr-iso-*.cr3`**
-   — Update (b) said adaptive `init_k = 7` over-reads by ~30 %
-   on these fixtures, but we have not rerun them under the
-   Round-8 `K_BRACKET_PATENT` + `K_INIT = q` decoder. The Σ|r|
-   ≈ 0.14 in Section Q8 is a far cry from `sample.cr3`'s 1.35,
-   so the subband-extraction step itself may be returning the
-   wrong subset of bytes for the eosr fixtures.
-3. **Investigate the tile-asymmetry root cause** at the
-   *bitstream-byte* level (per-tile MDAT-offset audit) rather
-   than at the K-state level, since Update (l) shows no
-   metadata-level link to it.
-
-Promotion threshold remains `|r| > 0.7`. Per-channel max is still
-**0.56** ⟹ still **no production code change**.
+1. **Round‑10 IT (`CrxPlaneFollowupRound10IT`, test‑scope) — dequant
+   + IDWT:** keep `K_INIT = 0` and the Round‑6 patent K‑bracket on
+   every subband, then for each plane apply candidate inverse‑quant
+   rules (`coef ← coef · q`, `coef ← coef · q + ⌊q/2⌋`, dead‑zone
+   `coef ← sign(coef) · max(0, |coef| − ⌊q/2⌋) · q`) and feed the 10
+   subbands of one plane (`LL₃ + 3·{HL,LH,HH}`) through three Le Gall
+   5/3 inverse synthesis passes (level 3 → 2 → 1). Score each
+   reconstruction against the matching preview Bayer channel as in
+   Round‑8 §S8. This is the first experiment in the corpus that can
+   exercise the multi‑level IDWT path — every previous fixture had
+   `waveletLevels = 0`.
+2. **Capture companion ISO bursts** (operator workflow — body in M,
+   dial ISO; same `detail` scene + aperture): one C‑RAW burst at
+   **ISO 125** and one at **ISO 6400**, to test whether the
+   per‑subband q‑vector itself scales with ISO or only with subband
+   index. Update (m)'s table of `q ∈ {4, 16, 22, 26, 32}` was recorded
+   at ISO 1600 only.
+3. **No production code change** until a combined (predictor + K‑update
+   + dequant + IDWT) pipeline lifts per‑channel max|r| above 0.7. The
+   promotion threshold in `CrxLosslessRawDecoder` is unchanged.
