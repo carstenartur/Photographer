@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UsbCameraBackend.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.generic.backend</a> &gt; <span class="el_source">UsbCameraBackend.java</span></div><h1>UsbCameraBackend.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.generic.backend;
+
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.capability.Capability;
+import com.photographer.focusstack.common.capability.CapabilitySet;
+import com.photographer.focusstack.common.device.BatteryInfo;
+import com.photographer.focusstack.common.device.DeviceInfo;
+import com.photographer.focusstack.common.device.LensInfo;
+import com.photographer.focusstack.common.device.StorageInfo;
+import com.photographer.focusstack.common.media.MediaItem;
+import com.photographer.focusstack.common.media.TransferResult;
+import com.photographer.focusstack.common.transport.CameraConnection;
+import com.photographer.focusstack.common.transport.GenericCameraBackend;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.OutputStream;
+import java.util.List;
+
+/**
+ * USB / PTP backend skeleton.
+ *
+ * &lt;p&gt;USB (libusb + PTP) is already partially wired through the
+ * {@code camera-ptp} module ({@code PtpCameraBackendFactory}). This adapter
+ * exists so the GUI/workflow layer can target the new generic interface and
+ * pick up USB cameras as a first-class transport once the PTP feature
+ * surface (storage list, content list, transfer, delete) is fleshed out.
+ *
+ * &lt;p&gt;&lt;strong&gt;TODO&lt;/strong&gt; Items currently stubbed:
+ * &lt;ul&gt;
+ *   &lt;li&gt;{@link #getDeviceInfo} — read PTP device-info opcode (model, serial, firmware).&lt;/li&gt;
+ *   &lt;li&gt;{@link #getStorageInfo} — {@code GetStorageIDs} + {@code GetStorageInfo}.&lt;/li&gt;
+ *   &lt;li&gt;{@link #getBatteryInfo} — {@code BatteryLevel} device property.&lt;/li&gt;
+ *   &lt;li&gt;{@link #listMedia}, {@link #downloadMedia}, {@link #deleteMedia} — object-handle iteration.&lt;/li&gt;
+ *   &lt;li&gt;{@link #captureStill}, live-view — vendor-specific (Canon: Initiate-Capture + bulk read).&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;The capability set returned today reports only what the skeleton can
+ * honour, which means the UI will gracefully hide unsupported actions.
+ */
+public class UsbCameraBackend implements GenericCameraBackend {
+
+<span class="nc" id="L43">    private static final Logger log = LoggerFactory.getLogger(UsbCameraBackend.class);</span>
+
+    private final String cameraId;
+
+<span class="nc" id="L47">    public UsbCameraBackend(String cameraId) {</span>
+<span class="nc" id="L48">        this.cameraId = cameraId;</span>
+<span class="nc" id="L49">    }</span>
+
+    @Override
+    public CameraConnection connect() {
+<span class="nc" id="L53">        log.info(&quot;USB backend: opening connection to {} (stub)&quot;, cameraId);</span>
+<span class="nc" id="L54">        return new SimpleUsbConnection(cameraId);</span>
+    }
+
+    @Override
+    public DeviceInfo getDeviceInfo(CameraConnection connection) {
+        // TODO: bridge to camera-ptp PtpCamera.getDeviceInfo().
+<span class="nc" id="L60">        return DeviceInfo.minimal(cameraId, &quot;USB camera (stub)&quot;, &quot;usb-ptp&quot;);</span>
+    }
+
+    @Override
+    public CapabilitySet getCapabilities(CameraConnection connection) {
+<span class="nc" id="L65">        return CapabilitySet.builder()</span>
+<span class="nc" id="L66">                .add(Capability.DEVICE_INFO)</span>
+                // TODO: derive remaining capabilities from PTP DeviceInfo.OperationsSupported.
+<span class="nc" id="L68">                .build();</span>
+    }
+
+<span class="nc" id="L71">    @Override public StorageInfo getStorageInfo(CameraConnection connection) { return StorageInfo.empty(); }</span>
+<span class="nc" id="L72">    @Override public BatteryInfo getBatteryInfo(CameraConnection connection) { return BatteryInfo.unknown(); }</span>
+<span class="nc" id="L73">    @Override public LensInfo    getLensInfo(CameraConnection connection)    { return LensInfo.none();     }</span>
+<span class="nc" id="L74">    @Override public List&lt;MediaItem&gt; listMedia(CameraConnection connection)  { return List.of();           }</span>
+
+    @Override
+    public TransferResult downloadMedia(CameraConnection connection, MediaItem item, OutputStream sink) {
+<span class="nc" id="L78">        return TransferResult.failed(item, &quot;USB downloadMedia not yet implemented&quot;);</span>
+    }
+
+    @Override
+    public boolean deleteMedia(CameraConnection connection, MediaItem item) {
+<span class="nc" id="L83">        log.warn(&quot;USB deleteMedia: refusing — not yet implemented, item={}&quot;, item.id());</span>
+<span class="nc" id="L84">        return false;</span>
+    }
+
+    @Override
+    public MediaItem captureStill(CameraConnection connection) {
+        // TODO: bridge to camera-ptp PtpCamera.initiateCapture().
+<span class="nc" id="L90">        throw new UnsupportedOperationException(&quot;USB captureStill not yet implemented&quot;);</span>
+    }
+
+<span class="nc" id="L93">    @Override public void startLiveView(CameraConnection connection) { /* TODO */ }</span>
+<span class="nc" id="L94">    @Override public void stopLiveView(CameraConnection connection)  { /* TODO */ }</span>
+<span class="nc" id="L95">    @Override public LiveViewFrame nextLiveViewFrame(CameraConnection connection) { return null; }</span>
+
+    private static final class SimpleUsbConnection implements CameraConnection {
+        private final String cameraId;
+<span class="nc" id="L99">        private volatile boolean open = true;</span>
+<span class="nc" id="L100">        SimpleUsbConnection(String cameraId) { this.cameraId = cameraId; }</span>
+<span class="nc" id="L101">        @Override public String cameraId() { return cameraId; }</span>
+<span class="nc" id="L102">        @Override public String transport() { return &quot;usb-ptp&quot;; }</span>
+<span class="nc" id="L103">        @Override public boolean isOpen() { return open; }</span>
+<span class="nc" id="L104">        @Override public void close() { open = false; }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

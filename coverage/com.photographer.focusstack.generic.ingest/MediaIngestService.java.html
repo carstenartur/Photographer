@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MediaIngestService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.generic.ingest</a> &gt; <span class="el_source">MediaIngestService.java</span></div><h1>MediaIngestService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.generic.ingest;
+
+import com.photographer.focusstack.common.event.CameraEvent;
+import com.photographer.focusstack.common.media.DeleteState;
+import com.photographer.focusstack.common.media.MediaItem;
+import com.photographer.focusstack.common.media.MediaRepository;
+import com.photographer.focusstack.common.media.TransferResult;
+import com.photographer.focusstack.common.media.TransferState;
+import com.photographer.focusstack.common.policy.DeletePolicy;
+import com.photographer.focusstack.common.policy.IngestPolicy;
+import com.photographer.focusstack.common.transport.CameraConnection;
+import com.photographer.focusstack.common.transport.GenericCameraBackend;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Single entry point for the import-and-delete workflow.
+ *
+ * &lt;p&gt;Enforces the {@link IngestPolicy}: type filter, size verification,
+ * optional checksum, and the post-import {@link DeletePolicy}. Refuses to
+ * delete unless the corresponding download produced a successful, verified
+ * {@link TransferResult} — this is the &quot;no silent data loss&quot; guarantee from
+ * the architecture brief.
+ *
+ * &lt;p&gt;All decisions (skip / download / verify / delete-allowed / delete-failed)
+ * are emitted through the supplied event consumer for audit and UI feedback.
+ */
+public class MediaIngestService {
+
+<span class="fc" id="L44">    private static final Logger log = LoggerFactory.getLogger(MediaIngestService.class);</span>
+
+    private final GenericCameraBackend backend;
+    private final MediaRepository repository;
+    private final Path downloadRoot;
+
+<span class="fc" id="L50">    public MediaIngestService(GenericCameraBackend backend, MediaRepository repository, Path downloadRoot) {</span>
+<span class="fc" id="L51">        this.backend = backend;</span>
+<span class="fc" id="L52">        this.repository = repository;</span>
+<span class="fc" id="L53">        this.downloadRoot = downloadRoot;</span>
+<span class="fc" id="L54">    }</span>
+
+    /**
+     * Imports every item the backend currently lists, applying {@code policy}.
+     * Returns the per-item {@link TransferResult}s in order.
+     */
+    public List&lt;TransferResult&gt; ingest(CameraConnection connection,
+                                       IngestPolicy policy,
+                                       Consumer&lt;CameraEvent&gt; eventSink) {
+<span class="fc" id="L63">        List&lt;MediaItem&gt; items = backend.listMedia(connection);</span>
+<span class="fc" id="L64">        log.info(&quot;ingest: {} items found on camera {}&quot;, items.size(), connection.cameraId());</span>
+<span class="fc" id="L65">        List&lt;TransferResult&gt; results = new ArrayList&lt;&gt;(items.size());</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        for (MediaItem item : items) {</span>
+<span class="fc" id="L67">            results.add(ingestOne(connection, item, policy, eventSink));</span>
+<span class="fc" id="L68">        }</span>
+<span class="fc" id="L69">        return results;</span>
+    }
+
+    /** Imports a single item. Visible for direct calls from job handlers. */
+    public TransferResult ingestOne(CameraConnection connection,
+                                    MediaItem item,
+                                    IngestPolicy policy,
+                                    Consumer&lt;CameraEvent&gt; eventSink) {
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (!policy.acceptsType(item.mediaType())) {</span>
+<span class="fc" id="L78">            log.debug(&quot;ingest: skipping {} (type {} not in policy)&quot;, item.filename(), item.mediaType());</span>
+<span class="fc" id="L79">            eventSink.accept(new CameraEvent.ImportSkipped(</span>
+<span class="fc" id="L80">                    connection.cameraId(), Instant.now(), item, &quot;type-not-in-policy&quot;));</span>
+<span class="fc" id="L81">            return TransferResult.failed(item, &quot;skipped-by-policy&quot;);</span>
+        }
+
+<span class="fc" id="L84">        Path target = downloadRoot.resolve(safeRelative(item));</span>
+        try {
+<span class="fc" id="L86">            Files.createDirectories(target.getParent());</span>
+<span class="nc" id="L87">        } catch (IOException e) {</span>
+<span class="nc" id="L88">            log.error(&quot;ingest: cannot create target dir {}&quot;, target.getParent(), e);</span>
+<span class="nc" id="L89">            return TransferResult.failed(item, &quot;io-error: &quot; + e.getMessage());</span>
+<span class="fc" id="L90">        }</span>
+
+<span class="fc" id="L92">        MediaItem updated = item.withTransferState(TransferState.DOWNLOADING);</span>
+<span class="fc" id="L93">        repository.save(updated);</span>
+
+        TransferResult result;
+<span class="fc" id="L96">        try (OutputStream out = Files.newOutputStream(target)) {</span>
+<span class="fc" id="L97">            result = backend.downloadMedia(connection, updated, out);</span>
+<span class="nc" id="L98">        } catch (IOException e) {</span>
+<span class="nc" id="L99">            log.error(&quot;ingest: download failed for {}&quot;, item.filename(), e);</span>
+<span class="nc" id="L100">            repository.save(updated.withTransferState(TransferState.FAILED));</span>
+<span class="nc" id="L101">            return TransferResult.failed(item, &quot;io-error: &quot; + e.getMessage());</span>
+<span class="fc" id="L102">        }</span>
+
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (!result.success()) {</span>
+<span class="nc" id="L105">            repository.save(updated.withTransferState(TransferState.FAILED));</span>
+<span class="nc" id="L106">            return result;</span>
+        }
+
+        // ---- verification ----------------------------------------------------
+        // Order matters: compute the checksum FIRST (when the policy asks for it),
+        // then derive the verified flag from size + checksum results. The previous
+        // implementation gated checksum computation on `verified`, which made the
+        // digest almost never run.
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        String computedChecksum = policy.verifyChecksum() ? sha256(target) : null;</span>
+<span class="fc" id="L115">        boolean sizeOk     = checkSize(result, target, policy);</span>
+<span class="fc" id="L116">        boolean checksumOk = checkChecksum(updated, computedChecksum, policy);</span>
+<span class="fc bfc" id="L117" title="All 4 branches covered.">        boolean verified   = sizeOk &amp;&amp; checksumOk;</span>
+
+<span class="fc" id="L119">        MediaItem finalItem = updated</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">                .withTransferState(verified ? TransferState.VERIFIED : TransferState.DOWNLOADED)</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">                .withChecksum(computedChecksum != null ? computedChecksum : updated.checksum());</span>
+<span class="fc" id="L122">        repository.save(finalItem);</span>
+
+<span class="fc" id="L124">        eventSink.accept(new CameraEvent.ImportCompleted(</span>
+<span class="fc" id="L125">                connection.cameraId(), Instant.now(), finalItem, verified));</span>
+
+        // ---- delete decision -------------------------------------------------
+<span class="fc bfc" id="L128" title="All 2 branches covered.">        if (shouldDelete(policy.deletePolicy(), finalItem, verified)) {</span>
+<span class="fc" id="L129">            boolean deleted = false;</span>
+            try {
+<span class="fc" id="L131">                deleted = backend.deleteMedia(connection, finalItem);</span>
+<span class="nc" id="L132">            } catch (RuntimeException re) {</span>
+<span class="nc" id="L133">                log.error(&quot;ingest: deleteMedia threw for {}&quot;, finalItem.filename(), re);</span>
+<span class="fc" id="L134">            }</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">            MediaItem afterDelete = finalItem.withDeleteState(deleted ? DeleteState.DELETED : DeleteState.DELETE_FAILED);</span>
+<span class="fc" id="L136">            repository.save(afterDelete);</span>
+<span class="fc" id="L137">            eventSink.accept(new CameraEvent.DeleteCompleted(</span>
+<span class="fc" id="L138">                    connection.cameraId(), Instant.now(), afterDelete, deleted));</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            if (!deleted) {</span>
+<span class="fc" id="L140">                log.warn(&quot;ingest: delete refused/failed for {} — kept on camera&quot;, finalItem.filename());</span>
+            }
+<span class="fc" id="L142">        } else {</span>
+<span class="fc" id="L143">            log.debug(&quot;ingest: delete skipped for {} (policy={}, verified={})&quot;,</span>
+<span class="fc" id="L144">                    finalItem.filename(), policy.deletePolicy(), verified);</span>
+        }
+
+<span class="fc" id="L147">        return new TransferResult(finalItem, target, result.bytesTransferred(), verified, true, null);</span>
+    }
+
+    private static boolean shouldDelete(DeletePolicy p, MediaItem item, boolean verified) {
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">        if (p == null) return false;</span>
+<span class="fc bfc" id="L152" title="All 4 branches covered.">        return switch (p) {</span>
+<span class="fc" id="L153">            case NEVER, MANUAL_CONFIRM -&gt; false;</span>
+<span class="fc" id="L154">            case AUTO_AFTER_IMPORT     -&gt; true;</span>
+<span class="fc" id="L155">            case AUTO_IF_VERIFIED      -&gt; verified;</span>
+<span class="pc bpc" id="L156" title="2 of 4 branches missed.">            case AUTO_JPEG_ONLY        -&gt; verified &amp;&amp; (item.mediaType() == com.photographer.focusstack.common.media.MediaType.JPEG</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">                                                    || item.mediaType() == com.photographer.focusstack.common.media.MediaType.HEIF);</span>
+        };
+    }
+
+    /** Returns {@code true} when the size check is either disabled or passes. */
+    private static boolean checkSize(TransferResult result, Path target, IngestPolicy policy) {
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        if (!policy.requireSizeMatch()) return true;</span>
+<span class="fc" id="L164">        long expected = result.item().size();</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        if (expected &lt; 0) return true; // size unknown -&gt; cannot enforce, treat as pass</span>
+        long onDisk;
+<span class="pc" id="L167">        try { onDisk = Files.size(target); } catch (IOException e) { return false; }</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">        return onDisk == expected;</span>
+    }
+
+    /**
+     * Returns {@code true} when the checksum check is satisfied. Two modes:
+     * &lt;ul&gt;
+     *   &lt;li&gt;{@code verifyChecksum=false}: always pass (no digest required).&lt;/li&gt;
+     *   &lt;li&gt;{@code verifyChecksum=true}: a digest must have been computed; if the
+     *       item carries an expected checksum it must additionally match.&lt;/li&gt;
+     * &lt;/ul&gt;
+     */
+    private static boolean checkChecksum(MediaItem item, String computed, IngestPolicy policy) {
+<span class="fc bfc" id="L180" title="All 2 branches covered.">        if (!policy.verifyChecksum()) return true;</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if (computed == null) return false;</span>
+<span class="fc" id="L182">        String expected = item.checksum();</span>
+<span class="pc bpc" id="L183" title="1 of 4 branches missed.">        return expected == null || expected.equalsIgnoreCase(computed);</span>
+    }
+
+    private static String safeRelative(MediaItem item) {
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">        String storage = item.storageName() == null ? &quot;default&quot; : item.storageName().replaceAll(&quot;[^A-Za-z0-9._-]&quot;, &quot;_&quot;);</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">        String dir     = item.directoryName() == null ? &quot;DCIM&quot;   : item.directoryName().replaceAll(&quot;[^A-Za-z0-9._-]&quot;, &quot;_&quot;);</span>
+<span class="pc bpc" id="L189" title="1 of 2 branches missed.">        String file    = item.filename() == null ? item.id()     : item.filename().replaceAll(&quot;[^A-Za-z0-9._-]&quot;, &quot;_&quot;);</span>
+<span class="fc" id="L190">        return storage + &quot;/&quot; + dir + &quot;/&quot; + file;</span>
+    }
+
+    /** Streaming SHA-256 — does not load the file into memory. */
+    private static String sha256(Path path) {
+        try {
+<span class="fc" id="L196">            MessageDigest md = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="fc" id="L197">            try (InputStream in = Files.newInputStream(path);</span>
+<span class="fc" id="L198">                 DigestInputStream dis = new DigestInputStream(in, md)) {</span>
+<span class="fc" id="L199">                byte[] buf = new byte[8192];</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                while (dis.read(buf) != -1) {</span>
+                    // DigestInputStream updates the digest as bytes are consumed
+                }
+            }
+<span class="fc" id="L204">            return HexFormat.of().formatHex(md.digest());</span>
+<span class="nc" id="L205">        } catch (NoSuchAlgorithmException | IOException e) {</span>
+<span class="nc" id="L206">            log.warn(&quot;sha256 failed for {}: {}&quot;, path, e.toString());</span>
+<span class="nc" id="L207">            return null;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
