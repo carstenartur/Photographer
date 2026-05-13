@@ -31,8 +31,11 @@ Open tasks and improvement areas for Focus Stack.
 ## Long-term
 
 - [ ] Support additional camera brands via `plugin-api` (Sony, Nikon)
-- [ ] Add a module dependency graph diagram to architecture docs
+- [x] Add a module dependency graph diagram to architecture docs
       (auto-generated from Maven reactor or manual Mermaid diagram)
+      (done in PR "chore: complete hygiene and API completeness quick wins" —
+      Mermaid graph in `docs/architecture.md` reflecting actual `pom.xml`
+      dependencies)
 - [ ] Hardware-in-the-loop (HIL) test automation
       (currently manual; automate with a dedicated CI runner)
 - [ ] Multi-user support with role-based access control
