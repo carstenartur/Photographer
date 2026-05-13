@@ -78,7 +78,7 @@ The modules form a layered dependency graph:
 
 The same dependency graph rendered as a Mermaid diagram (matches the
 `<dependency>` declarations in the per-module `pom.xml` files; verify with
-`mvn -B dependency:tree -pl <module>`):
+`mvn -B dependency:tree -pl <module> -am`):
 
 ```mermaid
 graph TD

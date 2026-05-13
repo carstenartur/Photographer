@@ -70,7 +70,16 @@ export default function StackGallery() {
 
       const zipArrayBuffer = await exportRes.arrayBuffer();
       setZipLibLoading(true);
-      const { default: JSZip } = await import('jszip');
+      let JSZip;
+      try {
+        ({ default: JSZip } = await import('jszip'));
+      } finally {
+        // Clear the "Loading merge tools…" status as soon as the dynamic
+        // import resolves (or fails), so the button label correctly
+        // transitions to the unzip / upload / merge phase below instead of
+        // staying on "Loading merge tools…" for the rest of the flow.
+        setZipLibLoading(false);
+      }
       const zip     = await JSZip.loadAsync(zipArrayBuffer);
       const entries = Object.values(zip.files).filter((f) => !f.dir);
 
@@ -98,6 +107,8 @@ export default function StackGallery() {
     } catch (err) {
       setError(`Merge error: ${err.message}`);
     } finally {
+      // Defensive reset: if the dynamic import threw before reaching the
+      // inner finally, the flag may still be true.
       setZipLibLoading(false);
       setMerging(false);
     }
