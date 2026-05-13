@@ -91,14 +91,57 @@ analysis and PR reviews.
       Refuse to boot with the default value when the active profile is `prod`.
       Needs a security review before implementing.
 
-### P2 — CRX codec correctness (research-blocked)
+### P2 — CRX codec correctness (research status: 2026-05-13)
 
-- [ ] **Tile-level parallelization of the CRX decoder.**
-      Premature while correctness is still under investigation (Pearson `r`
-      plateau ~0.56, see `canon-cr3-core/SubbandFixtures.md` "Update
-      2026-05-01" notes a–l and `docs/patent-us20160323602a1-analysis.md`
-      §5.11–5.13). Re-evaluate after a per-channel `|r| > 0.7` candidate is
-      found.
+After 13 deep-refinement rounds the cleanroom CR3 decoder has reached
+the limits of ground-truth-free hypothesis search. Current state:
+
+- **Lossless RAW path** (`waveletLevels = 0`):
+  - [x] Predictor-seed bug fixed (Update (p) of
+        `samples/research/README.md`): `1 << (bd − 1)` → `0`.
+        Validated by `Dark/FlatFixtureLosslessDecoderIT`. After the fix
+        plane 3 of the flat fixture decodes near-correctly
+        (median ≈ OB pedestal, ±1024 = 0.66).
+  - [ ] **Entropy-lock-loss in `CrxLosslessRawDecoder.decodePlane`.**
+        Three of four Bayer planes still saturate at 16320 in the dark
+        fixture. This is the single remaining production bug — Round-9
+        validated `K_INIT = 0` but the JPEG-LS K-update accumulator may
+        still drift the rate parameter incorrectly under heavy zero-residual
+        runs. Fix candidate: per-symbol bracket
+        `K* = floor(log2(s + 1)), K ∈ [K* − 1, K* + 1]` (patent literature).
+  - [ ] Tile-level parallelization. Premature; re-evaluate after the
+        entropy-lock bug is fixed.
+
+- **C-RAW path** (`waveletLevels > 0`):
+  - [x] Round-12 explored predictor + sign + dequant + IDWT permutation;
+        best `|Pearson r| = 0.6573` on `g5xm2-detail-…-02 / tile1/p0`.
+  - [x] Round-13 deep refinement (266 064 variants, 2:22 h, four passes:
+        per-level role permutations, per-band negation, per-role
+        predictor): **no improvement over Round-12**.
+        Documented as a research dead-end in `samples/research/README.md`
+        Update (o). Round-13 IT is `@Disabled` in CI to keep the
+        pipeline fast (opt-in instructions in the IT class JavaDoc).
+  - [ ] **LibRaw-backed JNI ground truth** — the next concrete research
+        milestone. Promote the existing G5X II C-RAW fixtures to
+        pixel-exact regression tests by pinning expected per-plane
+        output against LibRaw's decoder. Without ground truth the
+        hypothesis-space sweeps cannot make further progress.
+  - [ ] CDF 9/7 inverse wavelet implementation
+        (`InverseWaveletTransform` currently throws
+        `UnsupportedOperationException` for the 9/7 filter). No
+        observed fixture requires it yet, but the patent mentions it.
+
+- **Format documentation:**
+  - [x] `canon-cr3-imageio/CR3_FORMAT.md` — concise standalone format
+        reference card (created 2026-05-13). Independent of any
+        copyrighted Canon material.
+  - [x] `canon-cr3-core/SubbandFixtures.md` — running ledger of every
+        fixture's CMP1 + per-subband layout (1399 lines).
+  - [x] `samples/research/README.md` — updates (a)–(p) cover the
+        capture workflow, the cleanroom analysis, and every production
+        change.
+  - [x] `BACKUP.md` (root) — recovery guide listing what is in git vs.
+        what must be backed up privately.
 
 ### P3 — Hygiene & polish
 

@@ -402,7 +402,22 @@ public final class CrxLosslessRawDecoder {
         // Read directly from the original data with offset/length to avoid extra buffer copies
         BitReader reader = new BitReader(data, offset, endOffset - offset);
 
-        // JPEG-LS-style adaptive parameters
+        // JPEG-LS-style adaptive parameters.
+        //
+        // K_INIT: the initial Rice parameter is **0**, empirically
+        // validated as the optimum on 100 % of 160 subbands across two
+        // C-RAW frames by `CrxPlaneFollowupRound9IT` — see Update (n)
+        // in samples/research/README.md. Earlier experiments seeded
+        // K from `CMP1.quantValue`; that recommendation has been
+        // falsified and retracted.
+        //
+        // K UPDATE: still uses the JPEG-LS accumulator/sampleCount
+        // adaptation (T.87 Annex A.5). The patent literature suggests
+        // a per-symbol bracket K* = floor(log2(s + 1)) with
+        // K ∈ [K* − 1, K* + 1]; Round-13 has not produced direct
+        // evidence that switching the production update rule improves
+        // the dark/flat metrics, so the proven JPEG-LS rule stays
+        // until a discriminating fixture exists.
         int k = 0;  // Rice parameter
         long accumulator = 0;
         long sampleCount = 1;
@@ -412,10 +427,24 @@ public final class CrxLosslessRawDecoder {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                // MED prediction (Median Edge Detection, from JPEG-LS / ITU T.87)
+                // MED prediction (Median Edge Detection, from JPEG-LS / ITU T.87).
+                //
+                // The seed for the very first pixel was historically the
+                // mid‑range value (1 << (bitDepth − 1) = 8192 at 14‑bit),
+                // which is what JPEG‑LS prescribes for natural images.
+                // Per the cleanroom research (samples/research/README.md
+                // §"Implication for next-iteration decoder work" and the
+                // dark/flat per‑plane diagnostics) Canon CRX seeds the
+                // first pixel with **0** (the optical‑black pedestal is
+                // delivered by the first residual). The mid‑range seed
+                // pins the histogram peak at near‑saturation on dark
+                // and flat fixtures and is the dominant cause of
+                // `mode bucket = 16320` in the lossless regression
+                // panel. Round‑9 also implicitly relies on the seed‑0
+                // baseline (`LZ_TILE_FIRST` in the research harness).
                 int predicted;
                 if (x == 0 && y == 0) {
-                    predicted = 1 << (bitDepth - 1); // midpoint for first pixel
+                    predicted = 0; // CRX seeds the first pixel at 0; OB pedestal arrives via residual
                 } else if (y == 0) {
                     predicted = result[x - 1]; // first row: predict from left
                 } else if (x == 0) {

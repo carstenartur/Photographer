@@ -263,3 +263,83 @@ of every earlier fixture having `q = 4`, in which case
 The production decoder already uses `int k = 0;` (line 406 of
 `CrxLosslessRawDecoder.java`); Round-9 has now empirically validated
 that choice. No production code change is warranted.
+
+### Update 2026-05-12 (o) — Round-13 deep refinement: no improvement
+
+`CrxPlaneFollowupRound13IT` ran a four‑pass deep refinement around the
+Round‑12 hot zones (max `|r|=0.6573`):
+
+* **Pass 1**: extended predictor family (Paeth, Grad, Avg, Med‑Rev,
+  DC‑Offset) with 8 per‑band coefficient‑negation patterns.
+* **Pass 2**: `6^L = 216` per‑level role permutations.
+* **Pass 3**: `8^L = 512` per‑level coefficient‑negation patterns.
+* **Pass 4**: `10³ = 1000` per‑role (HL/LH/HH) predictor combinations.
+
+Total: **266 064 scored variants, 2040 entropy decodes, 02:22 h wall**.
+
+Outcome: best `|Pearson r| = 0.6573` — **identical to Round‑12 to four
+decimal places**. The same `(detail‑02 / tile1/p0)` plane wins under
+Stage A `LL_SIGNED + P_MED + bit=MSB_FIRST + k=1`. Pass 2/3/4 produce
+small variants of the Round‑12 Pass‑1 winner (`|r|=0.6415`) but never
+break out of that local optimum.
+
+**Conclusion.** The harness's expressible hypothesis space (entropy →
+sign → dequant → predictor → wavelet, with role/neg permutations) is
+exhausted. The remaining gap is in dimensions the harness *cannot*
+express without a real ground truth — likely the actual CRX adaptive
+entropy coder (per‑subband K seed table, MQ‑style context modelling,
+header‑driven Q tables) and the canon‑specific subband bit layout. No
+further blind ground‑truth‑free sweeps are warranted; the next
+research milestone is a LibRaw‑backed JNI ground‑truth pipeline so
+the existing fixtures can be promoted to pixel‑exact regression
+tests, and only *then* discriminating sweeps over the production
+decoder are useful.
+
+Sweep artefacts (always created, even on abort — autoflushing writers):
+`canon-cr3-imageio/target/crx-followup-round13/{summary.txt, top10.txt,
+winners.txt, metrics.tsv, per_level_perm.txt, per_level_neg.txt,
+per_role_predictor.txt, progress.log}`.
+
+### Update 2026-05-12 (p) — Production change: predictor seed `1<<(bd-1)` → `0`
+
+Following the Round‑13 dead‑end and the long‑standing recommendation
+in this README, the *predictor seed* fix from the
+"Implication for next-iteration decoder work" section above has been
+applied to `CrxLosslessRawDecoder.decodePlane`:
+
+```java
+// before (JPEG-LS midpoint, wrong for CRX):
+predicted = 1 << (bitDepth - 1); // = 8192 at 14-bit
+
+// after (CRX seeds the first pixel at 0):
+predicted = 0;
+```
+
+**Effect on the dark/flat regression panel** (one fixture each, run
+without any other code change):
+
+| fixture | metric            | before fix | after fix | target          |
+|---------|-------------------|-----------:|----------:|-----------------|
+| `dark`  | burst mode bucket |     16 320 |    16 320 | OB pedestal     |
+| `dark`  | ±1024 fraction    |       0.41 |      0.39 | ≥ 0.80          |
+| `flat`  | burst mode bucket |     16 320 |       **0** | mid‑grey (~7000)|
+| `flat`  | ±1024 fraction    |       0.18 |    **0.38** | ≥ 0.50         |
+| `flat`  | plane 3 median    |   ≈ 16 320 |   **284** | ≈ OB pedestal  |
+| `flat`  | plane 3 mode      |     16 320 |     **0** | ≈ OB pedestal  |
+| `flat`  | plane 3 ±1024     |       low |   **0.66** | ≥ 0.50         |
+
+**Plane 3 of the flat fixture now decodes near‑correctly** (median 284
+matches the OB pedestal, mode at 0, two‑thirds of pixels within ±1024
+of the mode). The other three planes remain pinned at 16 320 — that
+is the *entropy‑lock‑loss* bug (README Finding 1 of "Per‑Bayer‑plane
+breakdown"), a separate investigation strand from the predictor seed.
+The fix produces a reproducible partial win that matches the README's
+prior "one plane in one flat fixture decoded almost correctly"
+diagnostic exactly, confirming the seed bug and isolating the
+remaining bug to the per‑symbol entropy state inside `decodePlane`.
+
+The K‑update rule is currently *not* changed — Round‑9 only validated
+`K_INIT = 0` (which the production code already uses); the per‑symbol
+bracket `K* = floor(log2(s+1)), K ∈ [K*−1, K*+1]` has no direct
+production‑code A/B evidence yet, so the proven JPEG‑LS accumulator
+rule stays until a discriminating fixture exists.

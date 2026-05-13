@@ -140,18 +140,21 @@ class CrxLosslessRawDecoderTest {
 
     @Test
     void decodePreservesSymmetryForUniformInput() throws Cr3Exception {
-        // With all zero residuals, each pixel should be the MED prediction
-        // For the first pixel of each plane: prediction = midpoint (1<<(14-1)) = 8192
+        // With all zero residuals, each pixel is the MED prediction.
+        // Per Update (p) of samples/research/README.md the production
+        // decoder seeds the first pixel of every plane with **0** (CRX
+        // behaviour, validated by Round‑9 + dark/flat regression
+        // panel), not the JPEG‑LS midpoint (1<<(bd-1) = 8192). With
+        // an all‑1‑bits payload (every residual = 0) the entire plane
+        // therefore reconstructs to 0.
         int width = 4;
         int height = 4;
         int bitDepth = 14;
-        int midpoint = 1 << (bitDepth - 1);
 
         byte[] crxData = buildSyntheticCrxData(width, height, bitDepth, CrxHeader.CodecVersion.V1);
         Cr3RawImage result = CrxLosslessRawDecoder.decode(crxData, width, height, bitDepth);
 
-        // First pixel (R at [0,0]) should be the midpoint prediction
-        assertThat(result.getPixel(0, 0)).isEqualTo(midpoint);
+        assertThat(result.getPixel(0, 0)).isZero();
     }
 
     /**
@@ -215,7 +218,11 @@ class CrxLosslessRawDecoderTest {
 
     private byte[] encodePlane(int[] values, int width, int height, int bitDepth) {
         assertThat(values).hasSize(width * height);
-        int midpoint = 1 << (bitDepth - 1);
+        // Match the production decoder's first‑pixel seed (0, per
+        // Update (p) of samples/research/README.md). Previously the
+        // encoder seeded with 1<<(bd-1) which only round‑tripped while
+        // the production decoder used the same (now retracted) seed.
+        int firstPixelSeed = 0;
         int k = 0;
         long accumulator = 0;
         long sampleCount = 1;
@@ -228,7 +235,7 @@ class CrxLosslessRawDecoderTest {
                 int idx = y * width + x;
                 int predicted;
                 if (x == 0 && y == 0) {
-                    predicted = midpoint;
+                    predicted = firstPixelSeed;
                 } else if (y == 0) {
                     predicted = values[idx - 1];
                 } else if (x == 0) {
