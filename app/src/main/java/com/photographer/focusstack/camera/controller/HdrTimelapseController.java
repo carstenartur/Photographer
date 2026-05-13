@@ -4,6 +4,8 @@ import com.photographer.focusstack.common.model.BracketSet;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.HdrSettings;
 import com.photographer.focusstack.session.HdrTimelapseService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -27,6 +29,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/hdr-timelapse")
+@Tag(name = "HDR Timelapse", description = "HDR timelapse capture, bracket retrieval and video generation endpoints.")
 public class HdrTimelapseController {
 
     private final HdrTimelapseService service;
@@ -39,12 +42,14 @@ public class HdrTimelapseController {
     }
 
     @PostMapping
+    @Operation(summary = "Create HDR timelapse session")
     public ResponseEntity<CaptureSession> createSession(@Valid @RequestBody HdrSettings settings) {
         CaptureSession session = service.createSession(settings);
         return ResponseEntity.status(HttpStatus.CREATED).body(session);
     }
 
     @PostMapping("/{sessionId}/start")
+    @Operation(summary = "Start HDR timelapse session")
     public ResponseEntity<CaptureSession> startSession(@PathVariable String sessionId) {
         // Validate state synchronously before scheduling async execution
         service.validateStartable(sessionId);
@@ -54,22 +59,26 @@ public class HdrTimelapseController {
     }
 
     @PostMapping("/{sessionId}/stop")
+    @Operation(summary = "Stop HDR timelapse session")
     public ResponseEntity<Void> stopSession(@PathVariable String sessionId) {
         service.stopSession(sessionId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{sessionId}")
+    @Operation(summary = "Get HDR timelapse session by id")
     public ResponseEntity<CaptureSession> getSession(@PathVariable String sessionId) {
         return ResponseEntity.ok(service.getSession(sessionId));
     }
 
     @GetMapping("/{sessionId}/brackets")
+    @Operation(summary = "List captured bracket sets for a session")
     public ResponseEntity<List<BracketSet>> getBrackets(@PathVariable String sessionId) {
         return ResponseEntity.ok(service.getBrackets(sessionId));
     }
 
     @PostMapping("/{sessionId}/video")
+    @Operation(summary = "Generate timelapse video from captured brackets")
     public ResponseEntity<byte[]> generateVideo(
             @PathVariable String sessionId,
             @RequestParam(defaultValue = "24") int fps,

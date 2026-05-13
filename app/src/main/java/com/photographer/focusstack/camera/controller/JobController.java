@@ -7,6 +7,8 @@ import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.FrameDataStore;
 import com.photographer.focusstack.camera.service.RawImagePreviewService;
 import com.photographer.focusstack.camera.service.StackingJobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.slf4j.Logger;
@@ -31,6 +33,7 @@ import java.util.zip.ZipOutputStream;
 
 @RestController
 @RequestMapping("/api/jobs")
+@Tag(name = "Jobs", description = "Focus stacking job lifecycle and frame export endpoints.")
 public class JobController {
 
     private static final Logger log = LoggerFactory.getLogger(JobController.class);
@@ -51,40 +54,47 @@ public class JobController {
     }
 
     @GetMapping
+    @Operation(summary = "List stacking jobs")
     public ResponseEntity<List<StackingJob>> listJobs() {
         return ResponseEntity.ok(jobService.getAllJobs());
     }
 
     @PostMapping
+    @Operation(summary = "Create stacking job")
     public ResponseEntity<StackingJob> createJob(@Valid @RequestBody CreateJobRequest request) {
         StackingJob job = jobService.createJob(request.cameraProfileId(), request.parameters());
         return ResponseEntity.status(HttpStatus.CREATED).body(job);
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get stacking job by id")
     public ResponseEntity<StackingJob> getJob(@PathVariable String id) {
         return ResponseEntity.ok(jobService.getJob(id));
     }
 
     @PostMapping("/{id}/start")
+    @Operation(summary = "Start stacking job")
     public ResponseEntity<StackingJob> startJob(@PathVariable String id) {
         StackingJob running = jobService.startJob(id);
         return ResponseEntity.accepted().body(running);
     }
 
     @PostMapping("/{id}/pause")
+    @Operation(summary = "Pause stacking job")
     public ResponseEntity<Void> pauseJob(@PathVariable String id) {
         jobService.pauseJob(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancel stacking job")
     public ResponseEntity<Void> cancelJob(@PathVariable String id) {
         jobService.cancelJob(id);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Delete stacking job")
     public ResponseEntity<Void> deleteJob(@PathVariable String id) {
         if (jobService.deleteJob(id)) {
             return ResponseEntity.noContent().build();
@@ -104,6 +114,7 @@ public class JobController {
      * @return the image bytes with correct content type, or 404 if not found
      */
     @GetMapping("/{id}/frames/{frameId}/image")
+    @Operation(summary = "Get browser-displayable image for a captured frame")
     public ResponseEntity<byte[]> getFrameImage(
             @PathVariable String id,
             @PathVariable String frameId) {
@@ -186,6 +197,7 @@ public class JobController {
      * @return a streamed ZIP file, or 404 if the job is not found
      */
     @GetMapping("/{id}/export")
+    @Operation(summary = "Export captured frames as ZIP")
     public ResponseEntity<StreamingResponseBody> exportFrames(@PathVariable String id) {
         StackingJob job = jobService.getJob(id);
         List<String> frameIds = job.frames();
@@ -215,6 +227,7 @@ public class JobController {
     }
 
     @GetMapping("/search")
+    @Operation(summary = "Search stacking jobs")
     public ResponseEntity<List<StackingJob>> searchJobs(
             @RequestParam String q,
             @RequestParam(defaultValue = "20") int maxResults) {
@@ -226,6 +239,7 @@ public class JobController {
     }
 
     @PostMapping("/reindex")
+    @Operation(summary = "Reindex job and camera search data")
     public ResponseEntity<Void> reindex() {
         searchService.reindexAll();
         return ResponseEntity.ok().build();

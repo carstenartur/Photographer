@@ -5,6 +5,8 @@ import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.model.CameraProfile;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/system")
+@Tag(name = "System", description = "System diagnostics and environment overview endpoints.")
 public class SystemInfoController {
 
     private static final Logger log = LoggerFactory.getLogger(SystemInfoController.class);
@@ -33,6 +36,7 @@ public class SystemInfoController {
     }
 
     @GetMapping("/info")
+    @Operation(summary = "Get runtime system information")
     public ResponseEntity<Map<String, Object>> getSystemInfo() {
         Map<String, Object> info = new LinkedHashMap<>();
 

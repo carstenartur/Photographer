@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.observer.pipeline.ObservationEventListener;
 import com.photographer.focusstack.observer.pipeline.ObserverPipeline;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -242,5 +243,18 @@ public class ReplayService {
 
     public void addListener(ObservationEventListener listener) {
         listeners.add(listener);
+    }
+
+    @PreDestroy
+    void shutdownExecutor() {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            executor.shutdownNow();
+        }
     }
 }

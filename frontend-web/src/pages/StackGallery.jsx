@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import { useEffect, useRef, useState } from 'react';
 import { getAllJobs } from '../api/jobApi';
 
@@ -11,6 +10,7 @@ export default function StackGallery() {
   const [selectedJob, setSelectedJob]     = useState(null);
   const [mergedImage, setMergedImage]     = useState(null); // object URL of merged PNG
   const [merging, setMerging]             = useState(false);
+  const [zipLibLoading, setZipLibLoading] = useState(false);
   const [sliderPos, setSliderPos]         = useState(50); // percent 0–100
   const sliderRef = useRef(null);
   // Track the current object URL so we can revoke it when replacing or unmounting
@@ -69,6 +69,8 @@ export default function StackGallery() {
       }
 
       const zipArrayBuffer = await exportRes.arrayBuffer();
+      setZipLibLoading(true);
+      const { default: JSZip } = await import('jszip');
       const zip     = await JSZip.loadAsync(zipArrayBuffer);
       const entries = Object.values(zip.files).filter((f) => !f.dir);
 
@@ -96,6 +98,7 @@ export default function StackGallery() {
     } catch (err) {
       setError(`Merge error: ${err.message}`);
     } finally {
+      setZipLibLoading(false);
       setMerging(false);
     }
   }
@@ -192,9 +195,11 @@ export default function StackGallery() {
                 <button
                   className="btn btn-primary btn-small"
                   onClick={() => handleMergeStack(job)}
-                  disabled={merging && selectedJob?.id === job.id}
+                  disabled={(merging || zipLibLoading) && selectedJob?.id === job.id}
                 >
-                  {merging && selectedJob?.id === job.id ? 'Merging…' : 'Merge Stack'}
+                  {(zipLibLoading && selectedJob?.id === job.id)
+                    ? 'Loading merge tools…'
+                    : (merging && selectedJob?.id === job.id ? 'Merging…' : 'Merge Stack')}
                 </button>
                 <button
                   className="btn btn-small"

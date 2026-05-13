@@ -5,6 +5,8 @@ import com.photographer.focusstack.common.model.FaceOrbitSettings;
 import com.photographer.focusstack.common.model.FaceProfileJob;
 import com.photographer.focusstack.common.model.QualityCheck;
 import com.photographer.focusstack.session.FaceOrbitService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -25,6 +27,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/face-orbit")
+@Tag(name = "Face Orbit", description = "Face-orbit capture sessions and profile generation endpoints.")
 public class FaceOrbitController {
 
     private final FaceOrbitService service;
@@ -37,18 +40,21 @@ public class FaceOrbitController {
     }
 
     @PostMapping
+    @Operation(summary = "Create face-orbit session")
     public ResponseEntity<CaptureSession> createSession(@Valid @RequestBody FaceOrbitSettings settings) {
         CaptureSession session = service.createSession(settings);
         return ResponseEntity.status(HttpStatus.CREATED).body(session);
     }
 
     @PostMapping("/{sessionId}/capture")
+    @Operation(summary = "Capture next face-orbit step")
     public ResponseEntity<QualityCheck> captureNextStep(@PathVariable String sessionId) {
         QualityCheck quality = service.captureNextStep(sessionId);
         return ResponseEntity.ok(quality);
     }
 
     @PostMapping("/{sessionId}/auto")
+    @Operation(summary = "Start automatic face-orbit mode")
     public ResponseEntity<CaptureSession> startAutoMode(@PathVariable String sessionId) {
         // Validate state synchronously before scheduling async execution
         service.validateAutoModeStartable(sessionId);
@@ -58,33 +64,39 @@ public class FaceOrbitController {
     }
 
     @PostMapping("/{sessionId}/stop")
+    @Operation(summary = "Stop face-orbit session")
     public ResponseEntity<Void> stopSession(@PathVariable String sessionId) {
         service.stopSession(sessionId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{sessionId}/complete")
+    @Operation(summary = "Complete face-orbit session")
     public ResponseEntity<CaptureSession> completeSession(@PathVariable String sessionId) {
         return ResponseEntity.ok(service.completeSession(sessionId));
     }
 
     @GetMapping("/{sessionId}")
+    @Operation(summary = "Get face-orbit session by id")
     public ResponseEntity<CaptureSession> getSession(@PathVariable String sessionId) {
         return ResponseEntity.ok(service.getSession(sessionId));
     }
 
     @GetMapping("/{sessionId}/quality")
+    @Operation(summary = "List quality checks for a face-orbit session")
     public ResponseEntity<List<QualityCheck>> getQualityChecks(@PathVariable String sessionId) {
         return ResponseEntity.ok(service.getQualityChecks(sessionId));
     }
 
     @PostMapping("/{sessionId}/profile")
+    @Operation(summary = "Generate a face profile job from a session")
     public ResponseEntity<FaceProfileJob> generateProfile(@PathVariable String sessionId) {
         FaceProfileJob job = service.generateProfile(sessionId);
         return ResponseEntity.ok(job);
     }
 
     @GetMapping("/profile/{jobId}")
+    @Operation(summary = "Get face profile job by id")
     public ResponseEntity<FaceProfileJob> getProfileJob(@PathVariable String jobId) {
         return ResponseEntity.ok(service.getProfileJob(jobId));
     }

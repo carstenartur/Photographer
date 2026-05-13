@@ -11,6 +11,8 @@ import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.camera.entity.CameraProfileEntity;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,6 +30,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/cameras")
+@Tag(name = "Cameras", description = "Camera profile management and live camera control endpoints.")
 public class CameraController {
 
     private final CameraProfileService profileService;
@@ -48,21 +51,25 @@ public class CameraController {
     }
 
     @GetMapping
+    @Operation(summary = "List camera profiles")
     public ResponseEntity<List<CameraProfile>> listProfiles() {
         return ResponseEntity.ok(profileService.getAllProfiles());
     }
 
     @PostMapping
+    @Operation(summary = "Create a camera profile")
     public ResponseEntity<CameraProfile> createProfile(@Valid @RequestBody CameraProfile profile) {
         return ResponseEntity.status(HttpStatus.CREATED).body(profileService.createProfile(profile));
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get camera profile by id")
     public ResponseEntity<CameraProfile> getProfile(@PathVariable String id) {
         return ResponseEntity.ok(profileService.getProfile(id));
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update camera profile by id")
     public ResponseEntity<CameraProfile> updateProfile(@PathVariable String id,
                                                         @Valid @RequestBody CameraProfile profile) {
         backendFactory.evict(id);
@@ -70,6 +77,7 @@ public class CameraController {
     }
 
     @DeleteMapping("/{id}")
+    @Operation(summary = "Delete camera profile by id")
     public ResponseEntity<Void> deleteProfile(@PathVariable String id) {
         backendFactory.evict(id);
         profileService.deleteProfile(id);
@@ -77,6 +85,7 @@ public class CameraController {
     }
 
     @GetMapping("/search")
+    @Operation(summary = "Search camera profiles")
     public ResponseEntity<List<CameraProfile>> searchProfiles(
             @RequestParam String q,
             @RequestParam(defaultValue = "20") int maxResults) {
@@ -88,26 +97,31 @@ public class CameraController {
     }
 
     @GetMapping("/{id}/info")
+    @Operation(summary = "Get camera hardware information")
     public ResponseEntity<CameraInfo> getCameraInfo(@PathVariable String id) {
         return ResponseEntity.ok(backendFor(id).getInfo());
     }
 
     @GetMapping("/{id}/status")
+    @Operation(summary = "Get camera status")
     public ResponseEntity<CameraState> getCameraStatus(@PathVariable String id) {
         return ResponseEntity.ok(backendFor(id).getState());
     }
 
     @GetMapping("/{id}/liveview")
+    @Operation(summary = "Get latest live view frame")
     public ResponseEntity<LiveViewFrame> getLiveView(@PathVariable String id) {
         return ResponseEntity.ok(backendFor(id).getLiveView());
     }
 
     @PostMapping("/{id}/capture")
+    @Operation(summary = "Capture a frame")
     public ResponseEntity<CaptureResult> capture(@PathVariable String id) {
         return ResponseEntity.ok(backendFor(id).capture());
     }
 
     @PostMapping("/{id}/focus")
+    @Operation(summary = "Adjust camera focus")
     public ResponseEntity<Void> adjustFocus(@PathVariable String id,
                                              @Valid @RequestBody FocusCommand command) {
         backendFor(id).setFocus(command);

@@ -11,6 +11,8 @@ import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.analysis.SharpnessMap;
 import com.photographer.focusstack.common.model.QualityMode;
 import com.photographer.focusstack.common.model.StackingParameters;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/analysis")
+@Tag(name = "Analysis", description = "Image analysis, sharpness and motion endpoints.")
 public class AnalysisController {
 
     private final SharpnessAnalyzer sharpnessAnalyzer;
@@ -44,6 +47,7 @@ public class AnalysisController {
     }
 
     @PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Analyze frame quality and advisories")
     public ResponseEntity<AnalysisResult> analyze(
             @RequestPart("image") MultipartFile image,
             @RequestPart(value = "previousFrame", required = false) MultipartFile previousFrame,
@@ -68,6 +72,7 @@ public class AnalysisController {
     }
 
     @PostMapping(value = "/sharpness", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Compute sharpness score for uploaded image")
     public ResponseEntity<SharpnessResponse> sharpness(
             @RequestPart("image") MultipartFile image) throws IOException {
         byte[] data = image.getBytes();
@@ -81,6 +86,7 @@ public class AnalysisController {
     }
 
     @PostMapping(value = "/motion", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Detect motion between two frames")
     public ResponseEntity<MotionResponse> motion(
             @RequestPart("currentFrame") MultipartFile currentFrame,
             @RequestPart("previousFrame") MultipartFile previousFrame) throws IOException {
@@ -103,6 +109,7 @@ public class AnalysisController {
      * @param blockSize the block size in pixels (minimum 16)
      */
     @PostMapping(value = "/sharpness-map", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Compute block-wise sharpness map")
     public ResponseEntity<?> sharpnessMap(
             @RequestPart("image") MultipartFile image,
             @RequestParam(value = "blockSize", defaultValue = "64") int blockSize) throws IOException {
@@ -115,6 +122,7 @@ public class AnalysisController {
     }
 
     @GetMapping("/health")
+    @Operation(summary = "Get analysis service health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of(
                 "status", "UP",
