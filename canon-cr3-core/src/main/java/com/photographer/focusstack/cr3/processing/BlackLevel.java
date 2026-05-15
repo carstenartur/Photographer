@@ -179,6 +179,24 @@ public final class BlackLevel {
     }
 
     /**
+     * Returns the smallest black-level value across all per-row entries (over all
+     * 4 Bayer channels). Returns {@code DEFAULT_14BIT} if this {@code BlackLevel}
+     * is not in {@link Mode#PER_ROW} mode or has no entries.
+     */
+    public int minPerRowLevel() {
+        if (mode != Mode.PER_ROW || perRowLevels == null) {
+            return DEFAULT_14BIT;
+        }
+        int min = Integer.MAX_VALUE;
+        for (int ch = 0; ch < 4; ch++) {
+            for (int v : perRowLevels[ch]) {
+                if (v < min) min = v;
+            }
+        }
+        return (min == Integer.MAX_VALUE) ? DEFAULT_14BIT : min;
+    }
+
+    /**
      * Returns the Bayer channel index (0=R, 1=Gr, 2=Gb, 3=B) for a pixel position.
      */
     private static int bayerChannelIndex(int x, int y,

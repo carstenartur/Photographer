@@ -28,7 +28,7 @@ export default function LoginPage() {
     }}>
       <form onSubmit={handleSubmit} className="form-card" style={{ width: '100%', maxWidth: '360px' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '1.5rem' }}>🔬 Focus Stack</h2>
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert" aria-live="polite">{error}</p>}
         <label>
           Username
           <input

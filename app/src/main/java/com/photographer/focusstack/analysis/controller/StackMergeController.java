@@ -1,6 +1,8 @@
 package com.photographer.focusstack.analysis.controller;
 
 import com.photographer.focusstack.analysis.service.StackMerger;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +30,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/analysis")
+@Tag(name = "Stack Merge", description = "Focus-stack merge and merge-result retrieval endpoints.")
 public class StackMergeController {
 
     private final StackMerger stackMerger;
@@ -58,6 +61,7 @@ public class StackMergeController {
      * @return merged PNG image as binary response
      */
     @PostMapping(value = "/merge-stack", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Merge stack frames into a PNG")
     public ResponseEntity<?> mergeStack(
             @RequestPart("frames") List<MultipartFile> frames,
             @RequestParam(value = "jobId", required = false) String jobId) throws IOException {
@@ -99,6 +103,7 @@ public class StackMergeController {
      * @return the merged PNG image, or 404 if no result is cached for this job
      */
     @GetMapping("/merge-result/{jobId}")
+    @Operation(summary = "Get cached merged PNG by job id")
     public ResponseEntity<?> getMergeResult(@PathVariable String jobId) {
         byte[] cached = mergeResultCache.get(jobId);
         if (cached == null) {

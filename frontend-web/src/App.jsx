@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import AuthProvider from './components/AuthContext';
 import { useAuth } from './components/useAuth';
@@ -5,21 +6,24 @@ import LoginPage from './pages/LoginPage';
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/ErrorBoundary';
 import StatusBar from './components/StatusBar';
-import Dashboard from './pages/Dashboard';
-import CameraList from './pages/CameraList';
-import JobList from './pages/JobList';
-import JobDetail from './pages/JobDetail';
-import StackGallery from './pages/StackGallery';
-import HdrTimelapse from './pages/HdrTimelapse';
-import FaceOrbit from './pages/FaceOrbit';
-import ObserverDashboard from './pages/ObserverDashboard';
-import ObserverEvents from './pages/ObserverEvents';
-import ObserverEventDetail from './pages/ObserverEventDetail';
-import ObserverGallery from './pages/ObserverGallery';
-import ObserverStatistics from './pages/ObserverStatistics';
-import ObserverSettings from './pages/ObserverSettings';
-import AstroSessions from './pages/AstroSessions';
-import PluginManager from './pages/PluginManager';
+// Route-based code splitting: each page is loaded on demand to keep the
+// initial bundle small. The login screen and shell components stay eager so
+// the first paint is fast for unauthenticated users.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const CameraList = lazy(() => import('./pages/CameraList'));
+const JobList = lazy(() => import('./pages/JobList'));
+const JobDetail = lazy(() => import('./pages/JobDetail'));
+const StackGallery = lazy(() => import('./pages/StackGallery'));
+const HdrTimelapse = lazy(() => import('./pages/HdrTimelapse'));
+const FaceOrbit = lazy(() => import('./pages/FaceOrbit'));
+const ObserverDashboard = lazy(() => import('./pages/ObserverDashboard'));
+const ObserverEvents = lazy(() => import('./pages/ObserverEvents'));
+const ObserverEventDetail = lazy(() => import('./pages/ObserverEventDetail'));
+const ObserverGallery = lazy(() => import('./pages/ObserverGallery'));
+const ObserverStatistics = lazy(() => import('./pages/ObserverStatistics'));
+const ObserverSettings = lazy(() => import('./pages/ObserverSettings'));
+const AstroSessions = lazy(() => import('./pages/AstroSessions'));
+const PluginManager = lazy(() => import('./pages/PluginManager'));
 import './App.css';
 
 function AuthenticatedApp() {
@@ -28,23 +32,25 @@ function AuthenticatedApp() {
       <Navbar />
       <main className="main-content">
         <ErrorBoundary>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/cameras" element={<CameraList />} />
-            <Route path="/jobs" element={<JobList />} />
-            <Route path="/jobs/:id" element={<JobDetail />} />
-            <Route path="/gallery" element={<StackGallery />} />
-            <Route path="/hdr-timelapse" element={<HdrTimelapse />} />
-            <Route path="/face-orbit" element={<FaceOrbit />} />
-            <Route path="/observer" element={<ObserverDashboard />} />
-            <Route path="/observer/events" element={<ObserverEvents />} />
-            <Route path="/observer/events/:id" element={<ObserverEventDetail />} />
-            <Route path="/observer/gallery" element={<ObserverGallery />} />
-            <Route path="/observer/statistics" element={<ObserverStatistics />} />
-            <Route path="/observer/settings" element={<ObserverSettings />} />
-            <Route path="/astro" element={<AstroSessions />} />
-            <Route path="/plugins" element={<PluginManager />} />
-          </Routes>
+          <Suspense fallback={<div className="loading" role="status" aria-live="polite">Loading…</div>}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/cameras" element={<CameraList />} />
+              <Route path="/jobs" element={<JobList />} />
+              <Route path="/jobs/:id" element={<JobDetail />} />
+              <Route path="/gallery" element={<StackGallery />} />
+              <Route path="/hdr-timelapse" element={<HdrTimelapse />} />
+              <Route path="/face-orbit" element={<FaceOrbit />} />
+              <Route path="/observer" element={<ObserverDashboard />} />
+              <Route path="/observer/events" element={<ObserverEvents />} />
+              <Route path="/observer/events/:id" element={<ObserverEventDetail />} />
+              <Route path="/observer/gallery" element={<ObserverGallery />} />
+              <Route path="/observer/statistics" element={<ObserverStatistics />} />
+              <Route path="/observer/settings" element={<ObserverSettings />} />
+              <Route path="/astro" element={<AstroSessions />} />
+              <Route path="/plugins" element={<PluginManager />} />
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </main>
       <StatusBar />

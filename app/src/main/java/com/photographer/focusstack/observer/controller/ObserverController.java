@@ -6,6 +6,8 @@ import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.profile.ObserverProfile;
 import com.photographer.focusstack.observer.service.ObserverService;
 import com.photographer.focusstack.observer.service.ReplayService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @RestController
 @RequestMapping("/api/observer")
+@Tag(name = "Observer", description = "Wildlife observer events, stats, profiles, replay and runtime configuration endpoints.")
 public class ObserverController {
 
     /**
@@ -73,6 +76,7 @@ public class ObserverController {
      * @param limit maximum number of events to return (default 20)
      */
     @GetMapping("/events")
+    @Operation(summary = "List recent observer events")
     public ResponseEntity<List<ObservationEventEntity>> getRecentEvents(
             @RequestParam(defaultValue = "20") int limit) {
         if (limit < 1 || limit > 100) {
@@ -87,6 +91,7 @@ public class ObserverController {
      * @param id the UUID of the event
      */
     @GetMapping("/events/{id}")
+    @Operation(summary = "Get observer event by id")
     public ResponseEntity<ObservationEventEntity> getEvent(@PathVariable String id) {
         return observerService.findEventById(id)
                 .map(ResponseEntity::ok)
@@ -100,6 +105,7 @@ public class ObserverController {
      * @param limit  maximum number of events to return (default 50)
      */
     @GetMapping("/events/by-mode")
+    @Operation(summary = "List observer events filtered by mode")
     public ResponseEntity<List<ObservationEventEntity>> getEventsByMode(
             @RequestParam String mode,
             @RequestParam(defaultValue = "50") int limit) {
@@ -115,6 +121,7 @@ public class ObserverController {
      * @param date ISO date string (yyyy-MM-dd), defaults to today
      */
     @GetMapping("/events/by-date")
+    @Operation(summary = "List observer events for a date")
     public ResponseEntity<List<ObservationEventEntity>> getEventsByDate(
             @RequestParam(required = false) String date) {
         LocalDate localDate = date != null ? LocalDate.parse(date) : LocalDate.now();
@@ -127,6 +134,7 @@ public class ObserverController {
      * Returns species sorted by total sightings count.
      */
     @GetMapping("/species")
+    @Operation(summary = "List species ranking")
     public ResponseEntity<List<SpeciesRecordEntity>> getSpeciesRanking() {
         return ResponseEntity.ok(observerService.getSpeciesRanking());
     }
@@ -135,6 +143,7 @@ public class ObserverController {
      * Returns summary statistics for the observer.
      */
     @GetMapping("/stats")
+    @Operation(summary = "Get observer summary statistics")
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> stats = Map.of(
                 "totalEvents", observerService.getTotalEventCount(),
@@ -147,6 +156,7 @@ public class ObserverController {
      * Returns the current observer status including configuration.
      */
     @GetMapping("/status")
+    @Operation(summary = "Get observer runtime status")
     public ResponseEntity<Map<String, Object>> getStatus() {
         Map<String, Object> status = Map.of(
                 "enabled", properties.isEnabled(),
@@ -161,6 +171,7 @@ public class ObserverController {
      * Returns the list of available observer profiles.
      */
     @GetMapping("/profiles")
+    @Operation(summary = "List observer profiles")
     public ResponseEntity<List<Map<String, Object>>> getProfiles() {
         List<Map<String, Object>> result = PROFILE_MAP.values().stream().map(this::profileToMap).toList();
         return ResponseEntity.ok(result);
@@ -172,6 +183,7 @@ public class ObserverController {
      * @param name the profile name (e.g. "birdhouse", "macro_flower")
      */
     @GetMapping("/profiles/{name}")
+    @Operation(summary = "Get observer profile by name")
     public ResponseEntity<Map<String, Object>> getProfile(@PathVariable String name) {
         ObserverProfile profile = PROFILE_MAP.get(name);
         if (profile == null) {
@@ -188,6 +200,7 @@ public class ObserverController {
      * @param id the UUID of the event
      */
     @DeleteMapping("/events/{id}")
+    @Operation(summary = "Delete observer event by id")
     public ResponseEntity<Void> deleteEvent(@PathVariable String id) {
         if (observerService.deleteEvent(id)) {
             return ResponseEntity.noContent().build();
@@ -201,6 +214,7 @@ public class ObserverController {
      * @param id the numeric ID of the species record
      */
     @DeleteMapping("/species/{id}")
+    @Operation(summary = "Delete species record by id")
     public ResponseEntity<Void> deleteSpecies(@PathVariable Long id) {
         if (observerService.deleteSpecies(id)) {
             return ResponseEntity.noContent().build();
@@ -216,6 +230,7 @@ public class ObserverController {
      * @param days number of days (default 7, max 90)
      */
     @GetMapping("/stats/daily")
+    @Operation(summary = "Get observer daily statistics")
     public ResponseEntity<List<Map<String, Object>>> getDailyStats(
             @RequestParam(defaultValue = "7") int days) {
         if (days < 1 || days > 90) {
@@ -230,6 +245,7 @@ public class ObserverController {
      * @param name the normalized German name of the species
      */
     @GetMapping("/stats/species/{name}")
+    @Operation(summary = "Get detailed statistics for one species")
     public ResponseEntity<Map<String, Object>> getSpeciesDetail(@PathVariable String name) {
         Optional<SpeciesRecordEntity> species = observerService.findSpeciesByName(name);
         if (species.isEmpty()) {
@@ -255,6 +271,7 @@ public class ObserverController {
      * @param body map with optional keys: "defaultProfile", "preferredAiProvider", "enabled"
      */
     @PutMapping("/config")
+    @Operation(summary = "Update observer runtime configuration")
     public ResponseEntity<Map<String, Object>> updateConfig(@RequestBody Map<String, Object> body) {
         if (body.containsKey("defaultProfile")) {
             String profile = body.get("defaultProfile").toString();
@@ -282,6 +299,7 @@ public class ObserverController {
      * Returns a list of available AI providers with their availability status.
      */
     @GetMapping("/ai/providers")
+    @Operation(summary = "List AI providers and configuration status")
     public ResponseEntity<List<Map<String, Object>>> getAiProviders() {
         // Expose the configured AI providers and their status
         List<Map<String, Object>> providers = List.of(
@@ -304,6 +322,7 @@ public class ObserverController {
      * @param body profile fields (must include at least "name" and "mode")
      */
     @PostMapping("/profiles")
+    @Operation(summary = "Create observer profile")
     public ResponseEntity<Map<String, Object>> createProfile(@RequestBody Map<String, Object> body) {
         String name = (String) body.get("name");
         if (name == null || name.isBlank()) {
@@ -327,6 +346,7 @@ public class ObserverController {
      * @param body updated profile fields
      */
     @PutMapping("/profiles/{name}")
+    @Operation(summary = "Update observer profile")
     public ResponseEntity<Map<String, Object>> updateProfile(@PathVariable String name,
                                                               @RequestBody Map<String, Object> body) {
         if (!PROFILE_MAP.containsKey(name)) {
@@ -356,6 +376,7 @@ public class ObserverController {
      * @return provider info including whether the provider is configured and available
      */
     @PostMapping("/ai/test")
+    @Operation(summary = "Test preferred AI provider availability")
     public ResponseEntity<Map<String, Object>> testAiProvider(@RequestBody Map<String, Object> body) {
         String preferredProvider = properties.getPreferredAiProvider();
         String mode = body.containsKey("mode") ? body.get("mode").toString() : "wildlife";
@@ -398,6 +419,7 @@ public class ObserverController {
      * @return image bytes (JPEG/PNG) or 404 if not found
      */
     @GetMapping("/events/{id}/image")
+    @Operation(summary = "Download best image for an observer event")
     public ResponseEntity<byte[]> getEventImage(@PathVariable String id) {
         Optional<ObservationEventEntity> found = observerService.findEventById(id);
         if (found.isEmpty()) {
@@ -437,6 +459,7 @@ public class ObserverController {
      * @param body JSON with "folderPath", "speedMultiplier" (default 1.0, must be positive), "profileName"
      */
     @PostMapping("/replay")
+    @Operation(summary = "Start observer replay from a folder")
     public ResponseEntity<Map<String, Object>> startReplay(@RequestBody Map<String, Object> body) {
         String folderPath = (String) body.get("folderPath");
         if (folderPath == null || folderPath.isBlank()) {
@@ -460,7 +483,15 @@ public class ObserverController {
         String profile = body.containsKey("profileName")
                 ? body.get("profileName").toString() : properties.getDefaultProfile();
 
-        ReplayService.ReplayStatus status = replayService.startReplay(folderPath, speed, profile);
+        ReplayService.ReplayStatus status;
+        try {
+            status = replayService.startReplay(folderPath, speed, profile);
+        } catch (java.util.concurrent.RejectedExecutionException rex) {
+            // Replay pool + queue are saturated: signal back-pressure to the
+            // caller (HTTP 503) instead of blocking the request thread.
+            return ResponseEntity.status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "replay queue saturated, retry later"));
+        }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sessionId", status.sessionId());
         result.put("folderPath", status.folderPath());

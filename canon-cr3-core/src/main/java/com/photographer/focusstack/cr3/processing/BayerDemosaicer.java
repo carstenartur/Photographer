@@ -25,28 +25,52 @@ public final class BayerDemosaicer {
     /**
      * Demosaics a Bayer-pattern RAW image using bilinear interpolation (8-bit output).
      *
+     * <p>Uses {@code rawImage.maxValue()} as the white level for normalization.
+     * When the pipeline has already subtracted black levels, pass an explicit
+     * {@code whiteLevel} using {@link #demosaic(Cr3RawImage, int)} to avoid
+     * a small green-channel under-exposure in the output.</p>
+     *
      * @param rawImage the RAW Bayer image
      * @return a full-color RGB BufferedImage (TYPE_INT_RGB, 8 bits per channel)
      */
     public static BufferedImage demosaic(Cr3RawImage rawImage) {
-        LOG.info("Demosaicing {}x{} {} image with bilinear interpolation",
-                rawImage.width(), rawImage.height(), rawImage.bayerPattern());
+        return demosaic(rawImage, rawImage.maxValue());
+    }
+
+    /**
+     * Demosaics a Bayer-pattern RAW image using bilinear interpolation (8-bit output),
+     * normalizing pixel values against an explicit {@code whiteLevel}.
+     *
+     * <p>After black-level subtraction and white-balance, the effective maximum
+     * for the (unscaled) green channel is {@code maxVal - blackLevel}, which is
+     * lower than {@code maxValue()}.  Passing {@code whiteLevel = maxVal - minBL}
+     * corrects this so that sensor saturation maps to 255 in all channels.</p>
+     *
+     * @param rawImage   the RAW Bayer image
+     * @param whiteLevel the value that should map to 255 in the 8-bit output
+     * @return a full-color RGB BufferedImage (TYPE_INT_RGB, 8 bits per channel)
+     */
+    public static BufferedImage demosaic(Cr3RawImage rawImage, int whiteLevel) {
+        LOG.info("Demosaicing {}x{} {} image with bilinear interpolation (whiteLevel={})",
+                rawImage.width(), rawImage.height(), rawImage.bayerPattern(), whiteLevel);
 
         int w = rawImage.width();
         int h = rawImage.height();
-        int maxVal = rawImage.maxValue();
+        int effectiveWhite = Math.max(1, whiteLevel);
 
         BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = Pixels.intBufferOf(output);
 
         for (int y = 0; y < h; y++) {
+            int rowOffset = y * w;
             for (int x = 0; x < w; x++) {
                 int[] rgb = interpolatePixel(rawImage, x, y);
 
-                int r = clamp8bit(rgb[0], maxVal);
-                int g = clamp8bit(rgb[1], maxVal);
-                int b = clamp8bit(rgb[2], maxVal);
+                int r = clamp8bit(rgb[0], effectiveWhite);
+                int g = clamp8bit(rgb[1], effectiveWhite);
+                int b = clamp8bit(rgb[2], effectiveWhite);
 
-                output.setRGB(x, y, (r << 16) | (g << 8) | b);
+                pixels[rowOffset + x] = (r << 16) | (g << 8) | b;
             }
         }
 
@@ -73,8 +97,10 @@ public final class BayerDemosaicer {
         int maxVal = rawImage.maxValue();
 
         BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        int[] pixels = Pixels.intBufferOf(output);
 
         for (int y = 0; y < h; y++) {
+            int rowOffset = y * w;
             for (int x = 0; x < w; x++) {
                 int[] rgb = interpolatePixel(rawImage, x, y);
 
@@ -83,7 +109,7 @@ public final class BayerDemosaicer {
                 int g = Math.min(255, Math.max(0, (int) ((long) rgb[1] * 255 / maxVal)));
                 int b = Math.min(255, Math.max(0, (int) ((long) rgb[2] * 255 / maxVal)));
 
-                output.setRGB(x, y, (r << 16) | (g << 8) | b);
+                pixels[rowOffset + x] = (r << 16) | (g << 8) | b;
             }
         }
 

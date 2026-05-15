@@ -39,7 +39,7 @@ class ObserverServiceIT extends AbstractPostgresIntegrationTest {
 
     @Test
     void persistAndQueryObservationEvent() {
-        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+        restTemplate = restTemplate.withBasicAuth("admin", "TestAdminPassword!42");
 
         // Create an event via the service
         ObservationEvent event = new ObservationEvent.Builder()
@@ -85,7 +85,7 @@ class ObserverServiceIT extends AbstractPostgresIntegrationTest {
 
     @Test
     void dailyStatsAndSpeciesDetail() {
-        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+        restTemplate = restTemplate.withBasicAuth("admin", "TestAdminPassword!42");
 
         // Persist a test event
         String eventId = UUID.randomUUID().toString();

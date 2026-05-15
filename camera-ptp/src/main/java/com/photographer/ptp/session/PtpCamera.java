@@ -598,6 +598,20 @@ public class PtpCamera implements AutoCloseable {
     }
 
     /**
+     * Reads a Canon EOS device property's last-known value from the
+     * background event-loop cache. Returns {@code 0} if the camera has not
+     * yet emitted that property in a GetEvent (0x9116) batch.
+     *
+     * <p>Public so research/diagnostics integration tests can inspect
+     * properties that do not yet have a typed accessor (e.g.
+     * {@link CanonConstants#DPC_EOS_IMAGE_QUALITY 0xD108 ImageQuality}).</p>
+     */
+    public int getCanonPropertyRaw(int propertyCode) {
+        if (!isCanon) return 0;
+        return getCanonPropertyValue(propertyCode);
+    }
+
+    /**
      * Sets a Canon EOS device property via the data-write phase.
      * Canon's SetDevicePropValueEx (0x9110) sends a data payload with format:
      * {@code [4-byte totalSize][4-byte propCode][4-byte value]}
@@ -613,9 +627,18 @@ public class PtpCamera implements AutoCloseable {
         buf.putInt(12);            // totalSize (includes this field)
         buf.putInt(propertyCode);
         buf.putInt(value);
-        PtpContainer response = session.executeOperationWithData(
-                CanonConstants.OC_EOS_SET_DEVICE_PROP, data);
-        requireOkResponse("SetCanonProperty 0x" + Integer.toHexString(propertyCode), response);
+        // Suspend the background event loop so its GetEvent (0x9116) poll does
+        // not collide with our SetDevicePropValueEx and trigger Device_Busy
+        // (0x2019). The event loop processes a single transaction at a time,
+        // and the camera rejects overlapping vendor commands.
+        eventLoop.suspend();
+        try {
+            PtpContainer response = session.executeOperationWithData(
+                    CanonConstants.OC_EOS_SET_DEVICE_PROP, data);
+            requireOkResponse("SetCanonProperty 0x" + Integer.toHexString(propertyCode), response);
+        } finally {
+            eventLoop.resume();
+        }
     }
 
     // ── Storage ──

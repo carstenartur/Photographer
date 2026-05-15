@@ -4,6 +4,8 @@ import com.photographer.focusstack.analysis.plugin.AnalysisPluginRegistry;
 import com.photographer.focusstack.plugin.AnalysisContext;
 import com.photographer.focusstack.plugin.AnalysisPlugin;
 import com.photographer.focusstack.plugin.AnalysisPluginResult;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +31,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/analysis/plugins")
+@Tag(name = "Analysis Plugins", description = "Analysis plugin discovery and execution endpoints.")
 public class PluginController {
 
     private final AnalysisPluginRegistry registry;
@@ -39,6 +42,7 @@ public class PluginController {
 
     /** Lists all registered plugins with their names. */
     @GetMapping
+    @Operation(summary = "List registered analysis plugins")
     public ResponseEntity<List<Map<String, String>>> listPlugins() {
         List<Map<String, String>> result = registry.listAll().stream()
                 .map(p -> Map.of("name", p.name()))
@@ -54,6 +58,7 @@ public class PluginController {
      * @param params optional key=value query parameters forwarded to the plugin context
      */
     @PostMapping(value = "/{name}/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Run a named analysis plugin")
     public ResponseEntity<?> runPlugin(
             @PathVariable String name,
             @RequestPart("image") MultipartFile image,

@@ -61,6 +61,37 @@ class SrgbConverterTest {
                 prev = val;
             }
         }
+
+        @Test
+        void processMatchesExpectedPixelSnapshot() {
+            BufferedImage img = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+            img.setRGB(0, 0, (0 << 16) | (64 << 8) | 128);
+            img.setRGB(1, 0, (255 << 16) | (128 << 8) | 64);
+            img.setRGB(0, 1, (64 << 16) | (0 << 8) | 255);
+            img.setRGB(1, 1, (128 << 16) | (255 << 8) | 0);
+
+            SrgbConverter.process(img);
+
+            int[] actual = {
+                    img.getRGB(0, 0) & 0xFFFFFF,
+                    img.getRGB(1, 0) & 0xFFFFFF,
+                    img.getRGB(0, 1) & 0xFFFFFF,
+                    img.getRGB(1, 1) & 0xFFFFFF
+            };
+            int[] expected = {0x0089BC, 0xFFBC89, 0x8900FF, 0xBCFF00};
+            assertArrayEquals(expected, actual);
+        }
+
+        @Test
+        void processUpdatesNonIntPackedImagesInPlace() {
+            BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_3BYTE_BGR);
+            image.setRGB(0, 0, (64 << 16) | (64 << 8) | 64);
+
+            SrgbConverter.process(image);
+
+            int rgb = image.getRGB(0, 0) & 0xFFFFFF;
+            assertEquals(0x898989, rgb);
+        }
     }
 
     @Nested

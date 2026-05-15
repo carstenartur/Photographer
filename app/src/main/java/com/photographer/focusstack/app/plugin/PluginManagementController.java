@@ -1,5 +1,7 @@
 package com.photographer.focusstack.app.plugin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,6 +36,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/admin/plugins")
+@Tag(name = "Plugin Management", description = "Administrative plugin lifecycle endpoints.")
 public class PluginManagementController {
 
     private final PluginManagementService pluginService;
@@ -44,12 +47,14 @@ public class PluginManagementController {
 
     /** Lists all installed plugins with their metadata and state. */
     @GetMapping
+    @Operation(summary = "List installed plugins")
     public ResponseEntity<List<Map<String, Object>>> listPlugins() {
         return ResponseEntity.ok(pluginService.listPlugins());
     }
 
     /** Returns details for a single plugin by ID. */
     @GetMapping("/{id}")
+    @Operation(summary = "Get plugin details by id")
     public ResponseEntity<Map<String, Object>> getPlugin(@PathVariable String id) {
         return pluginService.getPlugin(id)
                 .map(ResponseEntity::ok)
@@ -62,6 +67,7 @@ public class PluginManagementController {
      * @param file the plugin JAR file
      */
     @PostMapping(value = "/install", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Install plugin from uploaded JAR")
     public ResponseEntity<Map<String, String>> installPlugin(
             @RequestPart("file") MultipartFile file) throws IOException {
 
@@ -80,6 +86,7 @@ public class PluginManagementController {
 
     /** Enables (starts) a plugin by ID. */
     @PostMapping("/{id}/enable")
+    @Operation(summary = "Enable plugin")
     public ResponseEntity<Map<String, String>> enablePlugin(@PathVariable String id) {
         boolean success = pluginService.enablePlugin(id);
         if (!success) {
@@ -90,6 +97,7 @@ public class PluginManagementController {
 
     /** Disables (stops) a plugin by ID. */
     @PostMapping("/{id}/disable")
+    @Operation(summary = "Disable plugin")
     public ResponseEntity<Map<String, String>> disablePlugin(@PathVariable String id) {
         boolean success = pluginService.disablePlugin(id);
         if (!success) {
@@ -100,6 +108,7 @@ public class PluginManagementController {
 
     /** Uninstalls a plugin by ID. */
     @DeleteMapping("/{id}")
+    @Operation(summary = "Uninstall plugin")
     public ResponseEntity<Map<String, String>> uninstallPlugin(@PathVariable String id) {
         boolean success = pluginService.uninstallPlugin(id);
         if (!success) {

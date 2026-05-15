@@ -63,7 +63,7 @@ class StackingJobServiceTest {
         // SyncTaskExecutor runs tasks on the calling thread — keeps tests deterministic
         service = new StackingJobService(
                 backendFactory, profileService, repository, messagingTemplate,
-                stackingAdvisor, stackMerger, new FrameDataStore(tempDir.toString()),
+                stackingAdvisor, stackMerger, new FrameDataStore(tempDir.toString(), 1_073_741_824L),
                 plainWebSocketBridge,
                 new SyncTaskExecutor(), "adaptive");
     }

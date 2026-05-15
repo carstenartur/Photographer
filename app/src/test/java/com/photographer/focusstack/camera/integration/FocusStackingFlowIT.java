@@ -52,7 +52,7 @@ class FocusStackingFlowIT extends AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void setUpAuth() {
-        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+        restTemplate = restTemplate.withBasicAuth("admin", "TestAdminPassword!42");
     }
 
     /**

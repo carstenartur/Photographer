@@ -7,6 +7,8 @@ target/
 *.log
 hs_err_pid*
 replay_pid*
+# maven-shade-plugin output (generated each build)
+dependency-reduced-pom.xml
 
 # Maven wrapper
 !.mvn/wrapper/maven-wrapper.jar
@@ -14,6 +16,7 @@ replay_pid*
 
 ### Node.js / React ###
 node_modules/
+frontend-web/node/
 dist/
 build/
 .cache/
@@ -39,6 +42,16 @@ docker-compose.override.yml
 *.iws
 .vscode/
 *.code-workspace
+
+### IDE — Eclipse ###
+.project
+.classpath
+.settings/
+
+### Spring Security generated default-login pages (do not commit) ###
+/login.html
+/login_page.html
+/loginpage.html
 
 ### OS files ###
 .DS_Store
@@ -68,3 +81,39 @@ data/
 
 ### Runtime plugins directory ###
 plugins/
+/Sample/
+
+### Eclipse `bin/` output (per-module .gitignore exists; root safety net) ###
+bin/
+**/bin/
+
+### Lucene / Hibernate Search index dirs created by `app` integration tests ###
+# These end up at the working-directory root and must never be committed.
+app/CameraProfileEntity/
+app/StackingJobEntity/
+**/CameraProfileEntity/
+**/StackingJobEntity/
+
+### Round-N research sweep outputs (regenerable from fixtures + ITs) ###
+canon-cr3-imageio/target/crx-followup-*/
+canon-cr3-imageio/target/cr3-decode-debug/
+canon-cr3-imageio/target/cr3-validation/
+
+### Ad-hoc HTTP/PTP debug artefacts ###
+cookies*.txt
+response.bin
+response.hex
+target-ci-verify.log
+target-r13*.log
+
+### Third-party reference material that is NOT redistributable ##############
+# Canon's CCAPI / EDSDK PDFs and any text extracted from them are licensed
+# under Canon's developer agreement and MUST NOT be committed to a public
+# repository. Keep them on the local machine only and back them up
+# privately (see BACKUP.md §"Private/non-redistributable").
+docs/CameraControlAPI_OperationGuide_EN.pdf
+docs/CameraControlAPI_Reference_v*.pdf
+docs/EDSDK_*.pdf
+docs/ccapi_guide.txt
+docs/ccapi_ref.txt
+docs/pdf_err.txt

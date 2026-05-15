@@ -1,0 +1,7 @@
+# Operator-local CR3 captures: keep them out of git by default. Only the
+# minimum set needed for the Round-9 (and later) decoder research ITs is
+# tracked. To add more, append a "!filename.cr3" exception below and
+# `git add` the file explicitly.
+*.cr3
+!g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3
+!g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-03.cr3

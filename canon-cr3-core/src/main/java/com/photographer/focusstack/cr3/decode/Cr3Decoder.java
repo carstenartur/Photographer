@@ -25,9 +25,15 @@ import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 /**
  * Main entry point for decoding Canon CR3 files.
@@ -45,26 +51,99 @@ import java.io.IOException;
  * }
  * }</pre>
  */
-public final class Cr3Decoder {
+public final class Cr3Decoder implements AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(Cr3Decoder.class);
 
     private ImageInputStream input;
     private Cr3Container container;
     private Cr3Metadata metadata;
+    /**
+     * Source file path when {@link #setInput(Path)} was used; enables a fast
+     * memory-mapped read of the CRX RAW track in {@link #decodeRawBayer}.
+     * {@code null} when the decoder was driven by the
+     * {@link #setInput(ImageInputStream)} overload.
+     */
+    private Path sourceFile;
+    /**
+     * {@code true} when the decoder itself opened {@link #input} (via
+     * {@link #setInput(Path)}) and therefore owns its lifecycle. {@code false}
+     * when the caller supplied the stream via {@link #setInput(ImageInputStream)}
+     * — in that case the caller retains ownership and {@link #reset} / {@link #close}
+     * must NOT close it.
+     */
+    private boolean ownsInput;
 
     /**
      * Sets the input stream for decoding.
+     *
+     * <p>The caller retains ownership of the supplied stream; {@link #reset} and
+     * {@link #close} will release the decoder's reference but will <em>not</em>
+     * close the stream.</p>
      *
      * @param input the image input stream positioned at the start of the CR3 file
      * @throws IOException if an I/O error occurs during initial parsing
      * @throws Cr3Exception if the file is not a valid CR3 file
      */
     public void setInput(ImageInputStream input) throws IOException, Cr3Exception {
+        closeOwnedInputQuietly();
         this.input = input;
+        this.sourceFile = null;
+        this.ownsInput = false;
         this.container = Cr3Parser.parse(input);
         this.metadata = extractMetadata();
         LOG.info("CR3 input set: {}", container);
+    }
+
+    /**
+     * File-based input variant. The file is opened with a {@code FileImageInputStream}
+     * for the parser/metadata/preview paths, and additionally retained so that
+     * {@link #decodeRawBayer} can pull the (typically multi-MB) CRX RAW track
+     * via a single {@link FileChannel#map memory-mapped read} instead of the
+     * {@code ImageInputStream.readFully(byte[])} bulk copy.
+     *
+     * <p>The decoder takes ownership of the internally-opened stream; the caller
+     * must invoke {@link #reset} or {@link #close} (or use the decoder in a
+     * try-with-resources block) to release the underlying file handle.</p>
+     *
+     * <p>If parsing fails the internally-opened stream is closed before the
+     * exception propagates so no file descriptor leaks on the error path.</p>
+     *
+     * @param file the CR3 file to decode
+     * @throws IOException if the file cannot be opened or parsed
+     * @throws Cr3Exception if the file is not a valid CR3 file
+     */
+    public void setInput(Path file) throws IOException, Cr3Exception {
+        if (file == null) {
+            throw new IllegalArgumentException("file must not be null");
+        }
+        closeOwnedInputQuietly();
+        ImageInputStream iis = ImageIO.createImageInputStream(file.toFile());
+        if (iis == null) {
+            throw new IOException("Could not open ImageInputStream for " + file);
+        }
+        // Parse into local variables first; only commit to the instance fields
+        // once parsing succeeded, otherwise close the stream we just opened so
+        // the file descriptor is released on the error path.
+        Cr3Container parsedContainer;
+        Cr3Metadata parsedMetadata;
+        try {
+            parsedContainer = Cr3Parser.parse(iis);
+            parsedMetadata = Cr3MetadataReader.read(iis, parsedContainer);
+        } catch (IOException | Cr3Exception | RuntimeException e) {
+            try {
+                iis.close();
+            } catch (IOException closeError) {
+                e.addSuppressed(closeError);
+            }
+            throw e;
+        }
+        this.input = iis;
+        this.sourceFile = file;
+        this.ownsInput = true;
+        this.container = parsedContainer;
+        this.metadata = parsedMetadata;
+        LOG.info("CR3 input set (file={}): {}", file, container);
     }
 
     /**
@@ -110,12 +189,39 @@ public final class Cr3Decoder {
     }
 
     /**
-     * Resets the decoder, releasing the input stream reference.
+     * Resets the decoder, releasing the input stream reference and closing the
+     * underlying {@link ImageInputStream} when the decoder owns it (i.e. the
+     * input was supplied via {@link #setInput(Path)}). Streams supplied through
+     * {@link #setInput(ImageInputStream)} are <em>not</em> closed — their
+     * lifecycle remains the caller's responsibility.
      */
     public void reset() {
+        closeOwnedInputQuietly();
         this.input = null;
         this.container = null;
         this.metadata = null;
+        this.sourceFile = null;
+        this.ownsInput = false;
+    }
+
+    /**
+     * Equivalent to {@link #reset}; provided so the decoder can be used in a
+     * try-with-resources block when the input was opened internally via
+     * {@link #setInput(Path)}.
+     */
+    @Override
+    public void close() {
+        reset();
+    }
+
+    private void closeOwnedInputQuietly() {
+        if (ownsInput && input != null) {
+            try {
+                input.close();
+            } catch (IOException e) {
+                LOG.warn("Failed to close internally-owned ImageInputStream", e);
+            }
+        }
     }
 
     private Cr3Metadata extractMetadata() throws IOException {
@@ -138,10 +244,16 @@ public final class Cr3Decoder {
         // Always decode uncropped — OB columns are needed for black level estimation
         Cr3RawImage rawImage = decodeRawBayerUncropped(options);
 
-        // 1. Black level subtraction on the UNCROPPED image (OB columns still present)
+        // 1. Black level subtraction on the UNCROPPED image (OB columns still present).
+        //    We also record the minimum subtracted level so the demosaic step can
+        //    normalise against the correct post-BL white level (avoids a slight
+        //    green-channel under-exposure when G_mult ≈ 1.0 but R/B are clipped
+        //    by the WB multiplier).
+        int minBlackLevelSubtracted = 0;
         if (options.applyBlackLevel()) {
             BlackLevel blackLevel = resolveBlackLevel(rawImage);
             BlackLevelProcessor.process(rawImage, blackLevel);
+            minBlackLevelSubtracted = effectiveMinBlackLevel(blackLevel);
         }
 
         // 2. Now crop to active area (OB columns removed after estimation)
@@ -155,8 +267,12 @@ public final class Cr3Decoder {
             WhiteBalanceProcessor.process(rawImage, wbMultipliers);
         }
 
-        // 4. Bayer demosaicing → full-colour RGB
-        BufferedImage rgb = BayerDemosaicer.demosaic(rawImage);
+        // 4. Bayer demosaicing → full-colour RGB.
+        //    The white level passed here is (maxValue − minBlackLevel) so that
+        //    the green channel (G_mult ≈ 1.0, not amplified by WB) reaches 255
+        //    at sensor saturation rather than stopping at ~97%.
+        int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
+        BufferedImage rgb = BayerDemosaicer.demosaic(rawImage, whiteLevel);
 
         // 5. Color matrix correction — use camera-specific if available
         if (options.applyColorMatrix()) {
@@ -175,6 +291,28 @@ public final class Cr3Decoder {
         }
 
         return rgb;
+    }
+
+    /**
+     * Returns the minimum black level subtracted across all channels.
+     * Used to compute the effective white level for demosaic normalisation.
+     */
+    private static int effectiveMinBlackLevel(BlackLevel blackLevel) {
+        return switch (blackLevel.mode()) {
+            case GLOBAL -> blackLevel.globalLevel();
+            case PER_CHANNEL -> {
+                int[] levels = blackLevel.perChannelLevels();
+                int min = levels[0];
+                for (int l : levels) {
+                    if (l < min) min = l;
+                }
+                yield min;
+            }
+            // For per-row, use the minimum across all per-row entries so the
+            // effective white level reflects the actual OB-estimated levels rather
+            // than the 14-bit default.
+            case PER_ROW -> blackLevel.minPerRowLevel();
+        };
     }
 
     /**
@@ -250,10 +388,18 @@ public final class Cr3Decoder {
         LOG.info("Reading CRX RAW track: {}x{}, {} bytes at offset {}",
                 rawWidth, rawHeight, rawTrack.dataSize(), rawTrack.dataOffset());
 
-        // Read the raw CRX data
-        byte[] crxData = new byte[(int) rawTrack.dataSize()];
-        input.seek(rawTrack.dataOffset());
-        input.readFully(crxData);
+        // Read the raw CRX data — prefer a memory-mapped read when the input
+        // is a known file (setInput(Path)). For multi-MB CRX tracks this avoids
+        // the ImageInputStream's intermediate buffering and the RandomAccessFile
+        // syscall loop that backs readFully(byte[]).
+        byte[] crxData;
+        if (sourceFile != null) {
+            crxData = readCrxTrackMmap(sourceFile, rawTrack.dataOffset(), (int) rawTrack.dataSize());
+        } else {
+            crxData = new byte[(int) rawTrack.dataSize()];
+            input.seek(rawTrack.dataOffset());
+            input.readFully(crxData);
+        }
 
         // Determine codec version
         CrxHeader.CodecVersion codecVersion = CrxHeader.CodecVersion.V1;
@@ -326,6 +472,29 @@ public final class Cr3Decoder {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(value, max));
+    }
+
+    /**
+     * Reads {@code length} bytes starting at {@code offset} from {@code file}
+     * via {@link FileChannel#map} and copies them into a fresh {@code byte[]}.
+     *
+     * <p>For the typical multi-megabyte CRX RAW track this is measurably
+     * faster than {@code RandomAccessFile.readFully}: the read becomes a single
+     * page-fault-driven copy instead of an 8 KB-buffered syscall loop.</p>
+     *
+     * <p>Note: the {@link MappedByteBuffer} returned by {@code FileChannel.map}
+     * is unmapped non-deterministically by the JVM's {@code Cleaner} — closing
+     * the {@link FileChannel} does not force-unmap it. That is harmless here
+     * because we copy the contents into a fresh {@code byte[]} before returning
+     * and the buffer becomes unreachable as soon as this method exits.</p>
+     */
+    private static byte[] readCrxTrackMmap(Path file, long offset, int length) throws IOException {
+        try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
+            ByteBuffer mapped = ch.map(FileChannel.MapMode.READ_ONLY, offset, length);
+            byte[] dst = new byte[length];
+            mapped.get(dst);
+            return dst;
+        }
     }
 
     /**

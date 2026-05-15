@@ -14,9 +14,27 @@ import java.util.Comparator;
  * Decoder for Canon CRX lossless RAW data.
  *
  * <p>CRX (Canon Raw eXtended) lossless compression uses adaptive Rice-Golomb
- * entropy coding with Median Edge Detection (MED) prediction, similar to
- * JPEG-LS (ITU T.87). This is a cleanroom implementation based on the
- * published JPEG-LS standard and public CR3 format documentation.</p>
+ * entropy coding with prediction over wavelet (or pseudo-wavelet) subbands.
+ * The current implementation is a JPEG-LS-style approximation (MED predictor
+ * over Bayer planes with JPEG-LS k-adaptation); see
+ * {@code docs/patent-us20160323602a1-analysis.md} for the clean-room evaluation
+ * of Canon patent US&nbsp;2016/0323602&nbsp;A1, which establishes that the
+ * actual algorithm is:</p>
+ * <ul>
+ *   <li>per-subband predictor (LL = MED, HL = above, LH = left, HH = 0),</li>
+ *   <li>symbol mapping {@code S = 2·Diff} for {@code Diff ≥ 0} else
+ *       {@code -2·Diff - 1},</li>
+ *   <li>Golomb-Rice with codeword {@code (S>>K) zeros + 1 + low-K-bits},</li>
+ *   <li>per-symbol lookahead-bracket K update (not the JPEG-LS accumulator
+ *       used here).</li>
+ * </ul>
+ * <p>See {@code docs/crx-cleanroom-spec.md} for the project-internal
+ * decoder specification derived from the patent. Replacing this implementation
+ * is gated on the validation work tracked in
+ * {@code canon-cr3-core/SubbandFixtures.md}.</p>
+ *
+ * <p>This is a cleanroom implementation; no third-party CRX decoder source
+ * was consulted.</p>
  *
  * <p>The decoding pipeline:</p>
  * <ol>
@@ -163,56 +181,38 @@ public final class CrxLosslessRawDecoder {
                             + (tileXOffset + tilePixelWidth) + " > " + planeWidth);
                 }
 
-                for (CrxHeader.Plane plane : tile.planes()) {
-                    if (plane.subbands().isEmpty()) {
-                        throw new Cr3Exception("No subbands in plane " + plane.index()
-                                + " of tile " + tile.index());
-                    }
+                final int finalTileXOffset = tileXOffset;
+                final int finalTilePixelWidth = tilePixelWidth;
+                final int finalTilePlaneHeight = tilePlaneHeight;
+                final int finalBitDepth = bitDepth;
+                final byte[] finalCrxData = crxData;
+                final int[][] finalPlanes = planes;
+                final int finalPlaneWidth = planeWidth;
+                final CrxHeader.Tile finalTile = tile;
 
-                    int planeIdx = plane.index();
-                    if (planeIdx < 0 || planeIdx >= 4) {
-                        LOG.warn("Unexpected plane index {}, skipping", planeIdx);
-                        continue;
+                // Decode the (typically 4) Bayer planes of this tile in parallel.
+                // Each plane is independent: decodePlane() is pure on a slice of
+                // crxData, and the per-plane writes target a distinct planes[planeIdx]
+                // slot (planeIdx ∈ {0,1,2,3}) so there is no data race.
+                try {
+                    finalTile.planes().parallelStream().forEach(plane -> {
+                        try {
+                            decodeTilePlane(plane, finalTile, finalCrxData, finalPlanes,
+                                    finalTileXOffset, finalTilePixelWidth, finalTilePlaneHeight,
+                                    finalPlaneWidth, finalBitDepth);
+                        } catch (Cr3Exception | IOException e) {
+                            throw new DecodePlaneException(e);
+                        }
+                    });
+                } catch (DecodePlaneException wrapped) {
+                    Throwable cause = wrapped.getCause();
+                    if (cause instanceof Cr3Exception ce) {
+                        throw ce;
                     }
-
-                    // For lossless, there is exactly 1 subband per plane (LL only)
-                    CrxHeader.Subband subband = plane.subbands().getFirst();
-                    long rawOffset = subband.dataOffset();
-                    long rawSize = subband.dataSize();
-                    long rawEnd = rawOffset + rawSize;
-                    if (rawOffset > Integer.MAX_VALUE || rawSize > Integer.MAX_VALUE
-                            || rawEnd > Integer.MAX_VALUE || rawEnd < rawOffset) {
-                        throw new Cr3Exception("Subband data exceeds 2 GB limit: offset="
-                                + rawOffset + ", size=" + rawSize);
+                    if (cause instanceof IOException ioe) {
+                        throw ioe;
                     }
-                    int subDataOffset = (int) rawOffset;
-                    int subDataEnd = (int) rawEnd;
-
-                    if (subDataOffset >= crxData.length) {
-                        throw new Cr3Exception("Subband offset past end of CRX data: "
-                                + subDataOffset + " >= " + crxData.length);
-                    }
-                    if (subDataEnd > crxData.length) {
-                        LOG.debug("Subband {} in plane {} tile {} extends {} bytes past CRX payload; "
-                                        + "clamping to available data", subband.index(), planeIdx,
-                                tile.index(), (subDataEnd - crxData.length));
-                        subDataEnd = crxData.length;
-                    }
-                    if (subDataEnd <= subDataOffset) {
-                        throw new Cr3Exception("Invalid subband range: [" + subDataOffset + ", "
-                                + subDataEnd + ")");
-                    }
-
-                    // Decode this plane's subband
-                    int[] decoded = decodePlane(crxData, subDataOffset, subDataEnd,
-                            tilePixelWidth, tilePlaneHeight, bitDepth);
-
-                    // Copy decoded tile data into the full plane array
-                    for (int row = 0; row < tilePlaneHeight; row++) {
-                        System.arraycopy(decoded, row * tilePixelWidth,
-                                planes[planeIdx], row * planeWidth + tileXOffset,
-                                tilePixelWidth);
-                    }
+                    throw wrapped;
                 }
 
                 tileXOffset += tilePixelWidth;
@@ -223,17 +223,46 @@ public final class CrxLosslessRawDecoder {
                         + tileXOffset + " != " + planeWidth);
             }
 
-            // 4. Interleave planes into Bayer pattern
+            // 4. Interleave planes positionally into a 2×2-subsampled Bayer grid.
+            // The resolved BayerPattern determines the actual colour assignment downstream.
             int[] bayerData = new int[width * height];
-            interleaveBayerRGGB(planes, bayerData, width, height, planeWidth, planeHeight);
+            interleavePlanesByPosition(planes, bayerData, width, height, planeWidth, planeHeight);
 
-            LOG.info("CRX lossless decode complete: {} pixels", bayerData.length);
-            return new Cr3RawImage(width, height, bayerData, bitDepth,
-                    Cr3RawImage.BayerPattern.RGGB);
+            // Resolve the actual CFA pattern from CMP1 (cfaLayout field).
+            // The CRX encoder stores planes in positional order (top-left, top-right,
+            // bottom-left, bottom-right) regardless of CFA pattern; we only need to
+            // set the BayerPattern so that downstream processors (WB, demosaic) apply
+            // the correct colour assignment at each pixel position.
+            Cr3RawImage.BayerPattern bayerPattern = resolveBayerPattern(cmp1);
+            LOG.info("CRX lossless decode complete: {} pixels, pattern={}", bayerData.length, bayerPattern);
+            return new Cr3RawImage(width, height, bayerData, bitDepth, bayerPattern);
 
         } catch (IOException e) {
             throw new Cr3Exception("CRX lossless decoding failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Maps the CMP1 cfaLayout field (0–3) to the corresponding {@link Cr3RawImage.BayerPattern}.
+     *
+     * <p>The CRX encoder always stores Bayer planes in positional order
+     * (plane 0 = top-left, plane 1 = top-right, plane 2 = bottom-left, plane 3 = bottom-right).
+     * The CFA layout only determines which colour occupies each position.</p>
+     */
+    private static Cr3RawImage.BayerPattern resolveBayerPattern(Cmp1Box cmp1) {
+        if (cmp1 == null) {
+            return Cr3RawImage.BayerPattern.RGGB; // Safe default for Canon
+        }
+        return switch (cmp1.cfaLayout()) {
+            case 0 -> Cr3RawImage.BayerPattern.RGGB;
+            case 1 -> Cr3RawImage.BayerPattern.GRBG;
+            case 2 -> Cr3RawImage.BayerPattern.GBRG;
+            case 3 -> Cr3RawImage.BayerPattern.BGGR;
+            default -> {
+                LOG.warn("Unknown CFA layout {} in CMP1, defaulting to RGGB", cmp1.cfaLayout());
+                yield Cr3RawImage.BayerPattern.RGGB;
+            }
+        };
     }
 
     private static ParsedCrx parseCrxData(byte[] data, CrxHeader.CodecVersion version, Cmp1Box cmp1)
@@ -282,6 +311,83 @@ public final class CrxLosslessRawDecoder {
     private record ParsedCrx(byte[] data, CrxHeader header) {}
 
     /**
+     * Validates a single plane's subband range and decodes it into the shared
+     * {@code planes} grid. Extracted from {@link #decode} so it can be invoked
+     * from a {@code parallelStream} over the planes of a tile — each plane
+     * writes to a distinct {@code planes[planeIdx]} slot, so the four
+     * concurrent invocations share no mutable state.
+     */
+    private static void decodeTilePlane(CrxHeader.Plane plane, CrxHeader.Tile tile,
+                                        byte[] crxData, int[][] planes,
+                                        int tileXOffset, int tilePixelWidth, int tilePlaneHeight,
+                                        int planeWidth, int bitDepth)
+            throws Cr3Exception, IOException {
+        if (plane.subbands().isEmpty()) {
+            throw new Cr3Exception("No subbands in plane " + plane.index()
+                    + " of tile " + tile.index());
+        }
+
+        int planeIdx = plane.index();
+        if (planeIdx < 0 || planeIdx >= 4) {
+            LOG.warn("Unexpected plane index {}, skipping", planeIdx);
+            return;
+        }
+
+        // For lossless, there is exactly 1 subband per plane (LL only)
+        CrxHeader.Subband subband = plane.subbands().getFirst();
+        long rawOffset = subband.dataOffset();
+        long rawSize = subband.dataSize();
+        long rawEnd = rawOffset + rawSize;
+        if (rawOffset > Integer.MAX_VALUE || rawSize > Integer.MAX_VALUE
+                || rawEnd > Integer.MAX_VALUE || rawEnd < rawOffset) {
+            throw new Cr3Exception("Subband data exceeds 2 GB limit: offset="
+                    + rawOffset + ", size=" + rawSize);
+        }
+        int subDataOffset = (int) rawOffset;
+        int subDataEnd = (int) rawEnd;
+
+        if (subDataOffset >= crxData.length) {
+            throw new Cr3Exception("Subband offset past end of CRX data: "
+                    + subDataOffset + " >= " + crxData.length);
+        }
+        if (subDataEnd > crxData.length) {
+            LOG.debug("Subband {} in plane {} tile {} extends {} bytes past CRX payload; "
+                            + "clamping to available data", subband.index(), planeIdx,
+                    tile.index(), (subDataEnd - crxData.length));
+            subDataEnd = crxData.length;
+        }
+        if (subDataEnd <= subDataOffset) {
+            throw new Cr3Exception("Invalid subband range: [" + subDataOffset + ", "
+                    + subDataEnd + ")");
+        }
+
+        // Decode this plane's subband
+        int[] decoded = decodePlane(crxData, subDataOffset, subDataEnd,
+                tilePixelWidth, tilePlaneHeight, bitDepth);
+
+        // Copy decoded tile data into the full plane array.
+        // Different planes write to distinct planes[planeIdx] slots, so this
+        // is race-free across the parallel forEach over tile.planes().
+        for (int row = 0; row < tilePlaneHeight; row++) {
+            System.arraycopy(decoded, row * tilePixelWidth,
+                    planes[planeIdx], row * planeWidth + tileXOffset,
+                    tilePixelWidth);
+        }
+    }
+
+    /**
+     * Unchecked wrapper used to smuggle {@link Cr3Exception} / {@link IOException}
+     * out of the per-plane parallel stream in {@link #decode}. The caller
+     * unwraps and re-throws the original checked exception.
+     */
+    private static final class DecodePlaneException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+        DecodePlaneException(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    /**
      * Decodes a single plane using adaptive Rice-Golomb coding with MED prediction.
      *
      * <p>This implements the JPEG-LS-style prediction and entropy decoding that
@@ -296,7 +402,22 @@ public final class CrxLosslessRawDecoder {
         // Read directly from the original data with offset/length to avoid extra buffer copies
         BitReader reader = new BitReader(data, offset, endOffset - offset);
 
-        // JPEG-LS-style adaptive parameters
+        // JPEG-LS-style adaptive parameters.
+        //
+        // K_INIT: the initial Rice parameter is **0**, empirically
+        // validated as the optimum on 100 % of 160 subbands across two
+        // C-RAW frames by `CrxPlaneFollowupRound9IT` — see Update (n)
+        // in samples/research/README.md. Earlier experiments seeded
+        // K from `CMP1.quantValue`; that recommendation has been
+        // falsified and retracted.
+        //
+        // K UPDATE: still uses the JPEG-LS accumulator/sampleCount
+        // adaptation (T.87 Annex A.5). The patent literature suggests
+        // a per-symbol bracket K* = floor(log2(s + 1)) with
+        // K ∈ [K* − 1, K* + 1]; Round-13 has not produced direct
+        // evidence that switching the production update rule improves
+        // the dark/flat metrics, so the proven JPEG-LS rule stays
+        // until a discriminating fixture exists.
         int k = 0;  // Rice parameter
         long accumulator = 0;
         long sampleCount = 1;
@@ -306,10 +427,24 @@ public final class CrxLosslessRawDecoder {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                // MED prediction (Median Edge Detection, from JPEG-LS / ITU T.87)
+                // MED prediction (Median Edge Detection, from JPEG-LS / ITU T.87).
+                //
+                // The seed for the very first pixel was historically the
+                // mid‑range value (1 << (bitDepth − 1) = 8192 at 14‑bit),
+                // which is what JPEG‑LS prescribes for natural images.
+                // Per the cleanroom research (samples/research/README.md
+                // §"Implication for next-iteration decoder work" and the
+                // dark/flat per‑plane diagnostics) Canon CRX seeds the
+                // first pixel with **0** (the optical‑black pedestal is
+                // delivered by the first residual). The mid‑range seed
+                // pins the histogram peak at near‑saturation on dark
+                // and flat fixtures and is the dominant cause of
+                // `mode bucket = 16320` in the lossless regression
+                // panel. Round‑9 also implicitly relies on the seed‑0
+                // baseline (`LZ_TILE_FIRST` in the research harness).
                 int predicted;
                 if (x == 0 && y == 0) {
-                    predicted = 1 << (bitDepth - 1); // midpoint for first pixel
+                    predicted = 0; // CRX seeds the first pixel at 0; OB pedestal arrives via residual
                 } else if (y == 0) {
                     predicted = result[x - 1]; // first row: predict from left
                 } else if (x == 0) {
@@ -443,14 +578,20 @@ public final class CrxLosslessRawDecoder {
     }
 
     /**
-     * Interleaves 4 decoded Bayer planes into a single RGGB Bayer array.
+     * Interleaves 4 decoded planes into a single Bayer-grid array by <em>position</em>
+     * (independent of CFA pattern).
      *
-     * <p>Plane 0 = Red (even rows, even columns)<br>
-     * Plane 1 = Green in red row (even rows, odd columns)<br>
-     * Plane 2 = Green in blue row (odd rows, even columns)<br>
-     * Plane 3 = Blue (odd rows, odd columns)</p>
+     * <p>Plane 0 → top-left of each 2×2 cell (even row, even column)<br>
+     * Plane 1 → top-right of each 2×2 cell (even row, odd column)<br>
+     * Plane 2 → bottom-left of each 2×2 cell (odd row, even column)<br>
+     * Plane 3 → bottom-right of each 2×2 cell (odd row, odd column)</p>
+     *
+     * <p>The CRX encoder always stores planes in this positional order; the
+     * actual colour at each position is determined by the CFA layout (see
+     * {@link #resolveBayerPattern(Cmp1Box)}) and applied by downstream
+     * white-balance and demosaic stages.</p>
      */
-    private static void interleaveBayerRGGB(int[][] planes, int[] output,
+    private static void interleavePlanesByPosition(int[][] planes, int[] output,
                                              int bayerWidth, int bayerHeight,
                                              int planeWidth, int planeHeight) {
         for (int py = 0; py < planeHeight; py++) {
@@ -461,19 +602,19 @@ public final class CrxLosslessRawDecoder {
                 int bayerX0 = px * 2;
                 int bayerX1 = bayerX0 + 1;
 
-                // R (even row, even col)
+                // Plane 0 → top-left of 2×2 cell (even row, even col)
                 if (bayerY0 < bayerHeight && bayerX0 < bayerWidth) {
                     output[bayerY0 * bayerWidth + bayerX0] = planes[0][planeIdx];
                 }
-                // Gr (even row, odd col)
+                // Plane 1 → top-right (even row, odd col)
                 if (bayerY0 < bayerHeight && bayerX1 < bayerWidth) {
                     output[bayerY0 * bayerWidth + bayerX1] = planes[1][planeIdx];
                 }
-                // Gb (odd row, even col)
+                // Plane 2 → bottom-left (odd row, even col)
                 if (bayerY1 < bayerHeight && bayerX0 < bayerWidth) {
                     output[bayerY1 * bayerWidth + bayerX0] = planes[2][planeIdx];
                 }
-                // B (odd row, odd col)
+                // Plane 3 → bottom-right (odd row, odd col)
                 if (bayerY1 < bayerHeight && bayerX1 < bayerWidth) {
                     output[bayerY1 * bayerWidth + bayerX1] = planes[3][planeIdx];
                 }

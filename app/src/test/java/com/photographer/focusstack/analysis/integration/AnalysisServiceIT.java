@@ -28,7 +28,7 @@ class AnalysisServiceIT {
 
     @BeforeEach
     void setUpAuth() {
-        restTemplate = restTemplate.withBasicAuth("admin", "focusstack");
+        restTemplate = restTemplate.withBasicAuth("admin", "TestAdminPassword!42");
     }
 
     @Test

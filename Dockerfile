@@ -1,3 +1,7 @@
+# syntax=docker/dockerfile:1.7
+# NOTE: This Dockerfile uses BuildKit cache mounts (RUN --mount=type=cache).
+# BuildKit is the default builder in Docker 23.0+ and is always used by docker buildx.
+# If using an older Docker CLI, set DOCKER_BUILDKIT=1 before running docker build.
 # Stage 1: Build — Maven (frontend-maven-plugin manages its own Node for React build)
 FROM maven:3.9-eclipse-temurin-25 AS build
 
@@ -23,9 +27,19 @@ COPY app/pom.xml app/pom.xml
 COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
+COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
 
-# Download dependencies
-RUN mvn -B dependency:go-offline -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app -am -DskipITs=true
+# Download dependencies — retry up to 3 times to handle transient Maven Central failures
+RUN --mount=type=cache,target=/root/.m2 \
+    for i in 1 2 3; do \
+      mvn -B dependency:go-offline \
+          -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
+          -DskipITs=true \
+          -Dmaven.wagon.http.retryHandler.count=5 \
+          -Daether.connector.http.retryHandler.count=5 \
+          -Dmaven.wagon.http.pool=true \
+      && break || { [ "$i" -lt 3 ] && echo "Attempt $i failed, retrying in 15s..." && sleep 15 || exit 1; }; \
+    done
 
 # Copy source code
 COPY common-api/src common-api/src
@@ -48,9 +62,13 @@ COPY frontend-web/ frontend-web/
 COPY app/src app/src
 
 # Build: compile all modules, build frontend, compile app, copy frontend into static/
-RUN mvn -B clean package -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
-    -DskipTests -DskipITs=true \
-    -Djava.awt.headless=true
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B clean package \
+        -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,frontend-web,app -am \
+        -DskipTests -DskipITs=true \
+        -Djava.awt.headless=true \
+        -Dmaven.wagon.http.retryHandler.count=5 \
+        -Daether.connector.http.retryHandler.count=5
 
 # Stage 2: Runtime — slim JRE with fonts for ImageJ headless mode
 FROM eclipse-temurin:25-jre-alpine
@@ -70,4 +88,10 @@ USER appuser
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-Djava.awt.headless=true", "--enable-native-access=ALL-UNNAMED", "-jar", "app.jar"]
+ENTRYPOINT ["java", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:InitialRAMPercentage=50.0", \
+    "-XX:+UseG1GC", \
+    "-Djava.awt.headless=true", \
+    "--enable-native-access=ALL-UNNAMED", \
+    "-jar", "app.jar"]
