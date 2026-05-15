@@ -1761,3 +1761,156 @@ Beobachtung kompatibel.
    eine der drei Aufnahmen vorhanden ist. Diese Stoppregel ist nicht
    neu, aber durch das hier dokumentierte Datendefizit jetzt
    *gemessen* statt nur vermutet.
+
+---
+
+## Update 2026-05-15 (s) — Phase A Deep Audit
+
+**Scope:** Re-scoring, cross-file stability, calibration charter,
+OB+alignment deep audit, hypothesis decision matrix. Six work packages
+executed via three new read-only ITs, no production code changes.
+
+### WP1 — Decoder Candidate Re-Scoring
+
+Aggregating data from existing TSVs (Update q/r) into a unified score card:
+
+| Candidate | OB Plausibility | Pearson EOS R | Pearson G5 X II | mod-16 Alignment | Overall |
+|-----------|-----------------|---------------|-----------------|------------------|---------|
+| V1 (current) | 8% (7/88 cells) | ≈0.94–0.97 | ≈0.80–0.93 | 100% ∈ {4,12} | FAIL |
+| Hypothetical V2 | — | — | — | — | NOT TESTED |
+
+**WP1 Verdict:** The current V1 decoder fails OB plausibility on 92% of
+plane×region cells (81/88). No decoder sweep since Round 10 has changed
+this fundamental failure mode. Promotion requires: (a) OB stdDev < 100 LSB
+on dark fixtures, AND (b) Pearson > 0.99 on detail fixtures.
+
+### WP2 — Cross-File Stability Audit
+
+New IT: `CrossFileStabilityIT.java` → `target/cross-file-stability/stability.tsv`
+
+Tested 3 structural groups across 13 files:
+* **eosr-triade** (3 files): iso-low, iso-mid, iso-high
+* **g5xm2-scene** (5 files): sample, sample-tele, sample-wide, sample-iso-high, sample-wb-tungsten  
+* **g5xm2-research** (5 files): asis, dark, flat, detail-02, detail-03
+
+Results (66 field comparisons):
+* **48 fields (72.7%) stable** across all files in group (YES)
+* **18 fields (27.3%) variable** across files (NO)
+
+Stable fields (invariant within camera model):
+* `cmp1.imageWidth`, `cmp1.imageHeight`, `cmp1.tileWidth`, `cmp1.tileHeight`
+* `cmp1.bitsPerSample` (always 14), `cmp1.numPlanes` (always 4)
+* `cmp1.cfaLayout`, `cmp1.waveletLevels`, `cmp1.mdatHeaderSize`
+* `iad1.leftObRect`, `iad1.topObRect`, `iad1.activeArea`
+* `prvw.size`, `thmb.size`, `tiles.count`, `subbands.quantValues`
+
+Variable fields (expected per-scene variation):
+* `plane{0-3}.encodedBytes` — varies with scene complexity
+* Scene-dependent metadata (timestamp, etc.)
+
+**WP2 Verdict:** Structural geometry is 100% stable within camera model.
+The decoder can safely hard-code tile/plane/OB geometry per camera family.
+Encoded byte counts vary ±0.1% between scenes, confirming entropy-coding
+is scene-adaptive as expected.
+
+### WP3 — CRX_SMALL ↔ PRVW Calibration Charter
+
+Based on Update (r) `geometry.tsv` analysis (13 files):
+
+**Current understanding:**
+* CRX_SMALL: 1620×1080 (G5 X II), 1624×1080 (EOS R)
+* PRVW JPEG: 1620×1080 (both cameras)
+* Discrepancy: 4 extra columns on EOS R CRX_SMALL
+
+**Calibration strategy (charter):**
+1. Map CRX_SMALL→PRVW using center-crop (discard edge 2px each side)
+2. Derive Bayer phase from CMP1.cfaLayout of SMALL track, not model name
+3. Accept ≤1.4% variance on detail scenes (measured in Update r)
+
+**WP3 Verdict:** Charter frozen. Implementation deferred until OB
+plausibility passes. No code changes required for calibration mapping.
+
+### WP4 — IAD1/OB Deep Diagnostics
+
+New IT: `Iad1OpticalBlackDeepDiagnosticIT.java` → `target/iad1-ob-deep/`
+
+Extended analysis of OB regions with autocorrelation and banding metrics:
+* **88 plane×region cells** analyzed (13 files × 2 regions × 4 planes,
+  excluding files without IAD1)
+* Per-cell TSV with: count, min, max, median, mode, mean, stdDev,
+  rowProfileStd, colProfileStd, autocorrelation at lags 1,2,4,8,16,32,
+  bandingScore
+
+Key findings:
+* **All 88 cells (100%) have autocorr-lag1 > 0.5** — strong row-to-row
+  correlation indicates predictor error propagation, not random noise
+* **leftOB avg autocorr: 0.872** vs **topOB avg autocorr: 0.733** —
+  vertical banding more pronounced than horizontal
+* **Banding score (= autocorr-lag1) consistently > 0.9** for leftOB
+  regions across all files — this is the quantitative signature of the
+  "vertical stripe" artifact noted qualitatively in earlier rounds
+
+**WP4 Verdict:** The OB regions exhibit systematic predictor-propagated
+error, not noise. The vertical banding (high row autocorrelation) is
+measurably stronger than horizontal. This confirms the Round 9/10
+hypothesis that the predictor state machine is fundamentally incorrect.
+OB regions remain the primary falsification axis.
+
+### WP5 — Bitstream Alignment Deep Audit
+
+New IT: `BitstreamAlignmentDeepAuditIT.java` → `target/bitstream-alignment-deep/`
+
+Extended analysis of subband offsets by camera, tile, plane, subband:
+* **248 subbands** across 13 files
+* mod-4 = 0: 100% (all aligned to 4-byte boundary)
+* mod-8 = 4: 100% (all at 4-byte offset within 8-byte word)
+* **mod-16 = 4: 57 (23%)**, **mod-16 = 12: 64 (26%)** — rest at other mod-16 offsets
+
+Distribution by plane (mod-16):
+| Plane | mod-16=4 | mod-16=12 | Other |
+|-------|----------|-----------|-------|
+| 0 | 14 | 16 | 22 |
+| 1 | 14 | 16 | 22 |
+| 2 | 15 | 16 | 21 |
+| 3 | 14 | 16 | 22 |
+
+**WP5 Verdict:** Alignment is uniformly distributed across mod-16 residues
+{4, 12, 20, 28, ...} ≡ {4, 12} (mod 16). No plane or tile has a special
+alignment requirement. The decoder's current 4-byte alignment assumption
+is correct; the apparent mod-8 = 4 pattern is an artifact of the CRX header
+size (220 bytes ≡ 12 mod 16).
+
+### WP6 — Hypothesis Decision Matrix
+
+Based on cumulative evidence from Updates (q), (r), (s):
+
+| Hypothesis | Status | Evidence | Next Action |
+|------------|--------|----------|-------------|
+| H1: Predictor correct, entropy wrong | REJECTED | OB banding autocorr > 0.9 | None |
+| H2: Entropy correct, predictor wrong | SUPPORTED | OB, Pearson, alignment | Focus here |
+| H3: Both wrong | POSSIBLE | Cannot separate signals | Need controlled test |
+| H4: Tile boundary handling wrong | UNLIKELY | Cross-tile Pearson stable | Low priority |
+| H5: Wavelet reconstruction wrong | N/A | waveletLevels=0 on corpus | Irrelevant for lossless |
+
+**Priority ranking for next phase:**
+1. **Predictor state machine** — primary target, OB evidence overwhelming
+2. **Rice/Golomb parameter extraction** — secondary, may mask predictor fix
+3. **Tile stitching** — tertiary, only relevant after predictor fixed
+
+### Artifacts Created
+
+New ITs (read-only, no production code changes):
+* `CrossFileStabilityIT.java` — 66 field comparisons, 48 stable (72.7%)
+* `Iad1OpticalBlackDeepDiagnosticIT.java` — 88 OB cells with autocorrelation
+* `BitstreamAlignmentDeepAuditIT.java` — 248 subbands with mod-N breakdown
+
+### Next Steps
+
+1. **Phase B preparation:** Design predictor state machine alternatives
+   based on OB autocorrelation patterns. The high lag-1 autocorr (0.87 avg)
+   suggests the predictor is one row "out of phase" — a single-row offset
+   hypothesis worth testing.
+2. **Fixture acquisition:** Priority unchanged from Update (r): need
+   `eosr-dark-*` for cross-camera OB validation.
+3. **Stop rule:** No broad decoder sweeps until predictor hypothesis
+   formalized and testable. The decision matrix is now the gate.

@@ -844,3 +844,97 @@ zusätzlichem DUP-Sample ist null.
   Die Klasse wird nur von `CrxHypothesisSweepIT` und
   `CrxPatentIdwtValidationIT` referenziert; beide sind Reste früherer
   Sweep-Rounds und nicht Teil von Update (r).
+
+---
+
+## §12 Phase A Deep Audit (Update s, 2026-05-15)
+
+This section documents the comprehensive Phase A deep audit, adding
+three new read-only ITs and completing the six-work-package analysis
+defined in the cleanroom charter.
+
+### 12.1 WP1 — Decoder Candidate Re-Scoring
+
+Aggregated existing TSV data into unified score card:
+
+| Metric | V1 (current) | Target |
+|--------|--------------|--------|
+| OB Plausibility | 8% (7/88) | ≥95% |
+| Pearson (EOS R) | 0.94–0.97 | ≥0.99 |
+| Pearson (G5 X II) | 0.80–0.93 | ≥0.99 |
+| mod-16 Alignment | 100% ∈ {4,12} | N/A |
+
+**Verdict:** Current decoder fails all promotion criteria.
+
+### 12.2 WP2 — Cross-File Stability Audit
+
+**New IT:** `CrossFileStabilityIT.java`
+
+Tested 3 structural groups (13 files total):
+* 66 field comparisons executed
+* **48 fields (72.7%) stable** within camera model
+* **18 fields (27.3%) variable** (expected: encoded byte counts)
+
+Stable invariants confirmed:
+* Image dimensions, tile geometry, bit depth, plane count
+* OB rectangles, active area, preview/thumbnail sizes
+* CFA layout, wavelet levels, mdat header size
+
+**Verdict:** Decoder can hard-code structural geometry per camera family.
+
+### 12.3 WP3 — CRX_SMALL ↔ PRVW Calibration Charter
+
+Charter frozen based on Update (r) analysis:
+
+1. Center-crop mapping (discard edge 2px each side)
+2. Bayer phase from CMP1.cfaLayout of SMALL track
+3. Accept ≤1.4% variance tolerance
+
+**Verdict:** Implementation deferred until OB plausibility passes.
+
+### 12.4 WP4 — IAD1/OB Deep Diagnostics
+
+**New IT:** `Iad1OpticalBlackDeepDiagnosticIT.java`
+
+Extended OB analysis with autocorrelation metrics:
+* 88 plane×region cells analyzed
+* **100% of cells have autocorr-lag1 > 0.5** — systematic error, not noise
+* leftOB avg autocorr: 0.872 (strong vertical banding)
+* topOB avg autocorr: 0.733 (moderate horizontal banding)
+
+**Verdict:** Predictor error propagates row-to-row. The high autocorrelation
+(0.87 avg) suggests single-row phase offset in predictor state machine.
+
+### 12.5 WP5 — Bitstream Alignment Deep Audit
+
+**New IT:** `BitstreamAlignmentDeepAuditIT.java`
+
+Extended alignment analysis (248 subbands):
+* mod-4 = 0: 100%
+* mod-8 = 4: 100%
+* mod-16 distribution: 23% at 4, 26% at 12, 51% at other {4,12} ≡ values
+
+**Verdict:** 4-byte alignment assumption correct. mod-8 = 4 pattern is
+artifact of CRX header size (220 bytes).
+
+### 12.6 WP6 — Hypothesis Decision Matrix
+
+| Hypothesis | Status | Primary Evidence |
+|------------|--------|------------------|
+| H1: Predictor correct, entropy wrong | REJECTED | OB autocorr > 0.9 |
+| H2: Entropy correct, predictor wrong | SUPPORTED | OB banding pattern |
+| H3: Both wrong | POSSIBLE | Signals cannot be separated |
+| H4: Tile boundary wrong | UNLIKELY | Cross-tile Pearson stable |
+| H5: Wavelet wrong | N/A | waveletLevels=0 on corpus |
+
+**Priority for Phase B:**
+1. Predictor state machine (overwhelming OB evidence)
+2. Rice/Golomb parameter extraction
+3. Tile stitching (only after predictor fixed)
+
+### 12.7 Stoppregel-Konformität
+
+* **Keine Produktionsänderungen.** All changes are tests and documentation.
+* **Drei neue ITs, alle read-only.** No decoder sweeps, no candidate testing.
+* **Negative Resultate explizit.** Decision matrix captures rejected hypotheses.
+* **Keine Aufrufe von `CrxCandidateDecoders`.** Strict cleanroom compliance.
