@@ -119,6 +119,11 @@ class FixtureIntelligenceReportIT {
         // already supplied a NEW or BURST verdict; DUP otherwise.
         Set<String> seenStructural = new TreeSet<>();
         Set<String> seenBurst = new TreeSet<>();
+        // Pre-pass: count how many files share each burstGroup so we can flag
+        // genuine bursts (≥ 2 files in the same group) for the useful-for-burst tag.
+        Map<String, Long> burstGroupSize = rows.stream()
+                .filter(r -> r.error == null)
+                .collect(Collectors.groupingBy(r -> r.burstGroup, Collectors.counting()));
         for (Row r : rows) {
             if (r.error != null) { r.novelty = "ERROR"; continue; }
             String structural = String.join("|",
@@ -136,6 +141,14 @@ class FixtureIntelligenceReportIT {
             } else {
                 r.novelty = "DUP";
             }
+            // Phase A — fixture class + diagnostic relevance tags
+            r.fixtureClass = classifyFixture(r);
+            r.usefulForBurst    = burstGroupSize.getOrDefault(r.burstGroup, 0L) >= 2;
+            r.usefulForOb       = !"-".equals(r.obLeft) || !"-".equals(r.obTop);
+            r.usefulForQuantVar = r.quantValues != null && r.quantValues.size() >= 2;
+            r.usefulForCrawOnly = "CRAW_LOSSY".equals(r.compression);
+            r.opensNewPath      = "NEW".equals(r.novelty)
+                                  || (r.usefulForBurst && !"DUP".equals(r.novelty));
         }
 
         // Write TSV
@@ -161,9 +174,16 @@ class FixtureIntelligenceReportIT {
                 out.write("- **" + e.getKey() + "** — " + e.getValue() + "\n");
             }
             out.write("\n## Per-file rows\n\n");
-            out.write("| file | camera | compression | wL | q | cfa | tiles | burst | novelty |\n");
-            out.write("|---|---|---|---:|---|---|---:|---|---|\n");
+            out.write("| file | camera | compression | wL | q | cfa | tiles | burst | novelty | class | tags |\n");
+            out.write("|---|---|---|---:|---|---|---:|---|---|---|---|\n");
             for (Row r : rows) {
+                StringBuilder tags = new StringBuilder();
+                if (r.usefulForBurst)    tags.append("burst,");
+                if (r.usefulForOb)       tags.append("OB,");
+                if (r.usefulForQuantVar) tags.append("qVar,");
+                if (r.usefulForCrawOnly) tags.append("CRAW,");
+                if (r.opensNewPath)      tags.append("newPath,");
+                if (tags.length() > 0)   tags.setLength(tags.length() - 1);
                 out.write("| " + r.path
                         + " | " + nz(r.camera)
                         + " | " + r.compression
@@ -173,6 +193,8 @@ class FixtureIntelligenceReportIT {
                         + " | " + r.tilesPerFrame
                         + " | " + r.burstGroup
                         + " | " + r.novelty
+                        + " | " + r.fixtureClass
+                        + " | " + (tags.length() == 0 ? "-" : tags.toString())
                         + " |\n");
             }
         }
@@ -316,6 +338,25 @@ class FixtureIntelligenceReportIT {
 
     private static String nz(String s) { return s == null ? "-" : s; }
 
+    /**
+     * Phase-A fixture class — derived from filename tags first, then from the
+     * compression mode as a fallback. The classes are deliberately broad so a
+     * file always lands in exactly one bucket.
+     */
+    private static String classifyFixture(Row r) {
+        String n = r.path == null ? "" : r.path.toLowerCase();
+        if (n.contains("-dark-") || n.contains("/dark-")) return "dark";
+        if (n.contains("-flat-") || n.contains("/flat-")) return "flat";
+        if (n.contains("-detail-") || n.contains("/detail-")) return "detail";
+        if (n.contains("-asis-") || n.contains("/asis-"))   return "asis";
+        if (n.contains("-tele-") || n.contains("/tele-"))   return "tele";
+        if (n.contains("-wide-") || n.contains("/wide-"))   return "wide";
+        if (n.contains("-burst-") || n.contains("/burst-")) return "burst";
+        // Fall back to compression class so every file gets a class.
+        if ("CRAW_LOSSY".equals(r.compression)) return "craw";
+        return "raw";
+    }
+
     /** One row of the report. */
     static final class Row {
         String path = "?";
@@ -337,6 +378,13 @@ class FixtureIntelligenceReportIT {
         String burstGroup = "-";
         String novelty;
         String error;
+        // Phase-A additions — fixture class + diagnostic relevance tags.
+        String fixtureClass = "?";
+        boolean usefulForBurst;
+        boolean usefulForOb;
+        boolean usefulForQuantVar;
+        boolean usefulForCrawOnly;
+        boolean opensNewPath;
 
         static Row errorRow(Path p, Exception e) {
             Row r = new Row();
@@ -352,7 +400,10 @@ class FixtureIntelligenceReportIT {
                     "tilesPerFrame", "subbandsPerFrame",
                     "obLeft", "obTop",
                     "crxBigDim", "crxSmallDim", "prvwDim", "thmbDim",
-                    "burstGroup", "novelty", "error");
+                    "burstGroup", "novelty", "error",
+                    "fixtureClass",
+                    "usefulForBurst", "usefulForOb", "usefulForQuantVar",
+                    "usefulForCrawOnly", "opensNewPath");
         }
 
         String toTsv() {
@@ -365,7 +416,13 @@ class FixtureIntelligenceReportIT {
                     String.valueOf(tilesPerFrame), String.valueOf(subbandsPerFrame),
                     obLeft, obTop,
                     crxBigDim, crxSmallDim, prvwDim, thmbDim,
-                    burstGroup, String.valueOf(novelty), String.valueOf(error));
+                    burstGroup, String.valueOf(novelty), String.valueOf(error),
+                    fixtureClass,
+                    String.valueOf(usefulForBurst),
+                    String.valueOf(usefulForOb),
+                    String.valueOf(usefulForQuantVar),
+                    String.valueOf(usefulForCrawOnly),
+                    String.valueOf(opensNewPath));
         }
     }
 }

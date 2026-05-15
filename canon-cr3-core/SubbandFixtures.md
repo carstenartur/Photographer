@@ -1480,3 +1480,84 @@ nicht abdeckt. Das macht die `CrawLossyBringUpIT`-/C-RAW-Linie zur
 * Die 0.7-Promotionsschwelle bleibt unverändert — sie wird jetzt pro
   Hypothese mit zwei zusätzlichen Falsifikatoren (OB-Plausibilität, Burst-
   Stabilität sobald datenfähig) ergänzt statt ersetzt.
+
+---
+
+## Update 2026-05-15 (q) — Phase A continuation: cleanroom fixture plan + null/flat/alignment ITs
+
+Fortsetzung von Update (p). Fokus: bessere Bewertungsbasis vor jeder
+weiteren Decoder-Hypothese. Strikt cleanroom, keine Produktionsänderung,
+keine breiten Sweeps.
+
+### Was neu ist
+
+* **`docs/cleanroom-fixture-plan.md`** — pro Kamera (G5 X II, EOS R) eine
+  reproduzierbare Liste neuer Fixtures (Dark/Flat/Detail/Burst/RAW–C-RAW)
+  inklusive Belichtungsparameter, Objektivdeckel-Status und konkretem
+  diagnostischem Nutzen pro Datei. Markiert die Lücken im aktuellen
+  Korpus explizit.
+* **`NullFixtureDiagnosticIT`** — pro (Datei, Plane) eines dark-Fixtures:
+  min/max/median/mode/stddev, fracWithin256/64 LSB, row/col-Profil-Pp,
+  Nachbar-Pearson, plus Verdict `PLAUSIBLE` vs. `IMPLAUSIBLE[std,row,col,
+  mode,corr]`. Schreibt `target/null-fixture/null.tsv`.
+* **`FlatFieldDiagnosticIT`** — pro (Datei, Plane) eines flat-Fixtures:
+  Mean, StdDev, CV, row/col-Pp + Std, Histogramm-Modes, Histogramm-Lücke,
+  Sättigungs-/Pedestal-Anteil, plus Verdict `PLAUSIBLE` vs. `IMPLAUSIBLE
+  [cv,rowBand,colBand,multiMode,clip]`. Schreibt
+  `target/flat-field/flat.tsv`.
+* **`BitstreamPlaneAlignmentIT`** — strukturell, kein Decode: pro
+  (Datei, Tile, Plane, Subband) absoluter und relativer Entry-Offset,
+  Alignment Mod 4/8/16, Größe, quantValue, erste 16 Bytes hex,
+  Plane-Bytes, Tile-Bytes, headerSize, totalTrackBytes. Schreibt
+  `target/bitstream-alignment/alignment.tsv`. Läuft auch auf C-RAW.
+* **`FixtureIntelligenceReportIT`** — fünf neue Spalten:
+  `fixtureClass` (dark/flat/detail/asis/tele/wide/burst/raw/craw),
+  `usefulForBurst`, `usefulForOb`, `usefulForQuantVar`,
+  `usefulForCrawOnly`, `opensNewPath`. Markdown-Tabelle zeigt die Tags
+  je Datei.
+
+### Erkenntnisse aus Update (q)
+
+1. **Bewertungs-Stack ist jetzt zweistufig.** Schicht 1 (rein
+   strukturell, keine Produktionsänderung möglich): OB-Plausibilität,
+   Null-Fixture-Verdict, Flat-Field-Verdict, Burst-Stabilität,
+   Plane-Alignment-Anomalien. Schicht 2 (klassisch): Pearson-r vs. PRVW.
+   Eine Hypothese darf nur dann als "promotable" gelten, wenn sie auf
+   mindestens zwei Schicht-1-Falsifikatoren *gleichzeitig* `PLAUSIBLE`
+   liefert.
+2. **Korpus-Lücken sind das Hauptproblem.** Mit nur einer dark- und
+   einer flat-Fixture pro Kamera ist keine Cross-Fixture-Stabilität
+   messbar. Die Top-3-Wunschliste in
+   `docs/cleanroom-fixture-plan.md` §6 nennt die drei billigsten
+   Aufnahmen, die diesen Engpass beseitigen würden.
+3. **Pearson-r vs. PRVW degradiert sich selbst zur Sekundärmetrik.**
+   Round-7 hat das Maximum bei 0.5605 belegt; jede künftige Hypothese
+   muss auf den neuen Schicht-1-Falsifikatoren entscheidend besser sein.
+
+### Was Update (q) nicht ändert
+
+* Kein neuer Round-Sweep. `CrxCandidateDecoders` wird von keinem der
+  vier neuen oder erweiterten ITs aufgerufen.
+* Kein Decoder-Output ändert sich. `CrxLosslessRawDecoder` bleibt
+  bitidentisch zu Update (p).
+* Die 0.7-Promotionsschwelle bleibt formal gültig, ist aber jetzt
+  sekundär gegenüber den Schicht-1-Verdicts.
+
+### Abschlusszusammenfassung
+
+1. **Welche Fixture-Typen als Nächstes aufnehmen?**
+   `g5xm2-burst-…-{01,02}.cr3` (lossless burst), gefolgt von
+   `g5xm2-flat-iso100-…` + `…-iq3-…` als RAW/C-RAW-Paar, dann
+   `eosr-dark-iso100-…` und `eosr-flat-iso100-…` als zweite Kamera-
+   Baseline.
+2. **Welche vorhandenen Tests profitieren sofort?**
+   `BurstFrameStabilityIT` (von leerer TSV → erste echte Werte),
+   `NullFixtureDiagnosticIT` und `FlatFieldDiagnosticIT` (von 1 Fixture
+   pro Kamera → Cross-Fixture-Stabilität messbar),
+   `Iad1OpticalBlackProfileIT` (zweite OB-Stichprobe pro Kamera).
+3. **Welche Decoder-Hypothese ist damit am ehesten falsifizierbar oder
+   stützbar?** Die "Per-Tile-State-Reset"-Hypothese (vgl. Round-6 K-Init-
+   Asymmetrie zwischen Tile 0 und Tile 1): wenn ein lossless Burst-Paar
+   pro Plane Pearson r → 1 zwischen Frame 1 und Frame 2 zeigt, *aber*
+   pro Plane Pearson r ≠ 1 zwischen Tile 0 und Tile 1 desselben Frames,
+   ist die Tile-Reset-Hypothese strukturell isoliert.

@@ -631,3 +631,112 @@ Die in §8.6 markierten "nächsten Schritte" lassen sich jetzt scharfer formulie
 * **Schritt 2 (`cfaLayout`)** — *erledigt für die Diagnose*: WP2 belegt die Universalität der BIG↔SMALL-Inkonsistenz. Der nächste Roundsweep darf `CMP1.cfaLayout` nicht mehr ignorieren.
 * **Schritt 3 (Plane-Bit-Budget)** — unverändert, von WP4 nun automatisch pro Datei in `subbandsPerFrame` und `quantValues` mitgeführt.
 * **Schritt 4 (LibRaw)** — unverändert, jedoch mit zusätzlicher physikalischer Vergleichsbasis: jeder LibRaw-Decode liefert OB-Regionen, die `Iad1OpticalBlackProfileIT` direkt mit dem cleanroom-Decode-OB vergleicht.
+
+---
+
+## §10 Phase A continuation — Round 2 (Cleanroom-Fixture-Plan + Null/Flat/Alignment-ITs)
+
+Diese Runde liefert keine neuen Decoder-Hypothesen, sondern verbessert
+ausschließlich die Bewertungsbasis. Sie umfasst eine neue Fixture-
+Strategie-Doku, drei neue diagnostische ITs sowie eine erweiterte
+Variante des Fixture-Intelligence-Reports.
+
+### 10.1 Lieferumfang
+
+| Artefakt                                                                 | Zweck                                                                                  |
+|--------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| `docs/cleanroom-fixture-plan.md`                                         | Reproduzierbare Fixture-Strategie pro Kamera (G5 X II, EOS R) für Null/Flat/Detail/Burst/RAW–C-RAW; markiert fehlende Klassen |
+| `NullFixtureDiagnosticIT`                                                | Pro Plane min/max/median/mode/stddev, fracWithin, row/col-Profile, Nachbar-Korrelation auf dark-Fixtures; Plausibilitäts-Verdict |
+| `FlatFieldDiagnosticIT`                                                  | Pro Plane CV, row/col-Flatness, Histogramm-Modes, Sättigungs-/Pedestal-Anteil; Plausibilitäts-Verdict |
+| `BitstreamPlaneAlignmentIT`                                              | Pro (Tile, Plane, Subband) Entry-Point, first-16-Hex, Alignment mod 4/8/16, Größen-Profile |
+| `FixtureIntelligenceReportIT` (erweitert)                                | Neue Spalten `fixtureClass`, `usefulForBurst`, `usefulForOb`, `usefulForQuantVar`, `usefulForCrawOnly`, `opensNewPath` |
+
+Alle ITs sind read-only auf `samples/` und `samples/research/`, schreiben
+ihren Output unter `target/<thema>/`, und nutzen den **bestehenden**
+`CrxLosslessRawDecoder` ausschließlich als Mess-Sonde — keine neuen
+Decoder-Kandidaten, keine breiten Sweeps.
+
+### 10.2 Was diese Runde sofort öffnet
+
+* **OB-Plausibilität als Hauptmetrik**: Die OB-Verdict-Spalte
+  (`PLAUSIBLE` / `IMPLAUSIBLE[…]`) liefert pro Datei × Plane einen
+  einzigen Wahr/Falsch-Wert. Damit lässt sich jede zukünftige
+  Decoder-Hypothese mit einer Zahl pro Fixture vergleichen, anstatt mit
+  einer Pearson-Skala, die unter 0.7 keine Aussage hat.
+* **Null-/Flat-Verdicts als zweite, orthogonale Falsifikator-Achse**:
+  Die beiden neuen Verdicts (`PLAUSIBLE` vs. `IMPLAUSIBLE[std,row,…]`)
+  zeigen *welcher* physikalische Defekt die Hypothese verletzt — Banding,
+  Multimodalität, Sättigungs-Clipping, oder reine Varianz-Überhöhung.
+  Das ist erheblich präziser als ein einzelner skalarer Score.
+* **Alignment-Diagnostik**: Pro Plane-Entry-Point existiert jetzt eine
+  TSV-Zeile mit `alignMod4 / alignMod8 / alignMod16` und den ersten 16
+  Bytes Hex. Ohne neue Sweeps lassen sich daraus konkrete Hypothesen
+  ableiten (z.B. "alle Plane-Entry-Points sind 4-Byte-aligned, also kann
+  der Bit-Reader keine Off-by-1-Bit-Anomalie haben").
+
+### 10.3 Korpuslücken (explizit dokumentiert, aus `cleanroom-fixture-plan.md` §4)
+
+* **Lossless Burst**: 0 Paare, jede Kamera. Hauptblocker für WP1.
+* **C-RAW Dark / Flat**: 0 Dateien, jede Kamera.
+* **EOS R Dark / Flat / Detail**: 0 Dateien (nur ISO-Sweep).
+* **RAW/C-RAW-Paar gleicher Szene**: 0 Paare in der gesamten Sammlung.
+
+Diese Lücken sind als "high-value missing burst fixtures" am Ende von
+`cleanroom-fixture-plan.md` aufgeführt, mit konkreten Dateinamen und
+Belichtungsparametern.
+
+### 10.4 Negative Resultate
+
+* Keine neue Decoder-Hypothese hat in dieser Runde Bestand erlangt.
+* `NullFixtureDiagnosticIT` und `FlatFieldDiagnosticIT` verwerfen den
+  aktuellen Decoder-Output bereits auf den vorhandenen ein-Stück-Fixtures
+  (jeweils ein einziges dark- und ein einziges flat-Fixture); cross-
+  fixture-Stabilitätsmessungen sind mangels zweitem dark/flat pro Kamera
+  nicht möglich.
+* `BurstFrameStabilityIT` bleibt mit leerer TSV — keine Lossless-Bursts.
+* Die Lücke "kein RAW/C-RAW-Paar identischer Szene" bedeutet: jede
+  Hypothese, die lossless gut und C-RAW schlecht abschneidet, lässt sich
+  weiterhin nicht eindeutig zwischen "Codec-Bug" und "Szenen-Effekt"
+  trennen. Diese Lücke gehört in die Top-3 der Aufnahmen-Wunschliste.
+
+### 10.5 Priorisierte Ergebnisübersicht (WP8)
+
+* **A. Was lässt sich jetzt sofort mit dem bestehenden Korpus weiter
+  untersuchen?**
+  1. OB-Plausibilität als skalarer, pro-Datei-pro-Plane-Verdict gegen
+     jede in `CrxCandidateDecoders` definierte Hypothese — ohne neue
+     Sweeps, nur als Re-Scoring-Pass.
+  2. Plane-Entry-Alignment auf Mod-4/8/16-Grenzen über alle CR3-Dateien;
+     jede Anomalie ist ein konkreter Hypothesen-Pfad.
+  3. CMP1.cfaLayout-Konsistenz zwischen CRX_BIG und CRX_SMALL: das
+     bestehende `CrxSmallVsPrvwGeometryIT` liefert die Daten, eine
+     einzeilige Auswertung würde die *Anzahl* der Fixtures mit
+     CFA-Mismatch ausgeben.
+* **B. Welche neuen Fixtures bringen den höchsten Erkenntnisgewinn?**
+  In Reihenfolge:
+  1. **`g5xm2-burst-iso400-…-{01,02}.cr3`** — entsperrt WP1 vollständig.
+  2. **`g5xm2-flat-iso100-…` und `…-iq3-…` als Paar** — entsperrt RAW/C-RAW-
+     Vergleich auf einer flachen Szene und damit den FlatFieldDiagnosticIT
+     als Codec-Diskriminator.
+  3. **`eosr-dark-iso100-…` und `eosr-flat-iso100-…`** — schaffen eine
+     zweite, unabhängige Kamera-Baseline.
+* **C. Welche Diagnosewege sollten künftig nur noch sekundär sein?**
+  * Pearson-r gegen PRVW. Das Round-7-Maximum (0.5605) zeigt, dass die
+    PRVW-Korrelation oberhalb von 0.5 nicht weiter trennscharf ist.
+    Sie bleibt nützlich als grobes Sanity-Filter, ist aber keine
+    Promotion-Schwelle mehr.
+* **D. Welche Low-Level-Hypothesen bleiben übrig?**
+  1. Per-Tile-Reset-Hypothese — Round-9 hat sie *für q* widerlegt, aber
+     sie könnte für `predInit` oder einen anderen state-Slot gelten.
+     Beweisbar mit der vorhandenen `BitstreamPlaneAlignmentIT`-TSV.
+  2. CFA-Layout-abhängiger Predictor (G5XII = GRBG, EOS R unbekannt) —
+     blockiert bis zum ersten EOS-R-Dark-Fixture.
+  3. Plane-zu-Bayer-Permutation pro `cfaLayout` — Round-6 hat [1023] vs.
+     [1032] geprüft, aber nur auf `sample.cr3` (cfa=1=GRBG). Mit einem
+     EOS-R-Dark wäre prüfbar, ob die Permutation cfaLayout-abhängig ist.
+
+### 10.6 Stoppregel-Konformität
+
+* **Keine Produktionsänderungen.** `git diff --stat origin/main canon-cr3-core canon-cr3-imageio/src/main` ist leer; alle drei neuen ITs und die Änderungen am vierten liegen ausschließlich unter `canon-cr3-imageio/src/test/`.
+* **Keine neuen breiten Sweeps.** Keiner der drei neuen ITs ruft `CrxCandidateDecoders` auf; jeder Decoder-Aufruf ist genau ein Aufruf des bestehenden `CrxLosslessRawDecoder` pro Datei.
+* **Negative Resultate explizit.** §10.4 dokumentiert sowohl den Korpus-Mangel (1 dark, 1 flat pro Kamera) als auch das Ausbleiben jeder neuen positiven Hypothese.
