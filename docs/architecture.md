@@ -76,6 +76,63 @@ The modules form a layered dependency graph:
    └──────────────┘   └──────────────────┘   └──────────────┘
 ```
 
+The same dependency graph rendered as a Mermaid diagram (matches the
+`<dependency>` declarations in the per-module `pom.xml` files; verify with
+`mvn -B dependency:tree -pl <module> -am`):
+
+```mermaid
+graph TD
+    app --> session_core[session-core]
+    app --> observer_core[observer-core]
+    app --> astro_core[astro-core]
+    app --> ai_vision[ai-vision]
+    app --> plugin_api[plugin-api]
+    app --> capture_core[capture-core]
+    app --> camera_ptp[camera-ptp]
+    app --> storage
+    app --> hdr_core[hdr-core]
+    app --> video_core[video-core]
+    app --> face_analysis[face-analysis-core]
+    app --> face_profile[face-profile-core]
+    app --> canon_cr3_imageio[canon-cr3-imageio]
+    app --> canon_cr3_core[canon-cr3-core]
+    app --> common_api[common-api]
+
+    session_core --> capture_core
+    session_core --> storage
+    session_core --> hdr_core
+    session_core --> video_core
+    session_core --> face_analysis
+    session_core --> face_profile
+    session_core --> common_api
+
+    face_profile --> face_analysis
+    face_profile --> common_api
+    face_analysis --> common_api
+
+    ai_vision --> observer_core
+    ai_vision --> common_api
+    observer_core --> common_api
+
+    plugin_api --> ai_vision
+    plugin_api --> common_api
+
+    capture_core --> common_api
+    storage --> common_api
+    camera_ptp --> common_api
+    hdr_core --> common_api
+    video_core --> common_api
+    astro_core --> common_api
+
+    canon_cr3_cli[canon-cr3-cli] --> canon_cr3_core
+    canon_cr3_imageio --> canon_cr3_core
+```
+
+> **Note:** `plugin-api → ai-vision` and `ai-vision → observer-core` are
+> structural smells tracked in `TODO.md` (P1 architecture refactorings); the
+> arrows are drawn here to reflect the *current* state, not the desired
+> target.
+
 ---
 
 ## The `app` Module (Spring Boot Monolith)

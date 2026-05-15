@@ -4,6 +4,8 @@ import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.repository.ObservationEventRepository;
 import com.photographer.focusstack.observer.repository.SpeciesRecordRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/observer/export")
+@Tag(name = "Observer Export", description = "Observer event and species export endpoints.")
 public class ObserverExportController {
 
     private static final String CSV_MIME = "text/csv;charset=UTF-8";
@@ -53,6 +56,7 @@ public class ObserverExportController {
      * @param to     ISO date string (inclusive, e.g. "2026-12-31"), defaults to today
      */
     @GetMapping("/events")
+    @Operation(summary = "Export observer events as JSON or CSV")
     public ResponseEntity<byte[]> exportEvents(
             @RequestParam(defaultValue = "json") String format,
             @RequestParam(required = false) String from,
@@ -94,6 +98,7 @@ public class ObserverExportController {
      * @param format {@code csv} or {@code json} (default {@code json})
      */
     @GetMapping("/species")
+    @Operation(summary = "Export species rankings as JSON or CSV")
     public ResponseEntity<byte[]> exportSpecies(
             @RequestParam(defaultValue = "json") String format) throws Exception {
 

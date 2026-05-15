@@ -10,8 +10,9 @@ Open tasks and improvement areas for Focus Stack.
       (done in PR "Refactoring quick wins")
 - [x] Add `.project`, `.classpath`, `.settings/` to `.gitignore`
       (done in PR "Refactoring quick wins")
-- [ ] Verify all REST endpoints are covered by OpenAPI annotations
+- [x] Verify all REST endpoints are covered by OpenAPI annotations
       (Swagger UI should reflect the actual API completely)
+      (done in PR "chore: complete hygiene and API completeness quick wins")
 
 ## Medium-term
 
@@ -21,16 +22,20 @@ Open tasks and improvement areas for Focus Stack.
       (adaptive decoding and sub-band configurations are stubbed)
 - [ ] Add Playwright or Cypress E2E tests for the frontend
       (`test-e2e.sh` currently runs API-level smoke tests only)
-- [ ] Publish JaCoCo coverage badge from CI (badge endpoint exists but may
+- [x] Publish JaCoCo coverage badge from CI (badge endpoint exists but may
       need periodic data refresh)
+      (done in PR "chore: complete hygiene and API completeness quick wins")
 - [ ] Consider extracting `analysis` package from `app` into its own module
       for clearer separation (non-urgent; current structure works)
 
 ## Long-term
 
 - [ ] Support additional camera brands via `plugin-api` (Sony, Nikon)
-- [ ] Add a module dependency graph diagram to architecture docs
+- [x] Add a module dependency graph diagram to architecture docs
       (auto-generated from Maven reactor or manual Mermaid diagram)
+      (done in PR "chore: complete hygiene and API completeness quick wins" —
+      Mermaid graph in `docs/architecture.md` reflecting actual `pom.xml`
+      dependencies)
 - [ ] Hardware-in-the-loop (HIL) test automation
       (currently manual; automate with a dedicated CI runner)
 - [ ] Multi-user support with role-based access control
@@ -145,11 +150,13 @@ the limits of ground-truth-free hypothesis search. Current state:
 
 ### P3 — Hygiene & polish
 
-- [ ] **Add `@PreDestroy` hook on `ReplayService` executor** so the bounded
+- [x] **Add `@PreDestroy` hook on `ReplayService` executor** so the bounded
       thread pool is shut down cleanly on Spring context close. (Today it
       relies on daemon threads being killed at JVM exit, which is fine for
       `main` but noisy in integration tests.)
-- [ ] **Reduce `frontend-web` `index` chunk size.**
+      (done in PR "chore: complete hygiene and API completeness quick wins")
+- [x] **Reduce `frontend-web` `index` chunk size.**
       Largest remaining bundle after route-splitting is ~190 kB
       (`StackGallery` page is 100 kB on its own). Investigate dynamic-import
       for the gallery's heavier dependencies.
+      (done in PR "chore: complete hygiene and API completeness quick wins")
