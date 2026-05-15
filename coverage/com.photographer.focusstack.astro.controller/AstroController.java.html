@@ -4,6 +4,8 @@ import com.photographer.focusstack.astro.service.AstroModeService;
 import com.photographer.focusstack.common.model.AstroCaptureConfig;
 import com.photographer.focusstack.common.model.AstroFocusConfig;
 import com.photographer.focusstack.common.model.AstroSession;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -16,21 +18,22 @@ import java.util.Map;
 
 @RestController
 @RequestMapping(&quot;/api/astro&quot;)
+@Tag(name = &quot;Astro&quot;, description = &quot;Astro capture session lifecycle endpoints.&quot;)
 public class AstroController {
 
     private final AstroModeService astroModeService;
     private final TaskExecutor taskExecutor;
 
     public AstroController(AstroModeService astroModeService,
-<span class="fc" id="L25">                           @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
-<span class="fc" id="L26">        this.astroModeService = astroModeService;</span>
-<span class="fc" id="L27">        this.taskExecutor = taskExecutor;</span>
-<span class="fc" id="L28">    }</span>
+<span class="fc" id="L28">                           @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
+<span class="fc" id="L29">        this.astroModeService = astroModeService;</span>
+<span class="fc" id="L30">        this.taskExecutor = taskExecutor;</span>
+<span class="fc" id="L31">    }</span>
 
     /**
      * Request body for creating a new astro session.
      */
-<span class="fc" id="L33">    public record CreateAstroSessionRequest(</span>
+<span class="fc" id="L36">    public record CreateAstroSessionRequest(</span>
             @Valid AstroCaptureConfig captureConfig,
             @Valid AstroFocusConfig focusConfig
     ) {}
@@ -39,67 +42,73 @@ public class AstroController {
      * Creates a new astro session and starts it asynchronously via the bounded session executor.
      */
     @PostMapping(&quot;/sessions&quot;)
+    @Operation(summary = &quot;Create and start astro session&quot;)
     public ResponseEntity&lt;AstroSession&gt; createSession(@Valid @RequestBody(required = false) CreateAstroSessionRequest request) {
-<span class="pc bpc" id="L43" title="2 of 4 branches missed.">        AstroCaptureConfig captureConfig = (request != null &amp;&amp; request.captureConfig() != null)</span>
-<span class="pc" id="L44">                ? request.captureConfig() : AstroCaptureConfig.defaults();</span>
-<span class="pc bpc" id="L45" title="1 of 4 branches missed.">        AstroFocusConfig focusConfig = (request != null &amp;&amp; request.focusConfig() != null)</span>
-<span class="fc" id="L46">                ? request.focusConfig() : AstroFocusConfig.manualFixed();</span>
+<span class="pc bpc" id="L47" title="2 of 4 branches missed.">        AstroCaptureConfig captureConfig = (request != null &amp;&amp; request.captureConfig() != null)</span>
+<span class="pc" id="L48">                ? request.captureConfig() : AstroCaptureConfig.defaults();</span>
+<span class="pc bpc" id="L49" title="1 of 4 branches missed.">        AstroFocusConfig focusConfig = (request != null &amp;&amp; request.focusConfig() != null)</span>
+<span class="fc" id="L50">                ? request.focusConfig() : AstroFocusConfig.manualFixed();</span>
 
-<span class="fc" id="L48">        AstroSession session = astroModeService.createSession(captureConfig, focusConfig);</span>
+<span class="fc" id="L52">        AstroSession session = astroModeService.createSession(captureConfig, focusConfig);</span>
         // Start execution on bounded session executor
-<span class="fc" id="L50">        taskExecutor.execute(() -&gt; astroModeService.executeSession(session.id()));</span>
+<span class="fc" id="L54">        taskExecutor.execute(() -&gt; astroModeService.executeSession(session.id()));</span>
 
-<span class="fc" id="L52">        return ResponseEntity.created(URI.create(&quot;/api/astro/sessions/&quot; + session.id()))</span>
-<span class="fc" id="L53">                .body(session);</span>
+<span class="fc" id="L56">        return ResponseEntity.created(URI.create(&quot;/api/astro/sessions/&quot; + session.id()))</span>
+<span class="fc" id="L57">                .body(session);</span>
     }
 
     /**
      * Gets a session by ID.
      */
     @GetMapping(&quot;/sessions/{id}&quot;)
+    @Operation(summary = &quot;Get astro session by id&quot;)
     public ResponseEntity&lt;AstroSession&gt; getSession(@PathVariable String id) {
-<span class="fc" id="L61">        return astroModeService.getSession(id)</span>
-<span class="fc" id="L62">                .map(ResponseEntity::ok)</span>
-<span class="fc" id="L63">                .orElse(ResponseEntity.notFound().build());</span>
+<span class="fc" id="L66">        return astroModeService.getSession(id)</span>
+<span class="fc" id="L67">                .map(ResponseEntity::ok)</span>
+<span class="fc" id="L68">                .orElse(ResponseEntity.notFound().build());</span>
     }
 
     /**
      * Lists all sessions.
      */
     @GetMapping(&quot;/sessions&quot;)
+    @Operation(summary = &quot;List astro sessions&quot;)
     public ResponseEntity&lt;List&lt;AstroSession&gt;&gt; listSessions() {
-<span class="fc" id="L71">        return ResponseEntity.ok(astroModeService.listSessions());</span>
+<span class="fc" id="L77">        return ResponseEntity.ok(astroModeService.listSessions());</span>
     }
 
     /**
      * Aborts a running session.
      */
     @PostMapping(&quot;/sessions/{id}/abort&quot;)
+    @Operation(summary = &quot;Abort running astro session&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; abortSession(@PathVariable String id) {
-<span class="fc" id="L79">        astroModeService.requestAbort(id);</span>
-<span class="fc" id="L80">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Abort requested for session &quot; + id));</span>
+<span class="fc" id="L86">        astroModeService.requestAbort(id);</span>
+<span class="fc" id="L87">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Abort requested for session &quot; + id));</span>
     }
 
     /**
      * Deletes a terminal session and its files on disk.
      */
     @DeleteMapping(&quot;/sessions/{id}&quot;)
+    @Operation(summary = &quot;Delete terminal astro session&quot;)
     public ResponseEntity&lt;Void&gt; deleteSession(@PathVariable String id) {
-<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (astroModeService.deleteSession(id)) {</span>
-<span class="fc" id="L89">            return ResponseEntity.noContent().build();</span>
+<span class="fc bfc" id="L96" title="All 2 branches covered.">        if (astroModeService.deleteSession(id)) {</span>
+<span class="fc" id="L97">            return ResponseEntity.noContent().build();</span>
         }
-<span class="fc" id="L91">        return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L99">        return ResponseEntity.notFound().build();</span>
     }
 
     /**
      * Returns the result info for a completed session.
      */
     @GetMapping(&quot;/sessions/{id}/result&quot;)
+    @Operation(summary = &quot;Get completed astro session result&quot;)
     public ResponseEntity&lt;AstroSession&gt; getResult(@PathVariable String id) {
-<span class="nc" id="L99">        return astroModeService.getSession(id)</span>
-<span class="nc bnc" id="L100" title="All 2 branches missed.">                .filter(s -&gt; s.resultImagePath() != null)</span>
-<span class="nc" id="L101">                .map(ResponseEntity::ok)</span>
-<span class="nc" id="L102">                .orElse(ResponseEntity.notFound().build());</span>
+<span class="nc" id="L108">        return astroModeService.getSession(id)</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">                .filter(s -&gt; s.resultImagePath() != null)</span>
+<span class="nc" id="L110">                .map(ResponseEntity::ok)</span>
+<span class="nc" id="L111">                .orElse(ResponseEntity.notFound().build());</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

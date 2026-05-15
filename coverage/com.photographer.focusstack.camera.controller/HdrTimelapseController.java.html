@@ -4,6 +4,8 @@ import com.photographer.focusstack.common.model.BracketSet;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.HdrSettings;
 import com.photographer.focusstack.session.HdrTimelapseService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -27,68 +29,75 @@ import java.util.List;
  */
 @RestController
 @RequestMapping(&quot;/api/hdr-timelapse&quot;)
+@Tag(name = &quot;HDR Timelapse&quot;, description = &quot;HDR timelapse capture, bracket retrieval and video generation endpoints.&quot;)
 public class HdrTimelapseController {
 
     private final HdrTimelapseService service;
     private final TaskExecutor taskExecutor;
 
     public HdrTimelapseController(HdrTimelapseService service,
-<span class="fc" id="L36">                                   @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
-<span class="fc" id="L37">        this.service = service;</span>
-<span class="fc" id="L38">        this.taskExecutor = taskExecutor;</span>
-<span class="fc" id="L39">    }</span>
+<span class="fc" id="L39">                                   @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
+<span class="fc" id="L40">        this.service = service;</span>
+<span class="fc" id="L41">        this.taskExecutor = taskExecutor;</span>
+<span class="fc" id="L42">    }</span>
 
     @PostMapping
+    @Operation(summary = &quot;Create HDR timelapse session&quot;)
     public ResponseEntity&lt;CaptureSession&gt; createSession(@Valid @RequestBody HdrSettings settings) {
-<span class="fc" id="L43">        CaptureSession session = service.createSession(settings);</span>
-<span class="fc" id="L44">        return ResponseEntity.status(HttpStatus.CREATED).body(session);</span>
+<span class="fc" id="L47">        CaptureSession session = service.createSession(settings);</span>
+<span class="fc" id="L48">        return ResponseEntity.status(HttpStatus.CREATED).body(session);</span>
     }
 
     @PostMapping(&quot;/{sessionId}/start&quot;)
+    @Operation(summary = &quot;Start HDR timelapse session&quot;)
     public ResponseEntity&lt;CaptureSession&gt; startSession(@PathVariable String sessionId) {
         // Validate state synchronously before scheduling async execution
-<span class="fc" id="L50">        service.validateStartable(sessionId);</span>
-<span class="pc" id="L51">        taskExecutor.execute(() -&gt; service.executeSession(sessionId));</span>
-<span class="fc" id="L52">        CaptureSession session = service.getSession(sessionId);</span>
-<span class="fc" id="L53">        return ResponseEntity.accepted().body(session);</span>
+<span class="fc" id="L55">        service.validateStartable(sessionId);</span>
+<span class="pc" id="L56">        taskExecutor.execute(() -&gt; service.executeSession(sessionId));</span>
+<span class="fc" id="L57">        CaptureSession session = service.getSession(sessionId);</span>
+<span class="fc" id="L58">        return ResponseEntity.accepted().body(session);</span>
     }
 
     @PostMapping(&quot;/{sessionId}/stop&quot;)
+    @Operation(summary = &quot;Stop HDR timelapse session&quot;)
     public ResponseEntity&lt;Void&gt; stopSession(@PathVariable String sessionId) {
-<span class="fc" id="L58">        service.stopSession(sessionId);</span>
-<span class="fc" id="L59">        return ResponseEntity.ok().build();</span>
+<span class="fc" id="L64">        service.stopSession(sessionId);</span>
+<span class="fc" id="L65">        return ResponseEntity.ok().build();</span>
     }
 
     @GetMapping(&quot;/{sessionId}&quot;)
+    @Operation(summary = &quot;Get HDR timelapse session by id&quot;)
     public ResponseEntity&lt;CaptureSession&gt; getSession(@PathVariable String sessionId) {
-<span class="fc" id="L64">        return ResponseEntity.ok(service.getSession(sessionId));</span>
+<span class="fc" id="L71">        return ResponseEntity.ok(service.getSession(sessionId));</span>
     }
 
     @GetMapping(&quot;/{sessionId}/brackets&quot;)
+    @Operation(summary = &quot;List captured bracket sets for a session&quot;)
     public ResponseEntity&lt;List&lt;BracketSet&gt;&gt; getBrackets(@PathVariable String sessionId) {
-<span class="fc" id="L69">        return ResponseEntity.ok(service.getBrackets(sessionId));</span>
+<span class="fc" id="L77">        return ResponseEntity.ok(service.getBrackets(sessionId));</span>
     }
 
     @PostMapping(&quot;/{sessionId}/video&quot;)
+    @Operation(summary = &quot;Generate timelapse video from captured brackets&quot;)
     public ResponseEntity&lt;byte[]&gt; generateVideo(
             @PathVariable String sessionId,
             @RequestParam(defaultValue = &quot;24&quot;) int fps,
             @RequestParam(defaultValue = &quot;1920&quot;) int width,
             @RequestParam(defaultValue = &quot;1080&quot;) int height) {
-<span class="nc" id="L78">        byte[] video = service.generateVideo(sessionId, fps, width, height);</span>
-<span class="nc bnc" id="L79" title="All 2 branches missed.">        if (video.length == 0) {</span>
-<span class="nc" id="L80">            return ResponseEntity.noContent().build();</span>
+<span class="nc" id="L87">        byte[] video = service.generateVideo(sessionId, fps, width, height);</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (video.length == 0) {</span>
+<span class="nc" id="L89">            return ResponseEntity.noContent().build();</span>
         }
-<span class="nc" id="L82">        String format = service.getVideoFormat();</span>
-<span class="nc bnc" id="L83" title="All 2 branches missed.">        String safeFormat = format != null ? format.replaceAll(&quot;[^a-zA-Z0-9]&quot;, &quot;&quot;) : &quot;&quot;;</span>
-<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (safeFormat.isEmpty()) {</span>
-<span class="nc" id="L85">            safeFormat = &quot;mp4&quot;;</span>
+<span class="nc" id="L91">        String format = service.getVideoFormat();</span>
+<span class="nc bnc" id="L92" title="All 2 branches missed.">        String safeFormat = format != null ? format.replaceAll(&quot;[^a-zA-Z0-9]&quot;, &quot;&quot;) : &quot;&quot;;</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">        if (safeFormat.isEmpty()) {</span>
+<span class="nc" id="L94">            safeFormat = &quot;mp4&quot;;</span>
         }
-<span class="nc" id="L87">        return ResponseEntity.ok()</span>
-<span class="nc" id="L88">                .contentType(MediaType.APPLICATION_OCTET_STREAM)</span>
-<span class="nc" id="L89">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
-<span class="nc" id="L90">                        &quot;attachment; filename=\&quot;timelapse-&quot; + sessionId.replaceAll(&quot;[^a-zA-Z0-9\\-]&quot;, &quot;_&quot;) + &quot;.&quot; + safeFormat + &quot;\&quot;&quot;)</span>
-<span class="nc" id="L91">                .body(video);</span>
+<span class="nc" id="L96">        return ResponseEntity.ok()</span>
+<span class="nc" id="L97">                .contentType(MediaType.APPLICATION_OCTET_STREAM)</span>
+<span class="nc" id="L98">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
+<span class="nc" id="L99">                        &quot;attachment; filename=\&quot;timelapse-&quot; + sessionId.replaceAll(&quot;[^a-zA-Z0-9\\-]&quot;, &quot;_&quot;) + &quot;.&quot; + safeFormat + &quot;\&quot;&quot;)</span>
+<span class="nc" id="L100">                .body(video);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

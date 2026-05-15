@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackMergeController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.controller</a> &gt; <span class="el_source">StackMergeController.java</span></div><h1>StackMergeController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.controller;
 
 import com.photographer.focusstack.analysis.service.StackMerger;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +30,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping(&quot;/api/analysis&quot;)
+@Tag(name = &quot;Stack Merge&quot;, description = &quot;Focus-stack merge and merge-result retrieval endpoints.&quot;)
 public class StackMergeController {
 
     private final StackMerger stackMerger;
@@ -36,18 +39,18 @@ public class StackMergeController {
     private static final int MAX_CACHED_RESULTS = 50;
 
     /** In-memory LRU cache: jobId → merged PNG bytes. Evicts the least recently accessed entry when full. */
-<span class="fc" id="L39">    @SuppressWarnings(&quot;serial&quot;)</span>
-<span class="fc" id="L40">    private final Map&lt;String, byte[]&gt; mergeResultCache = java.util.Collections.synchronizedMap(</span>
-<span class="fc" id="L41">            new java.util.LinkedHashMap&lt;&gt;(MAX_CACHED_RESULTS, 0.75f, true) {</span>
+<span class="fc" id="L42">    @SuppressWarnings(&quot;serial&quot;)</span>
+<span class="fc" id="L43">    private final Map&lt;String, byte[]&gt; mergeResultCache = java.util.Collections.synchronizedMap(</span>
+<span class="fc" id="L44">            new java.util.LinkedHashMap&lt;&gt;(MAX_CACHED_RESULTS, 0.75f, true) {</span>
                 @Override
                 protected boolean removeEldestEntry(Map.Entry&lt;String, byte[]&gt; eldest) {
-<span class="nc bnc" id="L44" title="All 2 branches missed.">                    return size() &gt; MAX_CACHED_RESULTS;</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">                    return size() &gt; MAX_CACHED_RESULTS;</span>
                 }
             });
 
-<span class="fc" id="L48">    public StackMergeController(StackMerger stackMerger) {</span>
-<span class="fc" id="L49">        this.stackMerger = stackMerger;</span>
-<span class="fc" id="L50">    }</span>
+<span class="fc" id="L51">    public StackMergeController(StackMerger stackMerger) {</span>
+<span class="fc" id="L52">        this.stackMerger = stackMerger;</span>
+<span class="fc" id="L53">    }</span>
 
     /**
      * Merges the supplied frames into a single all-in-focus image using EDF.
@@ -58,38 +61,39 @@ public class StackMergeController {
      * @return merged PNG image as binary response
      */
     @PostMapping(value = &quot;/merge-stack&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = &quot;Merge stack frames into a PNG&quot;)
     public ResponseEntity&lt;?&gt; mergeStack(
             @RequestPart(&quot;frames&quot;) List&lt;MultipartFile&gt; frames,
             @RequestParam(value = &quot;jobId&quot;, required = false) String jobId) throws IOException {
 
-<span class="nc bnc" id="L65" title="All 4 branches missed.">        if (frames == null || frames.size() &lt; 2) {</span>
-<span class="nc" id="L66">            return ResponseEntity.badRequest()</span>
-<span class="nc" id="L67">                    .body(Map.of(&quot;error&quot;, &quot;At least 2 frames are required for merging&quot;));</span>
-        }
-<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (frames.size() &gt; 100) {</span>
+<span class="nc bnc" id="L69" title="All 4 branches missed.">        if (frames == null || frames.size() &lt; 2) {</span>
 <span class="nc" id="L70">            return ResponseEntity.badRequest()</span>
-<span class="nc" id="L71">                    .body(Map.of(&quot;error&quot;, &quot;Maximum 100 frames supported per merge&quot;));</span>
+<span class="nc" id="L71">                    .body(Map.of(&quot;error&quot;, &quot;At least 2 frames are required for merging&quot;));</span>
+        }
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        if (frames.size() &gt; 100) {</span>
+<span class="nc" id="L74">            return ResponseEntity.badRequest()</span>
+<span class="nc" id="L75">                    .body(Map.of(&quot;error&quot;, &quot;Maximum 100 frames supported per merge&quot;));</span>
         }
 
-<span class="nc" id="L74">        List&lt;byte[]&gt; frameData = new ArrayList&lt;&gt;(frames.size());</span>
-<span class="nc bnc" id="L75" title="All 2 branches missed.">        for (MultipartFile frame : frames) {</span>
-<span class="nc" id="L76">            frameData.add(frame.getBytes());</span>
-<span class="nc" id="L77">        }</span>
+<span class="nc" id="L78">        List&lt;byte[]&gt; frameData = new ArrayList&lt;&gt;(frames.size());</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">        for (MultipartFile frame : frames) {</span>
+<span class="nc" id="L80">            frameData.add(frame.getBytes());</span>
+<span class="nc" id="L81">        }</span>
 
-<span class="nc" id="L79">        byte[] merged = stackMerger.merge(frameData);</span>
+<span class="nc" id="L83">        byte[] merged = stackMerger.merge(frameData);</span>
 
-<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (merged.length == 0) {</span>
-<span class="nc" id="L82">            return ResponseEntity.internalServerError()</span>
-<span class="nc" id="L83">                    .body(Map.of(&quot;error&quot;, &quot;Stack merge produced no output — check frame format&quot;));</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (merged.length == 0) {</span>
+<span class="nc" id="L86">            return ResponseEntity.internalServerError()</span>
+<span class="nc" id="L87">                    .body(Map.of(&quot;error&quot;, &quot;Stack merge produced no output — check frame format&quot;));</span>
         }
 
-<span class="nc bnc" id="L86" title="All 4 branches missed.">        if (jobId != null &amp;&amp; !jobId.isBlank()) {</span>
-<span class="nc" id="L87">            mergeResultCache.put(jobId, merged);</span>
+<span class="nc bnc" id="L90" title="All 4 branches missed.">        if (jobId != null &amp;&amp; !jobId.isBlank()) {</span>
+<span class="nc" id="L91">            mergeResultCache.put(jobId, merged);</span>
         }
 
-<span class="nc" id="L90">        return ResponseEntity.ok()</span>
-<span class="nc" id="L91">                .contentType(MediaType.IMAGE_PNG)</span>
-<span class="nc" id="L92">                .body(merged);</span>
+<span class="nc" id="L94">        return ResponseEntity.ok()</span>
+<span class="nc" id="L95">                .contentType(MediaType.IMAGE_PNG)</span>
+<span class="nc" id="L96">                .body(merged);</span>
     }
 
     /**
@@ -99,14 +103,15 @@ public class StackMergeController {
      * @return the merged PNG image, or 404 if no result is cached for this job
      */
     @GetMapping(&quot;/merge-result/{jobId}&quot;)
+    @Operation(summary = &quot;Get cached merged PNG by job id&quot;)
     public ResponseEntity&lt;?&gt; getMergeResult(@PathVariable String jobId) {
-<span class="nc" id="L103">        byte[] cached = mergeResultCache.get(jobId);</span>
-<span class="nc bnc" id="L104" title="All 2 branches missed.">        if (cached == null) {</span>
-<span class="nc" id="L105">            return ResponseEntity.notFound().build();</span>
+<span class="nc" id="L108">        byte[] cached = mergeResultCache.get(jobId);</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (cached == null) {</span>
+<span class="nc" id="L110">            return ResponseEntity.notFound().build();</span>
         }
-<span class="nc" id="L107">        return ResponseEntity.ok()</span>
-<span class="nc" id="L108">                .contentType(MediaType.IMAGE_PNG)</span>
-<span class="nc" id="L109">                .body(cached);</span>
+<span class="nc" id="L112">        return ResponseEntity.ok()</span>
+<span class="nc" id="L113">                .contentType(MediaType.IMAGE_PNG)</span>
+<span class="nc" id="L114">                .body(cached);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
