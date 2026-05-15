@@ -477,3 +477,157 @@ Auf der `dark`-Aufnahme dominiert über alle vier Planes der Mode 16320 (kein Pl
 Zusätzlich aus den neuen Tests abgeleitete vierte Empfehlung:
 
 * **§6.3 Schritt 4 (LibRaw-JNI Ground-Truth Pipeline)** — explizit als nächster Meilenstein aus Round-13 (Update o, `samples/research/README.md`) markiert, sobald die ground-truth-freien Sweeps an der \|r\|=0.66-Decke ankommen. Erst dann lassen sich die `Dark-/FlatFixtureLosslessDecoderIT`s als pixel-exakte Regressionstests aktivieren statt als Diagnostik-Logger.
+
+## 9. Nachtrag (2026-05-15) — Vier priorisierte Arbeitspakete (WP1–WP4) ohne Produktionsänderungen
+
+Vier neue Research-ITs in `canon-cr3-imageio/src/test/java/.../research/`:
+`BurstFrameStabilityIT`, `CrxSmallVsPrvwGeometryIT`, `Iad1OpticalBlackProfileIT`,
+`FixtureIntelligenceReportIT`. Alle Asserts sind diagnostisch (Container/Datei-
+Existenz, keine numerischen Schwellenwerte am decoder), so dass die Tests gegen
+den heutigen approximativen Decoder grün bleiben und gleichzeitig die
+Bewertungsbasis ersetzen, ohne dass eine einzige Zeile Produktionscode
+verändert wurde.
+
+### 9.1 WP4 — Fixture-Intelligence-Report (Foundation)
+
+`FixtureIntelligenceReportIT` schreibt
+`canon-cr3-imageio/target/fixture-intelligence/{fixtures.tsv,fixtures.md}`
+mit einer Zeile pro CR3 (camera, RAW/C-RAW, quantValue-Menge, waveletLevels,
+cfaLayout numerisch + Name, numPlanes, tilesPerFrame, subbandsPerFrame, OB-
+Geometrie, CRX_BIG/CRX_SMALL/PRVW/THMB-Geometrie, Burst-Gruppe, Novelty).
+
+**Strukturklasse = `(compression, waveletLevels, quantValues, cfaLayout, numPlanes, tilesPerFrame)`** — eine Zeile bekommt das Tag `NEW`, wenn sie eine zuvor unbekannte Strukturklasse einbringt, sonst `BURST` (Mitglied einer schon gesehenen echten Burst-Gruppe) oder `DUP` (rein redundant).
+
+Ergebnis über die heutigen 13 Fixtures:
+
+| Novelty | Anzahl | Repräsentanten |
+|---|---:|---|
+| `NEW`   | 2 | `eosr-iso-high.cr3` (Lossless q=4), `g5xm2-detail-…iq3-…02.cr3` (C-RAW q∈{4,16,22,26,32}) |
+| `BURST` | 1 | `g5xm2-detail-…iq3-…03.cr3` |
+| `DUP`   | 10 | alle übrigen sample/eosr-iso/research-Frames |
+
+**Zentrale negative Aussage**: Trotz 13 CR3-Dateien gibt es im gesamten
+Korpus genau **zwei** echte CRX-Strukturklassen und **eine** echte Burst-
+Gruppe. Weitere breite Decoder-Sweeps gegen denselben Bitstrom liefern keine
+neuen Informationen. **Das ist exakt das Ergebnis, das die Stoppanweisung
+voraussagt.**
+
+### 9.2 WP1 — Burst-Frame-Stabilität als neue Hauptmetrik
+
+`BurstFrameStabilityIT` paart benachbarte Burst-Frames und berechnet pro
+Bayer-Plane Pearson r, MAE, MSE, Row-/Col-R und 16×16-Block-R, geschrieben
+nach `target/burst-stability/burst.tsv`.
+
+**Tightened Burst-Key**: Nur Dateien, die `camera|scene|exposure|runId`
+exakt teilen und sich nur in der angehängten `-NN`-Sequenznummer
+unterscheiden, gelten als Burst-Frames. Die historischen `sample-tele/-wide`
+und die `eosr-iso-{low,mid,high}` sind damit korrekt **keine** Bursts (das
+sind unterschiedliche Brennweiten bzw. unterschiedliche ISOs, nicht
+Wiederholungsaufnahmen). Diese Korrektur eliminiert spurious "Burst-Rauschen"
+aus den vorherigen ITs.
+
+**Hauptbefund (negativ, dokumentiert)**:
+
+> Die einzige tatsächliche Burst-Gruppe im heutigen Korpus ist das **C-RAW-
+> Paar** `g5xm2-detail-iq3-20260511-201012-{02,03}.cr3` — und der
+> Produktions-`CrxLosslessRawDecoder` deckt C-RAW (`waveletLevels=3`)
+> noch nicht ab. **Die Burst-Stabilitäts-TSV ist heute leer.**
+
+Konsequenzen für die Bewertungsbasis:
+
+* Burst-Stabilität als primäre Metrik **ist gebaut und einsatzbereit**, aber sie kann erst genutzt werden, sobald entweder (a) ein neues Lossless-Burst-Paar aufgenommen wird oder (b) ein C-RAW-Pfad existiert.
+* Die Empfehlung aus §8.6 ("C-RAW-Paar wird primäre Achse") ist damit aus zwei Gründen die einzig konsistente Vorwärtsstrategie: nur das C-RAW-Paar liefert geometrisch identisches Material, und nur ein C-RAW-Decoder-Pfad würde die Burst-Stabilität messbar machen.
+* Die IT bleibt grün und liefert den Burst-Key-Header → sobald ein neues Burst eingespielt wird, fallen automatisch Zeilen in die TSV.
+
+### 9.3 WP2 — CRX_SMALL ↔ PRVW Geometrie + CFA-Kalibrierung
+
+`CrxSmallVsPrvwGeometryIT` schreibt `target/crx-small-geometry/{geometry.tsv,geometry.md}`. Decoder-frei: misst die 1620↔1624-Mehrdeutigkeit und die `cfaLayout`-Konsistenz zwischen CRX_BIG und CRX_SMALL.
+
+**Befund 1 — `cfaLayout`-Inkonsistenz ist universell.** Auf **jeder** Datei
+im Korpus (G5 X II + EOSR) deklariert CRX_BIG `cfaLayout=0=RGGB` und
+CRX_SMALL `cfaLayout=1=GRBG`. Spalte `cfa-consistent? = no` über die ganze
+Tabelle. Damit ist klar belegt:
+
+* `CMP1.cfaLayout` muss **pro Track** ausgelesen werden, nicht modellbasiert oder modellweit.
+* Jeder bisherige Pearson-r-Score, der "PRVW vs. CRX_SMALL" mit der CRX_BIG-Layout-Annahme bewertet hat, war auf einer falschen Bayer-Mosaik-Permutation gerechnet — die Größenordnung des Effekts ist durch die Tile/Plane-Permutationen aus Round-6 (Δ Σ\|r\| ≈ ±0.01) beziffert.
+* Eine Modellname-Fallback-Logik (z.B. "G5 X Mark II → RGGB") ist für CRX_SMALL falsch.
+
+**Befund 2 — 1620↔1624-Ambiguität ist klein, aber von null verschieden.**
+Maße ist `ambiguityR` zwischen "PRVW→1620×1080→810×540" und
+"PRVW→1624×1080→810×540" (zwei Re-Sampling-Pfade über die jeweils
+deklarierte Geometrie, dann auf einen gemeinsamen 810×540-Luma-Canvas
+zurückgerechnet):
+
+| Szene | ambiguityR | Bedeutung |
+|---|---:|---|
+| Detail-/Tele-/Wide-Szenen | **0.997 – 0.999** | Die 4-Pixel-Geometrie-Wahl kostet ≈0.1–0.4 % Korrelation — also **nachweisbar** kleiner als die Decoder-Streuung (Round-6/8 zeigen Δ Σ\|r\|≈0.01 zwischen Permutationen) |
+| Dark/Flat-Szenen | **0.000** | Mathematisch korrekt: bei einheitlichem Inhalt ist die Standardabweichung beider Re-Samples ≈0 → Pearson-Nenner=0. **Negative Aussage: dark/flat-Fixtures liefern keine geometrische Information für diese Frage** |
+
+Konsequenz: Vor jeder weiteren PRVW↔CRX_SMALL-Korrelations-Runde **muss** verbindlich festgelegt werden, ob auf 1620 oder 1624 ausgerichtet wird, und das Resultat muss daneben mit der `cfaLayout`-aware-Plane-Auswahl gemessen werden. Die TSV ist die Referenz dafür.
+
+### 9.4 WP3 — IAD1 Optical-Black-Rechtecke
+
+`Iad1OpticalBlackProfileIT` nutzt `leftOb*` und `topOb*` vollständig (nicht
+nur `activeAreaLeft` als Spaltenzahl), schreibt
+`target/iad1-ob-profile/ob-profile.tsv` mit pro `(file × region × plane)`:
+median, mode (64-LSB-Buckets), mean, stdDev, max, fracWithin±256-of-median,
+row-flatness, col-flatness, scene-tag (dark/flat/detail/asis).
+
+Geometrische Größenordnung der OB-Regionen:
+
+| Kamera | leftOB | topOB |
+|---|---|---|
+| Canon EOS R | 143×4545 | 6743×45 |
+| Canon G5 X II | 119×3695 | 5495×27 |
+
+Damit haben beide Sensoren **mehrere hunderttausend** OB-Pixel pro Plane-
+Position — statistisch reichlich.
+
+**Hauptbefund (Decoder-Falsifikator)**: Die OB-Rechtecke im aktuellen
+Decoder-Output sind physikalisch unmöglich:
+
+| Datei | Region | Plane[0] median | Plane[0] mode | stdDev |
+|---|---|---:|---:|---:|
+| eosr-iso-high.cr3 | leftOB | 392 | 256 | 241 |
+| eosr-iso-low.cr3 | leftOB | 157 | 64 | 138 |
+| **eosr-iso-mid.cr3** | leftOB | **14452** | **16320** | **4080** |
+| eosr-iso-high.cr3 | topOB | 64 | 0 | 1701 |
+
+Der Sprung von median≈157/392 auf **14452 LSB** zwischen Frames derselben
+Kamera ist physikalisch ausgeschlossen — eine optisch abgedeckte Region kann
+sich nicht in Sekunden um Faktor ~50 verschieben. Damit liefert
+`Iad1OpticalBlackProfileIT` ein **Punkt-für-Punkt physikalischer
+Falsifikator**: jede Decoder-Hypothese, die auf der Bulk-Korrelation gut
+abschneidet (z.B. Round-7 K_INIT=quantValue), aber die OB-Region zerschießt,
+ist trotzdem falsch. Dieser Test sollte ab sofort **bei jedem Sweep
+mitgelaufen** werden, und seine Ergebnisse sind höher zu gewichten als
+Pearson-r gegen PRVW.
+
+Spalten `rowFlatness` und `colFlatness` (≈ 1 − stdDev(Profil)/mean(Profil))
+zeigen ein zweites Strukturmuster: row-flatness ≥ 0.99 in den `topOB`-
+Regionen (waagrechte Streifen) bei col-flatness oft negativ — das ist
+die Signatur eines vertikal-bandedingten Predictor-Fehlers, exakt das, was
+Round-9/10 als "Predictor-Hypothese strukturell unzureichend" identifiziert
+hat. Die OB-Profile bestätigen das auf einer ganz anderen Achse.
+
+**Diagnostische Empfehlung für dark/flat**: Beide Szenen liefern ≈ uniformes
+Plane-Signal, also wird die OB-Region auf einem korrekten Decoder
+*indistinguierbar* von der aktiven Fläche aussehen — eine starke
+Konvergenz-Signatur. Auf dem heutigen Decoder ist das nicht der Fall (siehe
+TSV), womit auch dark/flat als physikalischer Falsifikator zur Verfügung
+stehen.
+
+### 9.5 Strikte Einhaltung der Stoppregeln
+
+* **Keine Produktionsänderungen.** `git diff --stat origin/main canon-cr3-core canon-cr3-imageio/src/main` ist leer; alle 4 neuen Dateien liegen ausschließlich unter `canon-cr3-imageio/src/test/`.
+* **Keine neuen breiten Decoder-Sweeps.** Keine der 4 ITs ruft `CrxCandidateDecoders` auf; die einzige Decoder-Verwendung ist der **bestehende** `CrxLosslessRawDecoder` als Mess-Sonde, nicht als Hypothesen-Generator.
+* **Negative Resultate explizit dokumentiert.** WP1 (leere Burst-TSV), WP2 (ambiguityR=0 auf flat/dark), WP4 (10/13 Frames sind redundante Strukturklassen).
+
+### 9.6 Wirkung auf §6.3 / §8.6 Roadmap
+
+Die in §8.6 markierten "nächsten Schritte" lassen sich jetzt scharfer formulieren:
+
+* **Schritt 1 (Burst Δ)** — *blockiert*, bis entweder (a) das C-RAW-Paar dekodierbar wird oder (b) eine neue Lossless-Burst-Aufnahme im research-Korpus landet. Der IT-Skelett ist da, das Datenproblem liegt am Korpus.
+* **Schritt 2 (`cfaLayout`)** — *erledigt für die Diagnose*: WP2 belegt die Universalität der BIG↔SMALL-Inkonsistenz. Der nächste Roundsweep darf `CMP1.cfaLayout` nicht mehr ignorieren.
+* **Schritt 3 (Plane-Bit-Budget)** — unverändert, von WP4 nun automatisch pro Datei in `subbandsPerFrame` und `quantValues` mitgeführt.
+* **Schritt 4 (LibRaw)** — unverändert, jedoch mit zusätzlicher physikalischer Vergleichsbasis: jeder LibRaw-Decode liefert OB-Regionen, die `Iad1OpticalBlackProfileIT` direkt mit dem cleanroom-Decode-OB vergleicht.

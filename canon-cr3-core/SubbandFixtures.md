@@ -1397,3 +1397,86 @@ Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
 plane × tile) majority before any production‑code change. Currently
 the per‑channel maximum is **still 0.56 on lossless and 0.027 on
 C‑RAW**. No production‑code change.
+
+## Update 2026-05-15 (p) — Vier diagnostische ITs ohne Decoder-Sweeps
+
+Vier neue Research-ITs in `canon-cr3-imageio/src/test/.../research/`,
+ausschließlich Test-Code, keine Produktionsänderungen, keine neuen
+Hypothesen-Sweeps:
+
+* **`FixtureIntelligenceReportIT`** — schreibt
+  `target/fixture-intelligence/fixtures.{tsv,md}` mit einer Zeile pro
+  CR3-Datei (camera, RAW/C-RAW, quantValue-Menge, waveletLevels, cfaLayout
+  numerisch + Name, numPlanes, tilesPerFrame, subbandsPerFrame, OB-Geometrie,
+  CRX_BIG/CRX_SMALL/PRVW/THMB-Geometrie, Burst-Gruppe, Novelty-Tag).
+* **`BurstFrameStabilityIT`** — Pearson r, MAE, MSE, Row-/Col-R und
+  16×16-Block-R pro Bayer-Plane zwischen benachbarten Burst-Frames.
+* **`CrxSmallVsPrvwGeometryIT`** — decoder-frei: 1620↔1624-Ambiguitäts-
+  Pearson r und CFA-Konsistenz CRX_BIG ↔ CRX_SMALL pro Datei.
+* **`Iad1OpticalBlackProfileIT`** — pro `(file × region × plane)`: median,
+  mode (64-LSB-Buckets), mean, stdDev, max, fracWithin±256-of-median,
+  row-/col-flatness auf den vollen IAD1-Rechtecken `leftOb*` und `topOb*`
+  (nicht nur `activeAreaLeft` als Spaltenzahl).
+
+### Drei harte Befunde aus Update (p)
+
+1. **Strukturelle Korpus-Sättigung.** Über 13 CR3-Dateien existieren genau
+   zwei `(compression, waveletLevels, quantValues, cfaLayout, numPlanes,
+   tilesPerFrame)`-Klassen (Lossless q=4 und C-RAW q∈{4,16,22,26,32}) und
+   genau **eine** echte Burst-Gruppe (das C-RAW-Paar
+   `g5xm2-detail-iq3-20260511-201012-{02,03}.cr3`). 10/13 Frames sind
+   strukturell redundant. Weitere breite Decoder-Sweeps gegen denselben
+   Bitstrom liefern keine neuen Informationen — das ist exakt das, was die
+   Stoppanweisung voraussagt.
+2. **`cfaLayout`-Inkonsistenz universell.** Auf jeder Datei (G5 X II + EOSR)
+   deklariert CRX_BIG `cfaLayout=0=RGGB` und CRX_SMALL `cfaLayout=1=GRBG`.
+   `cfa-consistent? = no` über die ganze Tabelle. Damit ist klar, dass jede
+   PRVW↔CRX_SMALL-Korrelations-Runde der Vergangenheit auf einer falschen
+   Mosaik-Permutation gerechnet hat und dass `CMP1.cfaLayout` **pro Track**
+   ausgelesen werden muss, nicht modellbasiert.
+3. **OB-Regionen sind heute physikalisch unmöglich.** EOSR `leftOB` Plane[0]
+   median springt zwischen `eosr-iso-low.cr3` (157 LSB), `eosr-iso-high.cr3`
+   (392) und `eosr-iso-mid.cr3` (**14452**) — Faktor ~50 in einer optisch
+   abgedeckten Region ist physikalisch ausgeschlossen. Die OB-Profile sind
+   damit ein **Punkt-für-Punkt physikalischer Falsifikator** für jede
+   Decoder-Hypothese, höher zu gewichten als Pearson-r gegen PRVW.
+
+### Bewertungsbasis-Verschiebung
+
+Bisherige Hauptmetrik: **Pearson r vs. PRVW** (Round-3 bis Round-13). Stand:
+max \|r\|=0.56 auf Lossless, 0.027 auf C-RAW.
+
+Neue Hauptmetrik laut WP1 (sobald datenfähig):
+**Burst-Frame-Stabilität** (Pearson r zwischen benachbarten Frames derselben
+Burst, pro Plane). Auf einem korrekten Decoder muss r → 1; eine
+Decoder-Hypothese, die r=0.55 vs. PRVW erreicht, aber r<0.5 zwischen Burst-
+Frames produziert, ist trotzdem falsch (sie produziert pro Frame
+*unterschiedliches* Rauschen mit ähnlichem Mittel).
+
+**Status der neuen Hauptmetrik:** WP1 ist gebaut und einsatzbereit, aber
+die Burst-Stabilitäts-TSV ist heute leer, weil das einzige tatsächliche
+Burst-Paar im Korpus C-RAW ist und der Produktions-Lossless-Decoder C-RAW
+nicht abdeckt. Das macht die `CrawLossyBringUpIT`-/C-RAW-Linie zur
+*einzigen* Vorwärtsstrategie, die die Bewertungsbasis tatsächlich öffnet.
+
+### Sekundäre, jederzeit anwendbare Falsifikatoren
+
+* **OB-Plausibilität (WP3)**: Jeder Decoder-Output muss in den IAD1-OB-
+  Rechtecken einen über alle Frames derselben Kamera **stabilen** Pedestal
+  zeigen (typisch 256–4096 LSB bei 14 bit, mit stdDev unterhalb der
+  Read-Noise-Erwartung). Die heutige TSV zeigt, dass das nicht der Fall ist.
+* **CFA-Konsistenz pro Track (WP2)**: Jede PRVW↔CRX-Korrelation muss
+  `CMP1.cfaLayout` der jeweiligen Track-Quelle nutzen — die TSV macht
+  Verstöße offensichtlich.
+* **Strukturklassen-Novelty (WP4)**: Bevor neue Sweeps gestartet werden,
+  prüft die TSV, ob das Sweep-Sample überhaupt eine neue Strukturklasse ist.
+
+### Was Update (p) **nicht** ändert
+
+* Keine Produktionsänderung. `CrxLosslessRawDecoder` und alles unter
+  `canon-cr3-core/src/main` bleibt bitidentisch zu Update (o).
+* Kein neuer Sweep-Round. `CrxCandidateDecoders` wird von keiner der vier
+  neuen ITs aufgerufen.
+* Die 0.7-Promotionsschwelle bleibt unverändert — sie wird jetzt pro
+  Hypothese mit zwei zusätzlichen Falsifikatoren (OB-Plausibilität, Burst-
+  Stabilität sobald datenfähig) ergänzt statt ersetzt.
