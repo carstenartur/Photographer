@@ -303,7 +303,9 @@ ISO 125 → ISO 1600 ändert die G5 X II CRX_BIG-Größe nicht systematisch (Σ 
 
 ### 4.5 RAW vs. C-RAW
 
-**Im Korpus existiert keine C-RAW (lossy) Datei.** Alle 8 Fixtures: `compressionMode = RAW_LOSSLESS`, `cmp1.encodingType = 0`, `cmp1.waveletLevels = 0`. → Der gesamte CRX-Lossy-Codec-Pfad (10 Subbänder, 3-Level-Wavelet, dequant, IDWT) ist **mit dem aktuellen Korpus überhaupt nicht testbar**.
+> **Korrektur 2026-05-15**: die ursprüngliche Aussage "im Korpus existiert keine C-RAW (lossy) Datei" galt nur für die 8 Top-Level-Fixtures in `samples/`. Im **`samples/research/`-Unterordner** (siehe §8, durch Rebase auf `origin/main` hinzugekommen) liegen **zwei echte C-RAW Bursts** der G5 X II — `g5xm2-detail-iso1600-…-iq3-…02.cr3` und `…-03.cr3` — mit `compressionMode = CRAW_LOSSY`, `waveletLevels = 3`, 10 Subbänder/Plane, `quantValue ∈ {4, 16, 22, 26, 32}`. Das schließt die wichtigste Korpus-Lücke des ursprünglichen Audits (siehe Korrektur in §5 und Folgen in §8).
+
+Die 8 Top-Level-Fixtures bleiben jedoch unverändert alle lossless: `compressionMode = RAW_LOSSLESS`, `cmp1.encodingType = 0`, `cmp1.waveletLevels = 0`.
 
 ---
 
@@ -313,7 +315,7 @@ Konkrete Konfigurationen, die für eine vollständige CRX-Decoder-Validierung **
 
 | Lücke | Warum kritisch | Welches CMP1-Feld würde variieren |
 |---|---|---|
-| **C-RAW (lossy)** Datei einer beliebigen Kamera | Lossy-Codec-Pfad ist nicht abgedeckt | `encodingType ≠ 0`, `waveletLevels ∈ {1,2,3}`, 10 Subbänder, `quantValue ≠ 4` |
+| **C-RAW (lossy)** Datei einer beliebigen Kamera | ~~Lossy-Codec-Pfad ist nicht abgedeckt~~ **GESCHLOSSEN durch `samples/research/g5xm2-detail-…-iq3-…02.cr3` und `…-03.cr3`** (siehe §8). | `encodingType = 0`, `waveletLevels = 3`, 10 Subbänder, `quantValue ∈ {4,16,22,26,32}` ✓ vorhanden |
 | **CanonCR3_002**+ Datei (z. B. R5, R6, 1DX III) | V2-Marker-Pfad (ff11/ff12/ff13) ist nirgends mit echten Daten getestet | `CncvBox.codecVersion()`, marker-Bytes |
 | **EOS R bei ISO 100/400/3200** | Bisher nur ISO 12800 — keine ISO-Variation für Vollformat | `Cr3Metadata.isoSpeed`, OB-Statistik |
 | **Datei mit `hasExtendedHeader=true`** (R5/R3 HDR-Modi) | Extended-Header-Parsing-Pfad ist mit echten Daten ungetest | `extendedHeaderSize`, `medianBitDepth` |
@@ -382,3 +384,96 @@ Cr3Metadata m = new Cr3Decoder().setInput(in).getMetadata();
 ```
 
 Empfehlung: dieses Inventar nicht als Produktions-Pfad, sondern als reine Research-Testklasse `CrxFixtureInventoryIT` ergänzen, die das obige `tsv` als Test-Output schreibt. Damit ist die Audit-Tabelle in §1 jederzeit automatisch aktuell, sobald neue Fixtures hinzukommen — und kann in CI als Wegweiser für die Korpus-Lücken aus §5 dienen.
+
+---
+
+## 8. Nachtrag (2026-05-15) — `samples/research/`-Korpus & neue Tests aus `main`
+
+Dieser Abschnitt korrigiert die §1- und §4.5-Aussagen des ursprünglichen Audits und fasst die Resultate der seit Branch-Abzweig (Commit `208964e`, 2026-04-29) auf `main` hinzugekommenen 25 Research-ITs zusammen. Der Branch wurde am 2026-05-15 auf `origin/main` rebased; alle hier genannten Werte sind empirisch verifiziert über `cr3-cli list-subbands` / `dump-raw-layout` und über `mvn -B verify -pl canon-cr3-imageio -am -Dit.test=…`.
+
+### 8.1 Inventar der research-Fixtures
+
+Im Unterordner `canon-cr3-imageio/src/test/resources/samples/research/` liegen 5 zusätzliche G5 X II Fixtures (`manifest.tsv` dokumentiert ISO/Tv/Av aus dem PTP-Capture-Tooling, **außerhalb** der EXIF):
+
+| Datei | Phase | ISO | Bytes | CRX_BIG-Compression | `waveletLevels` | Subbands/Frame | `quantValue` |
+|---|---|---:|---:|---|---:|---:|---|
+| `g5xm2-asis-iso200-ss130-ff2p5-01.cr3` | `asis` | 200 | 18 153 416 | RAW_LOSSLESS | 0 | 8 | {4} |
+| `g5xm2-dark-iso125-ss160-ff7p1-…-02.cr3` | `dark` (Lens-Cap) | 125 | 11 391 796 | RAW_LOSSLESS | 0 | 8 | {4} |
+| `g5xm2-flat-iso1600-ss0p4s-ff1p6-…-02.cr3` | `flat` | 1600 | 1 019 330 ⚠ | RAW_LOSSLESS | 0 | 8 | {4} |
+| `g5xm2-detail-iso1600-…-iq3-…02.cr3` | `detail` | 1600 | 11 053 010 | **CRAW_LOSSY** | **3** | **80** | **{4, 16, 22, 26, 32}** |
+| `g5xm2-detail-iso1600-…-iq3-…03.cr3` | `detail` | 1600 | 11 180 523 | **CRAW_LOSSY** | **3** | **80** | **{4, 16, 22, 26, 32}** |
+
+> ⚠ Die `flat`-Aufnahme ist mit ~1 MB **drastisch** kleiner als alle anderen Fixtures (~11–25 MB) — sehr glatter Bildinhalt, der die Entropie-Codierung extrem komprimiert. Dieser Fall ist eine eigene Variabilitäts-Achse und im FlatFixtureLosslessDecoderIT bereits diagnostisch ausgewertet (siehe §8.4).
+
+### 8.2 Warum scheinen die `asis` / `dark` / `flat`-Aufnahmen lossless zu sein, obwohl die G5 X II auf C-RAW gestellt war?
+
+Der `samples/research/README.md` (Sektion *"Capturing C-RAW (lossy CRX) fixtures — strongly desired"*) und die filenamen-Konvention klären das:
+
+* Der **Bildqualitäts-Modus** wird im Filename-Token `iqXXXXXXXX` aus dem Canon-EOS-Property `0xD108 ImageQuality` (raw-Wert hex) eingebettet. **`iq3`** = `0x10130003 = C-RAW`; **kein `iq…`-Token** = die Eigenschaft war zur Aufnahme noch nicht via PTP zurückgemeldet.
+* Die drei Aufnahmen ohne `iq3`-Token (`asis-…01.cr3`, `dark-…02.cr3`, `flat-…02.cr3`) wurden vom 2026-05-04 PTP-Capture-Lauf erfasst, **bevor** ImageQuality über PTP zuverlässig sichtbar war — und das Capture-Tooling konnte zu diesem Zeitpunkt das Property nicht über USB **schreiben** (das `README.md` dokumentiert: `0xD108`-Writes wurden auf der G5 X II vom Body abgewiesen, ebenso wie `0xD101 Av`, `0xD102 Tv`, `0xD103 ISO`). Die Body-Einstellung war zu diesem Zeitpunkt also noch **RAW lossless**, nicht C-RAW — auch wenn der Operator das Menü der Kamera geändert haben sollte, ist die effektive Aufnahme-Konfiguration dieser drei Frames laut Container-Metadaten lossless.
+* Die zwei `detail-…-iq3`-Aufnahmen vom 2026-05-11 sind die **ersten echten C-RAW Fixtures im Korpus**. Filename-Token `iq3` matcht `imageQualityRaw=0x3` aus dem manifest, und die Container-Metadaten bestätigen es: `CRAW_LOSSY`, `waveletLevels=3`, `q ∈ {4,16,22,26,32}`. Das `manifest.tsv` weist diese zwei Frames daher auch korrekt mit `imageQualityRaw=0x3` aus, während die anderen drei Zeilen `-` (unbekannt) tragen.
+
+> Kurzform: Die Bilder *sind* nicht versehentlich lossless geworden — die mode-Umstellung auf C-RAW hat erst beim `detail`-Capture vom 2026-05-11 funktioniert; die früheren drei `asis`/`dark`/`flat`-Aufnahmen wurden tatsächlich noch im RAW-lossless-Modus geschossen. Das `manifest.tsv` dokumentiert das in der `imageQualityRaw`-Spalte konsistent.
+
+### 8.3 Ergänzung zu §1.4 — neue, im ursprünglichen Audit fehlende Header-Beobachtungen
+
+Diese Fakten **fallen aus** dem alten Audit, weil dort `quantValue` und `waveletLevels` nur den 8 lossless-Fixtures entnommen wurden:
+
+* `cmp1.encodingType` ist auf den C-RAW Fixtures **0**, **gleich** wie auf allen lossless-Fixtures — die alte §5-Lückenliste behauptete fälschlich `encodingType ≠ 0` als C-RAW-Marker. **Tatsächlich diskriminierend ist `cmp1.waveletLevels`** (`0` lossless ↔ `3` C-RAW) und die Subband-Anzahl pro Plane (`1` lossless ↔ `1 + 3·waveletLevels = 10` C-RAW).
+* `quantValue` variiert auf C-RAW pro Subband-Position innerhalb einer Plane in der monotonen Folge `4, 4, 4, 4, 16, 16, 22, 26, 26, 32`. Die ersten 4 Subbänder (LL + drei Subbänder der ersten Wavelet-Level) bleiben bei `q=4`, danach steigt `q` mit jeder höheren Wavelet-Stufe. Das ist **erstmals in einem committed Fixture** beobachtbar.
+* `cfaLayout` für CRX_BIG bleibt auch in der C-RAW-Variante `0=RGGB`, CRX_SMALL bleibt `1=GRBG` — also kein neuer Wert, aber auch kein Bruch der §2.2-Hypothese.
+* `Subband.fileOffset / size` belegen, dass alle 80 C-RAW Subbänder strikt sequenziell und nicht-überlappend im `mdat`-Bereich liegen — der `SubbandExtractor` muss daher pro `(tile, plane, sb-index)` korrekt adressieren; mit `tileSequence` (siehe Memory) als ordinaler Tile-Disambiguator ist das gegeben.
+
+### 8.4 Was tragen die neuen Tests von `main` zu den offenen Fragen bei?
+
+25 neue Research-IT-Klassen sind seit `208964e` auf `main` gelandet (alle unter `canon-cr3-imageio/src/test/java/.../research/`). Vier davon wurden gegen das aktuelle Korpus inkl. `samples/research/` ausgeführt (Befehl: `mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true "-Dit.test=CrawLossyBringUpIT,CrxPlaneFollowupRound9IT,DarkFixtureLosslessDecoderIT,FlatFixtureLosslessDecoderIT" -Dsurefire.failIfNoSpecifiedTests=false -Dtest=NoSuchTest`, BUILD SUCCESS in 7.5 s, 4/4 Tests grün):
+
+**`CrawLossyBringUpIT`** — scant rekursiv alle 13 CR3-Dateien (8 Top-Level + 5 in `research/`), findet die 2 C-RAW Fixtures, validiert `waveletLevels=3 / 80 Subbänder / bitDepth=14`, ruft `CrxLossyDecoder.decode()` auf und assertet die noch-blockierte Fehlermeldung *"C-RAW (lossy) decoding is not yet fully implemented. […] Header and subband structure validated successfully. IDWT infrastructure is ready (Le Gall 5/3). Remaining: entropy decoding integration, dequantization formula, subband ordering confirmation."* Das schließt die §5-Lücke "Lossy-Codec-Pfad ist nicht abgedeckt" für **Header- und Container-Layer**, lässt sie aber für **Pixel-Dekodierung** explizit dokumentiert offen.
+
+**`CrxPlaneFollowupRound9IT`** — sweep auf den 160 C-RAW-Subbändern. Resultat:
+
+| `q` | Anzahl Subbänder | `med(optK)` | `med(bps@K_INIT=q)` |
+|---:|---:|---:|---|
+| 4 | 64 | **0.00** | 4.45 ± 0.05 |
+| 16 | 32 | **0.00** | **∞** (Bitstream-Overrun im ersten Symbol) |
+| 22 | 16 | **0.00** | **∞** |
+| 26 | 32 | **0.00** | **∞** |
+| 32 | 16 | **0.00** | **∞** |
+
+→ **`K_INIT = 0`** ist auf 100 % der 160 Subbänder optimal. Das **falsifiziert** die Round-7-Hypothese `K_INIT = CMP1.quantValue` (bzw. die in den Memories noch zitierte "first positive empirical link between CMP1 header and CRX entropy state"-Beobachtung) — sie war ein zirkuläres Artefakt, weil alle damals untersuchten Fixtures `q = 4` hatten und `K = 4` nach dem ersten patent-bracket-Schritt zu `K = 0` zerfällt. Der Produktionscode benutzt bereits `int k = 0;` (`CrxLosslessRawDecoder.java:406`); Round-9 hat diese Wahl jetzt empirisch bestätigt — keine Code-Änderung erforderlich.
+
+**`DarkFixtureLosslessDecoderIT`** & **`FlatFixtureLosslessDecoderIT`** — laufen den produktiven `CrxLosslessRawDecoder` über die `dark` / `flat` G5 X II Fixtures und loggen pro Plane den Plane-Median, den 64-LSB-Mode-Bucket, Std-Dev, sowie den Anteil der Pixel innerhalb ±1024 / ±256 LSB des Modes. Aktueller Stand auf der `flat`-Aufnahme:
+
+| Plane (pos) | median | mode | ±1024 | std-dev | Soll (post-fix) |
+|---|---:|---:|---:|---:|---|
+| `plane[0]` (0/0) | 4916 | 16320 | 0.106 | 5644 | mode ≈ Mid-grey, ±1024 ≥ 0.5 |
+| `plane[1]` (0/1) | 4311 | 16320 | 0.197 | 5895 | mode ≈ Mid-grey, ±1024 ≥ 0.5 |
+| `plane[2]` (1/0) | 1805 | 16320 | 0.194 | 6373 | mode ≈ Mid-grey, ±1024 ≥ 0.5 |
+| `plane[3]` (1/1) | **284** | **0** | **0.656** | 6727 | mode ≈ OB pedestal, ±1024 ≥ 0.5 ✓ |
+
+→ **Eine** der vier Planes (`plane[3]`) wird vom aktuellen produktiven Lossless-Decoder **bereits beinahe korrekt** dekodiert (Median 284 ≈ OB-Pedestal, Mode bei 0, 65.6 % der Pixel innerhalb ±1024 LSB des Modes). Die anderen drei Planes bleiben am Sättigungspunkt (Mode bei 16320) — das ist der bekannte Entropy-Lock-Loss-Bug aus dem `samples/research/README.md` (Update p), nicht ein Plane-Adressierungs-Problem.
+
+Auf der `dark`-Aufnahme dominiert über alle vier Planes der Mode 16320 (kein Plane korrekt) — burst-mean ±1024 ≈ 0.386, Soll ≥ 0.80. Ground-Truth-Schwellen sind in den ITs als "future patent-spec swap should drive this above 0.80" als Log-Statement, nicht als hard-fail-Assertion eingebaut → die Tests **scheitern derzeit absichtlich nicht**, dokumentieren aber den Status.
+
+### 8.5 Ist der CR3-Import-Status unverändert?
+
+**Ja, im wesentlichen unverändert** — mit zwei *empirisch jetzt bestätigten* Detail-Korrekturen:
+
+| Pipeline-Stufe | Status vor diesem Audit | Status nach Rebase + neuen Tests | Δ |
+|---|---|---|---|
+| Container-Parser (`Cr3Parser`, BMFF, Boxes) | funktional, deckt RAW lossless + C-RAW Header ab | unverändert, jetzt empirisch auch auf C-RAW Fixtures bestätigt durch `CrawLossyBringUpIT` | — |
+| CMP1 / IAD1 / CrxHeader Parsing | funktional | unverändert; `waveletLevels=3`, 80 Subbänder, `q ∈ {4..32}` der C-RAW Fixtures werden korrekt geparst | — |
+| Lossless-Decoder (`CrxLosslessRawDecoder`) | dekodiert, aber mit ~3 von 4 Planes gesättigt am Top-Level | **predictor-seed-Fix** `1<<(bd-1) → 0` ist seit Commit `f0b271e` (Update p) bereits in Production; eine Plane jetzt near-correct, drei weiterhin gesättigt durch Entropy-Lock-Loss-Bug | **leichte Verbesserung** |
+| `K_INIT = CMP1.quantValue` Hypothese | als "first positive empirical link" kandidiert (Memories) | von Round-9 **falsifiziert** auf den C-RAW Fixtures; Production benutzt bereits `K_INIT = 0`, korrekt | **alte Memories obsolet** |
+| Lossy-Decoder (`CrxLossyDecoder`) | nicht implementiert | unverändert nicht implementiert; Header-Validierung & IDWT-Infrastruktur fertig, Entropy/Dequant/Subband-Order fehlen | — |
+| Subband-Korrelation Decoder ↔ PRVW (Pearson r) | max \|r\| ≈ 0.56 (Round 8), Schwelle 0.7 | Round-12/13 erschöpfen ground-truth-frei den Hypothesenraum bei max \|r\| = 0.6573; nächster Meilenstein laut README: LibRaw-JNI-Pipeline für echte Pixel-Ground-Truth | **harte Decken-Erkenntnis**, kein qualitativer Fortschritt |
+
+### 8.6 Folgen für §6.3 (nächste Schritte)
+
+* **§6.3 Schritt 1 (Burst-Frame Δ als Validierungsachse)** wird durch das `detail-…02.cr3 / …03.cr3`-Paar im research-Ordner sogar noch belastbarer: die `manifest.tsv` dokumentiert `iso=1600 / shutter=0.4s / aperture=f/1.6` für **beide** Frames identisch, und im Gegensatz zur EXIF-only-Belegung der EOS-R-Bursts steht die Belichtung hier außerhalb der EXIF stabil im manifest. **Empfehlung unverändert**, aber das C-RAW-Burst-Paar wird zur primären Achse statt der EOS-R-Triade.
+* **§6.3 Schritt 2 (`cfaLayout` als Hypothesen-Differenzierer)** unverändert relevant — die research-Fixtures zeigen denselben CRX_BIG=RGGB ↔ CRX_SMALL=GRBG-Split.
+* **§6.3 Schritt 3 (Plane-Bit-Budget pro Kamera kalibrieren)** wird durch `CrawLossyBringUpIT`s Per-Plane-Subband-Größen-Log direkt fütterbar — die G5 X II Plane-3-Asymmetrie ist auch im C-RAW (419 kB Plane 3 vs. 100 kB Plane 1) erhalten, also ist Plane-spezifisches Bit-Budget eine Eigenschaft des **Sensors**, nicht des Codec-Modus.
+
+Zusätzlich aus den neuen Tests abgeleitete vierte Empfehlung:
+
+* **§6.3 Schritt 4 (LibRaw-JNI Ground-Truth Pipeline)** — explizit als nächster Meilenstein aus Round-13 (Update o, `samples/research/README.md`) markiert, sobald die ground-truth-freien Sweeps an der \|r\|=0.66-Decke ankommen. Erst dann lassen sich die `Dark-/FlatFixtureLosslessDecoderIT`s als pixel-exakte Regressionstests aktivieren statt als Diagnostik-Logger.
