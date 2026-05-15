@@ -1592,7 +1592,7 @@ mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true \
 | `target/null-fixture/null.tsv`                  |      5 | 1 dark-Fixture × 4 Planes |
 | `target/flat-field/flat.tsv`                    |      5 | 1 flat-Fixture × 4 Planes |
 | `target/bitstream-alignment/alignment.tsv`      |    249 | 248 Subbänder × strukturelle Spalten, läuft auch auf C-RAW |
-| `target/fixture-intelligence/fixtures.tsv`+`.md`|     14 | 13 Dateien, novelty + tags |
+| `target/fixture-intelligence/{fixtures.tsv,fixtures.md}` |     14 | 13 Dateien, novelty + tags |
 
 ### WP1 — Burst-Frame-Validierung
 

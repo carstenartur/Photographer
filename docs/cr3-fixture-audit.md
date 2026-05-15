@@ -762,16 +762,18 @@ mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true \
 
 → **Tests run: 7, Failures: 0, Errors: 0, Skipped: 0** (BUILD SUCCESS,
 2026-05-15). Die folgenden Tabellen sind reproduzierbar aus
-`canon-cr3-imageio/target/<thema>/*.tsv` ablesbar.
+`canon-cr3-imageio/target/<thema>/*.tsv` ablesbar; zwei Pakete
+(`crx-small-geometry`, `fixture-intelligence`) emittieren zusätzlich
+einen Markdown-Spiegel `*.md` mit identischem Inhalt.
 
 ### 11.2 Kondensierte Ergebnisse pro Arbeitspaket
 
 | WP  | Quelle                                  | Hauptbefund                                                                                                                            | Verdict |
 |-----|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|---------|
 | WP1 | `target/burst-stability/burst.tsv`      | Nur 1 Burst-Gruppe im Korpus, sie ist C-RAW; Lossless-Burst-Paare = 0; TSV nur Header.                                                  | Negativresultat: Metrik **datenleer**. |
-| WP2 | `target/crx-small-geometry/geometry.md` | 13 / 13 Fixtures: `Δw=4, Δh=0`, `cfa(BIG)=0(RGGB) ≠ cfa(SMALL)=1(GRBG)`. Ambiguity r ∈ [0.987, 0.9994] auf Detail-Szenen, =0 auf Null/Flat. | Container-Konstante: 1620↔1624 unkritisch (≤ 1.4 % Varianz), CFA-Mismatch universell. |
+| WP2 | `target/crx-small-geometry/geometry.tsv` (MD-Spiegel vorhanden) | 13 / 13 Fixtures: `Δw=4, Δh=0`, `cfa(BIG)=0(RGGB) ≠ cfa(SMALL)=1(GRBG)`. Ambiguity r ∈ [0.987, 0.9994] auf Detail-Szenen, =0 auf Null/Flat. | Container-Konstante: 1620↔1624 unkritisch (≤ 1.4 % Varianz), CFA-Mismatch universell. |
 | WP3 | `target/iad1-ob-profile/ob-profile.tsv` | 88 (Datei × Region × Plane)-Zellen, mittlere stdDev = 5892 LSB; **81/88 (92 %)** mit stdDev > 1000 LSB; **0/88 unter Read-Noise**.       | OB-Plausibilität ist **stärkste verfügbare Falsifikator-Achse**. |
-| WP4 | `target/fixture-intelligence/fixtures.md`| 13 Dateien → **2 NEW + 1 BURST + 10 DUP** (76.9 % Duplikate); nur 1 strukturelle Variabilitäts-Achse (lossless ↔ C-RAW).                | Korpus dominiert von redundanten Strukturklassen. |
+| WP4 | `target/fixture-intelligence/fixtures.tsv` (MD-Spiegel vorhanden) | 13 Dateien → **2 NEW + 1 BURST + 10 DUP** (76.9 % Duplikate); nur 1 strukturelle Variabilitäts-Achse (lossless ↔ C-RAW).                | Korpus dominiert von redundanten Strukturklassen. |
 | Bonus | `target/bitstream-alignment/alignment.tsv` | 248 Subbänder: **100 % `mod 4 = 0`, 100 % `mod 8 = 4`, 0 % `mod 16 ∈ {0,8}`** (43 % `mod 16 = 4`, 57 % `mod 16 = 12`).             | Codec-Invariante: Subband-Header ≡ 4 (mod 8). Falsifiziert 8-byte-aligned Bit-Reader. |
 
 ### 11.3 Geometrisch und mosaikseitig konsistenteste Referenzabbildung (WP2-Schluss)
@@ -819,8 +821,12 @@ von ihrem Pearson-r.
 * **BURST:** `g5xm2-detail-…-iq3-…03.cr3` (zweiter Frame der einzigen Burst-
   Gruppe).
 * **DUP (10 Dateien):** alle übrigen lossless-RAW-G5XII/EOSR-Aufnahmen
-  haben tuple `(RAW_LOSSLESS, wL=0, q=[4], cfa=0, planes=4, tiles=2)` —
-  strukturell identisch, daher redundant für jede Decoder-Triage.
+  haben tuple `(RAW_LOSSLESS, wL=0, q=[4], cfa(BIG)=0, planes=4, tiles=2)`
+  — strukturell identisch, daher redundant für jede Decoder-Triage.
+  Hinweis: `FixtureIntelligenceReportIT` liest `cfaLayout` aus der
+  CRX_BIG-Spur; der in §11.2 genannte BIG↔SMALL-Mismatch (BIG=0,
+  SMALL=1) bleibt davon unberührt und ist ebenfalls über alle 10
+  DUP-Frames konstant.
 
 Dieser Befund untermauert die Wunschliste in
 `docs/cleanroom-fixture-plan.md` §6 quantitativ: **76.9 % des Korpus
