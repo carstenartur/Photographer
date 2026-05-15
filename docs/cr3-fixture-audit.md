@@ -1,0 +1,742 @@
+# CR3 Fixture Audit
+
+Strukturierte Bestandsaufnahme aller in `canon-cr3-imageio/src/test/resources/samples/` vorhandenen CR3-Testdateien und der daraus ableitbaren Header-/Payload-Informationen.
+
+Die in diesem Dokument zitierten Werte wurden direkt aus den Fixtures extrahiert mit dem produktiven Parser-Stack (`Cr3Parser`, `Cmp1Box`, `Iad1Box`, `CrxHeader`, `Cr3MetadataReader`). Es wurden **keine** Produktionscode-Pfade verändert und es wurden **keine** neuen Decoder-Sweeps durchgeführt — Ziel ist nur die Auswertung des bestehenden Korpus.
+
+Reproduzierbar (z. B. nach `mvn -B test-compile -pl canon-cr3-core,canon-cr3-imageio -am`) durch ein kleines Hilfsprogramm, das `Cr3Parser.parse`, `CrxHeader.parse` und `Cr3MetadataReader.read` aufruft (siehe Abschnitt 7).
+
+---
+
+## 1. Fixture-Inventar
+
+### 1.1 Übersicht
+
+| Datei | Kamera | Bytes | Mode | CNCV |
+|---|---|---:|---|---|
+| `eosr-iso-low.cr3`  | Canon EOS R | 40 282 915 | RAW lossless (CRX) | `CanonCR3_001/00.09.00/00.00.00` |
+| `eosr-iso-mid.cr3`  | Canon EOS R | 40 252 603 | RAW lossless (CRX) | `CanonCR3_001/00.09.00/00.00.00` |
+| `eosr-iso-high.cr3` | Canon EOS R | 40 243 665 | RAW lossless (CRX) | `CanonCR3_001/00.09.00/00.00.00` |
+| `sample.cr3`               | PowerShot G5 X Mark II | 22 920 507 | RAW lossless (CRX) | `CanonCR3_001/01.09.00/00.00.00` |
+| `sample-tele.cr3`          | PowerShot G5 X Mark II | 25 002 592 | RAW lossless (CRX) | `CanonCR3_001/01.09.00/00.00.00` |
+| `sample-wide.cr3`          | PowerShot G5 X Mark II | 24 968 389 | RAW lossless (CRX) | `CanonCR3_001/01.09.00/00.00.00` |
+| `sample-iso-high.cr3`      | PowerShot G5 X Mark II | 12 527 195 | RAW lossless (CRX) | `CanonCR3_001/01.09.00/00.00.00` |
+| `sample-wb-tungsten.cr3`   | PowerShot G5 X Mark II | 12 324 900 | RAW lossless (CRX) | `CanonCR3_001/01.09.00/00.00.00` |
+| `sample-embedded.jpg`  | — | 952 248 | externer JPEG | n/a |
+| `sample-thumbnail.jpg` | — | 3 775 | externes JPEG-Thumb | n/a |
+
+### 1.2 EXIF-/Aufnahme-Metadaten
+
+| Datei | Modell | ISO (EXIF) | f | t (s) | Brennweite | Sensor (CMP1) | Visible (IAD1-Crop) | Capture |
+|---|---|---:|---:|---:|---:|---|---|---|
+| `eosr-iso-low.cr3`  | Canon EOS R | **12 800** ⚠ | 4.0 | 0.004 | 24 mm | 6888 × 4546 | 6743 × 4499 | 2026-04-17 18:30:31 |
+| `eosr-iso-mid.cr3`  | Canon EOS R | **12 800** ⚠ | 4.0 | 0.004 | 24 mm | 6888 × 4546 | 6743 × 4499 | 2026-04-17 18:30:37 |
+| `eosr-iso-high.cr3` | Canon EOS R | **12 800** ⚠ | 4.0 | 0.004 | 24 mm | 6888 × 4546 | 6743 × 4499 | 2026-04-17 18:30:43 |
+| `sample.cr3`             | G5 X Mark II | 125  | 2.8 | 0.3 | 8.8 mm | 5632 × 3710 | 5495 × 3667 | 2026-04-15 21:18:45 *(siehe Hinweis)* |
+| `sample-tele.cr3`        | G5 X Mark II | 125  | 2.8 | 0.3 | 8.8 mm | 5632 × 3710 | 5495 × 3667 | 2026-04-15 21:18:51 |
+| `sample-wide.cr3`        | G5 X Mark II | 125  | 2.8 | 0.3 | 8.8 mm | 5632 × 3710 | 5495 × 3667 | 2026-04-15 21:18:57 *(siehe Hinweis)* |
+| `sample-iso-high.cr3`    | G5 X Mark II | 1600 | 2.8 | 0.3 | 8.8 mm | 5632 × 3710 | 5495 × 3667 | 2026-04-15 21:19:12 |
+| `sample-wb-tungsten.cr3` | G5 X Mark II | 1600 | 2.8 | 0.3 | 8.8 mm | 5632 × 3710 | 5495 × 3667 | 2026-04-15 21:19:26 |
+
+> ⚠ **Wichtigste neue Beobachtung:** alle drei `eosr-iso-*.cr3`-Dateien melden in EXIF identisch **ISO 12800** — der Dateiname suggeriert eine ISO-Variation, die im Korpus tatsächlich **nicht vorhanden** ist. Der Variations-Korpus für ISO existiert nur auf der G5 X II (125 ↔ 1600). Siehe §4.4.
+
+> *Hinweis:* `sample-tele.cr3`, `sample-wide.cr3`, `sample.cr3` haben dieselbe Brennweite 8.8 mm in EXIF, sind also vermutlich Burst-Frames mit gleicher Optik (siehe §4.1) — die Dateinamen `tele`/`wide` spiegeln nicht zwingend reale Brennweitenunterschiede wider.
+
+### 1.3 Preview / Thumbnail / Track-Layout
+
+Alle CR3-Dateien haben **dieselbe** 4-Track-Struktur:
+
+| trk | TrackType | Codec | Compression |
+|---|---|---|---|
+| 0 | `JPEG_BIG` (Full-size embedded JPEG) | `CRAW` (Container-Tag) | RAW_LOSSLESS |
+| 1 | `CRX_SMALL` (1624 × 1080 RAW-Preview) | `CRAW` | RAW_LOSSLESS |
+| 2 | `CRX_BIG`   (Sensor-RAW)              | `CRAW` | RAW_LOSSLESS |
+| 3 | `UNKNOWN` / Codec `CTMD` (Canon Timed Metadata) | — | — |
+
+PRVW: **alle** Fixtures haben dieselbe PRVW-Auflösung **1620 × 1080** (JPEG-Größe variiert je Bildinhalt: ~38–289 kB).
+THMB: **alle** Fixtures haben dieselbe THMB-Auflösung **160 × 120** (JPEG ~2.3–8.9 kB).
+
+### 1.4 CMP1 / CRX-Header pro Track
+
+#### CRX_SMALL-Track (alle Fixtures)
+
+| Feld | Wert |
+|---|---|
+| `imageWidth` × `imageHeight` | 1624 × 1080 |
+| `tileWidth` × `tileHeight`  | 1624 × 1080 (1 Tile) |
+| `bitsPerSample`             | 14 |
+| `numPlanes`                 | 4 |
+| `cfaLayout`                 | **1 = GRBG** |
+| `encodingType`              | 0 (lossless) |
+| `waveletLevels`             | 0 (kein Wavelet) |
+| `multipleHTiles`            | false |
+| `mdatHeaderSize`            | 112 |
+| `hasExtendedHeader`         | false |
+| `medianBitDepth`            | 0 |
+| Tile-Anzahl im CRX-Header   | 1 |
+| Plane-Anzahl pro Tile       | 4 |
+| Subband-Anzahl pro Plane    | 1 (Index 0, lossless LL) |
+| `quantValue` pro Subband    | **4** |
+| `roundedBits` pro Plane     | 0 |
+| `supportsPartial` pro Plane | true |
+| `supportsPartial` pro Subband | false |
+
+#### CRX_BIG-Track
+
+| Feld | EOS R | G5 X II |
+|---|---|---|
+| `imageWidth` × `imageHeight` | 6888 × 4546 | 5632 × 3710 |
+| `tileWidth` × `tileHeight`   | 3444 × 4546 (= W/2 horizontal split) | 2816 × 3710 (= W/2) |
+| `bitsPerSample`              | 14 | 14 |
+| `numPlanes`                  | 4 | 4 |
+| `cfaLayout`                  | **0 = RGGB** | **0 = RGGB** |
+| `encodingType`               | 0 | 0 |
+| `waveletLevels`              | 0 | 0 |
+| `multipleHTiles`             | false | false |
+| `mdatHeaderSize`             | 216 | 216 |
+| `hasExtendedHeader`          | false | false |
+| `medianBitDepth`             | 0 | 0 |
+| Tile-Anzahl im CRX-Header    | 2 | 2 |
+| Plane-Anzahl pro Tile        | 4 | 4 |
+| Subband-Anzahl pro Plane     | 1 (Index 0) | 1 (Index 0) |
+| `quantValue` pro Subband     | 4 | 4 |
+| `roundedBits` pro Plane      | 0 | 0 |
+| `supportsPartial` pro Plane  | true | true |
+| `supportsPartial` pro Subband| false | false |
+| **Beide Tiles tragen `tileIndex == 0`** (Header-Bug-fixed via `tileSequence`) | ✓ | ✓ |
+
+> **Kontrast CRX_SMALL ↔ CRX_BIG**: derselbe Sensor liefert in **CRX_SMALL** `cfaLayout = 1 (GRBG)` und in **CRX_BIG** `cfaLayout = 0 (RGGB)`. Das ist ein robust messbarer Unterschied, der bisher in noch keinem Test als Hypothese geprüft worden ist.
+
+### 1.5 IAD1 / aktive Fläche, OB-Bereiche
+
+| Datei | activeArea (L,T,R,B) | leftOB (L,T,R,B) | topOB (L,T,R,B) |
+|---|---|---|---|
+| EOS R (alle 3) – CRX_BIG | 144, 46, 6887, 4545 | 0, 0, 143, 4545 | 144, 0, 6887, 45 |
+| G5 X II (alle 5) – CRX_BIG | 120, 28, 5615, 3695 | 0, 0, 119, 3695 | 120, 0, 5615, 27 |
+
+Alle CRX_SMALL-Tracks haben einen leeren IAD1 (`activeArea` = 0,0,0,0) und nur den Crop-Rahmen — kein OB.
+
+### 1.6 Plane-Payload-Größen (Bytes)
+
+#### EOS R `eosr-iso-low.cr3` – CRX_BIG (repräsentativ; Tile-Größen variieren um ≤ 0.1% zwischen `low/mid/high`)
+
+| Tile | p0 | p1 | p2 | p3 | Σ Tile |
+|---|---:|---:|---:|---:|---:|
+| 0 | 4 474 168 | 4 614 360 | 4 617 984 | 4 554 688 | 18 261 200 |
+| 1 | 4 328 408 | 4 452 176 | 4 452 144 | 4 433 064 | 17 665 792 |
+
+Plane-Größen sind **nahezu symmetrisch** (alle ≈ 4.4 MB, max-min Δ ≈ 4 %). Tile 0 ist konsequent ~3 % größer als Tile 1.
+
+#### G5 X II `sample-iso-high.cr3` – CRX_BIG
+
+| Tile | p0 | p1 | p2 | p3 | Σ Tile |
+|---|---:|---:|---:|---:|---:|
+| 0 | 938 816 | 540 176 | 538 712 | 3 473 408 | 5 491 112 |
+| 1 | 1 018 720 | 532 392 | 532 056 | 3 461 808 | 5 544 976 |
+
+> **Stark asymmetrisch:** Plane 3 ist ~ 6.5× größer als Planes 1 / 2. Diese Asymmetrie tritt **bei jeder G5 X II-Datei** auf, **nicht** bei der EOS R. (Erstmalige strukturierte Beobachtung: das ist kein Tile- oder ISO-Effekt, sondern ein **Kamera-Modell**-Effekt.)
+
+#### G5 X II `sample-wb-tungsten.cr3` – CRX_BIG (gleiche Szene, andere WB)
+
+| Tile | p0 | p1 | p2 | p3 | Σ Tile |
+|---|---:|---:|---:|---:|---:|
+| 0 | 906 568 | 519 592 | 518 856 | 3 473 208 | 5 418 224 |
+| 1 | 980 624 | 500 392 | 500 008 | 3 451 288 | 5 432 312 |
+
+Plane-Größen Δ vs. `sample-iso-high.cr3` (gleiche Szene, ISO 1600, andere WB-Vorgabe): ≤ 4 %. **WB-Vorgabe in der Kamera ändert die CRX-Payload-Größe kaum** — erwartbar, da WB nur als Metadaten gespeichert wird.
+
+#### G5 X II `sample-tele.cr3` vs. `sample-wide.cr3` (vermutete Burst-Frames, ISO 125)
+
+| Datei | Σ CRX_BIG | p3 / mean(p1,p2) |
+|---|---:|---:|
+| `sample-tele.cr3` | 21 514 960 | 5.4× |
+| `sample-wide.cr3` | 21 481 549 (≈ tele) | 5.4× |
+| `sample.cr3`      | ≈ 19.4 M    | 5.4× |
+
+Alle drei ISO-125-Burst-Frames haben dieselbe asymmetrische p3-Dominanz und ähnliche Gesamtgröße (Δ ≤ 9 %).
+
+---
+
+## 2. Variabilitätsanalyse
+
+### 2.1 Felder ohne Variabilität im aktuellen Korpus
+
+| Feld | Wert (alle 8 CR3-Dateien) |
+|---|---|
+| `Cmp1Box.encodingType` | 0 |
+| `Cmp1Box.waveletLevels` | 0 (lossless) |
+| `Cmp1Box.bitsPerSample` | 14 |
+| `Cmp1Box.numPlanes` | 4 |
+| `Cmp1Box.multipleHTiles` | false |
+| `Cmp1Box.hasExtendedHeader` | false |
+| `Cmp1Box.medianBitDepth` | 0 |
+| `Cmp1Box.mdatHeaderSize` | 112 (small) / 216 (big) |
+| `CrxHeader.Subband.index` | 0 |
+| `CrxHeader.Subband.quantValue` | 4 |
+| `CrxHeader.Subband.supportsPartial` | false |
+| `CrxHeader.Plane.roundedBits` | 0 |
+| `CrxHeader.Plane.supportsPartial` | true |
+| `Cr3Track.compressionMode` | RAW_LOSSLESS |
+| `CncvBox` Codec-Major-Version | `CanonCR3_001` (V1-Marker ff01/ff02/ff03) |
+
+→ Das gesamte Korpus enthält **keine** Variation in: encType, waveletLevels, bps, numPlanes, multipleHTiles, hasExtendedHeader, medianBitDepth, quantValue, roundedBits, supportsPartial, codec-version. Hypothesen, die diese Felder benutzen, sind im aktuellen Korpus **nicht falsifizierbar**.
+
+### 2.2 Felder mit echter Aussagekraft
+
+| Feld | Beobachtete Variation |
+|---|---|
+| `Cmp1Box.imageWidth/Height`      | 1624×1080 / 5632×3710 / 6888×4546 |
+| `Cmp1Box.tileWidth/Height`       | gleich = 1 Tile, halbe Breite = 2 Tiles |
+| `Cmp1Box.cfaLayout`              | **0 (RGGB)** für alle CRX_BIG vs. **1 (GRBG)** für alle CRX_SMALL |
+| `Cr3Track.dataSize`              | 0.9–35 MB |
+| `CrxHeader.Tile.dataSize`        | 0.9 MB (small) … 18.3 MB (eos-r big) |
+| `CrxHeader.Plane.dataSize`       | sehr asymmetrisch bei G5 X II, symmetrisch bei EOS R |
+| `Iad1Box.activeArea*`            | unterschiedlich pro Sensor |
+| `Iad1Box.leftOb*` / `topOb*`     | EOS R: 144 px links + 46 px oben; G5 X II: 120 px + 28 px |
+| `Cr3Metadata.cameraModel`        | "Canon EOS R" / "Canon PowerShot G5 X Mark II" |
+| `Cr3Metadata.isoSpeed`           | 125 / 1600 (G5 X II); 12800 const (EOS R) |
+| `Cr3Metadata.captureDateTime`    | sekundengenau, identifiziert Burst-Frames |
+| Plane-Payload-Profile (p0/p1/p2/p3) | siehe §1.6 |
+
+### 2.3 Felder, die noch nie in Tests/Hypothesen verwendet wurden
+
+Aus der Codebasis verifiziert: in `CrxLosslessRawDecoder` und `EosRPipelineDiagnosticTest` werden tatsächlich **gelesen**: `cmp1.isLossless()`, `waveletLevels()`, `numPlanes()`, `tileWidth()`, `tileHeight()`, `mdatHeaderSize()`, `bitsPerSample()`, `subband.dataOffset()`, `subband.dataSize()`.
+
+**Bisher völlig ungenutzt** (extrahiert aber nirgends in Logik konsumiert):
+
+| Quelle | Feld | Warum interessant |
+|---|---|---|
+| `Cmp1Box` | `cfaLayout` (RGGB ↔ GRBG, real beobachtet zwischen big↔small Track) | Mosaikordnung wird heute hart aus Camera-Modell abgeleitet; CMP1 wäre die Quelle der Wahrheit |
+| `Cmp1Box` | `encodingType`, `medianBitDepth`, `hasExtendedHeader` | im Korpus konstant, aber Decoder validiert sie nicht |
+| `CrxHeader.Plane` | `roundedBits` | im Korpus immer 0; Decoder berücksichtigt es nirgends — Code-Pfad würde bei realen ≠0-Daten silently falsch dekodieren |
+| `CrxHeader.Plane` | `supportsPartial` | true vs. false unterscheidet die Hierarchie-Ebene; bisher nirgends ausgewertet |
+| `CrxHeader.Subband` | `quantValue` | konstant 4 im Korpus; in keinem Test dem Decoder als Quantizer übergeben |
+| `Iad1Box` | `leftOb*`, `topOb*` Bereiche (143×4545 px Spalte links bei EOS R) | echte OB-Pixel — bisher nutzt nur `ObBlackLevelEstimator.estimate(rawImage, activeAreaLeft)` die Spalten*zahl*, **nicht** die OB-Box des IAD1 |
+| `Iad1Box` | `cropLeft/Top/Right/Bottom` | im Decoder nirgends mit `metadata.visibleWidth/Height` konsistent kreuzgeprüft |
+| `Cr3Track` | `tileSequence` (in `SubbandExtractor` gem. memory-fact, hier aber nicht im realen Code) | im aktuellen Code-Stand existiert `SubbandExtractor` nicht; tile-collision auf `tileIndex==0` ist nie getestet |
+| Cross-file-Vergleich | EOS R liefert 3 Burst-Frames; Plane-Größen sind nicht verglichen worden | erlaubt Stabilitäts-/Rausch-Hypothesen ohne neue Captures |
+| Cross-file-Vergleich | G5 X II Burst (`sample` / `sample-tele` / `sample-wide`) gleiche EXIF | siehe oben |
+
+---
+
+## 3. Nutzung vorhandener Informationen
+
+### 3.1 Bereits ausgewertet
+
+| Information | Verwendet von |
+|---|---|
+| Container-Struktur (FTYP/MOOV/MDAT, Track-Liste) | `Cr3VariantVerificationTest`, `Cr3MetadataReader`, `RealSampleCr3Test`, `EosRCr3ValidationTest` |
+| PRVW + THMB Width/Height/Bytes | `Cr3VariantVerificationTest#containerStructure` |
+| EXIF: model/iso/f/t/mm/dt | `Cr3VariantVerificationTest#metadataExtraction` |
+| `Cmp1Box.imageWidth/Height/tileWidth/tileHeight/bitsPerSample/numPlanes/mdatHeaderSize` | `CrxLosslessRawDecoder.decode(...)` |
+| `Cmp1Box.isLossless()` (= waveletLevels==0) | `CrxLosslessRawDecoder` (Guard: only lossless) |
+| `CrxHeader.Subband.dataOffset/dataSize` | `CrxLosslessRawDecoder` (per-plane dispatch) |
+| `Iad1Box.activeAreaLeft` (nur die Spaltenzahl) | `EosRPipelineDiagnosticTest` → `ObBlackLevelEstimator.estimate(raw, activeAreaLeft)` |
+| Pipeline-Stufen (BlackLevel / WB / Demosaic / ColorMatrix / sRGB) end-to-end | `EosRPipelineDiagnosticTest`, `Cr3VariantVerificationTest#rawProcessedDecoding` |
+| Camera-Modell → Color-Matrix-Lookup | `CameraColorMatrixRegistry`, `ColorMatrixProcessor` |
+
+### 3.2 Extrahierbar, aber bisher **nicht** systematisch ausgewertet
+
+1. **`cfaLayout`-Diskrepanz CRX_BIG (RGGB) vs. CRX_SMALL (GRBG)** für ein und dieselbe Datei — kein Test prüft das, kein Decoder-Pfad nutzt CMP1 statt Modellname.
+2. **OB-Block-Geometrie aus `Iad1Box`** (`leftOb*` / `topOb*`-Boxen). Heute wird nur `activeAreaLeft` als Spaltenzahl benutzt; die vollständigen OB-Rechtecke (z. B. EOS R: `leftOb` 0..143 × 0..4545, `topOb` 144..6887 × 0..45) sind eine bessere Black-Level-Quelle und ungenutzt.
+3. **Per-Plane Payload-Größen-Profil**. Beobachtung: G5 X II Plane 3 ist ~6.5× größer als Plane 1/2; EOS R ist ~symmetrisch. Erklärt potenziell, warum heutige Decoder-Sweeps am G5 X II andere Σ|r|-Werte produzieren als an der EOS R — Plane-3-Dominanz heißt: pro-Plane-Bit-Budget muss kameraabhängig kalibriert werden.
+4. **EOS R Burst (3 Frames im Abstand von ~6 s, identische Szene/EXIF)**: bisher nirgends paarweise verglichen. Liefert kostenlosen "noise floor" für jede Pixel-für-Pixel-Hypothese (Rauschen sollte das einzige Differential sein).
+5. **G5 X II Burst (`sample`/`sample-tele`/`sample-wide`, ISO 125, 6 s Spanne)** — analog, nie verglichen.
+6. **`captureDateTime` als Burst-Detektor** — Testinfrastruktur identifiziert diese Frame-Paare nicht.
+7. **`quantValue == 4` korpus-konstant**: bisher in keinem Decoder-Test als Argument übergeben. Solange das Korpus keine `quantValue ≠ 4`-Datei enthält, ist jede `K_INIT = quantValue`- vs. `K_INIT = const4`-Hypothese nicht trennbar.
+8. **CRX-Header `tileIndex == 0` für beide Tiles** (Header-Bug oder spec). In keinem Test geprüft; kein Code-Pfad warnt. Decoder-Routing per `tileSequence` (Ordinal) statt `tileIndex` ist eine offene Korrektheitsfrage.
+9. **PRVW-JPEG bei gleicher Auflösung 1620×1080 für alle Modelle** — als Ground-Truth-Referenz bei Pearson-r-Auswertungen wird die PRVW-Größe nicht überprüft (z. B. ob sie räumlich exakt zur CRX_SMALL-Ebene passt — `1620 ≠ 1624`!).
+10. **`PRVW.width = 1620` vs. `CRX_SMALL.imageWidth = 1624`**: 4-Pixel-Diskrepanz, die in keinem Test sauber kalibriert ist.
+11. **`Cmp1Box.tileWidth = imageWidth/2`** für CRX_BIG ist die einzige Quelle für die "2-Tiles"-Aufteilung — nirgends als Pre-Decode-Invariante geprüft.
+
+### 3.3 Felder, die im Korpus nicht prüfbar sind
+
+(Im Korpus konstant — kein Test, der mit diesen Werten arbeitet, kann sie heute negativ falsifizieren.)
+
+`encodingType=0`, `waveletLevels=0`, `bps=14`, `numPlanes=4`, `multipleHTiles=false`, `hasExtendedHeader=false`, `medianBitDepth=0`, `roundedBits=0`, `supportsPartial(subband)=false`, `quantValue=4`, CNCV-Major `CanonCR3_001` (V1).
+
+→ Für jede dieser Eigenschaften brauchen wir mindestens **ein** Fixture mit dem abweichenden Wert, um Decoder-Verhalten testen zu können. Siehe §6.
+
+---
+
+## 4. Cross-File-Strukturvergleich
+
+### 4.1 Gleiche Kamera, gleiche Szene, benachbarte Frames
+
+| Gruppe | Kamera | Frames | EXIF identisch | Plane-Größe Δ |
+|---|---|---|---|---|
+| `eosr-iso-{low,mid,high}.cr3` | EOS R | 3 (`18:30:31`, `:37`, `:43`, ~ 6 s) | model, iso, f, t, mm, sensor | ≤ 0.4 % pro Plane (siehe §1.6) |
+| `sample.cr3` / `sample-tele.cr3` / `sample-wide.cr3` | G5 X II | 3 (`21:18:45`, `:51`, `:57`) | model, iso=125, f, t, mm | ≤ 9 % Σ Tile |
+
+**Konsequenz**: pixelweise Differenzbild zweier Burst-Frames würde nahezu nur Rauschen enthalten und ist eine kostenlose Validierungs-Achse für jeden Pixel-Decoder.
+
+### 4.2 Gleiche Kamera, unterschiedliche ISO
+
+Nur G5 X II hat reale ISO-Variation: ISO 125 (`sample*.cr3`) ↔ ISO 1600 (`sample-iso-high.cr3`, `sample-wb-tungsten.cr3`).
+EOS R hat keine ISO-Variation im Korpus (alle ISO 12800).
+
+ISO 125 → ISO 1600 ändert die G5 X II CRX_BIG-Größe nicht systematisch (Σ Tile sample-iso-high = 5.49 + 5.54 MB ≈ 11 MB; sample-wide = 21.5 MB — der Faktor 2 erklärt sich nur teilweise durch ISO; die `sample-iso-high.cr3`-Datei ist ~½ so groß, weil sie vermutlich einfacher entropie-kodierbar ist (weniger Detail / mehr Sättigung), nicht weil das ISO direkt die Compression-Rate steuert).
+
+### 4.3 Gleiche Kamera, gleiche Szene, unterschiedliche WB
+
+`sample-iso-high.cr3` (ISO 1600, Auto-WB) vs. `sample-wb-tungsten.cr3` (ISO 1600, Tungsten):
+
+| Plane | iso-high | wb-tungsten | Δ % |
+|---|---:|---:|---:|
+| Tile0 p0 | 938 816 | 906 568 | −3.4 % |
+| Tile0 p1 | 540 176 | 519 592 | −3.8 % |
+| Tile0 p2 | 538 712 | 518 856 | −3.7 % |
+| Tile0 p3 | 3 473 408 | 3 473 208 | −0.0 % |
+
+→ WB-Voreinstellung beeinflusst die rohe CRX-Payload nur **marginal** (RAW ist by-construction WB-unabhängig); die kleinen Differenzen erklären sich durch leicht unterschiedliche AE/Sensorrauschen zwischen den 14 Sekunden Aufnahme­abstand. **Bestätigt**: `sample-wb-tungsten.cr3` testet keine Decoder-Logik, sondern nur die WB-Multiplier-Pipeline (Stage 2).
+
+### 4.4 Unterschiedliche Kameras
+
+| Aspekt | EOS R | G5 X II |
+|---|---|---|
+| Sensor | 6888 × 4546 (Vollformat) | 5632 × 3710 (1″) |
+| CMP1 für CRX_BIG | identisch (encType, waveletLevels, bps, planes, mdatHdr, cfa=RGGB) bis auf imageWidth/Height/tileWidth | dito |
+| Plane-Symmetrie | symmetrisch (~4 % Δ) | stark asymmetrisch (p3 ≈ 6.5× p1/p2) |
+| OB-Geometrie | links 144 px, oben 46 px | links 120 px, oben 28 px |
+| ISO im Korpus | nur 12800 | 125 und 1600 |
+| Anzahl Bursts | 1 (3 Frames) | 1 (3 Frames `sample*`) + 2 Einzelaufnahmen |
+
+### 4.5 RAW vs. C-RAW
+
+> **Korrektur 2026-05-15**: die ursprüngliche Aussage "im Korpus existiert keine C-RAW (lossy) Datei" galt nur für die 8 Top-Level-Fixtures in `samples/`. Im **`samples/research/`-Unterordner** (siehe §8, durch Rebase auf `origin/main` hinzugekommen) liegen **zwei echte C-RAW Bursts** der G5 X II — `g5xm2-detail-iso1600-…-iq3-…02.cr3` und `…-03.cr3` — mit `compressionMode = CRAW_LOSSY`, `waveletLevels = 3`, 10 Subbänder/Plane, `quantValue ∈ {4, 16, 22, 26, 32}`. Das schließt die wichtigste Korpus-Lücke des ursprünglichen Audits (siehe Korrektur in §5 und Folgen in §8).
+
+Die 8 Top-Level-Fixtures bleiben jedoch unverändert alle lossless: `compressionMode = RAW_LOSSLESS`, `cmp1.encodingType = 0`, `cmp1.waveletLevels = 0`.
+
+---
+
+## 5. Lücken im Korpus
+
+Konkrete Konfigurationen, die für eine vollständige CRX-Decoder-Validierung **fehlen**:
+
+| Lücke | Warum kritisch | Welches CMP1-Feld würde variieren |
+|---|---|---|
+| **C-RAW (lossy)** Datei einer beliebigen Kamera | ~~Lossy-Codec-Pfad ist nicht abgedeckt~~ **GESCHLOSSEN durch `samples/research/g5xm2-detail-…-iq3-…02.cr3` und `…-03.cr3`** (siehe §8). | `encodingType = 0`, `waveletLevels = 3`, 10 Subbänder, `quantValue ∈ {4,16,22,26,32}` ✓ vorhanden |
+| **CanonCR3_002**+ Datei (z. B. R5, R6, 1DX III) | V2-Marker-Pfad (ff11/ff12/ff13) ist nirgends mit echten Daten getestet | `CncvBox.codecVersion()`, marker-Bytes |
+| **EOS R bei ISO 100/400/3200** | Bisher nur ISO 12800 — keine ISO-Variation für Vollformat | `Cr3Metadata.isoSpeed`, OB-Statistik |
+| **Datei mit `hasExtendedHeader=true`** (R5/R3 HDR-Modi) | Extended-Header-Parsing-Pfad ist mit echten Daten ungetest | `extendedHeaderSize`, `medianBitDepth` |
+| **Datei mit `multipleHTiles=true`** | Multi-H-Tile-Layout ungetest | `multipleHTiles`, abweichende Tile-Anzahl |
+| **Datei mit `roundedBits ≠ 0`** | ungetestet | `Plane.roundedBits` |
+| **Datei mit Subband-Index > 0** (lossy) | nur Subband 0 im Korpus | `Subband.index` |
+| **Identische Szene mit beiden Kameras** | erlaubt direkten kamera-übergreifenden Vergleich | n/a |
+
+---
+
+## 6. Antworten auf die Schlüsselfragen
+
+### 6.1 *Haben wir aus den vorhandenen CR3-Testdateien bereits alle wesentlichen verfügbaren Informationen genutzt?*
+
+**Nein.** Vom Produktionscode werden ~40 % der pro Datei extrahierbaren CMP1/CRX/IAD1-Felder konsumiert. Die übrigen 60 % werden zwar geparst (gut!), aber nirgends als Hypothesen-Eingang oder Korrektheits-Invariante verwendet.
+
+### 6.2 *Was genau noch nicht?*
+
+Konkret nicht ausgewertet (Kurzliste, Details in §3.2):
+
+1. `Cmp1Box.cfaLayout` als Mosaik-Quelle — heute hart aus Modellname.
+2. `Cmp1Box.encodingType / medianBitDepth / hasExtendedHeader` als Decoder-Validierung.
+3. `CrxHeader.Plane.roundedBits` und `supportsPartial` werden nirgends geprüft.
+4. `CrxHeader.Subband.quantValue` wird im Lossless-Pfad ignoriert.
+5. `Iad1Box.leftOb* / topOb*`-Boxen — nur `activeAreaLeft` (Spaltenzahl) wird benutzt.
+6. **Cross-File-Vergleich** der drei EOS R Burst-Frames (Σ Tile-Differenz < 0.4 %) — kein Test schöpft das aus.
+7. **Cross-File-Vergleich** der G5 X II `sample`/`sample-tele`/`sample-wide`-Burst-Triade.
+8. **Plane-Größen-Asymmetrie p3 ≫ p1,p2 bei G5 X II** vs. Symmetrie bei EOS R — bisher unbemerkter Modell-spezifischer Header-Unterschied (relevant für jedes pro-Plane-Bit-Budget).
+9. **`tileIndex == 0` für beide Tiles**: nicht als Header-Anomalie validiert.
+10. **CRX_BIG cfaLayout=RGGB ↔ CRX_SMALL cfaLayout=GRBG für dieselbe Datei**: noch nirgends als Decoder-Hypothese genutzt.
+11. **`PRVW.width=1620 ≠ CRX_SMALL.imageWidth=1624`**: unkalibrierte 4-Pixel-Differenz für jeden Pearson-r-Vergleich PRVW↔CRX_SMALL.
+12. **EXIF-`isoSpeed` für EOS R ist konstant 12800** — bisher nicht als Korpus-Lücke dokumentiert; Hypothesen, die ISO-Abhängigkeit testen, können das EOS-R-Trio nicht unterscheiden.
+
+### 6.3 *Welche 3 nächsten Schritte bringen mit dem bestehenden Korpus den größten zusätzlichen Erkenntnisgewinn?*
+
+**Schritt 1 — Burst-Frame-Differenz als Validierungsachse einführen**
+*(reine Test-/Research-IT, kein Produktionscode)*
+Vergleiche `eosr-iso-low/mid/high.cr3` paarweise pixelweise (PRVW JPEG decodiert + CRX_SMALL Plane-Bytes nach Decoder-Hypothese). Bursts sind 6 s auseinander, EXIF identisch → Δ ≤ Sensorrauschen. Jede Decoder-Variante, die zwischen Bursts mehr Δ produziert als das echte Photonen-Rauschen, ist falsifiziert. Analog für `sample/sample-tele/sample-wide`. **Erwarteter Gewinn**: erstes formales Korrektheits-Kriterium, das **unabhängig** von einer Ground-Truth ist.
+
+**Schritt 2 — `cfaLayout` als Hypothesen-Differenzierer ausnutzen**
+Für **jede** CR3-Datei liefert CMP1 zwei verschiedene `cfaLayout`-Werte: 0 (RGGB) für CRX_BIG, 1 (GRBG) für CRX_SMALL. Das sind zwei verschiedene Bayer-Reihenfolgen am gleichen Sensor. Test: pro Datei Plane-Permutation und CFA-Layout-Hypothese gemeinsam scannen — Decoder, die die GRBG-Variante (1620×1080-Klasse) korrekt rekonstruieren, müssen automatisch auch den RGGB-Pfad abdecken. **Erwarteter Gewinn**: schließt die im Memory beschriebene tile0/tile1-Plane-K-init-Asymmetrie potenziell, weil sie evtl. nur ein verstecktes CFA-Layout-Mismatch ist.
+
+**Schritt 3 — Plane-Bit-Budget pro Kamera kalibrieren, nicht pro Hypothese**
+Die G5 X II hat strukturell `bytes(p3) ≈ 6.5 · bytes(p1)`, die EOS R `bytes(pi) ≈ const`. Jeder K-Init/K-Adaptations-Test, der einen **modell-unabhängigen** k-Wert sucht, ist deshalb verloren. Stattdessen: pro Datei `bits-per-pixel` aus `Plane.dataSize / planePixelCount` ableiten und als **Eingabe** der K-Init-Heuristik testen (z. B. `K_INIT = round(bpp(plane) − bpp(plane0))`). **Erwarteter Gewinn**: trennt zum ersten Mal "Decoder hat falschen K" von "K war von Anfang an plane-/kamera-spezifisch". Verwendet ausschließlich bereits geparste Header-Felder.
+
+---
+
+## 7. Reproduktion
+
+Das in §1 / §1.6 zitierte Inventar lässt sich aus den Fixtures jederzeit mit dem produktiven Parser-Stack ohne neue Module reproduzieren:
+
+```java
+// Pseudocode
+Cr3Container c = Cr3Parser.parse(in);
+String cncv = c.cncvBox().versionString();
+for (Cr3Track t : c.tracks()) {
+    Cmp1Box cmp1 = t.cmp1();           // CMP1-Felder
+    Iad1Box iad1 = t.iad1();           // OB / Active-Area
+    if (cmp1 != null && t.dataSize() > 0) {
+        byte[] head = readPrefix(file, t.dataOffset(), 4096);
+        CrxHeader hdr = CrxHeader.parse(head, CrxHeader.detectVersion(cncv));
+        // hdr.tiles() → tile.planes() → plane.subbands(): dataSize, quantValue, ...
+    }
+}
+Cr3Metadata m = new Cr3Decoder().setInput(in).getMetadata();
+```
+
+Empfehlung: dieses Inventar nicht als Produktions-Pfad, sondern als reine Research-Testklasse `CrxFixtureInventoryIT` ergänzen, die das obige `tsv` als Test-Output schreibt. Damit ist die Audit-Tabelle in §1 jederzeit automatisch aktuell, sobald neue Fixtures hinzukommen — und kann in CI als Wegweiser für die Korpus-Lücken aus §5 dienen.
+
+---
+
+## 8. Nachtrag (2026-05-15) — `samples/research/`-Korpus & neue Tests aus `main`
+
+Dieser Abschnitt korrigiert die §1- und §4.5-Aussagen des ursprünglichen Audits und fasst die Resultate der seit Branch-Abzweig (Commit `208964e`, 2026-04-29) auf `main` hinzugekommenen 25 Research-ITs zusammen. Der Branch wurde am 2026-05-15 auf `origin/main` rebased; alle hier genannten Werte sind empirisch verifiziert über `cr3-cli list-subbands` / `dump-raw-layout` und über `mvn -B verify -pl canon-cr3-imageio -am -Dit.test=…`.
+
+### 8.1 Inventar der research-Fixtures
+
+Im Unterordner `canon-cr3-imageio/src/test/resources/samples/research/` liegen 5 zusätzliche G5 X II Fixtures (`manifest.tsv` dokumentiert ISO/Tv/Av aus dem PTP-Capture-Tooling, **außerhalb** der EXIF):
+
+| Datei | Phase | ISO | Bytes | CRX_BIG-Compression | `waveletLevels` | Subbands/Frame | `quantValue` |
+|---|---|---:|---:|---|---:|---:|---|
+| `g5xm2-asis-iso200-ss130-ff2p5-01.cr3` | `asis` | 200 | 18 153 416 | RAW_LOSSLESS | 0 | 8 | {4} |
+| `g5xm2-dark-iso125-ss160-ff7p1-…-02.cr3` | `dark` (Lens-Cap) | 125 | 11 391 796 | RAW_LOSSLESS | 0 | 8 | {4} |
+| `g5xm2-flat-iso1600-ss0p4s-ff1p6-…-02.cr3` | `flat` | 1600 | 1 019 330 ⚠ | RAW_LOSSLESS | 0 | 8 | {4} |
+| `g5xm2-detail-iso1600-…-iq3-…02.cr3` | `detail` | 1600 | 11 053 010 | **CRAW_LOSSY** | **3** | **80** | **{4, 16, 22, 26, 32}** |
+| `g5xm2-detail-iso1600-…-iq3-…03.cr3` | `detail` | 1600 | 11 180 523 | **CRAW_LOSSY** | **3** | **80** | **{4, 16, 22, 26, 32}** |
+
+> ⚠ Die `flat`-Aufnahme ist mit ~1 MB **drastisch** kleiner als alle anderen Fixtures (~11–25 MB) — sehr glatter Bildinhalt, der die Entropie-Codierung extrem komprimiert. Dieser Fall ist eine eigene Variabilitäts-Achse und im FlatFixtureLosslessDecoderIT bereits diagnostisch ausgewertet (siehe §8.4).
+
+### 8.2 Warum scheinen die `asis` / `dark` / `flat`-Aufnahmen lossless zu sein, obwohl die G5 X II auf C-RAW gestellt war?
+
+Der `samples/research/README.md` (Sektion *"Capturing C-RAW (lossy CRX) fixtures — strongly desired"*) und die filenamen-Konvention klären das:
+
+* Der **Bildqualitäts-Modus** wird im Filename-Token `iqXXXXXXXX` aus dem Canon-EOS-Property `0xD108 ImageQuality` (raw-Wert hex) eingebettet. **`iq3`** = `0x10130003 = C-RAW`; **kein `iq…`-Token** = die Eigenschaft war zur Aufnahme noch nicht via PTP zurückgemeldet.
+* Die drei Aufnahmen ohne `iq3`-Token (`asis-…01.cr3`, `dark-…02.cr3`, `flat-…02.cr3`) wurden vom 2026-05-04 PTP-Capture-Lauf erfasst, **bevor** ImageQuality über PTP zuverlässig sichtbar war — und das Capture-Tooling konnte zu diesem Zeitpunkt das Property nicht über USB **schreiben** (das `README.md` dokumentiert: `0xD108`-Writes wurden auf der G5 X II vom Body abgewiesen, ebenso wie `0xD101 Av`, `0xD102 Tv`, `0xD103 ISO`). Die Body-Einstellung war zu diesem Zeitpunkt also noch **RAW lossless**, nicht C-RAW — auch wenn der Operator das Menü der Kamera geändert haben sollte, ist die effektive Aufnahme-Konfiguration dieser drei Frames laut Container-Metadaten lossless.
+* Die zwei `detail-…-iq3`-Aufnahmen vom 2026-05-11 sind die **ersten echten C-RAW Fixtures im Korpus**. Filename-Token `iq3` matcht `imageQualityRaw=0x3` aus dem manifest, und die Container-Metadaten bestätigen es: `CRAW_LOSSY`, `waveletLevels=3`, `q ∈ {4,16,22,26,32}`. Das `manifest.tsv` weist diese zwei Frames daher auch korrekt mit `imageQualityRaw=0x3` aus, während die anderen drei Zeilen `-` (unbekannt) tragen.
+
+> Kurzform: Die Bilder *sind* nicht versehentlich lossless geworden — die mode-Umstellung auf C-RAW hat erst beim `detail`-Capture vom 2026-05-11 funktioniert; die früheren drei `asis`/`dark`/`flat`-Aufnahmen wurden tatsächlich noch im RAW-lossless-Modus geschossen. Das `manifest.tsv` dokumentiert das in der `imageQualityRaw`-Spalte konsistent.
+
+### 8.3 Ergänzung zu §1.4 — neue, im ursprünglichen Audit fehlende Header-Beobachtungen
+
+Diese Fakten **fallen aus** dem alten Audit, weil dort `quantValue` und `waveletLevels` nur den 8 lossless-Fixtures entnommen wurden:
+
+* `cmp1.encodingType` ist auf den C-RAW Fixtures **0**, **gleich** wie auf allen lossless-Fixtures — die alte §5-Lückenliste behauptete fälschlich `encodingType ≠ 0` als C-RAW-Marker. **Tatsächlich diskriminierend ist `cmp1.waveletLevels`** (`0` lossless ↔ `3` C-RAW) und die Subband-Anzahl pro Plane (`1` lossless ↔ `1 + 3·waveletLevels = 10` C-RAW).
+* `quantValue` variiert auf C-RAW pro Subband-Position innerhalb einer Plane in der monotonen Folge `4, 4, 4, 4, 16, 16, 22, 26, 26, 32`. Die ersten 4 Subbänder (LL + drei Subbänder der ersten Wavelet-Level) bleiben bei `q=4`, danach steigt `q` mit jeder höheren Wavelet-Stufe. Das ist **erstmals in einem committed Fixture** beobachtbar.
+* `cfaLayout` für CRX_BIG bleibt auch in der C-RAW-Variante `0=RGGB`, CRX_SMALL bleibt `1=GRBG` — also kein neuer Wert, aber auch kein Bruch der §2.2-Hypothese.
+* `Subband.fileOffset / size` belegen, dass alle 80 C-RAW Subbänder strikt sequenziell und nicht-überlappend im `mdat`-Bereich liegen — der `SubbandExtractor` muss daher pro `(tile, plane, sb-index)` korrekt adressieren; mit `tileSequence` (siehe Memory) als ordinaler Tile-Disambiguator ist das gegeben.
+
+### 8.4 Was tragen die neuen Tests von `main` zu den offenen Fragen bei?
+
+25 neue Research-IT-Klassen sind seit `208964e` auf `main` gelandet (alle unter `canon-cr3-imageio/src/test/java/.../research/`). Vier davon wurden gegen das aktuelle Korpus inkl. `samples/research/` ausgeführt (Befehl: `mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true "-Dit.test=CrawLossyBringUpIT,CrxPlaneFollowupRound9IT,DarkFixtureLosslessDecoderIT,FlatFixtureLosslessDecoderIT" -Dsurefire.failIfNoSpecifiedTests=false -Dtest=NoSuchTest`, BUILD SUCCESS in 7.5 s, 4/4 Tests grün):
+
+**`CrawLossyBringUpIT`** — scant rekursiv alle 13 CR3-Dateien (8 Top-Level + 5 in `research/`), findet die 2 C-RAW Fixtures, validiert `waveletLevels=3 / 80 Subbänder / bitDepth=14`, ruft `CrxLossyDecoder.decode()` auf und assertet die noch-blockierte Fehlermeldung *"C-RAW (lossy) decoding is not yet fully implemented. […] Header and subband structure validated successfully. IDWT infrastructure is ready (Le Gall 5/3). Remaining: entropy decoding integration, dequantization formula, subband ordering confirmation."* Das schließt die §5-Lücke "Lossy-Codec-Pfad ist nicht abgedeckt" für **Header- und Container-Layer**, lässt sie aber für **Pixel-Dekodierung** explizit dokumentiert offen.
+
+**`CrxPlaneFollowupRound9IT`** — sweep auf den 160 C-RAW-Subbändern. Resultat:
+
+| `q` | Anzahl Subbänder | `med(optK)` | `med(bps@K_INIT=q)` |
+|---:|---:|---:|---|
+| 4 | 64 | **0.00** | 4.45 ± 0.05 |
+| 16 | 32 | **0.00** | **∞** (Bitstream-Overrun im ersten Symbol) |
+| 22 | 16 | **0.00** | **∞** |
+| 26 | 32 | **0.00** | **∞** |
+| 32 | 16 | **0.00** | **∞** |
+
+→ **`K_INIT = 0`** ist auf 100 % der 160 Subbänder optimal. Das **falsifiziert** die Round-7-Hypothese `K_INIT = CMP1.quantValue` (bzw. die in den Memories noch zitierte "first positive empirical link between CMP1 header and CRX entropy state"-Beobachtung) — sie war ein zirkuläres Artefakt, weil alle damals untersuchten Fixtures `q = 4` hatten und `K = 4` nach dem ersten patent-bracket-Schritt zu `K = 0` zerfällt. Der Produktionscode benutzt bereits `int k = 0;` (`CrxLosslessRawDecoder.java:406`); Round-9 hat diese Wahl jetzt empirisch bestätigt — keine Code-Änderung erforderlich.
+
+**`DarkFixtureLosslessDecoderIT`** & **`FlatFixtureLosslessDecoderIT`** — laufen den produktiven `CrxLosslessRawDecoder` über die `dark` / `flat` G5 X II Fixtures und loggen pro Plane den Plane-Median, den 64-LSB-Mode-Bucket, Std-Dev, sowie den Anteil der Pixel innerhalb ±1024 / ±256 LSB des Modes. Aktueller Stand auf der `flat`-Aufnahme:
+
+| Plane (pos) | median | mode | ±1024 | std-dev | Soll (post-fix) |
+|---|---:|---:|---:|---:|---|
+| `plane[0]` (0/0) | 4916 | 16320 | 0.106 | 5644 | mode ≈ Mid-grey, ±1024 ≥ 0.5 |
+| `plane[1]` (0/1) | 4311 | 16320 | 0.197 | 5895 | mode ≈ Mid-grey, ±1024 ≥ 0.5 |
+| `plane[2]` (1/0) | 1805 | 16320 | 0.194 | 6373 | mode ≈ Mid-grey, ±1024 ≥ 0.5 |
+| `plane[3]` (1/1) | **284** | **0** | **0.656** | 6727 | mode ≈ OB pedestal, ±1024 ≥ 0.5 ✓ |
+
+→ **Eine** der vier Planes (`plane[3]`) wird vom aktuellen produktiven Lossless-Decoder **bereits beinahe korrekt** dekodiert (Median 284 ≈ OB-Pedestal, Mode bei 0, 65.6 % der Pixel innerhalb ±1024 LSB des Modes). Die anderen drei Planes bleiben am Sättigungspunkt (Mode bei 16320) — das ist der bekannte Entropy-Lock-Loss-Bug aus dem `samples/research/README.md` (Update p), nicht ein Plane-Adressierungs-Problem.
+
+Auf der `dark`-Aufnahme dominiert über alle vier Planes der Mode 16320 (kein Plane korrekt) — burst-mean ±1024 ≈ 0.386, Soll ≥ 0.80. Ground-Truth-Schwellen sind in den ITs als "future patent-spec swap should drive this above 0.80" als Log-Statement, nicht als hard-fail-Assertion eingebaut → die Tests **scheitern derzeit absichtlich nicht**, dokumentieren aber den Status.
+
+### 8.5 Ist der CR3-Import-Status unverändert?
+
+**Ja, im wesentlichen unverändert** — mit zwei *empirisch jetzt bestätigten* Detail-Korrekturen:
+
+| Pipeline-Stufe | Status vor diesem Audit | Status nach Rebase + neuen Tests | Δ |
+|---|---|---|---|
+| Container-Parser (`Cr3Parser`, BMFF, Boxes) | funktional, deckt RAW lossless + C-RAW Header ab | unverändert, jetzt empirisch auch auf C-RAW Fixtures bestätigt durch `CrawLossyBringUpIT` | — |
+| CMP1 / IAD1 / CrxHeader Parsing | funktional | unverändert; `waveletLevels=3`, 80 Subbänder, `q ∈ {4..32}` der C-RAW Fixtures werden korrekt geparst | — |
+| Lossless-Decoder (`CrxLosslessRawDecoder`) | dekodiert, aber mit ~3 von 4 Planes gesättigt am Top-Level | **predictor-seed-Fix** `1<<(bd-1) → 0` ist seit Commit `f0b271e` (Update p) bereits in Production; eine Plane jetzt near-correct, drei weiterhin gesättigt durch Entropy-Lock-Loss-Bug | **leichte Verbesserung** |
+| `K_INIT = CMP1.quantValue` Hypothese | als "first positive empirical link" kandidiert (Memories) | von Round-9 **falsifiziert** auf den C-RAW Fixtures; Production benutzt bereits `K_INIT = 0`, korrekt | **alte Memories obsolet** |
+| Lossy-Decoder (`CrxLossyDecoder`) | nicht implementiert | unverändert nicht implementiert; Header-Validierung & IDWT-Infrastruktur fertig, Entropy/Dequant/Subband-Order fehlen | — |
+| Subband-Korrelation Decoder ↔ PRVW (Pearson r) | max \|r\| ≈ 0.56 (Round 8), Schwelle 0.7 | Round-12/13 erschöpfen ground-truth-frei den Hypothesenraum bei max \|r\| = 0.6573; nächster Meilenstein laut README: LibRaw-JNI-Pipeline für echte Pixel-Ground-Truth | **harte Decken-Erkenntnis**, kein qualitativer Fortschritt |
+
+### 8.6 Folgen für §6.3 (nächste Schritte)
+
+* **§6.3 Schritt 1 (Burst-Frame Δ als Validierungsachse)** wird durch das `detail-…02.cr3 / …03.cr3`-Paar im research-Ordner sogar noch belastbarer: die `manifest.tsv` dokumentiert `iso=1600 / shutter=0.4s / aperture=f/1.6` für **beide** Frames identisch, und im Gegensatz zur EXIF-only-Belegung der EOS-R-Bursts steht die Belichtung hier außerhalb der EXIF stabil im manifest. **Empfehlung unverändert**, aber das C-RAW-Burst-Paar wird zur primären Achse statt der EOS-R-Triade.
+* **§6.3 Schritt 2 (`cfaLayout` als Hypothesen-Differenzierer)** unverändert relevant — die research-Fixtures zeigen denselben CRX_BIG=RGGB ↔ CRX_SMALL=GRBG-Split.
+* **§6.3 Schritt 3 (Plane-Bit-Budget pro Kamera kalibrieren)** wird durch `CrawLossyBringUpIT`s Per-Plane-Subband-Größen-Log direkt fütterbar — die G5 X II Plane-3-Asymmetrie ist auch im C-RAW (419 kB Plane 3 vs. 100 kB Plane 1) erhalten, also ist Plane-spezifisches Bit-Budget eine Eigenschaft des **Sensors**, nicht des Codec-Modus.
+
+Zusätzlich aus den neuen Tests abgeleitete vierte Empfehlung:
+
+* **§6.3 Schritt 4 (LibRaw-JNI Ground-Truth Pipeline)** — explizit als nächster Meilenstein aus Round-13 (Update o, `samples/research/README.md`) markiert, sobald die ground-truth-freien Sweeps an der \|r\|=0.66-Decke ankommen. Erst dann lassen sich die `Dark-/FlatFixtureLosslessDecoderIT`s als pixel-exakte Regressionstests aktivieren statt als Diagnostik-Logger.
+
+## 9. Nachtrag (2026-05-15) — Vier priorisierte Arbeitspakete (WP1–WP4) ohne Produktionsänderungen
+
+Vier neue Research-ITs in `canon-cr3-imageio/src/test/java/.../research/`:
+`BurstFrameStabilityIT`, `CrxSmallVsPrvwGeometryIT`, `Iad1OpticalBlackProfileIT`,
+`FixtureIntelligenceReportIT`. Alle Asserts sind diagnostisch (Container/Datei-
+Existenz, keine numerischen Schwellenwerte am decoder), so dass die Tests gegen
+den heutigen approximativen Decoder grün bleiben und gleichzeitig die
+Bewertungsbasis ersetzen, ohne dass eine einzige Zeile Produktionscode
+verändert wurde.
+
+### 9.1 WP4 — Fixture-Intelligence-Report (Foundation)
+
+`FixtureIntelligenceReportIT` schreibt
+`canon-cr3-imageio/target/fixture-intelligence/{fixtures.tsv,fixtures.md}`
+mit einer Zeile pro CR3 (camera, RAW/C-RAW, quantValue-Menge, waveletLevels,
+cfaLayout numerisch + Name, numPlanes, tilesPerFrame, subbandsPerFrame, OB-
+Geometrie, CRX_BIG/CRX_SMALL/PRVW/THMB-Geometrie, Burst-Gruppe, Novelty).
+
+**Strukturklasse = `(compression, waveletLevels, quantValues, cfaLayout, numPlanes, tilesPerFrame)`** — eine Zeile bekommt das Tag `NEW`, wenn sie eine zuvor unbekannte Strukturklasse einbringt, sonst `BURST` (Mitglied einer schon gesehenen echten Burst-Gruppe) oder `DUP` (rein redundant).
+
+Ergebnis über die heutigen 13 Fixtures:
+
+| Novelty | Anzahl | Repräsentanten |
+|---|---:|---|
+| `NEW`   | 2 | `eosr-iso-high.cr3` (Lossless q=4), `g5xm2-detail-…iq3-…02.cr3` (C-RAW q∈{4,16,22,26,32}) |
+| `BURST` | 1 | `g5xm2-detail-…iq3-…03.cr3` |
+| `DUP`   | 10 | alle übrigen sample/eosr-iso/research-Frames |
+
+**Zentrale negative Aussage**: Trotz 13 CR3-Dateien gibt es im gesamten
+Korpus genau **zwei** echte CRX-Strukturklassen und **eine** echte Burst-
+Gruppe. Weitere breite Decoder-Sweeps gegen denselben Bitstrom liefern keine
+neuen Informationen. **Das ist exakt das Ergebnis, das die Stoppanweisung
+voraussagt.**
+
+### 9.2 WP1 — Burst-Frame-Stabilität als neue Hauptmetrik
+
+`BurstFrameStabilityIT` paart benachbarte Burst-Frames und berechnet pro
+Bayer-Plane Pearson r, MAE, MSE, Row-/Col-R und 16×16-Block-R, geschrieben
+nach `target/burst-stability/burst.tsv`.
+
+**Tightened Burst-Key**: Nur Dateien, die `camera|scene|exposure|runId`
+exakt teilen und sich nur in der angehängten `-NN`-Sequenznummer
+unterscheiden, gelten als Burst-Frames. Die historischen `sample-tele/-wide`
+und die `eosr-iso-{low,mid,high}` sind damit korrekt **keine** Bursts (das
+sind unterschiedliche Brennweiten bzw. unterschiedliche ISOs, nicht
+Wiederholungsaufnahmen). Diese Korrektur eliminiert spurious "Burst-Rauschen"
+aus den vorherigen ITs.
+
+**Hauptbefund (negativ, dokumentiert)**:
+
+> Die einzige tatsächliche Burst-Gruppe im heutigen Korpus ist das **C-RAW-
+> Paar** `g5xm2-detail-iq3-20260511-201012-{02,03}.cr3` — und der
+> Produktions-`CrxLosslessRawDecoder` deckt C-RAW (`waveletLevels=3`)
+> noch nicht ab. **Die Burst-Stabilitäts-TSV ist heute leer.**
+
+Konsequenzen für die Bewertungsbasis:
+
+* Burst-Stabilität als primäre Metrik **ist gebaut und einsatzbereit**, aber sie kann erst genutzt werden, sobald entweder (a) ein neues Lossless-Burst-Paar aufgenommen wird oder (b) ein C-RAW-Pfad existiert.
+* Die Empfehlung aus §8.6 ("C-RAW-Paar wird primäre Achse") ist damit aus zwei Gründen die einzig konsistente Vorwärtsstrategie: nur das C-RAW-Paar liefert geometrisch identisches Material, und nur ein C-RAW-Decoder-Pfad würde die Burst-Stabilität messbar machen.
+* Die IT bleibt grün und liefert den Burst-Key-Header → sobald ein neues Burst eingespielt wird, fallen automatisch Zeilen in die TSV.
+
+### 9.3 WP2 — CRX_SMALL ↔ PRVW Geometrie + CFA-Kalibrierung
+
+`CrxSmallVsPrvwGeometryIT` schreibt `target/crx-small-geometry/{geometry.tsv,geometry.md}`. Decoder-frei: misst die 1620↔1624-Mehrdeutigkeit und die `cfaLayout`-Konsistenz zwischen CRX_BIG und CRX_SMALL.
+
+**Befund 1 — `cfaLayout`-Inkonsistenz ist universell.** Auf **jeder** Datei
+im Korpus (G5 X II + EOSR) deklariert CRX_BIG `cfaLayout=0=RGGB` und
+CRX_SMALL `cfaLayout=1=GRBG`. Spalte `cfa-consistent? = no` über die ganze
+Tabelle. Damit ist klar belegt:
+
+* `CMP1.cfaLayout` muss **pro Track** ausgelesen werden, nicht modellbasiert oder modellweit.
+* Jeder bisherige Pearson-r-Score, der "PRVW vs. CRX_SMALL" mit der CRX_BIG-Layout-Annahme bewertet hat, war auf einer falschen Bayer-Mosaik-Permutation gerechnet — die Größenordnung des Effekts ist durch die Tile/Plane-Permutationen aus Round-6 (Δ Σ\|r\| ≈ ±0.01) beziffert.
+* Eine Modellname-Fallback-Logik (z.B. "G5 X Mark II → RGGB") ist für CRX_SMALL falsch.
+
+**Befund 2 — 1620↔1624-Ambiguität ist klein, aber von null verschieden.**
+Maße ist `ambiguityR` zwischen "PRVW→1620×1080→810×540" und
+"PRVW→1624×1080→810×540" (zwei Re-Sampling-Pfade über die jeweils
+deklarierte Geometrie, dann auf einen gemeinsamen 810×540-Luma-Canvas
+zurückgerechnet):
+
+| Szene | ambiguityR | Bedeutung |
+|---|---:|---|
+| Detail-/Tele-/Wide-Szenen | **0.997 – 0.999** | Die 4-Pixel-Geometrie-Wahl kostet ≈0.1–0.4 % Korrelation — also **nachweisbar** kleiner als die Decoder-Streuung (Round-6/8 zeigen Δ Σ\|r\|≈0.01 zwischen Permutationen) |
+| Dark/Flat-Szenen | **0.000** | Mathematisch korrekt: bei einheitlichem Inhalt ist die Standardabweichung beider Re-Samples ≈0 → Pearson-Nenner=0. **Negative Aussage: dark/flat-Fixtures liefern keine geometrische Information für diese Frage** |
+
+Konsequenz: Vor jeder weiteren PRVW↔CRX_SMALL-Korrelations-Runde **muss** verbindlich festgelegt werden, ob auf 1620 oder 1624 ausgerichtet wird, und das Resultat muss daneben mit der `cfaLayout`-aware-Plane-Auswahl gemessen werden. Die TSV ist die Referenz dafür.
+
+### 9.4 WP3 — IAD1 Optical-Black-Rechtecke
+
+`Iad1OpticalBlackProfileIT` nutzt `leftOb*` und `topOb*` vollständig (nicht
+nur `activeAreaLeft` als Spaltenzahl), schreibt
+`target/iad1-ob-profile/ob-profile.tsv` mit pro `(file × region × plane)`:
+median, mode (64-LSB-Buckets), mean, stdDev, max, fracWithin±256-of-median,
+row-flatness, col-flatness, scene-tag (dark/flat/detail/asis).
+
+Geometrische Größenordnung der OB-Regionen:
+
+| Kamera | leftOB | topOB |
+|---|---|---|
+| Canon EOS R | 143×4545 | 6743×45 |
+| Canon G5 X II | 119×3695 | 5495×27 |
+
+Damit haben beide Sensoren **mehrere hunderttausend** OB-Pixel pro Plane-
+Position — statistisch reichlich.
+
+**Hauptbefund (Decoder-Falsifikator)**: Die OB-Rechtecke im aktuellen
+Decoder-Output sind physikalisch unmöglich:
+
+| Datei | Region | Plane[0] median | Plane[0] mode | stdDev |
+|---|---|---:|---:|---:|
+| eosr-iso-high.cr3 | leftOB | 392 | 256 | 241 |
+| eosr-iso-low.cr3 | leftOB | 157 | 64 | 138 |
+| **eosr-iso-mid.cr3** | leftOB | **14452** | **16320** | **4080** |
+| eosr-iso-high.cr3 | topOB | 64 | 0 | 1701 |
+
+Der Sprung von median≈157/392 auf **14452 LSB** zwischen Frames derselben
+Kamera ist physikalisch ausgeschlossen — eine optisch abgedeckte Region kann
+sich nicht in Sekunden um Faktor ~50 verschieben. Damit liefert
+`Iad1OpticalBlackProfileIT` ein **Punkt-für-Punkt physikalischer
+Falsifikator**: jede Decoder-Hypothese, die auf der Bulk-Korrelation gut
+abschneidet (z.B. Round-7 K_INIT=quantValue), aber die OB-Region zerschießt,
+ist trotzdem falsch. Dieser Test sollte ab sofort **bei jedem Sweep
+mitgelaufen** werden, und seine Ergebnisse sind höher zu gewichten als
+Pearson-r gegen PRVW.
+
+Spalten `rowFlatness` und `colFlatness` (≈ 1 − stdDev(Profil)/mean(Profil))
+zeigen ein zweites Strukturmuster: row-flatness ≥ 0.99 in den `topOB`-
+Regionen (waagrechte Streifen) bei col-flatness oft negativ — das ist
+die Signatur eines vertikal-bandedingten Predictor-Fehlers, exakt das, was
+Round-9/10 als "Predictor-Hypothese strukturell unzureichend" identifiziert
+hat. Die OB-Profile bestätigen das auf einer ganz anderen Achse.
+
+**Diagnostische Empfehlung für dark/flat**: Beide Szenen liefern ≈ uniformes
+Plane-Signal, also wird die OB-Region auf einem korrekten Decoder
+*indistinguierbar* von der aktiven Fläche aussehen — eine starke
+Konvergenz-Signatur. Auf dem heutigen Decoder ist das nicht der Fall (siehe
+TSV), womit auch dark/flat als physikalischer Falsifikator zur Verfügung
+stehen.
+
+### 9.5 Strikte Einhaltung der Stoppregeln
+
+* **Keine Produktionsänderungen.** `git diff --stat origin/main canon-cr3-core canon-cr3-imageio/src/main` ist leer; alle 4 neuen Dateien liegen ausschließlich unter `canon-cr3-imageio/src/test/`.
+* **Keine neuen breiten Decoder-Sweeps.** Keine der 4 ITs ruft `CrxCandidateDecoders` auf; die einzige Decoder-Verwendung ist der **bestehende** `CrxLosslessRawDecoder` als Mess-Sonde, nicht als Hypothesen-Generator.
+* **Negative Resultate explizit dokumentiert.** WP1 (leere Burst-TSV), WP2 (ambiguityR=0 auf flat/dark), WP4 (10/13 Frames sind redundante Strukturklassen).
+
+### 9.6 Wirkung auf §6.3 / §8.6 Roadmap
+
+Die in §8.6 markierten "nächsten Schritte" lassen sich jetzt scharfer formulieren:
+
+* **Schritt 1 (Burst Δ)** — *blockiert*, bis entweder (a) das C-RAW-Paar dekodierbar wird oder (b) eine neue Lossless-Burst-Aufnahme im research-Korpus landet. Der IT-Skelett ist da, das Datenproblem liegt am Korpus.
+* **Schritt 2 (`cfaLayout`)** — *erledigt für die Diagnose*: WP2 belegt die Universalität der BIG↔SMALL-Inkonsistenz. Der nächste Roundsweep darf `CMP1.cfaLayout` nicht mehr ignorieren.
+* **Schritt 3 (Plane-Bit-Budget)** — unverändert, von WP4 nun automatisch pro Datei in `subbandsPerFrame` und `quantValues` mitgeführt.
+* **Schritt 4 (LibRaw)** — unverändert, jedoch mit zusätzlicher physikalischer Vergleichsbasis: jeder LibRaw-Decode liefert OB-Regionen, die `Iad1OpticalBlackProfileIT` direkt mit dem cleanroom-Decode-OB vergleicht.
+
+---
+
+## §10 Phase A continuation — Round 2 (Cleanroom-Fixture-Plan + Null/Flat/Alignment-ITs)
+
+Diese Runde liefert keine neuen Decoder-Hypothesen, sondern verbessert
+ausschließlich die Bewertungsbasis. Sie umfasst eine neue Fixture-
+Strategie-Doku, drei neue diagnostische ITs sowie eine erweiterte
+Variante des Fixture-Intelligence-Reports.
+
+### 10.1 Lieferumfang
+
+| Artefakt                                                                 | Zweck                                                                                  |
+|--------------------------------------------------------------------------|----------------------------------------------------------------------------------------|
+| `docs/cleanroom-fixture-plan.md`                                         | Reproduzierbare Fixture-Strategie pro Kamera (G5 X II, EOS R) für Null/Flat/Detail/Burst/RAW–C-RAW; markiert fehlende Klassen |
+| `NullFixtureDiagnosticIT`                                                | Pro Plane min/max/median/mode/stddev, fracWithin, row/col-Profile, Nachbar-Korrelation auf dark-Fixtures; Plausibilitäts-Verdict |
+| `FlatFieldDiagnosticIT`                                                  | Pro Plane CV, row/col-Flatness, Histogramm-Modes, Sättigungs-/Pedestal-Anteil; Plausibilitäts-Verdict |
+| `BitstreamPlaneAlignmentIT`                                              | Pro (Tile, Plane, Subband) Entry-Point, first-16-Hex, Alignment mod 4/8/16, Größen-Profile |
+| `FixtureIntelligenceReportIT` (erweitert)                                | Neue Spalten `fixtureClass`, `usefulForBurst`, `usefulForOb`, `usefulForQuantVar`, `usefulForCrawOnly`, `opensNewPath` |
+
+Alle ITs sind read-only auf `samples/` und `samples/research/`, schreiben
+ihren Output unter `target/<thema>/`, und nutzen den **bestehenden**
+`CrxLosslessRawDecoder` ausschließlich als Mess-Sonde — keine neuen
+Decoder-Kandidaten, keine breiten Sweeps.
+
+### 10.2 Was diese Runde sofort öffnet
+
+* **OB-Plausibilität als Hauptmetrik**: Die OB-Verdict-Spalte
+  (`PLAUSIBLE` / `IMPLAUSIBLE[…]`) liefert pro Datei × Plane einen
+  einzigen Wahr/Falsch-Wert. Damit lässt sich jede zukünftige
+  Decoder-Hypothese mit einer Zahl pro Fixture vergleichen, anstatt mit
+  einer Pearson-Skala, die unter 0.7 keine Aussage hat.
+* **Null-/Flat-Verdicts als zweite, orthogonale Falsifikator-Achse**:
+  Die beiden neuen Verdicts (`PLAUSIBLE` vs. `IMPLAUSIBLE[std,row,…]`)
+  zeigen *welcher* physikalische Defekt die Hypothese verletzt — Banding,
+  Multimodalität, Sättigungs-Clipping, oder reine Varianz-Überhöhung.
+  Das ist erheblich präziser als ein einzelner skalarer Score.
+* **Alignment-Diagnostik**: Pro Plane-Entry-Point existiert jetzt eine
+  TSV-Zeile mit `alignMod4 / alignMod8 / alignMod16` und den ersten 16
+  Bytes Hex. Ohne neue Sweeps lassen sich daraus konkrete Hypothesen
+  ableiten (z.B. "alle Plane-Entry-Points sind 4-Byte-aligned, also kann
+  der Bit-Reader keine Off-by-1-Bit-Anomalie haben").
+
+### 10.3 Korpuslücken (explizit dokumentiert, aus `cleanroom-fixture-plan.md` §4)
+
+* **Lossless Burst**: 0 Paare, jede Kamera. Hauptblocker für WP1.
+* **C-RAW Dark / Flat**: 0 Dateien, jede Kamera.
+* **EOS R Dark / Flat / Detail**: 0 Dateien (nur ISO-Sweep).
+* **RAW/C-RAW-Paar gleicher Szene**: 0 Paare in der gesamten Sammlung.
+
+Diese Lücken sind als "high-value missing burst fixtures" am Ende von
+`cleanroom-fixture-plan.md` aufgeführt, mit konkreten Dateinamen und
+Belichtungsparametern.
+
+### 10.4 Negative Resultate
+
+* Keine neue Decoder-Hypothese hat in dieser Runde Bestand erlangt.
+* `NullFixtureDiagnosticIT` und `FlatFieldDiagnosticIT` verwerfen den
+  aktuellen Decoder-Output bereits auf den vorhandenen ein-Stück-Fixtures
+  (jeweils ein einziges dark- und ein einziges flat-Fixture); cross-
+  fixture-Stabilitätsmessungen sind mangels zweitem dark/flat pro Kamera
+  nicht möglich.
+* `BurstFrameStabilityIT` bleibt mit leerer TSV — keine Lossless-Bursts.
+* Die Lücke "kein RAW/C-RAW-Paar identischer Szene" bedeutet: jede
+  Hypothese, die lossless gut und C-RAW schlecht abschneidet, lässt sich
+  weiterhin nicht eindeutig zwischen "Codec-Bug" und "Szenen-Effekt"
+  trennen. Diese Lücke gehört in die Top-3 der Aufnahmen-Wunschliste.
+
+### 10.5 Priorisierte Ergebnisübersicht (WP8)
+
+* **A. Was lässt sich jetzt sofort mit dem bestehenden Korpus weiter
+  untersuchen?**
+  1. OB-Plausibilität als skalarer, pro-Datei-pro-Plane-Verdict gegen
+     jede in `CrxCandidateDecoders` definierte Hypothese — ohne neue
+     Sweeps, nur als Re-Scoring-Pass.
+  2. Plane-Entry-Alignment auf Mod-4/8/16-Grenzen über alle CR3-Dateien;
+     jede Anomalie ist ein konkreter Hypothesen-Pfad.
+  3. CMP1.cfaLayout-Konsistenz zwischen CRX_BIG und CRX_SMALL: das
+     bestehende `CrxSmallVsPrvwGeometryIT` liefert die Daten, eine
+     einzeilige Auswertung würde die *Anzahl* der Fixtures mit
+     CFA-Mismatch ausgeben.
+* **B. Welche neuen Fixtures bringen den höchsten Erkenntnisgewinn?**
+  In Reihenfolge:
+  1. **`g5xm2-burst-iso400-…-{01,02}.cr3`** — entsperrt WP1 vollständig.
+  2. **`g5xm2-flat-iso100-…` und `…-iq3-…` als Paar** — entsperrt RAW/C-RAW-
+     Vergleich auf einer flachen Szene und damit den FlatFieldDiagnosticIT
+     als Codec-Diskriminator.
+  3. **`eosr-dark-iso100-…` und `eosr-flat-iso100-…`** — schaffen eine
+     zweite, unabhängige Kamera-Baseline.
+* **C. Welche Diagnosewege sollten künftig nur noch sekundär sein?**
+  * Pearson-r gegen PRVW. Das Round-7-Maximum (0.5605) zeigt, dass die
+    PRVW-Korrelation oberhalb von 0.5 nicht weiter trennscharf ist.
+    Sie bleibt nützlich als grobes Sanity-Filter, ist aber keine
+    Promotion-Schwelle mehr.
+* **D. Welche Low-Level-Hypothesen bleiben übrig?**
+  1. Per-Tile-Reset-Hypothese — Round-9 hat sie *für q* widerlegt, aber
+     sie könnte für `predInit` oder einen anderen state-Slot gelten.
+     Beweisbar mit der vorhandenen `BitstreamPlaneAlignmentIT`-TSV.
+  2. CFA-Layout-abhängiger Predictor (G5XII = GRBG, EOS R unbekannt) —
+     blockiert bis zum ersten EOS-R-Dark-Fixture.
+  3. Plane-zu-Bayer-Permutation pro `cfaLayout` — Round-6 hat [1023] vs.
+     [1032] geprüft, aber nur auf `sample.cr3` (cfa=1=GRBG). Mit einem
+     EOS-R-Dark wäre prüfbar, ob die Permutation cfaLayout-abhängig ist.
+
+### 10.6 Stoppregel-Konformität
+
+* **Keine Produktionsänderungen.** `git diff --stat origin/main canon-cr3-core canon-cr3-imageio/src/main` ist leer; alle drei neuen ITs und die Änderungen am vierten liegen ausschließlich unter `canon-cr3-imageio/src/test/`.
+* **Keine neuen breiten Sweeps.** Keiner der drei neuen ITs ruft `CrxCandidateDecoders` auf; jeder Decoder-Aufruf ist genau ein Aufruf des bestehenden `CrxLosslessRawDecoder` pro Datei.
+* **Negative Resultate explizit.** §10.4 dokumentiert sowohl den Korpus-Mangel (1 dark, 1 flat pro Kamera) als auch das Ausbleiben jeder neuen positiven Hypothese.
