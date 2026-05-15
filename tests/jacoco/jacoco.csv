@@ -1,6 +1,6 @@
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
 Focus Stack - App,com.photographer.focusstack.astro.config,AstroConfig,0,3,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService,355,42,26,0,68,8,22,2,9,2
+Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService,366,53,27,1,72,12,23,3,9,3
 Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService.ReplayStatus,30,0,0,0,1,0,1,0,1,0
 Focus Stack - App,com.photographer.focusstack.observer.service,ObserverService,88,273,11,9,21,66,16,16,7,15
 Focus Stack - App,com.photographer.focusstack.observer.service,SpeciesNormalizationService,29,713,9,9,3,91,8,9,1,7

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PluginManagementController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.plugin</a> &gt; <span class="el_source">PluginManagementController.java</span></div><h1>PluginManagementController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.plugin;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,26 +36,29 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping(&quot;/api/admin/plugins&quot;)
+@Tag(name = &quot;Plugin Management&quot;, description = &quot;Administrative plugin lifecycle endpoints.&quot;)
 public class PluginManagementController {
 
     private final PluginManagementService pluginService;
 
-<span class="fc" id="L41">    public PluginManagementController(PluginManagementService pluginService) {</span>
-<span class="fc" id="L42">        this.pluginService = pluginService;</span>
-<span class="fc" id="L43">    }</span>
+<span class="fc" id="L44">    public PluginManagementController(PluginManagementService pluginService) {</span>
+<span class="fc" id="L45">        this.pluginService = pluginService;</span>
+<span class="fc" id="L46">    }</span>
 
     /** Lists all installed plugins with their metadata and state. */
     @GetMapping
+    @Operation(summary = &quot;List installed plugins&quot;)
     public ResponseEntity&lt;List&lt;Map&lt;String, Object&gt;&gt;&gt; listPlugins() {
-<span class="fc" id="L48">        return ResponseEntity.ok(pluginService.listPlugins());</span>
+<span class="fc" id="L52">        return ResponseEntity.ok(pluginService.listPlugins());</span>
     }
 
     /** Returns details for a single plugin by ID. */
     @GetMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;Get plugin details by id&quot;)
     public ResponseEntity&lt;Map&lt;String, Object&gt;&gt; getPlugin(@PathVariable String id) {
-<span class="fc" id="L54">        return pluginService.getPlugin(id)</span>
-<span class="fc" id="L55">                .map(ResponseEntity::ok)</span>
-<span class="fc" id="L56">                .orElseGet(() -&gt; ResponseEntity.notFound().build());</span>
+<span class="fc" id="L59">        return pluginService.getPlugin(id)</span>
+<span class="fc" id="L60">                .map(ResponseEntity::ok)</span>
+<span class="fc" id="L61">                .orElseGet(() -&gt; ResponseEntity.notFound().build());</span>
     }
 
     /**
@@ -62,17 +67,18 @@ public class PluginManagementController {
      * @param file the plugin JAR file
      */
     @PostMapping(value = &quot;/install&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = &quot;Install plugin from uploaded JAR&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; installPlugin(
             @RequestPart(&quot;file&quot;) MultipartFile file) throws IOException {
 
-<span class="fc" id="L68">        String originalFilename = file.getOriginalFilename();</span>
-<span class="pc bpc" id="L69" title="1 of 4 branches missed.">        if (originalFilename == null || originalFilename.isBlank()) {</span>
-<span class="fc" id="L70">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;File name must not be empty&quot;));</span>
+<span class="fc" id="L74">        String originalFilename = file.getOriginalFilename();</span>
+<span class="pc bpc" id="L75" title="1 of 4 branches missed.">        if (originalFilename == null || originalFilename.isBlank()) {</span>
+<span class="fc" id="L76">            return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, &quot;File name must not be empty&quot;));</span>
         }
 
-<span class="fc" id="L73">        try (InputStream inputStream = file.getInputStream()) {</span>
-<span class="fc" id="L74">            String pluginId = pluginService.installPlugin(originalFilename, inputStream);</span>
-<span class="fc" id="L75">            return ResponseEntity.ok(Map.of(</span>
+<span class="fc" id="L79">        try (InputStream inputStream = file.getInputStream()) {</span>
+<span class="fc" id="L80">            String pluginId = pluginService.installPlugin(originalFilename, inputStream);</span>
+<span class="fc" id="L81">            return ResponseEntity.ok(Map.of(</span>
                     &quot;pluginId&quot;, pluginId,
                     &quot;status&quot;, &quot;installed&quot;));
         }
@@ -80,38 +86,41 @@ public class PluginManagementController {
 
     /** Enables (starts) a plugin by ID. */
     @PostMapping(&quot;/{id}/enable&quot;)
+    @Operation(summary = &quot;Enable plugin&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; enablePlugin(@PathVariable String id) {
-<span class="fc" id="L84">        boolean success = pluginService.enablePlugin(id);</span>
-<span class="fc bfc" id="L85" title="All 2 branches covered.">        if (!success) {</span>
-<span class="fc" id="L86">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L91">        boolean success = pluginService.enablePlugin(id);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        if (!success) {</span>
+<span class="fc" id="L93">            return ResponseEntity.notFound().build();</span>
         }
-<span class="fc" id="L88">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;enabled&quot;));</span>
+<span class="fc" id="L95">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;enabled&quot;));</span>
     }
 
     /** Disables (stops) a plugin by ID. */
     @PostMapping(&quot;/{id}/disable&quot;)
+    @Operation(summary = &quot;Disable plugin&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; disablePlugin(@PathVariable String id) {
-<span class="fc" id="L94">        boolean success = pluginService.disablePlugin(id);</span>
-<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (!success) {</span>
-<span class="nc" id="L96">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L102">        boolean success = pluginService.disablePlugin(id);</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (!success) {</span>
+<span class="nc" id="L104">            return ResponseEntity.notFound().build();</span>
         }
-<span class="fc" id="L98">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;disabled&quot;));</span>
+<span class="fc" id="L106">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;disabled&quot;));</span>
     }
 
     /** Uninstalls a plugin by ID. */
     @DeleteMapping(&quot;/{id}&quot;)
+    @Operation(summary = &quot;Uninstall plugin&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; uninstallPlugin(@PathVariable String id) {
-<span class="fc" id="L104">        boolean success = pluginService.uninstallPlugin(id);</span>
-<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (!success) {</span>
-<span class="fc" id="L106">            return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L113">        boolean success = pluginService.uninstallPlugin(id);</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (!success) {</span>
+<span class="fc" id="L115">            return ResponseEntity.notFound().build();</span>
         }
-<span class="fc" id="L108">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;uninstalled&quot;));</span>
+<span class="fc" id="L117">        return ResponseEntity.ok(Map.of(&quot;pluginId&quot;, id, &quot;status&quot;, &quot;uninstalled&quot;));</span>
     }
 
     /** Maps validation errors from the service layer to HTTP 400 responses. */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; handleIllegalArgument(IllegalArgumentException ex) {
-<span class="fc" id="L114">        return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, ex.getMessage()));</span>
+<span class="fc" id="L123">        return ResponseEntity.badRequest().body(Map.of(&quot;error&quot;, ex.getMessage()));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

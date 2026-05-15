@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.observer.pipeline.ObservationEventListener;
 import com.photographer.focusstack.observer.pipeline.ObserverPipeline;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -39,7 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class ReplayService {
 
-<span class="fc" id="L42">    private static final Logger log = LoggerFactory.getLogger(ReplayService.class);</span>
+<span class="fc" id="L43">    private static final Logger log = LoggerFactory.getLogger(ReplayService.class);</span>
 
     /** Default interval between replay frames in milliseconds. */
     private static final long BASE_FRAME_INTERVAL_MS = 500;
@@ -67,31 +68,31 @@ public class ReplayService {
 
     private final ThreadPoolExecutor executor;
 
-<span class="fc" id="L70">    public ReplayService() {</span>
-<span class="fc" id="L71">        ThreadPoolExecutor pool = new ThreadPoolExecutor(</span>
+<span class="fc" id="L71">    public ReplayService() {</span>
+<span class="fc" id="L72">        ThreadPoolExecutor pool = new ThreadPoolExecutor(</span>
                 MAX_REPLAY_THREADS,
                 MAX_REPLAY_THREADS,
                 60L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue&lt;&gt;(REPLAY_QUEUE_CAPACITY),
                 new ThreadFactoryWithName(&quot;replay-&quot;),
                 new ThreadPoolExecutor.AbortPolicy());
-<span class="fc" id="L78">        pool.allowCoreThreadTimeOut(true);</span>
-<span class="fc" id="L79">        this.executor = pool;</span>
-<span class="fc" id="L80">    }</span>
+<span class="fc" id="L79">        pool.allowCoreThreadTimeOut(true);</span>
+<span class="fc" id="L80">        this.executor = pool;</span>
+<span class="fc" id="L81">    }</span>
 
     private static final class ThreadFactoryWithName implements java.util.concurrent.ThreadFactory {
         private final String prefix;
-<span class="fc" id="L84">        private final AtomicInteger counter = new AtomicInteger();</span>
-<span class="fc" id="L85">        ThreadFactoryWithName(String prefix) { this.prefix = prefix; }</span>
+<span class="fc" id="L85">        private final AtomicInteger counter = new AtomicInteger();</span>
+<span class="fc" id="L86">        ThreadFactoryWithName(String prefix) { this.prefix = prefix; }</span>
         @Override public Thread newThread(Runnable r) {
-<span class="nc" id="L87">            Thread t = new Thread(r, prefix + counter.incrementAndGet());</span>
-<span class="nc" id="L88">            t.setDaemon(true);</span>
-<span class="nc" id="L89">            return t;</span>
+<span class="nc" id="L88">            Thread t = new Thread(r, prefix + counter.incrementAndGet());</span>
+<span class="nc" id="L89">            t.setDaemon(true);</span>
+<span class="nc" id="L90">            return t;</span>
         }
     }
 
     /** Active replay sessions keyed by session ID. */
-<span class="fc" id="L94">    private final Map&lt;String, ReplayStatus&gt; sessions = new ConcurrentHashMap&lt;&gt;();</span>
+<span class="fc" id="L95">    private final Map&lt;String, ReplayStatus&gt; sessions = new ConcurrentHashMap&lt;&gt;();</span>
 
     /**
      * Starts a replay session asynchronously.
@@ -103,119 +104,119 @@ public class ReplayService {
      * @throws IllegalArgumentException if {@code speedMultiplier} is not positive
      */
     public ReplayStatus startReplay(String folderPath, double speedMultiplier, String profileName) {
-<span class="nc bnc" id="L106" title="All 2 branches missed.">        if (speedMultiplier &lt;= 0) {</span>
-<span class="nc" id="L107">            throw new IllegalArgumentException(&quot;speedMultiplier must be positive, got: &quot; + speedMultiplier);</span>
+<span class="nc bnc" id="L107" title="All 2 branches missed.">        if (speedMultiplier &lt;= 0) {</span>
+<span class="nc" id="L108">            throw new IllegalArgumentException(&quot;speedMultiplier must be positive, got: &quot; + speedMultiplier);</span>
         }
-<span class="nc" id="L109">        String sessionId = java.util.UUID.randomUUID().toString();</span>
-<span class="nc" id="L110">        ReplayStatus status = new ReplayStatus(sessionId, folderPath, profileName,</span>
+<span class="nc" id="L110">        String sessionId = java.util.UUID.randomUUID().toString();</span>
+<span class="nc" id="L111">        ReplayStatus status = new ReplayStatus(sessionId, folderPath, profileName,</span>
                 speedMultiplier, &quot;RUNNING&quot;, 0, 0, 0, null);
-<span class="nc" id="L112">        sessions.put(sessionId, status);</span>
+<span class="nc" id="L113">        sessions.put(sessionId, status);</span>
 
         try {
-<span class="nc" id="L115">            executor.submit(() -&gt; runReplay(sessionId, folderPath, speedMultiplier, profileName));</span>
-<span class="nc" id="L116">        } catch (RejectedExecutionException rex) {</span>
+<span class="nc" id="L116">            executor.submit(() -&gt; runReplay(sessionId, folderPath, speedMultiplier, profileName));</span>
+<span class="nc" id="L117">        } catch (RejectedExecutionException rex) {</span>
             // Pool + queue saturated: surface back-pressure instead of running
             // the replay synchronously on the caller's thread.
-<span class="nc" id="L119">            ReplayStatus rejected = new ReplayStatus(sessionId, folderPath, profileName,</span>
+<span class="nc" id="L120">            ReplayStatus rejected = new ReplayStatus(sessionId, folderPath, profileName,</span>
                     speedMultiplier, &quot;REJECTED&quot;, 0, 0, 0,
                     &quot;Replay queue saturated; retry later&quot;);
-<span class="nc" id="L122">            sessions.put(sessionId, rejected);</span>
-<span class="nc" id="L123">            log.warn(&quot;Replay session {} rejected — pool saturated (active={} queued={})&quot;,</span>
-<span class="nc" id="L124">                    sessionId, executor.getActiveCount(), executor.getQueue().size());</span>
-<span class="nc" id="L125">            throw rex;</span>
-<span class="nc" id="L126">        }</span>
-<span class="nc" id="L127">        log.info(&quot;Started replay session {} folder={} profile={} speed={}x&quot;,</span>
-<span class="nc" id="L128">                sessionId, folderPath, profileName, speedMultiplier);</span>
-<span class="nc" id="L129">        return status;</span>
+<span class="nc" id="L123">            sessions.put(sessionId, rejected);</span>
+<span class="nc" id="L124">            log.warn(&quot;Replay session {} rejected — pool saturated (active={} queued={})&quot;,</span>
+<span class="nc" id="L125">                    sessionId, executor.getActiveCount(), executor.getQueue().size());</span>
+<span class="nc" id="L126">            throw rex;</span>
+<span class="nc" id="L127">        }</span>
+<span class="nc" id="L128">        log.info(&quot;Started replay session {} folder={} profile={} speed={}x&quot;,</span>
+<span class="nc" id="L129">                sessionId, folderPath, profileName, speedMultiplier);</span>
+<span class="nc" id="L130">        return status;</span>
     }
 
     /** Returns the status of a replay session, or {@code null} if not found. */
     public ReplayStatus getStatus(String sessionId) {
-<span class="nc" id="L134">        return sessions.get(sessionId);</span>
+<span class="nc" id="L135">        return sessions.get(sessionId);</span>
     }
 
     /** Returns all known replay sessions. */
     public List&lt;ReplayStatus&gt; getAllSessions() {
-<span class="nc" id="L139">        return new ArrayList&lt;&gt;(sessions.values());</span>
+<span class="nc" id="L140">        return new ArrayList&lt;&gt;(sessions.values());</span>
     }
 
     // ---- internal ----
 
     private void runReplay(String sessionId, String folderPath, double speedMultiplier,
                            String profileName) {
-<span class="nc" id="L146">        ReplayStatus status = sessions.get(sessionId);</span>
-<span class="nc" id="L147">        long delayMs = Math.max(1, (long) (BASE_FRAME_INTERVAL_MS / speedMultiplier));</span>
+<span class="nc" id="L147">        ReplayStatus status = sessions.get(sessionId);</span>
+<span class="nc" id="L148">        long delayMs = Math.max(1, (long) (BASE_FRAME_INTERVAL_MS / speedMultiplier));</span>
 
         try {
-<span class="nc" id="L150">            CameraBackend camera = new FolderCameraBackend(Path.of(folderPath));</span>
-<span class="nc" id="L151">            int framesProcessed = 0;</span>
-<span class="nc" id="L152">            int nonEmptyFrames = 0;</span>
+<span class="nc" id="L151">            CameraBackend camera = new FolderCameraBackend(Path.of(folderPath));</span>
+<span class="nc" id="L152">            int framesProcessed = 0;</span>
+<span class="nc" id="L153">            int nonEmptyFrames = 0;</span>
 
-<span class="nc" id="L154">            int totalImages = countImages(folderPath);</span>
-<span class="nc bnc" id="L155" title="All 2 branches missed.">            if (totalImages == 0) {</span>
-<span class="nc" id="L156">                updateStatus(sessionId, &quot;COMPLETED&quot;, 0, 0, &quot;No images found in folder&quot;);</span>
-<span class="nc" id="L157">                return;</span>
+<span class="nc" id="L155">            int totalImages = countImages(folderPath);</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            if (totalImages == 0) {</span>
+<span class="nc" id="L157">                updateStatus(sessionId, &quot;COMPLETED&quot;, 0, 0, &quot;No images found in folder&quot;);</span>
+<span class="nc" id="L158">                return;</span>
             }
 
-<span class="nc bnc" id="L160" title="All 2 branches missed.">            for (int i = 0; i &lt; totalImages; i++) {</span>
-<span class="nc" id="L161">                LiveViewFrame frame = camera.getLiveView();</span>
-<span class="nc" id="L162">                framesProcessed++;</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">            for (int i = 0; i &lt; totalImages; i++) {</span>
+<span class="nc" id="L162">                LiveViewFrame frame = camera.getLiveView();</span>
+<span class="nc" id="L163">                framesProcessed++;</span>
 
-<span class="nc bnc" id="L164" title="All 2 branches missed.">                if (frame.data().length &gt; 0) {</span>
-<span class="nc" id="L165">                    nonEmptyFrames++;</span>
+<span class="nc bnc" id="L165" title="All 2 branches missed.">                if (frame.data().length &gt; 0) {</span>
+<span class="nc" id="L166">                    nonEmptyFrames++;</span>
                 }
 
-<span class="nc" id="L168">                updateStatus(sessionId, &quot;RUNNING&quot;, framesProcessed, nonEmptyFrames, null);</span>
+<span class="nc" id="L169">                updateStatus(sessionId, &quot;RUNNING&quot;, framesProcessed, nonEmptyFrames, null);</span>
 
-<span class="nc bnc" id="L170" title="All 2 branches missed.">                if (i &lt; totalImages - 1) {</span>
-<span class="nc" id="L171">                    Thread.sleep(delayMs);</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">                if (i &lt; totalImages - 1) {</span>
+<span class="nc" id="L172">                    Thread.sleep(delayMs);</span>
                 }
             }
 
-<span class="nc" id="L175">            updateStatus(sessionId, &quot;COMPLETED&quot;, framesProcessed, nonEmptyFrames, null);</span>
-<span class="nc" id="L176">            log.info(&quot;Replay session {} completed: {} frames read, {} non-empty&quot;,</span>
-<span class="nc" id="L177">                    sessionId, framesProcessed, nonEmptyFrames);</span>
+<span class="nc" id="L176">            updateStatus(sessionId, &quot;COMPLETED&quot;, framesProcessed, nonEmptyFrames, null);</span>
+<span class="nc" id="L177">            log.info(&quot;Replay session {} completed: {} frames read, {} non-empty&quot;,</span>
+<span class="nc" id="L178">                    sessionId, framesProcessed, nonEmptyFrames);</span>
 
-<span class="nc" id="L179">        } catch (InterruptedException e) {</span>
-<span class="nc" id="L180">            Thread.currentThread().interrupt();</span>
-<span class="nc" id="L181">            updateStatus(sessionId, &quot;CANCELLED&quot;, 0, 0, &quot;Interrupted&quot;);</span>
-<span class="nc" id="L182">        } catch (Exception e) {</span>
-<span class="nc" id="L183">            log.error(&quot;Replay session {} failed&quot;, sessionId, e);</span>
-<span class="nc" id="L184">            updateStatus(sessionId, &quot;FAILED&quot;, 0, 0, e.getMessage());</span>
-<span class="nc" id="L185">        }</span>
-<span class="nc" id="L186">    }</span>
+<span class="nc" id="L180">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L181">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L182">            updateStatus(sessionId, &quot;CANCELLED&quot;, 0, 0, &quot;Interrupted&quot;);</span>
+<span class="nc" id="L183">        } catch (Exception e) {</span>
+<span class="nc" id="L184">            log.error(&quot;Replay session {} failed&quot;, sessionId, e);</span>
+<span class="nc" id="L185">            updateStatus(sessionId, &quot;FAILED&quot;, 0, 0, e.getMessage());</span>
+<span class="nc" id="L186">        }</span>
+<span class="nc" id="L187">    }</span>
 
     private int countImages(String folderPath) {
         try {
-<span class="nc" id="L190">            Path dir = Path.of(folderPath);</span>
-<span class="nc bnc" id="L191" title="All 2 branches missed.">            if (!dir.toFile().isDirectory()) {</span>
-<span class="nc" id="L192">                return 0;</span>
+<span class="nc" id="L191">            Path dir = Path.of(folderPath);</span>
+<span class="nc bnc" id="L192" title="All 2 branches missed.">            if (!dir.toFile().isDirectory()) {</span>
+<span class="nc" id="L193">                return 0;</span>
             }
-<span class="nc" id="L194">            try (var stream = java.nio.file.Files.list(dir)) {</span>
-<span class="nc" id="L195">                return (int) stream</span>
-<span class="nc" id="L196">                        .filter(p -&gt; {</span>
-<span class="nc" id="L197">                            String name = p.getFileName().toString().toLowerCase();</span>
-<span class="nc bnc" id="L198" title="All 4 branches missed.">                            return name.endsWith(&quot;.jpg&quot;) || name.endsWith(&quot;.jpeg&quot;)</span>
-<span class="nc bnc" id="L199" title="All 4 branches missed.">                                    || name.endsWith(&quot;.png&quot;) || name.endsWith(&quot;.bmp&quot;);</span>
+<span class="nc" id="L195">            try (var stream = java.nio.file.Files.list(dir)) {</span>
+<span class="nc" id="L196">                return (int) stream</span>
+<span class="nc" id="L197">                        .filter(p -&gt; {</span>
+<span class="nc" id="L198">                            String name = p.getFileName().toString().toLowerCase();</span>
+<span class="nc bnc" id="L199" title="All 4 branches missed.">                            return name.endsWith(&quot;.jpg&quot;) || name.endsWith(&quot;.jpeg&quot;)</span>
+<span class="nc bnc" id="L200" title="All 4 branches missed.">                                    || name.endsWith(&quot;.png&quot;) || name.endsWith(&quot;.bmp&quot;);</span>
                         })
-<span class="nc" id="L201">                        .count();</span>
+<span class="nc" id="L202">                        .count();</span>
             }
-<span class="nc" id="L203">        } catch (Exception e) {</span>
-<span class="nc" id="L204">            return 0;</span>
+<span class="nc" id="L204">        } catch (Exception e) {</span>
+<span class="nc" id="L205">            return 0;</span>
         }
     }
 
     private void updateStatus(String sessionId, String state, int frames, int nonEmptyFrames, String error) {
-<span class="nc" id="L209">        ReplayStatus old = sessions.get(sessionId);</span>
-<span class="nc bnc" id="L210" title="All 2 branches missed.">        if (old != null) {</span>
-<span class="nc bnc" id="L211" title="All 2 branches missed.">            int updatedErrorCount = old.errorCount() + (error == null ? 0 : 1);</span>
-<span class="nc" id="L212">            sessions.put(sessionId, new ReplayStatus(</span>
-<span class="nc" id="L213">                    old.sessionId(), old.folderPath(), old.profileName(),</span>
-<span class="nc" id="L214">                    old.speedMultiplier(), state, frames, nonEmptyFrames,</span>
-<span class="nc bnc" id="L215" title="All 2 branches missed.">                    updatedErrorCount, error != null ? error : old.lastError()</span>
+<span class="nc" id="L210">        ReplayStatus old = sessions.get(sessionId);</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (old != null) {</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">            int updatedErrorCount = old.errorCount() + (error == null ? 0 : 1);</span>
+<span class="nc" id="L213">            sessions.put(sessionId, new ReplayStatus(</span>
+<span class="nc" id="L214">                    old.sessionId(), old.folderPath(), old.profileName(),</span>
+<span class="nc" id="L215">                    old.speedMultiplier(), state, frames, nonEmptyFrames,</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">                    updatedErrorCount, error != null ? error : old.lastError()</span>
             ));
         }
-<span class="nc" id="L218">    }</span>
+<span class="nc" id="L219">    }</span>
 
     /**
      * Immutable status record for a replay session.
@@ -225,7 +226,7 @@ public class ReplayService {
      * @param errorCount      cumulative number of errors encountered during replay
      * @param lastError       message of the most recent error, or {@code null}
      */
-<span class="nc" id="L228">    public record ReplayStatus(</span>
+<span class="nc" id="L229">    public record ReplayStatus(</span>
             String sessionId,
             String folderPath,
             String profileName,
@@ -238,10 +239,23 @@ public class ReplayService {
     ) {}
 
     // Expose listener support for future extension
-<span class="fc" id="L241">    private final List&lt;ObservationEventListener&gt; listeners = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L242">    private final List&lt;ObservationEventListener&gt; listeners = new ArrayList&lt;&gt;();</span>
 
     public void addListener(ObservationEventListener listener) {
-<span class="nc" id="L244">        listeners.add(listener);</span>
-<span class="nc" id="L245">    }</span>
+<span class="nc" id="L245">        listeners.add(listener);</span>
+<span class="nc" id="L246">    }</span>
+
+    @PreDestroy
+    void shutdownExecutor() {
+<span class="fc" id="L250">        executor.shutdown();</span>
+        try {
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {</span>
+<span class="nc" id="L253">                executor.shutdownNow();</span>
+            }
+<span class="nc" id="L255">        } catch (InterruptedException e) {</span>
+<span class="nc" id="L256">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L257">            executor.shutdownNow();</span>
+<span class="fc" id="L258">        }</span>
+<span class="fc" id="L259">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

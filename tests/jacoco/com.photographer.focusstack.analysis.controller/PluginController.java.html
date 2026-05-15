@@ -4,6 +4,8 @@ import com.photographer.focusstack.analysis.plugin.AnalysisPluginRegistry;
 import com.photographer.focusstack.plugin.AnalysisContext;
 import com.photographer.focusstack.plugin.AnalysisPlugin;
 import com.photographer.focusstack.plugin.AnalysisPluginResult;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,21 +31,23 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping(&quot;/api/analysis/plugins&quot;)
+@Tag(name = &quot;Analysis Plugins&quot;, description = &quot;Analysis plugin discovery and execution endpoints.&quot;)
 public class PluginController {
 
     private final AnalysisPluginRegistry registry;
 
-<span class="fc" id="L36">    public PluginController(AnalysisPluginRegistry registry) {</span>
-<span class="fc" id="L37">        this.registry = registry;</span>
-<span class="fc" id="L38">    }</span>
+<span class="fc" id="L39">    public PluginController(AnalysisPluginRegistry registry) {</span>
+<span class="fc" id="L40">        this.registry = registry;</span>
+<span class="fc" id="L41">    }</span>
 
     /** Lists all registered plugins with their names. */
     @GetMapping
+    @Operation(summary = &quot;List registered analysis plugins&quot;)
     public ResponseEntity&lt;List&lt;Map&lt;String, String&gt;&gt;&gt; listPlugins() {
-<span class="nc" id="L43">        List&lt;Map&lt;String, String&gt;&gt; result = registry.listAll().stream()</span>
-<span class="nc" id="L44">                .map(p -&gt; Map.of(&quot;name&quot;, p.name()))</span>
-<span class="nc" id="L45">                .toList();</span>
-<span class="nc" id="L46">        return ResponseEntity.ok(result);</span>
+<span class="nc" id="L47">        List&lt;Map&lt;String, String&gt;&gt; result = registry.listAll().stream()</span>
+<span class="nc" id="L48">                .map(p -&gt; Map.of(&quot;name&quot;, p.name()))</span>
+<span class="nc" id="L49">                .toList();</span>
+<span class="nc" id="L50">        return ResponseEntity.ok(result);</span>
     }
 
     /**
@@ -54,20 +58,21 @@ public class PluginController {
      * @param params optional key=value query parameters forwarded to the plugin context
      */
     @PostMapping(value = &quot;/{name}/analyze&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = &quot;Run a named analysis plugin&quot;)
     public ResponseEntity&lt;?&gt; runPlugin(
             @PathVariable String name,
             @RequestPart(&quot;image&quot;) MultipartFile image,
             @RequestParam(required = false) Map&lt;String, String&gt; params) throws IOException {
 
-<span class="nc" id="L62">        AnalysisPlugin plugin = registry.findByName(name)</span>
-<span class="nc" id="L63">                .orElse(null);</span>
-<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (plugin == null) {</span>
-<span class="nc" id="L65">            return ResponseEntity.notFound().build();</span>
+<span class="nc" id="L67">        AnalysisPlugin plugin = registry.findByName(name)</span>
+<span class="nc" id="L68">                .orElse(null);</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        if (plugin == null) {</span>
+<span class="nc" id="L70">            return ResponseEntity.notFound().build();</span>
         }
 
-<span class="nc bnc" id="L68" title="All 2 branches missed.">        AnalysisContext context = new AnalysisContext(params != null ? params : Map.of());</span>
-<span class="nc" id="L69">        AnalysisPluginResult result = plugin.analyze(image.getBytes(), context);</span>
-<span class="nc" id="L70">        return ResponseEntity.ok(result);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        AnalysisContext context = new AnalysisContext(params != null ? params : Map.of());</span>
+<span class="nc" id="L74">        AnalysisPluginResult result = plugin.analyze(image.getBytes(), context);</span>
+<span class="nc" id="L75">        return ResponseEntity.ok(result);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>

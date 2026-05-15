@@ -4,6 +4,8 @@ import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.repository.ObservationEventRepository;
 import com.photographer.focusstack.observer.repository.SpeciesRecordRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping(&quot;/api/observer/export&quot;)
+@Tag(name = &quot;Observer Export&quot;, description = &quot;Observer event and species export endpoints.&quot;)
 public class ObserverExportController {
 
     private static final String CSV_MIME = &quot;text/csv;charset=UTF-8&quot;;
@@ -39,11 +42,11 @@ public class ObserverExportController {
 
     public ObserverExportController(ObjectMapper objectMapper,
                                     ObservationEventRepository eventRepository,
-<span class="fc" id="L42">                                    SpeciesRecordRepository speciesRepository) {</span>
-<span class="fc" id="L43">        this.objectMapper = objectMapper;</span>
-<span class="fc" id="L44">        this.eventRepository = eventRepository;</span>
-<span class="fc" id="L45">        this.speciesRepository = speciesRepository;</span>
-<span class="fc" id="L46">    }</span>
+<span class="fc" id="L45">                                    SpeciesRecordRepository speciesRepository) {</span>
+<span class="fc" id="L46">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L47">        this.eventRepository = eventRepository;</span>
+<span class="fc" id="L48">        this.speciesRepository = speciesRepository;</span>
+<span class="fc" id="L49">    }</span>
 
     /**
      * Exports observation events in the given date range as CSV or JSON.
@@ -53,6 +56,7 @@ public class ObserverExportController {
      * @param to     ISO date string (inclusive, e.g. &quot;2026-12-31&quot;), defaults to today
      */
     @GetMapping(&quot;/events&quot;)
+    @Operation(summary = &quot;Export observer events as JSON or CSV&quot;)
     public ResponseEntity&lt;byte[]&gt; exportEvents(
             @RequestParam(defaultValue = &quot;json&quot;) String format,
             @RequestParam(required = false) String from,
@@ -61,31 +65,31 @@ public class ObserverExportController {
         Instant fromInstant;
         Instant toInstant;
         try {
-<span class="nc bnc" id="L64" title="All 2 branches missed.">            fromInstant = from != null</span>
-<span class="nc" id="L65">                    ? LocalDate.parse(from).atStartOfDay(ZoneOffset.UTC).toInstant()</span>
-<span class="nc" id="L66">                    : Instant.now().minusSeconds(30L * 24 * 3600);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            fromInstant = from != null</span>
+<span class="nc" id="L69">                    ? LocalDate.parse(from).atStartOfDay(ZoneOffset.UTC).toInstant()</span>
+<span class="nc" id="L70">                    : Instant.now().minusSeconds(30L * 24 * 3600);</span>
             // toInstant is end-of-day (exclusive start of next day) to include the full last day
-<span class="nc bnc" id="L68" title="All 2 branches missed.">            toInstant = to != null</span>
-<span class="nc" id="L69">                    ? LocalDate.parse(to).plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()</span>
-<span class="nc" id="L70">                    : Instant.now().plusSeconds(86400);</span>
-<span class="nc" id="L71">        } catch (DateTimeParseException e) {</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            toInstant = to != null</span>
+<span class="nc" id="L73">                    ? LocalDate.parse(to).plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant()</span>
+<span class="nc" id="L74">                    : Instant.now().plusSeconds(86400);</span>
+<span class="nc" id="L75">        } catch (DateTimeParseException e) {</span>
             // Report which parameter was invalid and what was received
-<span class="nc bnc" id="L73" title="All 4 branches missed.">            String invalid = (from != null &amp;&amp; e.getParsedString() != null</span>
-<span class="nc bnc" id="L74" title="All 4 branches missed.">                    &amp;&amp; e.getParsedString().equals(from)) ? from : (to != null ? to : &quot;unknown&quot;);</span>
-<span class="nc" id="L75">            byte[] msg = (&quot;Invalid date format. Expected yyyy-MM-dd, received: &quot; + invalid)</span>
-<span class="nc" id="L76">                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);</span>
-<span class="nc" id="L77">            return ResponseEntity.badRequest()</span>
-<span class="nc" id="L78">                    .contentType(MediaType.TEXT_PLAIN)</span>
-<span class="nc" id="L79">                    .body(msg);</span>
-<span class="nc" id="L80">        }</span>
+<span class="nc bnc" id="L77" title="All 4 branches missed.">            String invalid = (from != null &amp;&amp; e.getParsedString() != null</span>
+<span class="nc bnc" id="L78" title="All 4 branches missed.">                    &amp;&amp; e.getParsedString().equals(from)) ? from : (to != null ? to : &quot;unknown&quot;);</span>
+<span class="nc" id="L79">            byte[] msg = (&quot;Invalid date format. Expected yyyy-MM-dd, received: &quot; + invalid)</span>
+<span class="nc" id="L80">                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);</span>
+<span class="nc" id="L81">            return ResponseEntity.badRequest()</span>
+<span class="nc" id="L82">                    .contentType(MediaType.TEXT_PLAIN)</span>
+<span class="nc" id="L83">                    .body(msg);</span>
+<span class="nc" id="L84">        }</span>
 
-<span class="nc" id="L82">        List&lt;ObservationEventEntity&gt; events =</span>
-<span class="nc" id="L83">                eventRepository.findByTimestampBetweenOrderByTimestampDesc(fromInstant, toInstant);</span>
+<span class="nc" id="L86">        List&lt;ObservationEventEntity&gt; events =</span>
+<span class="nc" id="L87">                eventRepository.findByTimestampBetweenOrderByTimestampDesc(fromInstant, toInstant);</span>
 
-<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (&quot;csv&quot;.equalsIgnoreCase(format)) {</span>
-<span class="nc" id="L86">            return csvResponse(buildEventsCsv(events), &quot;events.csv&quot;);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">        if (&quot;csv&quot;.equalsIgnoreCase(format)) {</span>
+<span class="nc" id="L90">            return csvResponse(buildEventsCsv(events), &quot;events.csv&quot;);</span>
         }
-<span class="nc" id="L88">        return jsonResponse(buildEventsJson(events), &quot;events.json&quot;);</span>
+<span class="nc" id="L92">        return jsonResponse(buildEventsJson(events), &quot;events.json&quot;);</span>
     }
 
     /**
@@ -94,109 +98,110 @@ public class ObserverExportController {
      * @param format {@code csv} or {@code json} (default {@code json})
      */
     @GetMapping(&quot;/species&quot;)
+    @Operation(summary = &quot;Export species rankings as JSON or CSV&quot;)
     public ResponseEntity&lt;byte[]&gt; exportSpecies(
             @RequestParam(defaultValue = &quot;json&quot;) String format) throws Exception {
 
-<span class="nc" id="L100">        List&lt;SpeciesRecordEntity&gt; species =</span>
-<span class="nc" id="L101">                speciesRepository.findAllByOrderByTotalSightingsDesc();</span>
+<span class="nc" id="L105">        List&lt;SpeciesRecordEntity&gt; species =</span>
+<span class="nc" id="L106">                speciesRepository.findAllByOrderByTotalSightingsDesc();</span>
 
-<span class="nc bnc" id="L103" title="All 2 branches missed.">        if (&quot;csv&quot;.equalsIgnoreCase(format)) {</span>
-<span class="nc" id="L104">            return csvResponse(buildSpeciesCsv(species), &quot;species.csv&quot;);</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (&quot;csv&quot;.equalsIgnoreCase(format)) {</span>
+<span class="nc" id="L109">            return csvResponse(buildSpeciesCsv(species), &quot;species.csv&quot;);</span>
         }
-<span class="nc" id="L106">        return jsonResponse(buildSpeciesJson(species), &quot;species.json&quot;);</span>
+<span class="nc" id="L111">        return jsonResponse(buildSpeciesJson(species), &quot;species.json&quot;);</span>
     }
 
     // ---- CSV builders ----
 
     private String buildEventsCsv(List&lt;ObservationEventEntity&gt; events) {
-<span class="nc" id="L112">        StringBuilder sb = new StringBuilder();</span>
-<span class="nc" id="L113">        sb.append(&quot;timestamp,mode,primaryLabel,confidence,cameraId,triggerReason,imagePath\n&quot;);</span>
-<span class="nc bnc" id="L114" title="All 2 branches missed.">        for (ObservationEventEntity e : events) {</span>
-<span class="nc bnc" id="L115" title="All 2 branches missed.">            sb.append(csvEsc(e.getTimestamp() != null ? e.getTimestamp().toString() : &quot;&quot;)).append(',');</span>
-<span class="nc" id="L116">            sb.append(csvEsc(e.getMode())).append(',');</span>
-<span class="nc bnc" id="L117" title="All 2 branches missed.">            String label = e.getAiResult() != null ? e.getAiResult().getPrimaryLabel() : &quot;&quot;;</span>
-<span class="nc" id="L118">            sb.append(csvEsc(label)).append(',');</span>
-<span class="nc bnc" id="L119" title="All 2 branches missed.">            String conf = e.getAiResult() != null</span>
-<span class="nc" id="L120">                    ? String.format(&quot;%.4f&quot;, e.getAiResult().getConfidence()) : &quot;&quot;;</span>
-<span class="nc" id="L121">            sb.append(conf).append(',');</span>
-<span class="nc" id="L122">            sb.append(csvEsc(e.getCameraId())).append(',');</span>
-<span class="nc" id="L123">            sb.append(csvEsc(e.getTriggerReason())).append(',');</span>
-<span class="nc" id="L124">            sb.append(csvEsc(e.getBestImagePath())).append('\n');</span>
-<span class="nc" id="L125">        }</span>
-<span class="nc" id="L126">        return sb.toString();</span>
+<span class="nc" id="L117">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L118">        sb.append(&quot;timestamp,mode,primaryLabel,confidence,cameraId,triggerReason,imagePath\n&quot;);</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        for (ObservationEventEntity e : events) {</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            sb.append(csvEsc(e.getTimestamp() != null ? e.getTimestamp().toString() : &quot;&quot;)).append(',');</span>
+<span class="nc" id="L121">            sb.append(csvEsc(e.getMode())).append(',');</span>
+<span class="nc bnc" id="L122" title="All 2 branches missed.">            String label = e.getAiResult() != null ? e.getAiResult().getPrimaryLabel() : &quot;&quot;;</span>
+<span class="nc" id="L123">            sb.append(csvEsc(label)).append(',');</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            String conf = e.getAiResult() != null</span>
+<span class="nc" id="L125">                    ? String.format(&quot;%.4f&quot;, e.getAiResult().getConfidence()) : &quot;&quot;;</span>
+<span class="nc" id="L126">            sb.append(conf).append(',');</span>
+<span class="nc" id="L127">            sb.append(csvEsc(e.getCameraId())).append(',');</span>
+<span class="nc" id="L128">            sb.append(csvEsc(e.getTriggerReason())).append(',');</span>
+<span class="nc" id="L129">            sb.append(csvEsc(e.getBestImagePath())).append('\n');</span>
+<span class="nc" id="L130">        }</span>
+<span class="nc" id="L131">        return sb.toString();</span>
     }
 
     private String buildSpeciesCsv(List&lt;SpeciesRecordEntity&gt; species) {
-<span class="nc" id="L130">        StringBuilder sb = new StringBuilder();</span>
-<span class="nc" id="L131">        sb.append(&quot;normalizedNameDe,normalizedNameEn,scientificName,category,totalSightings,firstSeen,lastSeen\n&quot;);</span>
-<span class="nc bnc" id="L132" title="All 2 branches missed.">        for (SpeciesRecordEntity s : species) {</span>
-<span class="nc" id="L133">            sb.append(csvEsc(s.getNormalizedNameDe())).append(',');</span>
-<span class="nc" id="L134">            sb.append(csvEsc(s.getNormalizedNameEn())).append(',');</span>
-<span class="nc" id="L135">            sb.append(csvEsc(s.getScientificName())).append(',');</span>
-<span class="nc" id="L136">            sb.append(csvEsc(s.getCategory())).append(',');</span>
-<span class="nc" id="L137">            sb.append(s.getTotalSightings()).append(',');</span>
-<span class="nc bnc" id="L138" title="All 2 branches missed.">            sb.append(s.getFirstSeen() != null ? s.getFirstSeen().toString() : &quot;&quot;).append(',');</span>
-<span class="nc bnc" id="L139" title="All 2 branches missed.">            sb.append(s.getLastSeen() != null ? s.getLastSeen().toString() : &quot;&quot;).append('\n');</span>
-<span class="nc" id="L140">        }</span>
-<span class="nc" id="L141">        return sb.toString();</span>
+<span class="nc" id="L135">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L136">        sb.append(&quot;normalizedNameDe,normalizedNameEn,scientificName,category,totalSightings,firstSeen,lastSeen\n&quot;);</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">        for (SpeciesRecordEntity s : species) {</span>
+<span class="nc" id="L138">            sb.append(csvEsc(s.getNormalizedNameDe())).append(',');</span>
+<span class="nc" id="L139">            sb.append(csvEsc(s.getNormalizedNameEn())).append(',');</span>
+<span class="nc" id="L140">            sb.append(csvEsc(s.getScientificName())).append(',');</span>
+<span class="nc" id="L141">            sb.append(csvEsc(s.getCategory())).append(',');</span>
+<span class="nc" id="L142">            sb.append(s.getTotalSightings()).append(',');</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">            sb.append(s.getFirstSeen() != null ? s.getFirstSeen().toString() : &quot;&quot;).append(',');</span>
+<span class="nc bnc" id="L144" title="All 2 branches missed.">            sb.append(s.getLastSeen() != null ? s.getLastSeen().toString() : &quot;&quot;).append('\n');</span>
+<span class="nc" id="L145">        }</span>
+<span class="nc" id="L146">        return sb.toString();</span>
     }
 
     // ---- JSON builders ----
 
     private String buildEventsJson(List&lt;ObservationEventEntity&gt; events) throws Exception {
-<span class="nc" id="L147">        ArrayNode arr = objectMapper.createArrayNode();</span>
-<span class="nc bnc" id="L148" title="All 2 branches missed.">        for (ObservationEventEntity e : events) {</span>
-<span class="nc" id="L149">            ObjectNode node = objectMapper.createObjectNode();</span>
-<span class="nc" id="L150">            node.put(&quot;id&quot;, e.getId());</span>
-<span class="nc bnc" id="L151" title="All 2 branches missed.">            node.put(&quot;timestamp&quot;, e.getTimestamp() != null ? e.getTimestamp().toString() : null);</span>
-<span class="nc" id="L152">            node.put(&quot;mode&quot;, e.getMode());</span>
-<span class="nc bnc" id="L153" title="All 2 branches missed.">            String label = e.getAiResult() != null ? e.getAiResult().getPrimaryLabel() : null;</span>
-<span class="nc bnc" id="L154" title="All 2 branches missed.">            if (label != null) node.put(&quot;primaryLabel&quot;, label); else node.putNull(&quot;primaryLabel&quot;);</span>
-<span class="nc bnc" id="L155" title="All 2 branches missed.">            if (e.getAiResult() != null) {</span>
-<span class="nc" id="L156">                node.put(&quot;confidence&quot;, e.getAiResult().getConfidence());</span>
+<span class="nc" id="L152">        ArrayNode arr = objectMapper.createArrayNode();</span>
+<span class="nc bnc" id="L153" title="All 2 branches missed.">        for (ObservationEventEntity e : events) {</span>
+<span class="nc" id="L154">            ObjectNode node = objectMapper.createObjectNode();</span>
+<span class="nc" id="L155">            node.put(&quot;id&quot;, e.getId());</span>
+<span class="nc bnc" id="L156" title="All 2 branches missed.">            node.put(&quot;timestamp&quot;, e.getTimestamp() != null ? e.getTimestamp().toString() : null);</span>
+<span class="nc" id="L157">            node.put(&quot;mode&quot;, e.getMode());</span>
+<span class="nc bnc" id="L158" title="All 2 branches missed.">            String label = e.getAiResult() != null ? e.getAiResult().getPrimaryLabel() : null;</span>
+<span class="nc bnc" id="L159" title="All 2 branches missed.">            if (label != null) node.put(&quot;primaryLabel&quot;, label); else node.putNull(&quot;primaryLabel&quot;);</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">            if (e.getAiResult() != null) {</span>
+<span class="nc" id="L161">                node.put(&quot;confidence&quot;, e.getAiResult().getConfidence());</span>
             } else {
-<span class="nc" id="L158">                node.putNull(&quot;confidence&quot;);</span>
+<span class="nc" id="L163">                node.putNull(&quot;confidence&quot;);</span>
             }
-<span class="nc" id="L160">            node.put(&quot;cameraId&quot;, e.getCameraId());</span>
-<span class="nc" id="L161">            node.put(&quot;triggerReason&quot;, e.getTriggerReason());</span>
-<span class="nc" id="L162">            node.put(&quot;imagePath&quot;, e.getBestImagePath());</span>
-<span class="nc" id="L163">            arr.add(node);</span>
-<span class="nc" id="L164">        }</span>
-<span class="nc" id="L165">        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);</span>
+<span class="nc" id="L165">            node.put(&quot;cameraId&quot;, e.getCameraId());</span>
+<span class="nc" id="L166">            node.put(&quot;triggerReason&quot;, e.getTriggerReason());</span>
+<span class="nc" id="L167">            node.put(&quot;imagePath&quot;, e.getBestImagePath());</span>
+<span class="nc" id="L168">            arr.add(node);</span>
+<span class="nc" id="L169">        }</span>
+<span class="nc" id="L170">        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);</span>
     }
 
     private String buildSpeciesJson(List&lt;SpeciesRecordEntity&gt; species) throws Exception {
-<span class="nc" id="L169">        ArrayNode arr = objectMapper.createArrayNode();</span>
-<span class="nc bnc" id="L170" title="All 2 branches missed.">        for (SpeciesRecordEntity s : species) {</span>
-<span class="nc" id="L171">            ObjectNode node = objectMapper.createObjectNode();</span>
-<span class="nc" id="L172">            node.put(&quot;normalizedNameDe&quot;, s.getNormalizedNameDe());</span>
-<span class="nc" id="L173">            node.put(&quot;normalizedNameEn&quot;, s.getNormalizedNameEn());</span>
-<span class="nc" id="L174">            node.put(&quot;scientificName&quot;, s.getScientificName());</span>
-<span class="nc" id="L175">            node.put(&quot;category&quot;, s.getCategory());</span>
-<span class="nc" id="L176">            node.put(&quot;totalSightings&quot;, s.getTotalSightings());</span>
-<span class="nc bnc" id="L177" title="All 2 branches missed.">            node.put(&quot;firstSeen&quot;, s.getFirstSeen() != null ? s.getFirstSeen().toString() : null);</span>
-<span class="nc bnc" id="L178" title="All 2 branches missed.">            node.put(&quot;lastSeen&quot;, s.getLastSeen() != null ? s.getLastSeen().toString() : null);</span>
-<span class="nc" id="L179">            arr.add(node);</span>
-<span class="nc" id="L180">        }</span>
-<span class="nc" id="L181">        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);</span>
+<span class="nc" id="L174">        ArrayNode arr = objectMapper.createArrayNode();</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        for (SpeciesRecordEntity s : species) {</span>
+<span class="nc" id="L176">            ObjectNode node = objectMapper.createObjectNode();</span>
+<span class="nc" id="L177">            node.put(&quot;normalizedNameDe&quot;, s.getNormalizedNameDe());</span>
+<span class="nc" id="L178">            node.put(&quot;normalizedNameEn&quot;, s.getNormalizedNameEn());</span>
+<span class="nc" id="L179">            node.put(&quot;scientificName&quot;, s.getScientificName());</span>
+<span class="nc" id="L180">            node.put(&quot;category&quot;, s.getCategory());</span>
+<span class="nc" id="L181">            node.put(&quot;totalSightings&quot;, s.getTotalSightings());</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">            node.put(&quot;firstSeen&quot;, s.getFirstSeen() != null ? s.getFirstSeen().toString() : null);</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">            node.put(&quot;lastSeen&quot;, s.getLastSeen() != null ? s.getLastSeen().toString() : null);</span>
+<span class="nc" id="L184">            arr.add(node);</span>
+<span class="nc" id="L185">        }</span>
+<span class="nc" id="L186">        return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(arr);</span>
     }
 
     // ---- response helpers ----
 
     private ResponseEntity&lt;byte[]&gt; csvResponse(String content, String filename) {
-<span class="nc" id="L187">        byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);</span>
-<span class="nc" id="L188">        return ResponseEntity.ok()</span>
-<span class="nc" id="L189">                .contentType(MediaType.parseMediaType(CSV_MIME))</span>
-<span class="nc" id="L190">                .header(HttpHeaders.CONTENT_DISPOSITION, &quot;attachment; filename=\&quot;&quot; + filename + &quot;\&quot;&quot;)</span>
-<span class="nc" id="L191">                .body(bytes);</span>
+<span class="nc" id="L192">        byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);</span>
+<span class="nc" id="L193">        return ResponseEntity.ok()</span>
+<span class="nc" id="L194">                .contentType(MediaType.parseMediaType(CSV_MIME))</span>
+<span class="nc" id="L195">                .header(HttpHeaders.CONTENT_DISPOSITION, &quot;attachment; filename=\&quot;&quot; + filename + &quot;\&quot;&quot;)</span>
+<span class="nc" id="L196">                .body(bytes);</span>
     }
 
     private ResponseEntity&lt;byte[]&gt; jsonResponse(String content, String filename) {
-<span class="nc" id="L195">        byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);</span>
-<span class="nc" id="L196">        return ResponseEntity.ok()</span>
-<span class="nc" id="L197">                .contentType(MediaType.APPLICATION_JSON)</span>
-<span class="nc" id="L198">                .header(HttpHeaders.CONTENT_DISPOSITION, &quot;attachment; filename=\&quot;&quot; + filename + &quot;\&quot;&quot;)</span>
-<span class="nc" id="L199">                .body(bytes);</span>
+<span class="nc" id="L200">        byte[] bytes = content.getBytes(java.nio.charset.StandardCharsets.UTF_8);</span>
+<span class="nc" id="L201">        return ResponseEntity.ok()</span>
+<span class="nc" id="L202">                .contentType(MediaType.APPLICATION_JSON)</span>
+<span class="nc" id="L203">                .header(HttpHeaders.CONTENT_DISPOSITION, &quot;attachment; filename=\&quot;&quot; + filename + &quot;\&quot;&quot;)</span>
+<span class="nc" id="L204">                .body(bytes);</span>
     }
 
     /**
@@ -205,19 +210,19 @@ public class ObserverExportController {
      * with a single quote to prevent execution when opened in Excel/Sheets.
      */
     private static String csvEsc(String value) {
-<span class="nc bnc" id="L208" title="All 2 branches missed.">        if (value == null) return &quot;&quot;;</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">        if (value == null) return &quot;&quot;;</span>
         // Neutralize formula injection characters
-<span class="nc" id="L210">        String sanitized = value;</span>
-<span class="nc bnc" id="L211" title="All 2 branches missed.">        if (!sanitized.isEmpty()) {</span>
-<span class="nc" id="L212">            char first = sanitized.charAt(0);</span>
-<span class="nc bnc" id="L213" title="All 8 branches missed.">            if (first == '=' || first == '+' || first == '-' || first == '@') {</span>
-<span class="nc" id="L214">                sanitized = &quot;'&quot; + sanitized;</span>
+<span class="nc" id="L215">        String sanitized = value;</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        if (!sanitized.isEmpty()) {</span>
+<span class="nc" id="L217">            char first = sanitized.charAt(0);</span>
+<span class="nc bnc" id="L218" title="All 8 branches missed.">            if (first == '=' || first == '+' || first == '-' || first == '@') {</span>
+<span class="nc" id="L219">                sanitized = &quot;'&quot; + sanitized;</span>
             }
         }
-<span class="nc bnc" id="L217" title="All 6 branches missed.">        if (sanitized.contains(&quot;,&quot;) || sanitized.contains(&quot;\&quot;&quot;) || sanitized.contains(&quot;\n&quot;)) {</span>
-<span class="nc" id="L218">            return &quot;\&quot;&quot; + sanitized.replace(&quot;\&quot;&quot;, &quot;\&quot;\&quot;&quot;) + &quot;\&quot;&quot;;</span>
+<span class="nc bnc" id="L222" title="All 6 branches missed.">        if (sanitized.contains(&quot;,&quot;) || sanitized.contains(&quot;\&quot;&quot;) || sanitized.contains(&quot;\n&quot;)) {</span>
+<span class="nc" id="L223">            return &quot;\&quot;&quot; + sanitized.replace(&quot;\&quot;&quot;, &quot;\&quot;\&quot;&quot;) + &quot;\&quot;&quot;;</span>
         }
-<span class="nc" id="L220">        return sanitized;</span>
+<span class="nc" id="L225">        return sanitized;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.14.202510111229</span></div></body></html>
