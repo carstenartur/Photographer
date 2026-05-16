@@ -1,5 +1,6 @@
 package com.photographer.focusstack.cr3.research;
 
+import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
 
 import java.io.File;
@@ -69,8 +70,9 @@ public final class SubbandBatchStatistics {
      * @param cr3Files files to scan, in output order
      * @return statistics rows in file/subband sequence order
      * @throws IOException if a CR3 file cannot be read
+     * @throws Cr3Exception if a CR3 file cannot be parsed as a valid CR3 container
      */
-    public static List<Row> analyze(List<File> cr3Files) throws IOException {
+    public static List<Row> analyze(List<File> cr3Files) throws IOException, Cr3Exception {
         if (cr3Files == null) {
             throw new IllegalArgumentException("cr3Files must not be null");
         }
