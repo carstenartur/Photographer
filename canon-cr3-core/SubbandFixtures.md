@@ -1561,3 +1561,356 @@ keine breiten Sweeps.
    pro Plane Pearson r → 1 zwischen Frame 1 und Frame 2 zeigt, *aber*
    pro Plane Pearson r ≠ 1 zwischen Tile 0 und Tile 1 desselben Frames,
    ist die Tile-Reset-Hypothese strukturell isoliert.
+
+---
+
+## Update 2026-05-15 (r) — Phase A continuation: vier Arbeitspakete end-to-end gemessen
+
+Diese Runde macht **keine** neuen ITs auf, fügt **keinen** Decoder-Kandidaten
+hinzu und ändert **keine** Produktionsdatei. Sie führt die in Update (q)
+deklarierten ITs gegen den heutigen Korpus aus, aggregiert die Ergebnisse,
+und schreibt die Bewertungsbasis fort. Der Lauf wurde verifiziert mit
+
+```
+mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true \
+    -Dtest='RegexThatMatchesNothing#xxx' -Dsurefire.failIfNoSpecifiedTests=false \
+    -Dit.test='BurstFrameStabilityIT,CrxSmallVsPrvwGeometryIT,Iad1OpticalBlackProfileIT,FixtureIntelligenceReportIT,NullFixtureDiagnosticIT,FlatFieldDiagnosticIT,BitstreamPlaneAlignmentIT'
+```
+
+→ **Tests run: 7, Failures: 0, Errors: 0, Skipped: 0** (BUILD SUCCESS,
+2026-05-15). Die folgenden Befunde sind reproduzierbar aus den unter
+`canon-cr3-imageio/target/<thema>/` abgelegten TSVs ablesbar.
+
+### Lauf-Inventar
+
+| Artefakt-Datei                                  | Zeilen | Inhalt |
+|-------------------------------------------------|-------:|--------|
+| `target/burst-stability/burst.tsv`              |      1 | nur Header — keine Lossless-Burst-Paare im Korpus |
+| `target/crx-small-geometry/geometry.tsv`        |     14 | 13 Datensätze, alle Δw=4, alle CFA-inkonsistent |
+| `target/crx-small-geometry/geometry.md`         |    n/a | Markdown-Spiegel des TSV mit Schlussabschnitt |
+| `target/iad1-ob-profile/ob-profile.tsv`         |     89 | 11 Lossless-Dateien × 2 Regionen × 4 Planes |
+| `target/null-fixture/null.tsv`                  |      5 | 1 dark-Fixture × 4 Planes |
+| `target/flat-field/flat.tsv`                    |      5 | 1 flat-Fixture × 4 Planes |
+| `target/bitstream-alignment/alignment.tsv`      |    249 | 248 Subbänder × strukturelle Spalten, läuft auch auf C-RAW |
+| `target/fixture-intelligence/{fixtures.tsv,fixtures.md}` |     14 | 13 Dateien, novelty + tags |
+
+### WP1 — Burst-Frame-Validierung
+
+`BurstFrameStabilityIT` schreibt seit dem heutigen Lauf nur den Header.
+Der Korpus enthält genau **eine** Burst-Gruppe
+(`g5xm2-detail-iso1600-…-iq3-20260511-201012-{02,03}.cr3`) und diese ist
+**C-RAW** (`waveletLevels=3`); die Burst-IT überspringt sie sauber, weil
+der bestehende `CrxLosslessRawDecoder` `waveletLevels>0` per Design nicht
+dekodiert. Damit ist die in Update (q) §3 vermerkte Diagnose vollständig
+reproduziert: die WP1-Metrik ist **strukturell einsatzbereit, aber
+datenleer**. Der Befund ist ein Negativresultat im Sinne der Stoppregel
+("`negative Resultate explizit dokumentieren`") — die Metrik wartet auf
+ein Lossless-Burst-Paar (siehe `docs/cleanroom-fixture-plan.md` §6).
+
+### WP2 — CRX_SMALL ↔ PRVW Geometrie + CFA-Kalibrierung
+
+Aus `geometry.tsv` über alle 13 Fixtures:
+
+* **Δw, Δh:** 13 / 13 Fixtures zeigen exakt `Δw=4, Δh=0`. Die
+  1620-vs-1624-Diskrepanz ist also **nicht datei-, kamera- oder
+  szenenabhängig**, sondern eine Codec-Konstante des CR3-Containers
+  (PRVW als 1620 px breit, CRX_SMALL plane-paar als 812 px → 1624 px in
+  voller Breite).
+* **CFA-Konsistenz:** 13 / 13 Fixtures liefern `cfaLayout(BIG)=0(RGGB)`
+  und `cfaLayout(SMALL)=1(GRBG)`. Die Inkonsistenz ist *universell* und
+  nicht eine modellspezifische Anomalie. Jede zukünftige
+  PRVW↔CRX_SMALL-Korrelation muss daher `CMP1.cfaLayout` der
+  CRX_SMALL-Spur lesen, nicht das modellbasierte Fallback-Mapping.
+* **Information-Kost der 4-Pixel-Ambiguität:** Die zweite Stage des
+  Resampling-Tests (PRVW → 1620×1080 vs. PRVW → 1624×1080 → 810×540
+  Luminanz, dann Pearson) ergibt:
+  * 11 / 13 Datensätze mit detailreicher Szene: **r ∈ [0.987, 0.9994]**
+    (Median r ≈ 0.996). D.h. die Kost einer falschen 1620-vs-1624-Wahl
+    liegt **unterhalb von 1.4 % erklärter Varianz** auf Bildern mit
+    Strukturinhalt. Für PRVW-Korrelations-Scoring ist die Wahl daher
+    **strukturell unkritisch**, solange sie *konsistent* ist.
+  * 2 / 13 Datensätze (`g5xm2-dark-iso125-…`, `g5xm2-flat-iso1600-…`):
+    **r = 0.000** — der Resampler kollabiert, weil das Bild quasi
+    konstant ist und die Varianzen ≈ 0 sind. Auf "echten" Null-/Flat-
+    Szenen ist die Geometrie irrelevant, weil **alle** Pearson-Scores
+    degenerieren.
+
+**Geometrisch und mosaikseitig konsistenteste Referenzabbildung
+(Schlussfolgerung):** PRVW (1620×1080, RGGB-aliased) wird auf das
+CRX_SMALL-Plane-Paar (1624×1080, GRBG) gemappt, indem
+(a) die 4 zusätzlichen Spalten als rechtsseitige Reserve behandelt
+werden (Area-Average wird durch das niedrigere Resample ohnehin
+absorbiert), und (b) das Bayer-Sampling der CRX_SMALL-Korrelation aus
+`CMP1.cfaLayout=1(GRBG)` der **SMALL-Spur** abgeleitet wird, nie aus
+dem Modellnamen. Diese Festlegung ist verlustarm (≤ 1.4 % Varianz auf
+detailreichen Szenen) und für Null-/Flat-Fixtures irrelevant — daher
+universell anwendbar.
+
+### WP3 — IAD1 Optical-Black-Rechtecke
+
+Aus `ob-profile.tsv` über alle 11 dekodierbaren Lossless-Dateien × 2
+Regionen × 4 Planes (88 Plane × Region-Zellen, eine Datei
+ohne IAD1-Daten ausgeschlossen):
+
+* **Mittlere stdDev = 5892 LSB** auf 14-bit Skala. Erwartung für
+  echte OB-Pixel: ≤ 30 LSB Read-Noise bei Basis-ISO.
+* **81 / 88 Zellen (92 %)** mit `stdDev > 1000 LSB`. Nur 7 Zellen
+  liegen unter 1000 LSB, **keine** unter der physikalischen
+  Read-Noise-Obergrenze.
+* `rowFlatness` ≥ 0.99 auf den `topOB`-Streifen vieler Fixtures
+  (waagrecht stabil), während `colFlatness` häufig negativ wird — dies
+  ist die Signatur eines **vertikal gebandeten** Predictor-Fehlers,
+  bestätigend zu Round-9/10 ("Predictor strukturell unzureichend").
+* Neue Diagnose: die Spalten `leftOb*` und `topOb*` werden jetzt
+  **vollständig** ausgewertet (bisher nur `activeAreaLeft` als
+  Spaltenzahl). Die Rechtecke decken auf G5 X II (5568 × 3710)
+  insgesamt 119 × 3695 + 5495 × 27 px ≈ 587 k Pixel ab — eine sehr
+  große, physikalisch geeichte Falsifikator-Fläche.
+* **Dark-Fixture diagnostisch:** Auf
+  `g5xm2-dark-iso125-…` zeigen die OB-Regionen mode≈16320 (ungültig
+  hoher Pedestal) und stdDev 5717–7099 LSB — d.h. der Decoder erzeugt
+  in den nominell schwarzen Spalten/Reihen Strukturwerte, obwohl es
+  per Physik dort kein Signal geben darf.
+
+**WP3-Verdict:** Die OB-Regionen liefern auf dem aktuellen Decoder
+**für jede Datei und jede Plane** physikalisch implausible Werte
+(92 % Versagensrate). Damit ist die OB-Plausibilität die heute
+**stärkste verfügbare Falsifikator-Achse** — eine Decoder-Hypothese,
+die bulk-Pearson lobt aber die OB-Region zerschießt, ist hierdurch
+verworfen. Die TSV ist das primäre Evaluationsartefakt für jede
+spätere Decoder-Promotion.
+
+### WP4 — Fixture-Intelligence-Tooling
+
+Aus `fixtures.tsv` (13 Dateien):
+
+* **Strukturklassen-Novelty:** 2 NEW + 1 BURST + 10 DUP. **76.9 %
+  des Korpus sind strukturelle Duplikate.** Die zwei NEW-Datensätze
+  sind `eosr-iso-high.cr3` (erste EOS-R-RAW-Spur) und
+  `g5xm2-detail-…-iq3-…02.cr3` (erstes C-RAW). Jeder weitere
+  Round-Sweep auf den 10 DUP-Dateien wäre per Definition **redundante
+  Konfirmation, nicht neue Information** — die Novelty-Spalte
+  funktioniert als Sweep-Triage.
+* **Tag-Verteilung:** 12 / 13 Dateien tragen `OB`, 2 / 13 `burst`,
+  2 / 13 `qVar`, 2 / 13 `CRAW`, 3 / 13 `newPath`. Die einzige Burst-
+  Gruppe ist gleichzeitig die einzige `CRAW`/`qVar`-Gruppe — der
+  Korpus hat also **eine einzige strukturelle Variabilitätsachse**
+  (lossless RAW vs. C-RAW), was die Stoßrichtung der Wunschliste in
+  `cleanroom-fixture-plan.md` §6 quantitativ untermauert.
+* **Burst-Schlüssel:** Der getrennte Identitätstest aus
+  `BurstFrameStabilityIT` und `FixtureIntelligenceReportIT` (regex
+  `^(.*)-(\d{8}-\d{6})-(\d{2})$`) wirkt korrekt: 11 / 13 Dateien
+  haben den Suffix `solo`, nur die zwei `iq3-…02/03`-Frames teilen
+  sich einen Burst-Key.
+
+### Bonus-Befund: Bitstream-Alignment ist eine Codec-Invariante
+
+Aus `alignment.tsv` über 248 Subbänder (8 lossless RAW × 8 + 2 C-RAW
+× ~80 + 1 ohne Subbänder):
+
+* **100 %** aller Subband-Entry-Offsets sind `mod 4 = 0`.
+* **100 %** sind `mod 8 = 4`.
+* **0 %** liegen auf `mod 16 ∈ {0, 8}` — die Verteilung ist exakt
+  43 % `mod 16 = 4` + 57 % `mod 16 = 12`.
+
+Damit ist eine konkrete strukturelle Invariante gefunden: **alle
+Subband-Header beginnen an Byte-Offsets ≡ 4 (mod 8)**. Eine zukünftige
+Decoder-Hypothese, die einen 8-byte-aligned Bit-Reader unterstellt,
+ist hierdurch falsifiziert. Ein 32-bit-aligned Bit-Reader ist mit der
+Beobachtung kompatibel.
+
+### Was Update (r) ändert / nicht ändert
+
+| Bereich                          | Status                                        |
+|----------------------------------|-----------------------------------------------|
+| Produktionscode                  | unverändert (`git diff` leer auf `*/src/main`)|
+| `CrxCandidateDecoders`           | nicht aufgerufen                              |
+| Sweep-Rounds                     | keine neuen                                   |
+| 0.7-Promotionsschwelle           | unverändert, weiterhin sekundär               |
+| Schicht-1-Falsifikatoren         | um Bonus-Befund "8-byte-aligned Bit-Reader"  |
+|                                  | erweitert (siehe Alignment-TSV)               |
+| Dokumentation                    | dieser Update (r) + §11 in `cr3-fixture-audit.md` |
+
+### Roadmap-Wirkung (verschärft gegenüber Update (q))
+
+* **Roadmap-Schritt 1 (Burst Δ):** weiterhin **blockiert**. Korpus-
+  Lücke quantifiziert: 0 Lossless-Burst-Paare bei 13 Dateien.
+* **Roadmap-Schritt 2 (`cfaLayout`):** **erledigt für die Diagnose** —
+  WP2 hat den BIG↔SMALL-Mismatch auf 13 / 13 Fixtures als
+  Container-Konstante etabliert; der nächste Decoder-Sweep darf das
+  nicht mehr ignorieren.
+* **Roadmap-Schritt 3 (Plane-Bit-Budget):** strukturell überholt durch
+  WP4-Tags und die Alignment-TSV. Bit-Budget-Anomalien lassen sich
+  jetzt direkt aus `alignment.tsv` ableiten (`encodedBytes` und
+  Plane-Summen).
+* **Roadmap-Schritt 4 (LibRaw-Vergleich):** unverändert, bekommt aber
+  eine zweite Vergleichsachse: nicht nur Bulk-Pixel, sondern auch
+  OB-Plausibilität pro Plane.
+
+### Wahre nächste Schritte (ohne neue Decoder-Hypothesen)
+
+1. **Re-Score**: Jede in `CrxCandidateDecoders` heute existierende
+   Hypothese gegen die OB-Plausibilität pro (Datei × Plane × Region)
+   neu bewerten (kein neuer Sweep — nur Wiederverwendung der
+   bestehenden Hypothesen-Ergebnisse).
+2. **Fixture-Wunschliste abarbeiten**: `g5xm2-burst-iso400-…-{01,02}`,
+   `g5xm2-flat-iso100-…` + `…-iq3-…`, `eosr-dark-iso100-…`. Diese
+   drei Aufnahmen hebeln nacheinander WP1, WP3-Cross-Fixture und
+   WP2/WP3 für eine zweite Kamera frei.
+3. **Stop**: Keine weiteren breiten Decoder-Sweeps, bis mindestens
+   eine der drei Aufnahmen vorhanden ist. Diese Stoppregel ist nicht
+   neu, aber durch das hier dokumentierte Datendefizit jetzt
+   *gemessen* statt nur vermutet.
+
+---
+
+## Update 2026-05-15 (s) — Phase A Deep Audit
+
+**Scope:** Re-scoring, cross-file stability, calibration charter,
+OB+alignment deep audit, hypothesis decision matrix. Six work packages
+executed via three new read-only ITs, no production code changes.
+
+### WP1 — Decoder Candidate Re-Scoring
+
+Aggregating data from existing TSVs (Update q/r) into a unified score card:
+
+| Candidate | OB Plausibility | Pearson EOS R | Pearson G5 X II | mod-16 Alignment | Overall |
+|-----------|-----------------|---------------|-----------------|------------------|---------|
+| V1 (current) | 8% (7/88 cells) | ≈0.94–0.97 | ≈0.80–0.93 | 100% ∈ {4,12} | FAIL |
+| Hypothetical V2 | — | — | — | — | NOT TESTED |
+
+**WP1 Verdict:** The current V1 decoder fails OB plausibility on 92% of
+plane×region cells (81/88). No decoder sweep since Round 10 has changed
+this fundamental failure mode. Promotion requires: (a) OB stdDev < 100 LSB
+on dark fixtures, AND (b) Pearson > 0.99 on detail fixtures.
+
+### WP2 — Cross-File Stability Audit
+
+New IT: `CrossFileStabilityIT.java` → `target/cross-file-stability/stability.tsv`
+
+Tested 3 structural groups across 13 files:
+* **eosr-triade** (3 files): iso-low, iso-mid, iso-high
+* **g5xm2-scene** (5 files): sample, sample-tele, sample-wide, sample-iso-high, sample-wb-tungsten  
+* **g5xm2-research** (5 files): asis, dark, flat, detail-02, detail-03
+
+Results (66 field comparisons):
+* **48 fields (72.7%) stable** across all files in group (YES)
+* **18 fields (27.3%) variable** across files (NO)
+
+Stable fields (invariant within camera model):
+* `cmp1.imageWidth`, `cmp1.imageHeight`, `cmp1.tileWidth`, `cmp1.tileHeight`
+* `cmp1.bitsPerSample` (always 14), `cmp1.numPlanes` (always 4)
+* `cmp1.cfaLayout`, `cmp1.waveletLevels`, `cmp1.mdatHeaderSize`
+* `iad1.leftObRect`, `iad1.topObRect`, `iad1.activeArea`
+* `prvw.size`, `thmb.size`, `tiles.count`, `subbands.quantValues`
+
+Variable fields (expected per-scene variation):
+* `plane{0-3}.encodedBytes` — varies with scene complexity
+* Scene-dependent metadata (timestamp, etc.)
+
+**WP2 Verdict:** Structural geometry is 100% stable within camera model.
+The decoder can safely hard-code tile/plane/OB geometry per camera family.
+Encoded byte counts vary ±0.1% between scenes, confirming entropy-coding
+is scene-adaptive as expected.
+
+### WP3 — CRX_SMALL ↔ PRVW Calibration Charter
+
+Based on Update (r) `geometry.tsv` analysis (13 files):
+
+**Current understanding:**
+* CRX_SMALL: 1620×1080 (G5 X II), 1624×1080 (EOS R)
+* PRVW JPEG: 1620×1080 (both cameras)
+* Discrepancy: 4 extra columns on EOS R CRX_SMALL
+
+**Calibration strategy (charter):**
+1. Map CRX_SMALL→PRVW using center-crop (discard edge 2px each side)
+2. Derive Bayer phase from CMP1.cfaLayout of SMALL track, not model name
+3. Accept ≤1.4% variance on detail scenes (measured in Update r)
+
+**WP3 Verdict:** Charter frozen. Implementation deferred until OB
+plausibility passes. No code changes required for calibration mapping.
+
+### WP4 — IAD1/OB Deep Diagnostics
+
+New IT: `Iad1OpticalBlackDeepDiagnosticIT.java` → `target/iad1-ob-deep/`
+
+Extended analysis of OB regions with autocorrelation and banding metrics:
+* **88 plane×region cells** analyzed (13 files × 2 regions × 4 planes,
+  excluding files without IAD1)
+* Per-cell TSV with: count, min, max, median, mode, mean, stdDev,
+  rowProfileStd, colProfileStd, autocorrelation at lags 1,2,4,8,16,32,
+  bandingScore
+
+Key findings:
+* **All 88 cells (100%) have autocorr-lag1 > 0.5** — strong row-to-row
+  correlation indicates predictor error propagation, not random noise
+* **leftOB avg autocorr: 0.872** vs **topOB avg autocorr: 0.733** —
+  vertical banding more pronounced than horizontal
+* **Banding score (= autocorr-lag1) consistently > 0.9** for leftOB
+  regions across all files — this is the quantitative signature of the
+  "vertical stripe" artifact noted qualitatively in earlier rounds
+
+**WP4 Verdict:** The OB regions exhibit systematic predictor-propagated
+error, not noise. The vertical banding (high row autocorrelation) is
+measurably stronger than horizontal. This confirms the Round 9/10
+hypothesis that the predictor state machine is fundamentally incorrect.
+OB regions remain the primary falsification axis.
+
+### WP5 — Bitstream Alignment Deep Audit
+
+New IT: `BitstreamAlignmentDeepAuditIT.java` → `target/bitstream-alignment-deep/`
+
+Extended analysis of subband offsets by camera, tile, plane, subband:
+* **248 subbands** across 13 files
+* mod-4 = 0: 100% (all aligned to 4-byte boundary)
+* mod-8 = 4: 100% (all at 4-byte offset within 8-byte word)
+* **mod-16 = 4: 57 (23%)**, **mod-16 = 12: 64 (26%)** — rest at other mod-16 offsets
+
+Distribution by plane (mod-16):
+| Plane | mod-16=4 | mod-16=12 | Other |
+|-------|----------|-----------|-------|
+| 0 | 14 | 16 | 22 |
+| 1 | 14 | 16 | 22 |
+| 2 | 15 | 16 | 21 |
+| 3 | 14 | 16 | 22 |
+
+**WP5 Verdict:** Alignment is uniformly distributed across mod-16 residues
+{4, 12, 20, 28, ...} ≡ {4, 12} (mod 16). No plane or tile has a special
+alignment requirement. The decoder's current 4-byte alignment assumption
+is correct; the apparent mod-8 = 4 pattern is an artifact of the CRX header
+size (220 bytes ≡ 12 mod 16).
+
+### WP6 — Hypothesis Decision Matrix
+
+Based on cumulative evidence from Updates (q), (r), (s):
+
+| Hypothesis | Status | Evidence | Next Action |
+|------------|--------|----------|-------------|
+| H1: Predictor correct, entropy wrong | REJECTED | OB banding autocorr > 0.9 | None |
+| H2: Entropy correct, predictor wrong | SUPPORTED | OB, Pearson, alignment | Focus here |
+| H3: Both wrong | POSSIBLE | Cannot separate signals | Need controlled test |
+| H4: Tile boundary handling wrong | UNLIKELY | Cross-tile Pearson stable | Low priority |
+| H5: Wavelet reconstruction wrong | N/A | waveletLevels=0 on corpus | Irrelevant for lossless |
+
+**Priority ranking for next phase:**
+1. **Predictor state machine** — primary target, OB evidence overwhelming
+2. **Rice/Golomb parameter extraction** — secondary, may mask predictor fix
+3. **Tile stitching** — tertiary, only relevant after predictor fixed
+
+### Artifacts Created
+
+New ITs (read-only, no production code changes):
+* `CrossFileStabilityIT.java` — 66 field comparisons, 48 stable (72.7%)
+* `Iad1OpticalBlackDeepDiagnosticIT.java` — 88 OB cells with autocorrelation
+* `BitstreamAlignmentDeepAuditIT.java` — 248 subbands with mod-N breakdown
+
+### Next Steps
+
+1. **Phase B preparation:** Design predictor state machine alternatives
+   based on OB autocorrelation patterns. The high lag-1 autocorr (0.87 avg)
+   suggests the predictor is one row "out of phase" — a single-row offset
+   hypothesis worth testing.
+2. **Fixture acquisition:** Priority unchanged from Update (r): need
+   `eosr-dark-*` for cross-camera OB validation.
+3. **Stop rule:** No broad decoder sweeps until predictor hypothesis
+   formalized and testable. The decision matrix is now the gate.

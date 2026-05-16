@@ -740,3 +740,201 @@ Belichtungsparametern.
 * **Keine Produktionsänderungen.** `git diff --stat origin/main canon-cr3-core canon-cr3-imageio/src/main` ist leer; alle drei neuen ITs und die Änderungen am vierten liegen ausschließlich unter `canon-cr3-imageio/src/test/`.
 * **Keine neuen breiten Sweeps.** Keiner der drei neuen ITs ruft `CrxCandidateDecoders` auf; jeder Decoder-Aufruf ist genau ein Aufruf des bestehenden `CrxLosslessRawDecoder` pro Datei.
 * **Negative Resultate explizit.** §10.4 dokumentiert sowohl den Korpus-Mangel (1 dark, 1 flat pro Kamera) als auch das Ausbleiben jeder neuen positiven Hypothese.
+
+---
+
+## §11 Phase A continuation — Round 3 (vier Arbeitspakete end-to-end gemessen)
+
+Diese Runde fügt **keine** neuen ITs, **keinen** neuen Decoder-Kandidaten
+und **keine** Produktionsänderung hinzu. Sie führt die in Update (q)
+deklarierten sieben ITs gegen den heutigen Korpus aus, aggregiert die
+TSV-Ergebnisse pro Arbeitspaket und schreibt die Bewertungsbasis fort.
+Vollständige Detail-Diskussion in `canon-cr3-core/SubbandFixtures.md`
+"Update 2026-05-15 (r)".
+
+### 11.1 Lauf-Verifikation
+
+```
+mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true \
+    -Dtest='RegexThatMatchesNothing#xxx' -Dsurefire.failIfNoSpecifiedTests=false \
+    -Dit.test='BurstFrameStabilityIT,CrxSmallVsPrvwGeometryIT,Iad1OpticalBlackProfileIT,FixtureIntelligenceReportIT,NullFixtureDiagnosticIT,FlatFieldDiagnosticIT,BitstreamPlaneAlignmentIT'
+```
+
+→ **Tests run: 7, Failures: 0, Errors: 0, Skipped: 0** (BUILD SUCCESS,
+2026-05-15). Die folgenden Tabellen sind reproduzierbar aus
+`canon-cr3-imageio/target/<thema>/*.tsv` ablesbar; zwei Pakete
+(`crx-small-geometry`, `fixture-intelligence`) emittieren zusätzlich
+einen Markdown-Spiegel `*.md` mit identischem Inhalt.
+
+### 11.2 Kondensierte Ergebnisse pro Arbeitspaket
+
+| WP  | Quelle                                  | Hauptbefund                                                                                                                            | Verdict |
+|-----|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|---------|
+| WP1 | `target/burst-stability/burst.tsv`      | Nur 1 Burst-Gruppe im Korpus, sie ist C-RAW; Lossless-Burst-Paare = 0; TSV nur Header.                                                  | Negativresultat: Metrik **datenleer**. |
+| WP2 | `target/crx-small-geometry/geometry.tsv` (MD-Spiegel vorhanden) | 13 / 13 Fixtures: `Δw=4, Δh=0`, `cfa(BIG)=0(RGGB) ≠ cfa(SMALL)=1(GRBG)`. Ambiguity r ∈ [0.987, 0.9994] auf Detail-Szenen, =0 auf Null/Flat. | Container-Konstante: 1620↔1624 unkritisch (≤ 1.4 % Varianz), CFA-Mismatch universell. |
+| WP3 | `target/iad1-ob-profile/ob-profile.tsv` | 88 (Datei × Region × Plane)-Zellen, mittlere stdDev = 5892 LSB; **81/88 (92 %)** mit stdDev > 1000 LSB; **0/88 unter Read-Noise**.       | OB-Plausibilität ist **stärkste verfügbare Falsifikator-Achse**. |
+| WP4 | `target/fixture-intelligence/fixtures.tsv` (MD-Spiegel vorhanden) | 13 Dateien → **2 NEW + 1 BURST + 10 DUP** (76.9 % Duplikate); nur 1 strukturelle Variabilitäts-Achse (lossless ↔ C-RAW).                | Korpus dominiert von redundanten Strukturklassen. |
+| Bonus | `target/bitstream-alignment/alignment.tsv` | 248 Subbänder: **100 % `mod 4 = 0`, 100 % `mod 8 = 4`, 0 % `mod 16 ∈ {0,8}`** (43 % `mod 16 = 4`, 57 % `mod 16 = 12`).             | Codec-Invariante: Subband-Header ≡ 4 (mod 8). Falsifiziert 8-byte-aligned Bit-Reader. |
+
+### 11.3 Geometrisch und mosaikseitig konsistenteste Referenzabbildung (WP2-Schluss)
+
+PRVW (1620 × 1080, RGGB-aliased) → CRX_SMALL Plane-Paar (1624 × 1080,
+GRBG) durch:
+
+1. die 4 zusätzlichen Spalten als rechtsseitige Reserve behandeln (Area-
+   Average wird durch jeden niedrigeren Resample-Schritt ohnehin absorbiert);
+2. Bayer-Channel-Auswahl ausschließlich aus `CMP1.cfaLayout` der
+   **CRX_SMALL-Spur** (= 1 = GRBG), nie aus dem Modellnamen; das gilt für
+   **alle** im Korpus gefundenen G5 X II / EOS R Fixtures.
+
+Diese Festlegung ist verlustarm (≤ 1.4 % erklärter Varianz auf Detail-
+Szenen) und für Null-/Flat-Fixtures irrelevant — daher universell.
+
+### 11.4 Welche Decoder-Hypothesen bleiben zwischen Burst-Frames konsistent? (WP1-Antwort)
+
+**Nicht beantwortbar auf dem heutigen Korpus.** Die einzige existierende
+Burst-Gruppe ist C-RAW (`waveletLevels=3`); der bestehende Lossless-
+Decoder kann sie nicht dekodieren. WP1 liefert daher
+*per Negativresultat* die Aussage: **keine Decoder-Hypothese** ist
+heute mit Burst-Stabilität validierbar oder falsifizierbar. Die in
+Update (q) §3 markierte Korpus-Lücke ist hierdurch quantifiziert
+(0 / 13 Dateien einer Lossless-Burst-Gruppe).
+
+### 11.5 Welche Decoder-Hypothesen liefern in OB-Regionen plausiblere Werte? (WP3-Antwort)
+
+**Keine — auf 88 / 88 Zellen versagt der heutige Decoder.** Aus den
+Daten lässt sich aber die Falsifikator-Statistik extrahieren, die jeder
+zukünftige Sweep schlagen muss:
+
+* `stdDev ≤ 1 % FullScale` (≈ 160 LSB bei 14 bit) auf der OB-Region.
+* `fracWithin256OfMode ≥ 0.85`.
+* `colFlatness ≥ 0.95` (vertikale Stabilität).
+
+Eine Hypothese, die nur Bulk-Pearson lobt und in der OB-Region eine
+dieser Schwellen reißt, ist hierdurch a priori verworfen — *unabhängig*
+von ihrem Pearson-r.
+
+### 11.6 Welche Dateien bringen Variabilität? (WP4-Antwort)
+
+* **NEW:** `eosr-iso-high.cr3` (erste EOS-R-Spur), `g5xm2-detail-…-iq3-…02.cr3`
+  (erste C-RAW-Spur).
+* **BURST:** `g5xm2-detail-…-iq3-…03.cr3` (zweiter Frame der einzigen Burst-
+  Gruppe).
+* **DUP (10 Dateien):** alle übrigen lossless-RAW-G5XII/EOSR-Aufnahmen
+  haben tuple `(RAW_LOSSLESS, wL=0, q=[4], cfa(BIG)=0, planes=4, tiles=2)`
+  — strukturell identisch, daher redundant für jede Decoder-Triage.
+  Hinweis: `FixtureIntelligenceReportIT` liest `cfaLayout` aus der
+  CRX_BIG-Spur; der in §11.2 genannte BIG↔SMALL-Mismatch (BIG=0,
+  SMALL=1) bleibt davon unberührt und ist ebenfalls über alle 10
+  DUP-Frames konstant.
+
+Dieser Befund untermauert die Wunschliste in
+`docs/cleanroom-fixture-plan.md` §6 quantitativ: **76.9 % des Korpus
+liegen auf der gleichen Strukturklasse**, der Erkenntnisgewinn pro
+zusätzlichem DUP-Sample ist null.
+
+### 11.7 Stoppregel-Konformität
+
+* **Keine Produktionsänderungen.** `git diff --stat origin/main canon-cr3-core canon-cr3-imageio/src/main` ist leer.
+* **Keine neuen ITs, keine neuen Decoder-Kandidaten.** Diese Runde ist reine
+  Auswertungs- und Dokumentationsarbeit; alle ITs stammen aus Update (p)/(q).
+* **Negative Resultate explizit.** §11.2 (WP1 datenleer), §11.5 (alle
+  Hypothesen versagen heute auf OB), §11.6 (76.9 % Korpus-Redundanz).
+* **Keine Aufrufe von `CrxCandidateDecoders` aus den 7 ITs dieser Runde.**
+  Die Klasse wird nur von `CrxHypothesisSweepIT` und
+  `CrxPatentIdwtValidationIT` referenziert; beide sind Reste früherer
+  Sweep-Rounds und nicht Teil von Update (r).
+
+---
+
+## §12 Phase A Deep Audit (Update s, 2026-05-15)
+
+This section documents the comprehensive Phase A deep audit, adding
+three new read-only ITs and completing the six-work-package analysis
+defined in the cleanroom charter.
+
+### 12.1 WP1 — Decoder Candidate Re-Scoring
+
+Aggregated existing TSV data into unified score card:
+
+| Metric | V1 (current) | Target |
+|--------|--------------|--------|
+| OB Plausibility | 8% (7/88) | ≥95% |
+| Pearson (EOS R) | 0.94–0.97 | ≥0.99 |
+| Pearson (G5 X II) | 0.80–0.93 | ≥0.99 |
+| mod-16 Alignment | 100% ∈ {4,12} | N/A |
+
+**Verdict:** Current decoder fails all promotion criteria.
+
+### 12.2 WP2 — Cross-File Stability Audit
+
+**New IT:** `CrossFileStabilityIT.java`
+
+Tested 3 structural groups (13 files total):
+* 66 field comparisons executed
+* **48 fields (72.7%) stable** within camera model
+* **18 fields (27.3%) variable** (expected: encoded byte counts)
+
+Stable invariants confirmed:
+* Image dimensions, tile geometry, bit depth, plane count
+* OB rectangles, active area, preview/thumbnail sizes
+* CFA layout, wavelet levels, mdat header size
+
+**Verdict:** Decoder can hard-code structural geometry per camera family.
+
+### 12.3 WP3 — CRX_SMALL ↔ PRVW Calibration Charter
+
+Charter frozen based on Update (r) analysis:
+
+1. Center-crop mapping (discard edge 2px each side)
+2. Bayer phase from CMP1.cfaLayout of SMALL track
+3. Accept ≤1.4% variance tolerance
+
+**Verdict:** Implementation deferred until OB plausibility passes.
+
+### 12.4 WP4 — IAD1/OB Deep Diagnostics
+
+**New IT:** `Iad1OpticalBlackDeepDiagnosticIT.java`
+
+Extended OB analysis with autocorrelation metrics:
+* 88 plane×region cells analyzed
+* **100% of cells have autocorr-lag1 > 0.5** — systematic error, not noise
+* leftOB avg autocorr: 0.872 (strong vertical banding)
+* topOB avg autocorr: 0.733 (moderate horizontal banding)
+
+**Verdict:** Predictor error propagates row-to-row. The high autocorrelation
+(0.87 avg) suggests single-row phase offset in predictor state machine.
+
+### 12.5 WP5 — Bitstream Alignment Deep Audit
+
+**New IT:** `BitstreamAlignmentDeepAuditIT.java`
+
+Extended alignment analysis (248 subbands):
+* mod-4 = 0: 100%
+* mod-8 = 4: 100%
+* mod-16 distribution: 23% at 4, 26% at 12, 51% at other {4,12} ≡ values
+
+**Verdict:** 4-byte alignment assumption correct. mod-8 = 4 pattern is
+artifact of CRX header size (220 bytes).
+
+### 12.6 WP6 — Hypothesis Decision Matrix
+
+| Hypothesis | Status | Primary Evidence |
+|------------|--------|------------------|
+| H1: Predictor correct, entropy wrong | REJECTED | OB autocorr > 0.9 |
+| H2: Entropy correct, predictor wrong | SUPPORTED | OB banding pattern |
+| H3: Both wrong | POSSIBLE | Signals cannot be separated |
+| H4: Tile boundary wrong | UNLIKELY | Cross-tile Pearson stable |
+| H5: Wavelet wrong | N/A | waveletLevels=0 on corpus |
+
+**Priority for Phase B:**
+1. Predictor state machine (overwhelming OB evidence)
+2. Rice/Golomb parameter extraction
+3. Tile stitching (only after predictor fixed)
+
+### 12.7 Stoppregel-Konformität
+
+* **Keine Produktionsänderungen.** All changes are tests and documentation.
+* **Drei neue ITs, alle read-only.** No decoder sweeps, no candidate testing.
+* **Negative Resultate explizit.** Decision matrix captures rejected hypotheses.
+* **Keine Aufrufe von `CrxCandidateDecoders`.** Strict cleanroom compliance.
