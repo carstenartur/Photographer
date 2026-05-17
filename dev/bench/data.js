@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778946483528,
+  "lastUpdate": 1779040528453,
   "repoUrl": "https://github.com/carstenartur/Photographer",
   "entries": {
     "Canon CR3 JMH Benchmarks": [
@@ -3238,6 +3238,366 @@ window.BENCHMARK_DATA = {
           {
             "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"eosr-iso-high.cr3\"} )",
             "value": 674.7947838,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "carsten.hammer@t-online.de",
+            "name": "Carsten Hammer",
+            "username": "carstenartur"
+          },
+          "committer": {
+            "email": "carsten.hammer@t-online.de",
+            "name": "Carsten Hammer",
+            "username": "carstenartur"
+          },
+          "distinct": true,
+          "id": "e97617d20274359b19d18651c3b168a1cc8da195",
+          "message": "add more results",
+          "timestamp": "2026-05-17T19:26:45+02:00",
+          "tree_id": "d7107ea876ad1d4143b188b1d1e77ab28c0bbd4d",
+          "url": "https://github.com/carstenartur/Photographer/commit/e97617d20274359b19d18651c3b168a1cc8da195"
+        },
+        "date": 1779040524134,
+        "tool": "jmh",
+        "benches": [
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"sample.cr3\"} )",
+            "value": 1.9481836147736058,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 0.8299361968797762,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 0.8063685163389247,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 2.2476768418618898,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 2.2890666673233295,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 3.4422411016603602,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 3.4887602042248367,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 3.5727977265250765,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"sample.cr3\"} )",
+            "value": 0.024413594919350023,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 0.024481859465549434,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 0.025667160491304835,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 0.02438275606619742,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 0.024234365382280625,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 0.05945470987835009,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 0.059350535625371806,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 0.05936628202428661,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"sample.cr3\"} )",
+            "value": 17.073872911231216,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 11.54266130675828,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 11.591726739981665,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 21.70350112398317,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 21.720440595114543,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 18.65382881180196,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 18.57280054892966,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 18.641918802051915,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"sample.cr3\"} )",
+            "value": 566.7336575777778,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 422.07480305,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 416.54975357307694,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 561.9465948222222,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 653.067221875,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 844.9184582333334,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 903.7606042666666,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 841.9661481999999,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"sample.cr3\"} )",
+            "value": 1501.7609123999998,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 1355.15468045,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 1352.1759328,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 1502.0706789,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 1556.3618653,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 2260.4083372,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 2317.4503639333334,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 2234.4248262,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"sample.cr3\"} )",
+            "value": 1497.27516215,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 1352.65828085,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 1357.971599,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 1495.7531974999997,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 1564.52105315,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 2255.6922993333333,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 2308.63706,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 2236.3987611999996,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"sample.cr3\"} )",
+            "value": 498.64028579999996,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"sample-iso-high.cr3\"} )",
+            "value": 359.4735545666666,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"sample-wb-tungsten.cr3\"} )",
+            "value": 353.8901192666666,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"sample-wide.cr3\"} )",
+            "value": 500.66522891000005,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"sample-tele.cr3\"} )",
+            "value": 597.3509909500001,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"eosr-iso-low.cr3\"} )",
+            "value": 740.6214201333333,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"eosr-iso-mid.cr3\"} )",
+            "value": 796.3137341333334,
+            "unit": "ms/op",
+            "extra": "iterations: 5\nforks: 1\nthreads: 1"
+          },
+          {
+            "name": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode ( {\"sample\":\"eosr-iso-high.cr3\"} )",
+            "value": 727.1259961333333,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           }
