@@ -1394,9 +1394,140 @@ Each step remains test‑scope only:
    wrong and the `groups` map needs to be rebuilt before Round‑11.
 
 Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
-plane × tile) majority before any production‑code change. Currently
+plane × tile) majority before any production-code change. Currently
 the per‑channel maximum is **still 0.56 on lossless and 0.027 on
 C‑RAW**. No production‑code change.
+
+## Update 2026-05-13 (p) — Cross‑round consolidation + run‑mode gap analysis
+
+This entry consolidates Rounds 11/12/13 (already implemented as ITs in
+`canon-cr3-imageio/src/test/.../research/`, but not yet logged here) and
+maps the publicly known "Canon CRX patent‑family" recipe (entangled band
+assignment, adaptive Rice‑Golomb with zigzag sign mapping, per‑subband
+dequantisation, Le Gall 5/3 IDWT) onto the existing rounds. It records
+the one mechanism the patent recipe implies that **no round has tested
+yet**, and proposes Round‑14 as the next concrete experiment.
+
+### Where Rounds 11–13 land on the patent recipe
+
+| Patent recipe element | Round | Best \|r\| | Notes |
+|---|---|---:|---|
+| Inverse horizontal predictor per detail subband (HL=above, LH=left, HH=zero) | R11 Stage B | 0.31 | Lifts C‑RAW max\|r\| from R10's 0.027 → 0.31 — confirms an intra‑subband predictor exists. |
+| 6 uniform role perms × predictor × dequant | R11 Stage B | 0.31 | Single global perm insufficient. |
+| Bit order (MSB/LSB) × payload offset × sign × pred × K_INIT | R12 | 0.66 | Big jump: predictor `P_MED` (LOCO‑I‑style median of {a, b, a+b−c}) under MSB‑first, payload offset 0, K_INIT ∈ {0,1}. |
+| Per‑level role perms (6^L = 216 for L=3) + per‑band negation (2³ = 8) + extended predictor family (PAETH, GRAD, AVG, MED_REV, DC_OFFSET) | R13 | 0.66 | Confirms R12 ceiling: per‑level perms and negation give Δ\|r\| ≤ 0.02 over R12. The predictor and entropy stages are now over‑swept. |
+
+The per‑channel maximum is therefore **0.66 on C‑RAW (R12/R13)** and
+**0.56 on lossless (R8)** — both still below the 0.70 promotion threshold
+in `CrxLosslessRawDecoder`. **No production code change is justified yet.**
+
+### Mapping the patent recipe to falsified vs. open mechanisms
+
+The user‑supplied patent‑family summary describes four building blocks
+(entangled band assignment, adaptive Rice‑Golomb with zigzag sign,
+per‑subband dequant, Le Gall 5/3 IDWT). The mapping is:
+
+- **"Entangled band assignment / permutation matrix":** Rounds 11/13
+  swept all 6^L per‑level role permutations within a (tile, plane).
+  Cross‑plane interleave was *also* checked structurally — the
+  container header explicitly markers each subband with its
+  `tileIndex/planeIndex/subIndex` (see `CrxHeader.parse`), so the
+  parser cannot mis‑group subbands. Δ\|r\| ≤ 0.02 across all perms.
+  **Falsified as the dominant blocker.**
+- **"Dynamic K + zigzag sign":** Round‑6 patent K‑bracket
+  (`K* = ⌊log₂(s+1)⌋`, `K ∈ [K* − 1, K* + 1]`) consumes exactly the
+  bitstream. Round‑9 falsified `K_INIT = q` over `q ∈ {4, 16, 22, 26,
+  32}` and confirmed `K_INIT = 0`. Round‑12 swept the entire sign
+  family (zigzag / sign‑magnitude / parity / offset‑half) with
+  Δ\|r\| ≤ 0.02. **Falsified as the dominant blocker.**
+- **"Per‑subband dequant":** Round‑10 §B is a mathematical proof
+  that scalar dequant cannot lift Pearson r (linear‑scale invariance).
+  Round‑11/12/13 confirmed the same empirically across `D_IDENTITY`,
+  `D_MUL_Q`, `D_MUL_Q_HALF`. **Falsified as the dominant blocker.**
+- **"Le Gall 5/3 IDWT":** `InverseWaveletTransform.legall53` matches
+  the JPEG2000 reference (ITU‑T T.800) and is exercised by Round‑10
+  onwards on `waveletLevels = 3` C‑RAW fixtures. Geometry is
+  correct (`1 + 3·L = 10` subbands per plane, output dimensions
+  `1408 × 1848` matches plane size rounded to `2^L`). **Implemented
+  and validated.**
+
+### The missing mechanism: per‑line zero‑run escape (H3, never tested)
+
+`SubbandFixtures.md`'s very first hypothesis list (above, "Falsifiable
+starter hypotheses") proposed **H3 — escape symbol switches to fixed‑width
+remainder** and **H4 — first bit of each line is a mode selector**.
+Neither hypothesis has been exercised by any of Rounds 1–13 (grep
+`zero.run|zerorun|RLE|escape` over `canon-cr3-imageio/src/test/.../research/`
+returns zero hits in any Round IT).
+
+JPEG‑LS, the closest publicly documented analogue to Canon's CRX entropy
+stage, uses exactly such a **run mode**: when the local context is "flat"
+(predicted value matches the previous left‑neighbour), the decoder reads
+a unary‑coded zero‑run length and emits that many copies of the previous
+sample before resuming residual decoding. This is the standard mechanism
+for closing the natural‑image flat‑region efficiency gap that Rice/Golomb
+alone cannot close.
+
+The 0.66 ceiling that Rounds 11–13 hit is consistent with a missing run
+mode in two independent ways:
+
+1. **Bits per pixel.** Update (n)'s Round‑9 measurements established
+   `bits/symbol ≈ 4.5` is the empirical optimum across 80 subbands of
+   the C‑RAW fixture. Round‑13's best decoder consumes the right number
+   of bits *only because* the K‑bracket K* climbs as if every symbol
+   were non‑zero — when in reality some symbols are encoded as part of
+   a run, not individually. Rounds 12/13's K‑update rule therefore
+   over‑integrates K within the flat regions, producing structurally
+   correct edges (high local correlation) but structurally wrong
+   smooth areas (suppressing the long‑range correlation against the
+   preview reference, which dominates the per‑channel Pearson r).
+2. **Per‑plane spread.** Round‑12 §S8 and Round‑13's hot‑zone analysis
+   both show that per‑plane max\|r\| varies by ~3× even within a single
+   tile. A bug in the entropy stage that costs ~1 bit/symbol on flat
+   regions would have exactly this signature: the green planes (large
+   flat regions in natural images) are the worst hit; the red plane
+   (highest spatial detail in this fixture) hits the 0.66 ceiling.
+
+### Plan for Round‑14 — JPEG‑LS‑style run mode on top of Round‑13 winner
+
+`CrxPlaneFollowupRound14IT` (test scope only, no production change),
+proposed shape:
+
+1. **Pin the Round‑13 winner**: predictor `P_MED`, MSB‑first, payload
+   offset 0, K_INIT = 0, sign `S_LSB_ALT`, dequant `D_MUL_Q`, per‑level
+   perm = `[HL, LH, HH]` (canonical), neg = `[1, 1, 1]`, LL mode
+   `LL_UNSIGNED+MID`.
+2. **Add a run‑mode toggle to the entropy decoder**: at every symbol
+   boundary, if `a == b == c` (left == above == above‑left, JPEG‑LS
+   "flat context" criterion), enter run mode. In run mode read a
+   unary‑coded run length `r` with a separate adaptive K‑bracket
+   `K_run` (initial 0, same K* update rule as the residual stream),
+   emit `r` copies of `a`, then exit run mode. Restart residual
+   decoding at the next pixel.
+3. **Sweep**: run‑mode entry condition ∈ {`a==b`, `a==b==c`,
+   `|a−b|≤1`}, run‑length K_run init ∈ {0, 1, 2}, run‑mode applied to
+   {LL only, detail only, all subbands} = 27 variants per (tile, plane).
+4. **Score** against the same GRBG‑mapped preview Bayer channel as
+   Rounds 11–13. Promotion threshold unchanged at \|r\| > 0.7.
+
+Estimated wall‑clock: ~8 min (27 variants × 8 (tile, plane) × 5 fixtures
+with the existing per‑subband decode cache).
+
+If Round‑14 lifts max\|r\| above 0.7 on the dominant plane *of any
+fixture*, the run mode is structurally justified and the next round is
+production‑pipeline integration in `CrxLosslessRawDecoder`. If it does
+not, the next axes to try are (in order): a context‑modelled K (separate
+K accumulator per `|a − b|` quantiser bin, à la JPEG‑LS contexts Q1..Q5),
+and a fixed‑width remainder escape (H3 proper) for residuals exceeding
+a per‑subband magnitude threshold.
+
+### What this update explicitly does NOT do
+
+- It does not modify any production code path.
+- It does not change `CrxLosslessRawDecoder`'s K‑init or K‑update.
+- It does not change `Cr3VisualQualityTest`'s baseline.
+- It does not author Round‑14 IT yet — the IT is the next session's deliverable.
+
 
 ## Update 2026-05-15 (p) — Vier diagnostische ITs ohne Decoder-Sweeps
 

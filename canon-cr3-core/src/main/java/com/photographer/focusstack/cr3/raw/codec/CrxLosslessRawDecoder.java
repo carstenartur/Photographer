@@ -53,6 +53,54 @@ public final class CrxLosslessRawDecoder {
     /** Threshold for periodic normalization of adaptation counters. */
     private static final int NORMALIZATION_THRESHOLD = 1024;
 
+    /**
+     * Selects the Rice‑Golomb {@code K} adaptation rule used by the
+     * per‑plane entropy decoder.
+     *
+     * <p>Two rules are implemented:</p>
+     *
+     * <ul>
+     *   <li>{@link #JPEG_LS} — the ITU‑T T.87 (JPEG‑LS) accumulator
+     *       rule: {@code K} grows when {@code accumulator > sampleCount<<K}
+     *       and shrinks when {@code accumulator <= sampleCount<<(K-1)}.
+     *       Stable, long‑proven, but tracks a *running* magnitude and is
+     *       slow to react to a sudden burst of small residuals — exactly
+     *       the regime of a dark/flat fixture, where the
+     *       cleanroom regression panel observed three of four Bayer
+     *       planes saturating at 16320 (entropy‑lock‑loss).</li>
+     *   <li>{@link #PATENT_BRACKET} — the per‑symbol bracket rule
+     *       described in Canon patent application
+     *       US&nbsp;2016/0323602&nbsp;A1 §5.11–5.13:
+     *       {@code K* = floor(log2(s + 1))}, then
+     *       {@code K ∈ [K* − 1, K* + 1]}. Reacts immediately to the
+     *       magnitude of the current symbol, which the patent argues
+     *       is necessary on the small‑residual planes typical of dark
+     *       and flat scenes.</li>
+     * </ul>
+     *
+     * <p>The default is {@link #JPEG_LS} (the long‑standing production
+     * choice). The bake‑off
+     * {@code CrxKUpdateRuleBakeoffIT} measures both rules side‑by‑side
+     * on the dark/flat regression panel; when (and only when) that IT
+     * shows {@link #PATENT_BRACKET} winning, the production default is
+     * to be flipped via the matching IT‑validated PR — see Update (q)
+     * of {@code samples/research/README.md}.</p>
+     */
+    public enum KUpdateRule {
+        /** ITU‑T T.87 accumulator rule (current production default). */
+        JPEG_LS,
+        /**
+         * Per‑symbol bracket rule from Canon patent
+         * US&nbsp;2016/0323602&nbsp;A1 §5.11–5.13.
+         *
+         * <p>{@code K* = floor(log2(s + 1)); K ∈ [K* − 1, K* + 1]}.</p>
+         */
+        PATENT_BRACKET
+    }
+
+    /** Production default — the long‑proven JPEG‑LS rule. */
+    public static final KUpdateRule DEFAULT_K_UPDATE_RULE = KUpdateRule.JPEG_LS;
+
     private CrxLosslessRawDecoder() {
         // utility class
     }

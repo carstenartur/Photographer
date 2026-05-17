@@ -41,6 +41,8 @@ import java.util.concurrent.Callable;
  * java -jar canon-cr3-cli.jar boxes   &lt;file.cr3&gt;
  * java -jar canon-cr3-cli.jar preview &lt;file.cr3&gt; [output.jpg]
  * java -jar canon-cr3-cli.jar thumb   &lt;file.cr3&gt; [output.jpg]
+ * java -jar canon-cr3-cli.jar decode  &lt;file.cr3&gt; [output.jpg]
+ * java -jar canon-cr3-cli.jar decode-compare &lt;file.cr3&gt; [outBase]
  * </pre>
  */
 @Command(
@@ -139,6 +141,8 @@ public final class Cr3CliApp implements Callable<Integer> {
             case "subband-stats" -> subbandStats(bitsMode ? BITS_OPTION : filePath, fullArgs, parsedCommandLine);
             case "preview" -> extractPreview(filePath, extraArgs.isEmpty() ? "preview.jpg" : extraArgs.getFirst());
             case "thumb" -> extractThumbnail(filePath, extraArgs.isEmpty() ? "thumbnail.jpg" : extraArgs.getFirst());
+            case "decode" -> decodeRaw(filePath, extraArgs.isEmpty() ? null : extraArgs.getFirst(), /*compare*/ false);
+            case "decode-compare" -> decodeRaw(filePath, extraArgs.isEmpty() ? null : extraArgs.getFirst(), /*compare*/ true);
             default -> throw new CommandLine.ParameterException(parsedCommandLine, "Unknown command: " + command);
         }
         return 0;
@@ -339,6 +343,95 @@ public final class Cr3CliApp implements Callable<Integer> {
             ImageIO.write(thumb, "JPEG", new File(outputPath));
             System.out.printf("Thumbnail extracted: %dx%d -> %s%n",
                     thumb.getWidth(), thumb.getHeight(), outputPath);
+        }
+    }
+
+    /**
+     * Decodes the RAW track of a CR3 file through the full processing pipeline
+     * (black level → crop → white balance → demosaic → colour matrix → sRGB)
+     * and writes the result as a JPEG.
+     *
+     * <p>Commands:</p>
+     * <pre>
+     *   cr3-cli decode &lt;file.cr3&gt; [output.jpg]
+     *       Decodes RAW → processed sRGB JPEG.
+     *
+     *   cr3-cli decode-compare &lt;file.cr3&gt; [outBase]
+     *       Writes three files derived from {@code outBase} (default = CR3 basename):
+     *       {@code <outBase>-raw.jpg}     — full RAW decode
+     *       {@code <outBase>-preview.jpg} — embedded JPEG preview (JPEG_BIG track)
+     *       {@code <outBase>-thumb.jpg}   — embedded thumbnail
+     *       Intended for side-by-side visual comparison.
+     * </pre>
+     *
+     * @param filePath path to the CR3 file
+     * @param outputArg optional output path / base name (may be {@code null})
+     * @param compare   when {@code true}, also write the embedded preview and thumbnail
+     */
+    private static void decodeRaw(String filePath, String outputArg, boolean compare) throws Exception {
+        // Derive base name from the CR3 file when no output argument is given.
+        String base;
+        if (outputArg != null && !outputArg.isBlank()) {
+            // Strip a trailing .jpg extension so we can append our own suffixes.
+            base = outputArg.replaceAll("(?i)\\.jpe?g$", "");
+        } else {
+            String name = new File(filePath).getName();
+            int dot = name.lastIndexOf('.');
+            base = (dot > 0) ? name.substring(0, dot) : name;
+        }
+
+        String rawOut = compare ? (base + "-raw.jpg") : (base + ".jpg");
+
+        try (Cr3Decoder decoder = new Cr3Decoder()) {
+            decoder.setInput(Path.of(filePath));
+
+            // --- Full RAW → processed sRGB decode ---
+            long t0 = System.currentTimeMillis();
+            BufferedImage rawImg = decoder.decode(Cr3DecodeOptions.rawProcessed());
+            long dt = System.currentTimeMillis() - t0;
+            writeJpeg(rawImg, rawOut, 92);
+            System.out.printf("RAW decoded (%dx%d, %.1f s) -> %s%n",
+                    rawImg.getWidth(), rawImg.getHeight(), dt / 1000.0, rawOut);
+
+            if (compare) {
+                // --- Embedded preview (JPEG_BIG) ---
+                String prevOut = base + "-preview.jpg";
+                BufferedImage prev = decoder.decode(Cr3DecodeOptions.defaults()); // PREVIEW mode
+                writeJpeg(prev, prevOut, 95);
+                System.out.printf("Embedded preview (%dx%d) -> %s%n",
+                        prev.getWidth(), prev.getHeight(), prevOut);
+
+                // --- Embedded thumbnail ---
+                String thumbOut = base + "-thumb.jpg";
+                BufferedImage thumb = decoder.decode(Cr3DecodeOptions.defaults()
+                        .outputMode(Cr3DecodeOptions.OutputMode.THUMBNAIL));
+                writeJpeg(thumb, thumbOut, 90);
+                System.out.printf("Embedded thumbnail (%dx%d) -> %s%n",
+                        thumb.getWidth(), thumb.getHeight(), thumbOut);
+
+                System.out.println();
+                System.out.println("Compare in your image viewer:");
+                System.out.println("  " + rawOut + "   (full RAW decode, current decoder)");
+                System.out.println("  " + prevOut + "   (camera-rendered JPEG, ground truth)");
+                System.out.println("  " + thumbOut + "   (camera thumbnail)");
+            }
+        }
+    }
+
+    /** Writes a {@link BufferedImage} as JPEG at the given quality (0-100). */
+    private static void writeJpeg(BufferedImage img, String path, int quality) throws IOException {
+        var iter = ImageIO.getImageWritersByFormatName("jpeg");
+        if (!iter.hasNext()) throw new IOException("No JPEG writer found");
+        var writer = iter.next();
+        var iwp = writer.getDefaultWriteParam();
+        iwp.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+        iwp.setCompressionQuality(quality / 100f);
+        try (var fos = new FileOutputStream(path);
+             var ios = ImageIO.createImageOutputStream(fos)) {
+            writer.setOutput(ios);
+            writer.write(null, new javax.imageio.IIOImage(img, null, null), iwp);
+        } finally {
+            writer.dispose();
         }
     }
 
