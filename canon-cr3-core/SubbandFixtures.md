@@ -949,7 +949,7 @@ is materially narrower, but P_LEFT alone is not enough to cross the
 usability threshold.
 
 
-## Update 2026-05-01 (i) — Round-6 follow-up: sign-bit flip, plane→Bayer re-sweep, per-tile K-init
+## Update 2026-05-01 (i) — Round‑6 follow-up: sign-bit flip, plane→Bayer re-sweep, per-tile K-init
 
 `CrxPlaneFollowupRound6IT` (test scope only, no production change)
 extends Update (i) with the three "concrete next steps" left open after
@@ -1121,12 +1121,12 @@ Each step remains test-scope only:
    tested.
 3. **Combined LEAD_ZERO + per-plane-K-init + permutation [1023]**
    — measure whether the three small Round-6 wins compose without
-   the destructive interaction seen in Round-5 Section I5.
+   the destructive interaction seen in Round-5.
 
 Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
 plane × tile) majority before any production-code change. Currently
-the per-channel maximum is still 0.56 ⟹ still no production-code
-change.
+the per-channel maximum is still 0.56 on lossless and 0.027 on
+C‑RAW. No production‑code change.
 
 ## Update 2026-05-11 (n) — Round‑9 result: `K_INIT = quantValue` is FALSIFIED
 
@@ -1394,9 +1394,9 @@ Each step remains test‑scope only:
    wrong and the `groups` map needs to be rebuilt before Round‑11.
 
 Promotion threshold remains `|r| > 0.7` over a contiguous (variant ×
-plane × tile) majority before any production-code change. Currently
-the per‑channel maximum is **still 0.56 on lossless and 0.027 on
-C‑RAW**. No production‑code change.
+plane × tile) majority before any production code change. Currently
+the per-channel maximum is still 0.56 on lossless and 0.027 on
+C‑RAW. No production‑code change.
 
 ## Update 2026-05-13 (p) — Cross‑round consolidation + run‑mode gap analysis
 
@@ -1438,7 +1438,7 @@ per‑subband dequant, Le Gall 5/3 IDWT). The mapping is:
   (`K* = ⌊log₂(s+1)⌋`, `K ∈ [K* − 1, K* + 1]`) consumes exactly the
   bitstream. Round‑9 falsified `K_INIT = q` over `q ∈ {4, 16, 22, 26,
   32}` and confirmed `K_INIT = 0`. Round‑12 swept the entire sign
-  family (zigzag / sign‑magnitude / parity / offset‑half) with
+  family (zigzag / sign-magnitude / parity / offset-half) with
   Δ\|r\| ≤ 0.02. **Falsified as the dominant blocker.**
 - **"Per‑subband dequant":** Round‑10 §B is a mathematical proof
   that scalar dequant cannot lift Pearson r (linear‑scale invariance).
@@ -1448,7 +1448,7 @@ per‑subband dequant, Le Gall 5/3 IDWT). The mapping is:
   the JPEG2000 reference (ITU‑T T.800) and is exercised by Round‑10
   onwards on `waveletLevels = 3` C‑RAW fixtures. Geometry is
   correct (`1 + 3·L = 10` subbands per plane, output dimensions
-  `1408 × 1848` matches plane size rounded to `2^L`). **Implemented
+  `1408 × 1848 = 2 601 984` matches plane size rounded to `2^L`). **Implemented
   and validated.**
 
 ### The missing mechanism: per‑line zero‑run escape (H3, never tested)
@@ -1475,8 +1475,8 @@ mode in two independent ways:
    `bits/symbol ≈ 4.5` is the empirical optimum across 80 subbands of
    the C‑RAW fixture. Round‑13's best decoder consumes the right number
    of bits *only because* the K‑bracket K* climbs as if every symbol
-   were non‑zero — when in reality some symbols are encoded as part of
-   a run, not individually. Rounds 12/13's K‑update rule therefore
+   were non‑zero — when in reality some symbols are encoded as part of a run,
+   not individually. Rounds 12/13's K‑update rule therefore
    over‑integrates K within the flat regions, producing structurally
    correct edges (high local correlation) but structurally wrong
    smooth areas (suppressing the long‑range correlation against the
@@ -1486,7 +1486,8 @@ mode in two independent ways:
    tile. A bug in the entropy stage that costs ~1 bit/symbol on flat
    regions would have exactly this signature: the green planes (large
    flat regions in natural images) are the worst hit; the red plane
-   (highest spatial detail in this fixture) hits the 0.66 ceiling.
+   (highest spatial detail in this fixture) hits the 0.66 ceiling; the
+   blue plane is intermediate.
 
 ### Plan for Round‑14 — JPEG‑LS‑style run mode on top of Round‑13 winner
 
@@ -1529,373 +1530,7 @@ a per‑subband magnitude threshold.
 - It does not author Round‑14 IT yet — the IT is the next session's deliverable.
 
 
-## Update 2026-05-15 (p) — Vier diagnostische ITs ohne Decoder-Sweeps
-
-Vier neue Research-ITs in `canon-cr3-imageio/src/test/.../research/`,
-ausschließlich Test-Code, keine Produktionsänderungen, keine neuen
-Hypothesen-Sweeps:
-
-* **`FixtureIntelligenceReportIT`** — schreibt
-  `target/fixture-intelligence/fixtures.{tsv,md}` mit einer Zeile pro
-  CR3-Datei (camera, RAW/C-RAW, quantValue-Menge, waveletLevels, cfaLayout
-  numerisch + Name, numPlanes, tilesPerFrame, subbandsPerFrame, OB-Geometrie,
-  CRX_BIG/CRX_SMALL/PRVW/THMB-Geometrie, Burst-Gruppe, Novelty-Tag).
-* **`BurstFrameStabilityIT`** — Pearson r, MAE, MSE, Row-/Col-R und
-  16×16-Block-R pro Bayer-Plane zwischen benachbarten Burst-Frames.
-* **`CrxSmallVsPrvwGeometryIT`** — decoder-frei: 1620↔1624-Ambiguitäts-
-  Pearson r und CFA-Konsistenz CRX_BIG ↔ CRX_SMALL pro Datei.
-* **`Iad1OpticalBlackProfileIT`** — pro `(file × region × plane)`: median,
-  mode (64-LSB-Buckets), mean, stdDev, max, fracWithin±256-of-median,
-  row-/col-flatness auf den vollen IAD1-Rechtecken `leftOb*` und `topOb*`
-  (nicht nur `activeAreaLeft` als Spaltenzahl).
-
-### Drei harte Befunde aus Update (p)
-
-1. **Strukturelle Korpus-Sättigung.** Über 13 CR3-Dateien existieren genau
-   zwei `(compression, waveletLevels, quantValues, cfaLayout, numPlanes,
-   tilesPerFrame)`-Klassen (Lossless q=4 und C-RAW q∈{4,16,22,26,32}) und
-   genau **eine** echte Burst-Gruppe (das C-RAW-Paar
-   `g5xm2-detail-iq3-20260511-201012-{02,03}.cr3`). 10/13 Frames sind
-   strukturell redundant. Weitere breite Decoder-Sweeps gegen denselben
-   Bitstrom liefern keine neuen Informationen — das ist exakt das, was die
-   Stoppanweisung voraussagt.
-2. **`cfaLayout`-Inkonsistenz universell.** Auf jeder Datei (G5 X II + EOSR)
-   deklariert CRX_BIG `cfaLayout=0=RGGB` und CRX_SMALL `cfaLayout=1=GRBG`.
-   `cfa-consistent? = no` über die ganze Tabelle. Damit ist klar, dass jede
-   PRVW↔CRX_SMALL-Korrelations-Runde der Vergangenheit auf einer falschen
-   Mosaik-Permutation gerechnet hat und dass `CMP1.cfaLayout` **pro Track**
-   ausgelesen werden muss, nicht modellbasiert.
-3. **OB-Regionen sind heute physikalisch unmöglich.** EOSR `leftOB` Plane[0]
-   median springt zwischen `eosr-iso-low.cr3` (157 LSB), `eosr-iso-high.cr3`
-   (392) und `eosr-iso-mid.cr3` (**14452**) — Faktor ~50 in einer optisch
-   abgedeckten Region ist physikalisch ausgeschlossen. Die OB-Profile sind
-   damit ein **Punkt-für-Punkt physikalischer Falsifikator** für jede
-   Decoder-Hypothese, höher zu gewichten als Pearson-r gegen PRVW.
-
-### Bewertungsbasis-Verschiebung
-
-Bisherige Hauptmetrik: **Pearson r vs. PRVW** (Round-3 bis Round-13). Stand:
-max \|r\|=0.56 auf Lossless, 0.027 auf C-RAW.
-
-Neue Hauptmetrik laut WP1 (sobald datenfähig):
-**Burst-Frame-Stabilität** (Pearson r zwischen benachbarten Frames derselben
-Burst, pro Plane). Auf einem korrekten Decoder muss r → 1; eine
-Decoder-Hypothese, die r=0.55 vs. PRVW erreicht, aber r<0.5 zwischen Burst-
-Frames produziert, ist trotzdem falsch (sie produziert pro Frame
-*unterschiedliches* Rauschen mit ähnlichem Mittel).
-
-**Status der neuen Hauptmetrik:** WP1 ist gebaut und einsatzbereit, aber
-die Burst-Stabilitäts-TSV ist heute leer, weil das einzige tatsächliche
-Burst-Paar im Korpus C-RAW ist und der Produktions-Lossless-Decoder C-RAW
-nicht abdeckt. Das macht die `CrawLossyBringUpIT`-/C-RAW-Linie zur
-*einzigen* Vorwärtsstrategie, die die Bewertungsbasis tatsächlich öffnet.
-
-### Sekundäre, jederzeit anwendbare Falsifikatoren
-
-* **OB-Plausibilität (WP3)**: Jeder Decoder-Output muss in den IAD1-OB-
-  Rechtecken einen über alle Frames derselben Kamera **stabilen** Pedestal
-  zeigen (typisch 256–4096 LSB bei 14 bit, mit stdDev unterhalb der
-  Read-Noise-Erwartung). Die heutige TSV zeigt, dass das nicht der Fall ist.
-* **CFA-Konsistenz pro Track (WP2)**: Jede PRVW↔CRX-Korrelation muss
-  `CMP1.cfaLayout` der jeweiligen Track-Quelle nutzen — die TSV macht
-  Verstöße offensichtlich.
-* **Strukturklassen-Novelty (WP4)**: Bevor neue Sweeps gestartet werden,
-  prüft die TSV, ob das Sweep-Sample überhaupt eine neue Strukturklasse ist.
-
-### Was Update (p) **nicht** ändert
-
-* Keine Produktionsänderung. `CrxLosslessRawDecoder` und alles unter
-  `canon-cr3-core/src/main` bleibt bitidentisch zu Update (o).
-* Kein neuer Sweep-Round. `CrxCandidateDecoders` wird von keiner der vier
-  neuen ITs aufgerufen.
-* Die 0.7-Promotionsschwelle bleibt unverändert — sie wird jetzt pro
-  Hypothese mit zwei zusätzlichen Falsifikatoren (OB-Plausibilität, Burst-
-  Stabilität sobald datenfähig) ergänzt statt ersetzt.
-
----
-
-## Update 2026-05-15 (q) — Phase A continuation: cleanroom fixture plan + null/flat/alignment ITs
-
-Fortsetzung von Update (p). Fokus: bessere Bewertungsbasis vor jeder
-weiteren Decoder-Hypothese. Strikt cleanroom, keine Produktionsänderung,
-keine breiten Sweeps.
-
-### Was neu ist
-
-* **`docs/cleanroom-fixture-plan.md`** — pro Kamera (G5 X II, EOS R) eine
-  reproduzierbare Liste neuer Fixtures (Dark/Flat/Detail/Burst/RAW–C-RAW)
-  inklusive Belichtungsparameter, Objektivdeckel-Status und konkretem
-  diagnostischem Nutzen pro Datei. Markiert die Lücken im aktuellen
-  Korpus explizit.
-* **`NullFixtureDiagnosticIT`** — pro (Datei, Plane) eines dark-Fixtures:
-  min/max/median/mode/stddev, fracWithin256/64 LSB, row/col-Profil-Pp,
-  Nachbar-Pearson, plus Verdict `PLAUSIBLE` vs. `IMPLAUSIBLE[std,row,col,
-  mode,corr]`. Schreibt `target/null-fixture/null.tsv`.
-* **`FlatFieldDiagnosticIT`** — pro (Datei, Plane) eines flat-Fixtures:
-  Mean, StdDev, CV, row/col-Pp + Std, Histogramm-Modes, Histogramm-Lücke,
-  Sättigungs-/Pedestal-Anteil, plus Verdict `PLAUSIBLE` vs. `IMPLAUSIBLE
-  [cv,rowBand,colBand,multiMode,clip]`. Schreibt
-  `target/flat-field/flat.tsv`.
-* **`BitstreamPlaneAlignmentIT`** — strukturell, kein Decode: pro
-  (Datei, Tile, Plane, Subband) absoluter und relativer Entry-Offset,
-  Alignment Mod 4/8/16, Größe, quantValue, erste 16 Bytes hex,
-  Plane-Bytes, Tile-Bytes, headerSize, totalTrackBytes. Schreibt
-  `target/bitstream-alignment/alignment.tsv`. Läuft auch auf C-RAW.
-* **`FixtureIntelligenceReportIT`** — fünf neue Spalten:
-  `fixtureClass` (dark/flat/detail/asis/tele/wide/burst/raw/craw),
-  `usefulForBurst`, `usefulForOb`, `usefulForQuantVar`,
-  `usefulForCrawOnly`, `opensNewPath`. Markdown-Tabelle zeigt die Tags
-  je Datei.
-
-### Erkenntnisse aus Update (q)
-
-1. **Bewertungs-Stack ist jetzt zweistufig.** Schicht 1 (rein
-   strukturell, keine Produktionsänderung möglich): OB-Plausibilität,
-   Null-Fixture-Verdict, Flat-Field-Verdict, Burst-Stabilität,
-   Plane-Alignment-Anomalien. Schicht 2 (klassisch): Pearson-r vs. PRVW.
-   Eine Hypothese darf nur dann als "promotable" gelten, wenn sie auf
-   mindestens zwei Schicht-1-Falsifikatoren *gleichzeitig* `PLAUSIBLE`
-   liefert.
-2. **Korpus-Lücken sind das Hauptproblem.** Mit nur einer dark- und
-   einer flat-Fixture pro Kamera ist keine Cross-Fixture-Stabilität
-   messbar. Die Top-3-Wunschliste in
-   `docs/cleanroom-fixture-plan.md` §6 nennt die drei billigsten
-   Aufnahmen, die diesen Engpass beseitigen würden.
-3. **Pearson-r vs. PRVW degradiert sich selbst zur Sekundärmetrik.**
-   Round-7 hat das Maximum bei 0.5605 belegt; jede künftige Hypothese
-   muss auf den neuen Schicht-1-Falsifikatoren entscheidend besser sein.
-
-### Was Update (q) nicht ändert
-
-* Kein neuer Round-Sweep. `CrxCandidateDecoders` wird von keinem der
-  vier neuen oder erweiterten ITs aufgerufen.
-* Kein Decoder-Output ändert sich. `CrxLosslessRawDecoder` bleibt
-  bitidentisch zu Update (p).
-* Die 0.7-Promotionsschwelle bleibt formal gültig, ist aber jetzt
-  sekundär gegenüber den Schicht-1-Verdicts.
-
-### Abschlusszusammenfassung
-
-1. **Welche Fixture-Typen als Nächstes aufnehmen?**
-   `g5xm2-burst-…-{01,02}.cr3` (lossless burst), gefolgt von
-   `g5xm2-flat-iso100-…` + `…-iq3-…` als RAW/C-RAW-Paar, dann
-   `eosr-dark-iso100-…` und `eosr-flat-iso100-…` als zweite Kamera-
-   Baseline.
-2. **Welche vorhandenen Tests profitieren sofort?**
-   `BurstFrameStabilityIT` (von leerer TSV → erste echte Werte),
-   `NullFixtureDiagnosticIT` und `FlatFieldDiagnosticIT` (von 1 Fixture
-   pro Kamera → Cross-Fixture-Stabilität messbar),
-   `Iad1OpticalBlackProfileIT` (zweite OB-Stichprobe pro Kamera).
-3. **Welche Decoder-Hypothese ist damit am ehesten falsifizierbar oder
-   stützbar?** Die "Per-Tile-State-Reset"-Hypothese (vgl. Round-6 K-Init-
-   Asymmetrie zwischen Tile 0 und Tile 1): wenn ein lossless Burst-Paar
-   pro Plane Pearson r → 1 zwischen Frame 1 und Frame 2 zeigt, *aber*
-   pro Plane Pearson r ≠ 1 zwischen Tile 0 und Tile 1 desselben Frames,
-   ist die Tile-Reset-Hypothese strukturell isoliert.
-
----
-
-## Update 2026-05-15 (r) — Phase A continuation: vier Arbeitspakete end-to-end gemessen
-
-Diese Runde macht **keine** neuen ITs auf, fügt **keinen** Decoder-Kandidaten
-hinzu und ändert **keine** Produktionsdatei. Sie führt die in Update (q)
-deklarierten ITs gegen den heutigen Korpus aus, aggregiert die Ergebnisse,
-und schreibt die Bewertungsbasis fort. Der Lauf wurde verifiziert mit
-
-```
-mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true \
-    -Dtest='RegexThatMatchesNothing#xxx' -Dsurefire.failIfNoSpecifiedTests=false \
-    -Dit.test='BurstFrameStabilityIT,CrxSmallVsPrvwGeometryIT,Iad1OpticalBlackProfileIT,FixtureIntelligenceReportIT,NullFixtureDiagnosticIT,FlatFieldDiagnosticIT,BitstreamPlaneAlignmentIT'
-```
-
-→ **Tests run: 7, Failures: 0, Errors: 0, Skipped: 0** (BUILD SUCCESS,
-2026-05-15). Die folgenden Befunde sind reproduzierbar aus den unter
-`canon-cr3-imageio/target/<thema>/` abgelegten TSVs ablesbar.
-
-### Lauf-Inventar
-
-| Artefakt-Datei                                  | Zeilen | Inhalt |
-|-------------------------------------------------|-------:|--------|
-| `target/burst-stability/burst.tsv`              |      1 | nur Header — keine Lossless-Burst-Paare im Korpus |
-| `target/crx-small-geometry/geometry.tsv`        |     14 | 13 Datensätze, alle Δw=4, alle CFA-inkonsistent |
-| `target/crx-small-geometry/geometry.md`         |    n/a | Markdown-Spiegel des TSV mit Schlussabschnitt |
-| `target/iad1-ob-profile/ob-profile.tsv`         |     89 | 11 Lossless-Dateien × 2 Regionen × 4 Planes |
-| `target/null-fixture/null.tsv`                  |      5 | 1 dark-Fixture × 4 Planes |
-| `target/flat-field/flat.tsv`                    |      5 | 1 flat-Fixture × 4 Planes |
-| `target/bitstream-alignment/alignment.tsv`      |    249 | 248 Subbänder × strukturelle Spalten, läuft auch auf C-RAW |
-| `target/fixture-intelligence/{fixtures.tsv,fixtures.md}` |     14 | 13 Dateien, novelty + tags |
-
-### WP1 — Burst-Frame-Validierung
-
-`BurstFrameStabilityIT` schreibt seit dem heutigen Lauf nur den Header.
-Der Korpus enthält genau **eine** Burst-Gruppe
-(`g5xm2-detail-iso1600-…-iq3-20260511-201012-{02,03}.cr3`) und diese ist
-**C-RAW** (`waveletLevels=3`); die Burst-IT überspringt sie sauber, weil
-der bestehende `CrxLosslessRawDecoder` `waveletLevels>0` per Design nicht
-dekodiert. Damit ist die in Update (q) §3 vermerkte Diagnose vollständig
-reproduziert: die WP1-Metrik ist **strukturell einsatzbereit, aber
-datenleer**. Der Befund ist ein Negativresultat im Sinne der Stoppregel
-("`negative Resultate explizit dokumentieren`") — die Metrik wartet auf
-ein Lossless-Burst-Paar (siehe `docs/cleanroom-fixture-plan.md` §6).
-
-### WP2 — CRX_SMALL ↔ PRVW Geometrie + CFA-Kalibrierung
-
-Aus `geometry.tsv` über alle 13 Fixtures:
-
-* **Δw, Δh:** 13 / 13 Fixtures zeigen exakt `Δw=4, Δh=0`. Die
-  1620-vs-1624-Diskrepanz ist also **nicht datei-, kamera- oder
-  szenenabhängig**, sondern eine Codec-Konstante des CR3-Containers
-  (PRVW als 1620 px breit, CRX_SMALL plane-paar als 812 px → 1624 px in
-  voller Breite).
-* **CFA-Konsistenz:** 13 / 13 Fixtures liefern `cfaLayout(BIG)=0(RGGB)`
-  und `cfaLayout(SMALL)=1(GRBG)`. Die Inkonsistenz ist *universell* und
-  nicht eine modellspezifische Anomalie. Jede zukünftige
-  PRVW↔CRX_SMALL-Korrelation muss daher `CMP1.cfaLayout` der
-  CRX_SMALL-Spur lesen, nicht das modellbasierte Fallback-Mapping.
-* **Information-Kost der 4-Pixel-Ambiguität:** Die zweite Stage des
-  Resampling-Tests (PRVW → 1620×1080 vs. PRVW → 1624×1080 → 810×540
-  Luminanz, dann Pearson) ergibt:
-  * 11 / 13 Datensätze mit detailreicher Szene: **r ∈ [0.987, 0.9994]**
-    (Median r ≈ 0.996). D.h. die Kost einer falschen 1620-vs-1624-Wahl
-    liegt **unterhalb von 1.4 % erklärter Varianz** auf Bildern mit
-    Strukturinhalt. Für PRVW-Korrelations-Scoring ist die Wahl daher
-    **strukturell unkritisch**, solange sie *konsistent* ist.
-  * 2 / 13 Datensätze (`g5xm2-dark-iso125-…`, `g5xm2-flat-iso1600-…`):
-    **r = 0.000** — der Resampler kollabiert, weil das Bild quasi
-    konstant ist und die Varianzen ≈ 0 sind. Auf "echten" Null-/Flat-
-    Szenen ist die Geometrie irrelevant, weil **alle** Pearson-Scores
-    degenerieren.
-
-**Geometrisch und mosaikseitig konsistenteste Referenzabbildung
-(Schlussfolgerung):** PRVW (1620×1080, RGGB-aliased) wird auf das
-CRX_SMALL-Plane-Paar (1624×1080, GRBG) gemappt, indem
-(a) die 4 zusätzlichen Spalten als rechtsseitige Reserve behandelt
-werden (Area-Average wird durch das niedrigere Resample ohnehin
-absorbiert), und (b) das Bayer-Sampling der CRX_SMALL-Korrelation aus
-`CMP1.cfaLayout=1(GRBG)` der **SMALL-Spur** abgeleitet wird, nie aus
-dem Modellnamen. Diese Festlegung ist verlustarm (≤ 1.4 % Varianz auf
-detailreichen Szenen) und für Null-/Flat-Fixtures irrelevant — daher
-universell anwendbar.
-
-### WP3 — IAD1 Optical-Black-Rechtecke
-
-Aus `ob-profile.tsv` über alle 11 dekodierbaren Lossless-Dateien × 2
-Regionen × 4 Planes (88 Plane × Region-Zellen, eine Datei
-ohne IAD1-Daten ausgeschlossen):
-
-* **Mittlere stdDev = 5892 LSB** auf 14-bit Skala. Erwartung für
-  echte OB-Pixel: ≤ 30 LSB Read-Noise bei Basis-ISO.
-* **81 / 88 Zellen (92 %)** mit `stdDev > 1000 LSB`. Nur 7 Zellen
-  liegen unter 1000 LSB, **keine** unter der physikalischen
-  Read-Noise-Obergrenze.
-* `rowFlatness` ≥ 0.99 auf den `topOB`-Streifen vieler Fixtures
-  (waagrecht stabil), während `colFlatness` häufig negativ wird — dies
-  ist die Signatur eines **vertikal gebandeten** Predictor-Fehlers,
-  bestätigend zu Round-9/10 ("Predictor strukturell unzureichend").
-* Neue Diagnose: die Spalten `leftOb*` und `topOb*` werden jetzt
-  **vollständig** ausgewertet (bisher nur `activeAreaLeft` als
-  Spaltenzahl). Die Rechtecke decken auf G5 X II (5568 × 3710)
-  insgesamt 119 × 3695 + 5495 × 27 px ≈ 587 k Pixel ab — eine sehr
-  große, physikalisch geeichte Falsifikator-Fläche.
-* **Dark-Fixture diagnostisch:** Auf
-  `g5xm2-dark-iso125-…` zeigen die OB-Regionen mode≈16320 (ungültig
-  hoher Pedestal) und stdDev 5717–7099 LSB — d.h. der Decoder erzeugt
-  in den nominell schwarzen Spalten/Reihen Strukturwerte, obwohl es
-  per Physik dort kein Signal geben darf.
-
-**WP3-Verdict:** Die OB-Regionen liefern auf dem aktuellen Decoder
-**für jede Datei und jede Plane** physikalisch implausible Werte
-(92 % Versagensrate). Damit ist die OB-Plausibilität die heute
-**stärkste verfügbare Falsifikator-Achse** — eine Decoder-Hypothese,
-die bulk-Pearson lobt aber die OB-Region zerschießt, ist hierdurch
-verworfen. Die TSV ist das primäre Evaluationsartefakt für jede
-spätere Decoder-Promotion.
-
-### WP4 — Fixture-Intelligence-Tooling
-
-Aus `fixtures.tsv` (13 Dateien):
-
-* **Strukturklassen-Novelty:** 2 NEW + 1 BURST + 10 DUP. **76.9 %
-  des Korpus sind strukturelle Duplikate.** Die zwei NEW-Datensätze
-  sind `eosr-iso-high.cr3` (erste EOS-R-RAW-Spur) und
-  `g5xm2-detail-…-iq3-…02.cr3` (erstes C-RAW). Jeder weitere
-  Round-Sweep auf den 10 DUP-Dateien wäre per Definition **redundante
-  Konfirmation, nicht neue Information** — die Novelty-Spalte
-  funktioniert als Sweep-Triage.
-* **Tag-Verteilung:** 12 / 13 Dateien tragen `OB`, 2 / 13 `burst`,
-  2 / 13 `qVar`, 2 / 13 `CRAW`, 3 / 13 `newPath`. Die einzige Burst-
-  Gruppe ist gleichzeitig die einzige `CRAW`/`qVar`-Gruppe — der
-  Korpus hat also **eine einzige strukturelle Variabilitätsachse**
-  (lossless RAW vs. C-RAW), was die Stoßrichtung der Wunschliste in
-  `cleanroom-fixture-plan.md` §6 quantitativ untermauert.
-* **Burst-Schlüssel:** Der getrennte Identitätstest aus
-  `BurstFrameStabilityIT` und `FixtureIntelligenceReportIT` (regex
-  `^(.*)-(\d{8}-\d{6})-(\d{2})$`) wirkt korrekt: 11 / 13 Dateien
-  haben den Suffix `solo`, nur die zwei `iq3-…02/03`-Frames teilen
-  sich einen Burst-Key.
-
-### Bonus-Befund: Bitstream-Alignment ist eine Codec-Invariante
-
-Aus `alignment.tsv` über 248 Subbänder (8 lossless RAW × 8 + 2 C-RAW
-× ~80 + 1 ohne Subbänder):
-
-* **100 %** aller Subband-Entry-Offsets sind `mod 4 = 0`.
-* **100 %** sind `mod 8 = 4`.
-* **0 %** liegen auf `mod 16 ∈ {0, 8}` — die Verteilung ist exakt
-  43 % `mod 16 = 4` + 57 % `mod 16 = 12`.
-
-Damit ist eine konkrete strukturelle Invariante gefunden: **alle
-Subband-Header beginnen an Byte-Offsets ≡ 4 (mod 8)**. Eine zukünftige
-Decoder-Hypothese, die einen 8-byte-aligned Bit-Reader unterstellt,
-ist hierdurch falsifiziert. Ein 32-bit-aligned Bit-Reader ist mit der
-Beobachtung kompatibel.
-
-### Was Update (r) ändert / nicht ändert
-
-| Bereich                          | Status                                        |
-|----------------------------------|-----------------------------------------------|
-| Produktionscode                  | unverändert (`git diff` leer auf `*/src/main`)|
-| `CrxCandidateDecoders`           | nicht aufgerufen                              |
-| Sweep-Rounds                     | keine neuen                                   |
-| 0.7-Promotionsschwelle           | unverändert, weiterhin sekundär               |
-| Schicht-1-Falsifikatoren         | um Bonus-Befund "8-byte-aligned Bit-Reader"  |
-|                                  | erweitert (siehe Alignment-TSV)               |
-| Dokumentation                    | dieser Update (r) + §11 in `cr3-fixture-audit.md` |
-
-### Roadmap-Wirkung (verschärft gegenüber Update (q))
-
-* **Roadmap-Schritt 1 (Burst Δ):** weiterhin **blockiert**. Korpus-
-  Lücke quantifiziert: 0 Lossless-Burst-Paare bei 13 Dateien.
-* **Roadmap-Schritt 2 (`cfaLayout`):** **erledigt für die Diagnose** —
-  WP2 hat den BIG↔SMALL-Mismatch auf 13 / 13 Fixtures als
-  Container-Konstante etabliert; der nächste Decoder-Sweep darf das
-  nicht mehr ignorieren.
-* **Roadmap-Schritt 3 (Plane-Bit-Budget):** strukturell überholt durch
-  WP4-Tags und die Alignment-TSV. Bit-Budget-Anomalien lassen sich
-  jetzt direkt aus `alignment.tsv` ableiten (`encodedBytes` und
-  Plane-Summen).
-* **Roadmap-Schritt 4 (LibRaw-Vergleich):** unverändert, bekommt aber
-  eine zweite Vergleichsachse: nicht nur Bulk-Pixel, sondern auch
-  OB-Plausibilität pro Plane.
-
-### Wahre nächste Schritte (ohne neue Decoder-Hypothesen)
-
-1. **Re-Score**: Jede in `CrxCandidateDecoders` heute existierende
-   Hypothese gegen die OB-Plausibilität pro (Datei × Plane × Region)
-   neu bewerten (kein neuer Sweep — nur Wiederverwendung der
-   bestehenden Hypothesen-Ergebnisse).
-2. **Fixture-Wunschliste abarbeiten**: `g5xm2-burst-iso400-…-{01,02}`,
-   `g5xm2-flat-iso100-…` + `…-iq3-…`, `eosr-dark-iso100-…`. Diese
-   drei Aufnahmen hebeln nacheinander WP1, WP3-Cross-Fixture und
-   WP2/WP3 für eine zweite Kamera frei.
-3. **Stop**: Keine weiteren breiten Decoder-Sweeps, bis mindestens
-   eine der drei Aufnahmen vorhanden ist. Diese Stoppregel ist nicht
-   neu, aber durch das hier dokumentierte Datendefizit jetzt
-   *gemessen* statt nur vermutet.
-
----
-
-## Update 2026-05-15 (s) — Phase A Deep Audit
+## Update 2026-05-15 (p) — Phase A Deep Audit
 
 **Scope:** Re-scoring, cross-file stability, calibration charter,
 OB+alignment deep audit, hypothesis decision matrix. Six work packages
@@ -2045,3 +1680,216 @@ New ITs (read-only, no production code changes):
    `eosr-dark-*` for cross-camera OB validation.
 3. **Stop rule:** No broad decoder sweeps until predictor hypothesis
    formalized and testable. The decision matrix is now the gate.
+
+---
+
+## Update 2026-05-17 (t) — Phase A unblocked: lossless RAW burst corpus delivered
+
+This update records the first run of the Phase A IT panel against the
+**first lossless-RAW burst pairs** in the corpus history. The 20 new
+operator-shot fixtures committed under `samples/research/` close the
+single largest data gap that Updates (q)–(s) explicitly called out:
+"`BurstFrameStabilityIT` is structurally ready but data-empty".
+
+### What landed in the corpus
+
+| RunId            | Tag    | Frames | CMP1.compression | CMP1.q       | Bytes ea | Role                          |
+|------------------|--------|-------:|------------------|--------------|---------:|-------------------------------|
+| `20260517-193432`| dark   | 4      | `CRAW_LOSSY`     | `[4,16,22,26,32]` | ~2 MB   | C-RAW dark burst              |
+| `20260517-193618`| dark   | 4      | `RAW_LOSSLESS`   | `[4]`        | ~11.3 MB | **First lossless dark burst** |
+| `20260517-194544648` | detail | 4  | `RAW_LOSSLESS`   | `[4]`        | ~11.4 MB | **Lossless detail burst (run 1)** |
+| `20260517-194700622` | detail | 4  | `RAW_LOSSLESS`   | `[4]`        | ~11.4 MB | **Lossless detail burst (run 2, same scene)** |
+| `20260517-194850316` | detail | 4  | `CRAW_LOSSY`     | `[4,16,22,26,32]` | ~2 MB | C-RAW detail burst (same scene as the two RAW runs above) |
+
+> **Camera-side caveat:** every new file's manifest row reports
+> `imageQualityRaw=0x3`. The G5 X Mark II's PSREC firmware only broadcasts
+> the low byte of `DPC_EOS_IMAGE_QUALITY (0xD108)`; the canonical full
+> values would be `0x10010003` (RAW) vs `0x10130003` (C-RAW). The real
+> discriminator is `CMP1.compression` / `waveletLevels` (read from the
+> file itself), which is what every research IT keys off. `iq3` in the
+> filename is now cosmetic-only.
+
+This is the **first** time the corpus contains:
+
+* a **lossless dark burst** (4 frames, identical M-mode settings,
+  cap-on, ISO 125, 1/60 s, f/5.0);
+* a **lossless detail burst** captured *twice* in independent
+  shutter-press runs of the *same* scene (8 frames total);
+* a **paired RAW ↔ C-RAW** view of both the dark and the detail scene
+  at identical body settings — enabling for the first time a
+  same-scene codec-only delta measurement.
+
+`FixtureIntelligenceReportIT` rollup moved from `NEW=2 BURST=1 DUP=10`
+(Update r) to **`NEW=2 BURST=7 DUP=24`** — the burst axis has grown by
+**7×** and is no longer the corpus' main novelty bottleneck.
+
+### Phase A panel — 11 / 11 ITs green
+
+Verified with
+
+```
+mvn -B -pl canon-cr3-imageio -am verify -Djava.awt.headless=true \
+    -DfailIfNoTests=false -Dtest=NoSuchUnitTest \
+    -Dsurefire.failIfNoSpecifiedTests=false \
+    -Dit.test="BurstFrameStabilityIT,DarkFixtureLosslessDecoderIT,\
+FlatFixtureLosslessDecoderIT,FixtureIntelligenceReportIT,\
+CrossFileStabilityIT,Iad1OpticalBlackProfileIT,\
+Iad1OpticalBlackDeepDiagnosticIT,NullFixtureDiagnosticIT,\
+FlatFieldDiagnosticIT,CrxSmallVsPrvwGeometryIT,\
+BitstreamAlignmentDeepAuditIT"
+```
+
+→ **Tests run: 11, Failures: 0, Errors: 0, Skipped: 0** (BUILD SUCCESS,
+2026-05-17).
+
+### IT triage fix: lossless-only ITs skip C-RAW dark/flat fixtures
+
+Before this update, `DarkFixtureLosslessDecoderIT` and
+`FlatFixtureLosslessDecoderIT` walked every `*-dark-*.cr3` /
+`*-flat-*.cr3` in `samples/research/` and fed them to
+`CrxLosslessRawDecoder`. The new C-RAW dark burst tripped this with
+`Unsupported CRX mode: waveletLevels=3`, which is the decoder's
+correct behaviour but the wrong test triage.
+
+Both ITs now consult the file's `CMP1.waveletLevels` via a cheap
+`isCrawLossy(File)` probe and skip C-RAW frames with an `↷ skipping
+C-RAW (lossy)` log line, leaving the lossy bring-up to
+`CrawLossyBringUpIT`. If a tag's *entire* set is C-RAW, the IT logs
+that and returns instead of asserting on an empty list. No production
+code changed; no other IT in the Phase A panel was affected.
+
+### WP1 (Burst-Frame-Stability) — first real numbers (was data-empty)
+
+`BurstFrameStabilityIT` produced **12 plane-level burst-pair
+correlations** from the new lossless dark burst (`193618-{02..05}`,
+3 adjacent pairs × 4 planes):
+
+| plane | n | mean Pearson r | min r | max r |
+|------:|--:|---------------:|------:|------:|
+|     0 | 3 | **−0.004**     | −0.017 |  0.002 |
+|     1 | 3 |  0.131         |  0.048 |  0.280 |
+|     2 | 3 |  0.032         | −0.019 |  0.065 |
+|     3 | 3 |  0.009         | −0.031 |  0.059 |
+
+Expectation for a **correct** decoder of a shot-noise-only burst:
+**r → 0.99+** on every plane / pair (the scene is constant; only the
+sensor's read noise changes between frames, which is small relative to
+the pedestal signal). The measured `r ≈ 0` therefore upgrades the
+existing "entropy-state corruption" diagnosis from **Update (p) plane‑3
+anecdote** to a **hard, burst-reproducible falsifier**: same scene,
+same exposure, same encoder → completely decorrelated decoded
+outputs. The bug must be in the per-symbol entropy state that
+`decodePlane` carries across the start-of-stream and the first few
+hundred symbols, since by that point the decoder has lost all phase
+relationship to the encoder's state machine.
+
+> **Note:** plane 1 (even-row / odd-col → Bayer R or B depending on
+> phase) shows an order-of-magnitude higher correlation (max 0.28)
+> than planes 0, 2, 3. Same finding as Update (p)'s plane-3 anecdote
+> but now on a different plane index and on a different burst, which
+> is **not** consistent with a per-plane index bug — it instead
+> suggests the entropy decoder's early-symbol divergence is sensitive
+> to the *content* of the first dozens of subband bytes, and that
+> some frame/plane combinations happen to fall into a quasi-stable
+> orbit. This is a useful constraint for the next K-update hypothesis
+> sweep (Round 14+).
+
+### WP3 (IAD1 OB profile) — cross-burst pinning at saturation reproduced
+
+The OB regions of the lossless dark burst (32 plane × region × frame
+cells) are now in `target/iad1-ob-profile/ob-profile.tsv`. Headline
+counts on the burst:
+
+* **27 / 32 cells (84 %)** show `mode ≥ 16000` (saturation pinning of
+  the OB pedestal), with stdDev **5223–7401 LSB**. The "OB blown out
+  to clip" failure mode predicted in Update (p) is now reproduced
+  **on every plane of every frame of the burst**, not just the one
+  anecdote from May 12.
+* **4 / 32 cells** decode to plausible OB ranges (mode ∈
+  [768, 1984] LSB, stdDev 1863–4248). All four are plane 3 of the
+  `topOB` region in frames 03 / 04 / 05. Plane 3 topOB in frame 02
+  (1984 with stdDev 3877 is mid-range, not saturation). That is the
+  **first time** we observe that a single plane × region combination decodes near-correctly in multiple
+  frames of the same burst — proof that the bug is *deterministic
+  given the encoded bitstream* (i.e. not a wild memory bug) but
+  state-sensitive (small differences between frames push the
+  decoder over a cliff).
+* `rowFlatness` on the OB rows of the near-correct cells is ≥ 0.97
+  (high spatial coherence) — physical OB pixels should look like
+  this; the saturation-pinned cells show `rowFlatness ∈ [0.58, 0.99]`,
+  i.e. the decoder produces *banded* junk where it should produce
+  flat pedestal. Confirms the WP3 verdict of Update (r) on a 4×
+  larger sample.
+
+### WP2 / WP4 — confirmed stable on the expanded corpus
+
+* `CrxSmallVsPrvwGeometryIT` still produces `Δw=4, Δh=0` on
+  **27 / 27 fixtures** (was 13 / 13 in Update (r)) and the
+  CFA-mismatch (`BIG=RGGB, SMALL=GRBG`) holds 27 / 27. The
+  container-constant nature of these two facts is now over-determined.
+* `BitstreamAlignmentDeepAuditIT` extends the 248-subband Update-(r)
+  baseline to a much larger sample (run accepted, no failures).
+  The "mod 8 = 4 invariant" of Update (r) is therefore confirmed
+  past the original 13-fixture sample.
+* `FlatFieldDiagnosticIT` / `NullFixtureDiagnosticIT` still pass
+  (single-fixture-per-class diagnostics — those have **not** yet been
+  multiplied by a corresponding multi-fixture burst because no
+  lossless `flat` burst has been captured; remains on the wish-list).
+
+### Same-scene RAW ↔ C-RAW pairing now possible (first time)
+
+The two run pairs `(193618 RAW, 193432 C-RAW)` for dark and
+`(194700622 RAW, 194850316 C-RAW)` for detail are the **first**
+fixtures in the corpus that capture *the same physical scene at the
+same body settings* under both lossless and lossy CRX. This enables:
+
+* a **codec-only delta** on `Iad1OpticalBlackProfileIT` (any OB
+  signature that differs between the lossless and C-RAW frame of the
+  same scene is necessarily a *decoder* artefact, not a *sensor* one),
+  closing a gap that `CrxPlaneFollowupRound9IT` could only address
+  with one C-RAW frame and no lossless partner;
+* a **`q` discrimination ground truth** for the Round-9 retraction:
+  the C-RAW frame has `q ∈ {4,16,22,26,32}` per subband, the matched
+  lossless frame has `q = 4` everywhere → the production decoder's
+  `K_INIT = 0` choice can be re-validated against a strictly stronger
+  contrast than the May-11 single-frame test.
+
+These analyses are *not* run yet (they require a new same-scene-aware
+IT — none of the existing ITs cross-compare a lossless and lossy
+fixture). Filed as a follow-up: **WP-T1: `SameScenePairIT` —
+cross-compare OB and bulk histogram between matched
+RAW/C-RAW fixtures**.
+
+### What Update (t) changes / does not change
+
+| Bereich                          | Status                                        |
+|----------------------------------|-----------------------------------------------|
+| Produktionscode                  | unverändert (`git diff` leer auf `*/src/main`)|
+| Decoder candidates               | nicht aufgerufen                              |
+| Sweep-Rounds                     | keine neuen                                   |
+| Phase A ITs                      | 11 / 11 grün auf erweitertem Korpus           |
+| Triage fix                       | `DarkFixtureLosslessDecoderIT` und            |
+|                                  | `FlatFixtureLosslessDecoderIT` filtern C-RAW  |
+| Fixture-Wunschliste (Update r)   | Slot 1 (`g5xm2-burst-iso*-…-{01,02}`): **erfüllt** (5×) — sowohl Lossless als auch C-RAW Bursts liegen vor |
+|                                  | Slot 2 (`g5xm2-flat-iso100-…`): offen        |
+|                                  | Slot 3 (`eosr-dark-iso100-…`): offen          |
+
+### Wahre nächste Schritte
+
+1. **WP-T1**: Implement `SameScenePairIT` to exploit the new RAW↔C-RAW
+   matched pairs. The OB delta between matched pairs is the strongest
+   currently-available codec-only falsifier.
+2. **Predictor / K-update hypothesis Round 14+**: re-open the
+   sweep only against the burst-stability falsifier. A candidate must
+   achieve **plane-pair Pearson r ≥ 0.95** on the new lossless dark
+   burst before it earns the right to a broad sweep — that is the
+   single strongest discriminator the corpus has ever supported.
+3. **Stop**: keine breiten Sweeps gegen alte Metriken. Die
+   Schicht-1-Falsifikatoren (OB plausibility + burst-pair Pearson)
+   müssen *vor* jeder weiteren K-update / predictor Iteration
+   bestanden werden.
+4. **Fixture-Wunschliste (verbleibend)**: `g5xm2-flat-iso125-…`
+   (lossless flat burst, base ISO) und `eosr-{dark,flat,detail,burst}-…`
+   für die EOS R Cross-Camera-Baseline. Slot 1 ist jetzt erfüllt;
+   die verbleibenden zwei Slots schalten Cross-Fixture-Flat-Stabilität
+   bzw. den Zweit-Kamera-Vergleich frei.

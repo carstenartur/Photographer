@@ -115,6 +115,40 @@ class CanonRemoteCaptureTest {
                 "Transaction IDs for phases 2 and 3 must differ");
     }
 
+    @Test
+    void captureNoAfSequence_skipsHalfPressAndEmitsExactlyTwoCommands() throws InterruptedException {
+        RecordingTransport transport = new RecordingTransport();
+        CanonRemoteCapture capture = new CanonRemoteCapture(transport, 0, 0, 0);
+        AtomicInteger txId = new AtomicInteger(1);
+
+        capture.captureNoAf(txId::getAndIncrement);
+
+        List<PtpContainer> cmds = shutterCommands(transport.executed);
+        assertEquals(2, cmds.size(),
+                "No-AF capture must emit exactly two shutter commands (full-press + release)");
+
+        PtpContainer first = cmds.get(0);
+        assertEquals(CanonConstants.OC_EOS_REMOTE_RELEASE_ON, first.code(),
+                "First no-AF command must be REMOTE_RELEASE_ON");
+        assertEquals(CanonConstants.RELEASE_PRESS_FULL, first.getParam1(),
+                "First no-AF command must go straight to RELEASE_PRESS_FULL "
+                        + "(no half-press, no AF trigger)");
+
+        PtpContainer second = cmds.get(1);
+        assertEquals(CanonConstants.OC_EOS_REMOTE_RELEASE_OFF, second.code(),
+                "Second no-AF command must be REMOTE_RELEASE_OFF");
+        assertEquals(CanonConstants.RELEASE_RELEASE, second.getParam1(),
+                "Second no-AF command parameter must be RELEASE_RELEASE");
+
+        // Confirm no RELEASE_PRESS_HALF was sent — the whole point of the
+        // no-AF path is to bypass the AF trigger that yields Device_Busy
+        // on lens-cap-on scenes.
+        boolean anyHalfPress = cmds.stream().anyMatch(c ->
+                c.code() == CanonConstants.OC_EOS_REMOTE_RELEASE_ON
+                        && c.getParam1() == CanonConstants.RELEASE_PRESS_HALF);
+        assertFalse(anyHalfPress, "No-AF capture must NOT emit any half-press");
+    }
+
     // ── Helpers ──
 
     /** Returns only the shutter-related commands (excludes open/close session etc.). */

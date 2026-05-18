@@ -148,6 +148,54 @@ class CleanroomCr3FixtureCaptureIT {
     private static final int FIXTURE_IMAGE_QUALITY_OVERRIDE = parseHexProperty(
             "fixture.imageQualityRaw", 0);
 
+    /**
+     * Optional operator-supplied label that disambiguates RAW vs C-RAW captures
+     * when the camera (notably the PowerShot G5 X Mark II's PSREC firmware) has
+     * not yet broadcast {@code DPC_EOS_IMAGE_QUALITY (0xD108)} and therefore
+     * reports {@code iqRaw == 0}. Pass {@code -Dfixture.qualityLabel=raw} or
+     * {@code -Dfixture.qualityLabel=craw} to the Maven invocation so that two
+     * back-to-back runs (one with the body switched to RAW, one to C-RAW) keep
+     * distinguishable filenames even though every other settings axis is
+     * identical.
+     *
+     * <p>When {@code iqRaw} is reported by the camera (non-zero), the operator
+     * label is ignored and the canonical hex value is used so the filename
+     * stays consistent with the README convention.</p>
+     */
+    private static final String FIXTURE_QUALITY_LABEL = sanitize(
+            System.getProperty("fixture.qualityLabel", "").trim().toLowerCase());
+
+    /**
+     * Approximate G5 X II byte-size threshold used as a last-resort RAW vs
+     * C-RAW discriminator when both {@code iqRaw} *and* the operator label are
+     * unavailable. Per the research README, lossless CR3 frames weigh
+     * ~17–19 MB and C-RAW frames ~7–9 MB, so 12 MB sits safely between them.
+     */
+    private static final long QUALITY_SIZE_THRESHOLD_BYTES = 12L * 1024 * 1024;
+
+    /**
+     * When {@code true}, the capture path skips the half-press (AF) phase
+     * and goes straight to full-press → release. Required when the body is
+     * in manual focus and the scene cannot lock AF (e.g. lens cap on for
+     * the {@code dark} scene), where the Canon firmware otherwise rejects
+     * the half-press with {@code Device_Busy 0x2019} and the entire
+     * capture chain stalls.
+     *
+     * <p>Resolved from {@code -Dfixture.noAf=true|false}. If unset, defaults
+     * to {@code true} for scenes that physically cannot AF ({@code dark}),
+     * and to {@code false} otherwise (preserving the existing behaviour for
+     * {@code asis} / {@code detail} / {@code flat} / {@code clip}).</p>
+     */
+    private static final boolean FIXTURE_NO_AF = resolveNoAf();
+
+    private static boolean resolveNoAf() {
+        String v = System.getProperty("fixture.noAf", "");
+        if (v != null && !v.isBlank()) return Boolean.parseBoolean(v.trim());
+        // Sensible per-scene default: dark fixtures are shot with the lens cap
+        // on; AF will never lock and would only earn us a Device_Busy.
+        return "dark".equalsIgnoreCase(SCENE_TAG);
+    }
+
     private static int parseHexProperty(String key, int defVal) {
         String s = System.getProperty(key, "");
         if (s == null || s.isBlank()) return defVal;
@@ -204,6 +252,22 @@ class CleanroomCr3FixtureCaptureIT {
     @Test
     @DisplayName("Capture a known-settings CR3 fixture panel for cleanroom decoder research")
     void captureFixturePanel() throws IOException, InterruptedException {
+        // Up-front banner so a misread -Dfixture.scene / -Dfixture.noAf is
+        // visible in the very first lines of the test output instead of
+        // hidden several hundred lines later in the Phase A loop.
+        log.info("═══ Fixture-capture configuration ═══");
+        log.info("  fixture.scene        = '{}'", SCENE_TAG);
+        log.info("  fixture.noAf         = {} (half-press {} skipped)",
+                FIXTURE_NO_AF, FIXTURE_NO_AF ? "WILL be" : "will NOT be");
+        log.info("  fixture.qualityLabel = '{}'",
+                FIXTURE_QUALITY_LABEL.isEmpty() ? "(unset)" : FIXTURE_QUALITY_LABEL);
+        if ("dark".equalsIgnoreCase(SCENE_TAG) && !FIXTURE_NO_AF) {
+            log.warn("  ⚠  scene=dark with AF enabled — the body will likely reject "
+                    + "capture with Device_Busy 0x2019 because AF cannot lock on a "
+                    + "lens-cap-on frame. Re-run with -Dfixture.noAf=true (or simply "
+                    + "let the default kick in by omitting -Dfixture.noAf).");
+        }
+
         int origIso      = safeRead(camera::getIsoRaw);
         int origShutter  = safeRead(camera::getShutterSpeedRaw);
         int origAperture = safeRead(camera::getApertureRaw);
@@ -226,7 +290,10 @@ class CleanroomCr3FixtureCaptureIT {
         }
 
         List<CapturedFixture> manifest = new ArrayList<>();
-        String runId = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        // Milli-second precision so two operator-triggered runs that start in
+        // the same wall-clock second (rare but possible when the body refuses
+        // most writes and Phase A finishes quickly) still get distinct IDs.
+        String runId = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmssSSS"));
 
         // Allow the EOS event-mode handshake to settle before the first shutter trip.
         Thread.sleep(2_000);
@@ -344,13 +411,23 @@ class CleanroomCr3FixtureCaptureIT {
         String isoLbl = sanitize(CanonPropertyDecoder.decodeIso(isoRaw));
         String ssLbl = sanitize(CanonPropertyDecoder.decodeShutterSpeed(ssRaw));
         String avLbl = sanitize(CanonPropertyDecoder.decodeAperture(avRaw));
-        String iqLbl = iqRaw == 0 ? "x" : Integer.toHexString(iqRaw);
 
         ImageDownload dl;
         try {
-            dl = camera.capture();
+            dl = FIXTURE_NO_AF ? camera.captureNoAf() : camera.capture();
         } catch (RuntimeException e) {
-            log.error("Capture failed for {}-{}: {}", tag, seq, e.getMessage());
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            log.error("Capture failed for {}-{} (no-AF={}): {}", tag, seq, FIXTURE_NO_AF, msg);
+            if (msg.contains("0x2019")) {
+                logDeviceBusyDiagnostic(tag, seq);
+            }
+            // Give the body a long settle to recover from whatever sub-state
+            // it is stuck in (PLAY mode, AF retry loop, half-press still
+            // latched). 5 s is well above the longest observed recovery
+            // window on the G5 X II and EOS R.
+            try { Thread.sleep(5_000); } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
             return null;
         }
         if (dl == null || dl.size() == 0) {
@@ -362,14 +439,44 @@ class CleanroomCr3FixtureCaptureIT {
         String ext = camFn.toLowerCase().endsWith(".cr3") ? ".cr3"
                 : camFn.toLowerCase().endsWith(".jpg") ? ".jpg"
                 : ".bin";
+
+        // Resolve the iq<...> filename segment. Preference order:
+        //   1. The camera-reported raw value (canonical hex), if non-zero.
+        //   2. The operator-supplied -Dfixture.qualityLabel (e.g. raw / craw),
+        //      so two back-to-back runs at the *same* dialled settings still
+        //      land in distinct files.
+        //   3. A size-based heuristic (raw ≈ 18 MB, craw ≈ 8 MB on G5 X II).
+        //   4. Literal "x" as a last resort.
+        String iqLbl;
+        if (iqRaw != 0) {
+            iqLbl = Integer.toHexString(iqRaw);
+        } else if (!FIXTURE_QUALITY_LABEL.isEmpty()) {
+            iqLbl = FIXTURE_QUALITY_LABEL;
+        } else if (".cr3".equals(ext) && dl.size() > 0) {
+            iqLbl = dl.size() >= QUALITY_SIZE_THRESHOLD_BYTES ? "rawSz" : "crawSz";
+        } else {
+            iqLbl = "x";
+        }
+
         // Include runId in the filename so successive runs accumulate fixtures
         // instead of overwriting each other (same-settings bursts naturally
         // produce identical labels).
-        String outName = String.format("g5xm2-%s-iso%s-ss%s-f%s-iq%s-%s-%02d%s",
-                tag, isoLbl, ssLbl, avLbl, iqLbl, runId, seq, ext);
-        Path outPath = OUT_DIR.resolve(outName);
+        String baseName = String.format("g5xm2-%s-iso%s-ss%s-f%s-iq%s-%s-%02d",
+                tag, isoLbl, ssLbl, avLbl, iqLbl, runId, seq);
+        Path outPath = OUT_DIR.resolve(baseName + ext);
+        // Defensive collision guard: if the resolved path already exists (e.g.
+        // a previous run started in the very same millisecond, or the operator
+        // re-ran the IT with a clock skew), bump a suffix instead of silently
+        // overwriting.
+        for (int dedup = 2; Files.exists(outPath); dedup++) {
+            outPath = OUT_DIR.resolve(baseName + "-alt" + dedup + ext);
+            if (dedup > 99) {
+                throw new IOException("Refusing to write fixture: 99 collisions for " + baseName);
+            }
+        }
+        String outName = outPath.getFileName().toString();
         Files.write(outPath, dl.data(),
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                StandardOpenOption.CREATE_NEW);
         log.info("Saved {} ({} bytes) — iso={} ss={} f={} iq=0x{} (camera filename: {})",
                 outName, dl.size(),
                 CanonPropertyDecoder.decodeIso(isoRaw),
@@ -391,6 +498,35 @@ class CleanroomCr3FixtureCaptureIT {
                 .replace(")", "")
                 .replace(".", "p")
                 .replaceAll("[^A-Za-z0-9_+-]", "");
+    }
+
+    /**
+     * Emits a long-form diagnostic block when the Canon body returns
+     * {@code Device_Busy 0x2019}. The body's PSREC firmware uses this
+     * single response code for at least six different failure modes; the
+     * checklist below covers the ones we have actually hit on the G5 X II
+     * and EOS R during cleanroom fixture-capture sessions.
+     */
+    private void logDeviceBusyDiagnostic(String tag, int seq) {
+        log.error("════════════════════════════════════════════════════════════════════");
+        log.error("  Device_Busy 0x2019 on capture {}-{} — diagnostic checklist:", tag, seq);
+        log.error("  ────────────────────────────────────────────────────────────────");
+        log.error("  1. Mode dial must be M (Manual). Auto / Av / Tv / Scene modes");
+        log.error("     are rejected by PSREC on most EOS bodies.");
+        log.error("  2. Focus mode must be MF (Manual Focus) for scene='{}'.", tag);
+        if ("dark".equalsIgnoreCase(tag)) {
+            log.error("     dark scene needs lens-cap on, MF @ ∞, and -Dfixture.noAf=true");
+            log.error("     (the default for scene=dark) or the half-press will fail.");
+        }
+        log.error("  3. Body must NOT be in PLAY / Review / Menu mode. Tap the shutter");
+        log.error("     half-way on the body once to exit playback.");
+        log.error("  4. SD card inserted, not write-protected, with space available.");
+        log.error("  5. Battery level above ~20 %% (low battery silently rejects PTP capture).");
+        log.error("  6. No other host app (Canon Camera Window, EOS Utility, DPP) is");
+        log.error("     holding an EOS session on the same body.");
+        log.error("  7. If the body just woke from sleep, give it 5–10 s before the");
+        log.error("     first capture. The IT now sleeps 5 s after each failure.");
+        log.error("════════════════════════════════════════════════════════════════════");
     }
 
     private static void writeManifest(List<CapturedFixture> rows, String runId) throws IOException {

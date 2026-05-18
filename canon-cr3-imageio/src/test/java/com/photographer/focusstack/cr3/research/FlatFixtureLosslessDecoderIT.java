@@ -111,8 +111,21 @@ class FlatFixtureLosslessDecoderIT {
         log.info("═══ Decoding {} flat fixtures via CrxLosslessRawDecoder ═══", flatFixtures.size());
 
         List<Decoded> decoded = new ArrayList<>();
+        int skippedLossy = 0;
         for (Path p : flatFixtures) {
+            // C-RAW (lossy CRX, waveletLevels > 0) cannot be processed by the
+            // lossless decoder by design — see CrawLossyBringUpIT instead.
+            if (isCrawLossy(p.toFile())) {
+                log.info("  ↷ skipping C-RAW (lossy) flat fixture {}", p.getFileName());
+                skippedLossy++;
+                continue;
+            }
             decoded.add(decodeOne(p.toFile()));
+        }
+        if (decoded.isEmpty()) {
+            log.info("All {} flat fixtures are C-RAW (lossy) — nothing for the lossless decoder; "
+                    + "see CrawLossyBringUpIT for the C-RAW research path", skippedLossy);
+            return;
         }
 
         // Structural determinism within the burst
@@ -300,6 +313,27 @@ class FlatFixtureLosslessDecoderIT {
             in.seek(raw.dataOffset());
             in.readFully(bytes);
             return new ParsedRaw(bytes, w, h, bd, ver, cmp1);
+        }
+    }
+
+    /**
+     * Cheap CMP1 probe: returns {@code true} when the CR3 file's RAW track
+     * declares {@code waveletLevels > 0}, i.e. C-RAW / lossy CRX. Falls back
+     * to {@code false} on any parse error so the caller still tries the
+     * decoder and surfaces the real failure cause.
+     */
+    private static boolean isCrawLossy(File cr3) {
+        try (ImageInputStream in = ImageIO.createImageInputStream(cr3)) {
+            Cr3Container c = Cr3Parser.parse(in);
+            return c.tracks().stream()
+                    .filter(t -> t.type() == Cr3Track.TrackType.CRX_BIG
+                            || t.type() == Cr3Track.TrackType.CRX_RAW)
+                    .findFirst()
+                    .map(Cr3Track::cmp1)
+                    .map(cmp1 -> cmp1 != null && cmp1.waveletLevels() > 0)
+                    .orElse(false);
+        } catch (Exception e) {
+            return false;
         }
     }
 

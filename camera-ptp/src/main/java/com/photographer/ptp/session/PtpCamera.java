@@ -277,6 +277,38 @@ public class PtpCamera implements AutoCloseable {
     }
 
     /**
+     * Triggers a capture <strong>without</strong> firing the half-press
+     * (auto-focus + metering) phase first. Equivalent to {@link #capture()}
+     * but bypasses AF — required when the body is set to manual focus and
+     * the scene cannot lock AF (e.g. lens-cap-on dark frames), where the
+     * Canon firmware otherwise rejects the half-press with
+     * {@code Device_Busy 0x2019}.
+     *
+     * <p>On non-Canon PTP cameras this delegates to {@link #capture()} since
+     * the standard {@code InitiateCapture} operation has no AF coupling.</p>
+     */
+    public ImageDownload captureNoAf() {
+        if (isCanon) {
+            eventLoop.suspend();
+            try {
+                CanonRemoteCapture remoteCapture = new CanonRemoteCapture(
+                        transport,
+                        config.halfPressDelayMs(),
+                        config.fullPressDelayMs(),
+                        config.releaseDelayMs());
+                remoteCapture.captureNoAf(session::nextTransactionId);
+                return pollForCapturedImageCanon();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new PtpException("Canon capture interrupted");
+            } finally {
+                eventLoop.resume();
+            }
+        }
+        return capture();
+    }
+
+    /**
      * Triggers the shutter and stores the image on the camera's SD card
      * WITHOUT downloading it to the host.
      * Useful for focus-stacking workflows where the host only needs to count frames.

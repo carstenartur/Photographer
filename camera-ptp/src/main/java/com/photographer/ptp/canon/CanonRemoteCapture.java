@@ -77,6 +77,49 @@ public class CanonRemoteCapture {
     }
 
     /**
+     * Executes a capture sequence that <strong>skips the half-press</strong>
+     * (AF + metering) phase and goes directly to full-press → release.
+     *
+     * <p>Use this when the body is in <em>manual focus</em> and the operator
+     * wants to bypass the AF trigger entirely. The motivating cases are:</p>
+     * <ul>
+     *   <li><b>Dark / lens-cap-on captures</b> — Canon firmware rejects the
+     *       half-press with {@code Device_Busy 0x2019} when AF is active and
+     *       the lens cannot lock focus, blocking the entire capture chain
+     *       even though the camera would otherwise be able to expose the
+     *       frame (the shutter does not need focus to actuate).</li>
+     *   <li><b>Pre-locked focus-stacking</b> — when the host has already
+     *       positioned the lens via {@code OC_EOS_DRIVE_LENS}, an additional
+     *       AF pass would defeat the careful per-frame focus offset and
+     *       potentially cause focus hunting.</li>
+     * </ul>
+     *
+     * <p>This is a Canon-EOS-specific path; non-Canon PTP cameras use the
+     * standard {@code InitiateCapture} operation instead which has no AF
+     * coupling.</p>
+     *
+     * @param transactionIdSupplier supplies the next transaction ID for each step
+     * @throws InterruptedException if the calling thread is interrupted during a delay
+     */
+    public void captureNoAf(TransactionIdSupplier transactionIdSupplier) throws InterruptedException {
+        log.info("Starting Canon remote capture sequence (no-AF: half-press skipped)");
+
+        // Skip half-press entirely; the camera will neither focus nor meter
+        // before exposure. Use only when the body is set to manual focus.
+        pressShutter(CanonConstants.RELEASE_PRESS_FULL, transactionIdSupplier.next());
+        if (delayAfterFullPressMs > 0) {
+            Thread.sleep(delayAfterFullPressMs);
+        }
+
+        releaseShutter(transactionIdSupplier.next());
+        if (delayAfterReleaseMs > 0) {
+            Thread.sleep(delayAfterReleaseMs);
+        }
+
+        log.info("Canon remote capture sequence complete (no-AF)");
+    }
+
+    /**
      * Sends RemoteReleaseOn with the specified press mode.
      */
     public void pressShutter(int pressMode, int transactionId) {

@@ -116,6 +116,39 @@ shot easier by:
 2. **Switch to manual focus** (touchscreen or dial), focus to infinity.
 3. **Lens cap on**, then run the IT with `-Dfixture.scene=dark`.
 
+> **No-AF capture for `dark` is now automatic.** Up to 2026-05-17 the IT
+> always sent a half-press first (= AF trigger), which the body rejected
+> with `Device_Busy 0x2019` on a lens-cap-on frame and aborted the entire
+> Phase A after 3 consecutive failures. As of 2026-05-18 the IT auto-skips
+> the half-press whenever `-Dfixture.scene=dark`. You can override either
+> way with `-Dfixture.noAf=true|false`:
+>
+> ```cmd
+> :: dark frame, AF skipped (default for scene=dark — recommended):
+> mvn -B verify -pl camera-ptp -am ^
+>     -Dptp.test.usb=true -DexcludedGroups= -Djava.awt.headless=true ^
+>     -Dit.test=CleanroomCr3FixtureCaptureIT -Dfixture.scene=dark
+>
+> :: force AF on (only useful when troubleshooting):
+> mvn -B verify -pl camera-ptp -am ^
+>     -Dptp.test.usb=true -DexcludedGroups= -Djava.awt.headless=true ^
+>     -Dit.test=CleanroomCr3FixtureCaptureIT -Dfixture.scene=dark ^
+>     -Dfixture.noAf=false
+>
+> :: force AF off for a non-dark scene (useful when MF is already dialled
+> :: and a precise focus offset must not be disturbed):
+> mvn -B verify -pl camera-ptp -am ^
+>     -Dptp.test.usb=true -DexcludedGroups= -Djava.awt.headless=true ^
+>     -Dit.test=CleanroomCr3FixtureCaptureIT -Dfixture.scene=detail ^
+>     -Dfixture.noAf=true
+> ```
+>
+> If a capture nevertheless returns `Device_Busy 0x2019`, the IT now
+> prints a 7-point diagnostic checklist (Mode dial, MF, PLAY mode, SD
+> card, battery, conflicting host app, wake-from-sleep). Most often the
+> body is sitting in the PLAY/Review screen — tap the shutter half-way
+> on the body once to exit it.
+
 ### CCAPI fallback
 
 If you are willing to switch the camera into Canon CCAPI mode (Wi-Fi /
@@ -184,6 +217,37 @@ and the `imageQualityRaw` column in `manifest.tsv`:
 The first C-RAW frame committed to this directory should ideally be paired
 with a same-scene RAW frame at the same ISO so that the two `quantValue`
 vectors can be compared side-by-side.
+
+### Disambiguating RAW vs C-RAW back-to-back runs (`-Dfixture.qualityLabel`)
+
+When the G5 X II refuses to broadcast `DPC_EOS_IMAGE_QUALITY (0xD108)` over
+USB, `iqRaw` is read back as `0` and the filename segment falls back to
+`iqx`. Two back-to-back runs at the *same* dialled ISO / shutter / aperture
+— for example one with the body switched to **RAW**, the next with the body
+switched to **C-RAW** — would then differ only by `runId` and could be hard
+for a human to tell apart.
+
+To make the runs self-describing, pass the operator label explicitly:
+
+```cmd
+:: Body switched to RAW on the mode dial:
+mvn -B verify -pl camera-ptp -am ^
+    -Dptp.test.usb=true -DexcludedGroups= -Djava.awt.headless=true ^
+    -Dit.test=CleanroomCr3FixtureCaptureIT ^
+    -Dfixture.scene=detail -Dfixture.qualityLabel=raw
+
+:: Body switched to C-RAW on the mode dial:
+mvn -B verify -pl camera-ptp -am ^
+    -Dptp.test.usb=true -DexcludedGroups= -Djava.awt.headless=true ^
+    -Dit.test=CleanroomCr3FixtureCaptureIT ^
+    -Dfixture.scene=detail -Dfixture.qualityLabel=craw
+```
+
+The label is only used when `iqRaw` is zero (camera-supplied value always
+wins). If neither is available, the IT falls back to a byte-size heuristic
+(`iqrawSz` ≥ 12 MB, otherwise `iqcrawSz`). The `runId` is also millisecond-
+precision and the writer uses `CREATE_NEW` plus an `-altN` suffix on
+collision, so a previous run can never be silently overwritten.
 
 ```
 

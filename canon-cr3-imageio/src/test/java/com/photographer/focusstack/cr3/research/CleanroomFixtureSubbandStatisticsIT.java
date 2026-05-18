@@ -87,12 +87,16 @@ class CleanroomFixtureSubbandStatisticsIT {
 
         log.info("═══ Subband statistics across {} research fixtures ═══", fixtures.size());
 
-        // Group by scene tag (asis / dark / flat / clip / detail / ...)
+        // Group by (scene, codec) so a mixed RAW + C-RAW burst of the same
+        // scene does not falsely trip the structural-determinism invariant
+        // (a lossless dark frame has 8 subbands, a same-scene C-RAW one has
+        // 80 — both are correct, they just live in different sub-groups).
         Map<String, List<FixtureMeasurement>> byScene = new LinkedHashMap<>();
         for (Path p : fixtures) {
-            String scene = parseSceneTag(p.getFileName().toString());
             FixtureMeasurement m = measure(p.toFile());
-            byScene.computeIfAbsent(scene, k -> new ArrayList<>()).add(m);
+            String scene = parseSceneTag(p.getFileName().toString());
+            String codec = m.subbandCount > 8 ? "craw" : "raw";
+            byScene.computeIfAbsent(scene + "/" + codec, k -> new ArrayList<>()).add(m);
         }
 
         // ── Invariant 1: determinism of structure within a scene/burst ─────
@@ -117,9 +121,12 @@ class CleanroomFixtureSubbandStatisticsIT {
         }
 
         // ── Invariant 2: dark < asis in payload bytes per pixel (when both exist) ─
-        Double darkMedian = medianBpp(byScene.get("dark"));
-        Double asisMedian = medianBpp(byScene.get("asis"));
-        Double flatMedian = medianBpp(byScene.get("flat"));
+        // Aggregate across codec sub-groups so the comparison reflects the scene,
+        // not the codec choice (C-RAW has lower bpp by design and would falsely
+        // satisfy the inequality on its own).
+        Double darkMedian = medianBppForScene(byScene, "dark");
+        Double asisMedian = medianBppForScene(byScene, "asis");
+        Double flatMedian = medianBppForScene(byScene, "flat");
         log.info("  median bytes/pixel by scene: dark={} flat={} asis={}",
                 fmt(darkMedian), fmt(flatMedian), fmt(asisMedian));
         if (darkMedian != null && asisMedian != null) {
@@ -177,6 +184,18 @@ class CleanroomFixtureSubbandStatisticsIT {
         if (burst == null || burst.isEmpty()) return null;
         List<Double> vals = burst.stream().map(m -> m.bytesPerPixel).sorted().collect(Collectors.toList());
         return vals.get(vals.size() / 2);
+    }
+
+    /**
+     * Median bytes/pixel for the lossless (RAW) sub-group of {@code scene}.
+     * The C-RAW sub-group is deliberately excluded so that the dark-vs-asis
+     * inequality of Invariant 2 compares like with like — a C-RAW frame has
+     * structurally lower bpp than a lossless one and would otherwise pass the
+     * inequality even on a scene whose entropy is *higher* than asis.
+     */
+    private static Double medianBppForScene(Map<String, List<FixtureMeasurement>> byScene,
+                                            String scene) {
+        return medianBpp(byScene.get(scene + "/raw"));
     }
 
     private static String fmt(Double d) {
