@@ -14,24 +14,9 @@ import java.util.Comparator;
  * Decoder for Canon CRX lossless RAW data.
  *
  * <p>CRX (Canon Raw eXtended) lossless compression uses adaptive Rice-Golomb
- * entropy coding with prediction over wavelet (or pseudo-wavelet) subbands.
- * The current implementation is a JPEG-LS-style approximation (MED predictor
- * over Bayer planes with JPEG-LS k-adaptation); see
- * {@code docs/patent-us20160323602a1-analysis.md} for the clean-room evaluation
- * of Canon patent US&nbsp;2016/0323602&nbsp;A1, which establishes that the
- * actual algorithm is:</p>
- * <ul>
- *   <li>per-subband predictor (LL = MED, HL = above, LH = left, HH = 0),</li>
- *   <li>symbol mapping {@code S = 2·Diff} for {@code Diff ≥ 0} else
- *       {@code -2·Diff - 1},</li>
- *   <li>Golomb-Rice with codeword {@code (S>>K) zeros + 1 + low-K-bits},</li>
- *   <li>per-symbol lookahead-bracket K update (not the JPEG-LS accumulator
- *       used here).</li>
- * </ul>
- * <p>See {@code docs/crx-cleanroom-spec.md} for the project-internal
- * decoder specification derived from the patent. Replacing this implementation
- * is gated on the validation work tracked in
- * {@code canon-cr3-core/SubbandFixtures.md}.</p>
+ * entropy coding over Bayer planes. The production default is the
+ * dark-frame-validated {@link KUpdateRule#PATENT_BRACKET} entropy profile;
+ * the legacy JPEG-LS approximation remains selectable for research A/B runs.</p>
  *
  * <p>This is a cleanroom implementation; no third-party CRX decoder source
  * was consulted.</p>
@@ -53,6 +38,9 @@ public final class CrxLosslessRawDecoder {
     /** Threshold for periodic normalization of adaptation counters. */
     private static final int NORMALIZATION_THRESHOLD = 1024;
 
+    /** Clamp used by the patent-aligned lossless K adaptation. */
+    private static final int PATENT_LOSSLESS_K_MAX = 12;
+
     /**
      * Selects the Rice‑Golomb {@code K} adaptation rule used by the
      * per‑plane entropy decoder.
@@ -60,46 +48,29 @@ public final class CrxLosslessRawDecoder {
      * <p>Two rules are implemented:</p>
      *
      * <ul>
-     *   <li>{@link #JPEG_LS} — the ITU‑T T.87 (JPEG‑LS) accumulator
-     *       rule: {@code K} grows when {@code accumulator > sampleCount<<K}
-     *       and shrinks when {@code accumulator <= sampleCount<<(K-1)}.
-     *       Stable, long‑proven, but tracks a *running* magnitude and is
-     *       slow to react to a sudden burst of small residuals — exactly
-     *       the regime of a dark/flat fixture, where the
-     *       cleanroom regression panel observed three of four Bayer
-     *       planes saturating at 16320 (entropy‑lock‑loss).</li>
-     *   <li>{@link #PATENT_BRACKET} — the per‑symbol bracket rule
-     *       described in Canon patent application
-     *       US&nbsp;2016/0323602&nbsp;A1 §5.11–5.13:
-     *       {@code K* = floor(log2(s + 1))}, then
-     *       {@code K ∈ [K* − 1, K* + 1]}. Reacts immediately to the
-     *       magnitude of the current symbol, which the patent argues
-     *       is necessary on the small‑residual planes typical of dark
-     *       and flat scenes.</li>
+     *   <li>{@link #JPEG_LS} — the legacy ITU‑T T.87 (JPEG‑LS) accumulator
+     *       approximation. It is retained for A/B research and documents the
+     *       old entropy-lock-loss signature on dark/flat fixtures.</li>
+     *   <li>{@link #PATENT_BRACKET} — the production CRX lossless entropy
+     *       profile promoted from the dark-frame research panel: row-local
+     *       state, K seed 1, ones-until-zero unary, bit-0 sign mapping, and
+     *       bounded per-symbol K adaptation.</li>
      * </ul>
-     *
-     * <p>The default is {@link #JPEG_LS} (the long‑standing production
-     * choice). The bake‑off
-     * {@code CrxKUpdateRuleBakeoffIT} measures both rules side‑by‑side
-     * on the dark/flat regression panel; when (and only when) that IT
-     * shows {@link #PATENT_BRACKET} winning, the production default is
-     * to be flipped via the matching IT‑validated PR — see Update (q)
-     * of {@code samples/research/README.md}.</p>
      */
     public enum KUpdateRule {
-        /** ITU‑T T.87 accumulator rule (current production default). */
+        /** ITU‑T T.87 accumulator rule (legacy CRX approximation). */
         JPEG_LS,
         /**
-         * Per‑symbol bracket rule from Canon patent
-         * US&nbsp;2016/0323602&nbsp;A1 §5.11–5.13.
-         *
-         * <p>{@code K* = floor(log2(s + 1)); K ∈ [K* − 1, K* + 1]}.</p>
+         * Patent-aligned CRX lossless entropy profile validated by the dark-frame
+         * research fixtures: K starts at 1, state resets at every row, unary is
+         * read as ones-until-zero, residuals use bit-0 sign mapping, and K is
+         * adapted per symbol with the bounded lossless rule.
          */
         PATENT_BRACKET
     }
 
-    /** Production default — the long‑proven JPEG‑LS rule. */
-    public static final KUpdateRule DEFAULT_K_UPDATE_RULE = KUpdateRule.JPEG_LS;
+    /** Production default — promoted after the dark/flat research panel showed JPEG_LS lock-loss. */
+    public static final KUpdateRule DEFAULT_K_UPDATE_RULE = KUpdateRule.PATENT_BRACKET;
 
     private CrxLosslessRawDecoder() {
         // utility class
@@ -152,6 +123,27 @@ public final class CrxLosslessRawDecoder {
     public static Cr3RawImage decode(byte[] data, int width, int height,
                                      int bitDepth, CrxHeader.CodecVersion version, Cmp1Box cmp1)
             throws Cr3Exception {
+        return decode(data, width, height, bitDepth, version, cmp1, DEFAULT_K_UPDATE_RULE);
+    }
+
+    /**
+     * Decodes CRX lossless RAW data, allowing the caller to select the
+     * Rice‑Golomb {@code K} adaptation rule.
+     *
+     * <p>This overload exists primarily so the research ITs can continue to
+     * measure {@link KUpdateRule#JPEG_LS} and {@link KUpdateRule#PATENT_BRACKET}
+     * side‑by‑side on dark / flat panels while normal production call sites use
+     * {@link #DEFAULT_K_UPDATE_RULE}.</p>
+     *
+     * @param kUpdateRule the K adaptation rule to use; must not be {@code null}
+     */
+    public static Cr3RawImage decode(byte[] data, int width, int height,
+                                     int bitDepth, CrxHeader.CodecVersion version, Cmp1Box cmp1,
+                                     KUpdateRule kUpdateRule)
+            throws Cr3Exception {
+        if (kUpdateRule == null) {
+            throw new IllegalArgumentException("kUpdateRule must not be null");
+        }
         if (data == null || data.length == 0) {
             throw new Cr3Exception("CRX data is empty");
         }
@@ -237,6 +229,7 @@ public final class CrxLosslessRawDecoder {
                 final int[][] finalPlanes = planes;
                 final int finalPlaneWidth = planeWidth;
                 final CrxHeader.Tile finalTile = tile;
+                final KUpdateRule finalKRule = kUpdateRule;
 
                 // Decode the (typically 4) Bayer planes of this tile in parallel.
                 // Each plane is independent: decodePlane() is pure on a slice of
@@ -247,7 +240,7 @@ public final class CrxLosslessRawDecoder {
                         try {
                             decodeTilePlane(plane, finalTile, finalCrxData, finalPlanes,
                                     finalTileXOffset, finalTilePixelWidth, finalTilePlaneHeight,
-                                    finalPlaneWidth, finalBitDepth);
+                                    finalPlaneWidth, finalBitDepth, finalKRule);
                         } catch (Cr3Exception | IOException e) {
                             throw new DecodePlaneException(e);
                         }
@@ -368,7 +361,7 @@ public final class CrxLosslessRawDecoder {
     private static void decodeTilePlane(CrxHeader.Plane plane, CrxHeader.Tile tile,
                                         byte[] crxData, int[][] planes,
                                         int tileXOffset, int tilePixelWidth, int tilePlaneHeight,
-                                        int planeWidth, int bitDepth)
+                                        int planeWidth, int bitDepth, KUpdateRule kUpdateRule)
             throws Cr3Exception, IOException {
         if (plane.subbands().isEmpty()) {
             throw new Cr3Exception("No subbands in plane " + plane.index()
@@ -411,7 +404,7 @@ public final class CrxLosslessRawDecoder {
 
         // Decode this plane's subband
         int[] decoded = decodePlane(crxData, subDataOffset, subDataEnd,
-                tilePixelWidth, tilePlaneHeight, bitDepth);
+                tilePixelWidth, tilePlaneHeight, bitDepth, kUpdateRule);
 
         // Copy decoded tile data into the full plane array.
         // Different planes write to distinct planes[planeIdx] slots, so this
@@ -436,13 +429,12 @@ public final class CrxLosslessRawDecoder {
     }
 
     /**
-     * Decodes a single plane using adaptive Rice-Golomb coding with MED prediction.
-     *
-     * <p>This implements the JPEG-LS-style prediction and entropy decoding that
-     * CRX lossless uses. The algorithm is based on the published ITU T.87 standard.</p>
+     * Decodes a single plane using MED prediction and the selected CRX lossless
+     * entropy profile.
      */
     private static int[] decodePlane(byte[] data, int offset, int endOffset,
-                                      int width, int height, int bitDepth)
+                                      int width, int height, int bitDepth,
+                                      KUpdateRule kUpdateRule)
             throws IOException {
         int[] result = new int[width * height];
         int maxVal = (1 << bitDepth) - 1;
@@ -450,30 +442,20 @@ public final class CrxLosslessRawDecoder {
         // Read directly from the original data with offset/length to avoid extra buffer copies
         BitReader reader = new BitReader(data, offset, endOffset - offset);
 
-        // JPEG-LS-style adaptive parameters.
-        //
-        // K_INIT: the initial Rice parameter is **0**, empirically
-        // validated as the optimum on 100 % of 160 subbands across two
-        // C-RAW frames by `CrxPlaneFollowupRound9IT` — see Update (n)
-        // in samples/research/README.md. Earlier experiments seeded
-        // K from `CMP1.quantValue`; that recommendation has been
-        // falsified and retracted.
-        //
-        // K UPDATE: still uses the JPEG-LS accumulator/sampleCount
-        // adaptation (T.87 Annex A.5). The patent literature suggests
-        // a per-symbol bracket K* = floor(log2(s + 1)) with
-        // K ∈ [K* − 1, K* + 1]; Round-13 has not produced direct
-        // evidence that switching the production update rule improves
-        // the dark/flat metrics, so the proven JPEG-LS rule stays
-        // until a discriminating fixture exists.
-        int k = 0;  // Rice parameter
+        // CRX lossless entropy parameters. JPEG_LS is retained as the legacy
+        // approximation for A/B tests; PATENT_BRACKET uses the dark-frame-
+        // validated canonical profile from CrxNormativeLosslessCandidateIT.
+        int k = kUpdateRule == KUpdateRule.PATENT_BRACKET ? 1 : 0;
         long accumulator = 0;
         long sampleCount = 1;
-        int range = maxVal + 1;
-        int near = 0; // lossless: near = 0
         boolean streamExhausted = false;
 
         for (int y = 0; y < height; y++) {
+            if (kUpdateRule == KUpdateRule.PATENT_BRACKET) {
+                k = 1;
+                accumulator = 0;
+                sampleCount = 1;
+            }
             for (int x = 0; x < width; x++) {
                 // MED prediction (Median Edge Detection, from JPEG-LS / ITU T.87).
                 //
@@ -517,7 +499,9 @@ public final class CrxLosslessRawDecoder {
                     residual = 0;
                 } else {
                     try {
-                        residual = decodeAdaptiveRiceGolomb(reader, k);
+                        residual = kUpdateRule == KUpdateRule.PATENT_BRACKET
+                                ? decodeOnesUntilZeroRiceGolomb(reader, k)
+                                : decodeAdaptiveRiceGolomb(reader, k);
                     } catch (IOException e) {
                         if (e.getMessage() != null
                                 && (e.getMessage().contains("Unexpected end of stream")
@@ -532,9 +516,14 @@ public final class CrxLosslessRawDecoder {
                     }
                 }
 
-                // Zigzag decode: even→positive, odd→negative
+                // Signed residual mapping. The legacy path uses zig-zag; the
+                // patent-aligned lossless path stores magnitude in the upper bits
+                // and the sign in bit 0.
                 int signedResidual;
-                if ((residual & 1) == 0) {
+                if (kUpdateRule == KUpdateRule.PATENT_BRACKET) {
+                    int magnitude = residual >>> 1;
+                    signedResidual = (residual & 1) == 0 ? magnitude : -magnitude;
+                } else if ((residual & 1) == 0) {
                     signedResidual = residual >> 1;
                 } else {
                     signedResidual = -(residual >> 1) - 1;
@@ -545,29 +534,49 @@ public final class CrxLosslessRawDecoder {
                 pixel = Math.max(0, Math.min(maxVal, pixel));
                 result[y * width + x] = pixel;
 
-                // Update Rice parameter adaptively (JPEG-LS style)
+                // Update Rice parameter adaptively (rule selected per call).
                 int absResidual = Math.abs(signedResidual);
-                accumulator += absResidual;
-                sampleCount++;
-
-                // Adapt k: k = floor(log2(accumulator / sampleCount))
-                if (sampleCount > 0) {
-                    long threshold = sampleCount << k;
-                    if (accumulator > threshold && k < bitDepth) {
-                        k++;
-                    } else if (k > 0) {
-                        long lowerThreshold = sampleCount << (k - 1);
-                        if (accumulator <= lowerThreshold) {
-                            k--;
+                switch (kUpdateRule) {
+                    case JPEG_LS -> {
+                        // ITU-T T.87 Annex A.5 accumulator rule.
+                        accumulator += absResidual;
+                        sampleCount++;
+                        if (sampleCount > 0) {
+                            long threshold = sampleCount << k;
+                            if (accumulator > threshold && k < bitDepth) {
+                                k++;
+                            } else if (k > 0) {
+                                long lowerThreshold = sampleCount << (k - 1);
+                                if (accumulator <= lowerThreshold) {
+                                    k--;
+                                }
+                            }
+                        }
+                        // Periodic normalization (prevent overflow)
+                        if (sampleCount >= NORMALIZATION_THRESHOLD) {
+                            accumulator >>= 1;
+                            sampleCount >>= 1;
+                            if (sampleCount == 0) sampleCount = 1;
                         }
                     }
-                }
-
-                // Periodic normalization (prevent overflow)
-                if (sampleCount >= NORMALIZATION_THRESHOLD) {
-                    accumulator >>= 1;
-                    sampleCount >>= 1;
-                    if (sampleCount == 0) sampleCount = 1;
+                    case PATENT_BRACKET -> {
+                        // Dark-frame-validated lossless rule: react to the
+                        // current residual magnitude, but keep the row-local
+                        // running lower-bound check so low-noise dark/flat rows
+                        // collapse K quickly instead of drifting into lock-loss.
+                        accumulator += absResidual;
+                        sampleCount++;
+                        if (absResidual > (1 << (k + 1)) && k < PATENT_LOSSLESS_K_MAX) {
+                            k++;
+                        } else if (k > 0 && accumulator <= (sampleCount << (k - 1))) {
+                            k--;
+                        }
+                        if (sampleCount >= NORMALIZATION_THRESHOLD) {
+                            accumulator >>= 1;
+                            sampleCount >>= 1;
+                            if (sampleCount == 0) sampleCount = 1;
+                        }
+                    }
                 }
             }
         }
@@ -619,6 +628,35 @@ public final class CrxLosslessRawDecoder {
         if (k > 0) {
             if (!reader.hasMore()) {
                 throw new IOException("Unexpected end of stream while reading Rice-Golomb remainder");
+            }
+            r = reader.readBits(k);
+        }
+        return (q << k) | r;
+    }
+
+    /**
+     * Decodes a CRX lossless Rice-Golomb symbol whose unary prefix is encoded
+     * as a run of one bits terminated by zero. This is the direction that keeps
+     * the bundled dark lossless fixtures in entropy lock through the full plane.
+     */
+    private static int decodeOnesUntilZeroRiceGolomb(BitReader reader, int k) throws IOException {
+        int q = 0;
+        while (true) {
+            if (!reader.hasMore()) {
+                throw new IOException("Unexpected end of stream while reading CRX unary code");
+            }
+            if (reader.readBit() == 0) {
+                break;
+            }
+            q++;
+            if (q > MAX_RICE_UNARY_COUNT) {
+                throw new IOException("CRX unary overflow (>" + MAX_RICE_UNARY_COUNT + ")");
+            }
+        }
+        int r = 0;
+        if (k > 0) {
+            if (!reader.hasMore()) {
+                throw new IOException("Unexpected end of stream while reading CRX Rice-Golomb remainder");
             }
             r = reader.readBits(k);
         }

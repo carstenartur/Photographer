@@ -40,10 +40,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <h3>What this IT asserts on every dark fixture</h3>
  * <ol>
- *   <li><b>Decode does not crash.</b> The current JPEG-LS-style approximation
- *       in {@link CrxLosslessRawDecoder} must at minimum return a buffer of
- *       the correct dimensions and bit depth. Crashes here are immediate
- *       blockers for any further decoder work.</li>
+ *   <li><b>Decode does not crash.</b> The production lossless entropy profile
+ *       in {@link CrxLosslessRawDecoder} must return a buffer of the correct
+ *       dimensions and bit depth.</li>
  *   <li><b>Output dimensions are sane.</b> Width / height match the CMP1
  *       declarations, bit depth is in {@code [8, 16]}, and the data array
  *       length equals {@code width × height}.</li>
@@ -55,9 +54,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       in the same burst at identical settings must decode to buffers of
  *       identical dimensions and bit depth. The pixel content differs (shot
  *       noise) but the structure does not.</li>
+ *   <li><b>Dark-frame physical sanity.</b> The histogram mode must stay away
+ *       from the saturation rail and each fixture must keep a minimum fraction
+ *       of pixels within {@code ±1024 LSB} of the mode.</li>
+ *   <li><b>Burst-level concentration.</b> The lossless dark burst must average
+ *       at least {@code 0.80} within {@code ±1024 LSB} of each fixture's mode,
+ *       guarding the regression that previously pushed dark planes to 16320.</li>
  * </ol>
  *
- * <h3>What this IT measures and reports (without asserting)</h3>
+ * <h3>What this IT reports</h3>
  * <p>For each dark fixture the IT logs:</p>
  * <ul>
  *   <li>The pedestal estimate ({@code mode} of the histogram, in 64-LSB
@@ -71,12 +76,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       indicate the entropy decoder is producing junk.</li>
  * </ul>
  *
- * <p>The <em>future tightening path</em> (when the patent-spec predictor
- * lands) is to flip the four reporting metrics into hard assertions, e.g.
- * {@code fractionNear256 ≥ 0.80}, {@code mode ∈ [256, 4096]}. Today they are
- * pure measurements so the IT passes against the current approximate
- * decoder and gives us the baseline numbers to improve against.</p>
- *
  * <p>The IT silently no-ops if the {@code samples/research/} directory has
  * no {@code dark} fixtures, so it remains safe in a fresh checkout.</p>
  */
@@ -89,6 +88,11 @@ class DarkFixtureLosslessDecoderIT {
 
     /** Histogram bucket width in 14-bit LSB (64 = 6 bits of resolution → 256 buckets at 14-bit). */
     private static final int HIST_BUCKET = 64;
+
+    /** Minimum burst-wide pedestal concentration expected from the promoted lossless entropy path. */
+    private static final double MIN_BURST_FRACTION_WITHIN_1024 = 0.80;
+    /** Per-fixture guardrail kept lower to tolerate exposure/read-noise variance across dark captures. */
+    private static final double MIN_FIXTURE_FRACTION_WITHIN_1024 = 0.65;
 
     @Test
     @DisplayName("Lossless CRX decoder produces well-formed output on dark (cap-on) fixtures")
@@ -158,6 +162,12 @@ class DarkFixtureLosslessDecoderIT {
             assertThat(d.pixelMax)
                     .as("%s max pixel <= %d", d.path, max)
                     .isLessThanOrEqualTo(max);
+            assertThat(d.modeBucket * HIST_BUCKET)
+                    .as("%s dark-frame mode must not sit on the saturation rail", d.path)
+                    .isLessThan(max - HIST_BUCKET);
+            assertThat(d.fractionWithin1024OfMode)
+                    .as("%s dark-frame pedestal concentration within ±1024 LSB", d.path)
+                    .isGreaterThanOrEqualTo(MIN_FIXTURE_FRACTION_WITHIN_1024);
 
             log.info("  {}", d.path);
             log.info("      dim={}x{}  bd={}  min={} median={} max={}",
@@ -182,9 +192,12 @@ class DarkFixtureLosslessDecoderIT {
         // ── Forward-compatible reporting metric (informational) ─────────────
         double avgFractionNear = decoded.stream()
                 .mapToDouble(d -> d.fractionWithin1024OfMode).average().orElse(0.0);
+        assertThat(avgFractionNear)
+                .as("dark burst mean concentration within ±1024 LSB of mode")
+                .isGreaterThanOrEqualTo(MIN_BURST_FRACTION_WITHIN_1024);
         log.info("  burst-mean fractionWithin1024OfMode = {} "
-                        + "(future patent-spec swap should drive this above 0.80)",
-                fmt(avgFractionNear));
+                        + "(regression threshold ≥ {})",
+                fmt(avgFractionNear), fmt(MIN_BURST_FRACTION_WITHIN_1024));
     }
 
     // ─────────────────────────────────────────────────────── helpers ──

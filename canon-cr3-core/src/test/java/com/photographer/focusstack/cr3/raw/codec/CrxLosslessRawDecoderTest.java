@@ -140,13 +140,11 @@ class CrxLosslessRawDecoderTest {
 
     @Test
     void decodePreservesSymmetryForUniformInput() throws Cr3Exception {
-        // With all zero residuals, each pixel is the MED prediction.
-        // Per Update (p) of samples/research/README.md the production
-        // decoder seeds the first pixel of every plane with **0** (CRX
-        // behaviour, validated by Round‑9 + dark/flat regression
-        // panel), not the JPEG‑LS midpoint (1<<(bd-1) = 8192). With
-        // an all‑1‑bits payload (every residual = 0) the entire plane
-        // therefore reconstructs to 0.
+        // The no-value synthetic fixture uses an intentionally exhausted
+        // all-ones payload. Under the production PATENT_BRACKET profile this
+        // is not valid zero-residual coding; it exercises the decoder's
+        // deterministic padding path, which should still reconstruct from the
+        // CRX first-pixel seed of 0.
         int width = 4;
         int height = 4;
         int bitDepth = 14;
@@ -159,7 +157,9 @@ class CrxLosslessRawDecoderTest {
 
     /**
      * Builds synthetic CRX data with valid header and simple encoded plane data.
-     * All pixels encoded as zero residual (Rice-Golomb of 0 with k=0 = single 1-bit).
+     * The no-value fixture intentionally uses an exhausted all-ones payload; exact
+     * value round-trips use {@link #encodePlane} and therefore match the production
+     * PATENT_BRACKET entropy profile.
      */
     private byte[] buildSyntheticCrxData(int width, int height, int bitDepth,
                                          CrxHeader.CodecVersion version) {
@@ -178,7 +178,7 @@ class CrxLosslessRawDecoderTest {
                 bytesPerPlane[p] = (pixelsPerPlane + 7) / 8;
                 planeData[p] = new byte[bytesPerPlane[p]];
                 for (int i = 0; i < planeData[p].length; i++) {
-                    planeData[p][i] = (byte) 0xFF; // all 1-bits = zero residuals
+                    planeData[p][i] = (byte) 0xFF; // intentionally exhausted dummy payload
                 }
             } else {
                 planeData[p] = encodePlane(planeValues[p], planeW, planeH, bitDepth);
@@ -218,19 +218,13 @@ class CrxLosslessRawDecoderTest {
 
     private byte[] encodePlane(int[] values, int width, int height, int bitDepth) {
         assertThat(values).hasSize(width * height);
-        // Match the production decoder's first‑pixel seed (0, per
-        // Update (p) of samples/research/README.md). Previously the
-        // encoder seeded with 1<<(bd-1) which only round‑tripped while
-        // the production decoder used the same (now retracted) seed.
         int firstPixelSeed = 0;
-        int k = 0;
-        long accumulator = 0;
-        long sampleCount = 1;
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        int bitBuffer = 0;
-        int bitCount = 0;
+        ByteBitWriter bits = new ByteBitWriter();
 
         for (int y = 0; y < height; y++) {
+            int k = 1;
+            long accumulator = 0;
+            long sampleCount = 1;
             for (int x = 0; x < width; x++) {
                 int idx = y * width + x;
                 int predicted;
@@ -248,47 +242,25 @@ class CrxLosslessRawDecoderTest {
                 }
 
                 int signedResidual = values[idx] - predicted;
-                int residual = signedResidual >= 0 ? (signedResidual << 1) : ((-signedResidual - 1) << 1) | 1;
+                int absResidual = Math.abs(signedResidual);
+                int residual = (absResidual << 1) | (signedResidual < 0 ? 1 : 0);
                 int q = residual >> k;
-                int r = k == 0 ? 0 : (residual & ((1 << k) - 1));
+                int r = residual & ((1 << k) - 1);
 
                 for (int i = 0; i < q; i++) {
-                    bitBuffer <<= 1;
-                    bitCount++;
-                    if (bitCount == 8) {
-                        out.write(bitBuffer);
-                        bitBuffer = 0;
-                        bitCount = 0;
-                    }
+                    bits.writeBit(1);
                 }
-                bitBuffer = (bitBuffer << 1) | 1;
-                bitCount++;
-                if (bitCount == 8) {
-                    out.write(bitBuffer);
-                    bitBuffer = 0;
-                    bitCount = 0;
-                }
+                bits.writeBit(0);
                 for (int i = k - 1; i >= 0; i--) {
-                    bitBuffer = (bitBuffer << 1) | ((r >> i) & 1);
-                    bitCount++;
-                    if (bitCount == 8) {
-                        out.write(bitBuffer);
-                        bitBuffer = 0;
-                        bitCount = 0;
-                    }
+                    bits.writeBit((r >> i) & 1);
                 }
 
-                int absResidual = (residual + 1) >> 1;
                 accumulator += absResidual;
                 sampleCount++;
-                long threshold = sampleCount << k;
-                if (accumulator > threshold && k < bitDepth) {
+                if (absResidual > (1 << (k + 1)) && k < 12) {
                     k++;
-                } else if (k > 0) {
-                    long lowerThreshold = sampleCount << (k - 1);
-                    if (accumulator <= lowerThreshold) {
-                        k--;
-                    }
+                } else if (k > 0 && accumulator <= (sampleCount << (k - 1))) {
+                    k--;
                 }
                 if (sampleCount >= 1024) {
                     accumulator >>= 1;
@@ -297,11 +269,32 @@ class CrxLosslessRawDecoderTest {
                 }
             }
         }
-        if (bitCount > 0) {
-            bitBuffer <<= (8 - bitCount);
-            out.write(bitBuffer);
+        return bits.toByteArray();
+    }
+
+    private static final class ByteBitWriter {
+        private final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        private int bitBuffer;
+        private int bitCount;
+
+        void writeBit(int bit) {
+            bitBuffer = (bitBuffer << 1) | (bit & 1);
+            bitCount++;
+            if (bitCount == 8) {
+                out.write(bitBuffer);
+                bitBuffer = 0;
+                bitCount = 0;
+            }
         }
-        return out.toByteArray();
+
+        byte[] toByteArray() {
+            if (bitCount > 0) {
+                out.write(bitBuffer << (8 - bitCount));
+                bitBuffer = 0;
+                bitCount = 0;
+            }
+            return out.toByteArray();
+        }
     }
 
     private static void writeTileHeader(ByteBuffer buf, int marker, long dataSize, int index) {
