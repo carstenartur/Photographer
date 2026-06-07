@@ -50,7 +50,7 @@
         <springdoc.version>3.0.3</springdoc.version>
         <imagej.version>1.54j</imagej.version>
         <picocli.version>4.7.7</picocli.version>
-        <jacoco.version>0.8.14</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
         <argLine/>
         <!-- Tags excluded by default; override with -DexcludedGroups= to run real-camera tests -->
