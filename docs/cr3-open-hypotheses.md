@@ -1,19 +1,34 @@
 # CR3 Open Hypotheses
 
+This file tracks active CR3 research directions.
+
+## Active Phase-B hypotheses
+
 | ID | Hypothesis | Status | Next Experiment | Success Criterion |
 |---|---|---|---|---|
-| H1 | quantValue influences Rice/Golomb parameter selection | OPEN | multi-fixture k sweep | consistent metric improvement |
-| H2 | predictor differs from MED | BLOCKED | wait for stronger residual reconstruction | measurable improvement over MED |
-| H3 | escape coding exists for large residuals | OPEN | compare zero-run distributions and bit consumption | consistent threshold behaviour |
-| H4 | line-level mode switching exists | OPEN | analyse per-line bit budgets | repeatable line offset signature |
-| H5 | bit ordering assumptions are correct | PARTIAL | verify on all fixtures | cross-fixture consistency |
+| B1 | Predictor row context is shifted or otherwise incorrect | OPEN | PredictorStateIsolationIT | lower OB stdDev and banding |
+| B2 | Predictor state reset at tile boundaries is wrong | OPEN | tile-boundary isolation | improved OB and boundary behaviour |
+| B3 | Predictor state reset at plane boundaries is wrong | OPEN | plane-boundary isolation | improved OB and per-plane stability |
+| B4 | Per-plane neighbour model differs from current implementation | OPEN | per-plane predictor variants | measurable OB improvement |
+
+## Deferred hypotheses
+
+These are not current priorities and require a novelty argument before reactivation.
+
+| ID | Hypothesis | Status | Reason |
+|---|---|---|---|
+| D1 | quantValue is the primary lossless decoding problem | DEFERRED | low variability in current lossless corpus |
+| D2 | PRVW geometry is the primary decoding problem | DEFERRED | Phase-A investigations already performed |
+| D3 | CFA layout discovery is the primary decoding problem | DEFERRED | already investigated sufficiently |
+| D4 | generic alignment sweep should be repeated | DEFERRED | alignment already studied extensively |
 
 ## Status values
 
 - OPEN
-- BLOCKED
 - SUPPORTED
 - REJECTED
+- BLOCKED
 - PARTIAL
+- DEFERRED
 
-Every research task must update at least one row in this table.
+Every completed experiment must update at least one status and link to a durable result document.
