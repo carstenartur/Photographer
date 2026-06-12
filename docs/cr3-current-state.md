@@ -1,35 +1,57 @@
 # CR3 Current State
 
-## What is already known
+This document summarizes the current consensus after the Phase-A research work.
+
+## Established facts
 
 - CR3 container parsing works.
-- CMP1, IAD1 and CRX headers are parsed.
-- Fixture inventory exists.
-- Subband extraction exists.
-- Bitstream statistics exist.
-- Hypothesis sweep infrastructure exists.
-- Preview-based comparison infrastructure exists.
+- CMP1, IAD1 and CRX header extraction work.
+- Fixture inventory, subband extraction, geometry diagnostics and alignment diagnostics exist.
+- The repository contains both lossless RAW and C-RAW research fixtures.
+- The corpus is structurally saturated for many broad decoder sweeps.
 
-## Main bottleneck
+## Strong findings
 
-The entropy/residual codec used by CRX is not yet understood sufficiently to reconstruct the original RAW signal.
+- Optical-black (IAD1 OB) regions are the strongest currently available falsification axis.
+- The current decoder output is physically implausible in OB regions.
+- CRX_SMALL and CRX_BIG use different CFA layouts and this has already been documented.
+- Bitstream alignment has been investigated and is not the leading explanation for the current failures.
 
-## Current research focus
+## Working hypothesis
 
-Focus on:
+The most likely remaining fault class is the predictor state machine.
 
-- entropy coding,
-- residual reconstruction,
-- predictor behaviour,
-- bitstream structure.
+Candidate explanations:
 
-Avoid spending research time on:
+- wrong row context,
+- wrong tile reset behaviour,
+- wrong plane reset behaviour,
+- wrong neighbour model.
 
-- colour rendering,
-- white balance tuning,
-- demosaicing improvements,
-- camera-specific image appearance.
+## Rejected or deprioritized directions
 
-## Success metric
+- broad container archaeology,
+- repeated quantValue sweeps on the current lossless corpus,
+- repeated PRVW geometry investigations,
+- repeated CFA-layout investigations,
+- image rendering quality optimisation before decoder correctness.
 
-A hypothesis is considered promising only when it improves reproducible numerical metrics across fixtures and not merely visual appearance.
+## Current priority
+
+Phase B — Predictor State Isolation.
+
+Primary metrics:
+
+- OB stdDev,
+- OB median stability,
+- row/column flatness,
+- banding score,
+- autocorrelation.
+
+Secondary metrics:
+
+- PRVW Pearson correlation.
+
+## Next expected deliverable
+
+A predictor-state-isolation experiment that evaluates narrowly scoped predictor-state hypotheses and records durable results under `docs/cr3-results/`.
