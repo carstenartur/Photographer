@@ -19,14 +19,21 @@ This document summarizes the current consensus after the Phase-A research work.
 
 ## Working hypothesis
 
-The most likely remaining fault class is the predictor state machine.
+The most likely remaining fault class is the predictor row context model.
+
+Phase-B investigation (2026-06-14) established:
+
+- **B1 PARTIAL**: The north-only (N) predictor reduces leftOB stdDev by 72% on dark fixtures (240→67) and topOB stdDev by 31%. The W component of MED is actively harmful. Row-offset reduces banding by 40% on the dark topOB.
+- **B2 REJECTED**: Tile-state continuation doubles OB stdDev in every fixture. Current tile-local reset with seed=0 is correct.
+- **B3 REJECTED**: Cross-plane seeding has zero effect. Plane-independent reset is correct.
+
+The remaining stdDev of 67 on the dark fixture's leftOB (vs ~2–5 physical floor) means the row context model is partially but not wholly wrong. The pure-N predictor is the leading candidate for Phase C.
 
 Candidate explanations:
 
-- wrong row context,
-- wrong tile reset behaviour,
-- wrong plane reset behaviour,
-- wrong neighbour model.
+- wrong row context (specifically the W component of MED),
+- possibly a modified LOCO-I variant (N+NW, no W) rather than full MED,
+- per-plane neighbour model variation (not yet tested).
 
 ## Rejected or deprioritized directions
 
@@ -38,20 +45,11 @@ Candidate explanations:
 
 ## Current priority
 
-Phase B — Predictor State Isolation.
+Phase C — Predictor Model Correction.
 
-Primary metrics:
+Following Phase-B results:
+- B1 PARTIAL: N-only predictor reduces OB stdDev significantly; W context is harmful
+- B2 REJECTED: tile-local reset is correct
+- B3 REJECTED: plane-independent reset is correct
 
-- OB stdDev,
-- OB median stability,
-- row/column flatness,
-- banding score,
-- autocorrelation.
-
-Secondary metrics:
-
-- PRVW Pearson correlation.
-
-## Next expected deliverable
-
-A predictor-state-isolation experiment that evaluates narrowly scoped predictor-state hypotheses and records durable results under `docs/cr3-results/`.
+Recommended next experiment: test pure-N and N+NW (no W) predictor variants in the production decoder path, with leftOB dark-fixture stdDev as the primary falsification metric.

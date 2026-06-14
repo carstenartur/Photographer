@@ -32,25 +32,19 @@ Whenever a result document is added, update:
 - `docs/cr3-open-hypotheses.md`
 - this file
 
+## Completed result documents
+
+| Date | Hypotheses | Status | Document |
+|---|---|---|---|
+| 2026-06-14 | B1 (row context), B2 (tile reset), B3 (plane reset) | B1 PARTIAL · B2 REJECTED · B3 REJECTED | [2026-06-14-B1-predictor-state-isolation.md](cr3-results/2026-06-14-B1-predictor-state-isolation.md) |
+
 ## Current priority
 
-Phase B: Predictor State Isolation.
+Phase C: Predictor Model Correction.
 
 Recommended first result document:
 
-`<date>-B1-predictor-state-isolation.md`
-
-Primary metrics:
-
-- OB stdDev
-- OB median stability
-- row/column flatness
-- autocorrelation
-- banding score
-
-Secondary metric:
-
-- PRVW Pearson correlation
+`<date>-C1-predictor-model-correction.md`
 
 ## Goal
 
