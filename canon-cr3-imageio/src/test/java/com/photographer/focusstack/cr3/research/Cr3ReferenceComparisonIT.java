@@ -462,9 +462,10 @@ class Cr3ReferenceComparisonIT {
         StringBuilder markdown = new StringBuilder();
         markdown.append("# CR3 Reference Comparison\n\n");
         markdown.append("- Generated: ").append(Instant.now()).append('\n');
-        markdown.append("- Fixtures: ").append(results.size()).append('\n');
+        markdown.append("- Fixtures: ").append(results.size()).append(" lossless CR3 fixtures\n");
+        markdown.append("- Exclusions: C-RAW / wavelet CR3 fixtures are intentionally skipped\n");
         markdown.append("- Reference manifest: `canon-cr3-imageio/src/test/resources/samples/reference-manifest.json`\n");
-        markdown.append("- Reference source: LibRaw/rawpy full-sensor mosaic TIFF sidecars\n\n");
+        markdown.append("- Reference source: LibRaw 0.22.1 via rawpy 0.27.0 full-sensor mosaic TIFF sidecars\n\n");
 
         markdown.append("## Summary\n\n");
         markdown.append("| Fixture | Size | Global MAE | Global RMSE | Pearson | OB MAE | OB StdDev | Boundary Error |\n");

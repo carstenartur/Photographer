@@ -9,6 +9,8 @@ This document summarizes the current consensus after the Phase-A research work.
 - Fixture inventory, subband extraction, geometry diagnostics and alignment diagnostics exist.
 - The repository contains both lossless RAW and C-RAW research fixtures.
 - The corpus is structurally saturated for many broad decoder sweeps.
+- All current lossless CR3 fixtures now have LibRaw-backed reference TIFF/PNG sidecars plus a manifest.
+- `Cr3ReferenceComparisonIT` generates reference-vs-decoder metrics and visual reports in `docs/cr3-results/reference-comparison.md`.
 
 ## Strong findings
 
@@ -48,15 +50,17 @@ Phase-C evidence matrix ranking:
 
 ## Current priority
 
-Phase D — explain why a MED-consistent decoded signal is still physically
-implausible in optical-black regions.
+Phase D3 — decoder hypotheses measured against the new external reference.
 
-Following Phase-C results:
+Following Phase-C results and the new Phase-D baseline:
 - B1 PARTIAL / narrowed: MED best matches the decoded signal; NorthOnly looked less wrong visually but is not statistically supported
 - B2 REJECTED: tile-local reset is correct
 - B3 REJECTED: plane-independent reset is correct
 - B4 REJECTED: no per-plane neighbour-family split
+- D1 COMPLETE: lossless fixtures have external LibRaw reference sidecars
+- D2 COMPLETE: automated reference comparison exists and is the evaluation baseline
 
-Recommended next experiment: keep the MED neighbourhood model fixed and inspect
-residual/value semantics (sign mapping, adaptation, symbol scale, or other
-upstream/downstream transforms) on the dark-fixture OB regions.
+Recommended next experiment: keep the current neighbourhood model fixed and test
+only decoder changes that reduce reference error in
+`docs/cr3-results/reference-comparison.md`. Predictor-family experiments remain
+deferred until a candidate change measurably improves the reference comparison.
