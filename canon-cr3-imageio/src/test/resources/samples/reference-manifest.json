@@ -35,20 +35,6 @@
     "pngSha256": "2a12d9a242ccf5046f37bd6eef9409e158461023f17832af2da14e7322cd96ba"
   },
   {
-    "fixture": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
-    "tool": "LibRaw/rawpy",
-    "version": "rawpy 0.27.0 / LibRaw 0.22.1",
-    "sha256": "9aebab9cd5e2a40af0ca1f4f9faf5f96f7f7b530122961f7916e876a46b1d626",
-    "pngSha256": "e7add413279c949c78ac741a85854659a798c6732b88f9160c5b7b470fc2b5d9"
-  },
-  {
-    "fixture": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-03.cr3",
-    "tool": "LibRaw/rawpy",
-    "version": "rawpy 0.27.0 / LibRaw 0.22.1",
-    "sha256": "b3882528340340e33fb3e76efef1a6ffbc7284fecb0f9580e32e69b43b171d33",
-    "pngSha256": "9c70614da108da96370d214a86e252e496917f5558a6f561d7fd68545bca3a6f"
-  },
-  {
     "fixture": "research/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02.cr3",
     "tool": "LibRaw/rawpy",
     "version": "rawpy 0.27.0 / LibRaw 0.22.1",

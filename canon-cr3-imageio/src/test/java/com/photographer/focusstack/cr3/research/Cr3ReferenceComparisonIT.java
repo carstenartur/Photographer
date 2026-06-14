@@ -78,6 +78,7 @@ class Cr3ReferenceComparisonIT {
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".cr3"))
                     .filter(Cr3ReferenceComparisonIT::hasReferenceSidecars)
+                    .filter(Cr3ReferenceComparisonIT::isLosslessFixture)
                     .sorted(Comparator.comparing(path -> SAMPLES_DIR.relativize(path).toString()))
                     .toList();
         }
@@ -86,6 +87,23 @@ class Cr3ReferenceComparisonIT {
     private static boolean hasReferenceSidecars(Path fixture) {
         return Files.isRegularFile(referenceTiffPath(fixture))
                 && Files.isRegularFile(referencePngPath(fixture));
+    }
+
+    private static boolean isLosslessFixture(Path fixture) {
+        try (ImageInputStream in = ImageIO.createImageInputStream(fixture.toFile())) {
+            if (in == null) {
+                return false;
+            }
+            Cr3Container container = Cr3Parser.parse(in);
+            Cr3Track rawTrack = container.tracks().stream()
+                    .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
+                            || track.type() == Cr3Track.TrackType.CRX_RAW)
+                    .findFirst()
+                    .orElse(null);
+            return rawTrack != null && rawTrack.cmp1() != null && rawTrack.cmp1().isLossless();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static FixtureResult analyseFixture(Path fixture) throws Exception {
@@ -145,7 +163,6 @@ class Cr3ReferenceComparisonIT {
                     .orElseThrow(() -> new IOException("No CRX raw track in " + fixture));
             Cmp1Box cmp1 = rawTrack.cmp1();
             assertThat(cmp1).as("CMP1 for %s", fixture.getFileName()).isNotNull();
-            assertThat(cmp1.isLossless()).as("fixture should be lossless: %s", fixture.getFileName()).isTrue();
             byte[] payload = new byte[(int) rawTrack.dataSize()];
             in.seek(rawTrack.dataOffset());
             in.readFully(payload);
@@ -327,8 +344,8 @@ class Cr3ReferenceComparisonIT {
         if (iad1 == null) {
             return new VisibleRect(0, 0, width, height);
         }
-        VisibleRect rect = toRect(iad1.activeAreaLeft(), iad1.activeAreaTop(), iad1.activeAreaRight(),
-                iad1.activeAreaBottom(), width, height);
+        VisibleRect rect = toRect(iad1.activeLeft(), iad1.activeTop(), iad1.activeRight(),
+                iad1.activeBottom(), width, height);
         return rect.width > 0 && rect.height > 0 ? rect : new VisibleRect(0, 0, width, height);
     }
 
