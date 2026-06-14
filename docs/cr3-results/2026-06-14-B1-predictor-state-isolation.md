@@ -38,7 +38,7 @@
 | b1-west-only | Only the W (west/previous-pixel same-row) context | B1 |
 | b2-tile-continued | Predictor state NOT reset at tile boundaries | B2 |
 | b2-tile-midscale | Tile boundary seed set to midscale (1 << (bitDepth−1)) | B2 |
-| b3-plane-seeded | Plane N+1 seeded from plane N last decoded pixel | B3 |
+| b3-plane-seeded | Plane N seeded from plane 0's first decoded pixel | B3 |
 | b3-plane-midscale | Plane seed set to midscale value | B3 |
 
 ---

@@ -835,13 +835,14 @@ class PredictorStateIsolationIT {
     private static int[] extractPlane(int[] bayer, int imgW, int planeW, int planeH, int plane) {
         int rowOff = (plane >> 1) & 1;
         int colOff = plane & 1;
+        int imgH = planeH * 2;
         int[] out = new int[planeW * planeH];
         for (int py = 0; py < planeH; py++) {
             int bayerY = py * 2 + rowOff;
-            if (bayerY >= (planeH * 2)) continue;
+            if (bayerY >= imgH) continue;
             for (int px = 0; px < planeW; px++) {
                 int bayerX = px * 2 + colOff;
-                if (bayerY * imgW + bayerX < bayer.length) {
+                if (bayerX < imgW && bayerY * imgW + bayerX < bayer.length) {
                     out[py * planeW + px] = bayer[bayerY * imgW + bayerX];
                 }
             }
