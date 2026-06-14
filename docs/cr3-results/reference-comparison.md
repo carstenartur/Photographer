@@ -1,9 +1,10 @@
 # CR3 Reference Comparison
 
-- Generated: 2026-06-14T19:28:37.798739636Z
-- Fixtures: 11
+- Generated: 2026-06-14T19:31:23.054742Z
+- Fixtures: 11 lossless CR3 fixtures
+- Exclusions: C-RAW / wavelet CR3 fixtures are intentionally skipped
 - Reference manifest: `canon-cr3-imageio/src/test/resources/samples/reference-manifest.json`
-- Reference source: LibRaw/rawpy full-sensor mosaic TIFF sidecars
+- Reference source: LibRaw 0.22.1 via rawpy 0.27.0 full-sensor mosaic TIFF sidecars
 
 ## Summary
 
