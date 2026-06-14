@@ -9,6 +9,7 @@ This document is the durable entry point for future CR3 research sessions.
 Examples:
 
 - `2026-06-14-B1-predictor-state-isolation.md`
+- `2026-06-14-predictor-evidence-matrix.md`
 - `2026-06-20-B2-tile-reset-study.md`
 
 ## Required contents
@@ -37,14 +38,15 @@ Whenever a result document is added, update:
 | Date | Hypotheses | Status | Document |
 |---|---|---|---|
 | 2026-06-14 | B1 (row context), B2 (tile reset), B3 (plane reset) | B1 PARTIAL · B2 REJECTED · B3 REJECTED | [2026-06-14-B1-predictor-state-isolation.md](cr3-results/2026-06-14-B1-predictor-state-isolation.md) |
+| 2026-06-14 | B1 (predictor family evidence), B4 (per-plane neighbour model) | B1 PARTIAL / narrowed · B4 REJECTED | [2026-06-14-predictor-evidence-matrix.md](cr3-results/2026-06-14-predictor-evidence-matrix.md) |
 
 ## Current priority
 
-Phase C: Predictor Model Correction.
+Phase D: residual/value semantics with MED-like neighbourhood structure.
 
 Recommended first result document:
 
-`<date>-C1-predictor-model-correction.md`
+`<date>-D1-residual-semantics-study.md`
 
 ## Goal
 

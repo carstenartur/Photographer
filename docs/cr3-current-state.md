@@ -19,21 +19,23 @@ This document summarizes the current consensus after the Phase-A research work.
 
 ## Working hypothesis
 
-The most likely remaining fault class is the predictor row context model.
+The decoded signal is locally most consistent with a MED-family predictor, so the
+remaining fault is more likely in residual/value semantics than in a simple
+predictor-family swap.
 
-Phase-B investigation (2026-06-14) established:
+Phase-B / Phase-C investigation (2026-06-14) established:
 
-- **B1 PARTIAL**: The north-only (N) predictor reduces leftOB stdDev by 72% on dark fixtures (240→67) and topOB stdDev by 31%. The W component of MED is actively harmful. Row-offset reduces banding by 40% on the dark topOB.
+- **B1 PARTIAL / NARROWED**: Phase-B's north-only experiment reduced OB artefacts on the dark fixture, but Phase-C residual evidence shows the already decoded signal is best explained by **MED** in 44/44 leftOB cells, 43/44 topOB cells, and 44/44 image-area cells. `N`, `NorthOnly`, `W`, `WestOnly`, and `NW` are not statistically supported as the leading predictor family.
 - **B2 REJECTED**: Tile-state continuation doubles OB stdDev in every fixture. Current tile-local reset with seed=0 is correct.
 - **B3 REJECTED**: Cross-plane seeding has zero effect. Plane-independent reset is correct.
+- **B4 REJECTED**: No systematic per-plane neighbour-family split was observed; MED dominates across all planes with only one Paeth topOB outlier.
 
-The remaining stdDev of 67 on the dark fixture's leftOB (vs ~2–5 physical floor) means the row context model is partially but not wholly wrong. The pure-N predictor is the leading candidate for Phase C.
+Phase-C evidence matrix ranking:
 
-Candidate explanations:
-
-- wrong row context (specifically the W component of MED),
-- possibly a modified LOCO-I variant (N+NW, no W) rather than full MED,
-- per-plane neighbour model variation (not yet tested).
+- **MED** is the best-supported family across the corpus.
+- **Paeth** is the consistent runner-up.
+- **N + W - NW** is a distant third.
+- Pure **N**, **W**, and **NW** families are strongly contradicted by the decoded signal statistics.
 
 ## Rejected or deprioritized directions
 
@@ -41,15 +43,20 @@ Candidate explanations:
 - repeated quantValue sweeps on the current lossless corpus,
 - repeated PRVW geometry investigations,
 - repeated CFA-layout investigations,
+- simple predictor-family swaps to pure N / W / NW,
 - image rendering quality optimisation before decoder correctness.
 
 ## Current priority
 
-Phase C — Predictor Model Correction.
+Phase D — explain why a MED-consistent decoded signal is still physically
+implausible in optical-black regions.
 
-Following Phase-B results:
-- B1 PARTIAL: N-only predictor reduces OB stdDev significantly; W context is harmful
+Following Phase-C results:
+- B1 PARTIAL / narrowed: MED best matches the decoded signal; NorthOnly looked less wrong visually but is not statistically supported
 - B2 REJECTED: tile-local reset is correct
 - B3 REJECTED: plane-independent reset is correct
+- B4 REJECTED: no per-plane neighbour-family split
 
-Recommended next experiment: test pure-N and N+NW (no W) predictor variants in the production decoder path, with leftOB dark-fixture stdDev as the primary falsification metric.
+Recommended next experiment: keep the MED neighbourhood model fixed and inspect
+residual/value semantics (sign mapping, adaptation, symbol scale, or other
+upstream/downstream transforms) on the dark-fixture OB regions.

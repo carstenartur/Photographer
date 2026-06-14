@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -641,14 +640,15 @@ class PredictorEvidenceMatrixIT {
         int barWidth = Math.max(6, groupWidth / (barsPerGroup + 2));
 
         for (int plane = 0; plane < groups; plane++) {
-            int groupStart = plotX + plane * groupWidth;
+            int planeIndex = plane;
+            int groupStart = plotX + planeIndex * groupWidth;
             g.setColor(Color.LIGHT_GRAY);
             g.drawLine(groupStart, plotY, groupStart, plotY + plotHeight);
             g.setColor(Color.BLACK);
-            g.drawString("plane " + plane, groupStart + groupWidth / 3, plotY + plotHeight + 25);
+            g.drawString("plane " + planeIndex, groupStart + groupWidth / 3, plotY + plotHeight + 25);
 
             List<ResidualResult> planeResults = results.stream()
-                    .filter(result -> result.plane() == plane)
+                    .filter(result -> result.plane() == planeIndex)
                     .sorted(Comparator.comparing(result -> result.candidate().ordinal()))
                     .toList();
 
@@ -753,6 +753,7 @@ class PredictorEvidenceMatrixIT {
         if (n.contains("-flat-") || n.startsWith("flat")) return "flat";
         if (n.contains("-detail-")) return "detail";
         if (n.contains("-asis-")) return "asis";
+        if (n.contains("eosr")) return "detail";
         if (n.contains("sample")) return "sample";
         return "?";
     }
