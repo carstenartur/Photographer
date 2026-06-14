@@ -245,6 +245,7 @@ class PredictorEvidenceMatrixIT {
                         case LEFT_OB -> leftOb;
                         case TOP_OB -> topOb;
                         case IMAGE_AREA -> imageArea;
+                        case OTHER -> new int[]{0, 0, 0, 0};
                     };
                     PlaneRect planeRect = toPlaneRect(rawRect, plane);
                     if (planeRect.width() <= 0 || planeRect.height() <= 0) {
@@ -1464,14 +1465,15 @@ class PredictorEvidenceMatrixIT {
         int barWidth = Math.max(6, groupWidth / (barsPerGroup + 2));
 
         for (int plane = 0; plane < groups; plane++) {
-            int groupStart = plotX + plane * groupWidth;
+            int planeIndex = plane;
+            int groupStart = plotX + planeIndex * groupWidth;
             g.setColor(Color.LIGHT_GRAY);
             g.drawLine(groupStart, plotY, groupStart, plotY + plotHeight);
             g.setColor(Color.BLACK);
-            g.drawString("plane " + plane, groupStart + groupWidth / 3, plotY + plotHeight + 25);
+            g.drawString("plane " + planeIndex, groupStart + groupWidth / 3, plotY + plotHeight + 25);
 
             List<CandidateResult> planeResults = results.stream()
-                    .filter(result -> result.plane() == plane)
+                    .filter(result -> result.plane() == planeIndex)
                     .sorted(Comparator.comparing(result -> result.candidate().ordinal()))
                     .toList();
 
