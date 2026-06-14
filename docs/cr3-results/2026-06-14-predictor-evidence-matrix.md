@@ -103,9 +103,9 @@ Aggregate mean residual stddev ranking:
 
 | Area | 1st | 2nd | 3rd |
 |---|---|---|---|
-| leftOB | MED (0.9799) | Paeth (1.0805) | N+W−NW (1.1535) |
-| topOB | MED (0.8994) | Paeth (0.9601) | N+W−NW (1.0519) |
-| image area | MED (1.8340) | Paeth (1.9774) | N+W−NW (1.9895) |
+| leftOB | MED (0.9799) | Paeth (1.0805) | N+W-NW (1.1535) |
+| topOB | MED (0.8994) | Paeth (0.9601) | N+W-NW (1.0519) |
+| image area | MED (1.8340) | Paeth (1.9774) | N+W-NW (1.9895) |
 
 ### Rejected families
 

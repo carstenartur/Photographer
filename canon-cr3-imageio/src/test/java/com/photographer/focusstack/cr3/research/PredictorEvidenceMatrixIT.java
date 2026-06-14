@@ -211,7 +211,7 @@ class PredictorEvidenceMatrixIT {
                                                      int[] leftOb,
                                                      int[] topOb,
                                                      int[] imageArea) {
-        int maxResidual = (1 << bitDepth) - 1;
+        int maxResidual = ((1 << bitDepth) - 1) * 2;
         EnumMap<PredictorCandidate, EnumMap<AnalysisArea, ResidualAccumulator>> accumulators =
                 new EnumMap<>(PredictorCandidate.class);
         for (PredictorCandidate candidate : PredictorCandidate.values()) {
@@ -331,12 +331,12 @@ class PredictorEvidenceMatrixIT {
                 ResidualResult result = results.get(i);
                 ResidualStats stats = result.stats();
                 writer.write("  {\n");
-                writer.write(String.format(Locale.ROOT, "    \"fixture\": \"%s\",%n", result.fixture()));
-                writer.write(String.format(Locale.ROOT, "    \"scene\": \"%s\",%n", result.scene()));
+                writer.write(String.format(Locale.ROOT, "    \"fixture\": \"%s\",%n", jsonEscape(result.fixture())));
+                writer.write(String.format(Locale.ROOT, "    \"scene\": \"%s\",%n", jsonEscape(result.scene())));
                 writer.write(String.format(Locale.ROOT, "    \"plane\": %d,%n", result.plane()));
-                writer.write(String.format(Locale.ROOT, "    \"area\": \"%s\",%n", result.area().id));
-                writer.write(String.format(Locale.ROOT, "    \"candidate\": \"%s\",%n", result.candidate().id));
-                writer.write(String.format(Locale.ROOT, "    \"family\": \"%s\",%n", result.candidate().family.id));
+                writer.write(String.format(Locale.ROOT, "    \"area\": \"%s\",%n", jsonEscape(result.area().id)));
+                writer.write(String.format(Locale.ROOT, "    \"candidate\": \"%s\",%n", jsonEscape(result.candidate().id)));
+                writer.write(String.format(Locale.ROOT, "    \"family\": \"%s\",%n", jsonEscape(result.candidate().family.id)));
                 writer.write(String.format(Locale.ROOT, "    \"count\": %d,%n", stats.count()));
                 writer.write(String.format(Locale.ROOT, "    \"meanResidual\": %.6f,%n", stats.meanResidual()));
                 writer.write(String.format(Locale.ROOT, "    \"medianResidual\": %d,%n", stats.medianResidual()));
@@ -345,11 +345,35 @@ class PredictorEvidenceMatrixIT {
                 writer.write(String.format(Locale.ROOT, "    \"skewness\": %.6f,%n", stats.skewness()));
                 writer.write(String.format(Locale.ROOT, "    \"kurtosis\": %.6f,%n", stats.kurtosis()));
                 writer.write(String.format(Locale.ROOT, "    \"histogram\": \"%s\"%n",
-                        histogramString(stats.histogram())));
+                        jsonEscape(histogramString(stats.histogram()))));
                 writer.write(i + 1 < results.size() ? "  },\n" : "  }\n");
             }
             writer.write("]\n");
         }
+    }
+
+    private static String jsonEscape(String value) {
+        StringBuilder escaped = new StringBuilder(value.length() + 8);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\' -> escaped.append("\\\\");
+                case '"' -> escaped.append("\\\"");
+                case '\b' -> escaped.append("\\b");
+                case '\f' -> escaped.append("\\f");
+                case '\n' -> escaped.append("\\n");
+                case '\r' -> escaped.append("\\r");
+                case '\t' -> escaped.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        escaped.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+                    } else {
+                        escaped.append(c);
+                    }
+                }
+            }
+        }
+        return escaped.toString();
     }
 
     private static void writeMarkdown(List<ResidualResult> results,
@@ -714,7 +738,7 @@ class PredictorEvidenceMatrixIT {
             for (int px = 0; px < planeW; px++) {
                 int bayerX = px * 2 + colOff;
                 int index = bayerY * imgW + bayerX;
-                if (index < bayer.length) {
+                if (bayerX < imgW && index < bayer.length) {
                     out[py * planeW + px] = bayer[index];
                 }
             }
@@ -893,6 +917,10 @@ class PredictorEvidenceMatrixIT {
         }
 
         void add(int residual) {
+            if (residual < -maxResidual || residual > maxResidual) {
+                throw new IllegalArgumentException("Residual " + residual
+                        + " exceeds configured range ±" + maxResidual);
+            }
             count++;
             sum += residual;
             double square = (double) residual * residual;
@@ -921,7 +949,7 @@ class PredictorEvidenceMatrixIT {
             double kurtosis = stdDev > 0 ? centeredFourth / Math.pow(stdDev, 4) - 3.0 : 0.0;
 
             int median = percentileFromHistogram(histogram, maxResidual, count / 2);
-            long[] madHistogram = new long[maxResidual + 1];
+            long[] madHistogram = new long[(maxResidual * 2) + 1];
             for (int i = 0; i < histogram.length; i++) {
                 long bucket = histogram[i];
                 if (bucket == 0) {
