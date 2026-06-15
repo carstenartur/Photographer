@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -102,7 +103,8 @@ class DecoderHypothesisD1D2IT {
                 refWidth = ref.width;
                 refHeight = ref.height;
             } catch (Exception e) {
-                md.append("| `").append(name).append("` | ERROR: ").append(e.getMessage()).append(" |\n");
+                md.append("| `").append(name).append("` | ERROR: ").append(e.getMessage())
+                        .append(" | — | — | — | — | — | — | — | — |\n");
                 continue;
             }
 
@@ -114,12 +116,13 @@ class DecoderHypothesisD1D2IT {
                 jpegLsDecoded = decodeFixtureData(fixture, CrxLosslessRawDecoder.KUpdateRule.JPEG_LS,
                         refWidth, refHeight);
             } catch (Exception e) {
-                md.append("| `").append(name).append("` | DECODE-ERROR: ").append(e.getMessage()).append(" |\n");
+                md.append("| `").append(name).append("` | — | DECODE-ERROR: ").append(e.getMessage())
+                        .append(" | — | — | — | — | — | — | — |\n");
                 continue;
             }
 
             if (patentDecoded == null || jpegLsDecoded == null) {
-                md.append("| `").append(name).append("` | SKIP (no lossless track) |\n");
+                md.append("| `").append(name).append("` | — | SKIP (no lossless track) | — | — | — | — | — | — | — |\n");
                 continue;
             }
 
@@ -134,7 +137,7 @@ class DecoderHypothesisD1D2IT {
             double jpegLsPearson = pearson(jpegLsDecoded, reference);
 
             // D1: apply DC correction to patent decoder output
-            int maxVal = (1 << 14) - 1; // 14-bit typical; safe for all fixtures
+            int maxVal = 0xFFFF; // reference TIFFs store uint16 sensor values verbatim
             int[] dcCorrected = applyDcOffset(patentDecoded, (int) Math.round(dcBias), maxVal);
             double dcCorrMae = mae(dcCorrected, reference);
 
@@ -179,7 +182,9 @@ class DecoderHypothesisD1D2IT {
             md.append("### D2 (sign-mapping flip) — **CONFIRMED** on ").append(d2Confirmed.size()).append(" fixture(s)\n\n");
             for (String f : d2Confirmed) md.append("- `").append(f).append("`\n");
             md.append("\n> JPEG_LS (zig-zag) sign rule flips Pearson from negative to positive ");
-            md.append("on these fixtures. The PATENT_BRACKET bit-0 mapping may be incorrect.\n");
+            md.append("on these fixtures. PATENT_BRACKET and JPEG_LS disagree on sign for these ");
+            md.append("fixtures; further investigation is needed to identify which convention ");
+            md.append("matches the actual bitstream for each camera model.\n");
         } else {
             md.append("### D2 (sign-mapping flip) — not confirmed\n\n");
             md.append("> Switching from bit-0 to zig-zag does not flip the Pearson sign on ");
@@ -205,7 +210,7 @@ class DecoderHypothesisD1D2IT {
             stream.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".cr3"))
                     .filter(p -> Files.exists(referenceTiffPath(p)))
-                    .sorted()
+                    .sorted(Comparator.comparing(p -> SAMPLES_DIR.relativize(p).toString()))
                     .forEach(found::add);
         }
         return found;
