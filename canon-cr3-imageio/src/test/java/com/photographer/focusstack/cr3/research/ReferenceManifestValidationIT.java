@@ -156,7 +156,7 @@ class ReferenceManifestValidationIT {
 
     private static Path toSidecarPath(Path fixture, String sidecar) {
         String replacement = "." + sidecar;
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", replacement));
+        return fixture.resolveSibling(fixture.getFileName().toString().replaceFirst("(?i)\\.cr3$", replacement));
     }
 
     private static boolean isRawLinearCandidate(BufferedImage image, Geometry crxGeometry) {
