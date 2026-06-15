@@ -159,7 +159,13 @@ class DcComponentIsolationIT {
             if (decoded == null) continue; // no lossless track
 
             Iad1Box iad1 = loadIad1(fixture);
-            int obRight = iad1 != null ? iad1.leftObRight() : 0;
+            int[] leftOb = iad1 != null
+                    ? clampRect(iad1.leftObLeft(), iad1.leftObTop(),
+                    iad1.leftObRight(), iad1.leftObBottom(), ri.width, ri.height)
+                    : new int[]{0, 0, 0, 0};
+            int[] active = iad1 != null
+                    ? resolveActiveRect(iad1, leftOb, ri.width, ri.height)
+                    : new int[]{0, 0, ri.width, ri.height};
 
             double refMean = mean(ri.samples);
             double decMean = mean(decoded);
@@ -169,10 +175,13 @@ class DcComponentIsolationIT {
             double activeMean = decMean;
             double obMeanPlane0 = Double.NaN;
 
-            if (obRight >= 4) {
-                obMean = meanRegion(decoded, ri.width, ri.height, 0, obRight);
-                activeMean = meanRegion(decoded, ri.width, ri.height, obRight, ri.width);
-                obMeanPlane0 = obMeanForPlane(decoded, ri.width, ri.height, obRight, 0);
+            if (leftOb[2] > 0 && leftOb[3] > 0) {
+                obMean = meanRect(decoded, ri.width, leftOb[0], leftOb[1], leftOb[2], leftOb[3]);
+                obMeanPlane0 = meanRectForPlane(decoded, ri.width, ri.height,
+                        leftOb[0], leftOb[1], leftOb[2], leftOb[3], 0);
+            }
+            if (active[2] > 0 && active[3] > 0) {
+                activeMean = meanRect(decoded, ri.width, active[0], active[1], active[2], active[3]);
             }
 
             result.add(new FixtureData(name, fixture, refMean, decMean, dcBias,
@@ -222,10 +231,6 @@ class DcComponentIsolationIT {
         md.append("Seed variants tried against reference plane 0 using the normative test decoder.\n\n");
         md.append("| Fixture/Tile | Seed | SeedVal | MAE | Pearson | Best? |\n");
         md.append("|---|---|---:|---:|---:|:---:|\n");
-
-        // Map fixture path → FixtureData for quick lookup
-        Map<Path, FixtureData> dataMap = new LinkedHashMap<>();
-        for (FixtureData d : data) dataMap.put(d.fixture(), d);
 
         for (FixtureData fd : data) {
             List<SubbandExtractor.SubbandRef> subs;
@@ -277,14 +282,14 @@ class DcComponentIsolationIT {
                 int obSeedVal = Double.isFinite(fd.obMeanPlane0())
                         ? (int) Math.round(fd.obMeanPlane0()) : 0;
 
-                // First pixel of reference plane 0 at tile start
-                int firstPixelSeedVal = refTilePlane[0];
+                // Global first pixel of reference plane 0
+                int firstPixelSeedVal = planePixel(fd.reference(), bayerW, 0, 0, 0);
 
-                int[] seeds = {0, obSeedVal, firstPixelSeedVal, firstPixelSeedVal};
+                // Reference plane 0 pixel at this tile's start
+                int tileStartSeedVal = refTilePlane[0];
+
+                int[] seeds = {0, obSeedVal, firstPixelSeedVal, tileStartSeedVal};
                 String[] seedNames = {"Seed=0", "Seed=OB_Mean", "Seed=First_Pixel", "Seed=Tile_Start"};
-                // Note: Seed=First_Pixel and Seed=Tile_Start are identical for tile 0;
-                // for tile 1+ they are the same in this implementation since we use the
-                // tile-local reference start pixel for both.
 
                 double bestMae = Double.MAX_VALUE;
                 double[] maes = new double[seeds.length];
@@ -602,16 +607,17 @@ class DcComponentIsolationIT {
     // ── Region statistics ─────────────────────────────────────────────────
 
     /**
-     * Mean of all pixels in the Bayer image within columns [xFrom, xTo).
+     * Mean of all pixels in the Bayer image within the rectangle
+     * {@code [x, x + width) × [y, y + height)}.
      */
-    private static double meanRegion(int[] bayer, int w, int h, int xFrom, int xTo) {
-        xTo = Math.min(xTo, w);
-        if (xFrom >= xTo) return Double.NaN;
+    private static double meanRect(int[] bayer, int w, int x, int y, int width, int height) {
+        if (width <= 0 || height <= 0) return Double.NaN;
         long sum = 0;
         long count = 0;
-        for (int y = 0; y < h; y++) {
-            for (int x = xFrom; x < xTo; x++) {
-                sum += bayer[y * w + x];
+        for (int row = y; row < y + height; row++) {
+            int rowBase = row * w;
+            for (int col = x; col < x + width; col++) {
+                sum += bayer[rowBase + col];
                 count++;
             }
         }
@@ -619,23 +625,33 @@ class DcComponentIsolationIT {
     }
 
     /**
-     * OB mean for a specific Bayer plane within columns [0, obRight).
+     * Mean for a specific Bayer plane within the rectangle
+     * {@code [x, x + width) × [y, y + height)}.
      * Plane 0 = even row, even col; plane 1 = even row, odd col;
      * plane 2 = odd row, even col; plane 3 = odd row, odd col.
      */
-    private static double obMeanForPlane(int[] bayer, int w, int h, int obRight, int plane) {
+    private static double meanRectForPlane(int[] bayer, int w, int h,
+                                           int x, int y, int width, int height, int plane) {
         int rowParity = (plane >= 2) ? 1 : 0;
         int colParity = (plane == 1 || plane == 3) ? 1 : 0;
-        obRight = Math.min(obRight, w);
         long sum = 0;
         int count = 0;
-        for (int y = rowParity; y < h; y += 2) {
-            for (int x = colParity; x < obRight; x += 2) {
-                sum += bayer[y * w + x];
+        int yStart = alignToParity(y, rowParity);
+        int yEnd = Math.min(y + height, h);
+        int xStart = alignToParity(x, colParity);
+        int xEnd = Math.min(x + width, w);
+        for (int row = yStart; row < yEnd; row += 2) {
+            int rowBase = row * w;
+            for (int col = xStart; col < xEnd; col += 2) {
+                sum += bayer[rowBase + col];
                 count++;
             }
         }
         return count > 0 ? (double) sum / count : Double.NaN;
+    }
+
+    private static int alignToParity(int value, int parity) {
+        return ((value ^ parity) & 1) == 0 ? value : value + 1;
     }
 
     // ── Plane extraction ──────────────────────────────────────────────────
@@ -671,6 +687,35 @@ class DcComponentIsolationIT {
             }
         }
         return out;
+    }
+
+    private static int planePixel(int[] bayer, int bayerW, int planeIndex, int planeX, int planeY) {
+        int rowOff = (planeIndex >= 2) ? 1 : 0;
+        int colOff = (planeIndex == 1 || planeIndex == 3) ? 1 : 0;
+        return bayer[(planeY * 2 + rowOff) * bayerW + (planeX * 2 + colOff)];
+    }
+
+    private static int[] resolveActiveRect(Iad1Box iad1, int[] leftOb, int imgW, int imgH) {
+        int[] active = clampRect(iad1.activeLeft(), iad1.activeTop(),
+                iad1.activeRight(), iad1.activeBottom(), imgW, imgH);
+        if (active[2] > 0 && active[3] > 0) {
+            return active;
+        }
+        int[] crop = clampRect(iad1.cropLeft(), iad1.cropTop(),
+                iad1.cropRight(), iad1.cropBottom(), imgW, imgH);
+        if (crop[2] > 0 && crop[3] > 0) {
+            return crop;
+        }
+        int left = Math.max(leftOb[0] + leftOb[2], 0);
+        return clampRect(left, 0, imgW, imgH, imgW, imgH);
+    }
+
+    private static int[] clampRect(int x0, int y0, int x1, int y1, int w, int h) {
+        x0 = Math.max(0, Math.min(w, x0));
+        y0 = Math.max(0, Math.min(h, y0));
+        x1 = Math.max(x0, Math.min(w, x1));
+        y1 = Math.max(y0, Math.min(h, y1));
+        return new int[]{x0, y0, x1 - x0, y1 - y0};
     }
 
     // ── Test decoder options ──────────────────────────────────────────────
