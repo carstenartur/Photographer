@@ -12,6 +12,83 @@ permissions:
   contents: read
 
 jobs:
+  reference-validation:
+    name: Reference Manifest Validation
+    runs-on: ubuntu-latest
+    needs: []
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate manifest structure (Python, no rawpy required)
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          from pathlib import Path
+
+          manifest = Path("docs/cr3-reference-manifest.md").read_text()
+
+          # Extract TSV block
+          m = re.search(r'<!-- reference-manifest-tsv:start -->(.*?)<!-- reference-manifest-tsv:end -->',
+                        manifest, re.DOTALL)
+          if not m:
+              print("ERROR: TSV markers not found in manifest", file=sys.stderr)
+              sys.exit(1)
+
+          EXPECTED_HEADER = "fixture|sidecar|tool|version|command|sha256|width|height|bitDepth|referenceType|geometryMatchesCrxBig"
+          VALID_REF_TYPES = {"RAW_LINEAR", "PREVIEW_RENDERED", "UNKNOWN"}
+          FORBIDDEN_PHRASE = "exact CLI not preserved"
+
+          lines = [l.strip() for l in m.group(1).splitlines()
+                   if l.strip() and not l.strip().startswith("```")]
+          if not lines:
+              print("ERROR: no lines found in TSV block", file=sys.stderr)
+              sys.exit(1)
+
+          if lines[0] != EXPECTED_HEADER:
+              print(f"ERROR: unexpected header: {lines[0]}", file=sys.stderr)
+              sys.exit(1)
+
+          errors = []
+          for line in lines[1:]:
+              cols = line.split("|")
+              if len(cols) != 11:
+                  errors.append(f"Wrong column count ({len(cols)}): {line[:80]}")
+                  continue
+              fixture, sidecar, tool, version, command, sha256, width, height, bitDepth, refType, geomMatch = [c.strip() for c in cols]
+              if not fixture or not sidecar:
+                  errors.append(f"Empty fixture/sidecar: {line[:80]}")
+              if not re.fullmatch(r'[0-9a-f]{64}', sha256):
+                  errors.append(f"Invalid SHA-256 for {fixture}: {sha256[:16]}…")
+              if refType not in VALID_REF_TYPES:
+                  errors.append(f"Invalid referenceType '{refType}' for {fixture}")
+              if FORBIDDEN_PHRASE in command:
+                  errors.append(f"Forbidden phrase in command for {fixture}: {command[:60]}")
+              if not command.strip():
+                  errors.append(f"Empty command for {fixture}")
+
+          # Check sidecar files exist on disk
+          samples = Path("canon-cr3-imageio/src/test/resources/samples")
+          for line in lines[1:]:
+              cols = line.split("|")
+              if len(cols) != 11:
+                  continue
+              fixture_rel, sidecar_col = cols[0].strip(), cols[1].strip()
+              stem = Path(fixture_rel).stem
+              sidecar_path = samples / Path(fixture_rel).parent / f"{stem}.{sidecar_col}"
+              if not sidecar_path.is_file():
+                  errors.append(f"Sidecar not found on disk: {sidecar_path}")
+
+          if errors:
+              for e in errors:
+                  print(f"ERROR: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"OK: manifest validated ({len(lines) - 1} entries, 0 errors)")
+          EOF
+
   java-build:
     name: Java Build & Test
     runs-on: ubuntu-latest

@@ -34,6 +34,20 @@ class ReferenceManifestValidationIT {
     private static final String TSV_END = "<!-- reference-manifest-tsv:end -->";
     private static final Set<String> ALLOWED_TOOLS = Set.of("LibRaw", "dcraw_emu", "Adobe", "Canon DPP");
 
+    enum ReferenceType {
+        RAW_LINEAR,
+        PREVIEW_RENDERED,
+        UNKNOWN;
+
+        static ReferenceType fromString(String value) {
+            return switch (value.toUpperCase(Locale.ROOT)) {
+                case "RAW_LINEAR" -> RAW_LINEAR;
+                case "PREVIEW_RENDERED" -> PREVIEW_RENDERED;
+                default -> UNKNOWN;
+            };
+        }
+    }
+
     @Test
     void validateReferenceManifest() throws Exception {
         List<ManifestEntry> entries = parseManifestEntries();
@@ -53,6 +67,9 @@ class ReferenceManifestValidationIT {
             assertThat(ALLOWED_TOOLS).as("allowed tool for %s", relativeSidecar).contains(entry.tool());
             assertThat(entry.version()).as("version for %s", relativeSidecar).isNotBlank();
             assertThat(entry.command()).as("command for %s", relativeSidecar).isNotBlank();
+            assertThat(entry.referenceType())
+                    .as("referenceType must not be UNKNOWN for %s", relativeSidecar)
+                    .isNotEqualTo(ReferenceType.UNKNOWN);
 
             Geometry crxGeometry = geometryByFixture.computeIfAbsent(fixture, ReferenceManifestValidationIT::readCrxBigGeometry);
 
@@ -67,7 +84,7 @@ class ReferenceManifestValidationIT {
             boolean inferredRawLinear = isRawLinearCandidate(image, crxGeometry);
             assertThat(inferredRawLinear)
                     .as("raw-linear classification for %s", relativeSidecar)
-                    .isEqualTo(entry.rawLinear());
+                    .isEqualTo(entry.referenceType() == ReferenceType.RAW_LINEAR);
 
             if (entry.geometryMatchesCrxBig()) {
                 assertThat(image.getWidth()).as("CRX_BIG width for %s", relativeSidecar).isEqualTo(crxGeometry.width());
@@ -84,11 +101,15 @@ class ReferenceManifestValidationIT {
                     .isEqualToIgnoringCase(entry.sha256());
 
             if (entry.sidecar().endsWith(".tiff")) {
-                assertThat(entry.rawLinear()).as("TIFF must be RAW-linear: %s", relativeSidecar).isTrue();
+                assertThat(entry.referenceType())
+                        .as("TIFF must be RAW_LINEAR: %s", relativeSidecar)
+                        .isEqualTo(ReferenceType.RAW_LINEAR);
                 assertThat(entry.geometryMatchesCrxBig()).as("TIFF geometry must match CRX_BIG: %s", relativeSidecar).isTrue();
             }
             if (entry.sidecar().endsWith(".png")) {
-                assertThat(entry.rawLinear()).as("PNG is preview/rendered: %s", relativeSidecar).isFalse();
+                assertThat(entry.referenceType())
+                        .as("PNG must be PREVIEW_RENDERED: %s", relativeSidecar)
+                        .isEqualTo(ReferenceType.PREVIEW_RENDERED);
             }
         }
 
@@ -128,7 +149,7 @@ class ReferenceManifestValidationIT {
                     Integer.parseInt(cols[6].trim()),
                     Integer.parseInt(cols[7].trim()),
                     Integer.parseInt(cols[8].trim()),
-                    Boolean.parseBoolean(cols[9].trim()),
+                    ReferenceType.fromString(cols[9].trim()),
                     Boolean.parseBoolean(cols[10].trim())
             ));
         }
@@ -213,7 +234,7 @@ class ReferenceManifestValidationIT {
                                  int width,
                                  int height,
                                  int bitDepth,
-                                 boolean rawLinear,
+                                 ReferenceType referenceType,
                                  boolean geometryMatchesCrxBig) {
     }
 
