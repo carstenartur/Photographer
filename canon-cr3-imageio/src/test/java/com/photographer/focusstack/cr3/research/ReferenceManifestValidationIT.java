@@ -9,6 +9,7 @@ import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -118,17 +119,17 @@ class ReferenceManifestValidationIT {
             String[] cols = line.split("\\|", -1);
             assertThat(cols.length).as("column count in line: %s", line).isEqualTo(11);
             entries.add(new ManifestEntry(
-                    cols[0],
-                    cols[1],
-                    cols[2],
-                    cols[3],
-                    cols[4],
-                    cols[5].toLowerCase(Locale.ROOT),
-                    Integer.parseInt(cols[6]),
-                    Integer.parseInt(cols[7]),
-                    Integer.parseInt(cols[8]),
-                    Boolean.parseBoolean(cols[9]),
-                    Boolean.parseBoolean(cols[10])
+                    cols[0].trim(),
+                    cols[1].trim(),
+                    cols[2].trim(),
+                    cols[3].trim(),
+                    cols[4].trim(),
+                    cols[5].trim().toLowerCase(Locale.ROOT),
+                    Integer.parseInt(cols[6].trim()),
+                    Integer.parseInt(cols[7].trim()),
+                    Integer.parseInt(cols[8].trim()),
+                    Boolean.parseBoolean(cols[9].trim()),
+                    Boolean.parseBoolean(cols[10].trim())
             ));
         }
         return entries;
@@ -155,8 +156,11 @@ class ReferenceManifestValidationIT {
     }
 
     private static Path toSidecarPath(Path fixture, String sidecar) {
+        String fixtureName = fixture.getFileName().toString();
+        assertThat(fixtureName).as("fixture must end with .cr3: %s", fixtureName).endsWithIgnoringCase(".cr3");
+        assertThat(sidecar).as("sidecar must not start with '.': %s", sidecar).doesNotStartWith(".");
         String replacement = "." + sidecar;
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceFirst("(?i)\\.cr3$", replacement));
+        return fixture.resolveSibling(fixtureName.replaceFirst("(?i)\\.cr3$", replacement));
     }
 
     private static boolean isRawLinearCandidate(BufferedImage image, Geometry crxGeometry) {
@@ -171,8 +175,14 @@ class ReferenceManifestValidationIT {
     private static String sha256Hex(Path path) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = Files.readAllBytes(path);
-            byte[] hash = digest.digest(bytes);
+            try (InputStream in = Files.newInputStream(path)) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+            byte[] hash = digest.digest();
             StringBuilder hex = new StringBuilder(hash.length * 2);
             for (byte b : hash) {
                 hex.append(String.format("%02x", b));

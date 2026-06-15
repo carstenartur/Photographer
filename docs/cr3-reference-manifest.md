@@ -2,7 +2,7 @@
 
 This manifest is the provenance gate for CR3 reference sidecars used by residual diagnostics.
 
-- Scope: `canon-cr3-imageio/src/test/resources/samples/**/*.reference.tiff|png`
+- Scope: `canon-cr3-imageio/src/test/resources/samples/**/*.reference.tiff` and `**/*.reference.png`
 - Gate: `ReferenceManifestValidationIT`
 - Policy: Reference-comparison output is only evidence-grade when this manifest validates.
 
