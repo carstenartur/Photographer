@@ -15,7 +15,6 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -108,7 +107,7 @@ class ReferenceManifestValidationIT {
         List<String> tsvLines = new ArrayList<>();
         for (int i = start + 1; i < end; i++) {
             String line = lines.get(i).trim();
-            if (line.isEmpty() || line.startsWith("```") || line.startsWith("fixture\tsidecar\t")) {
+            if (line.isEmpty() || line.startsWith("```") || line.startsWith("fixture|sidecar|")) {
                 continue;
             }
             tsvLines.add(line);
@@ -116,7 +115,7 @@ class ReferenceManifestValidationIT {
 
         List<ManifestEntry> entries = new ArrayList<>();
         for (String line : tsvLines) {
-            String[] cols = line.split("\\t", -1);
+            String[] cols = line.split("\\|", -1);
             assertThat(cols.length).as("column count in line: %s", line).isEqualTo(11);
             entries.add(new ManifestEntry(
                     cols[0],
@@ -191,7 +190,7 @@ class ReferenceManifestValidationIT {
                     .map(SAMPLES_DIR::relativize)
                     .map(path -> path.toString().replace('\\', '/'))
                     .filter(path -> path.endsWith(".reference.tiff") || path.endsWith(".reference.png"))
-                    .collect(java.util.stream.Collectors.toCollection(() -> new java.util.TreeSet<>(Comparator.naturalOrder())));
+                    .collect(java.util.stream.Collectors.toSet());
         }
     }
 
