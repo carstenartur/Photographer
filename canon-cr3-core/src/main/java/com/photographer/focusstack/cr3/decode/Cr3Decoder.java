@@ -79,7 +79,8 @@ public final class Cr3Decoder implements AutoCloseable {
     public enum PedestalSource {
         OB_PER_ROW,
         METADATA_PER_CHANNEL,
-        DEFAULT_GLOBAL
+        DEFAULT_GLOBAL,
+        EXPERIMENTAL_REFERENCE_MATCH
     }
 
     /**
@@ -315,7 +316,7 @@ public final class Cr3Decoder implements AutoCloseable {
         //    by the WB multiplier).
         int minBlackLevelSubtracted = 0;
         if (options.applyBlackLevel()) {
-            BlackLevel blackLevel = resolveBlackLevel(rawImage);
+            BlackLevel blackLevel = resolveBlackLevel(rawImage, options);
             BlackLevelProcessor.process(rawImage, blackLevel);
             minBlackLevelSubtracted = effectiveMinBlackLevel(blackLevel);
         }
@@ -567,11 +568,21 @@ public final class Cr3Decoder implements AutoCloseable {
      *
      * @param rawImage the raw image (used for OB estimation if metadata indicates OB columns)
      */
-    private BlackLevel resolveBlackLevel(Cr3RawImage rawImage) {
-        return resolveBlackLevelResolution(rawImage).blackLevel();
+    private BlackLevel resolveBlackLevel(Cr3RawImage rawImage, Cr3DecodeOptions options) {
+        return resolveBlackLevelResolution(rawImage, options).blackLevel();
     }
 
     private record BlackLevelResolution(PedestalSource source, BlackLevel blackLevel) {}
+
+    private BlackLevelResolution resolveBlackLevelResolution(Cr3RawImage rawImage, Cr3DecodeOptions options) {
+        if (options != null
+                && options.pedestalStrategy() == Cr3DecodeOptions.PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH) {
+            return new BlackLevelResolution(
+                    PedestalSource.EXPERIMENTAL_REFERENCE_MATCH,
+                    BlackLevel.global(options.experimentalPedestalLevel()));
+        }
+        return resolveBlackLevelResolution(rawImage);
+    }
 
     private BlackLevelResolution resolveBlackLevelResolution(Cr3RawImage rawImage) {
         // Try OB-based per-row estimation first (highest accuracy)

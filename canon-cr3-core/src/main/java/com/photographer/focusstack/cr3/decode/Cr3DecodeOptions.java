@@ -32,6 +32,14 @@ public final class Cr3DecodeOptions {
         SIXTEEN
     }
 
+    /** Strategy for resolving pedestal / black-level subtraction. */
+    public enum PedestalStrategy {
+        /** Use the decoder's default resolver (OB -> metadata -> fallback). */
+        DEFAULT,
+        /** Use an explicit constant pedestal chosen for reference matching experiments. */
+        EXPERIMENTAL_REFERENCE_MATCH
+    }
+
     private OutputMode outputMode = OutputMode.PREVIEW;
     private BitDepth bitDepth = BitDepth.EIGHT;
     private boolean applyBlackLevel = true;
@@ -39,6 +47,8 @@ public final class Cr3DecodeOptions {
     private boolean applyColorMatrix = true;
     private boolean applySrgbConversion = true;
     private boolean cropToActiveArea = true;
+    private PedestalStrategy pedestalStrategy = PedestalStrategy.DEFAULT;
+    private int experimentalPedestalLevel = 0;
 
     /** Returns the output mode. Default is {@link OutputMode#PREVIEW}. */
     public OutputMode outputMode() { return outputMode; }
@@ -103,6 +113,28 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
+    /** Returns pedestal resolution strategy. Default is {@link PedestalStrategy#DEFAULT}. */
+    public PedestalStrategy pedestalStrategy() { return pedestalStrategy; }
+
+    /** Sets pedestal resolution strategy. */
+    public Cr3DecodeOptions pedestalStrategy(PedestalStrategy strategy) {
+        this.pedestalStrategy = strategy;
+        return this;
+    }
+
+    /**
+     * Enables the experimental reference-matching pedestal strategy with
+     * a fixed global pedestal level.
+     */
+    public Cr3DecodeOptions experimentalPedestal(int level) {
+        this.pedestalStrategy = PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH;
+        this.experimentalPedestalLevel = level;
+        return this;
+    }
+
+    /** Returns the fixed pedestal level used by experimental strategy. */
+    public int experimentalPedestalLevel() { return experimentalPedestalLevel; }
+
     /** Creates default options (preview mode, 8-bit). */
     public static Cr3DecodeOptions defaults() {
         return new Cr3DecodeOptions();
@@ -125,8 +157,9 @@ public final class Cr3DecodeOptions {
 
     @Override
     public String toString() {
-        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, crop=%s]"
+        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, crop=%s, pedestalStrategy=%s, experimentalPedestal=%s]"
                 .formatted(outputMode, bitDepth, applyBlackLevel, applyWhiteBalance,
-                        applyColorMatrix, applySrgbConversion, cropToActiveArea);
+                        applyColorMatrix, applySrgbConversion, cropToActiveArea,
+                        pedestalStrategy, experimentalPedestalLevel);
     }
 }
