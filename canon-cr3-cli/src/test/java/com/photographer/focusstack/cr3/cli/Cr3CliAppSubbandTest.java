@@ -84,7 +84,10 @@ class Cr3CliAppSubbandTest {
     void pedestalReportIncludesResolvedSourceAndLevels() {
         Cr3Metadata metadata = new Cr3Metadata();
         metadata.setIsoSpeed(400);
-        metadata.setActiveArea(128, 40, 5000, 3400);
+        metadata.setActiveAreaLeft(128);
+        metadata.setActiveAreaTop(40);
+        metadata.setActiveAreaRight(5000);
+        metadata.setActiveAreaBottom(3400);
         metadata.setPerChannelBlackLevels(new int[]{2048, 2056, 2054, 2060});
 
         Cr3Decoder.PedestalReport report = new Cr3Decoder.PedestalReport(
