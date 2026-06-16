@@ -407,3 +407,48 @@ The K‑update rule is currently *not* changed — Round‑9 only validated
 bracket `K* = floor(log2(s+1)), K ∈ [K*−1, K*+1]` has no direct
 production‑code A/B evidence yet, so the proven JPEG‑LS accumulator
 rule stays until a discriminating fixture exists.
+
+### Update 2026-06-16 (t) — Phase F decoder stage isolation (ablation study)
+
+`DecoderStageIsolationIT` adds an ablation study that tests each of the
+five normative spec changes **individually** to identify which single stage
+is responsible for the entropy‑lock‑loss bug.
+
+The seven configurations under test:
+
+| ID      | Description                                        | Changed knob(s)                    |
+|---------|----------------------------------------------------|------------------------------------|
+| `F0`    | baseline                                           | (production semantics, all off)    |
+| `F1`    | +unary                                             | unary direction: 1s→0 only         |
+| `F2`    | +kInit                                             | K_INIT = 1 only                    |
+| `F3`    | +resetRow                                          | per‑row K reset only               |
+| `F4`    | +signBit                                           | bit‑0 sign mapping only            |
+| `F5`    | +escape15                                          | unary‑15 escape only               |
+| `Fspec` | all knobs on                                       | full normative spec (Round‑17)     |
+
+Per‑plane metrics reported: median, mode, std, ±1024 fraction, saturation
+fraction, symbolsDecoded / (w×h), consumedBytes / payloadBytes, first
+exhaustion coordinates (x, y), escapeHits, unaryOverflows, streamExhausted.
+
+`CrxNormativeLosslessCandidate.Result` was extended with `consumedBytes`,
+`firstExhaustX`, and `firstExhaustY` to surface the byte‑budget and
+exhaustion‑coordinate data that the `DarkFrameDecoderLockOracleIT` already
+collects on the production decoder.
+
+**Decision rules:**
+
+- A variant *fixes entropy lock* if its saturation fraction drops from ≈ 1.0
+  (baseline) to < 0.05 on the dark/flat research fixtures.
+- A variant *regresses* if it causes early bitstream exhaustion on fixtures
+  where the baseline decodes cleanly (symFrac drops below 1.0 on those
+  fixtures).
+- The variant with the lowest saturation on dark/flat **and** highest symFrac
+  on all fixtures is the best single‑change candidate for production
+  promotion.
+
+Output: `canon-cr3-imageio/target/decoder-stage-isolation/report.txt` and
+`report.tsv`.
+
+The IT silently no‑ops when no lossless CR3 fixtures are present (fresh
+checkout without operator captures) so it never blocks CI on the public
+repository.
