@@ -34,6 +34,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Arrays;
 
 /**
  * Main entry point for decoding Canon CR3 files.
@@ -73,6 +74,29 @@ public final class Cr3Decoder implements AutoCloseable {
      * must NOT close it.
      */
     private boolean ownsInput;
+
+    /** Source used for the resolved black-level/pedestal value. */
+    public enum PedestalSource {
+        OB_PER_ROW,
+        METADATA_PER_CHANNEL,
+        DEFAULT_GLOBAL
+    }
+
+    /**
+     * Diagnostic report describing where the decoder resolved the pedestal
+     * (black level) from for the current input.
+     */
+    public record PedestalReport(
+            PedestalSource source,
+            BlackLevel blackLevel,
+            int activeAreaLeftColumns,
+            int minObColumnsRequired,
+            int[] metadataPerChannelBlackLevels,
+            int rawWidth,
+            int rawHeight,
+            Integer rawFirstPixel,
+            Integer rawActiveAreaFirstPixel
+    ) {}
 
     /**
      * Sets the input stream for decoding.
@@ -186,6 +210,46 @@ public final class Cr3Decoder implements AutoCloseable {
      */
     public Cr3Metadata getMetadata() {
         return metadata;
+    }
+
+    /**
+     * Resolves and returns a pedestal/black-level diagnostic report for the
+     * current input without running the full RAW→RGB processing path.
+     *
+     * @return diagnostic pedestal report for the currently loaded CR3
+     * @throws Cr3Exception if RAW decoding fails
+     * @throws IOException if an I/O error occurs
+     * @throws IllegalStateException if no input has been set
+     */
+    public PedestalReport pedestalReport() throws Cr3Exception, IOException {
+        if (input == null || container == null) {
+            throw new IllegalStateException("No input set — call setInput() first");
+        }
+        Cr3RawImage rawImage = decodeRawBayerUncropped(Cr3DecodeOptions.rawLinear());
+        BlackLevelResolution resolution = resolveBlackLevelResolution(rawImage);
+
+        int activeAreaLeft = metadata != null ? metadata.activeAreaLeft() : 0;
+        Integer activePixel = null;
+        if (metadata != null
+                && metadata.activeAreaTop() >= 0
+                && metadata.activeAreaTop() < rawImage.height()
+                && activeAreaLeft >= 0
+                && activeAreaLeft < rawImage.width()) {
+            activePixel = rawImage.data()[metadata.activeAreaTop() * rawImage.width() + activeAreaLeft];
+        }
+
+        return new PedestalReport(
+                resolution.source(),
+                resolution.blackLevel(),
+                activeAreaLeft,
+                ObBlackLevelEstimator.MIN_OB_COLUMNS,
+                metadata != null && metadata.perChannelBlackLevels() != null
+                        ? Arrays.copyOf(metadata.perChannelBlackLevels(), metadata.perChannelBlackLevels().length)
+                        : null,
+                rawImage.width(),
+                rawImage.height(),
+                rawImage.data().length > 0 ? rawImage.data()[0] : null,
+                activePixel);
     }
 
     /**
@@ -504,22 +568,30 @@ public final class Cr3Decoder implements AutoCloseable {
      * @param rawImage the raw image (used for OB estimation if metadata indicates OB columns)
      */
     private BlackLevel resolveBlackLevel(Cr3RawImage rawImage) {
+        return resolveBlackLevelResolution(rawImage).blackLevel();
+    }
+
+    private record BlackLevelResolution(PedestalSource source, BlackLevel blackLevel) {}
+
+    private BlackLevelResolution resolveBlackLevelResolution(Cr3RawImage rawImage) {
         // Try OB-based per-row estimation first (highest accuracy)
         if (metadata != null && metadata.activeAreaLeft() >= ObBlackLevelEstimator.MIN_OB_COLUMNS) {
             BlackLevel obLevel = ObBlackLevelEstimator.estimate(rawImage, metadata.activeAreaLeft());
             if (obLevel != null) {
                 LOG.debug("Using OB-estimated per-row black level");
-                return obLevel;
+                return new BlackLevelResolution(PedestalSource.OB_PER_ROW, obLevel);
             }
         }
 
         // Fall back to per-channel from MakerNote metadata
         if (metadata != null && metadata.perChannelBlackLevels() != null) {
-            return BlackLevel.perChannel(metadata.perChannelBlackLevels());
+            return new BlackLevelResolution(
+                    PedestalSource.METADATA_PER_CHANNEL,
+                    BlackLevel.perChannel(metadata.perChannelBlackLevels()));
         }
 
         // Final fallback: global default
-        return BlackLevel.defaultLevel();
+        return new BlackLevelResolution(PedestalSource.DEFAULT_GLOBAL, BlackLevel.defaultLevel());
     }
 
     /**

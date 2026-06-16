@@ -30,6 +30,7 @@ Command-line debug and analysis tool for Canon CR3 files.
 | `thumb <file.cr3> [output.jpg]` | Extracts the embedded JPEG thumbnail. | `Cr3PreviewExtractor` |
 | `decode <file.cr3> [output.jpg]` | Runs the current RAW→sRGB pipeline and writes a JPEG. | `Cr3Decoder` |
 | `decode-compare <file.cr3> [outBase]` | Writes decoded RAW, embedded preview, and thumbnail for side-by-side comparison. | `Cr3Decoder` |
+| `pedestal-report <file.cr3>` | Prints where the decoder resolved pedestal/black-level from (OB, metadata, fallback) plus key values. | `Cr3Decoder.pedestalReport()` |
 
 ## Quick examples
 
@@ -69,6 +70,9 @@ java -jar canon-cr3-cli.jar thumb photo.cr3 thumbnail.jpg
 # Decode RAW and compare against camera-rendered outputs
 java -jar canon-cr3-cli.jar decode photo.cr3 output.jpg
 java -jar canon-cr3-cli.jar decode-compare photo.cr3 compare
+
+# Diagnose pedestal/black-level source and values
+java -jar canon-cr3-cli.jar pedestal-report photo.cr3
 ```
 
 ## Analysis coverage relevant to CR3 research
@@ -77,7 +81,7 @@ java -jar canon-cr3-cli.jar decode-compare photo.cr3 compare
 
 - **Available today in the repository:** `Cr3Decoder.resolveBlackLevel()`, `ObBlackLevelEstimator`, `BlackLevelProcessor`, and the `BlackLevel` model.
 - **What the CLI currently exposes:** `decode` / `decode-compare` use the resolved black-level path during RAW decoding.
-- **Important detail:** there is **no dedicated CLI command yet** that prints the resolved black level directly.
+- **Dedicated diagnostics command:** `pedestal-report` prints the resolved source (`OB_PER_ROW`, `METADATA_PER_CHANNEL`, `DEFAULT_GLOBAL`) and resolved levels.
 - **Current sources used by the decoder:**  
   1. OB-derived per-row estimation from the left optical-black region (`metadata.activeAreaLeft()`),  
   2. per-channel metadata if `Cr3Metadata.perChannelBlackLevels()` is populated,  
