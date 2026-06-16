@@ -1,5 +1,8 @@
 package com.photographer.focusstack.cr3.cli;
 
+import com.photographer.focusstack.cr3.decode.Cr3Decoder;
+import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
+import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
 import org.junit.jupiter.api.Test;
@@ -75,5 +78,57 @@ class Cr3CliAppSubbandTest {
                 0, 0, 0, 0, 0, 0, "v");
         String json = Cr3CliApp.formatSubbandMetaJson("path with \"quotes\"\nand newline", 0, ref);
         assertThat(json).contains("\"sourceFile\": \"path with \\\"quotes\\\"\\nand newline\"");
+    }
+
+    @Test
+    void pedestalReportShowsUnavailableWhenPixelProbesAreNull() {
+        Cr3Decoder.PedestalReport report = new Cr3Decoder.PedestalReport(
+                Cr3Decoder.PedestalSource.DEFAULT_GLOBAL,
+                BlackLevel.global(512),
+                0,
+                4,
+                null,
+                100,
+                100,
+                null,
+                null);
+
+        String output = Cr3CliApp.formatPedestalReport("empty.cr3", null, report);
+
+        assertThat(output)
+                .contains("Raw pixel[0,0]: (unavailable)")
+                .contains("Raw pixel[activeLeft,activeTop]: (unavailable)");
+    }
+
+
+    @Test
+    void pedestalReportIncludesResolvedSourceAndLevels() {
+        Cr3Metadata metadata = new Cr3Metadata();
+        metadata.setIsoSpeed(400);
+        metadata.setActiveAreaLeft(128);
+        metadata.setActiveAreaTop(40);
+        metadata.setActiveAreaRight(5000);
+        metadata.setActiveAreaBottom(3400);
+        metadata.setPerChannelBlackLevels(new int[]{2048, 2056, 2054, 2060});
+
+        Cr3Decoder.PedestalReport report = new Cr3Decoder.PedestalReport(
+                Cr3Decoder.PedestalSource.METADATA_PER_CHANNEL,
+                BlackLevel.perChannel(2048, 2056, 2054, 2060),
+                128,
+                4,
+                new int[]{2048, 2056, 2054, 2060},
+                5632,
+                3710,
+                9,
+                2045);
+
+        String output = Cr3CliApp.formatPedestalReport("sample.cr3", metadata, report);
+
+        assertThat(output)
+                .contains("=== Pedestal Report ===")
+                .contains("Resolved source: METADATA_PER_CHANNEL")
+                .contains("Metadata per-channel [R,Gr,Gb,B]: [2048, 2056, 2054, 2060]")
+                .contains("Resolved black level mode: PER_CHANNEL")
+                .contains("Resolved per-channel [R,Gr,Gb,B]: [2048, 2056, 2054, 2060]");
     }
 }

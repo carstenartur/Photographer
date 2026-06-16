@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -43,6 +44,7 @@ import java.util.concurrent.Callable;
  * java -jar canon-cr3-cli.jar thumb   &lt;file.cr3&gt; [output.jpg]
  * java -jar canon-cr3-cli.jar decode  &lt;file.cr3&gt; [output.jpg]
  * java -jar canon-cr3-cli.jar decode-compare &lt;file.cr3&gt; [outBase]
+ * java -jar canon-cr3-cli.jar pedestal-report &lt;file.cr3&gt;
  * </pre>
  */
 @Command(
@@ -143,6 +145,7 @@ public final class Cr3CliApp implements Callable<Integer> {
             case "thumb" -> extractThumbnail(filePath, extraArgs.isEmpty() ? "thumbnail.jpg" : extraArgs.getFirst());
             case "decode" -> decodeRaw(filePath, extraArgs.isEmpty() ? null : extraArgs.getFirst(), /*compare*/ false);
             case "decode-compare" -> decodeRaw(filePath, extraArgs.isEmpty() ? null : extraArgs.getFirst(), /*compare*/ true);
+            case "pedestal-report" -> pedestalReport(filePath);
             default -> throw new CommandLine.ParameterException(parsedCommandLine, "Unknown command: " + command);
         }
         return 0;
@@ -433,6 +436,58 @@ public final class Cr3CliApp implements Callable<Integer> {
         } finally {
             writer.dispose();
         }
+    }
+
+    /**
+     * Prints a diagnostic report for pedestal/black-level source resolution.
+     *
+     * <p>Usage: {@code cr3-cli pedestal-report <file.cr3>}</p>
+     */
+    static void pedestalReport(String filePath) throws Exception {
+        try (Cr3Decoder decoder = new Cr3Decoder()) {
+            decoder.setInput(Path.of(filePath));
+            Cr3Decoder.PedestalReport report = decoder.pedestalReport();
+            Cr3Metadata metadata = decoder.getMetadata();
+            System.out.print(formatPedestalReport(filePath, metadata, report));
+        }
+    }
+
+    static String formatPedestalReport(String filePath, Cr3Metadata metadata, Cr3Decoder.PedestalReport report) {
+        StringBuilder sb = new StringBuilder(768);
+        sb.append("=== Pedestal Report ===\n");
+        sb.append("File: ").append(filePath).append('\n');
+        sb.append("Sensor: ").append(report.rawWidth()).append('x').append(report.rawHeight()).append('\n');
+        sb.append("ActiveAreaLeft (OB columns): ").append(report.activeAreaLeftColumns())
+                .append(" (min required: ").append(report.minObColumnsRequired()).append(")\n");
+        sb.append("Raw pixel[0,0]: ").append(report.rawFirstPixel() != null ? report.rawFirstPixel() : "(unavailable)").append('\n');
+        sb.append("Raw pixel[activeLeft,activeTop]: ").append(report.rawActiveAreaFirstPixel() != null ? report.rawActiveAreaFirstPixel() : "(unavailable)").append('\n');
+        sb.append("Resolved source: ").append(report.source()).append('\n');
+
+        if (report.metadataPerChannelBlackLevels() != null) {
+            sb.append("Metadata per-channel [R,Gr,Gb,B]: ")
+                    .append(Arrays.toString(report.metadataPerChannelBlackLevels())).append('\n');
+        } else {
+            sb.append("Metadata per-channel [R,Gr,Gb,B]: (missing)\n");
+        }
+
+        if (metadata != null) {
+            sb.append("Metadata ISO: ").append(metadata.isoSpeed()).append('\n');
+            sb.append("Metadata active area: left=").append(metadata.activeAreaLeft())
+                    .append(" top=").append(metadata.activeAreaTop())
+                    .append(" right=").append(metadata.activeAreaRight())
+                    .append(" bottom=").append(metadata.activeAreaBottom())
+                    .append('\n');
+        }
+
+        sb.append("Resolved black level mode: ").append(report.blackLevel().mode()).append('\n');
+        switch (report.blackLevel().mode()) {
+            case GLOBAL -> sb.append("Resolved global level: ").append(report.blackLevel().globalLevel()).append('\n');
+            case PER_CHANNEL -> sb.append("Resolved per-channel [R,Gr,Gb,B]: ")
+                    .append(Arrays.toString(report.blackLevel().perChannelLevels())).append('\n');
+            case PER_ROW -> sb.append("Resolved per-row minimum level: ")
+                    .append(report.blackLevel().minPerRowLevel()).append('\n');
+        }
+        return sb.toString();
     }
 
     /**

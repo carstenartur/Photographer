@@ -21,6 +21,8 @@ class Cr3DecodeOptionsTest {
         assertThat(opts.applyColorMatrix()).isTrue();
         assertThat(opts.applySrgbConversion()).isTrue();
         assertThat(opts.cropToActiveArea()).isTrue();
+        assertThat(opts.pedestalStrategy()).isEqualTo(Cr3DecodeOptions.PedestalStrategy.DEFAULT);
+        assertThat(opts.experimentalPedestalLevel()).isZero();
     }
 
     @Test
@@ -47,10 +49,20 @@ class Cr3DecodeOptionsTest {
         Cr3DecodeOptions opts = new Cr3DecodeOptions()
                 .outputMode(Cr3DecodeOptions.OutputMode.THUMBNAIL)
                 .bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
-                .applyBlackLevel(false);
+                .applyBlackLevel(false)
+                .pedestalStrategy(Cr3DecodeOptions.PedestalStrategy.DEFAULT);
 
         assertThat(opts.outputMode()).isEqualTo(Cr3DecodeOptions.OutputMode.THUMBNAIL);
         assertThat(opts.bitDepth()).isEqualTo(Cr3DecodeOptions.BitDepth.SIXTEEN);
         assertThat(opts.applyBlackLevel()).isFalse();
+    }
+
+    @Test
+    @DisplayName("experimentalPedestal should enable experimental reference-matching strategy")
+    void experimentalPedestal() {
+        Cr3DecodeOptions opts = new Cr3DecodeOptions().experimentalPedestal(2048);
+
+        assertThat(opts.pedestalStrategy()).isEqualTo(Cr3DecodeOptions.PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH);
+        assertThat(opts.experimentalPedestalLevel()).isEqualTo(2048);
     }
 }

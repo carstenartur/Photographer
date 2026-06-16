@@ -29,6 +29,13 @@ class Cr3CliPicocliTest {
     }
 
     @Test
+    void missingInputForPedestalReportExitsTwo() {
+        Path missing = tempDir.resolve("missing.cr3");
+        int exitCode = new CommandLine(new Cr3CliApp()).execute("pedestal-report", missing.toString());
+        assertThat(exitCode).isEqualTo(2);
+    }
+
+    @Test
     void missingBitsFileExitsTwo() {
         Path missing = tempDir.resolve("missing.bits");
         int exitCode = new CommandLine(new Cr3CliApp()).execute("subband-stats", "--bits", missing.toString());
