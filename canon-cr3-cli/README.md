@@ -127,5 +127,5 @@ java -jar canon-cr3-cli.jar decode-compare photo.cr3 compare
 ## Build
 
 ```bash
-mvn -B test -pl canon-cr3-cli -am -Djava.awt.headless=true
+mvn -B clean verify -pl canon-cr3-cli -am -Djava.awt.headless=true
 ```
