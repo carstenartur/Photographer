@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -191,7 +190,7 @@ class DecoderStageIsolationIT {
 
                     Stats s = stats(res.pixels, bd);
                     double symFrac     = (double) res.symbolsDecoded / total;
-                    double consumedFrac = (double) res.consumedBytes / payload.length;
+                    double consumedFrac = payload.length > 0 ? (double) res.consumedBytes / payload.length : 0.0;
                     String exhaustStr  = res.streamExhausted ? "Y" : "N";
 
                     txt.append(String.format(
@@ -257,8 +256,8 @@ class DecoderStageIsolationIT {
         }
         // Operator-captured research fixtures
         if (Files.isDirectory(RESEARCH_DIR)) {
-            try {
-                Files.list(RESEARCH_DIR)
+            try (var stream = Files.list(RESEARCH_DIR)) {
+                stream
                         .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".cr3"))
                         .sorted()
                         .map(Path::toFile)
@@ -332,15 +331,16 @@ class DecoderStageIsolationIT {
         }
         double std = Math.sqrt(var / pixels.length);
 
-        long half = pixels.length / 2L;
+        long target = ((long) pixels.length + 1) / 2;
         long acc = 0;
         int median = 0;
+        boolean medianSet = false;
         int mode = 0;
         int modeCount = -1;
         for (int v = 0; v <= maxVal; v++) {
             if (hist[v] > modeCount) { modeCount = hist[v]; mode = v; }
             acc += hist[v];
-            if (acc >= half && median == 0) median = v;
+            if (!medianSet && acc >= target) { median = v; medianSet = true; }
         }
 
         int lo = Math.max(0, mode - 1024);
