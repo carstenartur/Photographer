@@ -459,8 +459,8 @@ public final class Cr3CliApp implements Callable<Integer> {
         sb.append("Sensor: ").append(report.rawWidth()).append('x').append(report.rawHeight()).append('\n');
         sb.append("ActiveAreaLeft (OB columns): ").append(report.activeAreaLeftColumns())
                 .append(" (min required: ").append(report.minObColumnsRequired()).append(")\n");
-        sb.append("Raw pixel[0,0]: ").append(report.rawFirstPixel()).append('\n');
-        sb.append("Raw pixel[activeLeft,activeTop]: ").append(report.rawActiveAreaFirstPixel()).append('\n');
+        sb.append("Raw pixel[0,0]: ").append(report.rawFirstPixel() != null ? report.rawFirstPixel() : "(unavailable)").append('\n');
+        sb.append("Raw pixel[activeLeft,activeTop]: ").append(report.rawActiveAreaFirstPixel() != null ? report.rawActiveAreaFirstPixel() : "(unavailable)").append('\n');
         sb.append("Resolved source: ").append(report.source()).append('\n');
 
         if (report.metadataPerChannelBlackLevels() != null) {

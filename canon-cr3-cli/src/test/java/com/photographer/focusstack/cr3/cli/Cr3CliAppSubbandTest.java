@@ -81,6 +81,27 @@ class Cr3CliAppSubbandTest {
     }
 
     @Test
+    void pedestalReportShowsUnavailableWhenPixelProbesAreNull() {
+        Cr3Decoder.PedestalReport report = new Cr3Decoder.PedestalReport(
+                Cr3Decoder.PedestalSource.DEFAULT_GLOBAL,
+                BlackLevel.global(512),
+                0,
+                4,
+                null,
+                100,
+                100,
+                null,
+                null);
+
+        String output = Cr3CliApp.formatPedestalReport("empty.cr3", null, report);
+
+        assertThat(output)
+                .contains("Raw pixel[0,0]: (unavailable)")
+                .contains("Raw pixel[activeLeft,activeTop]: (unavailable)");
+    }
+
+
+    @Test
     void pedestalReportIncludesResolvedSourceAndLevels() {
         Cr3Metadata metadata = new Cr3Metadata();
         metadata.setIsoSpeed(400);

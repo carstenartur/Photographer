@@ -28,8 +28,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -45,8 +43,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class PedestalHypothesisValidationIT {
 
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
-    private static final String REPORT_FILE_NAME = LocalDate.now(ZoneOffset.UTC) + "-pedestal-hypothesis-validation.md";
-    private static final Path DOCS_REPORT = Path.of("..", "docs", "cr3-results", REPORT_FILE_NAME);
+    private static final String STABLE_REPORT_NAME = "pedestal-hypothesis-validation.md";
+    private static final Path DOCS_REPORT = Path.of("..", "docs", "cr3-results", STABLE_REPORT_NAME);
     private static final Path DOCS_IMAGE_DIR = Path.of("..", "docs", "cr3-results", "images", "pedestal-hypothesis-validation");
     private static final Path TARGET_DIR = Path.of("target", "pedestal-hypothesis-validation");
     private static final Path TARGET_IMAGE_DIR = TARGET_DIR.resolve("images");
@@ -84,7 +82,7 @@ class PedestalHypothesisValidationIT {
 
         String report = buildReport(results, metadataVsDeltaPlot, maeBeforeAfterPlot);
         Files.writeString(DOCS_REPORT, report);
-        Files.writeString(TARGET_DIR.resolve(REPORT_FILE_NAME), report);
+        Files.writeString(TARGET_DIR.resolve(STABLE_REPORT_NAME), report);
 
         assertThat(results).isNotEmpty();
         assertThat(results).allSatisfy(result -> {
