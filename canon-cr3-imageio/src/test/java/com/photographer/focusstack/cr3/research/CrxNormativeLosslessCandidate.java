@@ -100,13 +100,23 @@ final class CrxNormativeLosslessCandidate {
         final int escapeHits;
         final int unaryOverflows;
         final boolean streamExhausted;
+        /** Bytes consumed by the BitReader when the plane finished or exhausted. */
+        final int consumedBytes;
+        /** X coordinate of the first exhaustion pixel, or -1 if the stream finished cleanly. */
+        final int firstExhaustX;
+        /** Y coordinate of the first exhaustion pixel, or -1 if the stream finished cleanly. */
+        final int firstExhaustY;
         Result(int[] pixels, int symbolsDecoded, int escapeHits,
-               int unaryOverflows, boolean streamExhausted) {
+               int unaryOverflows, boolean streamExhausted,
+               int consumedBytes, int firstExhaustX, int firstExhaustY) {
             this.pixels = pixels;
             this.symbolsDecoded = symbolsDecoded;
             this.escapeHits = escapeHits;
             this.unaryOverflows = unaryOverflows;
             this.streamExhausted = streamExhausted;
+            this.consumedBytes = consumedBytes;
+            this.firstExhaustX = firstExhaustX;
+            this.firstExhaustY = firstExhaustY;
         }
     }
 
@@ -134,6 +144,8 @@ final class CrxNormativeLosslessCandidate {
         int escapes = 0;
         int unaryOverflows = 0;
         boolean exhausted = false;
+        int firstExhaustX = -1;
+        int firstExhaustY = -1;
 
         outer:
         for (int y = 0; y < height; y++) {
@@ -165,9 +177,11 @@ final class CrxNormativeLosslessCandidate {
                     escapes++;
                 } catch (UnaryOverflow e) {
                     unaryOverflows++;
+                    if (firstExhaustX < 0) { firstExhaustX = x; firstExhaustY = y; }
                     exhausted = true;
                     residual = 0;
                 } catch (IOException e) {
+                    if (firstExhaustX < 0) { firstExhaustX = x; firstExhaustY = y; }
                     exhausted = true;
                     residual = 0;
                 }
@@ -212,7 +226,8 @@ final class CrxNormativeLosslessCandidate {
             }
         }
 
-        return new Result(out, symbols, escapes, unaryOverflows, exhausted);
+        return new Result(out, symbols, escapes, unaryOverflows, exhausted,
+                r.bytePosition(), firstExhaustX, firstExhaustY);
     }
 
     /** MED predictor (JPEG-LS Annex A.3). Same as production. */
