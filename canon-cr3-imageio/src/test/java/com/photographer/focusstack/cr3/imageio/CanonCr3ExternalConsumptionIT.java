@@ -8,6 +8,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -39,8 +43,28 @@ class CanonCr3ExternalConsumptionIT {
         processBuilder.redirectErrorStream(true);
 
         Process process = processBuilder.start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        int exitCode = process.waitFor();
+        ExecutorService outputReaderExecutor = Executors.newSingleThreadExecutor();
+        String output;
+        boolean exited;
+        try {
+            Future<String> outputFuture = outputReaderExecutor.submit(
+                    () -> new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8)
+            );
+            exited = process.waitFor(90, TimeUnit.SECONDS);
+            if (!exited) {
+                process.destroyForcibly();
+                process.waitFor(10, TimeUnit.SECONDS);
+            }
+            output = outputFuture.get(10, TimeUnit.SECONDS);
+        } finally {
+            outputReaderExecutor.shutdownNow();
+        }
+
+        assertThat(exited)
+                .withFailMessage("External consumption probe timed out after 90 seconds.%nOutput so far:%n%s", output)
+                .isTrue();
+
+        int exitCode = process.exitValue();
 
         assertThat(exitCode)
                 .withFailMessage("External consumption probe failed with output:%n%s", output)

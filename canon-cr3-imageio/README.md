@@ -29,62 +29,80 @@ BufferedImage image = ImageIO.read(new File("photo.cr3"));
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-reader.setInput(ImageIO.createImageInputStream(new File("photo.cr3")));
-BufferedImage preview = reader.read(0);
-reader.dispose();
+try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
+  reader.setInput(input);
+  BufferedImage preview = reader.read(0);
+} finally {
+  reader.dispose();
+}
 ```
 
 ### Preview mode
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-reader.setInput(ImageIO.createImageInputStream(new File("photo.cr3")));
-CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-param.setPreviewOnly(true);
-BufferedImage preview = reader.read(0, param);
-reader.dispose();
+try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
+  reader.setInput(input);
+  CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+  param.setPreviewOnly(true);
+  BufferedImage preview = reader.read(0, param);
+} finally {
+  reader.dispose();
+}
 ```
 
 ### RAW processed mode
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-reader.setInput(ImageIO.createImageInputStream(new File("photo.cr3")));
-CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
-BufferedImage rawImage = reader.read(0, param);
-reader.dispose();
+try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
+  reader.setInput(input);
+  CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+  param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
+  BufferedImage rawImage = reader.read(0, param);
+} finally {
+  reader.dispose();
+}
 ```
 
 ### Linear RAW / `readRaster()` path
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-reader.setInput(ImageIO.createImageInputStream(new File("photo.cr3")));
-CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-param.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
-BufferedImage linearRaw = reader.read(0, param);
-Raster raster = reader.readRaster(0, param);
-reader.dispose();
+try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
+  reader.setInput(input);
+  CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+  param.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
+  BufferedImage linearRaw = reader.read(0, param);
+  Raster raster = reader.readRaster(0, param);
+} finally {
+  reader.dispose();
+}
 ```
 
 ### Thumbnail access
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-reader.setInput(ImageIO.createImageInputStream(new File("photo.cr3")));
-BufferedImage thumbnail = reader.readThumbnail(0, 0);
-reader.dispose();
+try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
+  reader.setInput(input);
+  BufferedImage thumbnail = reader.readThumbnail(0, 0);
+} finally {
+  reader.dispose();
+}
 ```
 
 ### Metadata access
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-reader.setInput(ImageIO.createImageInputStream(new File("photo.cr3")));
-IIOMetadata metadata = reader.getImageMetadata(0);
-Node metadataTree = metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME);
-reader.dispose();
+try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
+  reader.setInput(input);
+  IIOMetadata metadata = reader.getImageMetadata(0);
+  Node metadataTree = metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME);
+} finally {
+  reader.dispose();
+}
 ```
 
 ## SPI Registration
