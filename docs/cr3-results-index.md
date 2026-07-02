@@ -43,11 +43,11 @@ Whenever a result document is added, update:
 
 ## Current priority
 
-Phase D3: decoder hypotheses measured against the external reference baseline.
+Phase D5: residual/value semantics measured against the external reference baseline.
 
 Recommended next result document:
 
-`<date>-D3-residual-semantics-vs-reference.md`
+`<date>-D5-sign-mapping-discriminator.md`
 
 ## Goal
 
