@@ -61,9 +61,9 @@ Following the predictor-state triage:
 - bitstream-alignment loops are historical, not active
 
 Stage audit update (2026-07-03, [cr3-pipeline-stage-audit](cr3-results/2026-07-03-cr3-pipeline-stage-audit.md)):
-- earliest unverified/failing point in the implementation pipeline is **Stage 6 (entropy decoding / Rice-Golomb / K-update)**;
-- stages 1–4 are currently verified by parser/header tests and fixture runs;
-- stage 5 remains partial, but is not currently the first failure.
+- earliest unverified/failing point in the implementation pipeline is **Stage 6 (entropy decoding / Rice-Golomb / K-update)**
+- stages 1–4 are currently verified by parser/header tests and fixture runs
+- stage 5 remains partial, but is not currently the first failure
 
 Recommended next experiment: keep the MED neighbourhood model fixed and run the
 **sign-mapping discriminator** in `DecoderHypothesisD1D2IT` on the 11
