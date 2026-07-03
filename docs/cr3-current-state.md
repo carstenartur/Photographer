@@ -50,17 +50,20 @@ Phase-C evidence matrix ranking:
 
 ## Current priority
 
-Phase D3 — decoder hypotheses measured against the new external reference.
+Phase D5 — residual/value semantics against the external reference baseline.
 
-Following Phase-C results and the new Phase-D baseline:
+Following the predictor-state triage:
 - B1 PARTIAL / narrowed: MED best matches the decoded signal; NorthOnly looked less wrong visually but is not statistically supported
 - B2 REJECTED: tile-local reset is correct
 - B3 REJECTED: plane-independent reset is correct
 - B4 REJECTED: no per-plane neighbour-family split
-- D1 COMPLETE: lossless fixtures have external LibRaw reference sidecars
-- D2 COMPLETE: automated reference comparison exists and is the evaluation baseline
+- pedestal/DC now has a committed **SUPPORTED** result
+- bitstream-alignment loops are historical, not active
 
-Recommended next experiment: keep the current neighbourhood model fixed and test
-only decoder changes that reduce reference error in
-`docs/cr3-results/reference-comparison.md`. Predictor-family experiments remain
-deferred until a candidate change measurably improves the reference comparison.
+Recommended next experiment: keep the MED neighbourhood model fixed and run the
+**sign-mapping discriminator** in `DecoderHypothesisD1D2IT` on the 11
+reference-backed lossless fixtures. The decision is reference-backed: the change
+must flip Pearson from negative to positive on at least 2 of these 3 discriminator
+fixtures — `sample-tele`, `sample-wide`, and
+`research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3` — while also reducing Global
+MAE and OB MAE there and not worsening the median full-corpus error.
