@@ -36,7 +36,13 @@ public final class Cr3DecodeOptions {
     public enum PedestalStrategy {
         /** Use the decoder's default resolver (OB -> metadata -> fallback). */
         DEFAULT,
-        /** Use an explicit constant pedestal chosen for reference matching experiments. */
+        /**
+         * Use an explicit constant pedestal chosen for reference matching experiments.
+         *
+         * <p><strong>Experimental — not stable public API.</strong>
+         * This value exists solely for research fixture matching and may change or be
+         * removed without notice.</p>
+         */
         EXPERIMENTAL_REFERENCE_MATCH
     }
 
@@ -125,6 +131,10 @@ public final class Cr3DecodeOptions {
     /**
      * Enables the experimental reference-matching pedestal strategy with
      * a fixed global pedestal level.
+     *
+     * <p><strong>Experimental — not stable public API.</strong>
+     * This method exists solely for research fixture matching and may change or be
+     * removed without notice. Do not use in production code.</p>
      */
     public Cr3DecodeOptions experimentalPedestal(int level) {
         this.pedestalStrategy = PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH;
