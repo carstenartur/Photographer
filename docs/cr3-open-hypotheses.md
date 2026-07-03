@@ -10,6 +10,7 @@ This file tracks active CR3 research directions.
 | B2 | Predictor state reset at tile boundaries is wrong | **REJECTED** | b2-tile-continued doubles OB stdDev on every fixture; current tile-local reset is correct. See [2026-06-14-B1-predictor-state-isolation.md](cr3-results/2026-06-14-B1-predictor-state-isolation.md) | — |
 | B3 | Predictor state reset at plane boundaries is wrong | **REJECTED** | b3-plane-seeded identical to baseline on every fixture; plane-independent reset is correct. See [2026-06-14-B1-predictor-state-isolation.md](cr3-results/2026-06-14-B1-predictor-state-isolation.md) | — |
 | B4 | Per-plane neighbour model differs from current implementation | **REJECTED** | Phase-C evidence matrix found no systematic per-plane family split: MED wins all leftOB/image-area cells and all but one topOB cell. See [2026-06-14-predictor-evidence-matrix.md](cr3-results/2026-06-14-predictor-evidence-matrix.md). | — |
+| D5 | residual/value semantics are wrong while the neighbourhood family is roughly MED-like | **OPEN** | Phase-C evidence matrix says MED best matches the decoded signal, pedestal/DC already has a separate supported result, yet the LibRaw-based reference comparison still shows large global / OB / boundary error. See [reference-comparison.md](cr3-results/reference-comparison.md) and [2026-06-16-pedestal-hypothesis-validation.md](cr3-results/2026-06-16-pedestal-hypothesis-validation.md). | Run the sign-mapping discriminator in `DecoderHypothesisD1D2IT`: use the 11 lossless reference-backed fixtures, require a Pearson flip to positive on at least 2 of (`sample-tele.cr3`, `sample-wide.cr3`, `research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3`) plus lower Global MAE and OB MAE there, with no worse median full-corpus error |
 
 ## Deferred hypotheses
 
@@ -21,7 +22,6 @@ These are not current priorities and require a novelty argument before reactivat
 | D2 | PRVW geometry is the primary decoding problem | DEFERRED | Phase-A investigations already performed |
 | D3 | CFA layout discovery is the primary decoding problem | DEFERRED | already investigated sufficiently |
 | D4 | generic alignment sweep should be repeated | DEFERRED | alignment already studied extensively |
-| D5 | residual/value semantics are wrong while the neighbourhood family is roughly MED-like | OPEN | Phase-C evidence matrix says MED best matches the decoded signal, pedestal/DC already has a separate supported result, yet the LibRaw-based reference comparison still shows large global / OB / boundary error. See [reference-comparison.md](cr3-results/reference-comparison.md) and [2026-06-16-pedestal-hypothesis-validation.md](cr3-results/2026-06-16-pedestal-hypothesis-validation.md). | Run the sign-mapping discriminator in `DecoderHypothesisD1D2IT`: use the 11 lossless reference-backed fixtures, require a Pearson flip to positive on at least 2 of (`sample-tele`, `sample-wide`, `g5xm2-asis`) plus lower Global MAE and OB MAE there, with no worse median full-corpus error |
 
 ## Status values
 

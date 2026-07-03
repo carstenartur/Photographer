@@ -23,7 +23,7 @@ Treat these as the current baseline unless a new experiment explicitly disproves
 - Optical-black (IAD1 OB) regions are the strongest current falsification axis.
 - The current decoder is physically implausible in OB regions.
 - `predictor correct, entropy wrong` is rejected by the Phase-A decision matrix.
-- `entropy mostly plausible, predictor/state machine wrong` is the current leading direction.
+- `entropy mostly plausible, predictor/state machine wrong` was a leading Phase-A direction, but D5 residual/value semantics is now the current priority.
 - The current corpus is structurally saturated for many broad sweeps; do not run them again without a novelty argument.
 
 ## Current priority
