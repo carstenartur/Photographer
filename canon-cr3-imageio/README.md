@@ -8,13 +8,27 @@ This module provides transparent CR3 support through the standard Java ImageIO
 API. After adding this module to the classpath, `ImageIO.read(new File("photo.cr3"))`
 will work automatically via SPI service loading.
 
+## API stability
+
+The ImageIO provider, reader discovery, embedded preview path, thumbnail access,
+and metadata access are intended as stable external APIs.
+
+CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` remain
+experimental while the CRX codec is completed. The complete classification is
+maintained in [`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
+
+Applications that require the most stable behavior should use standard ImageIO
+APIs and the default embedded-preview path. They should not directly call CRX
+codec, subband, predictor, entropy, or research APIs.
+
 ## Key Types
 
 | Type | Description |
 |---|---|
-| `CanonCr3ImageReaderSpi` | ImageIO service provider — detects CR3 files |
-| `CanonCr3ImageReader` | ImageIO reader — delegates to `Cr3Decoder` |
-| `CanonCr3ImageReadParam` | Extended read parameters with CR3-specific options |
+| `CanonCr3ImageReaderSpi` | Stable ImageIO service provider — detects CR3 files |
+| `CanonCr3ImageReader` | Stable ImageIO reader — delegates to `Cr3Decoder` |
+| `CanonCr3ImageReadParam` | Experimental CR3-specific read parameters; preview selection is stable, RAW-specific controls follow decoder maturity |
+| `Cr3ImageMetadata` | CR3 metadata exposed through `IIOMetadata` |
 
 ## Usage
 
