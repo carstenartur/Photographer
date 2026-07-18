@@ -3,6 +3,7 @@ package com.photographer.focusstack.cr3.architecture;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -20,7 +21,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class Cr3PackageBoundaryTest {
 
     private static final String CR3 = "com.photographer.focusstack.cr3.";
-    private static final Path MAIN_SOURCES = Path.of("src", "main", "java");
+    private static final Path MODULE_ROOT = Path.of(System.getProperty("basedir", "."))
+            .toAbsolutePath()
+            .normalize();
+    private static final Path MAIN_SOURCES = MODULE_ROOT.resolve(Path.of("src", "main", "java"));
 
     @Test
     void productionSourcesMustNotDependOnResearchPackages() throws IOException {
@@ -77,7 +81,7 @@ class Cr3PackageBoundaryTest {
     }
 
     private static List<Path> javaSources() throws IOException {
-        assertThat(MAIN_SOURCES).as("main source directory").isDirectory();
+        assertThat(MAIN_SOURCES).as("core main source directory").isDirectory();
         try (var stream = Files.walk(MAIN_SOURCES)) {
             return stream.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".java"))
@@ -87,18 +91,30 @@ class Cr3PackageBoundaryTest {
 
     private static void findForbiddenImports(Path source, List<String> forbidden,
                                              List<String> violations) throws IOException {
-        List<String> lines = Files.readAllLines(source);
+        List<String> lines = Files.readAllLines(source, StandardCharsets.UTF_8);
         for (int index = 0; index < lines.size(); index++) {
-            String line = lines.get(index).trim();
-            if (!line.startsWith("import ")) {
+            String importedType = importedType(lines.get(index));
+            if (importedType == null) {
                 continue;
             }
             for (String prefix : forbidden) {
-                if (line.startsWith("import " + prefix)) {
-                    violations.add(normalized(source) + ":" + (index + 1) + " -> " + line);
+                if (importedType.startsWith(prefix)) {
+                    violations.add(normalized(source) + ":" + (index + 1)
+                            + " -> " + lines.get(index).trim());
                 }
             }
         }
+    }
+
+    private static String importedType(String sourceLine) {
+        String line = sourceLine.trim();
+        if (line.startsWith("import static ")) {
+            return line.substring("import static ".length());
+        }
+        if (line.startsWith("import ")) {
+            return line.substring("import ".length());
+        }
+        return null;
     }
 
     private static String normalized(Path path) {
