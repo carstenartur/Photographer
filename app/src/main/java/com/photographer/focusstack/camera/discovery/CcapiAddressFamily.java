@@ -1,7 +1,9 @@
 package com.photographer.focusstack.camera.discovery;
 
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.UnknownHostException;
 
 /** IP families and multicast targets defined by Canon's UPnP/SSDP discovery profile. */
@@ -23,8 +25,13 @@ public enum CcapiAddressFamily {
         return hostHeader;
     }
 
-    InetSocketAddress target() throws UnknownHostException {
-        return new InetSocketAddress(InetAddress.getByName(multicastAddress), SSDP_PORT);
+    InetSocketAddress target(NetworkInterface networkInterface) throws UnknownHostException {
+        InetAddress address = InetAddress.getByName(multicastAddress);
+        if (this == IPV6 && address instanceof Inet6Address ipv6 && networkInterface != null) {
+            address = Inet6Address.getByAddress(
+                    null, ipv6.getAddress(), networkInterface.getIndex());
+        }
+        return new InetSocketAddress(address, SSDP_PORT);
     }
 
     public static CcapiAddressFamily of(InetAddress address) {
