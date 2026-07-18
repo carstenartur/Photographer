@@ -30,6 +30,7 @@ COPY canon-cr3-metadata/pom.xml canon-cr3-metadata/pom.xml
 COPY canon-cr3-codec/pom.xml canon-cr3-codec/pom.xml
 COPY canon-cr3-processing/pom.xml canon-cr3-processing/pom.xml
 COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
+COPY canon-cr3-reference-testkit/pom.xml canon-cr3-reference-testkit/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
 COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
@@ -47,7 +48,8 @@ RUN --mount=type=cache,target=/root/.m2 \
     done
 
 # Copy source code. The application graph reaches the extracted CR3 layers
-# through canon-cr3-core and ImageIO.
+# through canon-cr3-core and ImageIO. Reference-testkit sources are not needed
+# for the runtime application build.
 COPY common-api/src common-api/src
 COPY plugin-api/src plugin-api/src
 COPY capture-core/src capture-core/src
