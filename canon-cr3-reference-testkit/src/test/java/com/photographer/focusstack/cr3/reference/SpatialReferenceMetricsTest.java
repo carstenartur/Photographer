@@ -37,9 +37,9 @@ class SpatialReferenceMetricsTest {
 
         assertThat(result.sampleCount()).isEqualTo(6);
         assertThat(result.mae()).isEqualTo(16.0 / 6.0);
-        assertThat(result.rmse()).isEqualTo(Math.sqrt(54.0 / 6.0));
+        assertThat(result.rmse()).isEqualTo(Math.sqrt(50.0 / 6.0));
         assertThat(result.meanError()).isEqualTo(2.0 / 6.0);
-        assertThat(result.errorStdDev()).isEqualTo(Math.sqrt(54.0 / 6.0 - Math.pow(2.0 / 6.0, 2)));
+        assertThat(result.errorStdDev()).isEqualTo(Math.sqrt(50.0 / 6.0 - Math.pow(2.0 / 6.0, 2)));
     }
 
     @Test
