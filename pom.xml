@@ -36,6 +36,7 @@
         <module>canon-cr3-container</module>
         <module>canon-cr3-metadata</module>
         <module>canon-cr3-codec</module>
+        <module>canon-cr3-processing</module>
         <module>canon-cr3-core</module>
         <module>canon-cr3-imageio</module>
         <module>canon-cr3-cli</module>
