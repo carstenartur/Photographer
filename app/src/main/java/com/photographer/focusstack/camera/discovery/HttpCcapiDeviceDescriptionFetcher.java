@@ -14,7 +14,7 @@ import java.util.Objects;
 /** Bounded HTTP client for UPnP device descriptions; redirects are not followed. */
 final class HttpCcapiDeviceDescriptionFetcher implements CcapiDeviceDescriptionFetcher {
 
-    private static final int MAX_DESCRIPTION_BYTES = 1024 * 1024;
+    static final int MAX_DESCRIPTION_BYTES = 1024 * 1024;
     private final HttpClient httpClient;
 
     HttpCcapiDeviceDescriptionFetcher() {
@@ -53,7 +53,8 @@ final class HttpCcapiDeviceDescriptionFetcher implements CcapiDeviceDescriptionF
         }
     }
 
-    private static byte[] readLimited(InputStream input) throws IOException {
+    static byte[] readLimited(InputStream input) throws IOException {
+        Objects.requireNonNull(input, "input");
         ByteArrayOutputStream output = new ByteArrayOutputStream(8 * 1024);
         byte[] buffer = new byte[8 * 1024];
         int total = 0;
@@ -68,7 +69,7 @@ final class HttpCcapiDeviceDescriptionFetcher implements CcapiDeviceDescriptionF
         return output.toByteArray();
     }
 
-    private static void validateUri(URI uri) {
+    static void validateUri(URI uri) {
         Objects.requireNonNull(uri, "descriptionUrl");
         if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null) {
             throw new IllegalArgumentException("descriptionUrl must be an absolute HTTP URI without user info");
