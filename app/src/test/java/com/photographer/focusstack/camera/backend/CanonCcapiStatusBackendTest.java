@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -128,6 +129,23 @@ class CanonCcapiStatusBackendTest {
         assertFalse(state.connected());
         assertEquals(-1L, state.storageAvailable());
         assertEquals(-1, state.batteryLevel());
+    }
+
+    @Test
+    void transientDiscoveryFailureIsRetriedInsteadOfCachedForever() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenThrow(new ResourceAccessException("temporary timeout"))
+                .thenReturn(Map.of("ver100", List.of(descriptor("url", BATTERY_V100))));
+        when(restTemplate.getForObject(
+                eq(BATTERY_V100), eq(CanonCcapiStatusBackend.BatteryEntry.class)))
+                .thenReturn(new CanonCcapiStatusBackend.BatteryEntry(
+                        null, "LP-E6", "battery", "high", "good"));
+
+        CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
+
+        assertEquals(BatteryInfo.unknown(), backend.getBatteryInfo());
+        assertEquals(80, backend.getBatteryInfo().percent());
+        verify(restTemplate, times(2)).getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class));
     }
 
     @Test
