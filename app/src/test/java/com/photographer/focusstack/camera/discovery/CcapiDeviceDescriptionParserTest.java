@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CcapiDeviceDescriptionParserTest {
 
@@ -52,7 +53,7 @@ class CcapiDeviceDescriptionParserTest {
         assertEquals("EOS R", camera.modelName());
         assertEquals("012345678901", camera.serialNumber());
         assertEquals("Studio Camera", camera.nickname());
-        assertEquals(true, camera.serviceConnected());
+        assertTrue(camera.serviceConnected());
     }
 
     @Test
@@ -65,6 +66,13 @@ class CcapiDeviceDescriptionParserTest {
 
         assertEquals(URI.create("http://192.168.1.2:8080/ccapi"), camera.accessUrl());
         assertFalse(camera.serviceConnected());
+    }
+
+    @Test
+    void treatsEquivalentIpv6TextFormsAsSameHost() {
+        assertTrue(CcapiDeviceDescriptionParser.sameHost(
+                URI.create("http://[::1]:49152/device.xml"),
+                URI.create("http://[0:0:0:0:0:0:0:1]:8080/ccapi")));
     }
 
     @Test
@@ -88,7 +96,7 @@ class CcapiDeviceDescriptionParserTest {
     }
 
     @Test
-    void rejectsMissingServiceAndCredentialBearingAccessUrl() {
+    void rejectsMissingServiceCredentialBearingAndCrossHostAccessUrls() {
         String noService = """
                 <root xmlns="urn:schemas-upnp-org:device-1-0">
                   <device><friendlyName>Camera</friendlyName></device>
@@ -101,6 +109,11 @@ class CcapiDeviceDescriptionParserTest {
                 "http://user:secret@camera/ccapi", "1");
         assertThrows(IOException.class, () -> parser.parse(
                 stream(credentials), URI.create("http://camera/device.xml")));
+
+        String crossHost = description(
+                "http://192.168.1.99:8080/ccapi", "1");
+        assertThrows(IOException.class, () -> parser.parse(
+                stream(crossHost), URI.create("http://192.168.1.2:49152/device.xml")));
     }
 
     private static String description(String accessUrl, String onService) {
