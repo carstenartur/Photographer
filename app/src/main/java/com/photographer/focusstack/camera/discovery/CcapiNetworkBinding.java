@@ -14,6 +14,9 @@ record CcapiNetworkBinding(
         networkInterface = Objects.requireNonNull(networkInterface, "networkInterface");
         localAddress = Objects.requireNonNull(localAddress, "localAddress");
         family = Objects.requireNonNull(family, "family");
+        if (family != CcapiAddressFamily.of(localAddress)) {
+            throw new IllegalArgumentException("Address family does not match local address");
+        }
     }
 
     String displayName() {
