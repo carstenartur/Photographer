@@ -138,11 +138,14 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         }
         synchronized (this) {
             current = endpointCatalog;
-            if (current == null) {
-                current = CcapiEndpointCatalog.discover(baseUrl, restTemplate);
-                endpointCatalog = current;
+            if (current != null) {
+                return current;
             }
-            return current;
+            CcapiEndpointCatalog discovered = CcapiEndpointCatalog.discover(baseUrl, restTemplate);
+            if (!discovered.endpoints().isEmpty()) {
+                endpointCatalog = discovered;
+            }
+            return discovered;
         }
     }
 
