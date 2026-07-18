@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
     paths:
+      - 'canon-cr3-container/**'
+      - 'canon-cr3-metadata/**'
+      - 'canon-cr3-codec/**'
+      - 'canon-cr3-processing/**'
+      - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
@@ -11,6 +16,11 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'canon-cr3-container/**'
+      - 'canon-cr3-metadata/**'
+      - 'canon-cr3-codec/**'
+      - 'canon-cr3-processing/**'
+      - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
@@ -58,30 +68,3 @@ jobs:
           -jar canon-cr3-benchmark/target/benchmarks.jar
           -rf json
           -rff jmh-result.json
-
-      - name: Upload raw JMH JSON
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: jmh-result
-          path: jmh-result.json
-          retention-days: 30
-
-      - name: Publish results to gh-pages and alert on regression
-        # Pinned to a tagged release for supply-chain safety. Renovate / Dependabot
-        # may bump this in future.
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: Canon CR3 JMH Benchmarks
-          tool: jmh
-          output-file-path: jmh-result.json
-          gh-pages-branch: gh-pages
-          benchmark-data-dir-path: dev/bench
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Push the result history to gh-pages for main pushes only — PR runs
-          # only post the regression comment without polluting history.
-          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          alert-threshold: '115%'
-          fail-on-alert: false
-          comment-on-alert: true
-          summary-always: true
