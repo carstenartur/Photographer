@@ -11,13 +11,20 @@ Experimental clean-room CRX RAW codec and linear Bayer data model.
 - inverse wavelet transform
 - tile/plane reconstruction
 - `Cr3RawImage` Bayer mosaic representation
-- subband extraction for CLI/research diagnostics
+- subband extraction and byte/bit statistics for CLI and research diagnostics
 
 ## Dependency rule
 
 This module may depend on `canon-cr3-container` and `canon-cr3-metadata`.
 It must not depend on post-codec processing, the compatibility facade, ImageIO,
-CLI, application, or research modules.
+CLI, application, or `canon-cr3-research`.
+
+`SubbandStatistics` is a codec diagnostic used by the production CLI. During the
+mechanical module split it intentionally keeps the legacy
+`com.photographer.focusstack.cr3.research` package to avoid a source-breaking
+rename and a forbidden CLI dependency on `canon-cr3-research`. The class is owned
+and published by this codec module; #102 may move it to a diagnostics package when
+downstream dependencies are rewired.
 
 ## Maturity
 
