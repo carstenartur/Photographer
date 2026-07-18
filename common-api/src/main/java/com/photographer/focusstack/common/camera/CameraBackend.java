@@ -1,8 +1,5 @@
 package com.photographer.focusstack.common.camera;
 
-import com.photographer.focusstack.common.device.BatteryInfo;
-import com.photographer.focusstack.common.device.StorageInfo;
-
 public interface CameraBackend {
 
     CameraInfo getInfo();
@@ -29,28 +26,6 @@ public interface CameraBackend {
     CameraState getState();
 
     boolean supports(Operation operation);
-
-    /**
-     * Returns transport-neutral battery details when the backend exposes them.
-     *
-     * <p>The legacy {@link CameraState} percentage remains available for
-     * compatibility, while this richer contract preserves vendor-reported level,
-     * kind and quality without forcing callers to know the transport.</p>
-     */
-    default BatteryInfo getBatteryInfo() {
-        return BatteryInfo.unknown();
-    }
-
-    /**
-     * Returns every storage volume visible to the backend.
-     *
-     * <p>Backends that only implement the legacy aggregate free-space field may
-     * keep returning {@link StorageInfo#empty()}; adapters can retain a temporary
-     * compatibility mapping from {@link CameraState#storageAvailable()}.</p>
-     */
-    default StorageInfo getStorageInfo() {
-        return StorageInfo.empty();
-    }
 
     /**
      * Returns the current exposure settings (aperture, shutter speed, ISO, EV).
