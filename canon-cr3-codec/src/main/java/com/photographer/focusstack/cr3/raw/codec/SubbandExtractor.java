@@ -1,6 +1,5 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
-import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
@@ -10,135 +9,199 @@ import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/** Lists and extracts CRX subband payloads for diagnostics and research. */
+/**
+ * Reverse-engineering helper that extracts the raw entropy-coded bytes of a single
+ * CRX subband from a CR3 file, together with structural metadata needed to interpret
+ * those bytes (pixel grid, q-param, codec version, etc.).
+ *
+ * <p>This class is intentionally side-effect-free with respect to the production
+ * decoder — it only reads the existing CRX header and slices bytes out of the
+ * RAW track. It exists to support cleanroom investigation of the CRX entropy
+ * codec, which is not described by any public textual specification.</p>
+ *
+ * <p>Typical usage:</p>
+ * <pre>
+ *   var subbands = SubbandExtractor.list(new File("sample.cr3"));
+ *   var bytes = SubbandExtractor.read(new File("sample.cr3"), subbands.get(0));
+ * </pre>
+ */
 public final class SubbandExtractor {
 
-    private SubbandExtractor() {}
+    private SubbandExtractor() {
+        // utility class
+    }
 
+    /**
+     * Description of one subband within a CR3 file's RAW track, with everything
+     * a research harness needs to reason about its bitstream.
+     *
+     * @param tileIndex          index of the parent tile in the CRX header
+     * @param tileSequence       0-based ordinal of the tile (distinguishes tiles when {@code tileIndex} is reused)
+     * @param planeIndex         index of the parent plane (0..3 for RGGB)
+     * @param subbandIndex       index of the subband (0 for lossless LL; 0..9 for lossy wavelets)
+     * @param dataOffsetInFile   absolute byte offset of the subband data within the .cr3 file
+     * @param dataSize           size in bytes of the subband data
+     * @param quantValue         the {@code quantValue} field from the subband header
+     * @param supportsPartial    the partial-decode flag from the subband header
+     * @param roundedBits        the {@code roundedBits} field from the parent plane header
+     * @param trackWidth         width in pixels of the RAW track
+     * @param trackHeight        height in pixels of the RAW track
+     * @param bitDepth           bit depth declared by CMP1 (typically 14)
+     * @param codecVersion       which CRX codec marker variant the file uses
+     * @param tileWidth          tile width in pixels (from CMP1; 0 if unknown)
+     * @param tileHeight         tile height in pixels (from CMP1; 0 if unknown)
+     * @param planeWidth         width in pixels of one plane within one tile (estimated from track and CMP1 data)
+     * @param planeHeight        height in pixels of one plane within one tile (estimated from track and CMP1 data)
+     * @param waveletLevels      number of wavelet decomposition levels declared by CMP1 (0 for lossless)
+     * @param encodingType       {@code encodingType} field from CMP1
+     * @param cncvVersion        full CNCV version string from the CR3 file (or {@code null})
+     */
     public record SubbandRef(
-            int sequence,
-            int tileSequence,
             int tileIndex,
+            int tileSequence,
             int planeIndex,
             int subbandIndex,
-            int roundedBits,
-            int quantValue,
-            long dataOffset,
+            long dataOffsetInFile,
             long dataSize,
+            int quantValue,
+            boolean supportsPartial,
+            int roundedBits,
+            int trackWidth,
+            int trackHeight,
+            int bitDepth,
+            CrxHeader.CodecVersion codecVersion,
+            int tileWidth,
+            int tileHeight,
             int planeWidth,
             int planeHeight,
-            int bitDepth,
             int waveletLevels,
             int encodingType,
-            CrxHeader.CodecVersion codecVersion
-    ) {}
+            String cncvVersion) {
+    }
 
-    public static List<SubbandRef> list(File cr3) throws IOException, Cr3Exception {
-        try (ImageInputStream in = ImageIO.createImageInputStream(cr3)) {
-            if (in == null) throw new IOException("Cannot open " + cr3);
-            Cr3Container container = Cr3Parser.parse(in);
-            Cr3Track raw = container.tracks().stream()
-                    .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
-                            || track.type() == Cr3Track.TrackType.CRX_RAW)
-                    .findFirst()
-                    .orElseThrow(() -> new Cr3Exception("No RAW track"));
-            return list(in, raw, container);
+    /**
+     * Lists every subband in the RAW (CRX_BIG or CRX_RAW) track of the given CR3 file.
+     */
+    public static List<SubbandRef> list(File cr3File)
+            throws IOException, com.photographer.focusstack.cr3.Cr3Exception {
+        try (ImageInputStream in = ImageIO.createImageInputStream(cr3File)) {
+            if (in == null) {
+                throw new IOException("Cannot open file: " + cr3File);
+            }
+            return list(in);
         }
     }
 
-    public static List<SubbandRef> list(ImageInputStream in, Cr3Track raw,
-                                        Cr3Container container) throws IOException, Cr3Exception {
-        byte[] data = readTrackBytes(in, raw);
+    /**
+     * Lists every subband in the RAW track of the CR3 data exposed by the given input.
+     */
+    public static List<SubbandRef> list(ImageInputStream input)
+            throws IOException, com.photographer.focusstack.cr3.Cr3Exception {
+        Cr3Container container = Cr3Parser.parse(input);
+        Cr3Track raw = findRawTrack(container);
+        if (raw == null) {
+            return Collections.emptyList();
+        }
+
+        CrxHeader.CodecVersion version = CrxHeader.CodecVersion.V1;
+        if (container.cncvBox() != null) {
+            version = CrxHeader.detectVersion(container.cncvBox().versionString());
+        }
+        String cncvVersion = container.cncvBox() == null ? null : container.cncvBox().versionString();
+
+        long rawSize = raw.dataSize();
+        if (rawSize < 0 || rawSize > Integer.MAX_VALUE) {
+            throw new IOException("RAW track size out of range for in-memory parse: " + rawSize);
+        }
+        byte[] crxBytes = new byte[(int) rawSize];
+        input.seek(raw.dataOffset());
+        input.readFully(crxBytes);
+
+        CrxHeader header = CrxHeader.parse(crxBytes, version);
+
         Cmp1Box cmp1 = raw.cmp1();
-        if (cmp1 == null) {
-            throw new Cr3Exception("RAW track has no CMP1 compression metadata");
+        int bitDepth = (cmp1 != null && cmp1.bitsPerSample() > 0) ? cmp1.bitsPerSample() : 14;
+        int tileW = (cmp1 != null && cmp1.tileWidth() > 0) ? cmp1.tileWidth() : 0;
+        int tileH = (cmp1 != null && cmp1.tileHeight() > 0) ? cmp1.tileHeight() : 0;
+        int waveletLevels = cmp1 == null ? 0 : cmp1.waveletLevels();
+        int encodingType = cmp1 == null ? 0 : cmp1.encodingType();
+        int trackWidth = raw.width();
+        int trackHeight = raw.height();
+        if (cmp1 != null && cmp1.imageWidth() > 0) {
+            trackWidth = cmp1.imageWidth();
         }
-
-        int payloadBase = 0;
-        try {
-            int headerSize = CrxLosslessRawDecoder.resolveMdatHeaderSize(cmp1, data.length);
-            if (headerSize > 0 && headerSize < data.length) payloadBase = headerSize;
-        } catch (Cr3Exception ignored) {
-            // The diagnostics layer can still try offset zero below.
+        if (cmp1 != null && cmp1.imageHeight() > 0) {
+            trackHeight = cmp1.imageHeight();
         }
-
-        String compressor = container.cncvBox() == null
-                ? null : container.cncvBox().versionString();
-        CrxHeader.CodecVersion version = CrxHeader.detectVersion(compressor);
-        CrxHeader header;
-        try {
-            header = CrxHeader.parse(data, payloadBase, version);
-        } catch (IOException first) {
-            if (payloadBase == 0) throw first;
-            payloadBase = 0;
-            header = CrxHeader.parse(data, version);
-        }
-
-        int numTiles = Math.max(1, header.tiles().size());
-        int planeWidth = (cmp1.imageWidth() + 1) / 2;
-        int planeHeight = (cmp1.imageHeight() + 1) / 2;
-        int nominalTilePlaneWidth = cmp1.tileWidth() > 0
-                ? Math.max(1, (cmp1.tileWidth() + 1) / 2)
-                : Math.max(1, (planeWidth + numTiles - 1) / numTiles);
-        int tilePlaneHeight = cmp1.tileHeight() > 0
-                ? Math.max(1, Math.min(planeHeight, (cmp1.tileHeight() + 1) / 2))
-                : planeHeight;
 
         List<SubbandRef> result = new ArrayList<>();
-        int sequence = 0;
-        int tileSequence = 0;
-        int tileX = 0;
+        int tileSeq = 0;
         for (CrxHeader.Tile tile : header.tiles()) {
-            int remaining = Math.max(0, planeWidth - tileX);
-            int currentTileWidth = tileSequence == numTiles - 1
-                    ? remaining
-                    : Math.min(nominalTilePlaneWidth, remaining);
-            if (currentTileWidth <= 0) currentTileWidth = nominalTilePlaneWidth;
-
+            int planeW = (tileW > 0)
+                    ? (tileW + 1) / 2
+                    : ((trackWidth / Math.max(1, header.tiles().size())) + 1) / 2;
+            int planeH = (tileH > 0) ? (tileH + 1) / 2 : (trackHeight + 1) / 2;
             for (CrxHeader.Plane plane : tile.planes()) {
-                for (CrxHeader.Subband subband : plane.subbands()) {
-                    long offset = payloadBase + subband.dataOffset();
-                    result.add(new SubbandRef(sequence++, tileSequence, tile.index(),
-                            plane.index(), subband.index(), plane.roundedBits(),
-                            subband.quantValue(), offset, subband.dataSize(),
-                            currentTileWidth, tilePlaneHeight, cmp1.bitsPerSample(),
-                            cmp1.waveletLevels(), cmp1.encodingType(), version));
+                for (CrxHeader.Subband sub : plane.subbands()) {
+                    long absOffset = raw.dataOffset() + sub.dataOffset();
+                    result.add(new SubbandRef(
+                            tile.index(),
+                            tileSeq,
+                            plane.index(),
+                            sub.index(),
+                            absOffset,
+                            sub.dataSize(),
+                            sub.quantValue(),
+                            sub.supportsPartial(),
+                            plane.roundedBits(),
+                            trackWidth,
+                            trackHeight,
+                            bitDepth,
+                            version,
+                            tileW,
+                            tileH,
+                            planeW,
+                            planeH,
+                            waveletLevels,
+                            encodingType,
+                            cncvVersion));
                 }
             }
-            tileX += currentTileWidth;
-            tileSequence++;
+            tileSeq++;
         }
-        return List.copyOf(result);
+        return Collections.unmodifiableList(result);
     }
 
-    public static byte[] read(File cr3, SubbandRef ref) throws IOException {
-        try (ImageInputStream in = ImageIO.createImageInputStream(cr3)) {
-            if (in == null) throw new IOException("Cannot open " + cr3);
-            if (ref.dataSize() > Integer.MAX_VALUE) {
-                throw new IOException("Subband too large: " + ref.dataSize());
+    public static byte[] read(File cr3File, SubbandRef ref) throws IOException {
+        try (ImageInputStream in = ImageIO.createImageInputStream(cr3File)) {
+            if (in == null) {
+                throw new IOException("Cannot open file: " + cr3File);
             }
-            byte[] data = new byte[(int) ref.dataSize()];
-            in.seek(ref.dataOffset());
-            in.readFully(data);
-            return data;
+            return read(in, ref);
         }
     }
 
-    public static void write(File cr3, SubbandRef ref, File output) throws IOException {
-        Files.write(output.toPath(), read(cr3, ref));
+    public static byte[] read(ImageInputStream input, SubbandRef ref) throws IOException {
+        if (ref.dataSize() < 0 || ref.dataSize() > Integer.MAX_VALUE) {
+            throw new IOException("Subband size out of range: " + ref.dataSize());
+        }
+        byte[] out = new byte[(int) ref.dataSize()];
+        input.seek(ref.dataOffsetInFile());
+        input.readFully(out);
+        return out;
     }
 
-    private static byte[] readTrackBytes(ImageInputStream in, Cr3Track track) throws IOException {
-        if (track.dataSize() > Integer.MAX_VALUE) {
-            throw new IOException("RAW track too large: " + track.dataSize());
+    private static Cr3Track findRawTrack(Cr3Container container) {
+        for (Cr3Track track : container.tracks()) {
+            if (track.type() == Cr3Track.TrackType.CRX_BIG
+                    || track.type() == Cr3Track.TrackType.CRX_RAW) {
+                return track;
+            }
         }
-        byte[] data = new byte[(int) track.dataSize()];
-        in.seek(track.dataOffset());
-        in.readFully(data);
-        return data;
+        return null;
     }
 }
