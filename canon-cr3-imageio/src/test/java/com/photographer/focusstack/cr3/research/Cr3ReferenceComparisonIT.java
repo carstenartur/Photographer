@@ -11,6 +11,10 @@ import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.reference.ReferenceImage;
+import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
+import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
+import com.photographer.focusstack.cr3.reference.ReferencePaths;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -18,9 +22,6 @@ import javax.imageio.stream.ImageInputStream;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferUShort;
-import java.awt.image.Raster;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,11 +36,13 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+/** Reference-backed end-to-end comparison for the current lossless decoder. */
 class Cr3ReferenceComparisonIT {
 
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
     private static final Path DOCS_REPORT = Path.of("..", "docs", "cr3-results", "reference-comparison.md");
-    private static final Path DOCS_IMAGE_DIR = Path.of("..", "docs", "cr3-results", "images", "reference-comparison");
+    private static final Path DOCS_IMAGE_DIR = Path.of(
+            "..", "docs", "cr3-results", "images", "reference-comparison");
     private static final Path TARGET_DIR = Path.of("target", "cr3-reference-comparison");
     private static final Path TARGET_IMAGE_DIR = TARGET_DIR.resolve("images");
 
@@ -50,6 +53,7 @@ class Cr3ReferenceComparisonIT {
 
         Files.createDirectories(DOCS_IMAGE_DIR);
         Files.createDirectories(TARGET_IMAGE_DIR);
+        Files.createDirectories(TARGET_DIR);
 
         List<FixtureResult> results = new ArrayList<>();
         for (Path fixture : fixtures) {
@@ -63,9 +67,9 @@ class Cr3ReferenceComparisonIT {
 
         assertThat(results).isNotEmpty();
         assertThat(results).allSatisfy(result -> {
-            assertThat(result.globalMetrics.mae()).isFinite();
-            assertThat(result.globalMetrics.rmse()).isFinite();
-            assertThat(result.globalMetrics.pearson()).isFinite();
+            assertThat(result.globalMetrics().mae()).isFinite();
+            assertThat(result.globalMetrics().rmse()).isFinite();
+            assertThat(result.globalMetrics().pearson()).isFinite();
         });
     }
 
@@ -77,58 +81,80 @@ class Cr3ReferenceComparisonIT {
             return stream
                     .filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".cr3"))
-                    .filter(Cr3ReferenceComparisonIT::hasReferenceSidecars)
+                    .filter(ReferencePaths::hasBothSidecars)
                     .filter(Cr3ReferenceComparisonIT::isLosslessFixture)
                     .sorted(Comparator.comparing(path -> SAMPLES_DIR.relativize(path).toString()))
                     .toList();
         }
     }
 
-    private static boolean hasReferenceSidecars(Path fixture) {
-        return Files.isRegularFile(referenceTiffPath(fixture))
-                && Files.isRegularFile(referencePngPath(fixture));
-    }
-
     private static boolean isLosslessFixture(Path fixture) {
-        try (ImageInputStream in = ImageIO.createImageInputStream(fixture.toFile())) {
-            if (in == null) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(fixture.toFile())) {
+            if (input == null) {
                 return false;
             }
-            Cr3Container container = Cr3Parser.parse(in);
-            Cr3Track rawTrack = container.tracks().stream()
-                    .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
-                            || track.type() == Cr3Track.TrackType.CRX_RAW)
-                    .findFirst()
-                    .orElse(null);
+            Cr3Container container = Cr3Parser.parse(input);
+            Cr3Track rawTrack = findRawTrack(container);
             return rawTrack != null && rawTrack.cmp1() != null && rawTrack.cmp1().isLossless();
-        } catch (Exception e) {
+        } catch (Exception exception) {
             return false;
         }
     }
 
     private static FixtureResult analyseFixture(Path fixture) throws Exception {
-        ReferenceImage reference = loadReference(referenceTiffPath(fixture));
+        ReferenceImage reference = ReferenceImageLoader.load(ReferencePaths.rawLinearTiff(fixture));
         DecodedFixture decoded = decodeFixture(fixture);
 
-        assertThat(decoded.raw.width()).as("width for %s", fixture.getFileName()).isEqualTo(reference.width);
-        assertThat(decoded.raw.height()).as("height for %s", fixture.getFileName()).isEqualTo(reference.height);
+        assertThat(decoded.raw().width()).as("width for %s", fixture.getFileName())
+                .isEqualTo(reference.width());
+        assertThat(decoded.raw().height()).as("height for %s", fixture.getFileName())
+                .isEqualTo(reference.height());
 
-        MetricTriple global = metricTriple(reference.samples, decoded.raw.data());
-        List<PlaneResult> planes = computePlaneMetrics(reference.samples, decoded.raw, decoded.cfaLayout);
-        ObMetrics obMetrics = computeOpticalBlackMetrics(reference.samples, decoded.raw.data(),
-                decoded.raw.width(), decoded.raw.height(), decoded.iad1);
-        double boundaryError = computeBoundaryError(reference.samples, decoded.raw.data(),
-                decoded.raw.width(), decoded.raw.height(), decoded.cmp1);
+        int[] referenceSamples = reference.samples();
+        int[] actualSamples = decoded.raw().data();
+        ReferenceMetrics.MetricTriple globalMetrics =
+                ReferenceMetrics.compare(referenceSamples, actualSamples);
+        List<PlaneResult> planeMetrics = computePlaneMetrics(referenceSamples, decoded.raw(), decoded.cfaLayout());
+        ObMetrics obMetrics = computeOpticalBlackMetrics(
+                referenceSamples,
+                actualSamples,
+                decoded.raw().width(),
+                decoded.raw().height(),
+                decoded.iad1());
+        double boundaryError = decoded.cmp1() == null
+                ? Double.NaN
+                : ReferenceMetrics.tileBoundaryMae(
+                        referenceSamples,
+                        actualSamples,
+                        decoded.raw().width(),
+                        decoded.raw().height(),
+                        decoded.cmp1().tileWidth(),
+                        decoded.cmp1().tileHeight());
 
         BufferedImage preview = decodePreview(fixture);
-        VisibleRect visible = resolveVisibleRect(decoded.iad1, decoded.raw.width(), decoded.raw.height());
-        VisualScale scale = computeScale(reference.samples, decoded.raw.width(), visible);
-        BufferedImage referenceVisual = buildRawVisual(reference.samples, decoded.raw.width(), visible, scale,
-                preview.getWidth(), preview.getHeight());
-        BufferedImage decoderVisual = buildRawVisual(decoded.raw.data(), decoded.raw.width(), visible, scale,
-                preview.getWidth(), preview.getHeight());
-        BufferedImage diffVisual = buildDifferenceVisual(reference.samples, decoded.raw.data(), decoded.raw.width(),
-                visible, preview.getWidth(), preview.getHeight());
+        VisibleRect visible = resolveVisibleRect(decoded.iad1(), decoded.raw().width(), decoded.raw().height());
+        VisualScale scale = computeScale(referenceSamples, decoded.raw().width(), visible);
+        BufferedImage referenceVisual = buildRawVisual(
+                referenceSamples,
+                decoded.raw().width(),
+                visible,
+                scale,
+                preview.getWidth(),
+                preview.getHeight());
+        BufferedImage decoderVisual = buildRawVisual(
+                actualSamples,
+                decoded.raw().width(),
+                visible,
+                scale,
+                preview.getWidth(),
+                preview.getHeight());
+        BufferedImage diffVisual = buildDifferenceVisual(
+                referenceSamples,
+                actualSamples,
+                decoded.raw().width(),
+                visible,
+                preview.getWidth(),
+                preview.getHeight());
 
         Path previewOut = writeImage(fixture, "preview", preview, DOCS_IMAGE_DIR, TARGET_IMAGE_DIR);
         Path referenceOut = writeImage(fixture, "reference", referenceVisual, DOCS_IMAGE_DIR, TARGET_IMAGE_DIR);
@@ -137,249 +163,172 @@ class Cr3ReferenceComparisonIT {
 
         return new FixtureResult(
                 SAMPLES_DIR.relativize(fixture).toString().replace('\\', '/'),
-                decoded.raw.width(),
-                decoded.raw.height(),
-                global,
-                planes,
+                decoded.raw().width(),
+                decoded.raw().height(),
+                globalMetrics,
+                planeMetrics,
                 obMetrics,
                 boundaryError,
                 DOCS_REPORT.getParent().relativize(previewOut).toString().replace('\\', '/'),
                 DOCS_REPORT.getParent().relativize(referenceOut).toString().replace('\\', '/'),
                 DOCS_REPORT.getParent().relativize(decoderOut).toString().replace('\\', '/'),
-                DOCS_REPORT.getParent().relativize(diffOut).toString().replace('\\', '/')
-        );
+                DOCS_REPORT.getParent().relativize(diffOut).toString().replace('\\', '/'));
     }
 
     private static DecodedFixture decodeFixture(Path fixture) throws IOException, Cr3Exception {
-        try (ImageInputStream in = ImageIO.createImageInputStream(fixture.toFile())) {
-            if (in == null) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(fixture.toFile())) {
+            if (input == null) {
                 throw new IOException("Could not open fixture " + fixture);
             }
-            Cr3Container container = Cr3Parser.parse(in);
-            Cr3Track rawTrack = container.tracks().stream()
-                    .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
-                            || track.type() == Cr3Track.TrackType.CRX_RAW)
-                    .findFirst()
-                    .orElseThrow(() -> new IOException("No CRX raw track in " + fixture));
+            Cr3Container container = Cr3Parser.parse(input);
+            Cr3Track rawTrack = findRawTrack(container);
+            if (rawTrack == null) {
+                throw new IOException("No CRX raw track in " + fixture);
+            }
             Cmp1Box cmp1 = rawTrack.cmp1();
-            assertThat(cmp1).as("CMP1 for %s", fixture.getFileName()).isNotNull();
+            if (cmp1 == null) {
+                throw new IOException("No CMP1 metadata in " + fixture);
+            }
+
             byte[] payload = new byte[(int) rawTrack.dataSize()];
-            in.seek(rawTrack.dataOffset());
-            in.readFully(payload);
+            input.seek(rawTrack.dataOffset());
+            input.readFully(payload);
             CrxHeader.CodecVersion codecVersion = container.cncvBox() == null
                     ? CrxHeader.CodecVersion.V1
                     : CrxHeader.detectVersion(container.cncvBox().versionString());
-            Cr3RawImage raw = CrxLosslessRawDecoder.decode(payload, cmp1.imageWidth(), cmp1.imageHeight(),
-                    cmp1.bitsPerSample(), codecVersion, cmp1);
+            Cr3RawImage raw = CrxLosslessRawDecoder.decode(
+                    payload,
+                    cmp1.imageWidth(),
+                    cmp1.imageHeight(),
+                    cmp1.bitsPerSample(),
+                    codecVersion,
+                    cmp1);
             return new DecodedFixture(raw, cmp1, rawTrack.iad1(), cmp1.cfaLayout());
         }
+    }
+
+    private static Cr3Track findRawTrack(Cr3Container container) {
+        return container.tracks().stream()
+                .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
+                        || track.type() == Cr3Track.TrackType.CRX_RAW)
+                .findFirst()
+                .orElse(null);
     }
 
     private static BufferedImage decodePreview(Path fixture) throws IOException, Cr3Exception {
         try (Cr3Decoder decoder = new Cr3Decoder()) {
             decoder.setInput(fixture);
             BufferedImage preview = decoder.decode(Cr3DecodeOptions.defaults());
-            assertThat(preview).as("preview for %s", fixture.getFileName()).isNotNull();
+            if (preview == null) {
+                throw new IOException("No preview for " + fixture);
+            }
             return preview;
         }
     }
 
-    private static ReferenceImage loadReference(Path tiffPath) throws IOException {
-        BufferedImage image = ImageIO.read(tiffPath.toFile());
-        if (image == null) {
-            throw new IOException("Could not decode TIFF reference " + tiffPath);
-        }
-        Raster raster = image.getRaster();
-        int width = image.getWidth();
-        int height = image.getHeight();
-        int[] samples = readSamples(raster, width, height);
-        return new ReferenceImage(width, height, samples);
-    }
-
-    private static int[] readSamples(Raster raster, int width, int height) {
-        DataBuffer buffer = raster.getDataBuffer();
-        if (buffer instanceof DataBufferUShort ushort && ushort.getNumBanks() == 1) {
-            short[] bank = ushort.getData();
-            int[] out = new int[bank.length];
-            for (int i = 0; i < bank.length; i++) {
-                out[i] = Short.toUnsignedInt(bank[i]);
-            }
-            return out;
-        }
-        return raster.getSamples(0, 0, width, height, 0, (int[]) null);
-    }
-
     private static List<PlaneResult> computePlaneMetrics(int[] reference, Cr3RawImage decoded, int cfaLayout) {
-        List<PlaneSpec> specs = planeSpecs(cfaLayout);
-        List<PlaneResult> results = new ArrayList<>(specs.size());
+        List<PlaneResult> results = new ArrayList<>(4);
         int width = decoded.width();
         int height = decoded.height();
         int[] actual = decoded.data();
-        for (PlaneSpec spec : specs) {
-            double absSum = 0;
-            double sqSum = 0;
-            long count = 0;
-            for (int y = spec.rowOffset; y < height; y += 2) {
-                int rowBase = y * width;
-                for (int x = spec.colOffset; x < width; x += 2) {
-                    double diff = actual[rowBase + x] - reference[rowBase + x];
-                    absSum += Math.abs(diff);
-                    sqSum += diff * diff;
-                    count++;
+
+        for (PlaneSpec spec : planeSpecs(cfaLayout)) {
+            int planeWidth = (width - spec.colOffset() + 1) / 2;
+            int planeHeight = (height - spec.rowOffset() + 1) / 2;
+            int[] referencePlane = new int[planeWidth * planeHeight];
+            int[] actualPlane = new int[referencePlane.length];
+            int destination = 0;
+            for (int y = spec.rowOffset(); y < height; y += 2) {
+                int rowOffset = y * width;
+                for (int x = spec.colOffset(); x < width; x += 2) {
+                    int source = rowOffset + x;
+                    referencePlane[destination] = reference[source];
+                    actualPlane[destination] = actual[source];
+                    destination++;
                 }
             }
-            results.add(new PlaneResult(spec.label,
-                    new MetricTriple(absSum / count, Math.sqrt(sqSum / count), Double.NaN)));
+            results.add(new PlaneResult(spec.label(), ReferenceMetrics.compare(referencePlane, actualPlane)));
         }
         return results;
     }
 
-    private static ObMetrics computeOpticalBlackMetrics(int[] reference, int[] actual, int width, int height,
-                                                        Iad1Box iad1) {
+    private static ObMetrics computeOpticalBlackMetrics(
+            int[] reference,
+            int[] actual,
+            int width,
+            int height,
+            Iad1Box iad1) {
         if (iad1 == null) {
             return new ObMetrics(Double.NaN, Double.NaN);
         }
-        List<VisibleRect> rects = new ArrayList<>(2);
-        VisibleRect left = toRect(iad1.leftObLeft(), iad1.leftObTop(), iad1.leftObRight(), iad1.leftObBottom(),
-                width, height);
-        VisibleRect top = toRect(iad1.topObLeft(), iad1.topObTop(), iad1.topObRight(), iad1.topObBottom(),
-                width, height);
-        if (left.width > 0 && left.height > 0) {
-            rects.add(left);
-        }
-        if (top.width > 0 && top.height > 0) {
-            rects.add(top);
-        }
-        if (rects.isEmpty()) {
+
+        List<ReferenceMetrics.Region> regions = new ArrayList<>(2);
+        addNonEmpty(regions, toRegion(
+                iad1.leftObLeft(), iad1.leftObTop(), iad1.leftObRight(), iad1.leftObBottom(), width, height));
+        addNonEmpty(regions, toRegion(
+                iad1.topObLeft(), iad1.topObTop(), iad1.topObRight(), iad1.topObBottom(), width, height));
+        if (regions.isEmpty()) {
             return new ObMetrics(Double.NaN, Double.NaN);
         }
 
-        double absSum = 0;
-        double diffSum = 0;
-        double diffSqSum = 0;
-        long count = 0;
-        for (VisibleRect rect : rects) {
-            for (int y = rect.y; y < rect.y + rect.height; y++) {
-                int rowBase = y * width;
-                for (int x = rect.x; x < rect.x + rect.width; x++) {
-                    int diff = actual[rowBase + x] - reference[rowBase + x];
-                    absSum += Math.abs(diff);
-                    diffSum += diff;
-                    diffSqSum += (double) diff * diff;
-                    count++;
-                }
-            }
-        }
-        if (count == 0) {
-            return new ObMetrics(Double.NaN, Double.NaN);
-        }
-        double mean = diffSum / count;
-        double variance = Math.max(0.0, diffSqSum / count - mean * mean);
-        return new ObMetrics(absSum / count, Math.sqrt(variance));
+        ReferenceMetrics.RegionMetrics metrics = ReferenceMetrics.compareRegions(
+                reference,
+                actual,
+                width,
+                height,
+                regions,
+                0,
+                Integer.MIN_VALUE,
+                Integer.MAX_VALUE);
+        return new ObMetrics(metrics.mae(), metrics.stddev());
     }
 
-    private static double computeBoundaryError(int[] reference, int[] actual, int width, int height, Cmp1Box cmp1) {
-        if (cmp1 == null || cmp1.tileWidth() <= 0 || cmp1.tileHeight() <= 0) {
-            return Double.NaN;
+    private static void addNonEmpty(List<ReferenceMetrics.Region> regions, ReferenceMetrics.Region region) {
+        if (!region.isEmpty()) {
+            regions.add(region);
         }
-        double absSum = 0;
-        long count = 0;
-        for (int seamX = cmp1.tileWidth(); seamX < width; seamX += cmp1.tileWidth()) {
-            int left = seamX - 1;
-            int right = seamX;
-            for (int y = 0; y < height; y++) {
-                int rowBase = y * width;
-                absSum += Math.abs(actual[rowBase + left] - reference[rowBase + left]);
-                absSum += Math.abs(actual[rowBase + right] - reference[rowBase + right]);
-                count += 2;
-            }
-        }
-        for (int seamY = cmp1.tileHeight(); seamY < height; seamY += cmp1.tileHeight()) {
-            int top = seamY - 1;
-            int bottom = seamY;
-            int topBase = top * width;
-            int bottomBase = bottom * width;
-            for (int x = 0; x < width; x++) {
-                absSum += Math.abs(actual[topBase + x] - reference[topBase + x]);
-                absSum += Math.abs(actual[bottomBase + x] - reference[bottomBase + x]);
-                count += 2;
-            }
-        }
-        return count == 0 ? Double.NaN : absSum / count;
     }
 
-    private static MetricTriple metricTriple(int[] reference, int[] actual) {
-        assertThat(actual.length).isEqualTo(reference.length);
-        double absSum = 0;
-        double sqSum = 0;
-        double sumRef = 0;
-        double sumActual = 0;
-        double sumRefSq = 0;
-        double sumActualSq = 0;
-        double sumCross = 0;
-        for (int i = 0; i < reference.length; i++) {
-            double ref = reference[i];
-            double act = actual[i];
-            double diff = act - ref;
-            absSum += Math.abs(diff);
-            sqSum += diff * diff;
-            sumRef += ref;
-            sumActual += act;
-            sumRefSq += ref * ref;
-            sumActualSq += act * act;
-            sumCross += ref * act;
-        }
-        double count = reference.length;
-        double meanRef = sumRef / count;
-        double meanActual = sumActual / count;
-        double covariance = sumCross / count - meanRef * meanActual;
-        double varianceRef = sumRefSq / count - meanRef * meanRef;
-        double varianceActual = sumActualSq / count - meanActual * meanActual;
-        double denom = Math.sqrt(Math.max(varianceRef, 0.0) * Math.max(varianceActual, 0.0));
-        double pearson = denom == 0.0 ? 1.0 : covariance / denom;
-        return new MetricTriple(absSum / count, Math.sqrt(sqSum / count), pearson);
+    private static ReferenceMetrics.Region toRegion(
+            int left, int top, int right, int bottom, int width, int height) {
+        int x0 = Math.max(0, Math.min(width, left));
+        int y0 = Math.max(0, Math.min(height, top));
+        int x1 = Math.max(x0, Math.min(width, right));
+        int y1 = Math.max(y0, Math.min(height, bottom));
+        return new ReferenceMetrics.Region(x0, y0, x1 - x0, y1 - y0);
     }
 
     private static VisibleRect resolveVisibleRect(Iad1Box iad1, int width, int height) {
         if (iad1 == null) {
             return new VisibleRect(0, 0, width, height);
         }
-        VisibleRect rect = toRect(iad1.activeLeft(), iad1.activeTop(), iad1.activeRight(),
-                iad1.activeBottom(), width, height);
-        return rect.width > 0 && rect.height > 0 ? rect : new VisibleRect(0, 0, width, height);
-    }
-
-    private static VisibleRect toRect(int left, int top, int right, int bottom, int width, int height) {
-        int x0 = Math.max(0, Math.min(width, left));
-        int y0 = Math.max(0, Math.min(height, top));
-        int x1 = Math.max(x0, Math.min(width, right));
-        int y1 = Math.max(y0, Math.min(height, bottom));
-        return new VisibleRect(x0, y0, x1 - x0, y1 - y0);
+        ReferenceMetrics.Region region = toRegion(
+                iad1.activeLeft(), iad1.activeTop(), iad1.activeRight(), iad1.activeBottom(), width, height);
+        return region.isEmpty()
+                ? new VisibleRect(0, 0, width, height)
+                : new VisibleRect(region.x(), region.y(), region.width(), region.height());
     }
 
     private static VisualScale computeScale(int[] samples, int width, VisibleRect rect) {
-        int total = rect.width * rect.height;
+        int total = rect.width() * rect.height();
         int sampleSize = Math.min(total, 50_000);
         int[] values = new int[sampleSize];
         int step = Math.max(1, total / sampleSize);
         int seen = 0;
         int stored = 0;
-        for (int y = rect.y; y < rect.y + rect.height; y++) {
-            int rowBase = y * width;
-            for (int x = rect.x; x < rect.x + rect.width; x++) {
-                if (stored >= sampleSize) {
-                    break;
-                }
+        for (int y = rect.y(); y < rect.y() + rect.height(); y++) {
+            int rowOffset = y * width;
+            for (int x = rect.x(); x < rect.x() + rect.width() && stored < sampleSize; x++) {
                 if ((seen++ % step) == 0) {
-                    values[stored++] = samples[rowBase + x];
+                    values[stored++] = samples[rowOffset + x];
                 }
             }
         }
         values = Arrays.copyOf(values, stored);
         Arrays.sort(values);
-        int lo = percentile(values, 0.5);
-        int hi = percentile(values, 99.5);
-        return new VisualScale(lo, Math.max(lo + 1, hi));
+        int low = percentile(values, 0.5);
+        int high = percentile(values, 99.5);
+        return new VisualScale(low, Math.max(low + 1, high));
     }
 
     private static int percentile(int[] values, double percentile) {
@@ -390,43 +339,54 @@ class Cr3ReferenceComparisonIT {
         return values[Math.max(0, Math.min(values.length - 1, index))];
     }
 
-    private static BufferedImage buildRawVisual(int[] samples, int width, VisibleRect rect, VisualScale scale,
-                                                int outWidth, int outHeight) {
-        BufferedImage raw = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_BYTE_GRAY);
-        for (int y = 0; y < rect.height; y++) {
-            int rowBase = (rect.y + y) * width;
-            for (int x = 0; x < rect.width; x++) {
-                int value = samples[rowBase + rect.x + x];
-                int normalized = normalize(value, scale);
+    private static BufferedImage buildRawVisual(
+            int[] samples,
+            int width,
+            VisibleRect rect,
+            VisualScale scale,
+            int outputWidth,
+            int outputHeight) {
+        BufferedImage raw = new BufferedImage(rect.width(), rect.height(), BufferedImage.TYPE_BYTE_GRAY);
+        for (int y = 0; y < rect.height(); y++) {
+            int rowOffset = (rect.y() + y) * width;
+            for (int x = 0; x < rect.width(); x++) {
+                int normalized = normalize(samples[rowOffset + rect.x() + x], scale);
                 int gray = (normalized << 16) | (normalized << 8) | normalized;
                 raw.setRGB(x, y, 0xFF000000 | gray);
             }
         }
-        return scaleImage(raw, outWidth, outHeight);
+        return scaleImage(raw, outputWidth, outputHeight);
     }
 
-    private static BufferedImage buildDifferenceVisual(int[] reference, int[] actual, int width, VisibleRect rect,
-                                                       int outWidth, int outHeight) {
-        BufferedImage diff = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_RGB);
-        for (int y = 0; y < rect.height; y++) {
-            int rowBase = (rect.y + y) * width;
-            for (int x = 0; x < rect.width; x++) {
-                int delta = Math.abs(actual[rowBase + rect.x + x] - reference[rowBase + rect.x + x]);
+    private static BufferedImage buildDifferenceVisual(
+            int[] reference,
+            int[] actual,
+            int width,
+            VisibleRect rect,
+            int outputWidth,
+            int outputHeight) {
+        BufferedImage difference = new BufferedImage(rect.width(), rect.height(), BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < rect.height(); y++) {
+            int rowOffset = (rect.y() + y) * width;
+            for (int x = 0; x < rect.width(); x++) {
+                int index = rowOffset + rect.x() + x;
+                int delta = Math.abs(actual[index] - reference[index]);
                 int intensity = Math.min(255, delta / 8);
                 int rgb = (intensity << 16) | (Math.min(255, intensity / 2) << 8);
-                diff.setRGB(x, y, 0xFF000000 | rgb);
+                difference.setRGB(x, y, 0xFF000000 | rgb);
             }
         }
-        return scaleImage(diff, outWidth, outHeight);
+        return scaleImage(difference, outputWidth, outputHeight);
     }
 
     private static BufferedImage scaleImage(BufferedImage source, int width, int height) {
         if (source.getWidth() == width && source.getHeight() == height) {
             return source;
         }
-        BufferedImage scaled = new BufferedImage(width, height, source.getType() == 0
-                ? BufferedImage.TYPE_INT_RGB
-                : source.getType());
+        BufferedImage scaled = new BufferedImage(
+                width,
+                height,
+                source.getType() == BufferedImage.TYPE_CUSTOM ? BufferedImage.TYPE_INT_RGB : source.getType());
         Graphics2D graphics = scaled.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
@@ -439,20 +399,24 @@ class Cr3ReferenceComparisonIT {
     }
 
     private static int normalize(int value, VisualScale scale) {
-        if (value <= scale.low) {
+        if (value <= scale.low()) {
             return 0;
         }
-        if (value >= scale.high) {
+        if (value >= scale.high()) {
             return 255;
         }
-        return (int) Math.round((value - scale.low) * 255.0 / (scale.high - scale.low));
+        return (int) Math.round((value - scale.low()) * 255.0 / (scale.high() - scale.low()));
     }
 
-    private static Path writeImage(Path fixture, String suffix, BufferedImage image,
-                                   Path docsDir, Path targetDir) throws IOException {
-        String stem = fixture.getFileName().toString().replaceAll("\\.cr3$", "");
-        Path docsPath = docsDir.resolve(stem + "-" + suffix + ".png");
-        Path targetPath = targetDir.resolve(stem + "-" + suffix + ".png");
+    private static Path writeImage(
+            Path fixture,
+            String suffix,
+            BufferedImage image,
+            Path docsDirectory,
+            Path targetDirectory) throws IOException {
+        String stem = fixture.getFileName().toString().replaceAll("(?i)\\.cr3$", "");
+        Path docsPath = docsDirectory.resolve(stem + "-" + suffix + ".png");
+        Path targetPath = targetDirectory.resolve(stem + "-" + suffix + ".png");
         ImageIO.write(image, "PNG", docsPath.toFile());
         ImageIO.write(image, "PNG", targetPath.toFile());
         return docsPath;
@@ -471,40 +435,39 @@ class Cr3ReferenceComparisonIT {
         markdown.append("| Fixture | Size | Global MAE | Global RMSE | Pearson | OB MAE | OB StdDev | Boundary Error |\n");
         markdown.append("|---|---:|---:|---:|---:|---:|---:|---:|\n");
         for (FixtureResult result : results) {
-            markdown.append("| `").append(result.fixture).append("` | ")
-                    .append(result.width).append("×").append(result.height).append(" | ")
-                    .append(fmt(result.globalMetrics.mae())).append(" | ")
-                    .append(fmt(result.globalMetrics.rmse())).append(" | ")
-                    .append(fmt(result.globalMetrics.pearson())).append(" | ")
-                    .append(fmt(result.obMetrics.mae())).append(" | ")
-                    .append(fmt(result.obMetrics.stddev())).append(" | ")
-                    .append(fmt(result.boundaryError)).append(" |\n");
+            markdown.append("| `").append(result.fixture()).append("` | ")
+                    .append(result.width()).append('×').append(result.height()).append(" | ")
+                    .append(fmt(result.globalMetrics().mae())).append(" | ")
+                    .append(fmt(result.globalMetrics().rmse())).append(" | ")
+                    .append(fmt(result.globalMetrics().pearson())).append(" | ")
+                    .append(fmt(result.obMetrics().mae())).append(" | ")
+                    .append(fmt(result.obMetrics().stddev())).append(" | ")
+                    .append(fmt(result.boundaryError())).append(" |\n");
         }
 
         markdown.append("\n## Per fixture\n");
         for (FixtureResult result : results) {
-            markdown.append("\n### `").append(result.fixture).append("`\n\n");
+            markdown.append("\n### `").append(result.fixture()).append("`\n\n");
             markdown.append("| Scope | MAE | RMSE | Pearson |\n");
             markdown.append("|---|---:|---:|---:|\n");
-            markdown.append("| Global | ").append(fmt(result.globalMetrics.mae())).append(" | ")
-                    .append(fmt(result.globalMetrics.rmse())).append(" | ")
-                    .append(fmt(result.globalMetrics.pearson())).append(" |\n");
-            for (PlaneResult plane : result.planes) {
-                markdown.append("| Plane ").append(plane.label).append(" | ")
-                        .append(fmt(plane.metrics.mae())).append(" | ")
-                        .append(fmt(plane.metrics.rmse())).append(" | ")
-                        .append("— |\n");
+            markdown.append("| Global | ").append(fmt(result.globalMetrics().mae())).append(" | ")
+                    .append(fmt(result.globalMetrics().rmse())).append(" | ")
+                    .append(fmt(result.globalMetrics().pearson())).append(" |\n");
+            for (PlaneResult plane : result.planes()) {
+                markdown.append("| Plane ").append(plane.label()).append(" | ")
+                        .append(fmt(plane.metrics().mae())).append(" | ")
+                        .append(fmt(plane.metrics().rmse())).append(" | ")
+                        .append(fmt(plane.metrics().pearson())).append(" |\n");
             }
-            markdown.append("| Optical Black | ").append(fmt(result.obMetrics.mae())).append(" | ")
-                    .append(fmt(result.obMetrics.stddev())).append(" | ")
-                    .append("— |\n");
-            markdown.append("| Tile Boundaries | ").append(fmt(result.boundaryError)).append(" | — | — |\n\n");
+            markdown.append("| Optical Black | ").append(fmt(result.obMetrics().mae())).append(" | ")
+                    .append(fmt(result.obMetrics().stddev())).append(" | — |\n");
+            markdown.append("| Tile Boundaries | ").append(fmt(result.boundaryError())).append(" | — | — |\n\n");
             markdown.append("| Preview | Reference | Decoder | Difference |\n");
             markdown.append("|---|---|---|---|\n");
-            markdown.append("| ![](").append(result.previewImage).append(") ")
-                    .append("| ![](").append(result.referenceImage).append(") ")
-                    .append("| ![](").append(result.decoderImage).append(") ")
-                    .append("| ![](").append(result.diffImage).append(") |\n");
+            markdown.append("| ![](").append(result.previewImage()).append(") ")
+                    .append("| ![](").append(result.referenceImage()).append(") ")
+                    .append("| ![](").append(result.decoderImage()).append(") ")
+                    .append("| ![](").append(result.diffImage()).append(") |\n");
         }
         return markdown.toString();
     }
@@ -513,70 +476,60 @@ class Cr3ReferenceComparisonIT {
         return Double.isFinite(value) ? String.format(Locale.ROOT, "%.4f", value) : "n/a";
     }
 
-    private static Path referenceTiffPath(Path fixture) {
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", ".reference.tiff"));
-    }
-
-    private static Path referencePngPath(Path fixture) {
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", ".reference.png"));
-    }
-
     private static List<PlaneSpec> planeSpecs(int cfaLayout) {
         return switch (cfaLayout) {
             case 1 -> List.of(
                     new PlaneSpec("Gr", 0, 0),
                     new PlaneSpec("R", 0, 1),
                     new PlaneSpec("B", 1, 0),
-                    new PlaneSpec("Gb", 1, 1)
-            );
+                    new PlaneSpec("Gb", 1, 1));
             case 2 -> List.of(
                     new PlaneSpec("Gb", 0, 0),
                     new PlaneSpec("B", 0, 1),
                     new PlaneSpec("R", 1, 0),
-                    new PlaneSpec("Gr", 1, 1)
-            );
+                    new PlaneSpec("Gr", 1, 1));
             case 3 -> List.of(
                     new PlaneSpec("B", 0, 0),
                     new PlaneSpec("Gb", 0, 1),
                     new PlaneSpec("Gr", 1, 0),
-                    new PlaneSpec("R", 1, 1)
-            );
+                    new PlaneSpec("R", 1, 1));
             default -> List.of(
                     new PlaneSpec("R", 0, 0),
                     new PlaneSpec("Gr", 0, 1),
                     new PlaneSpec("Gb", 1, 0),
-                    new PlaneSpec("B", 1, 1)
-            );
+                    new PlaneSpec("B", 1, 1));
         };
     }
 
-    private record ReferenceImage(int width, int height, int[] samples) { }
+    private record DecodedFixture(Cr3RawImage raw, Cmp1Box cmp1, Iad1Box iad1, int cfaLayout) {
+    }
 
-    private record DecodedFixture(Cr3RawImage raw, Cmp1Box cmp1, Iad1Box iad1, int cfaLayout) { }
+    private record PlaneResult(String label, ReferenceMetrics.MetricTriple metrics) {
+    }
 
-    private record MetricTriple(double mae, double rmse, double pearson) { }
-
-    private record PlaneResult(String label, MetricTriple metrics) { }
-
-    private record ObMetrics(double mae, double stddev) { }
+    private record ObMetrics(double mae, double stddev) {
+    }
 
     private record FixtureResult(
             String fixture,
             int width,
             int height,
-            MetricTriple globalMetrics,
+            ReferenceMetrics.MetricTriple globalMetrics,
             List<PlaneResult> planes,
             ObMetrics obMetrics,
             double boundaryError,
             String previewImage,
             String referenceImage,
             String decoderImage,
-            String diffImage
-    ) { }
+            String diffImage) {
+    }
 
-    private record VisibleRect(int x, int y, int width, int height) { }
+    private record VisibleRect(int x, int y, int width, int height) {
+    }
 
-    private record VisualScale(int low, int high) { }
+    private record VisualScale(int low, int high) {
+    }
 
-    private record PlaneSpec(String label, int rowOffset, int colOffset) { }
+    private record PlaneSpec(String label, int rowOffset, int colOffset) {
+    }
 }
