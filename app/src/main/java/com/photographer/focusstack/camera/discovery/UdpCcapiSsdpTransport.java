@@ -17,7 +17,8 @@ final class UdpCcapiSsdpTransport implements CcapiSsdpTransport {
     private static final int MAX_PACKETS_PER_BINDING = 64;
 
     @Override
-    public List<byte[]> search(CcapiNetworkBinding binding, byte[] request, Duration timeout)
+    public List<CcapiSsdpDatagram> search(
+            CcapiNetworkBinding binding, byte[] request, Duration timeout)
             throws IOException {
         if (request == null || request.length == 0) {
             throw new IllegalArgumentException("request must not be empty");
@@ -26,8 +27,14 @@ final class UdpCcapiSsdpTransport implements CcapiSsdpTransport {
             throw new IllegalArgumentException("timeout must be positive");
         }
 
-        long deadlineNanos = System.nanoTime() + timeout.toNanos();
-        List<byte[]> responses = new ArrayList<>();
+        long deadlineNanos;
+        try {
+            deadlineNanos = Math.addExact(System.nanoTime(), timeout.toNanos());
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("timeout is too large", exception);
+        }
+
+        List<CcapiSsdpDatagram> responses = new ArrayList<>();
         try (MulticastSocket socket = new MulticastSocket(null)) {
             socket.setReuseAddress(true);
             socket.bind(new InetSocketAddress(binding.localAddress(), 0));
@@ -48,7 +55,10 @@ final class UdpCcapiSsdpTransport implements CcapiSsdpTransport {
                 DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
                 try {
                     socket.receive(packet);
-                    responses.add(Arrays.copyOf(packet.getData(), packet.getLength()));
+                    if (packet.getSocketAddress() instanceof InetSocketAddress source) {
+                        responses.add(new CcapiSsdpDatagram(
+                                Arrays.copyOf(packet.getData(), packet.getLength()), source));
+                    }
                 } catch (SocketTimeoutException timeoutException) {
                     break;
                 }
