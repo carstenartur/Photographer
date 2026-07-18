@@ -1,5 +1,6 @@
 package com.photographer.focusstack.cr3.research;
 
+import com.photographer.focusstack.cr3.reference.ImageReferenceMetrics;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *
  * <p>The test is automatically <em>skipped</em> when Python 3 is not available
  * or when {@code rawpy} cannot be imported, so it does not break CI
- * environments that only have Java.  Run it locally after installing the
+ * environments that only have Java. Run it locally after installing the
  * Python prerequisites:
  *
  * <pre>
@@ -34,10 +35,10 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * </pre>
  *
  * <p>When the regenerated sidecar is <em>bit-identical</em> to the committed
- * file the test passes normally.  When hashes differ (e.g. because a newer
+ * file the test passes normally. When hashes differ (e.g. because a newer
  * LibRaw version produces slightly different raw values) the test logs
  * MAE / RMSE / histogram-delta metrics and still passes, because pixel-exact
- * bit identity is not guaranteed across library versions.  The hard-fail gate
+ * bit identity is not guaranteed across library versions. The hard-fail gate
  * is {@link ReferenceManifestValidationIT}.
  */
 class ReferenceRebuildValidationIT {
@@ -49,10 +50,6 @@ class ReferenceRebuildValidationIT {
 
     /** Smallest available fixture – keeps the probe fast. */
     private static final String PROBE_FIXTURE = "sample.cr3";
-
-    // ---------------------------------------------------------------------------
-    // Pre-flight checks
-    // ---------------------------------------------------------------------------
 
     private static boolean isPython3Available() {
         return runSilently("python3", "--version") == 0;
@@ -67,7 +64,6 @@ class ReferenceRebuildValidationIT {
             Process p = new ProcessBuilder(command)
                     .redirectErrorStream(true)
                     .start();
-            // drain stdout/stderr so the process does not block
             p.getInputStream().transferTo(java.io.OutputStream.nullOutputStream());
             return p.waitFor(10, TimeUnit.SECONDS) ? p.exitValue() : -1;
         } catch (IOException | InterruptedException e) {
@@ -75,10 +71,6 @@ class ReferenceRebuildValidationIT {
             return -1;
         }
     }
-
-    // ---------------------------------------------------------------------------
-    // Test
-    // ---------------------------------------------------------------------------
 
     @Test
     void rebuildReferenceAndCompare() throws Exception {
@@ -93,8 +85,6 @@ class ReferenceRebuildValidationIT {
 
         Path tempDir = Files.createTempDirectory("cr3-rebuild-");
         try {
-            // Copy the probe fixture into an isolated temp samples dir so that
-            // the script does not overwrite the committed sidecars.
             Path tempSamples = tempDir.resolve("samples");
             Files.createDirectories(tempSamples);
             Files.copy(SAMPLES_DIR.resolve(PROBE_FIXTURE), tempSamples.resolve(PROBE_FIXTURE));
@@ -108,13 +98,8 @@ class ReferenceRebuildValidationIT {
         }
     }
 
-    // ---------------------------------------------------------------------------
-    // Export + compare
-    // ---------------------------------------------------------------------------
-
     private void rebuildAndCompare(String fixture, String type,
                                    Path tempSamples, Path existing) throws Exception {
-        // Run the export script against the isolated temp samples directory.
         List<String> cmd = List.of(
                 "python3",
                 EXPORT_SCRIPT.toAbsolutePath().toString(),
@@ -162,8 +147,8 @@ class ReferenceRebuildValidationIT {
         }
 
         System.out.printf("[RebuildIT] %-22s hash mismatch (library version drift?)%n"
-                + "  committed sha256=%s%n"
-                + "  rebuilt   sha256=%s%n",
+                        + "  committed sha256=%s%n"
+                        + "  rebuilt   sha256=%s%n",
                 label, hashExisting, hashRebuilt);
 
         BufferedImage imgA = ImageIO.read(existing.toFile());
@@ -179,76 +164,11 @@ class ReferenceRebuildValidationIT {
             return;
         }
 
-        SimilarityMetrics m = computeMetrics(imgA, imgB);
+        ImageReferenceMetrics.Metrics metrics = ImageReferenceMetrics.compare(imgA, imgB);
         System.out.printf("[RebuildIT] %-22s MAE=%.4f  RMSE=%.4f  histogramDelta=%.6f%n",
-                label, m.mae(), m.rmse(), m.histogramDelta());
+                label, metrics.mae(), metrics.rmse(), metrics.histogramDelta());
         // Not a hard failure: the manifest IT gate handles hash enforcement.
     }
-
-    // ---------------------------------------------------------------------------
-    // Pixel-level similarity metrics
-    // ---------------------------------------------------------------------------
-
-    private static SimilarityMetrics computeMetrics(BufferedImage a, BufferedImage b) {
-        int width = a.getWidth();
-        int height = a.getHeight();
-        int commonBands = Math.min(a.getRaster().getNumBands(), b.getRaster().getNumBands());
-        int aBitDepth = a.getRaster().getSampleModel().getSampleSize(0);
-        int bBitDepth = b.getRaster().getSampleModel().getSampleSize(0);
-        long pixelCount = (long) width * height * commonBands;
-        double sumAbs = 0;
-        double sumSq = 0;
-        int[] histA = new int[256];
-        int[] histB = new int[256];
-
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                for (int band = 0; band < commonBands; band++) {
-                    int va = a.getRaster().getSample(x, y, band);
-                    int vb = b.getRaster().getSample(x, y, band);
-                    double diff = va - vb;
-                    sumAbs += Math.abs(diff);
-                    sumSq += diff * diff;
-                    histA[normalise(va, aBitDepth)]++;
-                    histB[normalise(vb, bBitDepth)]++;
-                }
-            }
-        }
-
-        double mae = sumAbs / pixelCount;
-        double rmse = Math.sqrt(sumSq / pixelCount);
-
-        // Histogram delta: mean absolute difference of normalised CDFs
-        double totalA = 0;
-        double totalB = 0;
-        for (int i = 0; i < 256; i++) {
-            totalA += histA[i];
-            totalB += histB[i];
-        }
-        double cdfA = 0;
-        double cdfB = 0;
-        double histDelta = 0;
-        for (int i = 0; i < 256; i++) {
-            cdfA += histA[i] / totalA;
-            cdfB += histB[i] / totalB;
-            histDelta += Math.abs(cdfA - cdfB);
-        }
-        histDelta /= 256.0;
-
-        return new SimilarityMetrics(mae, rmse, histDelta);
-    }
-
-    private static int normalise(int value, int bitDepth) {
-        if (bitDepth <= 0 || bitDepth == 8) {
-            return Math.max(0, Math.min(255, value));
-        }
-        int maxVal = (1 << bitDepth) - 1;
-        return (int) Math.round(value * 255.0 / maxVal);
-    }
-
-    // ---------------------------------------------------------------------------
-    // Utilities
-    // ---------------------------------------------------------------------------
 
     private static Path toSidecarPath(Path fixture, String sidecar) {
         String name = fixture.getFileName().toString();
@@ -292,11 +212,9 @@ class ReferenceRebuildValidationIT {
                     });
         }
         if (!suppressed.isEmpty()) {
-            IOException first = suppressed.get(0);
+            IOException first = suppressed.getFirst();
             suppressed.subList(1, suppressed.size()).forEach(first::addSuppressed);
             throw first;
         }
     }
-
-    private record SimilarityMetrics(double mae, double rmse, double histogramDelta) {}
 }
