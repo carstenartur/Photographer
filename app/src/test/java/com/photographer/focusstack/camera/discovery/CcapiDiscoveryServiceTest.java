@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CcapiDiscoveryServiceTest {
@@ -40,7 +41,8 @@ class CcapiDiscoveryServiceTest {
                 duplicateDescription, xml("uuid:same-camera", "Camera IPv6", "http://[::1]:8080/ccapi")
         );
         CcapiDiscoveryService service = service(
-                () -> List.of(ipv4, ipv6), transport, descriptions::get);
+                () -> List.of(ipv4, ipv6), transport,
+                (uri, timeout) -> descriptions.get(uri));
 
         CcapiDiscoveryResult result = service.discover(Duration.ofSeconds(2));
 
@@ -63,7 +65,8 @@ class CcapiDiscoveryServiceTest {
         descriptions.put(bad, "<not-xml".getBytes(StandardCharsets.UTF_8));
 
         CcapiDiscoveryResult result = service(
-                () -> List.of(binding), transport, descriptions::get)
+                () -> List.of(binding), transport,
+                (uri, timeout) -> descriptions.get(uri))
                 .discover(Duration.ofSeconds(2));
 
         assertEquals(1, result.cameras().size());
@@ -90,7 +93,8 @@ class CcapiDiscoveryServiceTest {
 
         CcapiDiscoveryResult result = service(
                 () -> List.of(first, second), transport,
-                uri -> xml("uuid:camera", "Camera", "http://127.0.0.1:8080/ccapi"))
+                (uri, timeout) -> xml(
+                        "uuid:camera", "Camera", "http://127.0.0.1:8080/ccapi"))
                 .discover(Duration.ofSeconds(2));
 
         assertEquals(2, calls.size());
@@ -114,14 +118,16 @@ class CcapiDiscoveryServiceTest {
     }
 
     @Test
-    void rejectsNonPositiveTimeout() {
+    void rejectsUnboundedOrNonPositiveTimeout() {
         CcapiDiscoveryService service = service(
                 List::of,
                 (binding, request, timeout) -> List.of(),
                 (uri, timeout) -> new byte[0]);
 
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class, () -> service.discover(Duration.ZERO));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.discover(Duration.ZERO));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.discover(Duration.ofMinutes(6)));
     }
 
     private static CcapiDiscoveryService service(
@@ -134,7 +140,8 @@ class CcapiDiscoveryServiceTest {
 
     private static CcapiNetworkBinding loopbackBinding(CcapiAddressFamily family)
             throws Exception {
-        InetAddress address = InetAddress.getByName("127.0.0.1");
+        InetAddress address = InetAddress.getByName(
+                family == CcapiAddressFamily.IPV4 ? "127.0.0.1" : "::1");
         NetworkInterface networkInterface = NetworkInterface.getByInetAddress(address);
         if (networkInterface == null) {
             networkInterface = NetworkInterface.getNetworkInterfaces().nextElement();
