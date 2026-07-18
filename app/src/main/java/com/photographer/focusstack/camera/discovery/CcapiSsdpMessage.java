@@ -41,7 +41,8 @@ public record CcapiSsdpMessage(String startLine, Map<String, String> headers) {
     private static Optional<URI> safeUri(String value) {
         try {
             URI uri = URI.create(value);
-            if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null) {
+            if (!uri.isAbsolute() || uri.getHost() == null
+                    || uri.getUserInfo() != null || uri.getFragment() != null) {
                 return Optional.empty();
             }
             String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
