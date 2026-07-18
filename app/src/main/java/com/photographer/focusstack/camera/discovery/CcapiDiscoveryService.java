@@ -111,7 +111,8 @@ public final class CcapiDiscoveryService {
             byte[] request = CcapiSsdpCodec.mSearchRequest(binding.family());
             try {
                 for (CcapiSsdpDatagram datagram : ssdpTransport.search(binding, request, slice)) {
-                    CcapiSsdpCodec.parse(datagram.payload(), datagram.payload().length)
+                    byte[] payload = datagram.payload();
+                    CcapiSsdpCodec.parse(payload, payload.length)
                             .filter(CcapiSsdpMessage::isCanonCcapi)
                             .flatMap(CcapiSsdpMessage::location)
                             .ifPresent(location -> addValidatedLocation(
