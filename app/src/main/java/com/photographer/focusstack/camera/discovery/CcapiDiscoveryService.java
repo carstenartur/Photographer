@@ -17,6 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Performs one bounded Canon CCAPI discovery pass on all eligible local interfaces.
@@ -29,6 +30,12 @@ public final class CcapiDiscoveryService {
 
     private static final Duration MIN_OPERATION_SLICE = Duration.ofMillis(250);
     private static final Duration MAX_DISCOVERY_TIMEOUT = Duration.ofMinutes(5);
+    private static final int MAX_WARNING_MESSAGE_LENGTH = 256;
+    private static final Pattern URL_QUERY_PATTERN = Pattern.compile(
+            "(?i)(https?://[^\\s?#]+)\\?[^\\s#]+");
+    private static final Pattern SENSITIVE_VALUE_PATTERN = Pattern.compile(
+            "(?i)(password|passwd|token|secret|authorization|api[_-]?key)=([^\\s&,;]+)");
+
     private final CcapiNetworkBindingProvider bindingProvider;
     private final CcapiSsdpTransport ssdpTransport;
     private final CcapiDeviceDescriptionFetcher descriptionFetcher;
@@ -209,6 +216,20 @@ public final class CcapiDiscoveryService {
         }
     }
 
+    static String safeWarningMessage(Exception exception) {
+        Objects.requireNonNull(exception, "exception");
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            message = exception.getClass().getSimpleName();
+        }
+        message = URL_QUERY_PATTERN.matcher(message).replaceAll("$1?<redacted>");
+        message = SENSITIVE_VALUE_PATTERN.matcher(message).replaceAll("$1=<redacted>");
+        if (message.length() > MAX_WARNING_MESSAGE_LENGTH) {
+            message = message.substring(0, MAX_WARNING_MESSAGE_LENGTH - 1) + "…";
+        }
+        return message;
+    }
+
     private static Duration operationSlice(Duration remaining, int operationsLeft) {
         if (operationsLeft <= 1) {
             return remaining;
@@ -241,10 +262,7 @@ public final class CcapiDiscoveryService {
 
     private static CcapiDiscoveryWarning warning(
             String stage, String source, Exception exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            message = exception.getClass().getSimpleName();
-        }
-        return new CcapiDiscoveryWarning(stage, source, message);
+        return new CcapiDiscoveryWarning(
+                stage, source, safeWarningMessage(exception));
     }
 }
