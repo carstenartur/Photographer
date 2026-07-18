@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -77,6 +79,7 @@ public final class CcapiDiscoveryService {
                 break;
             }
             Duration slice = operationSlice(remaining, remainingLocations--);
+            String warningSource = redactedUriSource(descriptionUrl);
             try {
                 byte[] xml = descriptionFetcher.fetch(descriptionUrl, slice);
                 CcapiDiscoveredCamera camera = descriptionParser.parse(
@@ -85,11 +88,11 @@ public final class CcapiDiscoveryService {
             } catch (InterruptedException exception) {
                 Thread.currentThread().interrupt();
                 warnings.add(new CcapiDiscoveryWarning(
-                        "device-description", descriptionUrl.toString(), "Discovery interrupted"));
+                        "device-description", warningSource, "Discovery interrupted"));
                 break;
             } catch (IOException | RuntimeException exception) {
                 warnings.add(warning(
-                        "device-description", descriptionUrl.toString(), exception));
+                        "device-description", warningSource, exception));
             }
         }
         return new CcapiDiscoveryResult(List.copyOf(cameras.values()), warnings);
@@ -187,8 +190,23 @@ public final class CcapiDiscoveryService {
     }
 
     private static String cameraIdentity(CcapiDiscoveredCamera camera) {
-        return camera.udn() != null ? "udn:" + camera.udn()
-                : "url:" + camera.accessUrl().normalize();
+        if (camera.udn() != null) {
+            return "udn:" + camera.udn().toLowerCase(Locale.ROOT);
+        }
+        return "url:" + camera.accessUrl().normalize();
+    }
+
+    static String redactedUriSource(URI uri) {
+        if (uri == null) {
+            return null;
+        }
+        try {
+            return new URI(
+                    uri.getScheme(), null, uri.getHost(), uri.getPort(),
+                    uri.getPath(), null, null).toString();
+        } catch (URISyntaxException exception) {
+            return uri.getHost();
+        }
     }
 
     private static Duration operationSlice(Duration remaining, int operationsLeft) {
