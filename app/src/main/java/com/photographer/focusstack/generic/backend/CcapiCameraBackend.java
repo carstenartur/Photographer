@@ -4,6 +4,7 @@ import com.photographer.focusstack.camera.backend.CanonCcapiBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.Operation;
@@ -35,10 +36,12 @@ import java.util.Objects;
  * today. Lens details and media list/download/delete remain absent from the
  * generic adapter and are therefore not advertised as capabilities.</p>
  *
- * <p>Rich battery and multi-volume storage snapshots are preferred. For older
- * backends that only implement {@link CameraState}, the adapter retains a
- * compatibility mapping to percentage and one synthetic primary volume. It
- * never issues Canon-specific HTTP requests itself.</p>
+ * <p>Backends implementing {@link CameraStatusProvider} supply authoritative
+ * rich battery and multi-volume storage snapshots. Older backends retain the
+ * compatibility mapping from one {@link CameraState} read to percentage and a
+ * synthetic primary volume. The adapter never issues Canon-specific HTTP
+ * requests itself and never replaces an authoritative unknown/empty rich value
+ * with a misleading legacy default.</p>
  */
 public class CcapiCameraBackend implements GenericCameraBackend {
 
@@ -108,18 +111,18 @@ public class CcapiCameraBackend implements GenericCameraBackend {
 
     @Override
     public StorageInfo getStorageInfo(CameraConnection connection) {
-        StorageInfo rich = readRichStorageSafely();
-        if (hasKnownStorage(rich)) {
-            return rich;
+        CameraStatusProvider provider = statusProvider();
+        if (provider != null) {
+            return readRichStorageSafely(provider);
         }
         return toStorageInfo(readStateSafely());
     }
 
     @Override
     public BatteryInfo getBatteryInfo(CameraConnection connection) {
-        BatteryInfo rich = readRichBatterySafely();
-        if (hasKnownBattery(rich)) {
-            return rich;
+        CameraStatusProvider provider = statusProvider();
+        if (provider != null) {
+            return readRichBatterySafely(provider);
         }
         return toBatteryInfo(readStateSafely());
     }
@@ -180,25 +183,25 @@ public class CcapiCameraBackend implements GenericCameraBackend {
     }
 
     private StatusSnapshot readStatusSnapshot() {
-        BatteryInfo battery = readRichBatterySafely();
-        StorageInfo storage = readRichStorageSafely();
-        if (hasKnownBattery(battery) && hasKnownStorage(storage)) {
-            return new StatusSnapshot(battery, storage);
+        CameraStatusProvider provider = statusProvider();
+        if (provider != null) {
+            return new StatusSnapshot(
+                    readRichBatterySafely(provider),
+                    readRichStorageSafely(provider)
+            );
         }
 
         CameraState state = readStateSafely();
-        if (!hasKnownBattery(battery)) {
-            battery = toBatteryInfo(state);
-        }
-        if (!hasKnownStorage(storage)) {
-            storage = toStorageInfo(state);
-        }
-        return new StatusSnapshot(battery, storage);
+        return new StatusSnapshot(toBatteryInfo(state), toStorageInfo(state));
     }
 
-    private BatteryInfo readRichBatterySafely() {
+    private CameraStatusProvider statusProvider() {
+        return legacy instanceof CameraStatusProvider provider ? provider : null;
+    }
+
+    private BatteryInfo readRichBatterySafely(CameraStatusProvider provider) {
         try {
-            BatteryInfo result = legacy.getBatteryInfo();
+            BatteryInfo result = provider.getBatteryInfo();
             return result == null ? BatteryInfo.unknown() : result;
         } catch (RuntimeException exception) {
             log.warn("Could not read rich CCAPI battery status for {}: {}",
@@ -207,9 +210,9 @@ public class CcapiCameraBackend implements GenericCameraBackend {
         }
     }
 
-    private StorageInfo readRichStorageSafely() {
+    private StorageInfo readRichStorageSafely(CameraStatusProvider provider) {
         try {
-            StorageInfo result = legacy.getStorageInfo();
+            StorageInfo result = provider.getStorageInfo();
             return result == null ? StorageInfo.empty() : result;
         } catch (RuntimeException exception) {
             log.warn("Could not read rich CCAPI storage status for {}: {}",
