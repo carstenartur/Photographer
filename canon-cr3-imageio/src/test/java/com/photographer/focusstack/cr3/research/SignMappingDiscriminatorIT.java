@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -44,6 +45,7 @@ class SignMappingDiscriminatorIT {
 
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
     private static final Path OUT_DIR = Path.of("target", "sign-mapping-discriminator");
+    private static final int EXPECTED_REGRESSION_PANEL_SIZE = 11;
 
     private static final Set<String> DISCRIMINATOR_FIXTURES = Set.of(
             "sample-tele.cr3",
@@ -65,7 +67,19 @@ class SignMappingDiscriminatorIT {
     @Test
     void isolateResidualSignMappingAgainstReferenceTiffs() throws Exception {
         List<Path> fixtures = discoverFixtures();
-        assumeTrue(!fixtures.isEmpty(), "No reference-backed lossless CR3 fixtures found");
+        assumeTrue(fixtures.size() >= EXPECTED_REGRESSION_PANEL_SIZE,
+                () -> "Sign-mapping verdict requires at least " + EXPECTED_REGRESSION_PANEL_SIZE
+                        + " reference-backed lossless fixtures, found " + fixtures.size());
+
+        Set<String> fixtureNames = fixtures.stream()
+                .map(path -> SAMPLES_DIR.relativize(path).toString().replace('\\', '/'))
+                .collect(Collectors.toSet());
+        Set<String> missingDiscriminators = new TreeSet<>(DISCRIMINATOR_FIXTURES);
+        missingDiscriminators.removeAll(fixtureNames);
+        assumeTrue(missingDiscriminators.isEmpty(),
+                () -> "Sign-mapping verdict requires all discriminator fixtures; missing "
+                        + missingDiscriminators);
+
         Files.createDirectories(OUT_DIR);
 
         List<FixtureResult> results = new ArrayList<>();
