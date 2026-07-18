@@ -33,6 +33,7 @@ COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
 COPY canon-cr3-reference-testkit/pom.xml canon-cr3-reference-testkit/pom.xml
 COPY canon-cr3-research/pom.xml canon-cr3-research/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
+COPY canon-cr3-maven-smoke/pom.xml canon-cr3-maven-smoke/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
 COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
 
@@ -49,8 +50,8 @@ RUN --mount=type=cache,target=/root/.m2 \
     done
 
 # Copy source code. The application graph reaches the CR3 production layers
-# through canon-cr3-core/ImageIO; research and reference-test sources are not
-# required in the runtime image build.
+# through canon-cr3-core/ImageIO; research, reference-test and Maven-smoke sources
+# are not required in the runtime image build.
 COPY common-api/src common-api/src
 COPY plugin-api/src plugin-api/src
 COPY capture-core/src capture-core/src
