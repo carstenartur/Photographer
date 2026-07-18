@@ -37,7 +37,7 @@ class ReferenceMetricsTest {
         int[] reference = {100, 100, 100, 100, 100};
         int[] actual = {90, 91, 92, 93, 0};
 
-        assertThat(ReferenceMetrics.optimalConstantDelta(reference, actual)).isEqualTo(8);
+        assertThat(ReferenceMetrics.optimalConstantDelta(reference, actual)).isEqualTo(9);
     }
 
     @Test
