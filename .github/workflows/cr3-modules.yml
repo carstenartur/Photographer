@@ -11,6 +11,7 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-imageio/**'
+      - 'canon-cr3-research/**'
       - 'canon-cr3-cli/**'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
@@ -24,6 +25,7 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-imageio/**'
+      - 'canon-cr3-research/**'
       - 'canon-cr3-cli/**'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
@@ -53,7 +55,7 @@ jobs:
       - name: Compile CR3 test sources and run unit tests
         run: >-
           mvn -B --no-transfer-progress clean test
-          -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-reference-testkit,canon-cr3-imageio,canon-cr3-cli
+          -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-reference-testkit,canon-cr3-imageio,canon-cr3-research,canon-cr3-cli
           -am
           -Djava.awt.headless=true
 
