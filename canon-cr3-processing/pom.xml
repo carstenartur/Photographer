@@ -20,11 +20,6 @@
     <dependencies>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
-            <artifactId>canon-cr3-container</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.photographer.focusstack</groupId>
             <artifactId>canon-cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
