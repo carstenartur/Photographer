@@ -71,10 +71,15 @@ class CcapiSsdpCodecTest {
         CcapiSsdpMessage message = CcapiSsdpCodec.parse(irrelevant).orElseThrow();
         assertFalse(message.isCanonCcapi());
 
-        String unsafe = "HTTP/1.1 200 OK\r\n"
+        String credentials = "HTTP/1.1 200 OK\r\n"
                 + "ST: " + CcapiSsdpCodec.SERVICE_TYPE + "\r\n"
                 + "LOCATION: http://user:password@10.0.0.2/device.xml\r\n\r\n";
-        assertTrue(CcapiSsdpCodec.parse(unsafe).orElseThrow().location().isEmpty());
+        assertTrue(CcapiSsdpCodec.parse(credentials).orElseThrow().location().isEmpty());
+
+        String fragment = "HTTP/1.1 200 OK\r\n"
+                + "ST: " + CcapiSsdpCodec.SERVICE_TYPE + "\r\n"
+                + "LOCATION: http://10.0.0.2/device.xml#ignored\r\n\r\n";
+        assertTrue(CcapiSsdpCodec.parse(fragment).orElseThrow().location().isEmpty());
 
         assertTrue(CcapiSsdpCodec.parse("garbage").isEmpty());
         assertTrue(CcapiSsdpCodec.parse(new byte[2], 3).isEmpty());
