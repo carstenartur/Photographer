@@ -16,6 +16,14 @@ Production CR3 modules must not depend on this module. Consumers such as
 `canon-cr3-imageio` and the future `canon-cr3-research` module use it with Maven
 `test` scope only.
 
+## Current consumers
+
+- `DecoderHypothesisD1D2IT` uses the shared TIFF loader and sample metrics.
+- `ReferenceRebuildValidationIT` uses the shared image and histogram metrics.
+
+Further research tests should migrate to these APIs instead of adding local
+MAE/RMSE/Pearson or TIFF-loading implementations.
+
 ## Metric semantics
 
 - MAE and RMSE are calculated over all compared samples.
