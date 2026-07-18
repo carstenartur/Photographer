@@ -27,6 +27,7 @@ COPY frontend-web/pom.xml frontend-web/pom.xml
 COPY app/pom.xml app/pom.xml
 COPY canon-cr3-container/pom.xml canon-cr3-container/pom.xml
 COPY canon-cr3-metadata/pom.xml canon-cr3-metadata/pom.xml
+COPY canon-cr3-codec/pom.xml canon-cr3-codec/pom.xml
 COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
@@ -61,6 +62,7 @@ COPY ai-vision/src ai-vision/src
 COPY astro-core/src astro-core/src
 COPY canon-cr3-container/src canon-cr3-container/src
 COPY canon-cr3-metadata/src canon-cr3-metadata/src
+COPY canon-cr3-codec/src canon-cr3-codec/src
 COPY canon-cr3-core/src canon-cr3-core/src
 COPY canon-cr3-imageio/src canon-cr3-imageio/src
 COPY canon-cr3-cli/src canon-cr3-cli/src
@@ -86,6 +88,8 @@ WORKDIR /app
 
 COPY --from=build /app/app/target/focusstack.jar app.jar
 
+# Pre-create volume mount-points so they inherit appuser ownership
+# when Docker initializes empty named volumes.
 RUN mkdir -p /app/data/search-index /app/images /app/plugins \
     && chown -R appuser:appgroup /app
 USER appuser
