@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.example</groupId>
+    <artifactId>cr3-external-consumer</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.release>25</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-container</artifactId>
+            <version>@project.version@</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-metadata</artifactId>
+            <version>@project.version@</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-codec</artifactId>
+            <version>@project.version@</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-imageio</artifactId>
+            <version>@project.version@</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>@external.junit.version@</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>@external.compiler.version@</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>@external.surefire.version@</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                    <argLine>-Xmx2g -Djava.awt.headless=true</argLine>
+                    <systemPropertyVariables>
+                        <cr3.sample>@basedir@/../canon-cr3-imageio/src/test/resources/samples/sample.cr3</cr3.sample>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>@external.dependency-plugin.version@</version>
+                <executions>
+                    <execution>
+                        <id>record-runtime-dependency-tree</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>tree</goal>
+                        </goals>
+                        <configuration>
+                            <scope>runtime</scope>
+                            <outputFile>${project.build.directory}/runtime-dependencies.txt</outputFile>
+                            <appendOutput>false</appendOutput>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
