@@ -1,6 +1,5 @@
 package com.photographer.focusstack.camera.backend;
 
-import com.photographer.focusstack.camera.backend.FolderCameraBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.plugin.CameraBackendPlugin;
@@ -13,7 +12,6 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <ul>
  *   <li>{@code mock} profiles → {@link MockCameraBackend}</li>
- *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiBackend} pointed at the profile's host</li>
+ *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiStatusBackend} pointed at the profile's host</li>
  *   <li>Unknown types → checks {@link CameraBackendRegistry} for external plugin backends</li>
  * </ul>
  *
@@ -127,8 +125,8 @@ public class CameraBackendFactory {
         // Default: canon-ccapi
         String host = profile.host();
         String baseUrl = host.startsWith("http") ? host : "http://" + host + ":8080";
-        log.info("Creating CanonCcapiBackend for profile '{}' ({}) → {}",
+        log.info("Creating CanonCcapiStatusBackend for profile '{}' ({}) → {}",
                 profile.name(), profile.id(), baseUrl);
-        return new CanonCcapiBackend(baseUrl, restTemplate);
+        return new CanonCcapiStatusBackend(baseUrl, restTemplate);
     }
 }
