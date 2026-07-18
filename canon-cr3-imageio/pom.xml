@@ -31,6 +31,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-container</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
