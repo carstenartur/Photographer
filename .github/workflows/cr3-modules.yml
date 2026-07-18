@@ -12,6 +12,7 @@ on:
       - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-research/**'
+      - 'canon-cr3-maven-smoke/**'
       - 'canon-cr3-cli/**'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
@@ -27,6 +28,7 @@ on:
       - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-research/**'
+      - 'canon-cr3-maven-smoke/**'
       - 'canon-cr3-cli/**'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
@@ -42,7 +44,7 @@ permissions:
 
 jobs:
   test:
-    name: CR3 compile and unit tests
+    name: CR3 unit and external Maven tests
     runs-on: ubuntu-latest
     env:
       MAVEN_OPTS: '-Xmx2g'
@@ -65,13 +67,20 @@ jobs:
           -am
           -Djava.awt.headless=true
 
-      - name: Publish CR3 unit-test results
+      - name: Build and verify the isolated Maven consumer
+        run: >-
+          mvn -B --no-transfer-progress verify
+          -pl canon-cr3-maven-smoke
+          -am
+          -Djava.awt.headless=true
+
+      - name: Publish CR3 test results
         uses: dorny/test-reporter@v3
         if: always()
         continue-on-error: true
         with:
-          name: CR3 Unit Tests
-          path: 'canon-cr3-*/target/surefire-reports/TEST-*.xml'
+          name: CR3 Tests
+          path: 'canon-cr3-*/target/surefire-reports/TEST-*.xml,canon-cr3-maven-smoke/target/it/**/target/surefire-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
           max-annotations: '50'
