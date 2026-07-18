@@ -23,6 +23,7 @@ import java.util.Set;
 public final class CcapiDiscoveryService {
 
     private static final Duration MIN_OPERATION_SLICE = Duration.ofMillis(250);
+    private static final Duration MAX_DISCOVERY_TIMEOUT = Duration.ofMinutes(5);
     private final CcapiNetworkBindingProvider bindingProvider;
     private final CcapiSsdpTransport ssdpTransport;
     private final CcapiDeviceDescriptionFetcher descriptionFetcher;
@@ -139,12 +140,7 @@ public final class CcapiDiscoveryService {
     }
 
     private static long deadline(Duration timeout) {
-        long now = System.nanoTime();
-        try {
-            return Math.addExact(now, timeout.toNanos());
-        } catch (ArithmeticException exception) {
-            return Long.MAX_VALUE;
-        }
+        return Math.addExact(System.nanoTime(), timeout.toNanos());
     }
 
     private static Duration remaining(long deadline) {
@@ -155,6 +151,9 @@ public final class CcapiDiscoveryService {
     private static void validateTimeout(Duration timeout) {
         if (timeout == null || timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("timeout must be positive");
+        }
+        if (timeout.compareTo(MAX_DISCOVERY_TIMEOUT) > 0) {
+            throw new IllegalArgumentException("timeout must not exceed 5 minutes");
         }
     }
 
