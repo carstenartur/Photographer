@@ -21,20 +21,11 @@ class BenchmarkResult:
     score_unit: str
     confidence_low: float
     confidence_high: float
+    confidence_available: bool
 
     @property
     def key(self) -> tuple[str, tuple[tuple[str, str], ...]]:
         return self.benchmark, self.params
-
-    @property
-    def display_name(self) -> str:
-        return self.benchmark.rsplit(".", 1)[-1]
-
-    @property
-    def display_params(self) -> str:
-        if not self.params:
-            return "—"
-        return ", ".join(f"{name}={value}" for name, value in self.params)
 
 
 @dataclass(frozen=True)
@@ -46,7 +37,8 @@ class Comparison:
     score_unit: str
     ratio: float
     change_percent: float
-    confidence_intervals_overlap: bool
+    confidence_available: bool
+    confidence_intervals_overlap: bool | None
     verdict: str
 
 
@@ -58,22 +50,21 @@ def _finite(value: Any) -> float | None:
     return result if math.isfinite(result) else None
 
 
-def _confidence(metric: dict[str, Any], score: float) -> tuple[float, float]:
+def _confidence(metric: dict[str, Any], score: float) -> tuple[float, float, bool]:
     confidence = metric.get("scoreConfidence")
     if isinstance(confidence, list) and len(confidence) == 2:
         low = _finite(confidence[0])
         high = _finite(confidence[1])
         if low is not None and high is not None and low <= high:
-            return low, high
+            return low, high, True
 
     error = _finite(metric.get("scoreError"))
     if error is not None and error >= 0:
-        return score - error, score + error
+        return score - error, score + error, True
 
-    # Missing confidence information must not manufacture certainty. A point
-    # interval still lets the ratio be reported, but callers can see that the
-    # intervals overlap only when the point estimates do.
-    return score, score
+    # A point interval is retained for display, but confidence_available=False
+    # prevents it from manufacturing a confirmed regression verdict.
+    return score, score, False
 
 
 def load_results(path: Path) -> dict[tuple[str, tuple[tuple[str, str], ...]], BenchmarkResult]:
@@ -100,6 +91,7 @@ def load_results(path: Path) -> dict[tuple[str, tuple[tuple[str, str], ...]], Be
         if not isinstance(params_object, dict):
             raise ValueError(f"Invalid params object in {path}: {params_object!r}")
         params = tuple(sorted((str(name), str(value)) for name, value in params_object.items()))
+        confidence_low, confidence_high, confidence_available = _confidence(metric, score)
 
         result = BenchmarkResult(
             benchmark=str(entry.get("benchmark", "")),
@@ -107,8 +99,9 @@ def load_results(path: Path) -> dict[tuple[str, tuple[tuple[str, str], ...]], Be
             mode=str(entry.get("mode", "")),
             score=score,
             score_unit=str(metric.get("scoreUnit", "")),
-            confidence_low=_confidence(metric, score)[0],
-            confidence_high=_confidence(metric, score)[1],
+            confidence_low=confidence_low,
+            confidence_high=confidence_high,
+            confidence_available=confidence_available,
         )
         if not result.benchmark:
             raise ValueError(f"Missing benchmark name in {path}")
@@ -136,16 +129,27 @@ def classify(base: BenchmarkResult, head: BenchmarkResult, threshold: float) -> 
         )
 
     ratio = head.score / base.score
-    intervals_overlap = not (
-        head.confidence_low > base.confidence_high
-        or base.confidence_low > head.confidence_high
-    )
+    confidence_available = base.confidence_available and head.confidence_available
+    intervals_overlap = None
+    if confidence_available:
+        intervals_overlap = not (
+            head.confidence_low > base.confidence_high
+            or base.confidence_low > head.confidence_high
+        )
 
-    if ratio >= threshold and head.confidence_low > base.confidence_high:
+    if (
+        ratio >= threshold
+        and confidence_available
+        and head.confidence_low > base.confidence_high
+    ):
         verdict = "REGRESSION"
     elif ratio >= threshold:
         verdict = "NOISY_WARNING"
-    elif ratio <= 1.0 / threshold and base.confidence_low > head.confidence_high:
+    elif (
+        ratio <= 1.0 / threshold
+        and confidence_available
+        and base.confidence_low > head.confidence_high
+    ):
         verdict = "IMPROVEMENT"
     else:
         verdict = "STABLE"
@@ -158,6 +162,7 @@ def classify(base: BenchmarkResult, head: BenchmarkResult, threshold: float) -> 
         score_unit=base.score_unit,
         ratio=ratio,
         change_percent=(ratio - 1.0) * 100.0,
+        confidence_available=confidence_available,
         confidence_intervals_overlap=intervals_overlap,
         verdict=verdict,
     )
@@ -191,8 +196,8 @@ def render_markdown(comparisons: list[Comparison], threshold: float) -> str:
         "",
         (
             f"Regression threshold: **{(threshold - 1.0) * 100:.1f}%**. "
-            "A build fails only when the threshold is exceeded and the JMH "
-            "confidence intervals no longer overlap."
+            "A build fails only when the threshold is exceeded and both JMH "
+            "confidence intervals are available and no longer overlap."
         ),
         "",
         f"Confirmed regressions: **{regressions}** · Noisy warnings: **{warnings}** · Improvements: **{improvements}**",
@@ -212,7 +217,7 @@ def render_markdown(comparisons: list[Comparison], threshold: float) -> str:
     lines.extend(
         [
             "",
-            "`NOISY_WARNING` means the point estimate exceeded the threshold, but the confidence intervals still overlap.",
+            "`NOISY_WARNING` means the point estimate exceeded the threshold, but confidence data was missing or the intervals still overlap.",
             "",
         ]
     )
