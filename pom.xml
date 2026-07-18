@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -34,6 +34,7 @@
         <module>ai-vision</module>
         <module>astro-core</module>
         <module>canon-cr3-container</module>
+        <module>canon-cr3-metadata</module>
         <module>canon-cr3-core</module>
         <module>canon-cr3-imageio</module>
         <module>canon-cr3-cli</module>
@@ -52,9 +53,7 @@
         <imagej.version>1.54j</imagej.version>
         <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.15</jacoco.version>
-        <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
         <argLine/>
-        <!-- Tags excluded by default; override with -DexcludedGroups= to run real-camera tests -->
         <excludedGroups>docker,real-camera</excludedGroups>
     </properties>
 
@@ -127,10 +126,6 @@
     </build>
 
     <profiles>
-        <!--
-            JMH micro-benchmarks are isolated in this profile to keep the
-            default reactor build fast. Activate with: mvn -P benchmarks ...
-        -->
         <profile>
             <id>benchmarks</id>
             <modules>
