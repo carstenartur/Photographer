@@ -2,10 +2,13 @@ package com.photographer.focusstack.camera.discovery;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -107,11 +110,12 @@ public final class CcapiDiscoveryService {
             Duration slice = operationSlice(remaining, remainingBindings--);
             byte[] request = CcapiSsdpCodec.mSearchRequest(binding.family());
             try {
-                for (byte[] packet : ssdpTransport.search(binding, request, slice)) {
-                    CcapiSsdpCodec.parse(packet, packet.length)
+                for (CcapiSsdpDatagram datagram : ssdpTransport.search(binding, request, slice)) {
+                    CcapiSsdpCodec.parse(datagram.payload(), datagram.payload().length)
                             .filter(CcapiSsdpMessage::isCanonCcapi)
                             .flatMap(CcapiSsdpMessage::location)
-                            .ifPresent(result::add);
+                            .ifPresent(location -> addValidatedLocation(
+                                    result, warnings, datagram, location));
                 }
             } catch (IOException | RuntimeException exception) {
                 String source = binding.displayName() + " "
@@ -120,6 +124,65 @@ public final class CcapiDiscoveryService {
             }
         }
         return result;
+    }
+
+    private static void addValidatedLocation(Set<URI> result,
+                                             List<CcapiDiscoveryWarning> warnings,
+                                             CcapiSsdpDatagram datagram,
+                                             URI location) {
+        if (locationMatchesSource(location, datagram.source().getAddress())) {
+            result.add(location);
+            return;
+        }
+        warnings.add(new CcapiDiscoveryWarning(
+                "ssdp-location",
+                datagram.source().getAddress().getHostAddress(),
+                "Ignored LOCATION whose numeric host differs from the datagram source"));
+    }
+
+    static boolean locationMatchesSource(URI location, InetAddress source) {
+        if (location == null || source == null || location.getHost() == null) {
+            return false;
+        }
+        String numericHost = normalizeNumericHost(location.getHost());
+        if (numericHost == null) {
+            return false;
+        }
+        try {
+            InetAddress locationAddress = InetAddress.getByName(numericHost);
+            return Arrays.equals(locationAddress.getAddress(), source.getAddress());
+        } catch (UnknownHostException exception) {
+            return false;
+        }
+    }
+
+    private static String normalizeNumericHost(String host) {
+        String value = host;
+        if (value.startsWith("[") && value.endsWith("]")) {
+            value = value.substring(1, value.length() - 1);
+        }
+        int zone = value.indexOf('%');
+        if (zone >= 0) {
+            value = value.substring(0, zone);
+        }
+        if (value.contains(":")) {
+            return value.matches("[0-9A-Fa-f:.]+") ? value : null;
+        }
+        String[] octets = value.split("\\.", -1);
+        if (octets.length != 4) {
+            return null;
+        }
+        for (String octet : octets) {
+            try {
+                int number = Integer.parseInt(octet);
+                if (octet.isEmpty() || number < 0 || number > 255) {
+                    return null;
+                }
+            } catch (NumberFormatException exception) {
+                return null;
+            }
+        }
+        return value;
     }
 
     private static String cameraIdentity(CcapiDiscoveredCamera camera) {
