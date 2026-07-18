@@ -11,7 +11,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -37,6 +40,9 @@ public final class CcapiDeviceDescriptionParser {
             URI accessUrl = resolveHttpUri(descriptionUrl, accessValue);
             if (accessUrl == null) {
                 throw new IOException("CCAPI device description contains no valid X_accessURL");
+            }
+            if (!sameHost(descriptionUrl, accessUrl)) {
+                throw new IOException("CCAPI X_accessURL host differs from device-description host");
             }
 
             return new CcapiDiscoveredCamera(
@@ -135,5 +141,59 @@ public final class CcapiDeviceDescriptionParser {
         } catch (IllegalArgumentException exception) {
             return null;
         }
+    }
+
+    static boolean sameHost(URI first, URI second) {
+        String firstHost = normalizeHost(first == null ? null : first.getHost());
+        String secondHost = normalizeHost(second == null ? null : second.getHost());
+        if (firstHost == null || secondHost == null) {
+            return false;
+        }
+        if (firstHost.equalsIgnoreCase(secondHost)) {
+            return true;
+        }
+        if (!isNumericHost(firstHost) || !isNumericHost(secondHost)) {
+            return false;
+        }
+        try {
+            return Arrays.equals(
+                    InetAddress.getByName(firstHost).getAddress(),
+                    InetAddress.getByName(secondHost).getAddress());
+        } catch (UnknownHostException exception) {
+            return false;
+        }
+    }
+
+    private static String normalizeHost(String host) {
+        if (host == null || host.isBlank()) {
+            return null;
+        }
+        String value = host;
+        if (value.startsWith("[") && value.endsWith("]")) {
+            value = value.substring(1, value.length() - 1);
+        }
+        int zone = value.indexOf('%');
+        return zone >= 0 ? value.substring(0, zone) : value;
+    }
+
+    private static boolean isNumericHost(String host) {
+        if (host.contains(":")) {
+            return host.matches("[0-9A-Fa-f:.]+");
+        }
+        String[] octets = host.split("\\.", -1);
+        if (octets.length != 4) {
+            return false;
+        }
+        for (String octet : octets) {
+            try {
+                int number = Integer.parseInt(octet);
+                if (octet.isEmpty() || number < 0 || number > 255) {
+                    return false;
+                }
+            } catch (NumberFormatException exception) {
+                return false;
+            }
+        }
+        return true;
     }
 }
