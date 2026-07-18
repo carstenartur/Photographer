@@ -43,6 +43,22 @@ class SpatialReferenceMetricsTest {
     }
 
     @Test
+    void appliesConstantOffsetDuringRegionComparisonWithoutMutatingSamples() {
+        int[] reference = {100, 101, 102, 103};
+        int[] actual = {90, 91, 92, 93};
+
+        SpatialReferenceMetrics.DifferenceStats result = SpatialReferenceMetrics.compareRegions(
+                reference, actual, 2, 2,
+                List.of(new SpatialReferenceMetrics.Rect(0, 0, 2, 2)), 10);
+
+        assertThat(result.sampleCount()).isEqualTo(4);
+        assertThat(result.mae()).isZero();
+        assertThat(result.rmse()).isZero();
+        assertThat(result.meanError()).isZero();
+        assertThat(actual).containsExactly(90, 91, 92, 93);
+    }
+
+    @Test
     void comparesOneBayerGridPosition() {
         int[] reference = {
                 0, 0, 0, 0,
@@ -64,6 +80,29 @@ class SpatialReferenceMetricsTest {
         assertThat(result.mae()).isEqualTo(2.5);
         assertThat(result.rmse()).isEqualTo(Math.sqrt(7.5));
         assertThat(result.meanError()).isEqualTo(2.5);
+    }
+
+    @Test
+    void appliesConstantOffsetToSelectedGridOnly() {
+        int[] reference = {
+                10, 100, 10, 100,
+                100, 100, 100, 100,
+                10, 100, 10, 100,
+                100, 100, 100, 100
+        };
+        int[] actual = {
+                7, 0, 7, 0,
+                0, 0, 0, 0,
+                7, 0, 7, 0,
+                0, 0, 0, 0
+        };
+
+        SpatialReferenceMetrics.DifferenceStats result = SpatialReferenceMetrics.compareGrid(
+                reference, actual, 4, 4, 0, 0, 2, 2, 3);
+
+        assertThat(result.sampleCount()).isEqualTo(4);
+        assertThat(result.mae()).isZero();
+        assertThat(result.meanError()).isZero();
     }
 
     @Test

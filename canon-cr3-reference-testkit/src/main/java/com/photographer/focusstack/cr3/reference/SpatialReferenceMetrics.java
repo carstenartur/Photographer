@@ -7,8 +7,9 @@ import java.util.Objects;
  * Spatial sample metrics for reference-backed CR3 tests.
  *
  * <p>The methods operate on row-major, single-band images. Signed error is
- * defined as {@code actual - reference}. Regions are aggregated as supplied;
- * overlapping regions therefore count overlapping pixels more than once.</p>
+ * defined as {@code actual + actualOffset - reference}. Overloads without an
+ * offset use zero. Regions are aggregated as supplied; overlapping regions
+ * therefore count overlapping pixels more than once.</p>
  */
 public final class SpatialReferenceMetrics {
 
@@ -44,19 +45,32 @@ public final class SpatialReferenceMetrics {
                                   double meanError, double errorStdDev) {
     }
 
+    /** Compares all pixels selected by the supplied rectangles without an offset. */
+    public static DifferenceStats compareRegions(int[] reference, int[] actual,
+                                                  int width, int height,
+                                                  List<Rect> regions) {
+        return compareRegions(reference, actual, width, height, regions, 0);
+    }
+
     /**
-     * Compares all pixels selected by the supplied rectangles.
+     * Compares all pixels selected by the supplied rectangles after adding one
+     * constant value to every actual sample.
+     *
+     * <p>The offset is applied as {@code double} arithmetic during accumulation,
+     * so callers can evaluate pedestal/DC hypotheses without allocating or
+     * mutating a full shifted image.</p>
      *
      * @throws IllegalArgumentException if a rectangle exceeds the image or no
      *                                  sample is selected
      */
     public static DifferenceStats compareRegions(int[] reference, int[] actual,
-                                                 int width, int height,
-                                                 List<Rect> regions) {
+                                                  int width, int height,
+                                                  List<Rect> regions,
+                                                  int actualOffset) {
         validateImagePair(reference, actual, width, height);
         Objects.requireNonNull(regions, "regions");
 
-        Accumulator accumulator = new Accumulator();
+        Accumulator accumulator = new Accumulator(actualOffset);
         for (Rect region : regions) {
             Objects.requireNonNull(region, "region");
             validateRect(region, width, height);
@@ -70,14 +84,24 @@ public final class SpatialReferenceMetrics {
         return accumulator.result("Regions select no samples");
     }
 
+    /** Compares one regular grid plane without an offset. */
+    public static DifferenceStats compareGrid(int[] reference, int[] actual,
+                                               int width, int height,
+                                               int rowOffset, int columnOffset,
+                                               int rowStep, int columnStep) {
+        return compareGrid(reference, actual, width, height,
+                rowOffset, columnOffset, rowStep, columnStep, 0);
+    }
+
     /**
      * Compares one regular grid plane, for example one Bayer position in a
-     * two-by-two CFA cell.
+     * two-by-two CFA cell, after adding one constant to every actual sample.
      */
     public static DifferenceStats compareGrid(int[] reference, int[] actual,
-                                              int width, int height,
-                                              int rowOffset, int columnOffset,
-                                              int rowStep, int columnStep) {
+                                               int width, int height,
+                                               int rowOffset, int columnOffset,
+                                               int rowStep, int columnStep,
+                                               int actualOffset) {
         validateImagePair(reference, actual, width, height);
         if (rowStep <= 0 || columnStep <= 0) {
             throw new IllegalArgumentException("Grid steps must be positive");
@@ -87,7 +111,7 @@ public final class SpatialReferenceMetrics {
             throw new IllegalArgumentException("Grid offsets must be within their step");
         }
 
-        Accumulator accumulator = new Accumulator();
+        Accumulator accumulator = new Accumulator(actualOffset);
         for (int y = rowOffset; y < height; y += rowStep) {
             int row = y * width;
             for (int x = columnOffset; x < width; x += columnStep) {
@@ -166,13 +190,18 @@ public final class SpatialReferenceMetrics {
     }
 
     private static final class Accumulator {
+        private final int actualOffset;
         private long count;
         private double absoluteSum;
         private double squareSum;
         private double signedSum;
 
+        private Accumulator(int actualOffset) {
+            this.actualOffset = actualOffset;
+        }
+
         private void add(int reference, int actual) {
-            double difference = actual - (double) reference;
+            double difference = actual + (double) actualOffset - reference;
             count++;
             absoluteSum += Math.abs(difference);
             squareSum += difference * difference;
