@@ -16,8 +16,11 @@ Post-codec processing for linear CR3 RAW mosaics.
 
 ## Dependency rule
 
-This module may depend on container, metadata and codec. It must not depend on
-the decoder compatibility facade, ImageIO, CLI, application or research modules.
+This module may depend on `canon-cr3-metadata` and `canon-cr3-codec`. It must
+not depend on the decoder compatibility facade, ImageIO, CLI, application or
+research modules. A direct dependency on `canon-cr3-container` is intentionally
+avoided; container facts should reach this layer through metadata or codec
+models rather than low-level box structures.
 
 Separating this layer keeps CRX bitstream work independent from display rendering
 and prevents image-quality changes from being mixed into codec experiments.
