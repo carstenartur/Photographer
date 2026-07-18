@@ -28,6 +28,7 @@ COPY app/pom.xml app/pom.xml
 COPY canon-cr3-container/pom.xml canon-cr3-container/pom.xml
 COPY canon-cr3-metadata/pom.xml canon-cr3-metadata/pom.xml
 COPY canon-cr3-codec/pom.xml canon-cr3-codec/pom.xml
+COPY canon-cr3-processing/pom.xml canon-cr3-processing/pom.xml
 COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
@@ -63,6 +64,7 @@ COPY astro-core/src astro-core/src
 COPY canon-cr3-container/src canon-cr3-container/src
 COPY canon-cr3-metadata/src canon-cr3-metadata/src
 COPY canon-cr3-codec/src canon-cr3-codec/src
+COPY canon-cr3-processing/src canon-cr3-processing/src
 COPY canon-cr3-core/src canon-cr3-core/src
 COPY canon-cr3-imageio/src canon-cr3-imageio/src
 COPY canon-cr3-cli/src canon-cr3-cli/src
