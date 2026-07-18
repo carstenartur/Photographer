@@ -203,8 +203,8 @@ public final class CcapiEndpointCatalog {
                         }
                     }
                 }
-            } catch (RestClientException exception) {
-                // A missing version-root response leaves this version absent.
+            } catch (RestClientException ignored) {
+                return;
             }
         }
 
