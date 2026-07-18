@@ -85,7 +85,8 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
     }
 
     private ReadResult<BatteryInfo> readBattery() {
-        String batteryListUrl = findGetEndpoint(BATTERY_LIST_SUFFIX);
+        CcapiEndpointCatalog catalog = endpointCatalog();
+        String batteryListUrl = findGetEndpoint(catalog, BATTERY_LIST_SUFFIX);
         if (batteryListUrl != null) {
             try {
                 BatteryListResponse response = restTemplate.getForObject(
@@ -97,7 +98,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
             }
         }
 
-        String batteryUrl = findGetEndpoint(BATTERY_SUFFIX);
+        String batteryUrl = findGetEndpoint(catalog, BATTERY_SUFFIX);
         if (batteryUrl == null) {
             return new ReadResult<>(BatteryInfo.unknown(), false);
         }
@@ -111,7 +112,8 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
     }
 
     private ReadResult<StorageInfo> readStorage() {
-        String storageUrl = findGetEndpoint(STORAGE_SUFFIX);
+        CcapiEndpointCatalog catalog = endpointCatalog();
+        String storageUrl = findGetEndpoint(catalog, STORAGE_SUFFIX);
         if (storageUrl == null) {
             return new ReadResult<>(StorageInfo.empty(), false);
         }
@@ -125,8 +127,8 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         }
     }
 
-    private String findGetEndpoint(String suffix) {
-        return endpointCatalog().findExactPath(suffix, HttpMethod.GET)
+    private static String findGetEndpoint(CcapiEndpointCatalog catalog, String suffix) {
+        return catalog.findExactPath(suffix, HttpMethod.GET)
                 .map(CcapiEndpointCatalog.Endpoint::url)
                 .orElse(null);
     }
