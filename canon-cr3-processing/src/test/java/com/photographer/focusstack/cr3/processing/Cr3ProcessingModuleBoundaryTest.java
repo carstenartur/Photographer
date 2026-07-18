@@ -10,12 +10,14 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Guards post-codec processing against facade, adapter and research dependencies. */
+/** Guards post-codec processing against container internals, facades, adapters and research. */
 class Cr3ProcessingModuleBoundaryTest {
 
     private static final Path MAIN_SOURCES = Path.of("src", "main", "java");
 
     private static final List<String> FORBIDDEN_IMPORT_PREFIXES = List.of(
+            "com.photographer.focusstack.cr3.bmff.",
+            "com.photographer.focusstack.cr3.container.",
             "com.photographer.focusstack.cr3.decode.",
             "com.photographer.focusstack.cr3.imageio.",
             "com.photographer.focusstack.cr3.cli.",
@@ -23,7 +25,7 @@ class Cr3ProcessingModuleBoundaryTest {
     );
 
     @Test
-    void processingMustRemainIndependentOfFacadeAdaptersAndResearch() throws IOException {
+    void processingMustRemainIndependentOfContainerInternalsFacadeAdaptersAndResearch() throws IOException {
         List<String> violations = new ArrayList<>();
 
         try (var stream = Files.walk(MAIN_SOURCES)) {
@@ -46,7 +48,7 @@ class Cr3ProcessingModuleBoundaryTest {
         }
 
         assertThat(violations)
-                .as("canon-cr3-processing must not depend on facade, adapters or research")
+                .as("canon-cr3-processing must not depend on container internals, facades, adapters or research")
                 .isEmpty();
     }
 
