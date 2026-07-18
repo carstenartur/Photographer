@@ -7,7 +7,7 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -165,7 +165,7 @@ public final class CcapiEndpointCatalog {
                 return;
             }
 
-            EnumSet<HttpMethod> methods = EnumSet.noneOf(HttpMethod.class);
+            Set<HttpMethod> methods = new HashSet<>();
             boolean metadataKnown = false;
             metadataKnown |= addMethod(descriptor, "get", HttpMethod.GET, methods);
             metadataKnown |= addMethod(descriptor, "post", HttpMethod.POST, methods);
@@ -234,7 +234,6 @@ public final class CcapiEndpointCatalog {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> getMap(RestTemplate restTemplate, String url) {
         try {
             Map<?, ?> response = restTemplate.getForObject(url, Map.class);
