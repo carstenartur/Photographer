@@ -22,6 +22,12 @@ the decoder compatibility facade, ImageIO, CLI, application or research modules.
 Separating this layer keeps CRX bitstream work independent from display rendering
 and prevents image-quality changes from being mixed into codec experiments.
 
+## Compatibility contract
+
+The extraction is structural only. Existing processing classes retain their package
+names and behavior. The module split must not change pedestal selection, pixel
+values, demosaicing, color conversion, crop geometry or orientation results.
+
 ## Build
 
 ```bash
