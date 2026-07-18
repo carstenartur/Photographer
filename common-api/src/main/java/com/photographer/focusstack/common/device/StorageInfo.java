@@ -22,14 +22,24 @@ public record StorageInfo(@JsonProperty("volumes") List<Volume> volumes) {
         return new StorageInfo(List.of());
     }
 
-    /** Returns the total free space (bytes) summed across all volumes, or -1 if unknown. */
+    /**
+     * Returns the total free space summed across every volume with a known value.
+     *
+     * @return {@code -1} if no volume reports free space, or
+     *         {@link Long#MAX_VALUE} if the mathematical sum exceeds a signed
+     *         64-bit byte count
+     */
     public long totalFreeBytes() {
-        long sum = 0;
+        long sum = 0L;
         boolean anyKnown = false;
-        for (Volume v : volumes) {
-            if (v.freeBytes() >= 0) {
-                sum += v.freeBytes();
+        for (Volume volume : volumes) {
+            if (volume.freeBytes() >= 0L) {
                 anyKnown = true;
+                try {
+                    sum = Math.addExact(sum, volume.freeBytes());
+                } catch (ArithmeticException overflow) {
+                    return Long.MAX_VALUE;
+                }
             }
         }
         return anyKnown ? sum : -1L;
@@ -45,8 +55,8 @@ public record StorageInfo(@JsonProperty("volumes") List<Volume> volumes) {
     ) {
         /** Use {@code -1} for any unknown numeric field. */
         public Volume {
-            if (totalBytes < -1) totalBytes = -1;
-            if (freeBytes  < -1) freeBytes  = -1;
+            if (totalBytes < -1L) totalBytes = -1L;
+            if (freeBytes < -1L) freeBytes = -1L;
             if (contentCount < -1) contentCount = -1;
         }
     }
