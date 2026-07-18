@@ -15,7 +15,7 @@
     <version>0.1.5-SNAPSHOT</version>
 
     <name>Canon CR3 - Core</name>
-    <description>CR3 processing and compatibility facade</description>
+    <description>CR3 decode orchestration and compatibility facade</description>
 
     <dependencies>
         <dependency>
@@ -31,6 +31,11 @@
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
             <artifactId>canon-cr3-codec</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-processing</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
