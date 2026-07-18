@@ -3,6 +3,7 @@ package com.photographer.focusstack.camera.backend;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
@@ -23,16 +24,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Canon CCAPI backend with specification-correct rich status mapping.
  *
  * <p>The original backend exposes only the aggregate {@link CameraState} contract.
- * This specialization additionally implements the transport-neutral
- * {@link #getBatteryInfo()} and {@link #getStorageInfo()} methods and derives the
- * legacy state from those snapshots.</p>
+ * This specialization additionally implements {@link CameraStatusProvider} and
+ * derives the legacy state from the rich battery and storage snapshots.</p>
  *
  * <p>Endpoint lookup uses {@link CcapiEndpointCatalog}, retains every advertised
  * API version and matches status paths exactly. In particular,
  * {@code /devicestatus/currentstorage} can never be mistaken for the documented
  * {@code /devicestatus/storage} capacity response.</p>
  */
-public class CanonCcapiStatusBackend extends CanonCcapiBackend {
+public class CanonCcapiStatusBackend extends CanonCcapiBackend implements CameraStatusProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiStatusBackend.class);
     private static final String STORAGE_SUFFIX = "/devicestatus/storage";
