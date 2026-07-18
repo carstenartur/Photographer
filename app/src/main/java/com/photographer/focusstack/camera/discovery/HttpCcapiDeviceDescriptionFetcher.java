@@ -71,8 +71,10 @@ final class HttpCcapiDeviceDescriptionFetcher implements CcapiDeviceDescriptionF
 
     static void validateUri(URI uri) {
         Objects.requireNonNull(uri, "descriptionUrl");
-        if (!uri.isAbsolute() || uri.getHost() == null || uri.getUserInfo() != null) {
-            throw new IllegalArgumentException("descriptionUrl must be an absolute HTTP URI without user info");
+        if (!uri.isAbsolute() || uri.getHost() == null
+                || uri.getUserInfo() != null || uri.getFragment() != null) {
+            throw new IllegalArgumentException(
+                    "descriptionUrl must be an absolute HTTP URI without user info or fragment");
         }
         String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
         if (!"http".equals(scheme) && !"https".equals(scheme)) {
