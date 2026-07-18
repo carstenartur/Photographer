@@ -28,7 +28,7 @@ codec, subband, predictor, entropy, or research APIs.
 | `CanonCr3ImageReaderSpi` | Stable ImageIO service provider — detects CR3 files |
 | `CanonCr3ImageReader` | Stable ImageIO reader — delegates to `Cr3Decoder` |
 | `CanonCr3ImageReadParam` | Experimental CR3-specific read parameters; preview selection is stable, RAW-specific controls follow decoder maturity |
-| `Cr3ImageMetadata` | CR3 metadata exposed through `IIOMetadata` |
+| `Cr3ImageMetadata` | Stable CR3 metadata adapter exposed through `IIOMetadata` |
 
 ## Usage
 
