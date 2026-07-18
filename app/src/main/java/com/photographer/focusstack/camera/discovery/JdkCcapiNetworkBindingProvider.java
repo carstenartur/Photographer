@@ -5,6 +5,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 
 /** Enumerates every up, non-loopback, multicast-capable interface at runtime. */
@@ -12,8 +13,13 @@ final class JdkCcapiNetworkBindingProvider implements CcapiNetworkBindingProvide
 
     @Override
     public List<CcapiNetworkBinding> bindings() throws SocketException {
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        if (interfaces == null) {
+            return List.of();
+        }
+
         List<CcapiNetworkBinding> result = new ArrayList<>();
-        for (NetworkInterface networkInterface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+        for (NetworkInterface networkInterface : Collections.list(interfaces)) {
             if (!isEligible(networkInterface)) {
                 continue;
             }
