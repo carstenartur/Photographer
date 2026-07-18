@@ -5,6 +5,11 @@ package com.photographer.focusstack.cr3.decode;
  *
  * <p>Allows callers to choose between preview extraction (fast) and full RAW
  * decoding, and to control output format and processing steps.</p>
+ *
+ * <p><strong>API status:</strong> preview and thumbnail selection are intended
+ * for external use. Full-RAW, processing-pipeline and pedestal controls remain
+ * experimental until the CRX decoder is fully verified. They may evolve between
+ * pre-1.0 releases.</p>
  */
 public final class Cr3DecodeOptions {
 
@@ -16,9 +21,9 @@ public final class Cr3DecodeOptions {
         PREVIEW,
         /** Return the embedded JPEG thumbnail. */
         THUMBNAIL,
-        /** Decode the full RAW image with demosaicing and color processing. */
+        /** Decode the full RAW image with demosaicing and color processing. Experimental before 1.0. */
         RAW_PROCESSED,
-        /** Decode the RAW image as a linear Bayer pattern (no demosaicing). */
+        /** Decode the RAW image as a linear Bayer pattern (no demosaicing). Experimental before 1.0. */
         RAW_LINEAR
     }
 
