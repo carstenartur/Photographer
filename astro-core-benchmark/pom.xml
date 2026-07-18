@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
-            <artifactId>canon-cr3-core</artifactId>
+            <artifactId>canon-cr3-processing</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
