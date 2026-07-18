@@ -5,8 +5,11 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
@@ -25,8 +28,9 @@ public final class CcapiDeviceDescriptionParser {
         Objects.requireNonNull(xml, "xml");
         Objects.requireNonNull(descriptionUrl, "descriptionUrl");
         try {
-            DocumentBuilderFactory factory = secureFactory();
-            Document document = factory.newDocumentBuilder().parse(xml);
+            DocumentBuilder builder = secureFactory().newDocumentBuilder();
+            builder.setErrorHandler(new ThrowingErrorHandler());
+            Document document = builder.parse(xml);
             Element device = firstElement(document.getDocumentElement(), "device");
             if (device == null) {
                 throw new IOException("CCAPI device description contains no device element");
@@ -133,7 +137,8 @@ public final class CcapiDeviceDescriptionParser {
         }
         try {
             URI resolved = base.resolve(value.trim());
-            if (!resolved.isAbsolute() || resolved.getHost() == null || resolved.getUserInfo() != null) {
+            if (!resolved.isAbsolute() || resolved.getHost() == null
+                    || resolved.getUserInfo() != null || resolved.getFragment() != null) {
                 return null;
             }
             String scheme = resolved.getScheme().toLowerCase(Locale.ROOT);
@@ -195,5 +200,17 @@ public final class CcapiDeviceDescriptionParser {
             }
         }
         return true;
+    }
+
+    private static final class ThrowingErrorHandler extends DefaultHandler {
+        @Override
+        public void error(SAXParseException exception) throws SAXException {
+            throw exception;
+        }
+
+        @Override
+        public void fatalError(SAXParseException exception) throws SAXException {
+            throw exception;
+        }
     }
 }
