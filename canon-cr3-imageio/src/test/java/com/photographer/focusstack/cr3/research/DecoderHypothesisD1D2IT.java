@@ -8,14 +8,13 @@ import com.photographer.focusstack.cr3.container.Cr3Track;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.reference.ReferenceImage;
+import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
+import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferUShort;
-import java.awt.image.Raster;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -98,10 +97,10 @@ class DecoderHypothesisD1D2IT {
             int refWidth;
             int refHeight;
             try {
-                ReferenceImage ref = loadReferenceTiff(refTiff);
-                reference = ref.samples;
-                refWidth = ref.width;
-                refHeight = ref.height;
+                ReferenceImage ref = ReferenceImageLoader.load(refTiff);
+                reference = ref.samples();
+                refWidth = ref.width();
+                refHeight = ref.height();
             } catch (Exception e) {
                 md.append("| `").append(name).append("` | ERROR: ").append(e.getMessage())
                         .append(" | — | — | — | — | — | — | — | — |\n");
@@ -122,31 +121,37 @@ class DecoderHypothesisD1D2IT {
             }
 
             if (patentDecoded == null || jpegLsDecoded == null) {
-                md.append("| `").append(name).append("` | — | SKIP (no lossless track) | — | — | — | — | — | — | — |\n");
+                md.append("| `").append(name)
+                        .append("` | — | SKIP (no lossless track) | — | — | — | — | — | — | — |\n");
                 continue;
             }
 
-            double refMean = mean(reference);
-            double patentMean = mean(patentDecoded);
+            double refMean = ReferenceMetrics.mean(reference);
+            double patentMean = ReferenceMetrics.mean(patentDecoded);
             double dcBias = refMean - patentMean;
 
-            double patentMae = mae(patentDecoded, reference);
-            double patentPearson = pearson(patentDecoded, reference);
+            ReferenceMetrics.Metrics patentMetrics = ReferenceMetrics.compare(reference, patentDecoded);
+            double patentMae = patentMetrics.mae();
+            double patentPearson = patentMetrics.pearson();
 
-            double jpegLsMae = mae(jpegLsDecoded, reference);
-            double jpegLsPearson = pearson(jpegLsDecoded, reference);
+            ReferenceMetrics.Metrics jpegLsMetrics = ReferenceMetrics.compare(reference, jpegLsDecoded);
+            double jpegLsMae = jpegLsMetrics.mae();
+            double jpegLsPearson = jpegLsMetrics.pearson();
 
-            // D1: apply DC correction to patent decoder output
-            int maxVal = 0xFFFF; // reference TIFFs store uint16 sensor values verbatim
-            int[] dcCorrected = applyDcOffset(patentDecoded, (int) Math.round(dcBias), maxVal);
-            double dcCorrMae = mae(dcCorrected, reference);
+            // D1: apply the same uint16-clamped DC correction used by the original probe.
+            int maxVal = 0xFFFF;
+            int[] dcCorrected = ReferenceMetrics.addClamped(
+                    patentDecoded, (int) Math.round(dcBias), 0, maxVal);
+            double dcCorrMae = ReferenceMetrics.compare(reference, dcCorrected).mae();
 
-            double dcImprovementFraction = (patentMae > 0) ? (patentMae - dcCorrMae) / patentMae : 0;
-            boolean d1confirmed = dcImprovementFraction > 0.80; // DC correction removes > 80% of MAE
+            double dcImprovementFraction = (patentMae > 0)
+                    ? (patentMae - dcCorrMae) / patentMae
+                    : 0;
+            boolean d1confirmed = dcImprovementFraction > 0.80;
             boolean d2flip = (patentPearson < 0) && (jpegLsPearson > 0);
 
             if (d1confirmed) d1Confirmed.add(name);
-            if (d2flip)      d2Confirmed.add(name);
+            if (d2flip) d2Confirmed.add(name);
 
             md.append("| `").append(name).append("` | ")
                     .append(fmt(refMean)).append(" | ")
@@ -160,14 +165,15 @@ class DecoderHypothesisD1D2IT {
                     .append(d2flip ? "**YES**" : "no").append(" |\n");
 
             System.out.printf("%-55s refMean=%7.0f  patent: mae=%7.1f r=%+.4f  jpegls: mae=%7.1f r=%+.4f  "
-                    + "dcCorr-mae=%7.1f bias=%+7.0f  D1=%s D2-flip=%s%n",
+                            + "dcCorr-mae=%7.1f bias=%+7.0f  D1=%s D2-flip=%s%n",
                     name, refMean, patentMae, patentPearson, jpegLsMae, jpegLsPearson,
                     dcCorrMae, dcBias, d1confirmed ? "YES" : "no", d2flip ? "YES" : "no");
         }
 
         md.append("\n## Verdict\n\n");
         if (!d1Confirmed.isEmpty()) {
-            md.append("### D1 (DC-offset bias) — **CONFIRMED** on ").append(d1Confirmed.size()).append(" fixture(s)\n\n");
+            md.append("### D1 (DC-offset bias) — **CONFIRMED** on ")
+                    .append(d1Confirmed.size()).append(" fixture(s)\n\n");
             for (String f : d1Confirmed) md.append("- `").append(f).append("`\n");
             md.append("\n> DC correction removes >80% of MAE. The decoder's mean output is ");
             md.append("systematically lower than the reference. The first-pixel seed (currently 0) ");
@@ -179,7 +185,8 @@ class DecoderHypothesisD1D2IT {
         }
         md.append('\n');
         if (!d2Confirmed.isEmpty()) {
-            md.append("### D2 (sign-mapping flip) — **CONFIRMED** on ").append(d2Confirmed.size()).append(" fixture(s)\n\n");
+            md.append("### D2 (sign-mapping flip) — **CONFIRMED** on ")
+                    .append(d2Confirmed.size()).append(" fixture(s)\n\n");
             for (String f : d2Confirmed) md.append("- `").append(f).append("`\n");
             md.append("\n> JPEG_LS (zig-zag) sign rule flips Pearson from negative to positive ");
             md.append("on these fixtures. PATENT_BRACKET and JPEG_LS disagree on sign for these ");
@@ -198,8 +205,6 @@ class DecoderHypothesisD1D2IT {
         assertThat(OUT_DIR.resolve("report.md")).exists();
         // The test always passes — it is diagnostic, not a gating assertion.
     }
-
-    // ── Fixture discovery ─────────────────────────────────────────────────
 
     private static List<Path> discoverFixturesWithReferences() throws IOException {
         if (!Files.isDirectory(SAMPLES_DIR)) {
@@ -220,34 +225,6 @@ class DecoderHypothesisD1D2IT {
         String name = fixture.getFileName().toString().replaceAll("(?i)\\.cr3$", ".reference.tiff");
         return fixture.resolveSibling(name);
     }
-
-    // ── Reference loading ────────────────────────────────────────────────
-
-    private record ReferenceImage(int width, int height, int[] samples) {}
-
-    private static ReferenceImage loadReferenceTiff(Path tiffPath) throws IOException {
-        BufferedImage img = ImageIO.read(tiffPath.toFile());
-        if (img == null) {
-            throw new IOException("Cannot decode TIFF: " + tiffPath);
-        }
-        int w = img.getWidth();
-        int h = img.getHeight();
-        Raster raster = img.getRaster();
-        DataBuffer buf = raster.getDataBuffer();
-        int[] samples;
-        if (buf instanceof DataBufferUShort ushort && ushort.getNumBanks() == 1) {
-            short[] bank = ushort.getData();
-            samples = new int[bank.length];
-            for (int i = 0; i < bank.length; i++) {
-                samples[i] = Short.toUnsignedInt(bank[i]);
-            }
-        } else {
-            samples = raster.getSamples(0, 0, w, h, 0, (int[]) null);
-        }
-        return new ReferenceImage(w, h, samples);
-    }
-
-    // ── CR3 decoding ─────────────────────────────────────────────────────
 
     /**
      * Decode the CR3 fixture and return the full-sensor Bayer array.
@@ -282,53 +259,10 @@ class DecoderHypothesisD1D2IT {
             if (raw.width() != expectedWidth || raw.height() != expectedHeight) {
                 throw new IllegalStateException(
                         "Decoder size " + raw.width() + "x" + raw.height()
-                        + " != reference " + expectedWidth + "x" + expectedHeight);
+                                + " != reference " + expectedWidth + "x" + expectedHeight);
             }
             return raw.data();
         }
-    }
-
-    // ── Statistics ───────────────────────────────────────────────────────
-
-    private static double mean(int[] a) {
-        long sum = 0;
-        for (int v : a) sum += v;
-        return (double) sum / a.length;
-    }
-
-    private static double mae(int[] decoded, int[] reference) {
-        double sum = 0;
-        for (int i = 0; i < reference.length; i++) {
-            sum += Math.abs(decoded[i] - reference[i]);
-        }
-        return sum / reference.length;
-    }
-
-    private static double pearson(int[] decoded, int[] reference) {
-        double sumRef = 0, sumDec = 0, sumRefSq = 0, sumDecSq = 0, sumCross = 0;
-        int n = reference.length;
-        for (int i = 0; i < n; i++) {
-            double r = reference[i];
-            double d = decoded[i];
-            sumRef += r; sumDec += d;
-            sumRefSq += r * r; sumDecSq += d * d;
-            sumCross += r * d;
-        }
-        double meanRef = sumRef / n;
-        double meanDec = sumDec / n;
-        double cov = sumCross / n - meanRef * meanDec;
-        double varRef = Math.max(0, sumRefSq / n - meanRef * meanRef);
-        double varDec = Math.max(0, sumDecSq / n - meanDec * meanDec);
-        double denom = Math.sqrt(varRef * varDec);
-        return denom == 0 ? 0 : cov / denom;
-    }
-
-    private static int[] applyDcOffset(int[] pixels, int offset, int maxVal) {
-        int[] result = new int[pixels.length];
-        for (int i = 0; i < pixels.length; i++) {
-            result[i] = Math.max(0, Math.min(maxVal, pixels[i] + offset));
-        }
-        return result;
     }
 
     private static String fmt(double v) {
