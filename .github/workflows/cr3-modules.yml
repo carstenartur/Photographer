@@ -35,8 +35,8 @@ permissions:
   contents: read
 
 jobs:
-  unit-and-compile:
-    name: CR3 compile and unit tests
+  verify:
+    name: CR3 build and tests
     runs-on: ubuntu-latest
     env:
       MAVEN_OPTS: '-Xmx2g'
@@ -52,20 +52,20 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Compile CR3 test sources and run unit tests
+      - name: Verify CR3 modules and research integration tests
         run: >-
-          mvn -B --no-transfer-progress clean test
+          mvn -B --no-transfer-progress clean verify
           -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-reference-testkit,canon-cr3-imageio,canon-cr3-research,canon-cr3-cli
           -am
           -Djava.awt.headless=true
 
-      - name: Publish CR3 unit-test results
+      - name: Publish CR3 test results
         uses: dorny/test-reporter@v3
         if: always()
         continue-on-error: true
         with:
-          name: CR3 Unit Tests
-          path: 'canon-cr3-*/target/surefire-reports/TEST-*.xml'
+          name: CR3 Tests
+          path: 'canon-cr3-*/target/surefire-reports/TEST-*.xml,canon-cr3-*/target/failsafe-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
           max-annotations: '50'
