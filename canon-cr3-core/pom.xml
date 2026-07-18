@@ -15,12 +15,17 @@
     <version>0.1.5-SNAPSHOT</version>
 
     <name>Canon CR3 - Core</name>
-    <description>CR3 metadata, RAW decoding, processing, and compatibility facade</description>
+    <description>CR3 RAW decoding, processing, and compatibility facade</description>
 
     <dependencies>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
             <artifactId>canon-cr3-container</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
