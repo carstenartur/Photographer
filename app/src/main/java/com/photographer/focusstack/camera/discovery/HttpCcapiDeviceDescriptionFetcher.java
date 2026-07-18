@@ -42,9 +42,11 @@ final class HttpCcapiDeviceDescriptionFetcher implements CcapiDeviceDescriptionF
         HttpResponse<InputStream> response = httpClient.send(
                 request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            try (InputStream ignored = response.body()) {
-                throw new IOException("Device description returned HTTP " + response.statusCode());
+            InputStream errorBody = response.body();
+            if (errorBody != null) {
+                errorBody.close();
             }
+            throw new IOException("Device description returned HTTP " + response.statusCode());
         }
         try (InputStream body = response.body()) {
             return readLimited(body);
