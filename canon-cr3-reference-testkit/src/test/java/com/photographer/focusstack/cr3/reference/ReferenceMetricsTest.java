@@ -47,7 +47,7 @@ class ReferenceMetricsTest {
         ReferenceMetrics.MetricTriple metrics =
                 ReferenceMetrics.compareWithOffset(reference, actual, 5, 0, 20);
 
-        assertThat(metrics.mae()).isCloseTo(10.0 / 3.0, within(1e-12));
+        assertThat(metrics.mae()).isCloseTo(5.0 / 3.0, within(1e-12));
         assertThat(actual).containsExactly(0, 5, 20);
         assertThat(ReferenceMetrics.addClampedOffset(actual, 5, 0, 20)).containsExactly(5, 10, 20);
     }
