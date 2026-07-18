@@ -8,20 +8,16 @@ import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Canon CCAPI backend with specification-correct rich status mapping.
@@ -29,17 +25,16 @@ import java.util.regex.Pattern;
  * <p>The original backend exposes only the aggregate {@link CameraState} contract.
  * This specialization additionally implements the transport-neutral
  * {@link #getBatteryInfo()} and {@link #getStorageInfo()} methods and derives the
- * legacy state from those snapshots. It intentionally discovers all advertised
- * API-version entries because status endpoints may live below {@code ver100},
- * {@code ver110}, or a later version even when the camera advertises newer APIs.</p>
+ * legacy state from those snapshots.</p>
  *
- * <p>Storage lookup matches {@code /devicestatus/storage} exactly. It never treats
- * {@code /devicestatus/currentstorage} as a capacity response.</p>
+ * <p>Endpoint lookup uses {@link CcapiEndpointCatalog}, retains every advertised
+ * API version and matches status paths exactly. In particular,
+ * {@code /devicestatus/currentstorage} can never be mistaken for the documented
+ * {@code /devicestatus/storage} capacity response.</p>
  */
 public class CanonCcapiStatusBackend extends CanonCcapiBackend {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiStatusBackend.class);
-    private static final Pattern VERSION_PATTERN = Pattern.compile("/ver(\\d+)(?:/|$)");
     private static final String STORAGE_SUFFIX = "/devicestatus/storage";
     private static final String BATTERY_SUFFIX = "/devicestatus/battery";
     private static final String BATTERY_LIST_SUFFIX = "/devicestatus/batterylist";
@@ -47,8 +42,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
     private final String baseUrl;
     private final RestTemplate restTemplate;
     private final AtomicInteger trackedFocusPosition = new AtomicInteger();
-    private final Map<String, String> advertisedEndpoints = new LinkedHashMap<>();
-    private boolean statusDiscoveryAttempted;
+    private volatile CcapiEndpointCatalog endpointCatalog;
 
     public CanonCcapiStatusBackend(String baseUrl, RestTemplate restTemplate) {
         super(baseUrl, restTemplate);
@@ -70,12 +64,10 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
     public CameraState getState() {
         ReadResult<BatteryInfo> battery = readBattery();
         ReadResult<StorageInfo> storage = readStorage();
-        int batteryPercent = battery.value().percent();
-        long storageAvailable = storage.value().totalFreeBytes();
         return new CameraState(
                 battery.reachable() || storage.reachable(),
-                batteryPercent,
-                storageAvailable,
+                battery.value().percent(),
+                storage.value().totalFreeBytes(),
                 trackedFocusPosition.get(),
                 "auto",
                 "auto",
@@ -93,7 +85,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
     }
 
     private ReadResult<BatteryInfo> readBattery() {
-        String batteryListUrl = findExactAdvertisedEndpoint(BATTERY_LIST_SUFFIX);
+        String batteryListUrl = findGetEndpoint(BATTERY_LIST_SUFFIX);
         if (batteryListUrl != null) {
             try {
                 BatteryListResponse response = restTemplate.getForObject(
@@ -105,7 +97,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
             }
         }
 
-        String batteryUrl = findExactAdvertisedEndpoint(BATTERY_SUFFIX);
+        String batteryUrl = findGetEndpoint(BATTERY_SUFFIX);
         if (batteryUrl == null) {
             return new ReadResult<>(BatteryInfo.unknown(), false);
         }
@@ -119,7 +111,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
     }
 
     private ReadResult<StorageInfo> readStorage() {
-        String storageUrl = findExactAdvertisedEndpoint(STORAGE_SUFFIX);
+        String storageUrl = findGetEndpoint(STORAGE_SUFFIX);
         if (storageUrl == null) {
             return new ReadResult<>(StorageInfo.empty(), false);
         }
@@ -133,155 +125,24 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
         }
     }
 
-    private String findExactAdvertisedEndpoint(String suffix) {
-        ensureStatusEndpointsDiscovered();
-        return advertisedEndpoints.entrySet().stream()
-                .filter(entry -> endpointPath(entry.getKey()).endsWith(suffix))
-                .max(Comparator
-                        .comparingInt((Map.Entry<String, String> entry) -> apiVersion(entry.getKey()))
-                        .thenComparing(Map.Entry::getKey))
-                .map(Map.Entry::getValue)
+    private String findGetEndpoint(String suffix) {
+        return endpointCatalog().findExactPath(suffix, HttpMethod.GET)
+                .map(CcapiEndpointCatalog.Endpoint::url)
                 .orElse(null);
     }
 
-    private synchronized void ensureStatusEndpointsDiscovered() {
-        if (statusDiscoveryAttempted) {
-            return;
+    private CcapiEndpointCatalog endpointCatalog() {
+        CcapiEndpointCatalog current = endpointCatalog;
+        if (current != null) {
+            return current;
         }
-        statusDiscoveryAttempted = true;
-
-        try {
-            super.getDiscoveredEndpoints().forEach(this::registerEndpoint);
-        } catch (RuntimeException exception) {
-            log.debug("Could not reuse existing CCAPI discovery result: {}", exception.getMessage());
-        }
-
-        Map<String, Object> versions = getMap(baseUrl + "/ccapi");
-        if (versions != null) {
-            registerVersions(versions);
-        }
-
-        if (advertisedEndpoints.isEmpty()) {
-            Map<String, Object> developerVersions = getMap(
-                    baseUrl + "/ccapi/ver100/topurlfordev");
-            if (developerVersions != null) {
-                registerVersions(developerVersions);
+        synchronized (this) {
+            current = endpointCatalog;
+            if (current == null) {
+                current = CcapiEndpointCatalog.discover(baseUrl, restTemplate);
+                endpointCatalog = current;
             }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> getMap(String url) {
-        try {
-            Map<?, ?> response = restTemplate.getForObject(url, Map.class);
-            if (response == null || response.isEmpty()) {
-                return null;
-            }
-            Map<String, Object> result = new LinkedHashMap<>();
-            response.forEach((key, value) -> result.put(String.valueOf(key), value));
-            return result;
-        } catch (RestClientException exception) {
-            log.debug("CCAPI status discovery failed at {}: {}", url, exception.getMessage());
-            return null;
-        }
-    }
-
-    private void registerVersions(Map<String, Object> versions) {
-        versions.entrySet().stream()
-                .filter(entry -> entry.getKey().startsWith("ver"))
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> registerVersionValue(entry.getValue()));
-    }
-
-    private void registerVersionValue(Object value) {
-        if (value instanceof List<?> list) {
-            if (list.isEmpty()) {
-                return;
-            }
-            if (list.getFirst() instanceof Map<?, ?>) {
-                for (Object item : list) {
-                    if (item instanceof Map<?, ?> descriptor) {
-                        Object endpoint = descriptor.get("url");
-                        if (!(endpoint instanceof String)) {
-                            endpoint = descriptor.get("path");
-                        }
-                        if (endpoint instanceof String string) {
-                            registerEndpoint(string, string);
-                        }
-                    }
-                }
-                return;
-            }
-            if (list.getFirst() instanceof String string && list.size() == 1) {
-                registerVersionRoot(string);
-                return;
-            }
-            for (Object item : list) {
-                if (item instanceof String string) {
-                    registerEndpoint(string, string);
-                }
-            }
-            return;
-        }
-        if (value instanceof String string) {
-            registerVersionRoot(string);
-        }
-    }
-
-    private void registerVersionRoot(String root) {
-        String url = absoluteUrl(root);
-        try {
-            Object response = restTemplate.getForObject(url, Object.class);
-            if (response instanceof List<?> list) {
-                registerVersionValue(list);
-            } else if (response instanceof Map<?, ?> map) {
-                for (Object item : map.values()) {
-                    registerVersionValue(item);
-                }
-            }
-        } catch (RestClientException exception) {
-            log.debug("CCAPI version-root discovery failed at {}: {}", url, exception.getMessage());
-        }
-    }
-
-    private void registerEndpoint(String key, String endpoint) {
-        if (endpoint == null || endpoint.isBlank()) {
-            return;
-        }
-        String path = endpointPath(endpoint);
-        advertisedEndpoints.put(path, absoluteUrl(endpoint));
-    }
-
-    private String absoluteUrl(String endpoint) {
-        if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
-            return endpoint;
-        }
-        return endpoint.startsWith("/") ? baseUrl + endpoint : baseUrl + "/" + endpoint;
-    }
-
-    private static String endpointPath(String endpoint) {
-        if (endpoint == null) {
-            return "";
-        }
-        try {
-            URI uri = URI.create(endpoint);
-            String path = uri.getPath();
-            return path == null ? endpoint : path;
-        } catch (IllegalArgumentException exception) {
-            int query = endpoint.indexOf('?');
-            return query >= 0 ? endpoint.substring(0, query) : endpoint;
-        }
-    }
-
-    private static int apiVersion(String endpoint) {
-        Matcher matcher = VERSION_PATTERN.matcher(endpointPath(endpoint));
-        if (!matcher.find()) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(matcher.group(1));
-        } catch (NumberFormatException exception) {
-            return -1;
+            return current;
         }
     }
 
@@ -339,9 +200,8 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
         if (entry == null) {
             return BatteryInfo.unknown();
         }
-        String level = normalizedOrUnknown(entry.level());
         return new BatteryInfo(
-                level,
+                normalizedOrUnknown(entry.level()),
                 normalizedOrUnknown(entry.kind()),
                 normalizedOrUnknown(entry.quality()),
                 strictBatteryPercent(entry.level())
@@ -360,15 +220,17 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
             case "quarter" -> 25;
             case "low" -> 20;
             case "empty" -> 0;
-            default -> {
-                try {
-                    int numeric = Integer.parseInt(normalized);
-                    yield numeric >= 0 && numeric <= 100 ? numeric : -1;
-                } catch (NumberFormatException exception) {
-                    yield -1;
-                }
-            }
+            default -> parseNumericPercent(normalized);
         };
+    }
+
+    private static int parseNumericPercent(String value) {
+        try {
+            int numeric = Integer.parseInt(value);
+            return numeric >= 0 && numeric <= 100 ? numeric : -1;
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
     }
 
     private static long knownLong(Long value) {
@@ -398,7 +260,18 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend {
     }
 
     private static String lastPathSegment(String location) {
-        String path = endpointPath(location);
+        if (location == null || location.isBlank()) {
+            return null;
+        }
+        String path;
+        try {
+            path = URI.create(location).getPath();
+        } catch (IllegalArgumentException exception) {
+            path = location;
+        }
+        if (path == null) {
+            return null;
+        }
         int slash = path.lastIndexOf('/');
         if (slash < 0 || slash == path.length() - 1) {
             return null;
