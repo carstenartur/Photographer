@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -36,7 +35,7 @@ class HttpCcapiDeviceDescriptionFetcherTest {
     }
 
     @Test
-    void validatesOnlyAbsoluteHttpUrisWithoutCredentials() {
+    void validatesOnlyAbsoluteHttpUrisWithoutCredentialsOrFragments() {
         assertDoesNotThrow(() -> HttpCcapiDeviceDescriptionFetcher.validateUri(
                 URI.create("http://192.168.1.2:49152/device.xml")));
         assertDoesNotThrow(() -> HttpCcapiDeviceDescriptionFetcher.validateUri(
@@ -51,6 +50,9 @@ class HttpCcapiDeviceDescriptionFetcherTest {
         assertThrows(IllegalArgumentException.class,
                 () -> HttpCcapiDeviceDescriptionFetcher.validateUri(
                         URI.create("http://user:secret@192.168.1.2/device.xml")));
+        assertThrows(IllegalArgumentException.class,
+                () -> HttpCcapiDeviceDescriptionFetcher.validateUri(
+                        URI.create("http://192.168.1.2/device.xml#fragment")));
     }
 
     @Test
