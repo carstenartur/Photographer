@@ -11,8 +11,9 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
+    <groupId>io.github.carstenartur</groupId>
     <artifactId>canon-cr3-container</artifactId>
-    <version>0.1.5-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <name>Canon CR3 - Container</name>
     <description>ISO BMFF / Canon CR3 container parsing and embedded JPEG payload access</description>
