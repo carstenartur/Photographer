@@ -140,14 +140,14 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-core</artifactId>
-            <version>${project.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-imageio</artifactId>
-            <version>${project.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
