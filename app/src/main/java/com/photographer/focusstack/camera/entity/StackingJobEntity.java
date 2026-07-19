@@ -1,7 +1,11 @@
 package com.photographer.focusstack.camera.entity;
 
+import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionResult;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.QualityMode;
+import com.photographer.focusstack.common.model.StackingCaptureStrategy;
+import com.photographer.focusstack.common.model.StackingExecutionMetadata;
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
 import jakarta.persistence.CollectionTable;
@@ -73,6 +77,42 @@ public class StackingJobEntity {
     @KeywordField
     private QualityMode paramQualityMode;
 
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private StackingCaptureStrategy paramCaptureStrategy;
+
+    private Integer paramNativeNumberOfShots;
+    private Integer paramNativeFocusIncrement;
+    private Boolean paramNativeExposureSmoothing;
+    private Boolean paramNativeDepthComposition;
+    private Boolean paramNativeCropDepthComposition;
+
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private StackingCaptureStrategy requestedStrategy;
+
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private StackingCaptureStrategy selectedStrategy;
+
+    private Integer effectiveFrameCount;
+    private Integer effectiveFocusIncrement;
+    private Boolean effectiveExposureSmoothing;
+    private Boolean effectiveDepthComposition;
+    private Boolean effectiveCropDepthComposition;
+
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private NativeFocusBracketingExecutionResult.CompletionState nativeCompletionState;
+
+    private Integer observedMediaCount;
+    private Integer ingestedFrameCount;
+    private Boolean restorationComplete;
+
+    @Column(length = 2048)
+    private String executionDetail;
+
+    @Column(length = 2048)
     private String stopReason;
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -93,26 +133,89 @@ public class StackingJobEntity {
         entity.completedAt = job.completedAt();
         entity.stopReason = job.stopReason();
         if (job.parameters() != null) {
-            entity.paramStartPosition = job.parameters().startPosition();
-            entity.paramStepSize = job.parameters().stepSize();
-            entity.paramMaxFrames = job.parameters().maxFrames();
-            entity.paramAbortThreshold = job.parameters().abortThreshold();
-            entity.paramMotionDetectionEnabled = job.parameters().motionDetectionEnabled();
-            entity.paramQualityMode = job.parameters().qualityMode();
+            StackingParameters parameters = job.parameters();
+            entity.paramStartPosition = parameters.startPosition();
+            entity.paramStepSize = parameters.stepSize();
+            entity.paramMaxFrames = parameters.maxFrames();
+            entity.paramAbortThreshold = parameters.abortThreshold();
+            entity.paramMotionDetectionEnabled = parameters.motionDetectionEnabled();
+            entity.paramQualityMode = parameters.qualityMode();
+            entity.paramCaptureStrategy = parameters.captureStrategy();
+            NativeFocusBracketingRequest nativeRequest = parameters.nativeFocusBracketing();
+            if (nativeRequest != null) {
+                entity.paramNativeNumberOfShots = nativeRequest.numberOfShots();
+                entity.paramNativeFocusIncrement = nativeRequest.focusIncrement();
+                entity.paramNativeExposureSmoothing = nativeRequest.exposureSmoothing();
+                entity.paramNativeDepthComposition = nativeRequest.depthComposition();
+                entity.paramNativeCropDepthComposition = nativeRequest.cropDepthComposition();
+            }
         }
         if (job.frames() != null) {
             entity.capturedFrameIds = new ArrayList<>(job.frames());
         }
+        entity.storeExecutionMetadata(job.executionMetadata());
         return entity;
     }
 
+    private void storeExecutionMetadata(StackingExecutionMetadata metadata) {
+        if (metadata == null) {
+            return;
+        }
+        requestedStrategy = metadata.requestedStrategy();
+        selectedStrategy = metadata.selectedStrategy();
+        effectiveFrameCount = metadata.effectiveFrameCount();
+        effectiveFocusIncrement = metadata.effectiveFocusIncrement();
+        effectiveExposureSmoothing = metadata.exposureSmoothing();
+        effectiveDepthComposition = metadata.depthComposition();
+        effectiveCropDepthComposition = metadata.cropDepthComposition();
+        nativeCompletionState = metadata.nativeCompletionState();
+        observedMediaCount = metadata.observedMediaCount();
+        ingestedFrameCount = metadata.ingestedFrameCount();
+        restorationComplete = metadata.restorationComplete();
+        executionDetail = metadata.detail();
+    }
+
     public StackingJob toRecord() {
+        StackingCaptureStrategy strategy = paramCaptureStrategy == null
+                ? StackingCaptureStrategy.MANUAL : paramCaptureStrategy;
+        NativeFocusBracketingRequest nativeRequest = null;
+        if (strategy != StackingCaptureStrategy.MANUAL
+                && paramNativeNumberOfShots != null
+                && paramNativeFocusIncrement != null) {
+            nativeRequest = new NativeFocusBracketingRequest(
+                    paramNativeNumberOfShots,
+                    paramNativeFocusIncrement,
+                    Boolean.TRUE.equals(paramNativeExposureSmoothing),
+                    Boolean.TRUE.equals(paramNativeDepthComposition),
+                    Boolean.TRUE.equals(paramNativeCropDepthComposition));
+        }
         StackingParameters params = new StackingParameters(
                 paramStartPosition, paramStepSize, paramMaxFrames,
-                paramAbortThreshold, paramMotionDetectionEnabled, paramQualityMode
-        );
-        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params,
-                new ArrayList<>(capturedFrameIds), stopReason);
+                paramAbortThreshold, paramMotionDetectionEnabled, paramQualityMode,
+                strategy, nativeRequest);
+        return new StackingJob(
+                id, cameraProfileId, status, startedAt, completedAt, params,
+                new ArrayList<>(capturedFrameIds), stopReason, executionMetadata());
+    }
+
+    private StackingExecutionMetadata executionMetadata() {
+        if (requestedStrategy == null || selectedStrategy == null
+                || effectiveFrameCount == null || effectiveFocusIncrement == null) {
+            return null;
+        }
+        return new StackingExecutionMetadata(
+                requestedStrategy,
+                selectedStrategy,
+                effectiveFrameCount,
+                effectiveFocusIncrement,
+                Boolean.TRUE.equals(effectiveExposureSmoothing),
+                Boolean.TRUE.equals(effectiveDepthComposition),
+                Boolean.TRUE.equals(effectiveCropDepthComposition),
+                nativeCompletionState,
+                observedMediaCount == null ? 0 : observedMediaCount,
+                ingestedFrameCount == null ? 0 : ingestedFrameCount,
+                restorationComplete,
+                executionDetail);
     }
 
     public String getId() {
