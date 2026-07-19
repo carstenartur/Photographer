@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Locale;
@@ -77,16 +76,15 @@ final class CanonCcapiMonitoringClient {
                 Thread.ofVirtual().name("ccapi-monitoring-", 0).factory());
         Future<Optional<CameraMediaReference>> future = executor.submit(
                 () -> readMonitoring(endpoint));
+        boolean restoreInterrupt = false;
         try {
             return future.get(timeout.toNanos(), TimeUnit.NANOSECONDS);
         } catch (TimeoutException exception) {
-            cancelEvent(endpoint);
             future.cancel(true);
             return Optional.empty();
         } catch (InterruptedException exception) {
-            cancelEvent(endpoint);
+            restoreInterrupt = true;
             future.cancel(true);
-            Thread.currentThread().interrupt();
             throw cancelled(exception);
         } catch (ExecutionException exception) {
             Throwable cause = exception.getCause();
@@ -98,6 +96,9 @@ final class CanonCcapiMonitoringClient {
             cancelEvent(endpoint);
             future.cancel(true);
             executor.shutdownNow();
+            if (restoreInterrupt) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -120,7 +121,7 @@ final class CanonCcapiMonitoringClient {
             JsonNode event;
             try {
                 event = objectMapper.readTree(json);
-            } catch (RuntimeException exception) {
+            } catch (IOException | RuntimeException exception) {
                 throw rejected(exception);
             }
             if (event == null || !event.isObject()) {
