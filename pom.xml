@@ -220,7 +220,7 @@
                         <artifactId>flatten-maven-plugin</artifactId>
                         <version>${flatten-maven-plugin.version}</version>
                         <configuration>
-                            <flattenMode>ossrh</flattenMode>
+                            <flattenMode>oss</flattenMode>
                             <flattenDependencyMode>inherited</flattenDependencyMode>
                             <updatePomFile>true</updatePomFile>
                         </configuration>
