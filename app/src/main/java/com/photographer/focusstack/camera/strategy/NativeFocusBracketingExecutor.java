@@ -82,8 +82,8 @@ public final class NativeFocusBracketingExecutor {
             Set<String> before = snapshotPaths(mediaProvider);
             checkCancellation(cancellationRequested);
 
-            triggered = true;
             nativeProvider.triggerNativeFocusBracketing(session);
+            triggered = true;
 
             CameraMediaProvider.EventMode eventMode = selectEventMode(backend);
             long deadline = deadline(timeout);
