@@ -64,12 +64,18 @@ The snapshot currently reports application support for:
 - still capture;
 - manual focus drive;
 - live-view control and single-frame live view;
-- media listing/download used by capture ingestion;
-- event polling;
+- bounded media listing and range-safe media download;
+- one-shot event polling;
+- polling continuation when `/event/polling` advertises both GET and DELETE;
+- event monitoring when `/event/monitoring` advertises both GET and DELETE;
 - camera-owned focus-bracketing settings when the production backend implements the native provider.
 
-It also reports selected advertised gaps explicitly, including event monitoring,
-live-view multipart streaming and RTP. These appear as
+Polling continuation and monitoring are cancellation-capable operations. They are
+reported as `AVAILABLE` only when the same exact advertised endpoint provides both
+GET and DELETE. A methodless legacy catalog therefore yields
+`METHOD_METADATA_UNKNOWN`, not a blanket support claim.
+
+Selected advertised gaps such as live-view multipart streaming and RTP remain
 `ADVERTISED_NOT_IMPLEMENTED` rather than being silently presented as supported.
 
 ## Temporary states and public errors
@@ -82,6 +88,10 @@ remain typed errors instead of being flattened into capability absence.
 Only the documented temporary camera states marked retryable by the error taxonomy
 should be retried automatically. A client must not derive retry behavior from HTTP
 status alone.
+
+Media and event cancellation is represented by the caller thread's interrupt state
+and is reported as `CANCELLED`. It is not translated to camera disconnection or a
+retryable transport failure.
 
 ## Non-CCAPI backends
 
