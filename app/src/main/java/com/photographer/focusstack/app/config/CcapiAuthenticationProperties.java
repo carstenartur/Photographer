@@ -32,24 +32,29 @@ public final class CcapiAuthenticationProperties {
         configurationRevision.incrementAndGet();
     }
 
-    /** Resolves an exact profile-id entry and rejects incomplete secret configuration. */
-    public Optional<ResolvedCredentials> resolve(String profileId) {
-        CredentialSnapshot snapshot = snapshot(profileId);
-        return snapshot.credentials();
-    }
-
     /**
      * Returns a secret-free state suitable for cache identity decisions.
      *
      * <p>The revisions are in-memory change counters, not password hashes. A map
      * replacement increments the configuration revision; mutating an existing
      * credential through its binding setters increments the entry revision.</p>
+     *
+     * @param profileId exact camera profile id
+     * @return the current secret-free credential state
      */
     public CredentialState state(String profileId) {
         return inspect(profileId, false).state();
     }
 
-    /** Returns one internally consistent credential and revision snapshot. */
+    /**
+     * Returns one internally consistent credential and revision snapshot.
+     *
+     * <p>The caller must close the returned snapshot. Closing it overwrites any
+     * temporary resolved password copy held by the snapshot.</p>
+     *
+     * @param profileId exact camera profile id
+     * @return a closeable state-and-credential snapshot
+     */
     public CredentialSnapshot snapshot(String profileId) {
         Inspection inspection = inspect(profileId, true);
         return new CredentialSnapshot(inspection.state(), inspection.credentials());
