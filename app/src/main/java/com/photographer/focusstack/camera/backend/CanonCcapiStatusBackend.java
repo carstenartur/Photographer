@@ -2,6 +2,7 @@ package com.photographer.focusstack.camera.backend;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -9,15 +10,20 @@ import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -28,16 +34,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  * derives the legacy state from the rich battery and storage snapshots.</p>
  *
  * <p>Endpoint lookup uses {@link CcapiEndpointCatalog}, retains every advertised
- * API version and matches status paths exactly. In particular,
- * {@code /devicestatus/currentstorage} can never be mistaken for the documented
- * {@code /devicestatus/storage} capacity response.</p>
+ * API version and matches paths exactly. The same catalog now also backs the
+ * inherited capture, focus, live-view and media operations, removing the former
+ * second discovery cache and its substring matching from the production backend.</p>
  */
 public class CanonCcapiStatusBackend extends CanonCcapiBackend implements CameraStatusProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiStatusBackend.class);
+    private static final ObjectMapper REQUEST_MAPPER = new ObjectMapper();
     private static final String STORAGE_SUFFIX = "/devicestatus/storage";
     private static final String BATTERY_SUFFIX = "/devicestatus/battery";
     private static final String BATTERY_LIST_SUFFIX = "/devicestatus/batterylist";
+    private static final String LIVE_VIEW_SUFFIX = "/shooting/liveview";
 
     private final String baseUrl;
     private final RestTemplate restTemplate;
@@ -82,6 +90,102 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         int delta = command.direction() == FocusCommand.Direction.NEAR
                 ? -command.steps() : command.steps();
         trackedFocusPosition.addAndGet(delta);
+    }
+
+    /**
+     * Routes the inherited backend's discovery hook through the shared immutable
+     * catalog. The production factory constructs this status-aware specialization,
+     * so all inherited operations now resolve against the same advertised data.
+     */
+    @Override
+    void discoverEndpoints() {
+        endpointCatalog();
+    }
+
+    /** Exact, highest-version endpoint lookup used by inherited operations. */
+    @Override
+    String findEndpoint(String suffix) {
+        return endpointCatalog().findExactPath(suffix)
+                .map(CcapiEndpointCatalog.Endpoint::url)
+                .orElse(null);
+    }
+
+    /** Applies advertised method metadata without guessing when metadata is absent. */
+    @Override
+    boolean endpointAllows(String suffix, HttpMethod method, boolean defaultValue) {
+        CcapiEndpointCatalog.Endpoint endpoint = endpointCatalog()
+                .findExactPath(suffix)
+                .orElse(null);
+        if (endpoint == null || !endpoint.methodMetadataKnown()) {
+            return defaultValue;
+        }
+        return endpoint.methods().contains(method);
+    }
+
+    /** Keeps legacy fallback behavior while making advertised lookup exact. */
+    @Override
+    String resolveEndpoint(String suffix, String defaultPath) {
+        String endpoint = findEndpoint(suffix);
+        if (endpoint != null) {
+            return endpoint;
+        }
+        log.debug("CCAPI endpoint '{}' was not advertised; using legacy fallback {}",
+                suffix, defaultPath);
+        return baseUrl + defaultPath;
+    }
+
+    /**
+     * The base implementation performs a private-map scan. Stop live view through
+     * the shared catalog, then delegate once only to reset the base lifecycle flag.
+     */
+    @Override
+    public void stopLiveView() {
+        String url = findEndpoint(LIVE_VIEW_SUFFIX);
+        if (url != null && endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {
+            try {
+                restTemplate.exchange(
+                        url,
+                        HttpMethod.POST,
+                        ccapiEntity(Map.of("liveviewsize", "off")),
+                        String.class);
+                log.info("Live view stopped.");
+            } catch (RestClientException exception) {
+                log.debug("Failed to stop live view (may already be off): {}",
+                        exception.getMessage());
+            }
+        }
+        // No duplicate request is emitted because this specialization never fills
+        // the base class's private endpoint map. The delegate resets its private
+        // liveViewStarted flag for the next getLiveView() call.
+        super.stopLiveView();
+    }
+
+    @Override
+    public Map<String, String> getDiscoveredEndpoints() {
+        Map<String, String> result = new LinkedHashMap<>();
+        for (CcapiEndpointCatalog.Endpoint endpoint : endpointCatalog().endpoints()) {
+            result.put(endpoint.advertisedValue(), endpoint.url());
+        }
+        return Map.copyOf(result);
+    }
+
+    @Override
+    public Map<String, Set<HttpMethod>> getDiscoveredEndpointMethods() {
+        Map<String, Set<HttpMethod>> result = new LinkedHashMap<>();
+        for (CcapiEndpointCatalog.Endpoint endpoint : endpointCatalog().endpoints()) {
+            if (endpoint.methodMetadataKnown()) {
+                result.put(endpoint.advertisedValue(), endpoint.methods());
+            }
+        }
+        return Map.copyOf(result);
+    }
+
+    private static HttpEntity<byte[]> ccapiEntity(Object body) {
+        try {
+            return new HttpEntity<>(REQUEST_MAPPER.writeValueAsBytes(body), new HttpHeaders());
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Could not serialize CCAPI request body", exception);
+        }
     }
 
     private ReadResult<BatteryInfo> readBattery() {
