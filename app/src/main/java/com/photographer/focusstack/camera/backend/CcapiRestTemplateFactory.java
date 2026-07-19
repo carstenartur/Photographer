@@ -18,6 +18,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -38,7 +39,7 @@ public final class CcapiRestTemplateFactory {
                 authenticationProperties, "authenticationProperties");
     }
 
-    RestTemplate create(CameraProfile profile, URI baseUri) {
+    CcapiTransport create(CameraProfile profile, URI baseUri) {
         Objects.requireNonNull(profile, "profile");
         Objects.requireNonNull(baseUri, "baseUri");
         if (baseUri.getHost() == null) {
@@ -47,6 +48,7 @@ public final class CcapiRestTemplateFactory {
 
         Optional<CcapiAuthenticationProperties.ResolvedCredentials> credentials =
                 authenticationProperties.resolve(profile.id());
+        char[] password = null;
 
         ConnectionConfig connectionConfig = ConnectionConfig.custom()
                 .setConnectTimeout(Timeout.ofMilliseconds(
@@ -60,34 +62,42 @@ public final class CcapiRestTemplateFactory {
                         .setMaxConnTotal(4)
                         .build();
 
-        org.apache.hc.client5.http.impl.classic.HttpClientBuilder clientBuilder =
-                HttpClients.custom()
-                        .setConnectionManager(connectionManager)
-                        .disableRedirectHandling();
+        try {
+            org.apache.hc.client5.http.impl.classic.HttpClientBuilder clientBuilder =
+                    HttpClients.custom()
+                            .setConnectionManager(connectionManager)
+                            .disableRedirectHandling();
 
-        credentials.ifPresent(value -> {
-            BasicCredentialsProvider provider = new BasicCredentialsProvider();
-            // UsernamePasswordCredentials retains the supplied character array and needs it
-            // when a later 401 challenge is answered. Clearing it here would silently replace
-            // the configured password with NUL characters before Digest authentication runs.
-            // The array is already a defensive copy owned by this profile-scoped transport;
-            // explicit clearing belongs to the transport lifecycle implemented with eviction.
-            provider.setCredentials(
-                    new AuthScope(baseUri.getHost(), effectivePort(baseUri)),
-                    new UsernamePasswordCredentials(value.username(), value.passwordCopy()));
-            clientBuilder.setDefaultCredentialsProvider(provider);
-        });
+            if (credentials.isPresent()) {
+                CcapiAuthenticationProperties.ResolvedCredentials value = credentials.orElseThrow();
+                password = value.passwordCopy();
+                BasicCredentialsProvider provider = new BasicCredentialsProvider();
+                // UsernamePasswordCredentials retains this character array and needs it when a
+                // later 401 challenge is answered. The CcapiTransport owns and clears the array
+                // only after its HttpClient has been closed.
+                provider.setCredentials(
+                        new AuthScope(baseUri.getHost(), effectivePort(baseUri)),
+                        new UsernamePasswordCredentials(value.username(), password));
+                clientBuilder.setDefaultCredentialsProvider(provider);
+            }
 
-        CloseableHttpClient httpClient = clientBuilder.build();
-        HttpComponentsClientHttpRequestFactory requestFactory =
-                new HttpComponentsClientHttpRequestFactory(httpClient);
-        requestFactory.setConnectionRequestTimeout(cameraConfig.connectionTimeout());
-        requestFactory.setReadTimeout(READ_TIMEOUT);
+            CloseableHttpClient httpClient = clientBuilder.build();
+            HttpComponentsClientHttpRequestFactory requestFactory =
+                    new HttpComponentsClientHttpRequestFactory(httpClient);
+            requestFactory.setConnectionRequestTimeout(cameraConfig.connectionTimeout());
+            requestFactory.setReadTimeout(READ_TIMEOUT);
 
-        RestTemplate restTemplate = new RestTemplate(requestFactory);
-        restTemplate.setErrorHandler(new CcapiResponseErrorHandler(
-                profile.id(), credentials.isPresent()));
-        return restTemplate;
+            RestTemplate restTemplate = new RestTemplate(requestFactory);
+            restTemplate.setErrorHandler(new CcapiResponseErrorHandler(
+                    profile.id(), credentials.isPresent()));
+            return new CcapiTransport(restTemplate, httpClient, password);
+        } catch (RuntimeException exception) {
+            connectionManager.close();
+            if (password != null) {
+                Arrays.fill(password, '\0');
+            }
+            throw exception;
+        }
     }
 
     private static int effectivePort(URI uri) {
