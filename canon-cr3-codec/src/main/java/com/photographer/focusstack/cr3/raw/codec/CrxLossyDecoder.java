@@ -78,6 +78,7 @@ public final class CrxLossyDecoder {
      * @param cmp1         the CMP1 box with compression parameters
      * @return the decoded image (not yet functional for full decoding)
      * @throws Cr3Exception if decoding cannot be completed
+     * @throws java.io.IOException if the CRX header cannot be read
      */
     public static Cr3RawImage decode(byte[] data, int width, int height,
                                       int bitDepth, CrxHeader.CodecVersion codecVersion,
