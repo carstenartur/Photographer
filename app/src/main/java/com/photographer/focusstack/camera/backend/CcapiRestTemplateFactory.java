@@ -102,7 +102,9 @@ public final class CcapiRestTemplateFactory {
                                 .disableRedirectHandling()
                                 .addResponseInterceptorLast((response, entity, context) -> {
                                     int status = response.getCode();
-                                    if (status == 401) {
+                                    if (status == 401
+                                            && !Boolean.TRUE.equals(context.getAttribute(
+                                            AUTH_CHALLENGED_ATTRIBUTE))) {
                                         context.setAttribute(AUTH_CHALLENGED_ATTRIBUTE, Boolean.TRUE);
                                         outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_CHALLENGE);
                                     } else if (status >= 200 && status < 300
