@@ -37,9 +37,25 @@ move to another origin.
 
 The backend cache owns the transport lifetime. Explicit profile eviction and
 application shutdown close the HttpClient and connection pool and overwrite the
-transport-owned password character array. Rotating or removing credentials still
-requires eviction or restart so a new backend is created from the new external
-configuration; automatic configuration fingerprinting is tracked separately.
+transport-owned password character array.
+
+Each cache entry also stores a secret-free transport fingerprint containing:
+
+- normalized backend type;
+- normalized camera URL or folder location;
+- whether CCAPI credentials are configured;
+- in-memory configuration and credential revision counters.
+
+The fingerprint never contains a username, password or password-derived hash.
+When the bound camera profile or credential property object changes, the next
+backend lookup atomically creates the replacement first, installs it and only
+then closes the previous transport. If creation fails, the previous backend stays
+installed and open.
+
+Changing an operating-system environment variable does not by itself mutate an
+already running Spring configuration object. Such deployment changes still need
+a supported configuration refresh or an application restart. On restart, no old
+Digest or credential state survives.
 
 ## Failure behavior
 
@@ -55,11 +71,15 @@ Authorization data from the camera exchange.
 ## Rotation
 
 1. Change the account password on the camera.
-2. Replace the runtime secret in the deployment environment.
-3. Restart the application, or explicitly evict the affected profile backend.
+2. Replace the runtime secret in the deployment environment or supported runtime
+   configuration source.
+3. Apply the configuration refresh, explicitly evict the profile backend, or
+   restart the application.
 4. Reconnect and verify read-only device information before starting a capture.
 
-No database migration is needed because the credentials are not persisted.
+A runtime configuration refresh automatically changes the secret-free credential
+revision and causes replacement on the next backend lookup. No database migration
+is needed because the credentials are not persisted.
 
 ## Troubleshooting
 
@@ -68,8 +88,8 @@ No database migration is needed because the credentials are not persisted.
   unused.
 - `CREDENTIALS_REJECTED`: verify the camera-side account is enabled and that the
   runtime secret belongs to the same profile.
-- Repeated failure after rotation: evict the cached backend or restart the
-  application so old transport state is discarded.
+- Repeated failure after rotation: confirm the running process actually received
+  the refreshed configuration; otherwise evict the backend or restart it.
 - Connection timeout is distinct from an authentication rejection; verify the
   camera URL, Wi-Fi connection and configured CCAPI port.
 
