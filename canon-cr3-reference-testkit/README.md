@@ -34,15 +34,17 @@ clear.
 ## Reference-image loading
 
 `ReferenceImageLoader.load(Path)` decodes TIFF and PNG sidecars through ImageIO and
-copies the first raster band into the canonical row-major sample array.
+copies the first decoded raster band into the canonical row-major sample array.
 
 - unsigned 16-bit grayscale TIFF samples retain the complete `0..65535` range;
 - grayscale PNG samples retain their stored sample values;
-- an RGB PNG contributes raster band 0, normally the red component; it is not
-  implicitly converted to luminance.
+- a multi-band PNG contributes raster band 0 from the concrete image returned by
+  the registered ImageIO reader; the semantic channel depends on that decoded
+  image layout and is not assumed to be red, green, blue or luminance.
 
-Color-aware comparisons require a different representation and are intentionally
-outside this single-band testkit.
+No implicit luminance or color conversion is performed. Color-aware comparisons
+require a different representation and are intentionally outside this single-band
+testkit.
 
 ## Difference-image semantics
 
