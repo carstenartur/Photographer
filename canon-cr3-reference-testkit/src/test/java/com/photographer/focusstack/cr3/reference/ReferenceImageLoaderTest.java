@@ -48,15 +48,20 @@ class ReferenceImageLoaderTest {
     }
 
     @Test
-    void loadsFirstBandOfRgbPngRatherThanImplicitLuminance() throws Exception {
-        BufferedImage image = new BufferedImage(2, 1, BufferedImage.TYPE_INT_RGB);
-        image.getRaster().setPixel(0, 0, new int[]{10, 20, 30});
-        image.getRaster().setPixel(1, 0, new int[]{200, 150, 100});
+    void loadsFirstDecodedRasterBandWithoutImplicitLuminanceConversion() throws Exception {
+        BufferedImage source = new BufferedImage(2, 1, BufferedImage.TYPE_INT_RGB);
+        source.getRaster().setPixel(0, 0, new int[]{10, 20, 30});
+        source.getRaster().setPixel(1, 0, new int[]{200, 150, 100});
         Path png = tempDir.resolve("rgb-reference.png");
-        assertThat(ImageIO.write(image, "PNG", png.toFile())).isTrue();
+        assertThat(ImageIO.write(source, "PNG", png.toFile())).isTrue();
 
+        BufferedImage decoded = ImageIO.read(png.toFile());
+        int[] expectedBandZero = decoded.getRaster().getSamples(
+                0, 0, decoded.getWidth(), decoded.getHeight(), 0, (int[]) null);
         ReferenceImage loaded = ReferenceImageLoader.load(png);
 
-        assertThat(loaded.samples()).containsExactly(10, 200);
+        assertThat(loaded.width()).isEqualTo(decoded.getWidth());
+        assertThat(loaded.height()).isEqualTo(decoded.getHeight());
+        assertThat(loaded.samples()).containsExactly(expectedBandZero);
     }
 }
