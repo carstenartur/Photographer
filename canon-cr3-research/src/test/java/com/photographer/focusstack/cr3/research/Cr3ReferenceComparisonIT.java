@@ -11,9 +11,11 @@ import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.reference.ReferenceDifferenceImage;
 import com.photographer.focusstack.cr3.reference.ReferenceImage;
 import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
 import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
+import com.photographer.focusstack.cr3.reference.SpatialReferenceMetrics;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -127,8 +129,8 @@ class Cr3ReferenceComparisonIT {
                 preview.getWidth(), preview.getHeight());
         BufferedImage decoderVisual = buildRawVisual(decoded.raw.data(), decoded.raw.width(), visible, scale,
                 preview.getWidth(), preview.getHeight());
-        BufferedImage diffVisual = buildDifferenceVisual(reference.samples(), decoded.raw.data(), decoded.raw.width(),
-                visible, preview.getWidth(), preview.getHeight());
+        BufferedImage diffVisual = buildDifferenceVisual(reference.samples(), decoded.raw.data(),
+                decoded.raw.width(), decoded.raw.height(), visible, preview.getWidth(), preview.getHeight());
 
         Path previewOut = writeImage(fixture, "preview", preview, DOCS_IMAGE_DIR, TARGET_IMAGE_DIR);
         Path referenceOut = writeImage(fixture, "reference", referenceVisual, DOCS_IMAGE_DIR, TARGET_IMAGE_DIR);
@@ -348,19 +350,18 @@ class Cr3ReferenceComparisonIT {
         return scaleImage(raw, outWidth, outHeight);
     }
 
-    private static BufferedImage buildDifferenceVisual(int[] reference, int[] actual, int width, VisibleRect rect,
+    private static BufferedImage buildDifferenceVisual(int[] reference, int[] actual,
+                                                        int width, int height, VisibleRect rect,
                                                         int outWidth, int outHeight) {
-        BufferedImage diff = new BufferedImage(rect.width, rect.height, BufferedImage.TYPE_INT_RGB);
-        for (int y = 0; y < rect.height; y++) {
-            int rowBase = (rect.y + y) * width;
-            for (int x = 0; x < rect.width; x++) {
-                int delta = Math.abs(actual[rowBase + rect.x + x] - reference[rowBase + rect.x + x]);
-                int intensity = Math.min(255, delta / 8);
-                int rgb = (intensity << 16) | (Math.min(255, intensity / 2) << 8);
-                diff.setRGB(x, y, 0xFF000000 | rgb);
-            }
-        }
-        return scaleImage(diff, outWidth, outHeight);
+        BufferedImage diff = ReferenceDifferenceImage.absoluteHeatmap(
+                reference,
+                actual,
+                width,
+                height,
+                new SpatialReferenceMetrics.Rect(rect.x, rect.y, rect.width, rect.height),
+                0,
+                ReferenceDifferenceImage.DEFAULT_DISPLAY_DIVISOR);
+        return ReferenceDifferenceImage.scale(diff, outWidth, outHeight);
     }
 
     private static BufferedImage scaleImage(BufferedImage source, int width, int height) {
