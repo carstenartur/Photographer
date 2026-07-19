@@ -76,12 +76,16 @@ class CcapiDiscoverySecurityTest {
     }
 
     private static CcapiSsdpDatagram datagram(URI location) {
-        String payload = "HTTP/1.1 200 OK\r\n"
-                + "LOCATION: " + location + "\r\n"
-                + "ST: " + CcapiSsdpCodec.SERVICE_TYPE + "\r\n\r\n";
-        return new CcapiSsdpDatagram(
-                payload.getBytes(StandardCharsets.ISO_8859_1),
-                new InetSocketAddress(InetAddress.getLoopbackAddress(), 1900));
+        try {
+            String payload = "HTTP/1.1 200 OK\r\n"
+                    + "LOCATION: " + location + "\r\n"
+                    + "ST: " + CcapiSsdpCodec.SERVICE_TYPE + "\r\n\r\n";
+            return new CcapiSsdpDatagram(
+                    payload.getBytes(StandardCharsets.ISO_8859_1),
+                    new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 1900));
+        } catch (Exception exception) {
+            throw new AssertionError("Could not create IPv4 SSDP fixture", exception);
+        }
     }
 
     private static byte[] xml(String udn, String name) {
