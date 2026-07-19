@@ -204,7 +204,7 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
             )
             file_entries.append((row, fixture_path, reference_path))
         except ValueError as error:
-            errors.append(str(error))
+            errors.append(f"TSV line {line_number}: {error}")
 
     for row, fixture_path, reference_path in file_entries:
         if not fixture_path.is_file():
