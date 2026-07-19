@@ -162,10 +162,8 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
     }
 
     /**
-     * Stops live view through the exact shared catalog while reusing the base
-     * backend's single raw-JSON POST and bounded Device-busy retry implementation.
-     * Delegating to {@link #startLiveView(String)} with {@code off} remains
-     * method-aware because {@link #resolveEndpoint(String, String)} is virtual.
+     * Stops live view through the exact shared catalog and the base backend's
+     * single raw-JSON POST implementation, including its bounded Device-busy retry.
      * The final base stop call only resets its lifecycle flag: this specialization
      * never populates the base class's private endpoint map, so it cannot emit a
      * second request.
@@ -175,15 +173,11 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         String url = findEndpoint(LIVE_VIEW_SUFFIX);
         if (url != null && endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {
             try {
-                super.startLiveView("off");
+                ccapiPost(url, Map.of("liveviewsize", "off"));
                 log.info("Live view stopped.");
-            } catch (CameraException exception) {
-                if (exception.getCause() instanceof RestClientException) {
-                    log.debug("Failed to stop live view (may already be off): {}",
-                            exception.getMessage());
-                } else {
-                    throw exception;
-                }
+            } catch (RestClientException exception) {
+                log.debug("Failed to stop live view (may already be off): {}",
+                        exception.getMessage());
             }
         }
         super.stopLiveView();
