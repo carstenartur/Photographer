@@ -15,7 +15,7 @@ The application contains a platform-independent discovery core for Canon cameras
 7. validate that `X_accessURL` refers to the same host as the device description;
 8. return cameras deduplicated by UDN, with structured non-fatal warnings.
 
-The caller supplies an overall timeout between a positive duration and five minutes. The service divides the remaining deadline among network bindings and device-description requests.
+The core caller supplies an overall timeout between a positive duration and five minutes. The service divides the remaining deadline among network bindings and device-description requests.
 
 ## Security boundaries
 
@@ -33,7 +33,7 @@ Discovery treats multicast responses and device-description XML as untrusted inp
 
 These rules deliberately do not copy the Android sample's hard-coded network interface, regular-expression XML parsing, ICMP reachability loop or diagnostic logging of authentication/network values.
 
-## API
+## Java API
 
 ```java
 CcapiDiscoveryService discovery = new CcapiDiscoveryService();
@@ -47,12 +47,46 @@ for (CcapiDiscoveredCamera camera : result.cameras()) {
 
 A discovery result may contain both cameras and warnings. Failure on one interface or one malformed device description does not discard cameras found through other bindings.
 
+## Authenticated HTTP boundary
+
+The application exposes the discovery core without coupling it to camera-profile persistence:
+
+```http
+POST /api/cameras/discovery?timeoutSeconds=5
+```
+
+- Authentication is required by the application's normal security policy.
+- The HTTP timeout policy accepts 1–30 seconds; the default is 5 seconds.
+- The operation is read-only: it does not create or update profiles and does not connect to a camera.
+- The response contains the normalized CCAPI access URL and camera identity fields required for an explicit user choice.
+- The internal device-description URL is deliberately omitted from the HTTP response.
+- Non-fatal warnings remain structured and redacted.
+
+Example response:
+
+```json
+{
+  "cameras": [
+    {
+      "accessUrl": "http://192.168.1.2:8080/ccapi",
+      "udn": "uuid:camera-one",
+      "friendlyName": "Canon Camera",
+      "modelName": "PowerShot G5 X Mark II",
+      "serialNumber": "123456789",
+      "nickname": "Studio",
+      "serviceConnected": true
+    }
+  ],
+  "warnings": []
+}
+```
+
 ## Deliberate non-goals of this slice
 
-- no REST or UI endpoint yet;
-- no automatic profile creation;
-- no connection attempt or digest authentication;
+- no automatic profile creation or update;
+- no automatic connection attempt or digest authentication;
 - no background reachability monitor;
+- no claim that SSDP discovery is authoritative session state;
 - no changes to capture, live view, media or focus workflows.
 
 Those integrations must preserve the same explicit timeout, cancellation, redaction and capability rules and are tracked in issue #143.
@@ -62,7 +96,7 @@ Those integrations must preserve the same explicit timeout, cancellation, redact
 The discovery tests use synthetic SSDP packets and device-description XML. They do not require a camera, multicast-capable CI environment or GitHub Actions:
 
 ```bash
-mvn -pl app -Dtest='com.photographer.focusstack.camera.discovery.*Test' test
+mvn -pl app -am -Dtest='com.photographer.focusstack.camera.discovery.*Test,com.photographer.focusstack.camera.controller.CameraDiscoveryControllerTest' test
 ```
 
 Real-camera diagnostics should be optional and tagged. They may record normalized identity/capability data, but must not persist credentials, authorization headers, raw Wi-Fi settings or unredacted packets.
