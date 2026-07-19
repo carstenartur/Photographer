@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -51,5 +54,41 @@ class CanonCcapiMonitoringMediaClientTest {
 
         assertEquals("IMG_0042.JPG", result.orElseThrow().fileName());
         server.verify();
+    }
+
+    @Test
+    void productionCapabilityMarksAdvancedEventsAvailableOnlyFromGetDeleteCatalog() {
+        String baseUrl = "http://camera.example:8080";
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(requestTo(baseUrl + "/ccapi"))
+                .andRespond(withSuccess("""
+                        {"ver110":[
+                          {"path":"/ccapi/ver110/event/polling",
+                           "get":true,"post":false,"put":false,"delete":true},
+                          {"path":"/ccapi/ver110/event/monitoring",
+                           "get":true,"post":false,"put":false,"delete":true}
+                        ]}
+                        """, MediaType.APPLICATION_JSON));
+
+        CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(
+                "camera-profile", baseUrl, restTemplate);
+        CameraCapabilitySnapshot snapshot = backend.getCapabilitySnapshot();
+
+        assertCapability(snapshot, "event-polling-continuation");
+        assertCapability(snapshot, "event-monitoring");
+        server.verify();
+    }
+
+    private static void assertCapability(CameraCapabilitySnapshot snapshot, String id) {
+        CameraCapabilitySnapshot.Capability capability = snapshot.capabilities().stream()
+                .filter(candidate -> candidate.id().equals(id))
+                .findFirst()
+                .orElseThrow();
+        assertTrue(capability.advertised());
+        assertTrue(capability.implemented());
+        assertEquals(AVAILABLE, capability.availability());
+        assertEquals(Set.of("DELETE", "GET"), capability.requiredMethods());
+        assertEquals(Set.of("DELETE", "GET"), capability.advertisedMethods());
     }
 }
