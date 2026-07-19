@@ -61,13 +61,28 @@ Three observation modes are exposed:
 
 | Mode | Endpoint | Required advertised methods | Behaviour |
 | --- | --- | --- | --- |
-| `POLLING` | `/event/polling` | GET | Repeats bounded one-shot polling until media arrives or the deadline expires. |
-| `POLLING_CONTINUATION` | `/event/polling?continue=on` | GET and DELETE | Uses Canon's continuing poll and cancels the operation with DELETE. |
-| `MONITORING` | `/event/monitoring` | GET and DELETE | Waits for the monitoring response and cancels the operation with DELETE. |
+| `POLLING` | `/event/polling` | GET | Repeats bounded one-shot JSON polling until media arrives or the deadline expires. |
+| `POLLING_CONTINUATION` | `/event/polling?continue=on` | GET and DELETE | Uses Canon's continuing poll, accepts the final JSON event response and cancels the operation with DELETE. |
+| `MONITORING` | `/event/monitoring` | GET and DELETE | Parses Canon's continuing binary event stream and cancels the operation with DELETE. |
 
 Continuation and monitoring are rejected unless the exact selected endpoint
 advertises DELETE. Methodless legacy catalogs are insufficient for starting an
 operation that requires explicit cancellation.
+
+### Binary monitoring frames
+
+Monitoring does not return an ordinary JSON document. Each event is framed as:
+
+1. start bytes `FF 00`;
+2. data type `02` for event data;
+3. a four-byte big-endian payload length;
+4. one JSON event payload;
+5. end bytes `FF FF`.
+
+The parser accepts only the event data type, rejects malformed boundaries and limits
+one declared event payload to 4 MiB before allocating it. Empty and unrelated event
+objects are skipped until an `addedcontents` value is received, the stream ends, the
+deadline expires or the caller cancels.
 
 Event payloads are searched only for same-origin media paths under `/contents/`.
 The resulting `CameraMediaReference` contains no camera address or raw event payload.
@@ -77,10 +92,10 @@ The resulting `CameraMediaReference` contains no camera address or raw event pay
 The observation timeout must be positive and no longer than five minutes. Waiting is
 performed on a bounded task and the operation is cancelled when the deadline expires.
 
-A caller cancels listing, transfer or observation by interrupting its thread. The
-interrupt flag is preserved and the typed reason is `CANCELLED`; ordinary
-cancellation is not reported as camera disconnection, timeout or retryable transport
-failure.
+A caller cancels listing, transfer or observation by interrupting its thread. For a
+continuing event request, the adapter sends exactly one best-effort DELETE before
+restoring the interrupt flag. The typed reason is `CANCELLED`; ordinary cancellation
+is not reported as camera disconnection, timeout or retryable transport failure.
 
 DELETE is used only to stop a continuing polling or monitoring request. The adapter
 has no media-delete, directory-delete or metadata-modification operation, so automated
@@ -106,8 +121,9 @@ contract.
 ## Current integration boundary
 
 `CameraBackendFactory` creates `CanonCcapiProductionBackend`, which composes the
-existing status/native-focus backend with the media client. Both use the same cached,
-all-version endpoint catalog and the same profile-scoped authenticated transport.
+existing status/native-focus backend with the bounded JSON media/polling client and
+the binary monitoring client. All components use the same cached, all-version endpoint
+catalog and the same profile-scoped authenticated transport.
 
 The older capture implementation remains compatible while native sequence
 orchestration can consume `CameraMediaProvider` directly. Migrating every legacy
