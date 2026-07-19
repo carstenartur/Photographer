@@ -81,6 +81,10 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <workingDirectory>${maven.multiModuleProjectDirectory}/canon-cr3-imageio</workingDirectory>
+                    <systemPropertyVariables>
+                        <cr3.samples.dir>${maven.multiModuleProjectDirectory}/canon-cr3-imageio/src/test/resources/samples</cr3.samples.dir>
+                        <cr3.research.output.dir>${project.build.directory}</cr3.research.output.dir>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
@@ -96,6 +100,10 @@
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <configuration>
                             <workingDirectory>${maven.multiModuleProjectDirectory}/canon-cr3-imageio</workingDirectory>
+                            <systemPropertyVariables>
+                                <cr3.samples.dir>${maven.multiModuleProjectDirectory}/canon-cr3-imageio/src/test/resources/samples</cr3.samples.dir>
+                                <cr3.research.output.dir>${project.build.directory}</cr3.research.output.dir>
+                            </systemPropertyVariables>
                         </configuration>
                         <executions>
                             <execution>
