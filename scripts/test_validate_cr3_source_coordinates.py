@@ -40,7 +40,7 @@ class SourceCoordinateValidatorTest(unittest.TestCase):
             validate(root)
             self.assertEqual([], find_legacy_dependencies(root))
 
-    def test_rejects_legacy_cr3_dependency(self) -> None:
+    def test_rejects_legacy_public_cr3_dependency(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             self._write_pom(
@@ -52,8 +52,22 @@ class SourceCoordinateValidatorTest(unittest.TestCase):
             violations = find_legacy_dependencies(root)
             self.assertEqual(1, len(violations))
             self.assertEqual("canon-cr3-processing", violations[0].artifact_id)
-            with self.assertRaisesRegex(RuntimeError, "retired Canon CR3 coordinates"):
+            with self.assertRaisesRegex(
+                RuntimeError, "retired public Canon CR3 coordinates"
+            ):
                 validate(root)
+
+    def test_allows_internal_cr3_artifacts_to_remain_in_monoreactor_group(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_pom(
+                root / "canon-cr3-research" / "pom.xml",
+                "com.photographer.focusstack",
+                "canon-cr3-reference-testkit",
+            )
+
+            validate(root)
+            self.assertEqual([], find_legacy_dependencies(root))
 
     def test_ignores_non_cr3_internal_dependency_and_target_output(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
