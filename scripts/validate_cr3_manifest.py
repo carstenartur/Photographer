@@ -13,6 +13,7 @@ EXPECTED_HEADER = (
 )
 VALID_REFERENCE_TYPES = {"RAW_LINEAR", "PREVIEW_RENDERED", "UNKNOWN"}
 FORBIDDEN_COMMAND_PHRASE = "exact CLI not preserved"
+SAFE_SIDECAR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 def validate(repository_root: Path) -> list[str]:
@@ -38,7 +39,14 @@ def validate(repository_root: Path) -> list[str]:
         return [f"unexpected header: {lines[0]}"]
 
     errors: list[str] = []
-    samples = repository_root / "canon-cr3-imageio" / "src" / "test" / "resources" / "samples"
+    samples_root = (
+        repository_root
+        / "canon-cr3-imageio"
+        / "src"
+        / "test"
+        / "resources"
+        / "samples"
+    ).resolve()
 
     for line in lines[1:]:
         columns = [column.strip() for column in line.split("|")]
@@ -72,7 +80,19 @@ def validate(repository_root: Path) -> list[str]:
             errors.append(f"Empty command for {fixture}")
 
         fixture_path = Path(fixture)
-        sidecar_path = samples / fixture_path.parent / f"{fixture_path.stem}.{sidecar}"
+        if fixture_path.is_absolute() or ".." in fixture_path.parts:
+            errors.append(f"Unsafe fixture path: {fixture}")
+            continue
+        if SAFE_SIDECAR_NAME.fullmatch(sidecar) is None:
+            errors.append(f"Unsafe sidecar name for {fixture}: {sidecar}")
+            continue
+
+        sidecar_path = (
+            samples_root / fixture_path.parent / f"{fixture_path.stem}.{sidecar}"
+        ).resolve()
+        if not sidecar_path.is_relative_to(samples_root):
+            errors.append(f"Sidecar escapes samples directory: {fixture}")
+            continue
         if not sidecar_path.is_file():
             errors.append(f"Sidecar not found on disk: {sidecar_path}")
 
