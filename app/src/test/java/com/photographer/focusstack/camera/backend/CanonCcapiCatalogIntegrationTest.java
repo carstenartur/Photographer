@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -158,10 +158,10 @@ class CanonCcapiCatalogIntegrationTest {
 
     private static HttpEntity<byte[]> entityContaining(String expected) {
         return argThat(entity -> {
-            if (entity == null || !(entity.getBody() instanceof byte[] body)) {
+            if (entity == null || entity.getBody() == null) {
                 return false;
             }
-            return new String(body, StandardCharsets.UTF_8).contains(expected);
+            return new String(entity.getBody(), StandardCharsets.UTF_8).contains(expected);
         });
     }
 
