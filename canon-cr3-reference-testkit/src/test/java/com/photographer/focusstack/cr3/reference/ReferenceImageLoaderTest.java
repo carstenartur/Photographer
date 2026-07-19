@@ -32,4 +32,31 @@ class ReferenceImageLoaderTest {
         assertThat(loaded.height()).isEqualTo(2);
         assertThat(loaded.samples()).containsExactly(0, 2_048, 32_768, 65_535);
     }
+
+    @Test
+    void loadsGrayscalePngSamplesWithoutColorConversion() throws Exception {
+        BufferedImage image = new BufferedImage(3, 1, BufferedImage.TYPE_BYTE_GRAY);
+        image.getRaster().setSamples(0, 0, 3, 1, 0, new int[]{0, 127, 255});
+        Path png = tempDir.resolve("reference.png");
+        assertThat(ImageIO.write(image, "PNG", png.toFile())).isTrue();
+
+        ReferenceImage loaded = ReferenceImageLoader.load(png);
+
+        assertThat(loaded.width()).isEqualTo(3);
+        assertThat(loaded.height()).isEqualTo(1);
+        assertThat(loaded.samples()).containsExactly(0, 127, 255);
+    }
+
+    @Test
+    void loadsFirstBandOfRgbPngRatherThanImplicitLuminance() throws Exception {
+        BufferedImage image = new BufferedImage(2, 1, BufferedImage.TYPE_INT_RGB);
+        image.getRaster().setPixel(0, 0, new int[]{10, 20, 30});
+        image.getRaster().setPixel(1, 0, new int[]{200, 150, 100});
+        Path png = tempDir.resolve("rgb-reference.png");
+        assertThat(ImageIO.write(image, "PNG", png.toFile())).isTrue();
+
+        ReferenceImage loaded = ReferenceImageLoader.load(png);
+
+        assertThat(loaded.samples()).containsExactly(10, 200);
+    }
 }
