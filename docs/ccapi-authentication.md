@@ -1,45 +1,84 @@
-# Canon CCAPI authentication
+# Canon CCAPI Digest authentication
 
-Canon CCAPI can require HTTP Digest authentication when an account is enabled in the camera's **Camera Control API → Account settings** menu. The application supports this without adding credentials to camera profiles, database rows or public API payloads.
+Canon cameras can protect CCAPI with HTTP Digest authentication. The camera-side
+account is configured under **Camera Control API → Account settings**. The
+application keeps those credentials outside camera profiles, database records and
+public APIs.
 
-## Configuration boundary
+## External configuration
 
-Credentials are resolved by the exact `CameraProfile.id` and are used only while constructing that profile's internal HTTP transport.
+Credentials are resolved by the exact camera profile id:
 
 ```yaml
 focusstack:
   camera:
     ccapi:
       credentials:
-        powershot-g5:
-          username: ${CCAPI_G5_USERNAME:}
-          password: ${CCAPI_G5_PASSWORD:}
+        studio-g5x:
+          username: ${CCAPI_STUDIO_G5X_USERNAME}
+          password: ${CCAPI_STUDIO_G5X_PASSWORD}
 ```
 
-Set `CCAPI_G5_USERNAME` and `CCAPI_G5_PASSWORD` in the process/container secret environment. Do not put real values in checked-in YAML, Dockerfiles, command-line arguments, screenshots or support bundles.
+Environment variables should supply the secret values at runtime. Do not place
+real passwords in committed YAML, Docker images, command-line arguments, issue
+attachments or diagnostic bundles.
 
-An entry is optional. Cameras with authentication disabled continue to use an unauthenticated CCAPI transport. Supplying only a username or only a password is rejected as incomplete configuration.
+The configuration key is the profile id, not the display name, host or camera
+model. No wildcard or host-based fallback is performed. A profile with no entry
+uses an ordinary unauthenticated CCAPI transport. Supplying only a username or
+only a password fails safely and identifies only the affected profile id.
 
-## Runtime behavior
+## Transport isolation and lifecycle
 
-- each cached Canon backend owns an independent HTTP client and authentication state;
-- credentials are scoped to the configured camera host and port;
-- the first request is sent without an `Authorization` header and answers a camera-provided Digest challenge;
-- redirects are disabled, preventing credentials from being forwarded to another origin;
-- Apache HttpClient handles the Digest nonce count and stale-nonce challenge exchange;
-- a final `401` becomes a sanitized `CREDENTIALS_REQUIRED` or `CREDENTIALS_REJECTED` camera error;
-- challenge headers, realm, nonce, opaque value, user name, password and generated Authorization response are never copied into public error details.
+Every cached Canon backend owns a separate Apache HttpClient and connection pool.
+Credentials are scoped to the configured camera host and port and are sent only
+after a Digest challenge. Redirects are disabled so authentication state cannot
+move to another origin.
 
-After rotating or removing a camera account password, evict the cached camera backend or restart the application so a fresh profile-scoped transport is created.
+The backend cache owns the transport lifetime. Explicit profile eviction and
+application shutdown close the HttpClient and connection pool and overwrite the
+transport-owned password character array. Rotating or removing credentials still
+requires eviction or restart so a new backend is created from the new external
+configuration; automatic configuration fingerprinting is tracked separately.
 
-## Security note
+## Failure behavior
 
-Digest authentication avoids sending the password itself in each request, but plain HTTP does not provide transport confidentiality. Operate CCAPI on a trusted or isolated local network. Use a camera-supported HTTPS configuration when one is available and validated for the specific model and firmware.
+A final camera response of HTTP 401 is mapped to one of two sanitized outcomes:
+
+- `CREDENTIALS_REQUIRED`: no credentials were configured for the profile;
+- `CREDENTIALS_REJECTED`: configured credentials did not satisfy the camera.
+
+The public problem response contains the safe profile id and stable error code.
+It never copies `WWW-Authenticate`, realm, nonce, opaque, username, password or
+Authorization data from the camera exchange.
+
+## Rotation
+
+1. Change the account password on the camera.
+2. Replace the runtime secret in the deployment environment.
+3. Restart the application, or explicitly evict the affected profile backend.
+4. Reconnect and verify read-only device information before starting a capture.
+
+No database migration is needed because the credentials are not persisted.
 
 ## Troubleshooting
 
-- `CREDENTIALS_REQUIRED`: the camera returned a Digest challenge but the exact profile id has no configured account.
-- `CREDENTIALS_REJECTED`: credentials were configured, but the camera still returned `401` after the bounded challenge exchange. Verify the on-camera account, exact profile id and environment secret values.
-- Connection timeout/refused: this is a network/session failure, not an authentication rejection.
+- `CREDENTIALS_REQUIRED`: configure both external values for the exact profile id,
+  or disable account protection on the camera if authentication is intentionally
+  unused.
+- `CREDENTIALS_REJECTED`: verify the camera-side account is enabled and that the
+  runtime secret belongs to the same profile.
+- Repeated failure after rotation: evict the cached backend or restart the
+  application so old transport state is discarded.
+- Connection timeout is distinct from an authentication rejection; verify the
+  camera URL, Wi-Fi connection and configured CCAPI port.
 
-Never enable HTTP wire/header logging in production diagnostics; it can expose Digest response material even though application logs are redacted.
+## Network-security boundary
+
+Digest authentication avoids transmitting the password directly, but plain HTTP
+does not provide transport confidentiality for images, metadata or request
+paths. Use an isolated or trusted network. HTTPS should be preferred when the
+connected camera and its advertised API support it.
+
+Never enable HTTP wire/header logging in production diagnostics; it can expose
+Digest response material even though application logs and API errors are redacted.
