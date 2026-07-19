@@ -221,7 +221,8 @@ final class CanonCcapiMonitoringClient {
                 .map(entry -> endpoint(entry, methods))
                 .filter(candidate -> candidate.path().endsWith("/event/monitoring"))
                 .filter(candidate -> candidate.methodMetadataKnown()
-                        && candidate.methods().containsAll(Set.of(HttpMethod.GET, HttpMethod.DELETE)))
+                        && candidate.methods().containsAll(
+                        Set.of(HttpMethod.GET, HttpMethod.DELETE)))
                 .max(Comparator.comparingInt(Endpoint::versionNumber)
                         .thenComparing(Endpoint::path))
                 .orElseThrow(() -> new CameraOperationException(
@@ -253,17 +254,29 @@ final class CanonCcapiMonitoringClient {
         Objects.requireNonNull(value, "camera value");
         URI uri = URI.create(value.trim());
         URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);
+        String path = resolved.getPath();
+        URI normalized = resolved.normalize();
         if (resolved.getUserInfo() != null
                 || resolved.getQuery() != null
                 || resolved.getFragment() != null
-                || !sameOrigin(origin, resolved)) {
-            throw rejected(null);
-        }
-        String path = resolved.getPath();
-        if (path == null || !path.startsWith("/ccapi/")) {
+                || !sameOrigin(origin, resolved)
+                || path == null
+                || !path.startsWith("/ccapi/")
+                || path.indexOf('\\') >= 0
+                || hasDotSegment(path)
+                || !Objects.equals(path, normalized.getPath())) {
             throw rejected(null);
         }
         return resolved;
+    }
+
+    private static boolean hasDotSegment(String path) {
+        for (String segment : path.split("/", -1)) {
+            if (".".equals(segment) || "..".equals(segment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static URI origin(URI uri) {
@@ -325,7 +338,9 @@ final class CanonCcapiMonitoringClient {
 
     private void validateTimeout(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout");
-        if (timeout.isZero() || timeout.isNegative() || timeout.compareTo(MAX_TIMEOUT) > 0) {
+        if (timeout.isZero()
+                || timeout.isNegative()
+                || timeout.compareTo(MAX_TIMEOUT) > 0) {
             throw new IllegalArgumentException(
                     "timeout must be positive and no longer than " + MAX_TIMEOUT);
         }
