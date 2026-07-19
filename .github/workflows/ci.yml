@@ -45,10 +45,22 @@ jobs:
         run: python3 scripts/validate_cr3_reference_manifest.py
 
       - name: Build and verify (unit + Testcontainers integration tests)
-        run: >-
-          mvn -B --no-transfer-progress clean verify
-          -pl "$JAVA_MODULES" -am
-          -Djava.awt.headless=true
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B --no-transfer-progress clean verify \
+            -pl "$JAVA_MODULES" -am \
+            -Djava.awt.headless=true \
+            2>&1 | tee maven-verify.log
+
+      - name: Upload Maven failure log
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: maven-verify-log
+          path: maven-verify.log
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
