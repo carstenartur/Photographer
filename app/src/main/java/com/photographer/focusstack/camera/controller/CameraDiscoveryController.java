@@ -34,10 +34,12 @@ public class CameraDiscoveryController {
     @PostMapping
     @Operation(summary = "Discover Canon CCAPI cameras on eligible local-network interfaces")
     public ResponseEntity<CameraDiscoveryResponse> discover(
-            @RequestParam(defaultValue = "5")
-            @Min(1) @Max(MAX_TIMEOUT_SECONDS) int timeoutSeconds) {
+            @RequestParam(required = false)
+            @Min(1) @Max(MAX_TIMEOUT_SECONDS) Integer timeoutSeconds) {
+        int effectiveTimeout = timeoutSeconds == null
+                ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;
         CcapiDiscoveryResult result = discoveryService.discover(
-                Duration.ofSeconds(timeoutSeconds));
+                Duration.ofSeconds(effectiveTimeout));
         return ResponseEntity.ok(CameraDiscoveryResponse.from(result));
     }
 }
