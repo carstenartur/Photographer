@@ -218,6 +218,7 @@
                             </execution>
                             <execution>
                                 <id>clean-flattened-public-pom</id>
+                                <phase>clean</phase>
                                 <goals>
                                     <goal>clean</goal>
                                 </goals>
