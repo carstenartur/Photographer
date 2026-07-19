@@ -3,6 +3,8 @@ package com.photographer.focusstack.camera.backend;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
+import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -36,7 +38,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * focus, live-view and media operations, so the production backend has one
  * authoritative capability source instead of a separate substring-based cache.</p>
  */
-public class CanonCcapiStatusBackend extends CanonCcapiBackend implements CameraStatusProvider {
+public class CanonCcapiStatusBackend extends CanonCcapiBackend
+        implements CameraStatusProvider, CameraCapabilityProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiStatusBackend.class);
     private static final String STORAGE_SUFFIX = "/devicestatus/storage";
@@ -54,6 +57,11 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         super(baseUrl, restTemplate);
         this.baseUrl = normalizeBaseUrl(baseUrl);
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
+    }
+
+    @Override
+    public CameraCapabilitySnapshot getCapabilitySnapshot() {
+        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create();
     }
 
     @Override
