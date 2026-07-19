@@ -42,10 +42,11 @@ import static com.photographer.focusstack.camera.exception.CameraOperationExcept
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
 
 /**
- * Version-aware, bounded CCAPI media and event client.
+ * Version-aware, bounded CCAPI media and polling client.
  *
- * <p>The client follows only same-origin paths returned by the camera, keeps public
- * references relative and never performs media delete or modify operations.</p>
+ * <p>The client follows only normalized same-origin paths returned by the camera,
+ * keeps public references relative and never performs media delete or modify
+ * operations. Binary monitoring is handled by {@link CanonCcapiMonitoringClient}.</p>
  */
 final class CanonCcapiMediaClient {
 
@@ -156,7 +157,8 @@ final class CanonCcapiMediaClient {
                     "maxBytes must be between 1 and " + MAX_TRANSFER_BYTES);
         }
         if (offset > Long.MAX_VALUE - maxBytes + 1L) {
-            throw new IllegalArgumentException("requested byte range exceeds the supported offset range");
+            throw new IllegalArgumentException(
+                    "requested byte range exceeds the supported offset range");
         }
         checkCancelled();
         URI uri = resolveCameraValue(reference.relativePath());
@@ -175,23 +177,28 @@ final class CanonCcapiMediaClient {
             CameraMediaProvider.EventMode mode,
             Duration timeout) {
         Objects.requireNonNull(mode, "mode");
+        if (mode == CameraMediaProvider.EventMode.MONITORING) {
+            throw new IllegalArgumentException(
+                    "binary monitoring must be handled by CanonCcapiMonitoringClient");
+        }
         validateTimeout(timeout);
         checkCancelled();
 
-        String suffix = mode == CameraMediaProvider.EventMode.MONITORING
-                ? "/event/monitoring" : "/event/polling";
-        boolean requiresDelete = mode != CameraMediaProvider.EventMode.POLLING;
-        EndpointView endpoint = requiredEndpoint(suffix, HttpMethod.GET, requiresDelete);
-        String requestUrl = mode == CameraMediaProvider.EventMode.POLLING_CONTINUATION
+        boolean requiresDelete = mode == CameraMediaProvider.EventMode.POLLING_CONTINUATION;
+        EndpointView endpoint = requiredEndpoint("/event/polling", HttpMethod.GET, requiresDelete);
+        String requestUrl = requiresDelete
                 ? appendQuery(endpoint.url(), "continue=on")
                 : endpoint.url();
         long deadline = System.nanoTime() + timeout.toNanos();
+        ExecutorService executor = Executors.newThreadPerTaskExecutor(
+                Thread.ofVirtual().name("ccapi-event-", 0).factory());
 
         try {
             while (System.nanoTime() < deadline) {
                 checkCancelled();
-                Duration remaining = Duration.ofNanos(Math.max(1L, deadline - System.nanoTime()));
-                Object event = boundedGet(requestUrl, remaining);
+                Duration remaining = Duration.ofNanos(
+                        Math.max(1L, deadline - System.nanoTime()));
+                Object event = boundedGet(requestUrl, remaining, executor);
                 Optional<CameraMediaReference> media = extractMediaValues(event).stream()
                         .map(this::reference)
                         .findFirst();
@@ -204,8 +211,13 @@ final class CanonCcapiMediaClient {
             }
             return Optional.empty();
         } finally {
+            boolean interrupted = Thread.interrupted();
             if (requiresDelete) {
                 cancelEvent(endpoint);
+            }
+            executor.shutdownNow();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
             }
         }
     }
@@ -214,8 +226,10 @@ final class CanonCcapiMediaClient {
         String url = queryUrl(directoryValue, format, "number", null);
         @SuppressWarnings("unchecked")
         Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-        int contentsNumber = nonNegativeInt(response == null ? null : response.get("contentsnumber"));
-        int pageNumber = nonNegativeInt(response == null ? null : response.get("pagenumber"));
+        int contentsNumber = nonNegativeInt(
+                response == null ? null : response.get("contentsnumber"));
+        int pageNumber = nonNegativeInt(
+                response == null ? null : response.get("pagenumber"));
         return new DirectoryQuery(directoryValue, format, contentsNumber, pageNumber);
     }
 
@@ -248,41 +262,57 @@ final class CanonCcapiMediaClient {
         HttpStatusCode status = response.getStatusCode();
         if (status.value() != HttpStatus.OK.value()
                 && status.value() != HttpStatus.PARTIAL_CONTENT.value()) {
-            throw new CameraOperationException(
-                    profileId, CAMERA_REJECTED, status.value());
+            throw rejected(status.value());
         }
 
-        ContentRange range = parseContentRange(response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE));
+        ContentRange range = parseContentRange(
+                response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE));
         if (status.value() == HttpStatus.PARTIAL_CONTENT.value()) {
             if (range == null || range.start() != requestedOffset) {
-                throw new CameraOperationException(
-                        profileId, CAMERA_REJECTED, status.value());
+                throw rejected(status.value());
             }
         } else if (requestedOffset > 0L) {
-            throw new CameraOperationException(
-                    profileId, CAMERA_REJECTED, status.value());
+            throw rejected(status.value());
         }
 
         BoundedBytes bounded = readBounded(response.getBody(), maxBytes);
-        if (status.value() == HttpStatus.PARTIAL_CONTENT.value() && bounded.overflow()) {
-            throw new CameraOperationException(
-                    profileId, CAMERA_REJECTED, status.value());
+        if (bounded.overflow()) {
+            throw rejected(status.value());
         }
-        Long totalSize = range == null ? contentLength(response.getHeaders()) : range.totalSize();
-        boolean complete = totalSize != null
-                ? requestedOffset + bounded.data().length >= totalSize
-                : status.value() == HttpStatus.OK.value() && !bounded.overflow();
+
+        if (range != null) {
+            long declaredLength = range.end() - range.start() + 1L;
+            long requestedEnd = requestedOffset + maxBytes - 1L;
+            if (declaredLength != bounded.data().length || range.end() > requestedEnd) {
+                throw rejected(status.value());
+            }
+        }
+
+        Long totalSize = range == null
+                ? contentLength(response.getHeaders())
+                : range.totalSize();
+        if (status.value() == HttpStatus.OK.value()
+                && totalSize != null
+                && totalSize != bounded.data().length) {
+            throw rejected(status.value());
+        }
+
+        boolean complete = range != null && totalSize != null
+                ? range.end() + 1L >= totalSize
+                : status.value() == HttpStatus.OK.value();
         return new CameraMediaProvider.MediaChunk(
                 reference, requestedOffset, bounded.data(), totalSize, complete);
     }
 
-    private Object boundedGet(String url, Duration remaining) {
-        ExecutorService executor = Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("ccapi-event-", 0).factory());
+    private Object boundedGet(
+            String url,
+            Duration remaining,
+            ExecutorService executor) {
         Future<Object> future = executor.submit(
                 () -> restTemplate.getForObject(url, Object.class));
         try {
-            return future.get(Math.max(1L, remaining.toNanos()), TimeUnit.NANOSECONDS);
+            return future.get(
+                    Math.max(1L, remaining.toNanos()), TimeUnit.NANOSECONDS);
         } catch (TimeoutException exception) {
             future.cancel(true);
             return null;
@@ -295,9 +325,8 @@ final class CanonCcapiMediaClient {
             if (cause instanceof RuntimeException runtime) {
                 throw runtime;
             }
-            throw new CameraOperationException(profileId, CAMERA_REJECTED, null, cause);
-        } finally {
-            executor.shutdownNow();
+            throw new CameraOperationException(
+                    profileId, CAMERA_REJECTED, null, cause);
         }
     }
 
@@ -330,22 +359,24 @@ final class CanonCcapiMediaClient {
             boolean requireDelete) {
         Map<String, String> endpoints = endpointSupplier.get();
         Map<String, Set<HttpMethod>> methods = methodSupplier.get();
-        EndpointView endpoint = endpoints.entrySet().stream()
+        List<EndpointView> candidates = endpoints.entrySet().stream()
                 .map(entry -> endpoint(entry, methods))
                 .filter(candidate -> candidate.path().endsWith(suffix))
+                .toList();
+        if (candidates.isEmpty()) {
+            throw new CameraOperationException(profileId, ENDPOINT_NOT_FOUND, 404);
+        }
+
+        return candidates.stream()
+                .filter(candidate -> !candidate.methodMetadataKnown()
+                        || candidate.methods().contains(requiredMethod))
+                .filter(candidate -> !requireDelete
+                        || candidate.methodMetadataKnown()
+                        && candidate.methods().contains(HttpMethod.DELETE))
                 .max(Comparator.comparingInt(EndpointView::versionNumber)
                         .thenComparing(EndpointView::path))
                 .orElseThrow(() -> new CameraOperationException(
-                        profileId, ENDPOINT_NOT_FOUND, 404));
-        if (endpoint.methodMetadataKnown()
-                && !endpoint.methods().contains(requiredMethod)) {
-            throw new CameraOperationException(profileId, METHOD_NOT_ALLOWED, 405);
-        }
-        if (requireDelete && (!endpoint.methodMetadataKnown()
-                || !endpoint.methods().contains(HttpMethod.DELETE))) {
-            throw new CameraOperationException(profileId, METHOD_NOT_ALLOWED, 405);
-        }
-        return endpoint;
+                        profileId, METHOD_NOT_ALLOWED, 405));
     }
 
     private EndpointView endpoint(
@@ -399,12 +430,16 @@ final class CanonCcapiMediaClient {
         };
     }
 
-    private boolean requestedFormat(String actualFormat, Set<String> requestedFormats) {
+    private boolean requestedFormat(
+            String actualFormat,
+            Set<String> requestedFormats) {
         if (requestedFormats.isEmpty()) {
             return true;
         }
         String actual = cameraFormat(actualFormat);
-        return requestedFormats.stream().map(this::cameraFormat).anyMatch(actual::equals);
+        return requestedFormats.stream()
+                .map(this::cameraFormat)
+                .anyMatch(actual::equals);
     }
 
     private List<String> extractMediaValues(Object node) {
@@ -445,17 +480,29 @@ final class CanonCcapiMediaClient {
         Objects.requireNonNull(value, "camera value");
         URI uri = URI.create(value.trim());
         URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);
+        String path = resolved.getPath();
+        URI normalized = resolved.normalize();
         if (resolved.getUserInfo() != null
                 || resolved.getQuery() != null
                 || resolved.getFragment() != null
-                || !sameOrigin(origin, resolved)) {
-            throw new CameraOperationException(profileId, CAMERA_REJECTED, null);
-        }
-        String path = resolved.getPath();
-        if (path == null || !path.startsWith("/ccapi/")) {
-            throw new CameraOperationException(profileId, CAMERA_REJECTED, null);
+                || !sameOrigin(origin, resolved)
+                || path == null
+                || !path.startsWith("/ccapi/")
+                || path.indexOf('\\') >= 0
+                || hasDotSegment(path)
+                || !Objects.equals(path, normalized.getPath())) {
+            throw rejected(null);
         }
         return resolved;
+    }
+
+    private static boolean hasDotSegment(String path) {
+        for (String segment : path.split("/", -1)) {
+            if (".".equals(segment) || "..".equals(segment)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static URI origin(URI uri) {
@@ -542,7 +589,8 @@ final class CanonCcapiMediaClient {
     }
 
     private BoundedBytes readBounded(InputStream input, int maxBytes) throws IOException {
-        ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maxBytes, 64 * 1024));
+        ByteArrayOutputStream output = new ByteArrayOutputStream(
+                Math.min(maxBytes, 64 * 1024));
         byte[] buffer = new byte[Math.min(8192, maxBytes + 1)];
         boolean overflow = false;
         while (output.size() <= maxBytes) {
@@ -576,14 +624,19 @@ final class CanonCcapiMediaClient {
         if (!matcher.matches()) {
             return null;
         }
-        long start = Long.parseLong(matcher.group(1));
-        long end = Long.parseLong(matcher.group(2));
-        Long total = "*".equals(matcher.group(3))
-                ? null : Long.parseLong(matcher.group(3));
-        if (end < start || total != null && total <= end) {
+        try {
+            long start = Long.parseLong(matcher.group(1));
+            long end = Long.parseLong(matcher.group(2));
+            Long total = "*".equals(matcher.group(3))
+                    ? null
+                    : Long.parseLong(matcher.group(3));
+            if (end < start || total != null && total <= end) {
+                return null;
+            }
+            return new ContentRange(start, end, total);
+        } catch (NumberFormatException exception) {
             return null;
         }
-        return new ContentRange(start, end, total);
     }
 
     private static Long contentLength(HttpHeaders headers) {
@@ -593,10 +646,12 @@ final class CanonCcapiMediaClient {
 
     private void validateTimeout(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout");
-        if (timeout.isZero() || timeout.isNegative()
+        if (timeout.isZero()
+                || timeout.isNegative()
                 || timeout.compareTo(MAX_OBSERVATION_TIMEOUT) > 0) {
             throw new IllegalArgumentException(
-                    "timeout must be positive and no longer than " + MAX_OBSERVATION_TIMEOUT);
+                    "timeout must be positive and no longer than "
+                            + MAX_OBSERVATION_TIMEOUT);
         }
     }
 
@@ -608,6 +663,10 @@ final class CanonCcapiMediaClient {
 
     private CameraOperationException cancelled(Throwable cause) {
         return new CameraOperationException(profileId, CANCELLED, null, cause);
+    }
+
+    private CameraOperationException rejected(Integer status) {
+        return new CameraOperationException(profileId, CAMERA_REJECTED, status);
     }
 
     private static String requireProfileId(String value) {
