@@ -2,7 +2,9 @@ package com.photographer.focusstack.generic.backend;
 
 import com.photographer.focusstack.camera.backend.CanonCcapiBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraCapabilityStatusProvider;
 import com.photographer.focusstack.common.camera.CameraInfo;
+import com.photographer.focusstack.common.camera.CameraLensStatusProvider;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.CaptureResult;
@@ -33,15 +35,13 @@ import java.util.Objects;
  *
  * <p>This is the seam that lets workflows migrate to the generic interface
  * incrementally. Capture, live view, battery and storage status are delegated
- * today. Lens details and media list/download/delete remain absent from the
- * generic adapter and are therefore not advertised as capabilities.</p>
+ * today. Lens details are exposed only by a rich provider whose exact camera
+ * catalog advertises the lens endpoint. Media list/download/delete remain absent
+ * from the generic adapter and are therefore never advertised as implemented.</p>
  *
- * <p>Backends implementing {@link CameraStatusProvider} supply authoritative
- * rich battery and multi-volume storage snapshots. Older backends retain the
- * compatibility mapping from one {@link CameraState} read to percentage and a
- * synthetic primary volume. The adapter never issues Canon-specific HTTP
- * requests itself and never replaces an authoritative unknown/empty rich value
- * with a misleading legacy default.</p>
+ * <p>Backends implementing {@link CameraCapabilityStatusProvider} supply an
+ * evidence-based capability set. Older backends retain the compatibility mapping
+ * from legacy {@link Operation} flags and runtime status reads.</p>
  */
 public class CcapiCameraBackend implements GenericCameraBackend {
 
@@ -78,6 +78,10 @@ public class CcapiCameraBackend implements GenericCameraBackend {
 
     @Override
     public CapabilitySet getCapabilities(CameraConnection connection) {
+        if (legacy instanceof CameraCapabilityStatusProvider provider) {
+            return provider.getCapabilityStatus().availableCapabilities();
+        }
+
         CapabilitySet.Builder capabilities = CapabilitySet.builder()
                 .add(Capability.DEVICE_INFO);
         if (legacy.supports(Operation.LIVE_VIEW)) {
@@ -129,7 +133,15 @@ public class CcapiCameraBackend implements GenericCameraBackend {
 
     @Override
     public LensInfo getLensInfo(CameraConnection connection) {
-        // The legacy CameraState does not expose a lens identity or mount state.
+        if (legacy instanceof CameraLensStatusProvider provider) {
+            try {
+                LensInfo result = provider.getLensInfo();
+                return result == null ? LensInfo.none() : result;
+            } catch (RuntimeException exception) {
+                log.warn("Could not read rich CCAPI lens status for {}: {}",
+                        cameraId, exception.getMessage());
+            }
+        }
         return LensInfo.none();
     }
 
