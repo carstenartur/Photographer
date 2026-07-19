@@ -34,13 +34,7 @@ import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
 
-/**
- * Production Canon CCAPI composition with one authoritative endpoint catalog.
- *
- * <p>The established status/native backend remains responsible for discovery and
- * camera control. The bounded media and monitoring clients consume that backend's
- * normalized endpoint and method views rather than performing a second discovery.</p>
- */
+/** Production Canon CCAPI composition with one authoritative endpoint catalog. */
 final class CanonCcapiProductionBackend implements
         CameraBackend,
         CameraStatusProvider,
@@ -238,7 +232,7 @@ final class CanonCcapiProductionBackend implements
             throw new IllegalArgumentException(
                     "native focus-bracketing session belongs to another backend");
         }
-        owned.trigger(() -> delegate.capture());
+        owned.trigger(() -> CanonCcapiNativeSequenceTrigger.trigger(delegate));
     }
 
     @Override
