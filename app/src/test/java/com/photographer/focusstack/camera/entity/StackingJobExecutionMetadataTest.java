@@ -22,7 +22,7 @@ class StackingJobExecutionMetadataTest {
         NativeFocusBracketingRequest nativeRequest =
                 new NativeFocusBracketingRequest(12, 3, true, true, false);
         StackingParameters parameters = new StackingParameters(
-                0, 1, 12, 0.01, false, QualityMode.HIGH,
+                0, 1, 12, 0.01, false, QualityMode.MAXIMUM_QUALITY,
                 StackingCaptureStrategy.AUTO, nativeRequest);
         StackingExecutionMetadata metadata = new StackingExecutionMetadata(
                 StackingCaptureStrategy.AUTO,
