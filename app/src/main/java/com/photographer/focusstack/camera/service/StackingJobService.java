@@ -50,8 +50,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class StackingJobService {
 
     private static final Logger log = LoggerFactory.getLogger(StackingJobService.class);
-
-    /** Maximum number of frames to include in a progressive stack merge preview. */
     private static final int MAX_PREVIEW_MERGE_FRAMES = 20;
     private static final int NATIVE_DOWNLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
     private static final long MAX_NATIVE_FRAME_BYTES = 1024L * 1024L * 1024L;
@@ -96,7 +94,6 @@ public class StackingJobService {
         log.info("StackingJobService initialized with '{}' step strategy", this.stepStrategy.name());
     }
 
-    /** Resolve the correct backend for the given camera profile id. */
     private CameraBackend backendFor(String cameraProfileId) {
         CameraProfile profile = profileService.getProfile(cameraProfileId);
         return backendFactory.getBackend(profile);
@@ -106,30 +103,22 @@ public class StackingJobService {
         String id = UUID.randomUUID().toString();
         StackingJob job = new StackingJob(
                 id, cameraProfileId, JobStatus.CREATED,
-                null, null, parameters, new ArrayList<>(), null, null
-        );
+                null, null, parameters, new ArrayList<>(), null, null);
         repository.save(StackingJobEntity.fromRecord(job));
         return job;
     }
 
-    /**
-     * Validates and transitions the job to RUNNING synchronously, then delegates
-     * the capture loop to a Spring-managed task executor.
-     */
     public StackingJob startJob(String id) {
         StackingJob job = getJob(id);
         if (job.status() != JobStatus.CREATED && job.status() != JobStatus.PAUSED) {
             throw new CameraException("Job cannot be started in state: " + job.status());
         }
-
         cancelledJobs.remove(id);
         pausedJobs.remove(id);
-
         StackingJob running = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.RUNNING,
                 Instant.now(), null, job.parameters(), new ArrayList<>(job.frames()),
-                null, job.executionMetadata()
-        );
+                null, job.executionMetadata());
         repository.save(StackingJobEntity.fromRecord(running));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "RUNNING"));
         taskExecutor.execute(() -> executeStackingAsync(running));
@@ -145,8 +134,7 @@ public class StackingJobService {
         StackingJob paused = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.PAUSED,
                 job.startedAt(), null, job.parameters(), job.frames(),
-                "Paused by user", job.executionMetadata()
-        );
+                "Paused by user", job.executionMetadata());
         repository.save(StackingJobEntity.fromRecord(paused));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "PAUSED"));
     }
@@ -160,8 +148,7 @@ public class StackingJobService {
         StackingJob cancelled = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.CANCELLED,
                 job.startedAt(), Instant.now(), job.parameters(), job.frames(),
-                "Cancelled by user", job.executionMetadata()
-        );
+                "Cancelled by user", job.executionMetadata());
         repository.save(StackingJobEntity.fromRecord(cancelled));
         sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "CANCELLED"));
     }
@@ -178,7 +165,6 @@ public class StackingJobService {
                 .toList();
     }
 
-    /** Deletes a terminal stacking job and its associated frame data. */
     public boolean deleteJob(String id) {
         return repository.findById(id).map(entity -> {
             StackingJob job = entity.toRecord();
@@ -207,27 +193,30 @@ public class StackingJobService {
     }
 
     void executeStackingAsync(StackingJob job) {
-        String id = job.id();
-        CameraBackend backend = backendFor(job.cameraProfileId());
-        CapturePlan plan = selectCapturePlan(job.parameters(), backend);
-        StackingJob plannedJob = withExecutionMetadata(job, JobStatus.RUNNING, null, null,
-                job.frames(), plan.metadata());
-        repository.save(StackingJobEntity.fromRecord(plannedJob));
-        sendJobEvent(id, "CAPTURE_STRATEGY_SELECTED", Map.of(
-                "requested", plan.metadata().requestedStrategy().name(),
-                "selected", plan.metadata().selectedStrategy().name()));
-        sendJobLog(id, "INFO", "Selected " + plan.metadata().selectedStrategy()
-                + " capture strategy");
-
+        CapturePlan plan = null;
+        StackingJob plannedJob = job;
         try {
+            CameraBackend backend = backendFor(job.cameraProfileId());
+            plan = selectCapturePlan(job.parameters(), backend);
+            plannedJob = withExecutionMetadata(
+                    job, JobStatus.RUNNING, null, null,
+                    job.frames(), plan.metadata());
+            repository.save(StackingJobEntity.fromRecord(plannedJob));
+            sendJobEvent(job.id(), "CAPTURE_STRATEGY_SELECTED", Map.of(
+                    "requested", plan.metadata().requestedStrategy().name(),
+                    "selected", plan.metadata().selectedStrategy().name()));
+            sendJobLog(job.id(), "INFO", "Selected "
+                    + plan.metadata().selectedStrategy() + " capture strategy");
+
             if (plan.metadata().selectedStrategy() == StackingCaptureStrategy.NATIVE) {
                 executeNativeStacking(plannedJob, backend, plan);
             } else {
                 executeManualStacking(plannedJob, backend, plan.metadata());
             }
         } catch (Exception exception) {
-            failJob(plannedJob, new ArrayList<>(plannedJob.frames()),
-                    plan.metadata(), exception);
+            StackingExecutionMetadata metadata = plan == null
+                    ? plannedJob.executionMetadata() : plan.metadata();
+            failJob(plannedJob, new ArrayList<>(plannedJob.frames()), metadata, exception);
         }
     }
 
@@ -540,7 +529,6 @@ public class StackingJobService {
         return Duration.ofSeconds(seconds);
     }
 
-    /** Sends the latest camera frame as a base64-encoded preview via WebSocket. */
     private void sendPreviewFrame(String jobId, byte[] imageData, int frameIndex) {
         if (imageData == null || imageData.length == 0) return;
         try {
@@ -550,8 +538,7 @@ public class StackingJobService {
                     "frameIndex", frameIndex,
                     "imageBase64", base64,
                     "timestamp", Instant.now().toString(),
-                    "jobId", jobId
-            );
+                    "jobId", jobId);
             messagingTemplate.convertAndSend(
                     "/topic/jobs/" + jobId + "/preview", (Object) preview);
             plainWebSocketBridge.broadcast(preview);
@@ -561,7 +548,6 @@ public class StackingJobService {
         }
     }
 
-    /** Produces and sends a progressive stack-merged preview. */
     private void sendStackPreview(String jobId, List<byte[]> capturedFrameData, int frameIndex) {
         if (capturedFrameData.size() < 2) return;
         try {
@@ -576,7 +562,6 @@ public class StackingJobService {
                 }
                 framesToMerge.add(capturedFrameData.get(capturedFrameData.size() - 1));
             }
-
             byte[] merged = stackMerger.merge(framesToMerge);
             if (merged != null && merged.length > 0) {
                 String base64 = Base64.getEncoder().encodeToString(merged);
@@ -586,8 +571,7 @@ public class StackingJobService {
                         "framesUsed", framesToMerge.size(),
                         "imageBase64", base64,
                         "timestamp", Instant.now().toString(),
-                        "jobId", jobId
-                );
+                        "jobId", jobId);
                 messagingTemplate.convertAndSend(
                         "/topic/jobs/" + jobId + "/preview", (Object) preview);
                 plainWebSocketBridge.broadcast(preview);
@@ -612,8 +596,7 @@ public class StackingJobService {
                 "level", level,
                 "message", text,
                 "jobId", jobId,
-                "timestamp", Instant.now().toString()
-        );
+                "timestamp", Instant.now().toString());
         messagingTemplate.convertAndSend("/topic/jobs/" + jobId + "/logs", (Object) message);
         plainWebSocketBridge.broadcast(message);
     }
