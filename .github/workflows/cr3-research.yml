@@ -3,7 +3,8 @@ name: CR3 Research Integration
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 3 * * 0'
+    # Heavy evidence run on the first Sunday of each month.
+    - cron: '30 3 1-7 * 0'
 
 concurrency:
   group: cr3-research-${{ github.ref }}
@@ -31,12 +32,19 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Run the Maven-owned research integration profile
+      - name: Stage research dependencies without repeating upstream tests
         run: >-
-          mvn -B --no-transfer-progress clean verify
-          -Pcr3-research-it
+          mvn -B --no-transfer-progress install
+          -DskipTests
           -pl canon-cr3-research
           -am
+          -Djava.awt.headless=true
+
+      - name: Run the Maven-owned research integration profile
+        run: >-
+          mvn -B --no-transfer-progress verify
+          -Pcr3-research-it
+          -pl canon-cr3-research
           -Djava.awt.headless=true
 
       - name: Publish research test results
@@ -50,11 +58,18 @@ jobs:
           fail-on-error: false
           max-annotations: '50'
 
-      - name: Upload generated research artifacts
-        uses: actions/upload-artifact@v6
+      - name: Upload generated research evidence
+        uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: cr3-research-artifacts
-          path: canon-cr3-imageio/target/**
-          if-no-files-found: ignore
-          retention-days: 14
+          name: cr3-research-evidence
+          path: |
+            canon-cr3-research/target/**/results.md
+            canon-cr3-research/target/**/results.json
+            canon-cr3-research/target/**/results.tsv
+            canon-cr3-research/target/**/*.csv
+            canon-cr3-research/target/**/*.png
+            canon-cr3-research/target/surefire-reports/
+            canon-cr3-research/target/failsafe-reports/
+          if-no-files-found: warn
+          retention-days: 7

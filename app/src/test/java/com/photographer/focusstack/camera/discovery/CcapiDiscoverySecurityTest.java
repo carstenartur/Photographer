@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -75,7 +76,13 @@ class CcapiDiscoverySecurityTest {
                 networkInterface, address, CcapiAddressFamily.IPV4);
     }
 
-    private static CcapiSsdpDatagram datagram(URI location) throws Exception {
+    /**
+     * Builds a synthetic response using the checked exception contract accepted by
+     * {@link CcapiSsdpTransport}. Declaring broad {@code Exception} here makes the
+     * helper unusable inside that transport's lambda even when the enclosing test
+     * method itself declares {@code throws Exception}.
+     */
+    private static CcapiSsdpDatagram datagram(URI location) throws UnknownHostException {
         String payload = "HTTP/1.1 200 OK\r\n"
                 + "LOCATION: " + location + "\r\n"
                 + "ST: " + CcapiSsdpCodec.SERVICE_TYPE + "\r\n\r\n";

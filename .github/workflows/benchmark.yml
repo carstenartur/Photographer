@@ -1,19 +1,6 @@
 name: Benchmark
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'canon-cr3-container/**'
-      - 'canon-cr3-metadata/**'
-      - 'canon-cr3-codec/**'
-      - 'canon-cr3-processing/**'
-      - 'canon-cr3-core/**'
-      - 'canon-cr3-imageio/**'
-      - 'canon-cr3-benchmark/**'
-      - 'scripts/compare_jmh.py'
-      - 'scripts/test_compare_jmh.py'
-      - '.github/workflows/benchmark.yml'
   pull_request:
     branches: [main]
     paths:
@@ -27,6 +14,9 @@ on:
       - 'scripts/compare_jmh.py'
       - 'scripts/test_compare_jmh.py'
       - '.github/workflows/benchmark.yml'
+  schedule:
+    # Longitudinal full-suite history; PRs use the short same-runner sentinel below.
+    - cron: '0 5 * * 0'
   workflow_dispatch:
 
 concurrency:
@@ -40,6 +30,7 @@ jobs:
   benchmark:
     name: JMH Benchmarks (Canon CR3)
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     permissions:
       contents: write
     env:
@@ -75,13 +66,13 @@ jobs:
             echo "runner_image_version=${ImageVersion:-unknown}"
             echo "kernel=$(uname -a)"
             echo
-            echo "## CPU"
+            echo '## CPU'
             lscpu
             echo
-            echo "## Java"
+            echo '## Java'
             java -version 2>&1
             echo
-            echo "## Maven"
+            echo '## Maven'
             mvn -version
           } > "$JMH_OUTPUT_DIR/environment.txt"
 
@@ -97,7 +88,7 @@ jobs:
           {
             echo "base_sha=$BASE_SHA"
             echo "head_sha=$HEAD_SHA"
-            echo "run_order=base,head"
+            echo 'run_order=base,head'
           } >> "$JMH_OUTPUT_DIR/environment.txt"
 
           run_revision() {
@@ -150,7 +141,7 @@ jobs:
           name: cr3-jmh-pr-comparison
           path: ${{ runner.temp }}/cr3-jmh/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
       - name: Build full benchmark suite
         if: github.event_name != 'pull_request'
@@ -177,7 +168,7 @@ jobs:
           name: jmh-result
           path: jmh-result.json
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
       - name: Upload benchmark environment
         if: always()
@@ -186,10 +177,10 @@ jobs:
           name: cr3-jmh-environment
           path: ${{ runner.temp }}/cr3-jmh/environment.txt
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
-      - name: Publish main-branch history to gh-pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Publish scheduled/manual main history to gh-pages
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Canon CR3 JMH Benchmarks
