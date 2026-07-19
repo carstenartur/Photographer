@@ -1,4 +1,4 @@
-name: CR3 Modules
+name: CR3 Packaged Consumer
 
 on:
   push:
@@ -9,14 +9,10 @@ on:
       - 'canon-cr3-codec/**'
       - 'canon-cr3-processing/**'
       - 'canon-cr3-core/**'
-      - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-imageio/**'
-      - 'canon-cr3-research/**'
       - 'canon-cr3-maven-smoke/**'
-      - 'canon-cr3-cli/**'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
-      - '.github/workflows/cr3-research.yml'
   pull_request:
     branches: [main]
     paths:
@@ -25,27 +21,24 @@ on:
       - 'canon-cr3-codec/**'
       - 'canon-cr3-processing/**'
       - 'canon-cr3-core/**'
-      - 'canon-cr3-reference-testkit/**'
       - 'canon-cr3-imageio/**'
-      - 'canon-cr3-research/**'
       - 'canon-cr3-maven-smoke/**'
-      - 'canon-cr3-cli/**'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
-      - '.github/workflows/cr3-research.yml'
   workflow_dispatch:
 
 concurrency:
-  group: cr3-modules-${{ github.event.pull_request.number || github.ref }}
+  group: cr3-packaged-consumer-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: CR3 unit and external Maven tests
+  packaged-consumer:
+    name: CR3 external Maven consumer and architecture
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       MAVEN_OPTS: '-Xmx2g'
     steps:
@@ -60,27 +53,39 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Compile all CR3 test sources and run unit tests
+      - name: Stage packaged production artifacts without repeating unit tests
         run: >-
-          mvn -B --no-transfer-progress clean test
-          -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-reference-testkit,canon-cr3-imageio,canon-cr3-research,canon-cr3-cli
+          mvn -B --no-transfer-progress install
+          -DskipTests
+          -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio
           -am
           -Djava.awt.headless=true
 
-      - name: Build and verify the isolated Maven consumer
+      - name: Verify isolated external Maven consumer
         run: >-
           mvn -B --no-transfer-progress verify
           -pl canon-cr3-maven-smoke
-          -am
           -Djava.awt.headless=true
 
-      - name: Publish CR3 test results
+      - name: Publish external-consumer test results
         uses: dorny/test-reporter@v3
         if: always()
         continue-on-error: true
         with:
-          name: CR3 Tests
-          path: 'canon-cr3-*/target/surefire-reports/TEST-*.xml,canon-cr3-maven-smoke/target/it/**/target/surefire-reports/TEST-*.xml'
+          name: CR3 External Consumer Tests
+          path: 'canon-cr3-maven-smoke/target/it/**/target/surefire-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
           max-annotations: '50'
+
+      - name: Upload Invoker diagnostics on failure
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: cr3-maven-smoke-diagnostics
+          path: |
+            canon-cr3-maven-smoke/target/it/**/build.log
+            canon-cr3-maven-smoke/target/it/**/target/runtime-dependencies.txt
+            canon-cr3-maven-smoke/target/it/**/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 3
