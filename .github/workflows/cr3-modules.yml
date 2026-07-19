@@ -11,9 +11,17 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-maven-smoke/**'
+      - 'canon-cr3-benchmark/pom.xml'
+      - 'astro-core-benchmark/pom.xml'
+      - 'canon-cr3-cli/pom.xml'
+      - 'canon-cr3-research/pom.xml'
+      - 'canon-cr3-reference-testkit/pom.xml'
+      - 'app/pom.xml'
       - 'release/canon-cr3-public/**'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
+      - 'scripts/validate_cr3_source_coordinates.py'
+      - 'scripts/test_validate_cr3_source_coordinates.py'
       - 'scripts/run_cr3_central_preflight.sh'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
@@ -27,9 +35,17 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-maven-smoke/**'
+      - 'canon-cr3-benchmark/pom.xml'
+      - 'astro-core-benchmark/pom.xml'
+      - 'canon-cr3-cli/pom.xml'
+      - 'canon-cr3-research/pom.xml'
+      - 'canon-cr3-reference-testkit/pom.xml'
+      - 'app/pom.xml'
       - 'release/canon-cr3-public/**'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
+      - 'scripts/validate_cr3_source_coordinates.py'
+      - 'scripts/test_validate_cr3_source_coordinates.py'
       - 'scripts/run_cr3_central_preflight.sh'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
@@ -61,8 +77,11 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Test Central bundle validator
-        run: python3 scripts/test_validate_cr3_central_bundle.py
+      - name: Test release validators
+        run: |
+          python3 scripts/test_validate_cr3_central_bundle.py
+          python3 scripts/test_validate_cr3_source_coordinates.py
+          python3 scripts/validate_cr3_source_coordinates.py .
 
       - name: Build and validate signed public Central bundle
         run: bash scripts/run_cr3_central_preflight.sh 0.1.5
