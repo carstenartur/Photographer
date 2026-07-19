@@ -103,20 +103,45 @@ public class FrameDataStore {
         }
         String safeName = safeFileName(imageId, fileName);
         Path target = storageDir.resolve(imageId);
+        Path metadata = storageDir.resolve(imageId + ".meta");
+        boolean targetCommitted = false;
         try {
             if (!Files.isRegularFile(sourceFile)) {
                 throw new IOException("streamed frame source is not a regular file");
             }
-            Files.move(sourceFile, target, StandardCopyOption.REPLACE_EXISTING);
-            Files.writeString(storageDir.resolve(imageId + ".meta"), safeName);
+            moveOrCopy(sourceFile, target);
+            targetCommitted = true;
+            Files.writeString(metadata, safeName);
             cache.invalidate(imageId);
         } catch (IOException exception) {
+            if (targetCommitted) {
+                try {
+                    Files.deleteIfExists(target);
+                    Files.deleteIfExists(metadata);
+                } catch (IOException rollbackFailure) {
+                    exception.addSuppressed(rollbackFailure);
+                }
+            }
             try {
                 Files.deleteIfExists(sourceFile);
             } catch (IOException cleanupFailure) {
                 exception.addSuppressed(cleanupFailure);
             }
             throw new UncheckedIOException("Failed to commit streamed frame", exception);
+        }
+    }
+
+    private static void moveOrCopy(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException moveFailure) {
+            try {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                Files.delete(source);
+            } catch (IOException copyFailure) {
+                copyFailure.addSuppressed(moveFailure);
+                throw copyFailure;
+            }
         }
     }
 
