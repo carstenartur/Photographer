@@ -199,7 +199,7 @@ final class CanonCcapiMediaClient {
                 Duration remaining = Duration.ofNanos(
                         Math.max(1L, deadline - System.nanoTime()));
                 Object event = boundedGet(requestUrl, remaining, executor);
-                Optional<CameraMediaReference> media = extractMediaValues(event).stream()
+                Optional<CameraMediaReference> media = extractAddedMediaValues(event).stream()
                         .map(this::reference)
                         .findFirst();
                 if (media.isPresent()) {
@@ -442,9 +442,12 @@ final class CanonCcapiMediaClient {
                 .anyMatch(actual::equals);
     }
 
-    private List<String> extractMediaValues(Object node) {
+    private List<String> extractAddedMediaValues(Object event) {
+        if (!(event instanceof Map<?, ?> map)) {
+            return List.of();
+        }
         LinkedHashSet<String> result = new LinkedHashSet<>();
-        collectMediaValues(node, result);
+        collectMediaValues(map.get("addedcontents"), result);
         return List.copyOf(result);
     }
 
@@ -478,7 +481,12 @@ final class CanonCcapiMediaClient {
 
     private URI resolveCameraValue(String value) {
         Objects.requireNonNull(value, "camera value");
-        URI uri = URI.create(value.trim());
+        URI uri;
+        try {
+            uri = URI.create(value.trim());
+        } catch (IllegalArgumentException exception) {
+            throw rejected(null);
+        }
         URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);
         String path = resolved.getPath();
         URI normalized = resolved.normalize();
