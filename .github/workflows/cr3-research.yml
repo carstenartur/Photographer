@@ -3,7 +3,7 @@ name: CR3 Research Integration
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 3 * * 0'
+    - cron: '30 3 1 * *'
 
 concurrency:
   group: cr3-research-${{ github.ref }}
@@ -51,10 +51,10 @@ jobs:
           max-annotations: '50'
 
       - name: Upload generated research artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: cr3-research-artifacts
-          path: canon-cr3-imageio/target/**
+          path: canon-cr3-research/target/**
           if-no-files-found: ignore
-          retention-days: 14
+          retention-days: 3
