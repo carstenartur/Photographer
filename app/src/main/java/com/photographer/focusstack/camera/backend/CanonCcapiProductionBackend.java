@@ -7,6 +7,7 @@ import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
 import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.ExposureInfo;
 import com.photographer.focusstack.common.camera.FocusCommand;
@@ -16,14 +17,21 @@ import com.photographer.focusstack.common.camera.NativeFocusBracketingProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
 import com.photographer.focusstack.common.camera.Operation;
-import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
 
 /**
  * Production Canon CCAPI composition with one authoritative endpoint catalog.
@@ -38,6 +46,8 @@ final class CanonCcapiProductionBackend implements
         CameraCapabilityProvider,
         NativeFocusBracketingProvider,
         CameraMediaProvider {
+
+    private static final Set<String> EVENT_METHODS = Set.of("GET", "DELETE");
 
     private final CanonCcapiNativeFocusBracketingBackend delegate;
     private final CanonCcapiMediaClient mediaClient;
@@ -125,7 +135,71 @@ final class CanonCcapiProductionBackend implements
 
     @Override
     public CameraCapabilitySnapshot getCapabilitySnapshot() {
-        return delegate.getCapabilitySnapshot();
+        CameraCapabilitySnapshot base = delegate.getCapabilitySnapshot();
+        List<CameraCapabilitySnapshot.Capability> capabilities = new ArrayList<>();
+        boolean monitoringReplaced = false;
+        for (CameraCapabilitySnapshot.Capability capability : base.capabilities()) {
+            if ("event-monitoring".equals(capability.id())) {
+                capabilities.add(eventCapability(base, "event-monitoring", "/event/monitoring"));
+                monitoringReplaced = true;
+            } else {
+                capabilities.add(capability);
+            }
+        }
+        if (!monitoringReplaced) {
+            capabilities.add(eventCapability(base, "event-monitoring", "/event/monitoring"));
+        }
+        capabilities.add(eventCapability(
+                base, "event-polling-continuation", "/event/polling"));
+
+        return new CameraCapabilitySnapshot(
+                base.model(),
+                base.firmwareVersion(),
+                base.catalogAvailable(),
+                capabilities,
+                base.advertisedEndpoints(),
+                base.lens());
+    }
+
+    private static CameraCapabilitySnapshot.Capability eventCapability(
+            CameraCapabilitySnapshot snapshot,
+            String id,
+            String suffix) {
+        CameraCapabilitySnapshot.Endpoint endpoint = snapshot.advertisedEndpoints().stream()
+                .filter(candidate -> candidate.path().endsWith(suffix))
+                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
+                .orElse(null);
+        if (endpoint == null) {
+            return new CameraCapabilitySnapshot.Capability(
+                    id, false, true, UNSUPPORTED,
+                    EVENT_METHODS, Set.of(), false, "ENDPOINT_NOT_ADVERTISED");
+        }
+        if (!endpoint.methodMetadataKnown()) {
+            return new CameraCapabilitySnapshot.Capability(
+                    id, true, true, METHOD_METADATA_UNKNOWN,
+                    EVENT_METHODS, Set.of(), false, "METHOD_METADATA_NOT_ADVERTISED");
+        }
+        if (!endpoint.methods().containsAll(EVENT_METHODS)) {
+            return new CameraCapabilitySnapshot.Capability(
+                    id, true, true, UNSUPPORTED,
+                    EVENT_METHODS, endpoint.methods(), true, "METHOD_NOT_ADVERTISED");
+        }
+        return new CameraCapabilitySnapshot.Capability(
+                id, true, true, AVAILABLE,
+                EVENT_METHODS, endpoint.methods(), true, null);
+    }
+
+    private static int versionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
+        String version = endpoint.version();
+        if (version == null || !version.startsWith("ver")) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(version.substring(3));
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
     }
 
     @Override
