@@ -1,6 +1,6 @@
 # CR3 Current State
 
-This document summarizes the current consensus after the Phase-A research work.
+This document summarizes the current consensus after the Phase-A research work and the subsequent reference-backed discriminator experiments.
 
 ## Established facts
 
@@ -9,8 +9,9 @@ This document summarizes the current consensus after the Phase-A research work.
 - Fixture inventory, subband extraction, geometry diagnostics and alignment diagnostics exist.
 - The repository contains both lossless RAW and C-RAW research fixtures.
 - The corpus is structurally saturated for many broad decoder sweeps.
-- All current lossless CR3 fixtures now have LibRaw-backed reference TIFF/PNG sidecars plus a manifest.
+- All current lossless CR3 fixtures have LibRaw-backed reference TIFF/PNG sidecars plus a manifest.
 - `Cr3ReferenceComparisonIT` generates reference-vs-decoder metrics and visual reports in `docs/cr3-results/reference-comparison.md`.
+- The complete 11-fixture D5 sign-mapping discriminator has been executed and recorded in [`2026-07-19-D5-sign-mapping-discriminator.md`](cr3-results/2026-07-19-D5-sign-mapping-discriminator.md).
 
 ## Strong findings
 
@@ -18,11 +19,12 @@ This document summarizes the current consensus after the Phase-A research work.
 - The current decoder output is physically implausible in OB regions.
 - CRX_SMALL and CRX_BIG use different CFA layouts and this has already been documented.
 - Bitstream alignment has been investigated and is not the leading explanation for the current failures.
+- Replacing bit-0 sign mapping with conventional zig-zag mapping, while holding every other candidate-decoder choice fixed, is rejected by the external-reference panel.
 
 ## Working hypothesis
 
 The decoded signal is locally most consistent with a MED-family predictor, so the
-remaining fault is more likely in residual/value semantics than in a simple
+remaining fault is more likely in residual/entropy semantics than in a simple
 predictor-family swap.
 
 Phase-B / Phase-C investigation (2026-06-14) established:
@@ -39,6 +41,14 @@ Phase-C evidence matrix ranking:
 - **N + W - NW** is a distant third.
 - Pure **N**, **W**, and **NW** families are strongly contradicted by the decoded signal statistics.
 
+Phase-D5 sign-mapping discriminator (2026-07-19) established:
+
+- **D5 sign-mapping replacement REJECTED**: zig-zag produced 0/3 successful discriminator fixtures and 0/3 required Pearson sign flips.
+- Median global MAE regressed from **1833.9213** with BIT0 to **2315.9968** with ZIGZAG.
+- Median tile-boundary error regressed from **2365.6625** to **3007.1074**.
+- Decode completion regressed on already incomplete fixtures.
+- This result does not prove that BIT0 mapping is correct; it falsifies only the isolated BIT0-to-ZIGZAG replacement under otherwise fixed candidate settings.
+
 ## Rejected or deprioritized directions
 
 - broad container archaeology,
@@ -46,29 +56,23 @@ Phase-C evidence matrix ranking:
 - repeated PRVW geometry investigations,
 - repeated CFA-layout investigations,
 - simple predictor-family swaps to pure N / W / NW,
+- generic alignment sweeps,
+- isolated BIT0-to-ZIGZAG sign-mapping replacement,
 - image rendering quality optimisation before decoder correctness.
 
 ## Current priority
 
-Phase D5 — residual/value semantics against the external reference baseline.
+Stage 6 remains the earliest failing or unverified point in the implementation pipeline. The next experiment must vary a different, precisely defined entropy/residual semantic while preserving:
 
-Following the predictor-state triage:
-- B1 PARTIAL / narrowed: MED best matches the decoded signal; NorthOnly looked less wrong visually but is not statistically supported
-- B2 REJECTED: tile-local reset is correct
-- B3 REJECTED: plane-independent reset is correct
-- B4 REJECTED: no per-plane neighbour-family split
-- pedestal/DC now has a committed **SUPPORTED** result
-- bitstream-alignment loops are historical, not active
+- the MED neighbourhood model;
+- tile-local and plane-local reset behavior;
+- the complete 11-fixture external-reference panel;
+- predeclared global, optical-black, boundary, completion and discriminator criteria.
 
-Stage audit update (2026-07-03, [cr3-pipeline-stage-audit](cr3-results/2026-07-03-cr3-pipeline-stage-audit.md)):
-- earliest unverified/failing point in the implementation pipeline is **Stage 6 (entropy decoding / Rice-Golomb / K-update)**
-- stages 1–4 are currently verified by parser/header tests and fixture runs
-- stage 5 remains partial, but is not currently the first failure
+Candidate next experiments should be derived from concrete CRX entropy semantics, such as K adaptation or escape handling. They must not combine several changes in one run and must not reopen predictor, alignment, CFA or sign-mapping sweeps without new structural evidence.
 
-Recommended next experiment: keep the MED neighbourhood model fixed and run the
-**sign-mapping discriminator** in `DecoderHypothesisD1D2IT` on the 11
-reference-backed lossless fixtures. The decision is reference-backed: the change
-must flip Pearson from negative to positive on at least 2 of these 3 discriminator
-fixtures — `sample-tele`, `sample-wide`, and
-`research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3` — while also reducing Global
-MAE and OB MAE there and not worsening the median full-corpus error.
+Stage audit reference (2026-07-03, [cr3-pipeline-stage-audit](cr3-results/2026-07-03-cr3-pipeline-stage-audit.md)):
+
+- earliest unverified/failing point in the implementation pipeline is **Stage 6 (entropy decoding / Rice-Golomb / K-update)**;
+- stages 1–4 are currently verified by parser/header tests and fixture runs;
+- stage 5 remains partial, but is not currently the first failure.
