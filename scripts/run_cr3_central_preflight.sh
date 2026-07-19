@@ -5,9 +5,9 @@ usage() {
   cat <<'EOF'
 Usage: scripts/run_cr3_central_preflight.sh [release-version]
 
-Builds the exact six-module Canon CR3 Maven Central bundle without credentials
-or network upload. An ephemeral, unprotected GPG key signs every artifact; the
-keyring is deleted after all detached signatures have been verified.
+Builds the exact six-module Canon CR3 Maven Central bundle without valid Central
+credentials or network upload. An ephemeral, unprotected GPG key signs every
+artifact; the keyring is deleted after all detached signatures are verified.
 
 The default version is 0.1.5. SNAPSHOT versions are rejected.
 EOF
@@ -56,6 +56,25 @@ Expire-Date: 1d
 %commit
 EOF
 
+# Plugin 0.11.0 resolves the configured server before honoring skipPublishing.
+# Supply a temporary, deliberately non-authorizing placeholder and point the
+# Central base URL at the local discard port. If skipPublishing ever regresses,
+# the build fails locally instead of attempting a real Portal upload.
+cat > "$gnupg_home/settings.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+  <servers>
+    <server>
+      <id>central</id>
+      <username>credential-free-preflight</username>
+      <password>not-a-central-token</password>
+    </server>
+  </servers>
+</settings>
+EOF
+
 gpg --batch --homedir "$gnupg_home" --generate-key "$gnupg_home/key-parameters"
 fingerprint=$(
   gpg --batch --homedir "$gnupg_home" --with-colons --list-secret-keys \
@@ -69,14 +88,16 @@ fi
 python3 scripts/test_validate_cr3_central_bundle.py
 
 # Keep the Maven transcript inside the always-uploaded diagnostics directory.
-# The log contains only public build metadata and an ephemeral signing-key id;
-# no Central credentials are configured or accepted by this preflight.
+# The log contains only public build metadata, a deliberately invalid placeholder
+# identity and an ephemeral signing-key id. No valid Portal token is available.
 mvn -B --no-transfer-progress \
+  --settings "$gnupg_home/settings.xml" \
   -f release/canon-cr3-public/pom.xml \
   -Pcentral-release \
   -Drevision="$version" \
   -DskipTests \
   -Dcentral.skipPublishing=true \
+  -DcentralBaseUrl=http://127.0.0.1:9 \
   -Dgpg.homedir="$gnupg_home" \
   -Dgpg.keyname="$fingerprint" \
   -Dgpg.executable=gpg \
@@ -111,6 +132,8 @@ version=$version
 groupId=io.github.carstenartur
 artifacts=canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio
 uploadPerformed=false
+portalCredentialsAvailable=false
+centralBaseUrl=http://127.0.0.1:9
 signingKey=ephemeral-and-deleted
 bundle=canon-cr3-$version-central-bundle.zip
 EOF
