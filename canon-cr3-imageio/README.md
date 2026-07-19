@@ -5,8 +5,9 @@
 ## Purpose
 
 This module provides transparent CR3 support through the standard Java ImageIO
-API. After adding this module to the classpath, `ImageIO.read(new File("photo.cr3"))`
-will work automatically via SPI service loading.
+API. After adding this module to the classpath,
+`ImageIO.read(new File("photo.cr3"))` works through SPI service loading and reads
+the embedded JPEG preview by default.
 
 ## API stability
 
@@ -14,28 +15,29 @@ The ImageIO provider, reader discovery, embedded preview path, thumbnail access,
 and metadata access are intended as stable external APIs.
 
 CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` remain
-experimental while the CRX codec is completed. The complete classification is
-maintained in [`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
+experimental while the CRX codec is completed. The complete symbol and package
+classification is maintained in
+[`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
 
 Applications that require the most stable behavior should use standard ImageIO
 APIs and the default embedded-preview path. They should not directly call CRX
-codec, subband, predictor, entropy, or research APIs.
+entropy, predictor, subband, processing, or research implementation classes.
 
-## Key Types
+## Key types
 
-| Type | Description |
-|---|---|
-| `CanonCr3ImageReaderSpi` | Stable ImageIO service provider — detects CR3 files |
-| `CanonCr3ImageReader` | Stable ImageIO reader — delegates to `Cr3Decoder` |
-| `CanonCr3ImageReadParam` | Experimental CR3-specific read parameters; preview selection is stable, RAW-specific controls follow decoder maturity |
-| `Cr3ImageMetadata` | Stable CR3 metadata adapter exposed through `IIOMetadata` |
+| Type | Status | Description |
+|---|---|---|
+| `CanonCr3ImageReaderSpi` | `PUBLIC_STABLE` | ImageIO service provider that detects CR3 files. |
+| `CanonCr3ImageReader` | `PUBLIC_STABLE` | Preview, thumbnail, metadata, and experimental RAW reader. |
+| `Cr3ImageMetadata` | `PUBLIC_STABLE` | CR3 metadata exposed through the standard `IIOMetadata` contract. |
+| `CanonCr3ImageReadParam` | `PUBLIC_EXPERIMENTAL` | Preview selection is the stable subset; RAW-specific controls follow decoder maturity. |
 
 ## Usage
 
 ### Basic `ImageIO.read(file)` usage
 
 ```java
-// Reads the embedded JPEG preview by default
+// Reads the embedded JPEG preview by default.
 BufferedImage image = ImageIO.read(new File("photo.cr3"));
 ```
 
@@ -65,7 +67,7 @@ try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3
 }
 ```
 
-### RAW processed mode
+### RAW processed mode — experimental
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
@@ -79,7 +81,7 @@ try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3
 }
 ```
 
-### Linear RAW / `readRaster()` path
+### Linear RAW / `readRaster()` — experimental
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
@@ -119,22 +121,32 @@ try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3
 }
 ```
 
-## SPI Registration
+## SPI registration
 
-The SPI is registered via `META-INF/services/javax.imageio.spi.ImageReaderSpi`.
+The SPI is registered through
+`META-INF/services/javax.imageio.spi.ImageReaderSpi`.
 
-## Current limitations of the RAW decoder
+## Current RAW limitations
 
-- The CR3 ImageIO plugin is intended for normal external Maven/ImageIO consumption, but the RAW decoder remains experimental.
-- `ImageIO.read(file)` and `reader.read(0)` default to the embedded JPEG preview because that is the most reliable path today.
-- `Cr3DecodeOptions.rawProcessed()`, `Cr3DecodeOptions.rawLinear()`, and `readRaster()` work only for CR3 variants currently supported by `canon-cr3-core`.
-- Metadata and thumbnail access depend on the source CR3 containing those structures.
-- This module does not attempt to improve or alter CRX decoding algorithms; unsupported RAW variants should be treated as current decoder limitations.
+- `ImageIO.read(file)` and `reader.read(0)` default to the embedded preview because
+  it is the most reliable path.
+- `Cr3DecodeOptions.rawProcessed()`, `Cr3DecodeOptions.rawLinear()`, and
+  `readRaster()` support only the CR3/CRX variants currently validated by the
+  experimental decoder.
+- Unsupported RAW variants are decoder limitations, not ImageIO fallback behavior.
+- Metadata and thumbnail availability still depends on the source file.
 
 ## Dependencies
 
-- `canon-cr3-core` — Core decoding logic
-- `slf4j-api` — Logging
+- `canon-cr3-core` — compatibility decoder facade
+- `canon-cr3-container` — container and preview structures
+- `canon-cr3-metadata` — metadata model
+- `canon-cr3-codec` — internal CRX decoder
+- `canon-cr3-processing` — internal RAW processing pipeline
+- `slf4j-api` — logging
+
+No runtime dependency on `canon-cr3-research` or
+`canon-cr3-reference-testkit` is allowed.
 
 ## Build
 
