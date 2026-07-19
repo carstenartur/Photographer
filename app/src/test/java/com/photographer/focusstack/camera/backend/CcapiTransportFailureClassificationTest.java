@@ -23,6 +23,7 @@ import static com.photographer.focusstack.camera.exception.CameraOperationExcept
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 class CcapiTransportFailureClassificationTest {
@@ -50,6 +51,20 @@ class CcapiTransportFailureClassificationTest {
     }
 
     @Test
+    void classifiesGenericInterruptedIoAsTimeoutWithoutInventingCancellation() {
+        Fixture fixture = fixture();
+
+        CameraOperationException failure = invokeFailure(
+                fixture.interceptor(), new InterruptedIOException("read expired with private value"));
+
+        assertEquals(TIMEOUT, failure.reason());
+        assertFalse(failure.getMessage().contains("private value"));
+        assertFalse(Thread.currentThread().isInterrupted());
+        assertEquals(1.0, fixture.count("timeout"));
+        assertEquals(0.0, fixture.count("cancelled"));
+    }
+
+    @Test
     void classifiesConnectionFailureWithoutLeakingTheCameraOrigin() {
         Fixture fixture = fixture();
 
@@ -62,8 +77,9 @@ class CcapiTransportFailureClassificationTest {
     }
 
     @Test
-    void classifiesInterruptionAsCancellationAndRestoresInterruptFlag() {
+    void classifiesInterruptedThreadAsCancellationWithoutClearingInterruptFlag() {
         Fixture fixture = fixture();
+        Thread.currentThread().interrupt();
 
         CameraOperationException failure = invokeFailure(
                 fixture.interceptor(), new InterruptedIOException("cancelled with private value"));
@@ -71,7 +87,8 @@ class CcapiTransportFailureClassificationTest {
         assertEquals(CANCELLED, failure.reason());
         assertFalse(failure.getMessage().contains("private value"));
         assertEquals(1.0, fixture.count("cancelled"));
-        assertEquals(true, Thread.currentThread().isInterrupted());
+        assertEquals(0.0, fixture.count("timeout"));
+        assertTrue(Thread.currentThread().isInterrupted());
     }
 
     private Fixture fixture() {
