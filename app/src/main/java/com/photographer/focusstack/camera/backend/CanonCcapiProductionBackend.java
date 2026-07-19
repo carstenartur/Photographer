@@ -37,8 +37,8 @@ import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot
  * Production Canon CCAPI composition with one authoritative endpoint catalog.
  *
  * <p>The established status/native backend remains responsible for discovery and
- * camera control. The bounded media client consumes that backend's normalized
- * endpoint and method views rather than performing a second discovery.</p>
+ * camera control. The bounded media and monitoring clients consume that backend's
+ * normalized endpoint and method views rather than performing a second discovery.</p>
  */
 final class CanonCcapiProductionBackend implements
         CameraBackend,
@@ -51,6 +51,7 @@ final class CanonCcapiProductionBackend implements
 
     private final CanonCcapiNativeFocusBracketingBackend delegate;
     private final CanonCcapiMediaClient mediaClient;
+    private final CanonCcapiMonitoringClient monitoringClient;
 
     CanonCcapiProductionBackend(
             String profileId,
@@ -61,6 +62,12 @@ final class CanonCcapiProductionBackend implements
         Objects.requireNonNull(restTemplate, "restTemplate");
         this.delegate = new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);
         this.mediaClient = new CanonCcapiMediaClient(
+                profileId,
+                baseUrl,
+                restTemplate,
+                delegate::getDiscoveredEndpoints,
+                delegate::getDiscoveredEndpointMethods);
+        this.monitoringClient = new CanonCcapiMonitoringClient(
                 profileId,
                 baseUrl,
                 restTemplate,
@@ -165,29 +172,39 @@ final class CanonCcapiProductionBackend implements
             CameraCapabilitySnapshot snapshot,
             String id,
             String suffix) {
-        CameraCapabilitySnapshot.Endpoint endpoint = snapshot.advertisedEndpoints().stream()
+        List<CameraCapabilitySnapshot.Endpoint> advertised = snapshot.advertisedEndpoints().stream()
                 .filter(candidate -> candidate.path().endsWith(suffix))
-                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
-                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
-                .orElse(null);
-        if (endpoint == null) {
+                .toList();
+        if (advertised.isEmpty()) {
             return new CameraCapabilitySnapshot.Capability(
                     id, false, true, UNSUPPORTED,
                     EVENT_METHODS, Set.of(), false, "ENDPOINT_NOT_ADVERTISED");
         }
-        if (!endpoint.methodMetadataKnown()) {
+
+        CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()
+                .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)
+                .filter(candidate -> candidate.methods().containsAll(EVENT_METHODS))
+                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
+                .orElse(null);
+        if (compatible != null) {
+            return new CameraCapabilitySnapshot.Capability(
+                    id, true, true, AVAILABLE,
+                    EVENT_METHODS, compatible.methods(), true, null);
+        }
+
+        CameraCapabilitySnapshot.Endpoint highest = advertised.stream()
+                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
+                .orElseThrow();
+        if (!highest.methodMetadataKnown()) {
             return new CameraCapabilitySnapshot.Capability(
                     id, true, true, METHOD_METADATA_UNKNOWN,
                     EVENT_METHODS, Set.of(), false, "METHOD_METADATA_NOT_ADVERTISED");
         }
-        if (!endpoint.methods().containsAll(EVENT_METHODS)) {
-            return new CameraCapabilitySnapshot.Capability(
-                    id, true, true, UNSUPPORTED,
-                    EVENT_METHODS, endpoint.methods(), true, "METHOD_NOT_ADVERTISED");
-        }
         return new CameraCapabilitySnapshot.Capability(
-                id, true, true, AVAILABLE,
-                EVENT_METHODS, endpoint.methods(), true, null);
+                id, true, true, UNSUPPORTED,
+                EVENT_METHODS, highest.methods(), true, "METHOD_NOT_ADVERTISED");
     }
 
     private static int versionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
@@ -230,6 +247,8 @@ final class CanonCcapiProductionBackend implements
     public Optional<CameraMediaReference> awaitAddedMedia(
             EventMode mode,
             Duration timeout) {
-        return mediaClient.awaitAddedMedia(mode, timeout);
+        return mode == EventMode.MONITORING
+                ? monitoringClient.awaitAddedMedia(timeout)
+                : mediaClient.awaitAddedMedia(mode, timeout);
     }
 }
