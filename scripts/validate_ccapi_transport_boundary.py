@@ -48,7 +48,9 @@ PASSWORD_ACCESS_PATTERNS = (
 )
 LOGGER_START = re.compile(r"\b(?:log|LOG|LOGGER)\s*\.\s*(?:trace|debug|info|warn|error)\s*\(")
 PROTECTED_LOG_TOKEN = re.compile(
-    r"(?i)authorization|password|nonce|opaque|wifi\s*password|wi-fi\s*password|request\s*body"
+    r"(?i)authorization|www[-_\s]*authenticate|password|nonce|cnonce|"
+    r"nonce[-_\s]*count|opaque|digest[-_\s]*response|"
+    r"wifi\s*password|wi-fi\s*password|request\s*body"
 )
 
 
