@@ -53,8 +53,12 @@ class ExternalCr3ArchitectureTest {
             "com/photographer/focusstack/cr3/";
     private static final String COMPATIBILITY_STATISTICS =
             CR3_INTERNAL_PREFIX + "research/SubbandStatistics";
-    private static final Pattern CR3_TYPE_REFERENCE = Pattern.compile(
+    private static final Pattern CR3_INTERNAL_TYPE_REFERENCE = Pattern.compile(
             "com/photographer/focusstack/cr3/[A-Za-z0-9_$/]+");
+    private static final Pattern CR3_DOTTED_TYPE_REFERENCE = Pattern.compile(
+            "com\\.photographer\\.focusstack\\.cr3\\."
+                    + "(?:[a-z][A-Za-z0-9_$]*\\.)*"
+                    + "[A-Z_$][A-Za-z0-9_$]*(?:\\$[A-Za-z0-9_$]+)*");
 
     private static final List<ModuleContract> MODULES = List.of(
             new ModuleContract(
@@ -230,17 +234,14 @@ class ExternalCr3ArchitectureTest {
     }
 
     private static void collectReferences(String value, Set<String> references) {
-        collectInternalNameReferences(value, references);
-        if (value.indexOf('.') >= 0) {
-            collectInternalNameReferences(value.replace('.', '/'), references);
+        Matcher internal = CR3_INTERNAL_TYPE_REFERENCE.matcher(value);
+        while (internal.find()) {
+            references.add(internal.group());
         }
-    }
 
-    private static void collectInternalNameReferences(String value,
-                                                      Set<String> references) {
-        Matcher matcher = CR3_TYPE_REFERENCE.matcher(value);
-        while (matcher.find()) {
-            references.add(matcher.group());
+        Matcher dotted = CR3_DOTTED_TYPE_REFERENCE.matcher(value);
+        while (dotted.find()) {
+            references.add(dotted.group().replace('.', '/'));
         }
     }
 
