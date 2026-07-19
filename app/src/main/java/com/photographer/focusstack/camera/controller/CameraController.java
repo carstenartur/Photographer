@@ -1,16 +1,18 @@
 package com.photographer.focusstack.camera.controller;
 
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.entity.CameraProfileEntity;
+import com.photographer.focusstack.camera.search.SearchService;
+import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
+import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.model.CameraProfile;
-import com.photographer.focusstack.camera.entity.CameraProfileEntity;
-import com.photographer.focusstack.camera.search.SearchService;
-import com.photographer.focusstack.camera.service.CameraProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -71,7 +73,7 @@ public class CameraController {
     @PutMapping("/{id}")
     @Operation(summary = "Update camera profile by id")
     public ResponseEntity<CameraProfile> updateProfile(@PathVariable String id,
-                                                        @Valid @RequestBody CameraProfile profile) {
+                                                         @Valid @RequestBody CameraProfile profile) {
         backendFactory.evict(id);
         return ResponseEntity.ok(profileService.updateProfile(id, profile));
     }
@@ -108,6 +110,16 @@ public class CameraController {
         return ResponseEntity.ok(backendFor(id).getState());
     }
 
+    @GetMapping("/{id}/capabilities")
+    @Operation(summary = "Get redacted camera capability diagnostics")
+    public ResponseEntity<CameraCapabilitySnapshot> getCameraCapabilities(@PathVariable String id) {
+        CameraBackend backend = backendFor(id);
+        CameraCapabilitySnapshot snapshot = backend instanceof CameraCapabilityProvider provider
+                ? provider.getCapabilitySnapshot()
+                : CameraCapabilitySnapshot.diagnosticsUnavailable(backend.getInfo());
+        return ResponseEntity.ok(snapshot);
+    }
+
     @GetMapping("/{id}/liveview")
     @Operation(summary = "Get latest live view frame")
     public ResponseEntity<LiveViewFrame> getLiveView(@PathVariable String id) {
@@ -123,7 +135,7 @@ public class CameraController {
     @PostMapping("/{id}/focus")
     @Operation(summary = "Adjust camera focus")
     public ResponseEntity<Void> adjustFocus(@PathVariable String id,
-                                             @Valid @RequestBody FocusCommand command) {
+                                              @Valid @RequestBody FocusCommand command) {
         backendFor(id).setFocus(command);
         return ResponseEntity.ok().build();
     }
