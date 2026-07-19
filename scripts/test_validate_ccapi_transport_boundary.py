@@ -93,17 +93,30 @@ class CcapiTransportBoundaryTest(unittest.TestCase):
             with self.assertRaisesRegex(BoundaryValidationError, "Password accessor"):
                 validate(root)
 
-    def test_rejects_logger_invocation_for_protected_assets(self) -> None:
+    def test_rejects_camera_logger_invocation_for_protected_assets(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             self._write_java(
-                root / "app/src/main/java/example/LeakyLogger.java",
-                "package example;\nclass LeakyLogger { void run(Object log, Object authorization) { "
+                root / "app/src/main/java/com/photographer/focusstack/camera/backend/LeakyLogger.java",
+                "package com.photographer.focusstack.camera.backend;\n"
+                "class LeakyLogger { void run(Object log, Object authorization) { "
                 "log.info(\"Authorization {}\", authorization); } }\n",
             )
 
             with self.assertRaisesRegex(BoundaryValidationError, "protected authentication"):
                 validate(root)
+
+    def test_does_not_apply_ccapi_log_vocabulary_to_unrelated_application_security(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_java(
+                root / "app/src/main/java/com/photographer/focusstack/app/security/AdminInitializer.java",
+                "package com.photographer.focusstack.app.security;\n"
+                "class AdminInitializer { void run(Object log) { "
+                "log.info(\"Admin password configuration updated\"); } }\n",
+            )
+
+            validate(root)
 
     def test_ignores_test_sources_and_generated_output(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
