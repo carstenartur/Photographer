@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
  * characteristics as the active pixels but are not exposed to light. By averaging
  * these columns, we can estimate the row-dependent black level.</p>
  *
- * <h3>Approach:</h3>
+ * <h2>Approach</h2>
  * <ol>
  *   <li>Identify OB columns from active area metadata (columns left of activeAreaLeft)</li>
  *   <li>For each row pair (Bayer: even/odd), compute the median or mean of OB pixels</li>

@@ -45,11 +45,11 @@ public final class CrxHeader {
     /**
      * Describes a subband within a plane.
      *
-     * @param index          subband index (0 for lossless LL; 0-9 for lossy wavelets)
-     * @param dataSize       size of the encoded subband data in bytes
+     * @param index           subband index (0 for lossless LL; 0-9 for lossy wavelets)
+     * @param dataSize        size of the encoded subband data in bytes
      * @param supportsPartial whether partial decoding is flagged
-     * @param quantValue     quantization value (0 for lossless)
-     * @param dataOffset     absolute offset of the subband data within the CRX block
+     * @param quantValue      quantization value (0 for lossless)
+     * @param dataOffset      absolute offset of the subband data within the CRX block
      */
     public record Subband(int index, long dataSize, boolean supportsPartial,
                           int quantValue, long dataOffset) {}
@@ -57,11 +57,11 @@ public final class CrxHeader {
     /**
      * Describes a colour plane within a tile.
      *
-     * @param index          plane index (0-3 for RGGB)
-     * @param dataSize       total encoded size for this plane
+     * @param index           plane index (0-3 for RGGB)
+     * @param dataSize        total encoded size for this plane
      * @param supportsPartial whether partial decoding is flagged
-     * @param roundedBits    number of rounded bits
-     * @param subbands       list of subbands in this plane
+     * @param roundedBits     number of rounded bits
+     * @param subbands        list of subbands in this plane
      */
     public record Plane(int index, long dataSize, boolean supportsPartial,
                         int roundedBits, List<Subband> subbands) {}
@@ -83,11 +83,23 @@ public final class CrxHeader {
         this.headerSize = headerSize;
     }
 
-    /** Returns the parsed tiles. */
-    public List<Tile> tiles() { return tiles; }
+    /**
+     * Returns the parsed tiles.
+     *
+     * @return the immutable parsed tile list
+     */
+    public List<Tile> tiles() {
+        return tiles;
+    }
 
-    /** Returns the total header size in bytes (including the 4-byte null separator). */
-    public int headerSize() { return headerSize; }
+    /**
+     * Returns the total header size including the four-byte null separator.
+     *
+     * @return the total header size in bytes
+     */
+    public int headerSize() {
+        return headerSize;
+    }
 
     /**
      * Parses a CRX header from the given data.
@@ -194,7 +206,7 @@ public final class CrxHeader {
     /**
      * Determines the codec version from the CNCV version string.
      *
-     * @param cncvVersion the CNCV version string (e.g. "CanonCR3_001/00.09.00/00.00.00")
+     * @param cncvVersion the CNCV version string (for example, "CanonCR3_001/00.09.00/00.00.00")
      * @return the codec version
      */
     public static CodecVersion detectVersion(String cncvVersion) {

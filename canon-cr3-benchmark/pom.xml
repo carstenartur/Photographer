@@ -26,24 +26,24 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-core</artifactId>
-            <version>${project.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-container</artifactId>
-            <version>${project.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-metadata</artifactId>
-            <version>${project.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-codec</artifactId>
-            <version>${project.version}</version>
+            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>org.openjdk.jmh</groupId>

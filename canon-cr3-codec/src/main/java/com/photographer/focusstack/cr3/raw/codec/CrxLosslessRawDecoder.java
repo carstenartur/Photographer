@@ -52,13 +52,32 @@ public final class CrxLosslessRawDecoder {
     private CrxLosslessRawDecoder() {
     }
 
-    /** Decodes CRX lossless RAW data using codec version V1 and no CMP1 metadata. */
+    /**
+     * Decodes CRX lossless RAW data using codec version V1 and no CMP1 metadata.
+     *
+     * @param data compressed CRX track bytes
+     * @param width output image width in pixels
+     * @param height output image height in pixels
+     * @param bitDepth output sample bit depth
+     * @return the decoded Bayer image
+     * @throws Cr3Exception if the bitstream or dimensions are unsupported or malformed
+     */
     public static Cr3RawImage decode(byte[] data, int width, int height, int bitDepth)
             throws Cr3Exception {
         return decode(data, width, height, bitDepth, CrxHeader.CodecVersion.V1, null);
     }
 
-    /** Decodes CRX lossless RAW data using the supplied codec version. */
+    /**
+     * Decodes CRX lossless RAW data using the supplied codec version.
+     *
+     * @param data compressed CRX track bytes
+     * @param width output image width in pixels
+     * @param height output image height in pixels
+     * @param bitDepth output sample bit depth
+     * @param version CRX marker/version family
+     * @return the decoded Bayer image
+     * @throws Cr3Exception if the bitstream or dimensions are unsupported or malformed
+     */
     public static Cr3RawImage decode(
             byte[] data,
             int width,
@@ -68,7 +87,18 @@ public final class CrxLosslessRawDecoder {
         return decode(data, width, height, bitDepth, version, null);
     }
 
-    /** Decodes CRX lossless RAW data using codec version and optional CMP1 metadata. */
+    /**
+     * Decodes CRX lossless RAW data using codec version and optional CMP1 metadata.
+     *
+     * @param data compressed CRX track bytes
+     * @param width output image width in pixels
+     * @param height output image height in pixels
+     * @param bitDepth output sample bit depth
+     * @param version CRX marker/version family
+     * @param cmp1 optional CRX compression metadata used for tile, plane and CFA layout
+     * @return the decoded Bayer image
+     * @throws Cr3Exception if the bitstream or metadata are unsupported or malformed
+     */
     public static Cr3RawImage decode(
             byte[] data,
             int width,
@@ -85,6 +115,16 @@ public final class CrxLosslessRawDecoder {
      * <p>The explicit-rule overload is experimental and exists so reference
      * research can compare the legacy and current residual semantics without
      * changing the normal production call sites.</p>
+     *
+     * @param data compressed CRX track bytes
+     * @param width output image width in pixels
+     * @param height output image height in pixels
+     * @param bitDepth output sample bit depth
+     * @param version CRX marker/version family
+     * @param cmp1 optional CRX compression metadata used for tile, plane and CFA layout
+     * @param kUpdateRule entropy, residual-sign and Rice-adaptation profile
+     * @return the decoded Bayer image
+     * @throws Cr3Exception if the bitstream, metadata or selected profile cannot be decoded
      */
     public static Cr3RawImage decode(
             byte[] data,

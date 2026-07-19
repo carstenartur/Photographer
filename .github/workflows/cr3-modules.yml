@@ -11,6 +11,20 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-maven-smoke/**'
+      - 'canon-cr3-benchmark/pom.xml'
+      - 'astro-core-benchmark/pom.xml'
+      - 'canon-cr3-cli/pom.xml'
+      - 'canon-cr3-research/pom.xml'
+      - 'canon-cr3-reference-testkit/pom.xml'
+      - 'app/pom.xml'
+      - 'release/canon-cr3-public/**'
+      - 'scripts/build_cr3_central_bundle.py'
+      - 'scripts/test_build_cr3_central_bundle.py'
+      - 'scripts/validate_cr3_central_bundle.py'
+      - 'scripts/test_validate_cr3_central_bundle.py'
+      - 'scripts/validate_cr3_source_coordinates.py'
+      - 'scripts/test_validate_cr3_source_coordinates.py'
+      - 'scripts/run_cr3_central_preflight.sh'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
   pull_request:
@@ -23,6 +37,20 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-maven-smoke/**'
+      - 'canon-cr3-benchmark/pom.xml'
+      - 'astro-core-benchmark/pom.xml'
+      - 'canon-cr3-cli/pom.xml'
+      - 'canon-cr3-research/pom.xml'
+      - 'canon-cr3-reference-testkit/pom.xml'
+      - 'app/pom.xml'
+      - 'release/canon-cr3-public/**'
+      - 'scripts/build_cr3_central_bundle.py'
+      - 'scripts/test_build_cr3_central_bundle.py'
+      - 'scripts/validate_cr3_central_bundle.py'
+      - 'scripts/test_validate_cr3_central_bundle.py'
+      - 'scripts/validate_cr3_source_coordinates.py'
+      - 'scripts/test_validate_cr3_source_coordinates.py'
+      - 'scripts/run_cr3_central_preflight.sh'
       - 'pom.xml'
       - '.github/workflows/cr3-modules.yml'
   workflow_dispatch:
@@ -36,11 +64,11 @@ permissions:
 
 jobs:
   packaged-consumer:
-    name: CR3 external Maven consumer and architecture
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    name: CR3 external Maven consumer and Central bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     env:
-      MAVEN_OPTS: '-Xmx2g'
+      MAVEN_OPTS: '-Xmx4g'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -52,6 +80,29 @@ jobs:
           distribution: temurin
           cache: maven
           cache-dependency-path: pom.xml
+
+      - name: Test release validators and bundle builder
+        run: |
+          set -o pipefail
+          mkdir -p target/cr3-central-preflight
+          {
+            python3 scripts/test_validate_cr3_central_bundle.py
+            python3 scripts/test_build_cr3_central_bundle.py
+            python3 scripts/test_validate_cr3_source_coordinates.py
+            python3 scripts/validate_cr3_source_coordinates.py .
+          } 2>&1 | tee target/cr3-central-preflight/release-validator.log
+
+      - name: Build and validate signed public Central bundle
+        run: bash scripts/run_cr3_central_preflight.sh 0.1.5
+
+      - name: Upload credential-free Central bundle
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: canon-cr3-central-preflight
+          path: target/cr3-central-preflight/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Stage packaged production artifacts without repeating unit tests
         run: >-
@@ -88,4 +139,4 @@ jobs:
             canon-cr3-maven-smoke/target/it/**/target/runtime-dependencies.txt
             canon-cr3-maven-smoke/target/it/**/target/surefire-reports/
           if-no-files-found: warn
-          retention-days: 3
+          retention-days: 7

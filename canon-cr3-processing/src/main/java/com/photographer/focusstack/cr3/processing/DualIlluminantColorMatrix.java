@@ -11,14 +11,14 @@ import java.util.Map;
  * D65 (daylight, ~6500K) and Standard Illuminant A (tungsten, ~2856K)
  * color matrices based on the estimated or reported color temperature.
  *
- * <h3>Theory (publicly known):</h3>
+ * <h2>Theory (publicly known)</h2>
  * <p>Digital cameras may have different color responses under different
  * lighting conditions. The DNG specification (publicly available from Adobe)
  * documents the concept of dual-illuminant profiles: two 3×3 matrices
  * are specified for two reference illuminants, and the appropriate matrix
  * for a given scene is obtained by linear interpolation between them.</p>
  *
- * <h3>Interpolation approach:</h3>
+ * <h2>Interpolation approach</h2>
  * <p>The interpolation weight is computed from the correlated color temperature
  * (CCT) of the scene illuminant. At 2856K (Illuminant A), weight = 0.0
  * (use StdA matrix only). At 6500K (D65), weight = 1.0 (use D65 matrix only).

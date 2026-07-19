@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
  * Inverse Discrete Wavelet Transform (IDWT) for reconstructing image data
  * from wavelet-decomposed subbands.
  *
- * <h3>Background (publicly known):</h3>
+ * <h2>Background (publicly known)</h2>
  * <p>Wavelet-based image compression decomposes an image into frequency subbands
  * using a filter bank. The inverse transform reconstructs the image from these
  * subbands. Two standard filter families are widely used:</p>
@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  *       Defined in ITU-T T.800 / ISO/IEC 15444-1 Annex F.</li>
  * </ul>
  *
- * <h3>Current status:</h3>
+ * <h2>Current status</h2>
  * <p>This class implements the Le Gall 5/3 inverse wavelet transform, which is
  * a well-documented public standard (ITU-T T.800). The CDF 9/7 transform is
  * prepared but not yet connected to the CRX lossy decoder because:</p>
@@ -58,7 +58,7 @@ public final class InverseWaveletTransform {
      * <p>Given interleaved lowpass (even indices) and highpass (odd indices)
      * coefficients, reconstructs the original signal at double the resolution.</p>
      *
-     * <h4>Le Gall 5/3 inverse lifting steps (ITU-T T.800):</h4>
+     * <h4>Le Gall 5/3 inverse lifting steps (ITU-T T.800)</h4>
      * <ol>
      *   <li>Undo predict: even[i] += (odd[i-1] + odd[i] + 2) &gt;&gt; 2</li>
      *   <li>Undo update: odd[i] -= (even[i] + even[i+1]) &gt;&gt; 1</li>
@@ -90,6 +90,8 @@ public final class InverseWaveletTransform {
      * @param lh         lowpass-highpass subband (horizontal detail)
      * @param hl         highpass-lowpass subband (vertical detail)
      * @param hh         highpass-highpass subband (diagonal detail)
+     * @param llWidth    width of each input subband
+     * @param llHeight   height of each input subband
      * @param outWidth   expected output width
      * @param outHeight  expected output height
      * @param filterType the wavelet filter to use

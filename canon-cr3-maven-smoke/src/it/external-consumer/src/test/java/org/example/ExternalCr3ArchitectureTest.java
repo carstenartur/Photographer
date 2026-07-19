@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ExternalCr3ArchitectureTest {
 
-    private static final String GROUP_ID = "com.photographer.focusstack";
+    private static final String GROUP_ID = "io.github.carstenartur";
     private static final String CR3_INTERNAL_PREFIX =
             "com/photographer/focusstack/cr3/";
     private static final String COMPATIBILITY_STATISTICS =
@@ -208,8 +208,8 @@ class ExternalCr3ArchitectureTest {
                 throw new IOException("Invalid class-file magic: 0x"
                         + Integer.toHexString(magic));
             }
-            input.readUnsignedShort(); // minor
-            input.readUnsignedShort(); // major
+            input.readUnsignedShort();
+            input.readUnsignedShort();
             int constantPoolCount = input.readUnsignedShort();
             Set<String> references = new TreeSet<>();
 

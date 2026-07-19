@@ -20,7 +20,7 @@ import java.util.Map;
  * or derivable from test data analysis. Unknown tags are preserved as raw values
  * for diagnostic access.</p>
  *
- * <h3>Tag semantics derived from:</h3>
+ * <h2>Tag semantics derived from</h2>
  * <ul>
  *   <li>Standard TIFF IFD encoding rules (TIFF 6.0 spec)</li>
  *   <li>Tag ID analysis of available test CR3 files</li>
@@ -76,8 +76,8 @@ public final class CanonMakerNoteParser {
      * @return parsed MakerNote data (never null; may be empty on parse failure)
      */
     public static CanonMakerNoteData parse(ImageInputStream input,
-                                            long boxDataOffset,
-                                            long boxDataSize) {
+                                             long boxDataOffset,
+                                             long boxDataSize) {
         try {
             return doParse(input, boxDataOffset, boxDataSize);
         } catch (IOException | RuntimeException e) {
@@ -87,8 +87,8 @@ public final class CanonMakerNoteParser {
     }
 
     private static CanonMakerNoteData doParse(ImageInputStream input,
-                                               long boxDataOffset,
-                                               long boxDataSize) throws IOException {
+                                                long boxDataOffset,
+                                                long boxDataSize) throws IOException {
         if (boxDataSize < 8) {
             LOG.debug("CMT3 box too small for MakerNote: {} bytes", boxDataSize);
             return CanonMakerNoteData.empty();

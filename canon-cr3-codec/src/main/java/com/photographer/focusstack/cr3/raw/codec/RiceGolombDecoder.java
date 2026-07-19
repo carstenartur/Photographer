@@ -10,7 +10,7 @@ import java.io.IOException;
  *
  * <p>The Golomb-Rice codeword shape implemented here matches the patent
  * description (US 2016/0323602 A1, FIG. 10A/10B): for a non-negative symbol
- * {@code S} and parameter {@code K}, the codeword is {@code (S>>K)} zero bits
+ * {@code S} and parameter {@code K}, the codeword is {@code (S >> K)} zero bits
  * followed by a single {@code 1} bit, then the {@code K} low-order bits of
  * {@code S}. See {@code docs/crx-cleanroom-spec.md} §7 for the full
  * specification.</p>
@@ -30,7 +30,7 @@ public final class RiceGolombDecoder {
      * Creates a new Rice-Golomb decoder.
      *
      * @param reader    the bit reader
-     * @param riceParam initial Rice parameter (k)
+     * @param riceParam initial Rice parameter ({@code k})
      */
     public RiceGolombDecoder(BitReader reader, int riceParam) {
         this.reader = reader;
@@ -40,8 +40,9 @@ public final class RiceGolombDecoder {
     /**
      * Decodes a single Rice-Golomb coded value.
      *
-     * <p>The value is encoded as: unary(q) + remainder(k bits),
-     * where q = value >> k and remainder = value & ((1 << k) - 1).</p>
+     * <p>The value is encoded as unary {@code q} followed by a remainder of
+     * {@code k} bits, where {@code q = value >> k} and
+     * {@code remainder = value & ((1 << k) - 1)}.</p>
      *
      * @return the decoded unsigned value
      * @throws IOException if the bit reader runs out of data
@@ -71,9 +72,21 @@ public final class RiceGolombDecoder {
         }
     }
 
-    /** Returns the current Rice parameter. */
-    public int riceParam() { return riceParam; }
+    /**
+     * Returns the current Rice parameter.
+     *
+     * @return the current Rice parameter
+     */
+    public int riceParam() {
+        return riceParam;
+    }
 
-    /** Updates the Rice parameter. */
-    public void setRiceParam(int k) { this.riceParam = k; }
+    /**
+     * Updates the Rice parameter used by subsequent decode operations.
+     *
+     * @param k the new Rice parameter
+     */
+    public void setRiceParam(int k) {
+        this.riceParam = k;
+    }
 }

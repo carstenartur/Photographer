@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  *   <li>Reconstruct pixel values</li>
  * </ol>
  *
- * <h3>Current status:</h3>
+ * <h2>Current status</h2>
  * <p>This class provides the architectural foundation for C-RAW decoding.
  * The header parsing and compression mode detection are complete. The actual
  * wavelet inverse transform and dequantization are not yet implemented because:</p>
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * suspected four-stage decoder pipeline (entropy decode → symbol→coefficient →
  * dequantise → inverse wavelet) that the lossy path will need.</p>
  *
- * <h3>What is implemented:</h3>
+ * <h2>What is implemented</h2>
  * <ul>
  *   <li>Detection of C-RAW files via CMP1 waveletLevels &gt; 0</li>
  *   <li>Header parsing (shared with lossless path)</li>
@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
  *   <li>Clear error message when decoding is attempted</li>
  * </ul>
  *
- * <h3>What remains to implement:</h3>
+ * <h2>What remains to implement</h2>
  * <ul>
  *   <li>Inverse discrete wavelet transform (3-level, 5/3 or 9/7 filter)</li>
  *   <li>Dequantization of wavelet coefficients</li>
@@ -78,6 +78,7 @@ public final class CrxLossyDecoder {
      * @param cmp1         the CMP1 box with compression parameters
      * @return the decoded image (not yet functional for full decoding)
      * @throws Cr3Exception if decoding cannot be completed
+     * @throws java.io.IOException if the CRX header cannot be read
      */
     public static Cr3RawImage decode(byte[] data, int width, int height,
                                       int bitDepth, CrxHeader.CodecVersion codecVersion,

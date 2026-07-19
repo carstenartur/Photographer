@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        This POM is an aggregator only, never a published parent. Each public
+        module inherits build policy from the repository parent while the
+        flatten plugin removes that internal parent from the deployed POM.
+    -->
+    <groupId>com.photographer.focusstack.build</groupId>
+    <artifactId>canon-cr3-public-release</artifactId>
+    <version>1</version>
+    <packaging>pom</packaging>
+
+    <name>Canon CR3 Public Release Aggregator</name>
+    <description>Credential-free bundle validation and controlled Central Portal publication for supported CR3 libraries</description>
+
+    <modules>
+        <module>../../canon-cr3-container</module>
+        <module>../../canon-cr3-metadata</module>
+        <module>../../canon-cr3-codec</module>
+        <module>../../canon-cr3-processing</module>
+        <module>../../canon-cr3-core</module>
+        <module>../../canon-cr3-imageio</module>
+    </modules>
+
+    <properties>
+        <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
+        <!-- Preflight builds create the exact bundle but never upload it. -->
+        <central.skipPublishing>true</central.skipPublishing>
+    </properties>
+
+    <!--
+        This plugin is a Maven build extension and must be loaded while the
+        execution root is constructed. Keeping it outside a profile ensures it
+        can replace the ordinary deploy path for every selected reactor module.
+        The dedicated aggregator is never used by ordinary application builds.
+    -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>${central-publishing-maven-plugin.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                    <waitUntil>validated</waitUntil>
+                    <skipPublishing>${central.skipPublishing}</skipPublishing>
+                    <deploymentName>Photographer Canon CR3 ${revision}</deploymentName>
+                    <excludeArtifacts>canon-cr3-public-release</excludeArtifacts>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

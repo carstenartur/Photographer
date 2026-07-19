@@ -89,6 +89,7 @@ public final class SubbandExtractor {
      * @param cr3File the CR3 file to inspect
      * @return an immutable list of subband descriptors in the order they appear in the bitstream
      * @throws IOException if the file cannot be read or parsed
+     * @throws com.photographer.focusstack.cr3.Cr3Exception if the file is not a valid CR3
      */
     public static List<SubbandRef> list(File cr3File) throws IOException, com.photographer.focusstack.cr3.Cr3Exception {
         try (ImageInputStream in = ImageIO.createImageInputStream(cr3File)) {
