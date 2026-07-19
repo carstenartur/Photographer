@@ -31,7 +31,14 @@ def jar(entry_name: str, content: bytes = b"content") -> bytes:
     return result.getvalue()
 
 
-def pom(artifact_id: str, *, parent: bool = False, dependency: str = "") -> bytes:
+def pom(
+    artifact_id: str,
+    *,
+    parent: bool = False,
+    dependency: str = "",
+    include_issue_management: bool = True,
+    include_ci_management: bool = True,
+) -> bytes:
     parent_xml = (
         "<parent><groupId>com.photographer.focusstack</groupId>"
         "<artifactId>canon-focus-stack-parent</artifactId>"
@@ -44,6 +51,20 @@ def pom(artifact_id: str, *, parent: bool = False, dependency: str = "") -> byte
         f"<artifactId>{dependency}</artifactId><version>0.1.5-SNAPSHOT</version>"
         "</dependency></dependencies>"
         if dependency
+        else ""
+    )
+    issue_xml = (
+        "<issueManagement><system>GitHub</system>"
+        "<url>https://github.com/carstenartur/Photographer/issues</url>"
+        "</issueManagement>"
+        if include_issue_management
+        else ""
+    )
+    ci_xml = (
+        "<ciManagement><system>GitHub Actions</system>"
+        "<url>https://github.com/carstenartur/Photographer/actions</url>"
+        "</ciManagement>"
+        if include_ci_management
         else ""
     )
     return f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -59,7 +80,8 @@ def pom(artifact_id: str, *, parent: bool = False, dependency: str = "") -> byte
   <licenses><license><name>MIT License</name><url>https://opensource.org/license/mit</url></license></licenses>
   <developers><developer><name>Carsten Hammer</name></developer></developers>
   <scm><connection>scm:git:https://github.com/carstenartur/Photographer.git</connection><url>https://github.com/carstenartur/Photographer</url></scm>
-  <issueManagement><url>https://github.com/carstenartur/Photographer/issues</url></issueManagement>
+  {issue_xml}
+  {ci_xml}
   {dependency_xml}
 </project>
 """.encode("utf-8")
@@ -93,6 +115,14 @@ def valid_entries() -> dict[str, bytes]:
     return entries
 
 
+def replace_pom(entries: dict[str, bytes], artifact: str, data: bytes) -> None:
+    pom_name = f"{PUBLIC_GROUP_PATH}/{artifact}/{VERSION}/{artifact}-{VERSION}.pom"
+    entries[pom_name] = data
+    for suffix in CHECKSUM_SUFFIXES:
+        algorithm = suffix.removeprefix(".")
+        entries[f"{pom_name}{suffix}"] = checksum(data, algorithm)
+
+
 def write_bundle(entries: dict[str, bytes], directory: Path) -> Path:
     bundle = directory / "central-bundle.zip"
     with zipfile.ZipFile(bundle, "w") as archive:
@@ -123,23 +153,28 @@ class ValidateCr3CentralBundleTest(unittest.TestCase):
     def test_rejects_unflattened_internal_parent(self) -> None:
         entries = valid_entries()
         artifact = PUBLIC_ARTIFACTS[0]
-        pom_name = f"{PUBLIC_GROUP_PATH}/{artifact}/{VERSION}/{artifact}-{VERSION}.pom"
-        entries[pom_name] = pom(artifact, parent=True)
-        for suffix in CHECKSUM_SUFFIXES:
-            algorithm = suffix.removeprefix(".")
-            entries[f"{pom_name}{suffix}"] = checksum(entries[pom_name], algorithm)
+        replace_pom(entries, artifact, pom(artifact, parent=True))
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaisesRegex(BundleValidationError, "internal parent"):
                 validate_bundle(write_bundle(entries, Path(temp)), VERSION)
 
+    def test_rejects_stripped_issue_or_ci_metadata(self) -> None:
+        for field, kwargs in (
+            ("issueManagement", {"include_issue_management": False}),
+            ("ciManagement", {"include_ci_management": False}),
+        ):
+            with self.subTest(field=field):
+                entries = valid_entries()
+                artifact = PUBLIC_ARTIFACTS[0]
+                replace_pom(entries, artifact, pom(artifact, **kwargs))
+                with tempfile.TemporaryDirectory() as temp:
+                    with self.assertRaisesRegex(BundleValidationError, field):
+                        validate_bundle(write_bundle(entries, Path(temp)), VERSION)
+
     def test_rejects_internal_or_snapshot_dependency(self) -> None:
         entries = valid_entries()
         artifact = PUBLIC_ARTIFACTS[0]
-        pom_name = f"{PUBLIC_GROUP_PATH}/{artifact}/{VERSION}/{artifact}-{VERSION}.pom"
-        entries[pom_name] = pom(artifact, dependency="canon-cr3-research")
-        for suffix in CHECKSUM_SUFFIXES:
-            algorithm = suffix.removeprefix(".")
-            entries[f"{pom_name}{suffix}"] = checksum(entries[pom_name], algorithm)
+        replace_pom(entries, artifact, pom(artifact, dependency="canon-cr3-research"))
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaises(BundleValidationError):
                 validate_bundle(write_bundle(entries, Path(temp)), VERSION)
