@@ -4,11 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.photographer.focusstack.camera.exception.CameraAuthenticationException;
 import com.photographer.focusstack.camera.exception.CameraOperationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.DefaultResponseErrorHandler;
+import org.springframework.web.client.HttpServerErrorException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -71,7 +73,14 @@ final class CcapiResponseErrorHandler extends DefaultResponseErrorHandler {
             throw operation(METHOD_NOT_ALLOWED, status);
         }
         if (status == HttpStatus.SERVICE_UNAVAILABLE.value()) {
-            throw operation(classifyUnavailable(readMessage(response)), status);
+            CameraOperationException.Reason reason = classifyUnavailable(readMessage(response));
+            if (reason.retryable()) {
+                throw retryableUnavailable(reason);
+            }
+            if (reason == LIVE_VIEW_NOT_STARTED) {
+                throw correctiveUnavailable(reason, "Live view not started");
+            }
+            throw operation(reason, status);
         }
         throw operation(CAMERA_REJECTED, status);
     }
@@ -81,6 +90,37 @@ final class CcapiResponseErrorHandler extends DefaultResponseErrorHandler {
             int status) {
         outcomes.record(reason);
         return new CameraOperationException(profileId, reason, status);
+    }
+
+    private HttpServerErrorException retryableUnavailable(
+            CameraOperationException.Reason reason) {
+        // Existing operation code performs bounded retry only for the documented
+        // Device-busy wire phrase. Keep that retry seam, but replace the camera body
+        // and headers with fixed safe values and retain the exact typed reason as cause.
+        return bridgedUnavailable(reason, "Device busy");
+    }
+
+    private HttpServerErrorException correctiveUnavailable(
+            CameraOperationException.Reason reason,
+            String safeMessage) {
+        // Live-view orchestration already has one explicit start-and-retry recovery.
+        return bridgedUnavailable(reason, safeMessage);
+    }
+
+    private HttpServerErrorException bridgedUnavailable(
+            CameraOperationException.Reason reason,
+            String safeMessage) {
+        outcomes.record(reason);
+        CameraOperationException typed = new CameraOperationException(
+                profileId, reason, HttpStatus.SERVICE_UNAVAILABLE.value());
+        HttpServerErrorException bridged = HttpServerErrorException.create(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
+                HttpHeaders.EMPTY,
+                safeMessage.getBytes(StandardCharsets.UTF_8),
+                StandardCharsets.UTF_8);
+        bridged.initCause(typed);
+        return bridged;
     }
 
     private static CameraOperationException.Reason classifyUnavailable(String message) {
