@@ -5,6 +5,13 @@ package com.photographer.focusstack.cr3.decode;
  *
  * <p>Allows callers to choose between preview extraction (fast) and full RAW
  * decoding, and to control output format and processing steps.</p>
+ *
+ * <p><strong>API status:</strong> preview and thumbnail selection are intended
+ * for external use. Full-RAW and processing-pipeline controls remain experimental
+ * until the CRX decoder is fully verified and may evolve between pre-1.0 releases.
+ * The explicit reference-matching pedestal strategy and related accessors are
+ * <strong>research-only</strong>; they are not a supported production contract
+ * and may be changed or removed without notice.</p>
  */
 public final class Cr3DecodeOptions {
 
@@ -16,9 +23,9 @@ public final class Cr3DecodeOptions {
         PREVIEW,
         /** Return the embedded JPEG thumbnail. */
         THUMBNAIL,
-        /** Decode the full RAW image with demosaicing and color processing. */
+        /** Decode the full RAW image with demosaicing and color processing. Experimental before 1.0. */
         RAW_PROCESSED,
-        /** Decode the RAW image as a linear Bayer pattern (no demosaicing). */
+        /** Decode the RAW image as a linear Bayer pattern (no demosaicing). Experimental before 1.0. */
         RAW_LINEAR
     }
 
@@ -39,8 +46,8 @@ public final class Cr3DecodeOptions {
         /**
          * Use an explicit constant pedestal chosen for reference matching experiments.
          *
-         * <p><strong>Experimental — not stable public API.</strong>
-         * This value exists solely for research fixture matching and may change or be
+         * <p><strong>Research-only — not supported production API.</strong>
+         * This value exists solely for fixture/reference comparison and may change or be
          * removed without notice.</p>
          */
         EXPERIMENTAL_REFERENCE_MATCH
@@ -119,21 +126,27 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
-    /** Returns pedestal resolution strategy. Default is {@link PedestalStrategy#DEFAULT}. */
+    /**
+     * Returns the pedestal resolution strategy.
+     * The reference-matching value is research-only.
+     */
     public PedestalStrategy pedestalStrategy() { return pedestalStrategy; }
 
-    /** Sets pedestal resolution strategy. */
+    /**
+     * Sets the pedestal resolution strategy.
+     * The reference-matching value is research-only and must not be used in production code.
+     */
     public Cr3DecodeOptions pedestalStrategy(PedestalStrategy strategy) {
         this.pedestalStrategy = strategy;
         return this;
     }
 
     /**
-     * Enables the experimental reference-matching pedestal strategy with
+     * Enables the research-only reference-matching pedestal strategy with
      * a fixed global pedestal level.
      *
-     * <p><strong>Experimental — not stable public API.</strong>
-     * This method exists solely for research fixture matching and may change or be
+     * <p><strong>Research-only — not supported production API.</strong>
+     * This method exists solely for fixture/reference comparison and may change or be
      * removed without notice. Do not use in production code.</p>
      */
     public Cr3DecodeOptions experimentalPedestal(int level) {
@@ -142,7 +155,7 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
-    /** Returns the fixed pedestal level used by experimental strategy. */
+    /** Returns the fixed pedestal level used by the research-only reference-matching strategy. */
     public int experimentalPedestalLevel() { return experimentalPedestalLevel; }
 
     /** Creates default options (preview mode, 8-bit). */

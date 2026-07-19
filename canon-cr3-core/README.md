@@ -1,89 +1,76 @@
 # canon-cr3-core
 
-Core library for parsing, decoding, and processing Canon CR3 RAW image files.
+Compatibility facade that composes the split Canon CR3 container, metadata, codec,
+and processing modules into one decoder API.
 
 ## Purpose
 
-This module provides the complete pipeline for reading Canon CR3 files, from
-low-level ISO BMFF box parsing to high-level image processing. It has no
-dependency on `javax.imageio` — the ImageIO adapter is in `canon-cr3-imageio`.
+`canon-cr3-core` no longer owns the low-level parser, CRX codec, or image-processing
+implementations. Those responsibilities live in dedicated Maven artifacts:
 
-## Key Components
+- `canon-cr3-container`
+- `canon-cr3-metadata`
+- `canon-cr3-codec`
+- `canon-cr3-processing`
 
-### ISO BMFF Parser (`com.photographer.focusstack.cr3.bmff`)
+This module keeps the unified `Cr3Decoder` and `Cr3DecodeOptions` entry points for
+callers that want one facade. It has no dependency on `javax.imageio`; the standard
+ImageIO adapter is provided by `canon-cr3-imageio`.
 
-| Type | Description |
-|---|---|
-| `IsoBox` | Record representing a single ISO BMFF box |
-| `IsoBmffReader` | Reads box structures from an `ImageInputStream` |
-| `FtypBox` | Parsed file type box with CR3 detection |
+## API stability
 
-### Container (`com.photographer.focusstack.cr3.container`)
+Compatibility expectations are defined in
+[`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
 
-| Type | Description |
-|---|---|
-| `Cr3Container` | Parsed top-level structure of a CR3 file |
-| `Cr3Track` | Single track (thumbnail, preview, RAW) |
-| `Cr3Parser` | Parses CR3 files into container structures |
+- Embedded preview and thumbnail selection are intended for normal external use.
+- Full RAW decoding and the `Cr3RawImage` transfer model remain experimental while
+  CRX support is completed and validated across camera variants.
+- Codec and processing implementation classes are internal APIs even when Java
+  visibility is public for module integration or tests.
+- Reference-matching pedestal controls are research-only and must not be used by
+  production applications.
+- Production modules must not depend on `canon-cr3-research` or
+  `canon-cr3-reference-testkit` at runtime.
 
-### Metadata (`com.photographer.focusstack.cr3.metadata`)
+## Main facade types
 
-| Type | Description |
-|---|---|
-| `Cr3Metadata` | Camera model, sensor geometry, EXIF data |
+| Type | Status | Description |
+|---|---|---|
+| `Cr3Decoder` | `PUBLIC_EXPERIMENTAL` | Unified preview, metadata, and RAW decoding facade. |
+| `Cr3DecodeOptions` | `PUBLIC_EXPERIMENTAL` | Selects output mode and processing behavior. Preview/thumbnail selection is the stable subset. |
+| `Cr3Decoder.PedestalReport` and related diagnostic values | `PUBLIC_EXPERIMENTAL` | Diagnostic schema that may evolve with decoder research. |
 
-### Preview (`com.photographer.focusstack.cr3.preview`)
+Stable container and metadata APIs are owned by their dedicated artifacts rather
+than duplicated here. Applications that need only file inspection should depend on
+`canon-cr3-container`; applications that need structured metadata should also use
+`canon-cr3-metadata`.
 
-| Type | Description |
-|---|---|
-| `Cr3PreviewExtractor` | Extracts JPEG preview and thumbnail images |
+## `Cr3DecodeOptions` output modes
 
-### RAW Decoding (`com.photographer.focusstack.cr3.raw`)
+| Mode | Status | Description |
+|---|---|---|
+| `OutputMode.PREVIEW` | Stable subset | Returns the embedded JPEG preview; default and most reliable path. |
+| `OutputMode.THUMBNAIL` | Stable subset | Returns the embedded JPEG thumbnail. |
+| `OutputMode.RAW_PROCESSED` | Experimental | Decodes RAW data with demosaicing and color processing. |
+| `OutputMode.RAW_LINEAR` | Experimental | Returns linear Bayer-pattern data without demosaicing. |
 
-| Type | Description |
-|---|---|
-| `Cr3RawImage` | Decoded Bayer-pattern RAW data |
-| `BitReader` | Bitwise reader for compressed streams |
-| `RiceGolombDecoder` | Entropy decoder for CRX data |
-| `CrxLosslessRawDecoder` | CRX lossless RAW decoder — cleanroom adaptive Rice-Golomb implementation |
+Factory shortcuts: `Cr3DecodeOptions.defaults()`,
+`Cr3DecodeOptions.rawProcessed()`, and `Cr3DecodeOptions.rawLinear()`.
 
-### Image Processing (`com.photographer.focusstack.cr3.processing`)
-
-| Type | Description |
-|---|---|
-| `BlackLevelProcessor` | Subtracts optical black level |
-| `BayerDemosaicer` | Bilinear Bayer demosaicing |
-| `WhiteBalanceProcessor` | Applies WB multipliers |
-| `ColorMatrixProcessor` | Camera-to-sRGB color matrix |
-| `SrgbConverter` | Linear-to-sRGB gamma correction |
-
-### Decoder (`com.photographer.focusstack.cr3.decode`)
-
-| Type | Description |
-|---|---|
-| `Cr3Decoder` | Main entry point for decoding |
-| `Cr3DecodeOptions` | Options controlling decode behavior |
-
-#### `Cr3DecodeOptions` output modes
-
-| Mode | Description |
-|---|---|
-| `OutputMode.PREVIEW` | Returns the embedded JPEG preview (default; fastest path). |
-| `OutputMode.THUMBNAIL` | Returns the embedded JPEG thumbnail. |
-| `OutputMode.RAW_PROCESSED` | Decodes the full RAW image with demosaicing and color processing. |
-| `OutputMode.RAW_LINEAR` | Decodes the RAW image as a linear Bayer pattern (no demosaicing). |
-
-Factory shortcuts: `Cr3DecodeOptions.defaults()`, `Cr3DecodeOptions.rawProcessed()`, `Cr3DecodeOptions.rawLinear()`.
-
-**Experimental options:** `experimentalPedestal(int level)` and `PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH` are
-not stable public API; they exist only for research fixture matching and may change or be removed without notice.
+`experimentalPedestal(int)` and
+`PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH` are research-only controls. They
+exist for fixture/reference comparison and may change or be removed without notice.
 
 ## Dependencies
 
-- `slf4j-api` — Logging
+- `canon-cr3-container` — ISO-BMFF/CR3 container and embedded preview structures
+- `canon-cr3-metadata` — structured CR3 metadata
+- `canon-cr3-codec` — internal CRX decoding implementation
+- `canon-cr3-processing` — internal RAW-to-image processing pipeline
+- `slf4j-api` — logging
 
 ## Build
 
 ```bash
-mvn -B clean verify -pl canon-cr3-core
+mvn -B clean verify -pl canon-cr3-core -am
 ```

@@ -11,6 +11,10 @@ import java.util.Objects;
  * <p>Extends {@link ImageReadParam} with CR3-specific options like output mode
  * (preview vs. full RAW) and processing pipeline control.</p>
  *
+ * <p><strong>API status:</strong> preview selection is supported for external
+ * consumers. Full-RAW and processing controls are experimental while the CRX
+ * decoder is being completed and may evolve between pre-1.0 releases.</p>
+ *
  * <p>Usage:</p>
  * <pre>{@code
  * CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
@@ -27,6 +31,9 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
     /**
      * Returns the CR3-specific decode options.
      *
+     * <p>Options that select full RAW decoding or experimental processing are not
+     * yet stable public API.</p>
+     *
      * @return the decode options
      */
     public Cr3DecodeOptions getDecodeOptions() {
@@ -35,6 +42,9 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
 
     /**
      * Sets the CR3-specific decode options.
+     *
+     * <p>Preview mode is supported. Full RAW and experimental processing options
+     * follow the maturity of the underlying CRX decoder and may change before 1.0.</p>
      *
      * @param options the decode options (must not be null)
      * @throws NullPointerException if options is null
