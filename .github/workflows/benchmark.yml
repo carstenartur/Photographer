@@ -70,6 +70,7 @@ jobs:
           mkdir -p "$JMH_OUTPUT_DIR"
           {
             echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "event=${{ github.event_name }}"
             echo "runner_image=${ImageOS:-unknown}"
             echo "runner_image_version=${ImageVersion:-unknown}"
             echo "kernel=$(uname -a)"
@@ -92,6 +93,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+
+          {
+            echo "base_sha=$BASE_SHA"
+            echo "head_sha=$HEAD_SHA"
+            echo "run_order=base,head"
+          } >> "$JMH_OUTPUT_DIR/environment.txt"
 
           run_revision() {
             local label="$1"
