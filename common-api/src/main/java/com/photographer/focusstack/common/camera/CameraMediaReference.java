@@ -52,8 +52,8 @@ public record CameraMediaReference(
                 || uri.getQuery() != null
                 || uri.getFragment() != null
                 || path.contains("://")
-                || decodedPath.indexOf('\\') >= 0
                 || dotSegment
+                || decodedPath.indexOf('\\') >= 0
                 || !decodedPath.equals(uri.normalize().getPath())) {
             throw invalidPath();
         }
