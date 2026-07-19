@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.Operation;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -90,6 +92,22 @@ class CanonCcapiCatalogIntegrationTest {
     }
 
     @Test
+    void usesLowerVersionWhenHigherVersionRejectsRequiredMethod() {
+        String shutterV100 = BASE_URL + "/ccapi/ver100/shooting/control/shutterbutton";
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of(
+                        "ver100", List.of(descriptor("url", shutterV100, false, true)),
+                        "ver110", List.of(descriptor(
+                                "path", "/ccapi/ver110/shooting/control/shutterbutton", true, false))
+                ));
+
+        CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
+
+        assertEquals(shutterV100, backend.findEndpoint("shutterbutton"));
+        assertTrue(backend.endpointAllows("shutterbutton", HttpMethod.POST, false));
+    }
+
+    @Test
     void siblingEndpointCannotSatisfyExactStatusLookup() {
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
                 .thenReturn(Map.of("ver110", List.of(descriptor(
@@ -110,9 +128,39 @@ class CanonCcapiCatalogIntegrationTest {
 
         CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
 
+        assertNull(backend.findEndpoint("/shooting/liveview"));
         assertTrue(backend.endpointAllows("/shooting/liveview", HttpMethod.GET, false));
         assertFalse(backend.endpointAllows("/shooting/liveview", HttpMethod.POST, true));
         assertTrue(backend.endpointAllows("/shooting/unknown", HttpMethod.POST, true));
+    }
+
+    @Test
+    void knownMethodMismatchCannotBeBypassedByConstructedFallback() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver110", List.of(descriptor(
+                        "path", "/ccapi/ver110/deviceinformation", false, true))));
+
+        CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
+
+        CameraException exception = assertThrows(CameraException.class, backend::getInfo);
+        assertTrue(exception.getMessage().contains("does not advertise GET"));
+        verify(restTemplate, never()).getForObject(
+                eq(DEVICE_V100), eq(CanonCcapiBackend.DeviceInformation.class));
+    }
+
+    @Test
+    void compatibilityPathSelectsExactFlipEndpointInsteadOfLiveViewBase() {
+        String flipV110 = BASE_URL + "/ccapi/ver110/shooting/liveview/flip";
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver110", List.of(
+                        descriptor("path", "/ccapi/ver110/shooting/liveview", false, true),
+                        descriptor("path", "/ccapi/ver110/shooting/liveview/flip", true, false)
+                )));
+
+        CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
+
+        assertEquals(flipV110, backend.resolveEndpoint(
+                "liveview", "/ccapi/ver100/shooting/liveview/flip"));
     }
 
     @Test
