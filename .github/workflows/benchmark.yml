@@ -11,6 +11,8 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
+      - 'scripts/compare_jmh.py'
+      - 'scripts/test_compare_jmh.py'
       - '.github/workflows/benchmark.yml'
   pull_request:
     branches: [main]
@@ -22,8 +24,14 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
+      - 'scripts/compare_jmh.py'
+      - 'scripts/test_compare_jmh.py'
       - '.github/workflows/benchmark.yml'
   workflow_dispatch:
+
+concurrency:
+  group: benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -31,27 +39,121 @@ permissions:
 jobs:
   benchmark:
     name: JMH Benchmarks (Canon CR3)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write           # github-action-benchmark needs to push to gh-pages
-      deployments: write
-      pull-requests: write       # to post regression comments on PRs
+      contents: write
     env:
-      MAVEN_OPTS: "-Xmx2g"
+      MAVEN_OPTS: '-Xmx2g'
+      JMH_OUTPUT_DIR: ${{ runner.temp }}/cr3-jmh
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository with base and head history
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
-          java-version: "25"
+          java-version: '25'
           distribution: temurin
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Build benchmarks uber-jar
+      - name: Test the JMH comparator
+        run: python3 scripts/test_compare_jmh.py
+
+      - name: Record benchmark environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$JMH_OUTPUT_DIR"
+          {
+            echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "event=${{ github.event_name }}"
+            echo "runner_image=${ImageOS:-unknown}"
+            echo "runner_image_version=${ImageVersion:-unknown}"
+            echo "kernel=$(uname -a)"
+            echo
+            echo "## CPU"
+            lscpu
+            echo
+            echo "## Java"
+            java -version 2>&1
+            echo
+            echo "## Maven"
+            mvn -version
+          } > "$JMH_OUTPUT_DIR/environment.txt"
+
+      - name: Compare pull-request base and head on the same runner
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          {
+            echo "base_sha=$BASE_SHA"
+            echo "head_sha=$HEAD_SHA"
+            echo "run_order=base,head"
+          } >> "$JMH_OUTPUT_DIR/environment.txt"
+
+          run_revision() {
+            local label="$1"
+            local sha="$2"
+
+            git reset --hard
+            git clean -fdx
+            git checkout --detach "$sha"
+            git reset --hard "$sha"
+            git clean -fdx
+
+            mvn -B --no-transfer-progress -DskipTests \
+              -P benchmarks \
+              -pl canon-cr3-benchmark -am \
+              package \
+              -Djava.awt.headless=true
+
+            java -Djava.awt.headless=true \
+              -Dsamples.dir="$GITHUB_WORKSPACE/canon-cr3-imageio/src/test/resources/samples" \
+              -jar canon-cr3-benchmark/target/benchmarks.jar \
+              'com\.photographer\.focusstack\.cr3\.benchmark\.(Cr3BoxParseBenchmark|Cr3MetadataBenchmark|Cr3PreviewExtractBenchmark|CrxLosslessDecodeBenchmark)\..*' \
+              -p sample=sample.cr3 \
+              -wi 2 -i 3 -w 1s -r 1s -f 1 \
+              -rf json \
+              -rff "$JMH_OUTPUT_DIR/${label}.json"
+          }
+
+          run_revision base "$BASE_SHA"
+          run_revision head "$HEAD_SHA"
+
+          set +e
+          python3 scripts/compare_jmh.py \
+            "$JMH_OUTPUT_DIR/base.json" \
+            "$JMH_OUTPUT_DIR/head.json" \
+            --threshold 1.15 \
+            --markdown-out "$JMH_OUTPUT_DIR/comparison.md" \
+            --json-out "$JMH_OUTPUT_DIR/comparison.json" \
+            --fail-on-regression
+          comparison_status=$?
+          set -e
+
+          cat "$JMH_OUTPUT_DIR/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+          exit "$comparison_status"
+
+      - name: Upload pull-request benchmark comparison
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: cr3-jmh-pr-comparison
+          path: ${{ runner.temp }}/cr3-jmh/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Build full benchmark suite
+        if: github.event_name != 'pull_request'
         run: >-
           mvn -B --no-transfer-progress -DskipTests
           -P benchmarks
@@ -59,7 +161,8 @@ jobs:
           package
           -Djava.awt.headless=true
 
-      - name: Run JMH benchmarks
+      - name: Run full JMH benchmark suite
+        if: github.event_name != 'pull_request'
         run: >-
           java -Djava.awt.headless=true
           -Dsamples.dir=$GITHUB_WORKSPACE/canon-cr3-imageio/src/test/resources/samples
@@ -67,17 +170,26 @@ jobs:
           -rf json
           -rff jmh-result.json
 
-      - name: Upload raw JMH JSON
-        if: always()
+      - name: Upload raw full-suite JMH JSON
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: jmh-result
           path: jmh-result.json
+          if-no-files-found: error
           retention-days: 30
 
-      - name: Publish results to gh-pages and alert on regression
-        # Pinned to a tagged release for supply-chain safety. Renovate / Dependabot
-        # may bump this in future.
+      - name: Upload benchmark environment
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cr3-jmh-environment
+          path: ${{ runner.temp }}/cr3-jmh/environment.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish main-branch history to gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Canon CR3 JMH Benchmarks
@@ -86,10 +198,8 @@ jobs:
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Push the result history to gh-pages for main pushes only — PR runs
-          # only post the regression comment without polluting history.
-          auto-push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          auto-push: true
           alert-threshold: '115%'
           fail-on-alert: false
-          comment-on-alert: true
+          comment-on-alert: false
           summary-always: true
