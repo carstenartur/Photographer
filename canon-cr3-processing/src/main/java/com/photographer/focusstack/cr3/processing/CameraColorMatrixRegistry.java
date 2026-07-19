@@ -13,7 +13,7 @@ import java.util.Map;
  * are 3×3 and derived from publicly available DNG specification data and
  * self-calibrated reference values.</p>
  *
- * <h3>Data sources:</h3>
+ * <h2>Data sources</h2>
  * <ul>
  *   <li>DNG 1.6 specification (Adobe, freely available) documents the D65 and
  *       Standard-A illuminant color matrices for cameras. The DNG spec itself
