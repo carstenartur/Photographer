@@ -14,12 +14,11 @@ import com.photographer.focusstack.camera.strategy.NativeFocusBracketingExecutor
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
-import com.photographer.focusstack.common.camera.CameraMediaReference;
-import com.photographer.focusstack.common.camera.CaptureResult;
-import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionResult;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
+import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.StackingCaptureStrategy;
@@ -34,7 +33,6 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -51,8 +49,6 @@ public class StackingJobService {
 
     private static final Logger log = LoggerFactory.getLogger(StackingJobService.class);
     private static final int MAX_PREVIEW_MERGE_FRAMES = 20;
-    private static final int NATIVE_DOWNLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
-    private static final long MAX_NATIVE_FRAME_BYTES = 1024L * 1024L * 1024L;
 
     private final CameraBackendFactory backendFactory;
     private final CameraProfileService profileService;
@@ -286,7 +282,8 @@ public class StackingJobService {
                 request,
                 nativeTimeout(request),
                 () -> cancelledJobs.contains(id) || pausedJobs.contains(id),
-                this::ingestNativeFrame);
+                (mediaProvider, reference) -> NativeFrameFileIngestor.ingest(
+                        frameDataStore, mediaProvider, reference));
 
         List<String> frames = new ArrayList<>(job.frames());
         frames.addAll(result.ingestedFrameIds());
@@ -340,61 +337,30 @@ public class StackingJobService {
         }
     }
 
-    private String ingestNativeFrame(
-            CameraMediaProvider mediaProvider,
-            CameraMediaReference reference) {
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        long offset = 0L;
-        int chunks = 0;
-        while (true) {
-            if (++chunks > 128) {
-                throw new CameraException("Native media exceeded the bounded chunk count");
-            }
-            CameraMediaProvider.MediaChunk chunk = mediaProvider.downloadMedia(
-                    reference, offset, NATIVE_DOWNLOAD_CHUNK_BYTES);
-            if (chunk.offset() != offset) {
-                throw new CameraException("Native media returned a non-contiguous chunk");
-            }
-            byte[] data = chunk.data();
-            if (data.length == 0 && !chunk.complete()) {
-                throw new CameraException("Native media transfer made no progress");
-            }
-            if (output.size() + (long) data.length > MAX_NATIVE_FRAME_BYTES
-                    || chunk.totalSize() != null
-                    && chunk.totalSize() > MAX_NATIVE_FRAME_BYTES) {
-                throw new CameraException("Native media exceeds the 1 GiB safety limit");
-            }
-            output.writeBytes(data);
-            offset += data.length;
-            if (chunk.complete()) {
-                break;
-            }
-        }
-
-        String frameId = UUID.randomUUID().toString();
-        frameDataStore.put(frameId, reference.fileName(), output.toByteArray());
-        return frameId;
-    }
-
     private void publishNativeFrames(
             String jobId,
             List<String> frameIds,
             int expectedFrames) {
-        List<byte[]> captured = new ArrayList<>();
+        List<byte[]> capturedPreviewData = new ArrayList<>();
         for (int index = 0; index < frameIds.size(); index++) {
             String frameId = frameIds.get(index);
-            FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);
-            byte[] data = entry == null ? null : entry.data();
-            if (data != null && data.length > 0) {
-                captured.add(data);
+            String fileName = frameDataStore.getFileName(frameId);
+            byte[] previewData = null;
+            if (NativeFrameFileIngestor.isPreviewable(fileName)) {
+                FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);
+                previewData = entry == null ? null : entry.data();
+                if (previewData != null && previewData.length > 0) {
+                    capturedPreviewData.add(previewData);
+                }
+                sendPreviewFrame(jobId, previewData, index);
+                sendStackPreview(jobId, capturedPreviewData, index);
             }
-            sendPreviewFrame(jobId, data, index);
-            sendStackPreview(jobId, captured, index);
             sendJobEvent(jobId, "FRAME_CAPTURED", Map.of(
                     "strategy", "NATIVE",
                     "frameIndex", index,
                     "totalFrames", expectedFrames,
-                    "imageId", frameId));
+                    "imageId", frameId,
+                    "previewAvailable", previewData != null && previewData.length > 0));
         }
     }
 
