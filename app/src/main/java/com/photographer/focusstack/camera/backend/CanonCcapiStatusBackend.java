@@ -2,7 +2,6 @@ package com.photographer.focusstack.camera.backend;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CameraStatusProvider;
@@ -11,8 +10,6 @@ import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -42,7 +39,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CanonCcapiStatusBackend extends CanonCcapiBackend implements CameraStatusProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiStatusBackend.class);
-    private static final ObjectMapper REQUEST_MAPPER = new ObjectMapper();
     private static final String STORAGE_SUFFIX = "/devicestatus/storage";
     private static final String BATTERY_SUFFIX = "/devicestatus/battery";
     private static final String BATTERY_LIST_SUFFIX = "/devicestatus/batterylist";
@@ -166,20 +162,18 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
     }
 
     /**
-     * Stops live view through the shared catalog. Delegating afterwards only resets
-     * the base class lifecycle flag; it cannot emit a second request because this
-     * specialization never populates the base class's private endpoint map.
+     * Stops live view through the exact shared catalog and the base backend's
+     * single raw-JSON POST implementation, including its bounded Device-busy retry.
+     * The final base stop call only resets its lifecycle flag: this specialization
+     * never populates the base class's private endpoint map, so it cannot emit a
+     * second request.
      */
     @Override
     public void stopLiveView() {
         String url = findEndpoint(LIVE_VIEW_SUFFIX);
         if (url != null && endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {
             try {
-                restTemplate.exchange(
-                        url,
-                        HttpMethod.POST,
-                        ccapiEntity(Map.of("liveviewsize", "off")),
-                        String.class);
+                ccapiPost(url, Map.of("liveviewsize", "off"));
                 log.info("Live view stopped.");
             } catch (RestClientException exception) {
                 log.debug("Failed to stop live view (may already be off): {}",
@@ -207,14 +201,6 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
             }
         }
         return Map.copyOf(result);
-    }
-
-    private static HttpEntity<byte[]> ccapiEntity(Object body) {
-        try {
-            return new HttpEntity<>(REQUEST_MAPPER.writeValueAsBytes(body), new HttpHeaders());
-        } catch (Exception exception) {
-            throw new IllegalArgumentException("Could not serialize CCAPI request body", exception);
-        }
     }
 
     private static HttpMethod requiredMethod(String suffix) {
