@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from validate_cr3_reference_manifest import (
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from validate_cr3_reference_manifest import (  # noqa: E402
     END_MARKER,
     EXPECTED_HEADER,
     START_MARKER,
@@ -52,6 +57,7 @@ class ReferenceManifestPathValidationTest(unittest.TestCase):
 
         errors = validate(self.manifest, self.samples)
 
+        self.assertTrue(any("TSV line 2:" in error for error in errors), errors)
         self.assertTrue(any("unsafe path segment" in error for error in errors), errors)
 
     def test_rejects_parent_traversal_fixture_path(self) -> None:
