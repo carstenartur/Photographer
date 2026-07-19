@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <ul>
  *   <li>{@code mock} profiles → {@link MockCameraBackend}</li>
- *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiNativeFocusBracketingBackend}
+ *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiProductionBackend}
  *       with an isolated profile-scoped HTTP transport</li>
  *   <li>Unknown types → checks {@link CameraBackendRegistry} for external plugin backends</li>
  * </ul>
@@ -172,10 +172,12 @@ public class CameraBackendFactory {
                 ccapiRestTemplateFactory.createWithFingerprint(profile, ccapiBaseUri(profile));
         CcapiTransport transport = creation.transport();
         try {
-            log.info("Creating CanonCcapiNativeFocusBracketingBackend for profile '{}' ({})",
+            log.info("Creating CanonCcapiProductionBackend for profile '{}' ({})",
                     profile.name(), profile.id());
-            CameraBackend backend = new CanonCcapiNativeFocusBracketingBackend(
-                    creation.fingerprint().baseUri().toString(), transport.restTemplate());
+            CameraBackend backend = new CanonCcapiProductionBackend(
+                    profile.id(),
+                    creation.fingerprint().baseUri().toString(),
+                    transport.restTemplate());
             BackendFingerprint actualFingerprint =
                     BackendFingerprint.ccapi(type, creation.fingerprint());
             return new CachedBackend(backend, transport::close, actualFingerprint);
