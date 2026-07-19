@@ -26,6 +26,7 @@ VALID_REFERENCE_TYPES = {"RAW_LINEAR", "PREVIEW_RENDERED", "UNKNOWN"}
 VALID_GEOMETRY_FLAGS = {"true", "false", "unknown"}
 FORBIDDEN_COMMAND_TEXT = "exact CLI not preserved"
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+HASH_CHUNK_SIZE = 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,10 @@ class ManifestRow:
             raise ValueError(f"wrong column count ({len(columns)}): {line[:120]}")
         return cls(*columns)
 
+    @property
+    def key(self) -> tuple[str, str]:
+        return self.fixture, self.sidecar
+
 
 def positive_integer(value: str, field: str, fixture: str) -> str | None:
     try:
@@ -63,6 +68,14 @@ def positive_integer(value: str, field: str, fixture: str) -> str | None:
 def sidecar_path(samples_dir: Path, row: ManifestRow) -> Path:
     fixture = Path(row.fixture)
     return samples_dir / fixture.parent / f"{fixture.stem}.{row.sidecar}"
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(HASH_CHUNK_SIZE):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
@@ -87,11 +100,10 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
     if not lines:
         return ["reference-manifest TSV block is empty"]
     if lines[0] != EXPECTED_HEADER:
-        errors.append(f"unexpected TSV header: {lines[0]!r}")
-        return errors
+        return [f"unexpected TSV header: {lines[0]!r}"]
 
     rows: list[ManifestRow] = []
-    seen_fixtures: set[str] = set()
+    seen_entries: set[tuple[str, str]] = set()
     for line_number, line in enumerate(lines[1:], start=2):
         try:
             row = ManifestRow.parse(line)
@@ -102,13 +114,16 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
         rows.append(row)
         if not row.fixture:
             errors.append(f"TSV line {line_number}: fixture is empty")
-        elif row.fixture in seen_fixtures:
-            errors.append(f"duplicate fixture entry: {row.fixture}")
-        else:
-            seen_fixtures.add(row.fixture)
-
         if not row.sidecar:
             errors.append(f"sidecar is empty for {row.fixture or f'line {line_number}'}")
+        if row.fixture and row.sidecar:
+            if row.key in seen_entries:
+                errors.append(
+                    f"duplicate fixture/sidecar entry: {row.fixture} / {row.sidecar}"
+                )
+            else:
+                seen_entries.add(row.key)
+
         if not row.tool:
             errors.append(f"tool is empty for {row.fixture}")
         if not row.version:
@@ -116,7 +131,9 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
         if not row.command:
             errors.append(f"command is empty for {row.fixture}")
         elif FORBIDDEN_COMMAND_TEXT in row.command:
-            errors.append(f"non-reproducible command text for {row.fixture}: {row.command[:80]}")
+            errors.append(
+                f"non-reproducible command text for {row.fixture}: {row.command[:80]}"
+            )
 
         if not SHA256_PATTERN.fullmatch(row.sha256):
             errors.append(f"invalid SHA-256 for {row.fixture}: {row.sha256!r}")
@@ -151,13 +168,13 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
             continue
 
         try:
-            digest = hashlib.sha256(reference_path.read_bytes()).hexdigest()
+            digest = sha256(reference_path)
         except OSError as error:
             errors.append(f"cannot read sidecar {reference_path}: {error}")
             continue
         if SHA256_PATTERN.fullmatch(row.sha256) and digest != row.sha256:
             errors.append(
-                f"sidecar SHA-256 mismatch for {row.fixture}: "
+                f"sidecar SHA-256 mismatch for {row.fixture} / {row.sidecar}: "
                 f"manifest={row.sha256}, actual={digest}"
             )
 
