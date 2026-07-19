@@ -151,10 +151,31 @@ class CanonCcapiMediaClientTest {
     }
 
     @Test
+    void rejectsDecodedDotSegmentsReturnedByCamera() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        String contents = BASE_URL + "/ccapi/ver100/contents";
+        server.expect(requestTo(contents))
+                .andRespond(withSuccess("""
+                        {"url":["http://camera.example:8080/ccapi/ver100/contents/%2e%2e/private"]}
+                        """, MediaType.APPLICATION_JSON));
+
+        CameraOperationException failure = assertThrows(CameraOperationException.class,
+                () -> client(restTemplate,
+                        Map.of(contents, contents),
+                        Map.of(contents, Set.of(HttpMethod.GET)))
+                        .listMedia(CameraMediaProvider.MediaQuery.bounded(10)));
+
+        assertEquals(CAMERA_REJECTED, failure.reason());
+        server.verify();
+    }
+
+    @Test
     void downloadsValidatedPartialRangeWithoutReadingBeyondBound() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
-        CameraMediaReference reference = reference("/ccapi/ver100/contents/sd/100CANON/IMG_0001.JPG");
+        CameraMediaReference reference = reference(
+                "/ccapi/ver100/contents/sd/100CANON/IMG_0001.JPG");
         server.expect(requestTo(BASE_URL + reference.relativePath()))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("Range", "bytes=4-7"))
@@ -175,16 +196,55 @@ class CanonCcapiMediaClientTest {
     }
 
     @Test
-    void rejectsServerThatIgnoresNonZeroRangeOffset() {
+    void rejectsPartialRangeWhoseDeclaredLengthDoesNotMatchBody() {
         RestTemplate restTemplate = new RestTemplate();
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
-        CameraMediaReference reference = reference("/ccapi/ver100/contents/sd/100CANON/IMG_0001.JPG");
+        CameraMediaReference reference = reference(
+                "/ccapi/ver100/contents/sd/100CANON/IMG_0001.JPG");
         server.expect(requestTo(BASE_URL + reference.relativePath()))
-                .andRespond(withSuccess(new byte[]{0, 1, 2, 3}, MediaType.APPLICATION_OCTET_STREAM));
+                .andRespond(withStatus(HttpStatus.PARTIAL_CONTENT)
+                        .header("Content-Range", "bytes 4-8/10")
+                        .body(new byte[]{4, 5, 6, 7}));
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
                 () -> client(restTemplate, Map.of(), Map.of())
                         .downloadMedia(reference, 4, 4));
+
+        assertEquals(CAMERA_REJECTED, failure.reason());
+        server.verify();
+    }
+
+    @Test
+    void rejectsServerThatIgnoresNonZeroRangeOffset() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        CameraMediaReference reference = reference(
+                "/ccapi/ver100/contents/sd/100CANON/IMG_0001.JPG");
+        server.expect(requestTo(BASE_URL + reference.relativePath()))
+                .andRespond(withSuccess(
+                        new byte[]{0, 1, 2, 3}, MediaType.APPLICATION_OCTET_STREAM));
+
+        CameraOperationException failure = assertThrows(CameraOperationException.class,
+                () -> client(restTemplate, Map.of(), Map.of())
+                        .downloadMedia(reference, 4, 4));
+
+        assertEquals(CAMERA_REJECTED, failure.reason());
+        server.verify();
+    }
+
+    @Test
+    void rejectsFullResponseThatExceedsRequestedChunkBound() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        CameraMediaReference reference = reference(
+                "/ccapi/ver100/contents/sd/100CANON/IMG_0001.JPG");
+        server.expect(requestTo(BASE_URL + reference.relativePath()))
+                .andRespond(withSuccess(
+                        new byte[]{0, 1, 2, 3, 4}, MediaType.APPLICATION_OCTET_STREAM));
+
+        CameraOperationException failure = assertThrows(CameraOperationException.class,
+                () -> client(restTemplate, Map.of(), Map.of())
+                        .downloadMedia(reference, 0, 4));
 
         assertEquals(CAMERA_REJECTED, failure.reason());
         server.verify();
@@ -206,7 +266,9 @@ class CanonCcapiMediaClientTest {
                 restTemplate,
                 Map.of(polling, polling),
                 Map.of(polling, Set.of(HttpMethod.GET)))
-                .awaitAddedMedia(CameraMediaProvider.EventMode.POLLING, Duration.ofSeconds(1));
+                .awaitAddedMedia(
+                        CameraMediaProvider.EventMode.POLLING,
+                        Duration.ofSeconds(1));
 
         assertTrue(result.isPresent());
         assertEquals("IMG_0003.JPG", result.orElseThrow().fileName());
@@ -244,17 +306,17 @@ class CanonCcapiMediaClientTest {
     }
 
     @Test
-    void monitoringIsRejectedWhenDeleteCancellationWasNotAdvertised() {
+    void pollingContinuationIsRejectedWithoutAdvertisedDelete() {
         RestTemplate restTemplate = new RestTemplate();
-        String monitoring = BASE_URL + "/ccapi/ver110/event/monitoring";
+        String polling = BASE_URL + "/ccapi/ver110/event/polling";
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
                 () -> client(
                         restTemplate,
-                        Map.of("/ccapi/ver110/event/monitoring", monitoring),
-                        Map.of("/ccapi/ver110/event/monitoring", Set.of(HttpMethod.GET)))
+                        Map.of("/ccapi/ver110/event/polling", polling),
+                        Map.of("/ccapi/ver110/event/polling", Set.of(HttpMethod.GET)))
                         .awaitAddedMedia(
-                                CameraMediaProvider.EventMode.MONITORING,
+                                CameraMediaProvider.EventMode.POLLING_CONTINUATION,
                                 Duration.ofSeconds(1)));
 
         assertEquals(METHOD_NOT_ALLOWED, failure.reason());
@@ -280,7 +342,11 @@ class CanonCcapiMediaClientTest {
             Map<String, String> endpoints,
             Map<String, Set<HttpMethod>> methods) {
         return new CanonCcapiMediaClient(
-                "camera-profile", BASE_URL, restTemplate, () -> endpoints, () -> methods);
+                "camera-profile",
+                BASE_URL,
+                restTemplate,
+                () -> endpoints,
+                () -> methods);
     }
 
     private static CameraMediaReference reference(String path) {
