@@ -236,6 +236,7 @@ See [`ai-vision/README.md`](ai-vision/README.md) for full configuration details.
 Tested CCAPI models:
 
 - Canon PowerShot G5 X Mark II
+- Canon EOS R
 
 Other Canon cameras that support CCAPI may work but are not officially verified. See [docs/camera-setup.md](docs/camera-setup.md) for setup instructions.
 
