@@ -53,7 +53,7 @@ reference testkit, but no production artifact may depend back on either module.
 
 | Package / symbol group | Owning artifact | API role | Allowed CR3 package references |
 |---|---|---|---|
-| `com.photographer.focusstack.cr3.Cr3Exception` | `canon-cr3-container` | stable shared exception | container layer |
+| `com.photographer.focusstack.cr3.Cr3Exception` and `Cr3FormatException` | `canon-cr3-container` | stable shared exceptions | container layer |
 | `com.photographer.focusstack.cr3.bmff` | `canon-cr3-container` | internal ISO-BMFF implementation | container layer |
 | `com.photographer.focusstack.cr3.container` | `canon-cr3-container` | stable container API | container layer |
 | `com.photographer.focusstack.cr3.preview` | `canon-cr3-container` | stable embedded-preview API | container layer |
@@ -72,11 +72,29 @@ reference testkit, but no production artifact may depend back on either module.
 `com.photographer.focusstack.cr3.research.SubbandStatistics` remains in
 `canon-cr3-codec` as a documented research-only compatibility type used by the
 current CLI and research tools. The compiled ownership test permits exactly this
-class in the codec JAR; no other `cr3.research` class may appear in a production
-library artifact.
+class and its nested classes in the codec JAR; no other `cr3.research` class may
+appear in a production library artifact.
 
 This exception is not a general permission for production code to depend on the
 research module and may be removed in a dedicated API/CLI migration.
+
+## Evaluated verification approaches
+
+The post-split cleanup considered the following mechanisms:
+
+| Approach | Decision | Reason |
+|---|---|---|
+| Maven Enforcer `bannedDependencies` / convergence rules | not the primary architecture test | Useful for broad dependency bans, but the exact permitted edge set differs by module and would require repeated configuration plus exceptions for legitimate research/test scopes. |
+| Aggregator graph test | selected through the external consumer | The installed POMs are inspected directly, so the test sees what a downstream Maven build actually resolves rather than the reactor's source layout. |
+| ArchUnit over all CR3 classes | not added | The physical module graph already makes most upward references impossible. A small class-file verifier covers the remaining package rules without adding a general architecture framework solely for this subsystem. |
+| External Maven smoke module | selected and strengthened | It already verifies packaged behavior and runtime leaks from an isolated repository, and can inspect the same installed POMs and JARs without a working-directory dependency. |
+
+The selected combination is therefore:
+
+1. Maven module boundaries for compilation;
+2. exact installed-POM graph verification;
+3. targeted compiled-class ownership/reference verification;
+4. exact independent-consumer runtime-tree verification.
 
 ## Verification strategy
 
