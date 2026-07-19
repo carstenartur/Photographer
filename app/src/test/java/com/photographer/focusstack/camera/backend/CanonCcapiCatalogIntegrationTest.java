@@ -6,8 +6,11 @@ import com.photographer.focusstack.common.camera.Operation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -165,11 +168,7 @@ class CanonCcapiCatalogIntegrationTest {
 
     @Test
     void stopLiveViewPostsExactlyOnceToAdvertisedBaseEndpoint() {
-        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
-                .thenReturn(Map.of("ver110", List.of(
-                        descriptor("path", "/ccapi/ver110/shooting/liveview", false, true),
-                        descriptor("path", "/ccapi/ver110/shooting/liveview/flip", true, false)
-                )));
+        advertiseWritableLiveView();
         when(restTemplate.exchange(
                 eq(LIVE_VIEW_V110),
                 eq(HttpMethod.POST),
@@ -193,6 +192,32 @@ class CanonCcapiCatalogIntegrationTest {
     }
 
     @Test
+    void stopLiveViewRetriesDeviceBusyUsingSameRawJsonContract() {
+        advertiseWritableLiveView();
+        HttpServerErrorException busy = HttpServerErrorException.create(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Service Unavailable",
+                HttpHeaders.EMPTY,
+                "{\"message\":\"Device busy\"}".getBytes(StandardCharsets.UTF_8),
+                StandardCharsets.UTF_8);
+        when(restTemplate.exchange(
+                eq(LIVE_VIEW_V110),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                eq(String.class)))
+                .thenThrow(busy)
+                .thenReturn(ResponseEntity.ok("{}"));
+
+        new CanonCcapiStatusBackend(BASE_URL, restTemplate).stopLiveView();
+
+        verify(restTemplate, times(2)).exchange(
+                eq(LIVE_VIEW_V110),
+                eq(HttpMethod.POST),
+                entityContaining("\"liveviewsize\":\"off\""),
+                eq(String.class));
+    }
+
+    @Test
     void stopLiveViewDoesNotCallEndpointThatRejectsPost() {
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
                 .thenReturn(Map.of("ver110", List.of(descriptor(
@@ -202,6 +227,14 @@ class CanonCcapiCatalogIntegrationTest {
 
         verify(restTemplate, never()).exchange(
                 anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class));
+    }
+
+    private void advertiseWritableLiveView() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver110", List.of(
+                        descriptor("path", "/ccapi/ver110/shooting/liveview", false, true),
+                        descriptor("path", "/ccapi/ver110/shooting/liveview/flip", true, false)
+                )));
     }
 
     private static HttpEntity<byte[]> entityContaining(String expected) {
