@@ -43,11 +43,14 @@ jobs:
         run: python3 scripts/validate_cr3_reference_manifest.py
 
       - name: Build and verify (unit + Testcontainers integration tests)
-        run: >-
-          mvn -B --no-transfer-progress clean verify
-          -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app
-          -am
-          -Djava.awt.headless=true
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B --no-transfer-progress clean verify \
+            -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
+            -am \
+            -Djava.awt.headless=true \
+            2>&1 | tee maven-verify.log
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
@@ -59,6 +62,18 @@ jobs:
           reporter: java-junit
           fail-on-error: false
           max-annotations: '50'
+
+      - name: Upload Maven failure diagnostics
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: java-verify-failure-${{ github.run_attempt }}
+          path: |
+            maven-verify.log
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          if-no-files-found: warn
+          retention-days: 3
 
       - name: Upload report inputs for scheduled/manual reporting
         uses: actions/upload-artifact@v7
