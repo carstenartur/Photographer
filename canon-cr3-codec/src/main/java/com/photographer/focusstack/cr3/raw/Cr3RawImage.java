@@ -12,9 +12,16 @@ package com.photographer.focusstack.cr3.raw;
  */
 public final class Cr3RawImage {
 
-    /** Standard Bayer pattern for Canon sensors. */
+    /** Standard Bayer color-filter patterns. */
     public enum BayerPattern {
-        RGGB, BGGR, GRBG, GBRG
+        /** Red, green, green, blue. */
+        RGGB,
+        /** Blue, green, green, red. */
+        BGGR,
+        /** Green, red, blue, green. */
+        GRBG,
+        /** Green, blue, red, green. */
+        GBRG
     }
 
     private final int width;
@@ -29,7 +36,7 @@ public final class Cr3RawImage {
      * @param width        image width in pixels
      * @param height       image height in pixels
      * @param data         raw pixel data (row-major, one value per pixel)
-     * @param bitDepth     bit depth per pixel (e.g. 14)
+     * @param bitDepth     bit depth per pixel (for example, 14)
      * @param bayerPattern the Bayer color filter pattern
      */
     public Cr3RawImage(int width, int height, int[] data, int bitDepth, BayerPattern bayerPattern) {
@@ -44,23 +51,59 @@ public final class Cr3RawImage {
         this.bayerPattern = bayerPattern;
     }
 
-    /** Returns the image width in pixels. */
-    public int width() { return width; }
+    /**
+     * Returns the image width in pixels.
+     *
+     * @return the image width in pixels
+     */
+    public int width() {
+        return width;
+    }
 
-    /** Returns the image height in pixels. */
-    public int height() { return height; }
+    /**
+     * Returns the image height in pixels.
+     *
+     * @return the image height in pixels
+     */
+    public int height() {
+        return height;
+    }
 
-    /** Returns the raw pixel data array (row-major order). */
-    public int[] data() { return data; }
+    /**
+     * Returns the mutable raw pixel data array in row-major order.
+     *
+     * @return the backing raw pixel data array
+     */
+    public int[] data() {
+        return data;
+    }
 
-    /** Returns the bit depth per pixel. */
-    public int bitDepth() { return bitDepth; }
+    /**
+     * Returns the bit depth per pixel.
+     *
+     * @return the bit depth per pixel
+     */
+    public int bitDepth() {
+        return bitDepth;
+    }
 
-    /** Returns the Bayer color filter pattern. */
-    public BayerPattern bayerPattern() { return bayerPattern; }
+    /**
+     * Returns the Bayer color filter pattern.
+     *
+     * @return the Bayer color filter pattern
+     */
+    public BayerPattern bayerPattern() {
+        return bayerPattern;
+    }
 
-    /** Returns the maximum pixel value based on bit depth. */
-    public int maxValue() { return (1 << bitDepth) - 1; }
+    /**
+     * Returns the maximum representable pixel value based on the bit depth.
+     *
+     * @return the maximum representable pixel value
+     */
+    public int maxValue() {
+        return (1 << bitDepth) - 1;
+    }
 
     /**
      * Gets the pixel value at the given coordinates.
