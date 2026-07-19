@@ -117,7 +117,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * (e.g. in unit tests that only verify the shutter trigger).
      */
     CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
-                      long capturePollIntervalMs, long captureTimeoutMs) {
+                       long capturePollIntervalMs, long captureTimeoutMs) {
         this(baseUrl, restTemplate, capturePollIntervalMs, captureTimeoutMs,
                 DEFAULT_SHUTTER_HALF_PRESS_DELAY_MS, DEFAULT_SHUTTER_FULL_PRESS_DELAY_MS,
                 DEFAULT_SHUTTER_RELEASE_DELAY_MS);
@@ -128,9 +128,9 @@ public class CanonCcapiBackend implements CameraBackend {
      * Use all-zero delays for unit tests to avoid actual waits.
      */
     CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
-                      long capturePollIntervalMs, long captureTimeoutMs,
-                      long shutterHalfPressDelayMs, long shutterFullPressDelayMs,
-                      long shutterReleaseDelayMs) {
+                       long capturePollIntervalMs, long captureTimeoutMs,
+                       long shutterHalfPressDelayMs, long shutterFullPressDelayMs,
+                       long shutterReleaseDelayMs) {
         this.baseUrl = baseUrl;
         this.restTemplate = restTemplate;
         this.capturePollIntervalMs = capturePollIntervalMs;
@@ -1077,7 +1077,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * {@link RestTemplate} needs it to serialise the body correctly, and the
      * camera accepts it.  The {@code Accept} header is intentionally omitted.
      */
-    private static HttpEntity<byte[]> ccapiEntity(Object body) {
+    protected static HttpEntity<byte[]> ccapiEntity(Object body) {
         // Serialize to JSON bytes manually — this prevents Spring's
         // MappingJackson2HttpMessageConverter from being involved and adding
         // "charset=UTF-8" to the Content-Type, which the Canon camera rejects.
@@ -1121,8 +1121,11 @@ public class CanonCcapiBackend implements CameraBackend {
      * {@code "Device busy"} message, the request is retried up to
      * {@value #DEVICE_BUSY_MAX_RETRIES} times with exponential backoff
      * starting at {@value #DEVICE_BUSY_INITIAL_BACKOFF_MS}&nbsp;ms.
+     *
+     * <p>The method is protected so endpoint-catalog specializations can reuse
+     * the exact same wire and retry contract instead of maintaining a second copy.
      */
-    private void ccapiPost(String url, Object body) {
+    protected final void ccapiPost(String url, Object body) {
         long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;
         for (int attempt = 0; ; attempt++) {
             try {
