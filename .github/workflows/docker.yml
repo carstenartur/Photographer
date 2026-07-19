@@ -3,6 +3,18 @@ name: Docker Publish
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'canon-cr3-reference-testkit/**'
+      - 'canon-cr3-research/**'
+      - 'canon-cr3-benchmark/**'
+      - 'canon-cr3-maven-smoke/**'
+  workflow_dispatch:
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
@@ -12,6 +24,7 @@ jobs:
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
