@@ -86,6 +86,8 @@ if [[ -z "$fingerprint" ]]; then
 fi
 
 python3 scripts/test_validate_cr3_central_bundle.py
+python3 scripts/test_validate_cr3_source_coordinates.py
+python3 scripts/validate_cr3_source_coordinates.py "$repo_root"
 
 # Keep the Maven transcript inside the always-uploaded diagnostics directory.
 # The log contains only public build metadata, a deliberately invalid placeholder
