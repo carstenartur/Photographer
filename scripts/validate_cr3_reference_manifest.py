@@ -14,7 +14,7 @@ import hashlib
 import re
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 START_MARKER = "<!-- reference-manifest-tsv:start -->"
 END_MARKER = "<!-- reference-manifest-tsv:end -->"
@@ -26,6 +26,7 @@ VALID_REFERENCE_TYPES = {"RAW_LINEAR", "PREVIEW_RENDERED", "UNKNOWN"}
 VALID_GEOMETRY_FLAGS = {"true", "false", "unknown"}
 FORBIDDEN_COMMAND_TEXT = "exact CLI not preserved"
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+SIDECAR_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 HASH_CHUNK_SIZE = 1024 * 1024
 
 
@@ -65,9 +66,43 @@ def positive_integer(value: str, field: str, fixture: str) -> str | None:
     return None
 
 
-def sidecar_path(samples_dir: Path, row: ManifestRow) -> Path:
-    fixture = Path(row.fixture)
-    return samples_dir / fixture.parent / f"{fixture.stem}.{row.sidecar}"
+def portable_relative_path(value: str, field: str) -> PurePosixPath:
+    """Parse a manifest path without allowing absolute or parent traversal."""
+    if not value:
+        raise ValueError(f"{field} is empty")
+    if "\\" in value or "\x00" in value:
+        raise ValueError(f"{field} is not a portable POSIX path: {value!r}")
+
+    raw_parts = value.split("/")
+    if any(part in {"", ".", ".."} for part in raw_parts):
+        raise ValueError(f"{field} contains an unsafe path segment: {value!r}")
+    if any(":" in part for part in raw_parts):
+        raise ValueError(f"{field} contains a platform-specific drive or scheme: {value!r}")
+
+    path = PurePosixPath(value)
+    if path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"{field} must stay relative to the samples directory: {value!r}")
+    return path
+
+
+def safe_sidecar_name(value: str, fixture: str) -> str:
+    """Validate the sidecar suffix as a filename component, not another path."""
+    if SIDECAR_NAME_PATTERN.fullmatch(value) is None:
+        raise ValueError(f"unsafe sidecar name for {fixture}: {value!r}")
+    return value
+
+
+def confined_path(root: Path, relative: PurePosixPath, field: str) -> Path:
+    """Resolve a candidate and require it to remain below the canonical root."""
+    canonical_root = root.resolve()
+    candidate = (canonical_root / Path(*relative.parts)).resolve()
+    if not candidate.is_relative_to(canonical_root):
+        raise ValueError(f"{field} escapes samples directory: {relative}")
+    return candidate
+
+
+def sidecar_relative_path(fixture: PurePosixPath, sidecar: str) -> PurePosixPath:
+    return fixture.parent / f"{fixture.stem}.{sidecar}"
 
 
 def sha256(path: Path) -> str:
@@ -102,7 +137,7 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
     if lines[0] != EXPECTED_HEADER:
         return [f"unexpected TSV header: {lines[0]!r}"]
 
-    rows: list[ManifestRow] = []
+    file_entries: list[tuple[ManifestRow, Path, Path]] = []
     seen_entries: set[tuple[str, str]] = set()
     for line_number, line in enumerate(lines[1:], start=2):
         try:
@@ -111,7 +146,6 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
             errors.append(f"TSV line {line_number}: {error}")
             continue
 
-        rows.append(row)
         if not row.fixture:
             errors.append(f"TSV line {line_number}: fixture is empty")
         if not row.sidecar:
@@ -157,12 +191,25 @@ def validate(manifest_path: Path, samples_dir: Path) -> list[str]:
                 f"{row.fixture}: {row.geometry_matches_crx_big!r}"
             )
 
-    for row in rows:
-        fixture_path = samples_dir / row.fixture
+        if not row.fixture or not row.sidecar:
+            continue
+        try:
+            fixture_relative = portable_relative_path(row.fixture, "fixture")
+            sidecar = safe_sidecar_name(row.sidecar, row.fixture)
+            fixture_path = confined_path(samples_dir, fixture_relative, "fixture")
+            reference_path = confined_path(
+                samples_dir,
+                sidecar_relative_path(fixture_relative, sidecar),
+                "sidecar",
+            )
+            file_entries.append((row, fixture_path, reference_path))
+        except ValueError as error:
+            errors.append(f"TSV line {line_number}: {error}")
+
+    for row, fixture_path, reference_path in file_entries:
         if not fixture_path.is_file():
             errors.append(f"fixture not found: {fixture_path}")
 
-        reference_path = sidecar_path(samples_dir, row)
         if not reference_path.is_file():
             errors.append(f"sidecar not found: {reference_path}")
             continue
