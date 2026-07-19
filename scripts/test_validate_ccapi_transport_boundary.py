@@ -93,7 +93,7 @@ class CcapiTransportBoundaryTest(unittest.TestCase):
             with self.assertRaisesRegex(BoundaryValidationError, "Password accessor"):
                 validate(root)
 
-    def test_rejects_camera_logger_invocation_for_protected_assets(self) -> None:
+    def test_rejects_camera_authorization_logging(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             self._write_java(
@@ -101,6 +101,19 @@ class CcapiTransportBoundaryTest(unittest.TestCase):
                 "package com.photographer.focusstack.camera.backend;\n"
                 "class LeakyLogger { void run(Object log, Object authorization) { "
                 "log.info(\"Authorization {}\", authorization); } }\n",
+            )
+
+            with self.assertRaisesRegex(BoundaryValidationError, "protected authentication"):
+                validate(root)
+
+    def test_rejects_camera_www_authenticate_challenge_logging(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_java(
+                root / "app/src/main/java/com/photographer/focusstack/camera/backend/ChallengeLogger.java",
+                "package com.photographer.focusstack.camera.backend;\n"
+                "class ChallengeLogger { void run(Object log, Object challenge) { "
+                "log.debug(\"WWW-Authenticate nonce and opaque {}\", challenge); } }\n",
             )
 
             with self.assertRaisesRegex(BoundaryValidationError, "protected authentication"):
