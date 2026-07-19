@@ -75,13 +75,13 @@ class CcapiDiscoverySecurityTest {
                 networkInterface, address, CcapiAddressFamily.IPV4);
     }
 
-    private static CcapiSsdpDatagram datagram(URI location) throws Exception {
+    private static CcapiSsdpDatagram datagram(URI location) {
         String payload = "HTTP/1.1 200 OK\r\n"
                 + "LOCATION: " + location + "\r\n"
                 + "ST: " + CcapiSsdpCodec.SERVICE_TYPE + "\r\n\r\n";
         return new CcapiSsdpDatagram(
                 payload.getBytes(StandardCharsets.ISO_8859_1),
-                new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 1900));
+                new InetSocketAddress("127.0.0.1", 1900));
     }
 
     private static byte[] xml(String udn, String name) {
