@@ -13,6 +13,8 @@ on:
       - 'canon-cr3-benchmark/**'
       - 'scripts/compare_jmh.py'
       - 'scripts/test_compare_jmh.py'
+      - 'scripts/run_jmh_compare_refs.py'
+      - 'scripts/test_run_jmh_compare_refs.py'
       - '.github/workflows/benchmark.yml'
   schedule:
     # Longitudinal full-suite history; PRs use the short same-runner sentinel below.
@@ -51,10 +53,13 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Test the JMH comparator
-        run: python3 scripts/test_compare_jmh.py
+      - name: Test benchmark comparison tools
+        run: |
+          python3 scripts/test_compare_jmh.py
+          python3 scripts/test_run_jmh_compare_refs.py
 
-      - name: Record benchmark environment
+      - name: Record scheduled benchmark environment
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -83,55 +88,19 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          set -euo pipefail
-
-          {
-            echo "base_sha=$BASE_SHA"
-            echo "head_sha=$HEAD_SHA"
-            echo 'run_order=base,head'
-          } >> "$JMH_OUTPUT_DIR/environment.txt"
-
-          run_revision() {
-            local label="$1"
-            local sha="$2"
-
-            git reset --hard
-            git clean -fdx
-            git checkout --detach "$sha"
-            git reset --hard "$sha"
-            git clean -fdx
-
-            mvn -B --no-transfer-progress -DskipTests \
-              -P benchmarks \
-              -pl canon-cr3-benchmark -am \
-              package \
-              -Djava.awt.headless=true
-
-            java -Djava.awt.headless=true \
-              -Dsamples.dir="$GITHUB_WORKSPACE/canon-cr3-imageio/src/test/resources/samples" \
-              -jar canon-cr3-benchmark/target/benchmarks.jar \
-              'com\.photographer\.focusstack\.cr3\.benchmark\.(Cr3BoxParseBenchmark|Cr3MetadataBenchmark|Cr3PreviewExtractBenchmark|CrxLosslessDecodeBenchmark)\..*' \
-              -p sample=sample.cr3 \
-              -wi 2 -i 3 -w 1s -r 1s -f 1 \
-              -rf json \
-              -rff "$JMH_OUTPUT_DIR/${label}.json"
-          }
-
-          run_revision base "$BASE_SHA"
-          run_revision head "$HEAD_SHA"
-
           set +e
-          python3 scripts/compare_jmh.py \
-            "$JMH_OUTPUT_DIR/base.json" \
-            "$JMH_OUTPUT_DIR/head.json" \
+          python3 scripts/run_jmh_compare_refs.py \
+            "$BASE_SHA" \
+            "$HEAD_SHA" \
+            --output-dir "$JMH_OUTPUT_DIR" \
             --threshold 1.15 \
-            --markdown-out "$JMH_OUTPUT_DIR/comparison.md" \
-            --json-out "$JMH_OUTPUT_DIR/comparison.json" \
             --fail-on-regression
           comparison_status=$?
           set -e
 
-          cat "$JMH_OUTPUT_DIR/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$JMH_OUTPUT_DIR/comparison.md" ]; then
+            cat "$JMH_OUTPUT_DIR/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
           exit "$comparison_status"
 
       - name: Upload pull-request benchmark comparison

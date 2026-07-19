@@ -42,6 +42,11 @@ jobs:
       - name: Validate CR3 reference manifest
         run: python3 scripts/validate_cr3_reference_manifest.py
 
+      - name: Test repository utility scripts
+        run: |
+          python3 scripts/test_compare_jmh.py
+          python3 scripts/test_run_jmh_compare_refs.py
+
       - name: Build and verify (unit + Testcontainers integration tests)
         shell: bash
         run: |
