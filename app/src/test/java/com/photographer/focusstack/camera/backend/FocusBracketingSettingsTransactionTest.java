@@ -61,14 +61,7 @@ class FocusBracketingSettingsTransactionTest {
                 "NUMBER_OF_SHOTS=10",
                 "ENABLED=true"
         ), access.writes());
-        assertEquals(Map.of(
-                ENABLED, true,
-                NUMBER_OF_SHOTS, 10,
-                FOCUS_INCREMENT, 2,
-                EXPOSURE_SMOOTHING, false,
-                DEPTH_COMPOSITION, false,
-                CROP_DEPTH_COMPOSITION, false
-        ), access.values());
+        assertEquals(originalValues(true), access.values());
     }
 
     @Test
@@ -89,6 +82,30 @@ class FocusBracketingSettingsTransactionTest {
     }
 
     @Test
+    void failedCloseCanBeRetriedUntilTheCompleteSnapshotIsRestored() {
+        FakeSettingAccess access = fullAccess(true, 10, 2, false, false, false);
+        FocusBracketingSettingsTransaction transaction =
+                FocusBracketingSettingsTransaction.prepare(
+                        access,
+                        fullCapabilities(),
+                        new NativeFocusBracketingRequest(20, 5, true, true, true));
+        access.failOnce(NUMBER_OF_SHOTS, 10);
+
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class, transaction::close);
+
+        assertTrue(failure.getMessage().contains("synthetic write failure"));
+        assertEquals(20, access.values().get(NUMBER_OF_SHOTS));
+
+        transaction.close();
+        assertEquals(originalValues(true), access.values());
+
+        int writesAfterSuccessfulRetry = access.writes().size();
+        transaction.close();
+        assertEquals(writesAfterSuccessfulRetry, access.writes().size());
+    }
+
+    @Test
     void rollsBackCompleteSnapshotWhenApplyFailsPartWayThrough() {
         FakeSettingAccess access = fullAccess(true, 10, 2, false, false, false);
         access.failOnce(FOCUS_INCREMENT, 5);
@@ -101,14 +118,7 @@ class FocusBracketingSettingsTransactionTest {
                         new NativeFocusBracketingRequest(20, 5, true, true, true)));
 
         assertTrue(failure.getMessage().contains("synthetic write failure"));
-        assertEquals(Map.of(
-                ENABLED, true,
-                NUMBER_OF_SHOTS, 10,
-                FOCUS_INCREMENT, 2,
-                EXPOSURE_SMOOTHING, false,
-                DEPTH_COMPOSITION, false,
-                CROP_DEPTH_COMPOSITION, false
-        ), access.values());
+        assertEquals(originalValues(true), access.values());
         assertEquals("ENABLED=true", access.writes().getLast());
     }
 
@@ -174,6 +184,18 @@ class FocusBracketingSettingsTransactionTest {
                 true,
                 true,
                 true);
+    }
+
+    private static Map<FocusBracketingSettingsTransaction.Setting, Object> originalValues(
+            boolean enabled) {
+        return Map.of(
+                ENABLED, enabled,
+                NUMBER_OF_SHOTS, 10,
+                FOCUS_INCREMENT, 2,
+                EXPOSURE_SMOOTHING, false,
+                DEPTH_COMPOSITION, false,
+                CROP_DEPTH_COMPOSITION, false
+        );
     }
 
     private static FakeSettingAccess fullAccess(

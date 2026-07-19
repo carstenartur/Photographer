@@ -115,10 +115,21 @@ final class FocusBracketingSettingsTransaction implements NativeFocusBracketingS
         return request;
     }
 
+    /**
+     * Attempts the complete snapshot restoration. A successful call makes later
+     * calls no-ops. If restoration fails, the close guard is reset so the caller
+     * can retry the complete restore after a transient camera error.
+     */
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        try {
             restore();
+        } catch (RuntimeException failure) {
+            closed.set(false);
+            throw failure;
         }
     }
 
