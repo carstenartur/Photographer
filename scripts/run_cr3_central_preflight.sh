@@ -68,6 +68,9 @@ fi
 
 python3 scripts/test_validate_cr3_central_bundle.py
 
+# Keep the Maven transcript inside the always-uploaded diagnostics directory.
+# The log contains only public build metadata and an ephemeral signing-key id;
+# no Central credentials are configured or accepted by this preflight.
 mvn -B --no-transfer-progress \
   -f release/canon-cr3-public/pom.xml \
   -Pcentral-release,central-publish \
@@ -77,7 +80,7 @@ mvn -B --no-transfer-progress \
   -Dgpg.homedir="$gnupg_home" \
   -Dgpg.keyname="$fingerprint" \
   -Dgpg.executable=gpg \
-  clean deploy
+  clean deploy 2>&1 | tee "$output_dir/maven-central-preflight.log"
 
 bundle=$(find release/canon-cr3-public -type f \
   -path '*/target/central-publishing/central-bundle.zip' -print -quit)
