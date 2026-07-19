@@ -143,7 +143,8 @@ class ExternalCr3ArchitectureTest {
                         continue;
                     }
                     if (!classesSeen.add(sourceType)) {
-                        violations.add("duplicate CR3 class across production artifacts: " + sourceType);
+                        violations.add("duplicate CR3 class across production artifacts: "
+                                + sourceType);
                     }
                     verifyOwnership(module, sourceType, violations);
                     try (InputStream input = jar.getInputStream(entry)) {
@@ -160,7 +161,7 @@ class ExternalCr3ArchitectureTest {
 
     private static void verifyOwnership(ModuleContract module, String type,
                                         List<String> violations) {
-        if (module.explicitlyOwnedTypes().stream().anyMatch(type::startsWith)) {
+        if (isExplicitlyOwned(module, type)) {
             return;
         }
         Layer layer = layerOf(type);
@@ -175,8 +176,7 @@ class ExternalCr3ArchitectureTest {
                                          InputStream classFile,
                                          List<String> violations) throws IOException {
         for (String targetType : cr3TypeReferences(classFile)) {
-            if (targetType.equals(sourceType)
-                    || module.explicitlyOwnedTypes().stream().anyMatch(targetType::startsWith)) {
+            if (targetType.equals(sourceType) || isExplicitlyOwned(module, targetType)) {
                 continue;
             }
             Layer targetLayer = layerOf(targetType);
@@ -188,6 +188,12 @@ class ExternalCr3ArchitectureTest {
                         + " references forbidden " + targetLayer + " type " + targetType);
             }
         }
+    }
+
+    private static boolean isExplicitlyOwned(ModuleContract module, String type) {
+        return module.explicitlyOwnedTypes().stream()
+                .anyMatch(explicit -> type.equals(explicit)
+                        || type.startsWith(explicit + "$"));
     }
 
     private static Set<String> cr3TypeReferences(InputStream classFile) throws IOException {
@@ -338,6 +344,12 @@ class ExternalCr3ArchitectureTest {
     }
 
     private static Layer layerOf(String internalType) {
+        String remainder = internalType.startsWith(CR3_INTERNAL_PREFIX)
+                ? internalType.substring(CR3_INTERNAL_PREFIX.length())
+                : "";
+        if (!remainder.isEmpty() && remainder.indexOf('/') < 0) {
+            return Layer.CONTAINER;
+        }
         if (internalType.startsWith(CR3_INTERNAL_PREFIX + "bmff/")
                 || internalType.startsWith(CR3_INTERNAL_PREFIX + "container/")
                 || internalType.startsWith(CR3_INTERNAL_PREFIX + "preview/")) {
