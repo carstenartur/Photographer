@@ -16,6 +16,7 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -77,6 +78,7 @@ public final class CcapiRestTemplateFactory {
                             .setMaxConnPerRoute(4)
                             .setMaxConnTotal(4)
                             .build();
+            CloseableHttpClient httpClient = null;
 
             try {
                 org.apache.hc.client5.http.impl.classic.HttpClientBuilder clientBuilder =
@@ -100,7 +102,7 @@ public final class CcapiRestTemplateFactory {
                     clientBuilder.setDefaultCredentialsProvider(provider);
                 }
 
-                CloseableHttpClient httpClient = clientBuilder.build();
+                httpClient = clientBuilder.build();
                 HttpComponentsClientHttpRequestFactory requestFactory =
                         new HttpComponentsClientHttpRequestFactory(httpClient);
                 requestFactory.setConnectionRequestTimeout(cameraConfig.connectionTimeout());
@@ -115,12 +117,27 @@ public final class CcapiRestTemplateFactory {
                         normalizedBaseUri, snapshot.state());
                 return new CcapiTransportCreation(transport, fingerprint);
             } catch (RuntimeException exception) {
-                connectionManager.close();
+                closeFailedConstruction(httpClient, connectionManager, exception);
                 if (password != null) {
                     Arrays.fill(password, '\0');
                 }
                 throw exception;
             }
+        }
+    }
+
+    private static void closeFailedConstruction(
+            CloseableHttpClient httpClient,
+            PoolingHttpClientConnectionManager connectionManager,
+            RuntimeException originalFailure) {
+        if (httpClient == null) {
+            connectionManager.close();
+            return;
+        }
+        try {
+            httpClient.close();
+        } catch (IOException closeFailure) {
+            originalFailure.addSuppressed(closeFailure);
         }
     }
 
