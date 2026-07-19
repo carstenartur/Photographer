@@ -14,7 +14,7 @@ Set<String> expected = [
 ] as Set
 
 Set<String> resolved = [] as Set
-def matcher = tree =~ /com\.photographer\.focusstack:(canon-cr3-[^:\s]+):/
+def matcher = tree =~ /io\.github\.carstenartur:(canon-cr3-[^:\s]+):/
 matcher.each { match -> resolved.add(match[1]) }
 
 if (resolved != expected) {
@@ -35,7 +35,7 @@ if (resolved != expected) {
         "canon-cr3-benchmark",
         "canon-cr3-cli"
 ].each { forbidden ->
-    if (tree.contains("com.photographer.focusstack:" + forbidden + ":")) {
+    if ((tree =~ /(?:io\.github\.carstenartur|com\.photographer\.focusstack):${java.util.regex.Pattern.quote(forbidden)}:/).find()) {
         throw new IllegalStateException("Non-library artifact leaked into external runtime tree: "
                 + forbidden + "\n" + tree)
     }
