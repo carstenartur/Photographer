@@ -2,6 +2,7 @@ package com.photographer.focusstack.camera.backend;
 
 import com.photographer.focusstack.app.config.CameraConfig;
 import com.photographer.focusstack.app.config.CcapiAuthenticationProperties;
+import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.common.model.CameraProfile;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
@@ -17,29 +18,43 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CONNECTION_FAILED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.TIMEOUT;
+
 /** Creates one host-scoped, optionally Digest-capable transport per Canon backend. */
 @Component
 public final class CcapiRestTemplateFactory {
 
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    private static final String AUTH_CHALLENGED_ATTRIBUTE =
+            CcapiRestTemplateFactory.class.getName() + ".authChallenged";
 
     private final CameraConfig cameraConfig;
     private final CcapiAuthenticationProperties authenticationProperties;
+    private final CcapiOutcomeRecorder outcomes;
 
     public CcapiRestTemplateFactory(
             CameraConfig cameraConfig,
-            CcapiAuthenticationProperties authenticationProperties) {
+            CcapiAuthenticationProperties authenticationProperties,
+            CcapiOutcomeRecorder outcomes) {
         this.cameraConfig = Objects.requireNonNull(cameraConfig, "cameraConfig");
         this.authenticationProperties = Objects.requireNonNull(
                 authenticationProperties, "authenticationProperties");
+        this.outcomes = Objects.requireNonNull(outcomes, "outcomes");
     }
 
     /** Returns a secret-free view of the transport configuration for cache matching. */
@@ -84,7 +99,22 @@ public final class CcapiRestTemplateFactory {
                 org.apache.hc.client5.http.impl.classic.HttpClientBuilder clientBuilder =
                         HttpClients.custom()
                                 .setConnectionManager(connectionManager)
-                                .disableRedirectHandling();
+                                .disableRedirectHandling()
+                                .addResponseInterceptorLast((response, entity, context) -> {
+                                    int status = response.getCode();
+                                    if (status == 401
+                                            && !Boolean.TRUE.equals(context.getAttribute(
+                                            AUTH_CHALLENGED_ATTRIBUTE))) {
+                                        context.setAttribute(AUTH_CHALLENGED_ATTRIBUTE, Boolean.TRUE);
+                                        outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_CHALLENGE);
+                                    } else if (status >= 200 && status < 300
+                                            && Boolean.TRUE.equals(context.getAttribute(
+                                            AUTH_CHALLENGED_ATTRIBUTE))) {
+                                        context.removeAttribute(AUTH_CHALLENGED_ATTRIBUTE);
+                                        outcomes.record(
+                                                CcapiOutcomeRecorder.Outcome.AUTH_SUCCESS_AFTER_CHALLENGE);
+                                    }
+                                });
 
                 if (credentials.isPresent()) {
                     CcapiAuthenticationProperties.ResolvedCredentials value =
@@ -109,8 +139,27 @@ public final class CcapiRestTemplateFactory {
                 requestFactory.setReadTimeout(READ_TIMEOUT);
 
                 RestTemplate restTemplate = new RestTemplate(requestFactory);
+                restTemplate.getInterceptors().add((request, body, execution) -> {
+                    try {
+                        return execution.execute(request, body);
+                    } catch (SocketTimeoutException exception) {
+                        throw transportFailure(profile.id(), TIMEOUT, exception);
+                    } catch (ConnectException | NoRouteToHostException | UnknownHostException exception) {
+                        throw transportFailure(profile.id(), CONNECTION_FAILED, exception);
+                    } catch (InterruptedIOException exception) {
+                        CameraOperationException.Reason reason = Thread.currentThread().isInterrupted()
+                                ? CANCELLED
+                                : TIMEOUT;
+                        throw transportFailure(profile.id(), reason, exception);
+                    } catch (IOException exception) {
+                        CameraOperationException.Reason reason = Thread.currentThread().isInterrupted()
+                                ? CANCELLED
+                                : CONNECTION_FAILED;
+                        throw transportFailure(profile.id(), reason, exception);
+                    }
+                });
                 restTemplate.setErrorHandler(new CcapiResponseErrorHandler(
-                        profile.id(), snapshot.state().credentialsConfigured()));
+                        profile.id(), snapshot.state().credentialsConfigured(), outcomes));
                 CcapiTransport transport = new CcapiTransport(
                         restTemplate, httpClient, password);
                 CcapiTransportFingerprint fingerprint = new CcapiTransportFingerprint(
@@ -124,6 +173,14 @@ public final class CcapiRestTemplateFactory {
                 throw exception;
             }
         }
+    }
+
+    private CameraOperationException transportFailure(
+            String profileId,
+            CameraOperationException.Reason reason,
+            IOException cause) {
+        outcomes.record(reason);
+        return new CameraOperationException(profileId, reason, null, cause);
     }
 
     private static void closeFailedConstruction(

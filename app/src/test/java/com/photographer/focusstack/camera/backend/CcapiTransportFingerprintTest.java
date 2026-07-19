@@ -3,6 +3,7 @@ package com.photographer.focusstack.camera.backend;
 import com.photographer.focusstack.app.config.CameraConfig;
 import com.photographer.focusstack.app.config.CcapiAuthenticationProperties;
 import com.photographer.focusstack.common.model.CameraProfile;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -86,7 +87,8 @@ class CcapiTransportFingerprintTest {
                         URI.create("http://127.0.0.1:8080"),
                         false,
                         Duration.ofSeconds(2)),
-                properties);
+                properties,
+                new CcapiOutcomeRecorder(new SimpleMeterRegistry()));
     }
 
     private static CameraProfile profile(String id) {

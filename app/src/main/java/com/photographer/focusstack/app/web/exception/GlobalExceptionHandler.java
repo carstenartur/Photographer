@@ -3,6 +3,7 @@ package com.photographer.focusstack.app.web.exception;
 import com.photographer.focusstack.camera.exception.CameraAuthenticationException;
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.camera.exception.CameraNotFoundException;
+import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.session.SessionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -40,12 +41,48 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(CameraOperationException.class)
+    public ProblemDetail handleCameraOperation(CameraOperationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                publicStatus(ex), ex.getMessage());
+        problem.setTitle(switch (ex.category()) {
+            case CONTRACT -> "Camera Capability Mismatch";
+            case TEMPORARY_STATE -> "Camera Temporarily Unavailable";
+            case CANCELLATION -> "Camera Operation Cancelled";
+            case TRANSPORT -> "Camera Connection Failure";
+            case REJECTION -> "Camera Operation Rejected";
+        });
+        problem.setProperty("code", ex.reason().name());
+        problem.setProperty("category", ex.category().name());
+        problem.setProperty("retryable", ex.retryable());
+        problem.setProperty("cameraProfileId", ex.profileId());
+        if (ex.downstreamStatus() != null) {
+            problem.setProperty("downstreamStatus", ex.downstreamStatus());
+        }
+        return problem;
+    }
+
+    private static HttpStatus publicStatus(CameraOperationException ex) {
+        return switch (ex.category()) {
+            case TEMPORARY_STATE -> HttpStatus.SERVICE_UNAVAILABLE;
+            case CANCELLATION -> HttpStatus.CONFLICT;
+            case TRANSPORT -> ex.reason() == CameraOperationException.Reason.TIMEOUT
+                    ? HttpStatus.GATEWAY_TIMEOUT
+                    : HttpStatus.BAD_GATEWAY;
+            case CONTRACT, REJECTION -> HttpStatus.BAD_GATEWAY;
+        };
+    }
+
     @ExceptionHandler(CameraException.class)
     public ProblemDetail handleCameraException(CameraException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, ex.getMessage());
-        problem.setTitle("Camera Error");
-        return problem;
+        return ex.operationFailure()
+                .map(this::handleCameraOperation)
+                .orElseGet(() -> {
+                    ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                            HttpStatus.BAD_REQUEST, ex.getMessage());
+                    problem.setTitle("Camera Error");
+                    return problem;
+                });
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
