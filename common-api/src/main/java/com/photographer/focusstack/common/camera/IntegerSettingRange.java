@@ -21,7 +21,8 @@ public record IntegerSettingRange(int min, int max, int step) {
 
     /** Returns whether the supplied value is selectable in this range. */
     public boolean contains(int value) {
-        return value >= min && value <= max && (value - min) % step == 0;
+        long offset = (long) value - min;
+        return value >= min && value <= max && offset % step == 0L;
     }
 
     /**
