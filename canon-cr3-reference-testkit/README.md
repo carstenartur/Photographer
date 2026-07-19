@@ -25,7 +25,8 @@ infrastructure.
 - `DecoderHypothesisD1D2IT` uses the shared TIFF loader and sample metrics.
 - `ReferenceRebuildValidationIT` uses the shared image and histogram metrics.
 - `SignMappingDiscriminatorIT` uses shared TIFF loading, global metrics, optical-black regions and tile-seam metrics.
-- `Cr3ReferenceComparisonIT` and `PedestalHypothesisValidationIT` established the shared difference-image convention; their remaining local rendering calls are migration work tracked by issue #99.
+- `Cr3ReferenceComparisonIT` uses shared difference-image rendering and deterministic output scaling.
+- `PedestalHypothesisValidationIT` established the same difference-image convention; its remaining local rendering call is migration work tracked by issue #99.
 
 Pedestal/DC experiments still contain additional local metric code. Issue #99 tracks
 their migration; the testkit should gain a helper only when shared semantics are
