@@ -40,9 +40,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CcapiRestTemplateFactoryTest {
 
     private DigestCameraServer server;
+    private CcapiTransport transport;
 
     @AfterEach
-    void stopServer() {
+    void stopResources() {
+        if (transport != null) {
+            transport.close();
+        }
         if (server != null) {
             server.close();
         }
@@ -51,8 +55,9 @@ class CcapiRestTemplateFactoryTest {
     @Test
     void answersCanonCompatibleDigestChallengeWithoutPreemptiveAuthorization() throws Exception {
         server = new DigestCameraServer("camera-user", "camera-password");
-        RestTemplate client = factory(credentials("camera-profile", "camera-user", "camera-password"))
+        transport = factory(credentials("camera-profile", "camera-user", "camera-password"))
                 .create(profile("camera-profile"), server.baseUri());
+        RestTemplate client = transport.restTemplate();
 
         @SuppressWarnings("unchecked")
         Map<String, Object> response = client.getForObject(
@@ -68,8 +73,9 @@ class CcapiRestTemplateFactoryTest {
     @Test
     void replaysTheExactJsonBodyAfterTheDigestChallenge() throws Exception {
         server = new DigestCameraServer("camera-user", "camera-password");
-        RestTemplate client = factory(credentials("camera-profile", "camera-user", "camera-password"))
+        transport = factory(credentials("camera-profile", "camera-user", "camera-password"))
                 .create(profile("camera-profile"), server.baseUri());
+        RestTemplate client = transport.restTemplate();
         byte[] body = "{\"value\":20}".getBytes(StandardCharsets.UTF_8);
 
         client.exchange(
@@ -87,8 +93,9 @@ class CcapiRestTemplateFactoryTest {
     @Test
     void wrongCredentialsProduceABoundedSanitizedFailure() throws Exception {
         server = new DigestCameraServer("camera-user", "correct-password");
-        RestTemplate client = factory(credentials("camera-profile", "camera-user", "wrong-password"))
+        transport = factory(credentials("camera-profile", "camera-user", "wrong-password"))
                 .create(profile("camera-profile"), server.baseUri());
+        RestTemplate client = transport.restTemplate();
 
         CameraAuthenticationException failure = assertThrows(
                 CameraAuthenticationException.class,
@@ -106,8 +113,9 @@ class CcapiRestTemplateFactoryTest {
     @Test
     void missingCredentialsAreDistinctFromRejectedCredentials() throws Exception {
         server = new DigestCameraServer("camera-user", "camera-password");
-        RestTemplate client = factory(new CcapiAuthenticationProperties())
+        transport = factory(new CcapiAuthenticationProperties())
                 .create(profile("unconfigured-profile"), server.baseUri());
+        RestTemplate client = transport.restTemplate();
 
         CameraAuthenticationException failure = assertThrows(
                 CameraAuthenticationException.class,
@@ -123,14 +131,30 @@ class CcapiRestTemplateFactoryTest {
         server = new DigestCameraServer("camera-user", "camera-password");
         CcapiAuthenticationProperties properties = credentials(
                 server.baseUri().getHost(), "camera-user", "camera-password");
-        RestTemplate client = factory(properties)
+        transport = factory(properties)
                 .create(profile("different-profile"), server.baseUri());
+        RestTemplate client = transport.restTemplate();
 
         CameraAuthenticationException failure = assertThrows(
                 CameraAuthenticationException.class,
                 () -> client.getForObject(server.baseUri() + "/ccapi", Map.class));
 
         assertEquals(CREDENTIALS_REQUIRED, failure.reason());
+    }
+
+    @Test
+    void closeIsIdempotentAndClearsTheTransportOwnedPasswordCopy() throws Exception {
+        server = new DigestCameraServer("camera-user", "camera-password");
+        transport = factory(credentials("camera-profile", "camera-user", "camera-password"))
+                .create(profile("camera-profile"), server.baseUri());
+
+        assertFalse(transport.passwordCleared());
+        transport.close();
+        transport.close();
+
+        assertTrue(transport.isClosed());
+        assertTrue(transport.passwordCleared());
+        assertThrows(IllegalStateException.class, transport::restTemplate);
     }
 
     private static CcapiRestTemplateFactory factory(
