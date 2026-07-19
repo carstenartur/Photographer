@@ -147,8 +147,10 @@ public final class CcapiRestTemplateFactory {
                     } catch (ConnectException | NoRouteToHostException | UnknownHostException exception) {
                         throw transportFailure(profile.id(), CONNECTION_FAILED, exception);
                     } catch (InterruptedIOException exception) {
-                        Thread.currentThread().interrupt();
-                        throw transportFailure(profile.id(), CANCELLED, exception);
+                        CameraOperationException.Reason reason = Thread.currentThread().isInterrupted()
+                                ? CANCELLED
+                                : TIMEOUT;
+                        throw transportFailure(profile.id(), reason, exception);
                     } catch (IOException exception) {
                         CameraOperationException.Reason reason = Thread.currentThread().isInterrupted()
                                 ? CANCELLED
