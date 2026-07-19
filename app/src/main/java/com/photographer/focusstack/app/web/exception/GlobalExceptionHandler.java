@@ -1,5 +1,6 @@
 package com.photographer.focusstack.app.web.exception;
 
+import com.photographer.focusstack.camera.exception.CameraAuthenticationException;
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.camera.exception.CameraNotFoundException;
 import com.photographer.focusstack.session.SessionException;
@@ -26,6 +27,16 @@ public class GlobalExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.NOT_FOUND, ex.getMessage());
         problem.setTitle("Camera Not Found");
+        return problem;
+    }
+
+    @ExceptionHandler(CameraAuthenticationException.class)
+    public ProblemDetail handleCameraAuthentication(CameraAuthenticationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED, ex.getMessage());
+        problem.setTitle("Camera Authentication Failed");
+        problem.setProperty("code", ex.reason().name());
+        problem.setProperty("cameraProfileId", ex.profileId());
         return problem;
     }
 
