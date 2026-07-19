@@ -2,100 +2,129 @@
 
 JMH micro-benchmarks for the Canon CR3 stack
 (`canon-cr3-core` parser, metadata reader, preview extractor and CRX RAW
-decoder). The module mirrors the
-[`carstenartur/sandbox/sandbox-benchmarks`](https://github.com/carstenartur/sandbox/tree/main/sandbox-benchmarks)
-pattern: a `maven-shade-plugin` build produces a single uber-jar
-(`target/benchmarks.jar`) with `org.openjdk.jmh.Main` as the manifest
-`Main-Class`, and the `.github/workflows/benchmark.yml` workflow consumes
-the JSON output through
-[`benchmark-action/github-action-benchmark`](https://github.com/benchmark-action/github-action-benchmark)
-so results are visualised on GitHub Pages and regressions ≥ 15 % alert on
-the PR.
+decoder). A `maven-shade-plugin` build produces a single executable JMH JAR
+at `target/benchmarks.jar`.
+
+Pull-request checks compare the base revision and PR head on the **same runner**.
+Scheduled and manually dispatched runs retain the full longitudinal history on
+GitHub Pages. Historical measurements are useful as a trend, but are not used
+as the sole causal regression gate for a pull request.
 
 ## What is measured
 
-Every benchmark uses the JMH defaults below and parametrises over **all
-eight** sample CR3 files committed under
+The full suite parametrises over the CR3 samples committed under
 `canon-cr3-imageio/src/test/resources/samples/`.
 
 | Class | Hot path |
 |---|---|
-| `Cr3BoxParseBenchmark`        | `Cr3Parser.parse()` — pure ISO-BMFF box walk |
-| `Cr3MetadataBenchmark`        | `Cr3MetadataReader.read()` — EXIF / MakerNote |
-| `Cr3PreviewExtractBenchmark`  | `Cr3PreviewExtractor.extractPreview()` — embedded JPEG |
-| `CrxLosslessDecodeBenchmark`  | `CrxLosslessRawDecoder.decode()` — entropy hot path (no I/O) |
-| `Cr3RawProcessedBenchmark`    | end-to-end `Cr3Decoder.decode(rawProcessed())` (incl. demosaic, WB, colour matrix, sRGB); also a `*Mmap` variant using the new `Cr3Decoder.setInput(Path)` overload |
-| `Cr3RawLinearBenchmark`       | end-to-end `Cr3Decoder.decode(rawLinear())` (no demosaic / colour transform) |
+| `Cr3BoxParseBenchmark` | `Cr3Parser.parse()` — pure ISO-BMFF box walk |
+| `Cr3MetadataBenchmark` | `Cr3MetadataReader.read()` — EXIF / MakerNote |
+| `Cr3PreviewExtractBenchmark` | `Cr3PreviewExtractor.extractPreview()` — embedded JPEG |
+| `CrxLosslessDecodeBenchmark` | `CrxLosslessRawDecoder.decode()` — entropy hot path (no I/O) |
+| `Cr3RawProcessedBenchmark` | end-to-end `Cr3Decoder.decode(rawProcessed())`, including demosaic, white balance, colour matrix and sRGB; also a memory-mapped variant |
+| `Cr3RawLinearBenchmark` | end-to-end `Cr3Decoder.decode(rawLinear())` without demosaic or colour transformation |
 
-JMH annotation set:
-
-```
-@BenchmarkMode(AverageTime)
-@OutputTimeUnit(MILLISECONDS)
-@Warmup(iterations = 3, time = 2 or 5)
-@Measurement(iterations = 5, time = 2 or 5)
-@Fork(1)
-@State(Scope.Benchmark)
-@Param(...) // 8 sample CR3 files
-```
+The benchmark classes define their normal JMH warm-up, measurement and fork
+configuration. Pull-request sentinels deliberately override those values to a
+shorter comparison profile and use one representative sample so both revisions
+fit into one hosted-runner job.
 
 ## Build
 
-The benchmark module is intentionally not part of the CI's `mvn verify`
-critical path, but it lives in the parent reactor so a top-level build
-still compiles it:
+The benchmark module is intentionally not part of the normal `mvn verify`
+critical path. Build it explicitly from the repository root:
 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64
-mvn -B -DskipTests package -pl canon-cr3-benchmark -am
+mvn -B --no-transfer-progress -DskipTests \
+  -P benchmarks \
+  -pl canon-cr3-benchmark -am \
+  package
 ```
 
 This produces `canon-cr3-benchmark/target/benchmarks.jar`.
 
-## Run
+## Run one revision
 
-The runtime needs to find the eight sample CR3 fixtures. Resolution order:
+The runtime resolves fixtures in this order:
 
-1. `-Dsamples.dir=...` system property
-2. `PHOTOGRAPHER_SAMPLES_DIR` environment variable
-3. `canon-cr3-imageio/src/test/resources/samples/` relative to the working
-   directory (or its parent)
+1. `-Dsamples.dir=...` system property;
+2. `PHOTOGRAPHER_SAMPLES_DIR` environment variable;
+3. `canon-cr3-imageio/src/test/resources/samples/` relative to the working directory or its parent.
 
-From the repo root:
+Examples from the repository root:
 
 ```bash
-# Run everything (~15-30 minutes wall clock)
+# Run the complete suite.
 java -jar canon-cr3-benchmark/target/benchmarks.jar
 
-# Run a single class
+# Run a single benchmark class.
 java -jar canon-cr3-benchmark/target/benchmarks.jar Cr3BoxParseBenchmark
 
-# Limit to a subset of samples
+# Limit execution to selected fixtures.
 java -jar canon-cr3-benchmark/target/benchmarks.jar \
-    -p sample=sample.cr3,eosr-iso-low.cr3 CrxLosslessDecodeBenchmark
+  -p sample=sample.cr3,eosr-iso-low.cr3 \
+  CrxLosslessDecodeBenchmark
 
-# JSON output for github-action-benchmark
+# Produce JMH JSON.
 java -jar canon-cr3-benchmark/target/benchmarks.jar \
-    -rf json -rff jmh-result.json
+  -rf json -rff jmh-result.json
 ```
 
 Useful JMH flags:
 
 | Flag | Purpose |
 |---|---|
-| `-prof gc`           | collect allocation rate / GC pressure |
-| `-prof stack`        | sampling profiler — find hot frames |
-| `-prof perfasm`      | inspect hot JIT-compiled assembly (Linux + perf) |
-| `-wi N -i N -f N`    | override warmup / measurement / fork counts |
+| `-prof gc` | collect allocation rate and garbage-collection pressure |
+| `-prof stack` | sample hot frames |
+| `-prof perfasm` | inspect hot JIT-compiled assembly on a suitable Linux host |
+| `-wi N -i N -f N` | override warm-up iterations, measurement iterations and forks |
+
+## Compare two Git revisions locally
+
+`scripts/run_jmh_two_ref.sh` runs the same sentinel comparison used by pull
+requests without requiring GitHub Actions. It creates temporary detached Git
+worktrees, so it neither checks out another revision in the current worktree nor
+deletes uncommitted files.
+
+```bash
+# Compare main with the current HEAD on the same host.
+bash scripts/run_jmh_two_ref.sh main HEAD
+
+# Write raw JSON, environment metadata and reports to a chosen directory.
+bash scripts/run_jmh_two_ref.sh origin/main feature/my-change target/jmh-review
+
+# Reverse execution order to inspect order/thermal bias.
+JMH_RUN_ORDER=head,base \
+  bash scripts/run_jmh_two_ref.sh main HEAD target/jmh-head-first
+
+# Increase forks for a confirmation run.
+JMH_FORKS=2 JMH_WARMUP_ITERS=3 JMH_MEASURE_ITERS=5 \
+  bash scripts/run_jmh_two_ref.sh main HEAD target/jmh-confirmation
+```
+
+The output directory contains:
+
+- `base.json` and `head.json` with raw JMH results;
+- `comparison.md` and `comparison.json` from `scripts/compare_jmh.py`;
+- `environment.txt` with exact refs, SHAs, execution order, CPU, kernel, Java,
+  Maven and benchmark parameters.
+
+The default failure threshold is a head/base score ratio of `1.15`; override it
+with `JMH_THRESHOLD`. A threshold breach is a signal for a confirmation run and
+investigation, not proof by itself of a code-caused regression.
 
 ## CI
 
-`.github/workflows/benchmark.yml` runs the full suite on every push / PR
-to `main` that touches `canon-cr3-core/**`, `canon-cr3-imageio/**` or
-`canon-cr3-benchmark/**` (plus on-demand via `workflow_dispatch`). It
-publishes results to the `gh-pages` branch under `dev/bench/`, which is
-served at:
+`.github/workflows/benchmark.yml` has two modes:
 
-> <https://carstenartur.github.io/Photographer/dev/bench/>
+- **Pull requests:** a short parser/metadata/preview/RAW sentinel set runs for
+  the base and head revisions on one pinned `ubuntu-24.04` runner via the same
+  local two-ref script. Raw results, comparison reports and environment metadata
+  are uploaded together.
+- **Scheduled/manual main runs:** the full suite records longitudinal history
+  under `dev/bench/` on `gh-pages` and uploads the raw JMH JSON.
 
-Regressions ≥ **15 %** post a comment on the offending PR.
+The benchmark workflow is path-filtered to CR3 production modules, benchmark
+infrastructure and comparator scripts. Normal application-only changes do not
+consume this expensive workload.
