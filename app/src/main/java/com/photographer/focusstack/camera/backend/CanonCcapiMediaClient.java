@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,6 +50,8 @@ import static com.photographer.focusstack.camera.exception.CameraOperationExcept
 final class CanonCcapiMediaClient {
 
     private static final Pattern VERSION_PATTERN = Pattern.compile("(?:^|/)ver(\\d+)(?:/|$)");
+    private static final Pattern MEDIA_PATH_PATTERN =
+            Pattern.compile("^/ccapi/ver\\d+/contents/.+\\.[^/]+$");
     private static final Pattern CONTENT_RANGE_PATTERN =
             Pattern.compile("bytes\\s+(\\d+)-(\\d+)/(\\d+|\\*)", Pattern.CASE_INSENSITIVE);
     private static final int MAX_TRANSFER_BYTES = 16 * 1024 * 1024;
@@ -59,47 +62,48 @@ final class CanonCcapiMediaClient {
     private final String profileId;
     private final URI origin;
     private final RestTemplate restTemplate;
-    private final Supplier<CcapiEndpointCatalog> catalogSupplier;
+    private final Supplier<Map<String, String>> endpointSupplier;
+    private final Supplier<Map<String, Set<HttpMethod>>> methodSupplier;
 
     CanonCcapiMediaClient(
             String profileId,
             String baseUrl,
             RestTemplate restTemplate,
-            Supplier<CcapiEndpointCatalog> catalogSupplier) {
+            Supplier<Map<String, String>> endpointSupplier,
+            Supplier<Map<String, Set<HttpMethod>>> methodSupplier) {
         this.profileId = requireProfileId(profileId);
         this.origin = origin(URI.create(Objects.requireNonNull(baseUrl, "baseUrl")));
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
-        this.catalogSupplier = Objects.requireNonNull(catalogSupplier, "catalogSupplier");
+        this.endpointSupplier = Objects.requireNonNull(endpointSupplier, "endpointSupplier");
+        this.methodSupplier = Objects.requireNonNull(methodSupplier, "methodSupplier");
     }
 
     CameraMediaProvider.MediaPage listMedia(CameraMediaProvider.MediaQuery query) {
         Objects.requireNonNull(query, "query");
         checkCancelled();
-        CcapiEndpointCatalog.Endpoint contents = requiredEndpoint(
-                "/contents", HttpMethod.GET, false);
+        EndpointView contents = requiredEndpoint("/contents", HttpMethod.GET, false);
 
         List<String> storages = listPaths(contents.url());
         List<DirectoryQuery> directories = new ArrayList<>();
         boolean directoryLimitReached = false;
+
+        storageLoop:
         for (String storage : storages) {
             checkCancelled();
             for (String directory : listPaths(resolveCameraValue(storage).toString())) {
-                if (directories.size() >= MAX_DIRECTORIES) {
-                    directoryLimitReached = true;
-                    break;
-                }
                 for (String format : cameraFormats(query.formats())) {
+                    if (directories.size() >= MAX_DIRECTORIES) {
+                        directoryLimitReached = true;
+                        break storageLoop;
+                    }
                     directories.add(count(directory, format));
                 }
             }
-            if (directoryLimitReached) {
-                break;
-            }
         }
 
-        Integer totalAvailable = directoryLimitReached ? null : directories.stream()
-                .mapToInt(DirectoryQuery::contentsNumber)
-                .sum();
+        Integer totalAvailable = directoryLimitReached
+                ? null
+                : clampedTotal(directories);
         LinkedHashMap<String, CameraMediaReference> references = new LinkedHashMap<>();
         int pagesVisited = 0;
         boolean truncated = directoryLimitReached;
@@ -121,8 +125,7 @@ final class CanonCcapiMediaClient {
                         "list", page);
                 for (String value : listPaths(url)) {
                     CameraMediaReference reference = reference(value);
-                    if (!query.formats().isEmpty()
-                            && !query.formats().contains(reference.format())) {
+                    if (!requestedFormat(reference.format(), query.formats())) {
                         continue;
                     }
                     references.putIfAbsent(reference.relativePath(), reference);
@@ -152,16 +155,20 @@ final class CanonCcapiMediaClient {
             throw new IllegalArgumentException(
                     "maxBytes must be between 1 and " + MAX_TRANSFER_BYTES);
         }
+        if (offset > Long.MAX_VALUE - maxBytes + 1L) {
+            throw new IllegalArgumentException("requested byte range exceeds the supported offset range");
+        }
         checkCancelled();
         URI uri = resolveCameraValue(reference.relativePath());
-        long end = Math.addExact(offset, maxBytes - 1L);
+        long end = offset + maxBytes - 1L;
 
-        return restTemplate.execute(
+        CameraMediaProvider.MediaChunk result = restTemplate.execute(
                 uri,
                 HttpMethod.GET,
                 request -> request.getHeaders().setRange(
                         List.of(HttpRange.createByteRange(offset, end))),
                 response -> extractChunk(reference, offset, maxBytes, response));
+        return Objects.requireNonNull(result, "camera media response");
     }
 
     Optional<CameraMediaReference> awaitAddedMedia(
@@ -174,8 +181,7 @@ final class CanonCcapiMediaClient {
         String suffix = mode == CameraMediaProvider.EventMode.MONITORING
                 ? "/event/monitoring" : "/event/polling";
         boolean requiresDelete = mode != CameraMediaProvider.EventMode.POLLING;
-        CcapiEndpointCatalog.Endpoint endpoint = requiredEndpoint(
-                suffix, HttpMethod.GET, requiresDelete);
+        EndpointView endpoint = requiredEndpoint(suffix, HttpMethod.GET, requiresDelete);
         String requestUrl = mode == CameraMediaProvider.EventMode.POLLING_CONTINUATION
                 ? appendQuery(endpoint.url(), "continue=on")
                 : endpoint.url();
@@ -192,10 +198,9 @@ final class CanonCcapiMediaClient {
                 if (media.isPresent()) {
                     return media;
                 }
-                if (mode != CameraMediaProvider.EventMode.POLLING) {
-                    continue;
+                if (mode == CameraMediaProvider.EventMode.POLLING) {
+                    sleepUntilNextPoll(deadline);
                 }
-                sleepUntilNextPoll(deadline);
             }
             return Optional.empty();
         } finally {
@@ -259,6 +264,10 @@ final class CanonCcapiMediaClient {
         }
 
         BoundedBytes bounded = readBounded(response.getBody(), maxBytes);
+        if (status.value() == HttpStatus.PARTIAL_CONTENT.value() && bounded.overflow()) {
+            throw new CameraOperationException(
+                    profileId, CAMERA_REJECTED, status.value());
+        }
         Long totalSize = range == null ? contentLength(response.getHeaders()) : range.totalSize();
         boolean complete = totalSize != null
                 ? requestedOffset + bounded.data().length >= totalSize
@@ -292,7 +301,7 @@ final class CanonCcapiMediaClient {
         }
     }
 
-    private void cancelEvent(CcapiEndpointCatalog.Endpoint endpoint) {
+    private void cancelEvent(EndpointView endpoint) {
         try {
             restTemplate.delete(endpoint.url());
         } catch (RuntimeException ignored) {
@@ -315,12 +324,17 @@ final class CanonCcapiMediaClient {
         }
     }
 
-    private CcapiEndpointCatalog.Endpoint requiredEndpoint(
+    private EndpointView requiredEndpoint(
             String suffix,
             HttpMethod requiredMethod,
             boolean requireDelete) {
-        CcapiEndpointCatalog.Endpoint endpoint = catalogSupplier.get()
-                .findExactPath(suffix)
+        Map<String, String> endpoints = endpointSupplier.get();
+        Map<String, Set<HttpMethod>> methods = methodSupplier.get();
+        EndpointView endpoint = endpoints.entrySet().stream()
+                .map(entry -> endpoint(entry, methods))
+                .filter(candidate -> candidate.path().endsWith(suffix))
+                .max(Comparator.comparingInt(EndpointView::versionNumber)
+                        .thenComparing(EndpointView::path))
                 .orElseThrow(() -> new CameraOperationException(
                         profileId, ENDPOINT_NOT_FOUND, 404));
         if (endpoint.methodMetadataKnown()
@@ -332,6 +346,19 @@ final class CanonCcapiMediaClient {
             throw new CameraOperationException(profileId, METHOD_NOT_ALLOWED, 405);
         }
         return endpoint;
+    }
+
+    private EndpointView endpoint(
+            Map.Entry<String, String> entry,
+            Map<String, Set<HttpMethod>> methods) {
+        URI resolved = resolveCameraValue(entry.getValue());
+        Set<HttpMethod> advertisedMethods = methods.get(entry.getKey());
+        return new EndpointView(
+                resolved.getPath(),
+                resolved.toString(),
+                versionNumber(resolved.getPath()),
+                advertisedMethods == null ? Set.of() : Set.copyOf(advertisedMethods),
+                advertisedMethods != null);
     }
 
     private String queryUrl(
@@ -372,6 +399,14 @@ final class CanonCcapiMediaClient {
         };
     }
 
+    private boolean requestedFormat(String actualFormat, Set<String> requestedFormats) {
+        if (requestedFormats.isEmpty()) {
+            return true;
+        }
+        String actual = cameraFormat(actualFormat);
+        return requestedFormats.stream().map(this::cameraFormat).anyMatch(actual::equals);
+    }
+
     private List<String> extractMediaValues(Object node) {
         LinkedHashSet<String> result = new LinkedHashSet<>();
         collectMediaValues(node, result);
@@ -380,8 +415,11 @@ final class CanonCcapiMediaClient {
 
     private void collectMediaValues(Object node, Set<String> result) {
         if (node instanceof String value) {
-            if (value.contains("/contents/") && hasFileExtension(value)) {
-                resolveCameraValue(value);
+            if (!value.contains("/contents/")) {
+                return;
+            }
+            URI resolved = resolveCameraValue(value);
+            if (MEDIA_PATH_PATTERN.matcher(resolved.getPath()).matches()) {
                 result.add(value);
             }
         } else if (node instanceof List<?> list) {
@@ -407,7 +445,10 @@ final class CanonCcapiMediaClient {
         Objects.requireNonNull(value, "camera value");
         URI uri = URI.create(value.trim());
         URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);
-        if (!sameOrigin(origin, resolved)) {
+        if (resolved.getUserInfo() != null
+                || resolved.getQuery() != null
+                || resolved.getFragment() != null
+                || !sameOrigin(origin, resolved)) {
             throw new CameraOperationException(profileId, CAMERA_REJECTED, null);
         }
         String path = resolved.getPath();
@@ -418,9 +459,23 @@ final class CanonCcapiMediaClient {
     }
 
     private static URI origin(URI uri) {
-        int port = effectivePort(uri);
-        return URI.create(uri.getScheme().toLowerCase(Locale.ROOT)
-                + "://" + uri.getHost().toLowerCase(Locale.ROOT) + ":" + port + "/");
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+        if (scheme == null || host == null) {
+            throw new IllegalArgumentException("baseUrl must contain a scheme and host");
+        }
+        try {
+            return new URI(
+                    scheme.toLowerCase(Locale.ROOT),
+                    null,
+                    host.toLowerCase(Locale.ROOT),
+                    effectivePort(uri),
+                    "/",
+                    null,
+                    null);
+        } catch (URISyntaxException exception) {
+            throw new IllegalArgumentException("invalid camera base URL", exception);
+        }
     }
 
     private static boolean sameOrigin(URI expected, URI actual) {
@@ -452,12 +507,16 @@ final class CanonCcapiMediaClient {
         return matcher.find() ? "ver" + matcher.group(1) : "unknown";
     }
 
-    private static boolean hasFileExtension(String value) {
-        int query = value.indexOf('?');
-        String path = query < 0 ? value : value.substring(0, query);
-        int slash = path.lastIndexOf('/');
-        int dot = path.lastIndexOf('.');
-        return dot > slash && dot < path.length() - 1;
+    private static int versionNumber(String path) {
+        Matcher matcher = VERSION_PATTERN.matcher(path);
+        if (!matcher.find()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
     }
 
     private static int nonNegativeInt(Object value) {
@@ -471,6 +530,17 @@ final class CanonCcapiMediaClient {
         return result > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) result;
     }
 
+    private static Integer clampedTotal(List<DirectoryQuery> directories) {
+        long total = 0L;
+        for (DirectoryQuery directory : directories) {
+            total += directory.contentsNumber();
+            if (total >= Integer.MAX_VALUE) {
+                return Integer.MAX_VALUE;
+            }
+        }
+        return (int) total;
+    }
+
     private BoundedBytes readBounded(InputStream input, int maxBytes) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(maxBytes, 64 * 1024));
         byte[] buffer = new byte[Math.min(8192, maxBytes + 1)];
@@ -481,6 +551,9 @@ final class CanonCcapiMediaClient {
             int read = input.read(buffer, 0, Math.min(buffer.length, remaining));
             if (read < 0) {
                 break;
+            }
+            if (read == 0) {
+                continue;
             }
             output.write(buffer, 0, read);
             if (output.size() > maxBytes) {
@@ -507,6 +580,9 @@ final class CanonCcapiMediaClient {
         long end = Long.parseLong(matcher.group(2));
         Long total = "*".equals(matcher.group(3))
                 ? null : Long.parseLong(matcher.group(3));
+        if (end < start || total != null && total <= end) {
+            return null;
+        }
         return new ContentRange(start, end, total);
     }
 
@@ -547,6 +623,14 @@ final class CanonCcapiMediaClient {
             String format,
             int contentsNumber,
             int pageNumber) {
+    }
+
+    private record EndpointView(
+            String path,
+            String url,
+            int versionNumber,
+            Set<HttpMethod> methods,
+            boolean methodMetadataKnown) {
     }
 
     private record BoundedBytes(byte[] data, boolean overflow) {
