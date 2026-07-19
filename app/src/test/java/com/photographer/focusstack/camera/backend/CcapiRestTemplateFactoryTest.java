@@ -42,6 +42,7 @@ class CcapiRestTemplateFactoryTest {
 
     private DigestCameraServer server;
     private CcapiTransport transport;
+    private final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 
     @AfterEach
     void stopResources() {
@@ -51,6 +52,7 @@ class CcapiRestTemplateFactoryTest {
         if (server != null) {
             server.close();
         }
+        registry.clear();
     }
 
     @Test
@@ -69,6 +71,8 @@ class CcapiRestTemplateFactoryTest {
         assertEquals(2, server.requestCount());
         assertTrue(server.authorizationHeaders().getFirst().isEmpty());
         assertTrue(server.authorizationHeaders().get(1).startsWith("Digest "));
+        assertEquals(1.0, count("auth_challenge"));
+        assertEquals(1.0, count("auth_success_after_challenge"));
     }
 
     @Test
@@ -109,6 +113,7 @@ class CcapiRestTemplateFactoryTest {
         assertFalse(failure.getMessage().contains("wrong-password"));
         assertFalse(failure.getMessage().contains(DigestCameraServer.NONCE));
         assertFalse(failure.getMessage().contains(DigestCameraServer.OPAQUE));
+        assertEquals(1.0, count("auth_final_failure"));
     }
 
     @Test
@@ -158,7 +163,7 @@ class CcapiRestTemplateFactoryTest {
         assertThrows(IllegalStateException.class, transport::restTemplate);
     }
 
-    private static CcapiRestTemplateFactory factory(
+    private CcapiRestTemplateFactory factory(
             CcapiAuthenticationProperties properties) {
         CameraConfig config = new CameraConfig(
                 URI.create("http://127.0.0.1:8080"),
@@ -167,7 +172,14 @@ class CcapiRestTemplateFactoryTest {
         return new CcapiRestTemplateFactory(
                 config,
                 properties,
-                new CcapiOutcomeRecorder(new SimpleMeterRegistry()));
+                new CcapiOutcomeRecorder(registry));
+    }
+
+    private double count(String outcome) {
+        return registry.get(CcapiOutcomeRecorder.METER_NAME)
+                .tag("outcome", outcome)
+                .counter()
+                .count();
     }
 
     private static CameraProfile profile(String id) {
