@@ -21,7 +21,8 @@ public final class CameraOperationException extends CameraException {
 
     /**
      * Stable operation reasons. Retryability is intentionally explicit and
-     * conservative; corrective-action states are not treated as blind retries.
+     * conservative; corrective-action and transport failures are not treated
+     * as blind retries.
      */
     public enum Reason {
         ENDPOINT_NOT_FOUND(Category.CONTRACT, false, "The camera endpoint is unavailable"),
@@ -48,8 +49,8 @@ public final class CameraOperationException extends CameraException {
                 Category.TEMPORARY_STATE, false, "The camera service is unavailable"),
 
         CANCELLED(Category.CANCELLATION, false, "The camera operation was cancelled"),
-        TIMEOUT(Category.TRANSPORT, true, "The camera operation timed out"),
-        CONNECTION_FAILED(Category.TRANSPORT, true, "The camera connection failed"),
+        TIMEOUT(Category.TRANSPORT, false, "The camera operation timed out"),
+        CONNECTION_FAILED(Category.TRANSPORT, false, "The camera connection failed"),
         CAMERA_REJECTED(Category.REJECTION, false, "The camera rejected the operation");
 
         private final Category category;
