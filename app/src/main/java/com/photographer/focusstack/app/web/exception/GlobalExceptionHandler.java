@@ -75,10 +75,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CameraException.class)
     public ProblemDetail handleCameraException(CameraException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST, ex.getMessage());
-        problem.setTitle("Camera Error");
-        return problem;
+        return ex.operationFailure()
+                .map(this::handleCameraOperation)
+                .orElseGet(() -> {
+                    ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                            HttpStatus.BAD_REQUEST, ex.getMessage());
+                    problem.setTitle("Camera Error");
+                    return problem;
+                });
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
