@@ -70,6 +70,7 @@ public final class NativeFocusBracketingExecutor {
         nativeProvider.getNativeFocusBracketingCapabilities().requireExecutable(request);
 
         LinkedHashMap<String, CameraMediaReference> observed = new LinkedHashMap<>();
+        LinkedHashSet<String> ingestionAttempted = new LinkedHashSet<>();
         List<String> ingestedFrameIds = new ArrayList<>();
         List<String> failures = new ArrayList<>();
         NativeFocusBracketingExecutionResult.CompletionState state = FAILED;
@@ -81,8 +82,8 @@ public final class NativeFocusBracketingExecutor {
             Set<String> before = snapshotPaths(mediaProvider);
             checkCancellation(cancellationRequested);
 
-            nativeProvider.triggerNativeFocusBracketing(session);
             triggered = true;
+            nativeProvider.triggerNativeFocusBracketing(session);
 
             CameraMediaProvider.EventMode eventMode = selectEventMode(backend);
             long deadline = deadline(timeout);
@@ -99,22 +100,28 @@ public final class NativeFocusBracketingExecutor {
                 Duration slice = Duration.ofNanos(Math.min(
                         remaining, OBSERVATION_SLICE.toNanos()));
                 mediaProvider.awaitAddedMedia(eventMode, slice)
-                        .filter(reference -> !before.contains(reference.relativePath()))
-                        .ifPresent(reference -> observed.putIfAbsent(
-                                reference.relativePath(), reference));
+                        .ifPresent(reference -> addObserved(
+                                observed, before, reference, request.numberOfShots()));
 
                 for (CameraMediaReference reference : snapshot(mediaProvider)) {
-                    if (!before.contains(reference.relativePath())) {
-                        observed.putIfAbsent(reference.relativePath(), reference);
+                    addObserved(observed, before, reference, request.numberOfShots());
+                    if (observed.size() >= request.numberOfShots()) {
+                        break;
                     }
                 }
 
-                ingestNew(mediaProvider, observed.values(), ingestedFrameIds, failures, ingestor);
+                ingestNew(
+                        mediaProvider,
+                        observed.values(),
+                        ingestionAttempted,
+                        ingestedFrameIds,
+                        failures,
+                        ingestor);
             }
 
             if (state == FAILED) {
-                if (observed.size() >= request.numberOfShots()
-                        && ingestedFrameIds.size() >= request.numberOfShots()
+                if (observed.size() == request.numberOfShots()
+                        && ingestedFrameIds.size() == request.numberOfShots()
                         && failures.isEmpty()) {
                     state = COMPLETE;
                 } else if (!observed.isEmpty() || !ingestedFrameIds.isEmpty()) {
@@ -162,25 +169,34 @@ public final class NativeFocusBracketingExecutor {
 
         return new NativeFocusBracketingExecutionResult(
                 request.numberOfShots(),
-                limitObserved(observed.values(), request.numberOfShots()),
-                limitStrings(ingestedFrameIds, request.numberOfShots()),
+                List.copyOf(observed.values()),
+                List.copyOf(ingestedFrameIds),
                 state,
                 failures.isEmpty() ? null : String.join("; ", failures),
                 restorationComplete);
     }
 
+    private static void addObserved(
+            Map<String, CameraMediaReference> observed,
+            Set<String> before,
+            CameraMediaReference reference,
+            int maximum) {
+        if (observed.size() >= maximum
+                || before.contains(reference.relativePath())) {
+            return;
+        }
+        observed.putIfAbsent(reference.relativePath(), reference);
+    }
+
     private static void ingestNew(
             CameraMediaProvider mediaProvider,
             Iterable<CameraMediaReference> observed,
+            Set<String> attemptedPaths,
             List<String> frameIds,
             List<String> failures,
             MediaIngestor ingestor) {
-        int alreadyAttempted = frameIds.size() + failures.stream()
-                .filter(message -> message.startsWith("Could not ingest "))
-                .toList().size();
-        int index = 0;
         for (CameraMediaReference reference : observed) {
-            if (index++ < alreadyAttempted) {
+            if (!attemptedPaths.add(reference.relativePath())) {
                 continue;
             }
             try {
@@ -247,23 +263,6 @@ public final class NativeFocusBracketingExecutor {
             throw new IllegalArgumentException(
                     "timeout must be positive and no longer than " + MAX_TIMEOUT);
         }
-    }
-
-    private static List<CameraMediaReference> limitObserved(
-            Iterable<CameraMediaReference> values,
-            int maximum) {
-        List<CameraMediaReference> result = new ArrayList<>();
-        for (CameraMediaReference value : values) {
-            if (result.size() >= maximum) {
-                break;
-            }
-            result.add(value);
-        }
-        return List.copyOf(result);
-    }
-
-    private static List<String> limitStrings(List<String> values, int maximum) {
-        return List.copyOf(values.subList(0, Math.min(values.size(), maximum)));
     }
 
     private static String safeFailure(Throwable failure) {
