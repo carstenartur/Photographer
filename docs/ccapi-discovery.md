@@ -96,7 +96,7 @@ Those integrations must preserve the same explicit timeout, cancellation, redact
 The discovery tests use synthetic SSDP packets and device-description XML. They do not require a camera, multicast-capable CI environment or GitHub Actions:
 
 ```bash
-mvn -pl app -Dtest='com.photographer.focusstack.camera.discovery.*Test,com.photographer.focusstack.camera.controller.CameraDiscoveryControllerTest' test
+mvn -pl app -am -Dtest='com.photographer.focusstack.camera.discovery.*Test,com.photographer.focusstack.camera.controller.CameraDiscoveryControllerTest' test
 ```
 
 Real-camera diagnostics should be optional and tagged. They may record normalized identity/capability data, but must not persist credentials, authorization headers, raw Wi-Fi settings or unredacted packets.
