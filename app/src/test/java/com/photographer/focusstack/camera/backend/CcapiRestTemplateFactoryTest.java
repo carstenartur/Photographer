@@ -6,6 +6,7 @@ import com.photographer.focusstack.camera.exception.CameraAuthenticationExceptio
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -163,7 +164,10 @@ class CcapiRestTemplateFactoryTest {
                 URI.create("http://127.0.0.1:8080"),
                 false,
                 Duration.ofSeconds(2));
-        return new CcapiRestTemplateFactory(config, properties);
+        return new CcapiRestTemplateFactory(
+                config,
+                properties,
+                new CcapiOutcomeRecorder(new SimpleMeterRegistry()));
     }
 
     private static CameraProfile profile(String id) {
