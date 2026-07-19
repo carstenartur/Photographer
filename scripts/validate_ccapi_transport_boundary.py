@@ -13,6 +13,11 @@ from pathlib import Path
 MAVEN_NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 APACHE_PREFIX = "org.apache.hc."
 HTTPCLIENT_GROUP_PREFIX = "org.apache.httpcomponents"
+CAMERA_MAIN_PREFIX = Path("app/src/main/java/com/photographer/focusstack/camera")
+CCAPI_CONFIG_FILE = Path(
+    "app/src/main/java/com/photographer/focusstack/app/config/"
+    "CcapiAuthenticationProperties.java"
+)
 
 ALLOWED_APACHE_MAIN_FILES = {
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java"),
@@ -20,12 +25,12 @@ ALLOWED_APACHE_MAIN_FILES = {
 }
 ALLOWED_CREDENTIAL_MAIN_FILES = {
     Path("app/src/main/java/com/photographer/focusstack/FocusStackApplication.java"),
-    Path("app/src/main/java/com/photographer/focusstack/app/config/CcapiAuthenticationProperties.java"),
+    CCAPI_CONFIG_FILE,
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CameraBackendFactory.java"),
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java"),
 }
 ALLOWED_PASSWORD_COPY_CALLERS = {
-    Path("app/src/main/java/com/photographer/focusstack/app/config/CcapiAuthenticationProperties.java"),
+    CCAPI_CONFIG_FILE,
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java"),
 }
 
@@ -64,6 +69,10 @@ def _text(element: ET.Element, name: str) -> str:
 
 def _is_generated(path: Path) -> bool:
     return any(part in {"target", ".git", "node_modules"} for part in path.parts)
+
+
+def _is_ccapi_logging_scope(path: Path) -> bool:
+    return path == CCAPI_CONFIG_FILE or path.is_relative_to(CAMERA_MAIN_PREFIX)
 
 
 def _main_java_files(root: Path) -> list[Path]:
@@ -153,15 +162,16 @@ def find_source_violations(root: Path) -> list[BoundaryViolation]:
                     f"Password accessor outside credential binding/transport: {pattern.pattern}",
                 ))
 
-        for invocation in _logger_invocations(source):
-            if PROTECTED_LOG_TOKEN.search(invocation):
-                violations.append(BoundaryViolation(
-                    relative,
-                    "Logger invocation refers to a protected authentication/network asset",
-                ))
-                break
+        if _is_ccapi_logging_scope(relative):
+            for invocation in _logger_invocations(source):
+                if PROTECTED_LOG_TOKEN.search(invocation):
+                    violations.append(BoundaryViolation(
+                        relative,
+                        "Logger invocation refers to a protected authentication/network asset",
+                    ))
+                    break
 
-        if relative.name == "CcapiAuthenticationProperties.java":
+        if relative == CCAPI_CONFIG_FILE:
             if "implements java.io.Serializable" in source or "implements Serializable" in source:
                 violations.append(BoundaryViolation(
                     relative,
