@@ -90,6 +90,8 @@ public final class InverseWaveletTransform {
      * @param lh         lowpass-highpass subband (horizontal detail)
      * @param hl         highpass-lowpass subband (vertical detail)
      * @param hh         highpass-highpass subband (diagonal detail)
+     * @param llWidth    width of each input subband
+     * @param llHeight   height of each input subband
      * @param outWidth   expected output width
      * @param outHeight  expected output height
      * @param filterType the wavelet filter to use
