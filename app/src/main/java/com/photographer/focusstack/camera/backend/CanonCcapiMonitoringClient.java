@@ -252,7 +252,12 @@ final class CanonCcapiMonitoringClient {
 
     private URI resolveCameraValue(String value) {
         Objects.requireNonNull(value, "camera value");
-        URI uri = URI.create(value.trim());
+        URI uri;
+        try {
+            uri = URI.create(value.trim());
+        } catch (IllegalArgumentException exception) {
+            throw rejected(null);
+        }
         URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);
         String path = resolved.getPath();
         URI normalized = resolved.normalize();
