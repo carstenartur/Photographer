@@ -21,7 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <ul>
  *   <li>{@code mock} profiles → {@link MockCameraBackend}</li>
- *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiStatusBackend} pointed at the profile's host</li>
+ *   <li>{@code canon-ccapi} profiles → {@link CanonCcapiNativeFocusBracketingBackend}
+ *       pointed at the profile's host</li>
  *   <li>Unknown types → checks {@link CameraBackendRegistry} for external plugin backends</li>
  * </ul>
  *
@@ -125,8 +126,8 @@ public class CameraBackendFactory {
         // Default: canon-ccapi
         String host = profile.host();
         String baseUrl = host.startsWith("http") ? host : "http://" + host + ":8080";
-        log.info("Creating CanonCcapiStatusBackend for profile '{}' ({}) → {}",
+        log.info("Creating CanonCcapiNativeFocusBracketingBackend for profile '{}' ({}) → {}",
                 profile.name(), profile.id(), baseUrl);
-        return new CanonCcapiStatusBackend(baseUrl, restTemplate);
+        return new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);
     }
 }
