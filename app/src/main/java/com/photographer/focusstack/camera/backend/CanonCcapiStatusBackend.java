@@ -2,7 +2,6 @@ package com.photographer.focusstack.camera.backend;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CameraStatusProvider;
@@ -11,10 +10,7 @@ import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -43,14 +39,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class CanonCcapiStatusBackend extends CanonCcapiBackend implements CameraStatusProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiStatusBackend.class);
-    private static final ObjectMapper REQUEST_MAPPER = new ObjectMapper();
     private static final String STORAGE_SUFFIX = "/devicestatus/storage";
     private static final String BATTERY_SUFFIX = "/devicestatus/battery";
     private static final String BATTERY_LIST_SUFFIX = "/devicestatus/batterylist";
     private static final String LIVE_VIEW_SUFFIX = "/shooting/liveview";
     private static final String VERSION_ROOT_PREFIX = "/ccapi/ver";
-    private static final int DEVICE_BUSY_MAX_RETRIES = 5;
-    private static final long DEVICE_BUSY_INITIAL_BACKOFF_MS = 500L;
 
     private final String baseUrl;
     private final RestTemplate restTemplate;
@@ -169,20 +162,28 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
     }
 
     /**
-     * Stops live view through the shared catalog. Delegating afterwards only resets
-     * the base class lifecycle flag; it cannot emit a second request because this
-     * specialization never populates the base class's private endpoint map.
+     * Stops live view through the exact shared catalog while reusing the base
+     * backend's single raw-JSON POST and bounded Device-busy retry implementation.
+     * Delegating to {@link #startLiveView(String)} with {@code off} remains
+     * method-aware because {@link #resolveEndpoint(String, String)} is virtual.
+     * The final base stop call only resets its lifecycle flag: this specialization
+     * never populates the base class's private endpoint map, so it cannot emit a
+     * second request.
      */
     @Override
     public void stopLiveView() {
         String url = findEndpoint(LIVE_VIEW_SUFFIX);
         if (url != null && endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {
             try {
-                ccapiPostWithRetry(url, Map.of("liveviewsize", "off"));
+                super.startLiveView("off");
                 log.info("Live view stopped.");
-            } catch (RestClientException exception) {
-                log.debug("Failed to stop live view (may already be off): {}",
-                        exception.getMessage());
+            } catch (CameraException exception) {
+                if (exception.getCause() instanceof RestClientException) {
+                    log.debug("Failed to stop live view (may already be off): {}",
+                            exception.getMessage());
+                } else {
+                    throw exception;
+                }
             }
         }
         super.stopLiveView();
@@ -206,57 +207,6 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
             }
         }
         return Map.copyOf(result);
-    }
-
-    /**
-     * Mirrors the base backend's raw-JSON request contract without involving
-     * Spring's message converters or changing the exception type exposed to callers.
-     */
-    private static HttpEntity<byte[]> ccapiEntity(Object body) {
-        byte[] jsonBytes;
-        if (body instanceof byte[] bytes) {
-            jsonBytes = bytes;
-        } else {
-            try {
-                jsonBytes = REQUEST_MAPPER.writeValueAsBytes(body);
-            } catch (Exception exception) {
-                throw new CameraException(
-                        "Failed to serialise CCAPI request body: " + exception.getMessage(),
-                        exception);
-            }
-        }
-        return new HttpEntity<>(jsonBytes, new HttpHeaders());
-    }
-
-    /** Preserves the base backend's bounded exponential retry for 503 Device busy. */
-    private void ccapiPostWithRetry(String url, Object body) {
-        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;
-        for (int attempt = 0; ; attempt++) {
-            try {
-                restTemplate.exchange(
-                        url, HttpMethod.POST, ccapiEntity(body), String.class);
-                return;
-            } catch (HttpServerErrorException.ServiceUnavailable exception) {
-                boolean deviceBusy = exception.getResponseBodyAsString()
-                        .contains("Device busy");
-                if (!deviceBusy || attempt >= DEVICE_BUSY_MAX_RETRIES) {
-                    throw exception;
-                }
-                log.warn("Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})",
-                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);
-                sleepBeforeRetry(backoffMs);
-                backoffMs = Math.min(backoffMs * 2, 5_000L);
-            }
-        }
-    }
-
-    private static void sleepBeforeRetry(long milliseconds) {
-        try {
-            Thread.sleep(milliseconds);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new CameraException("Interrupted while retrying CCAPI request", exception);
-        }
     }
 
     private static HttpMethod requiredMethod(String suffix) {
