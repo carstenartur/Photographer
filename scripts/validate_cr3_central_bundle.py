@@ -114,6 +114,7 @@ def _validate_pom(pom_bytes: bytes, artifact_id: str, version: str) -> None:
         "m:scm/m:connection",
         "m:scm/m:url",
         "m:issueManagement/m:url",
+        "m:ciManagement/m:url",
     )
     missing = [path for path in required_paths if not _text(root, path)]
     if missing:
