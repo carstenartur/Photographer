@@ -11,20 +11,21 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
+    <groupId>io.github.carstenartur</groupId>
     <artifactId>canon-cr3-codec</artifactId>
-    <version>0.1.5-SNAPSHOT</version>
+    <version>${revision}</version>
 
     <name>Canon CR3 - Codec</name>
     <description>Experimental clean-room CRX RAW codec and linear Bayer image model</description>
 
     <dependencies>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-container</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.photographer.focusstack</groupId>
+            <groupId>io.github.carstenartur</groupId>
             <artifactId>canon-cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
