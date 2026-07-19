@@ -1,7 +1,6 @@
 package com.photographer.focusstack.common.camera;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -97,8 +96,7 @@ public interface CameraMediaProvider {
         for (String format : formats) {
             if (format != null && !format.isBlank()) {
                 String token = format.trim().toUpperCase(Locale.ROOT);
-                if (!Arrays.stream(token.toCharArray())
-                        .allMatch(character -> Character.isLetterOrDigit(character))) {
+                if (!token.chars().allMatch(Character::isLetterOrDigit)) {
                     throw new IllegalArgumentException("formats must contain alphanumeric tokens only");
                 }
                 ordered.add(token);
