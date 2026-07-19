@@ -98,22 +98,38 @@ public final class SubbandStatistics {
         return new SubbandStatistics(hist, totalBits, oneBits, zeroRuns, longest);
     }
 
-    /** Returns a defensive copy of the byte histogram (256 entries, indexed by unsigned byte value). */
+    /**
+     * Returns a defensive copy of the byte histogram.
+     *
+     * @return a 256-entry histogram indexed by unsigned byte value
+     */
     public long[] byteHistogram() {
         return byteHistogram.clone();
     }
 
-    /** Total number of bits scanned. */
+    /**
+     * Returns the total number of bits scanned.
+     *
+     * @return the total number of bits scanned
+     */
     public long totalBits() {
         return totalBits;
     }
 
-    /** Number of {@code 1}-bits observed. */
+    /**
+     * Returns the number of one-bits observed.
+     *
+     * @return the number of {@code 1}-bits observed
+     */
     public long oneBits() {
         return oneBits;
     }
 
-    /** Fraction of bits that were {@code 1} (0.0 to 1.0). */
+    /**
+     * Returns the fraction of scanned bits that were one.
+     *
+     * @return the fraction of one-bits, from 0.0 to 1.0
+     */
     public double oneBitFraction() {
         return totalBits == 0 ? 0.0 : (double) oneBits / (double) totalBits;
     }
@@ -130,7 +146,11 @@ public final class SubbandStatistics {
         return zeroRunHistogram.clone();
     }
 
-    /** Length of the longest maximal run of zero bits observed. */
+    /**
+     * Returns the length of the longest maximal run of zero bits observed.
+     *
+     * @return the longest observed zero-run length
+     */
     public int longestZeroRun() {
         return longestZeroRun;
     }
