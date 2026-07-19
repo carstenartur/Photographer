@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -48,6 +49,8 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
     private static final String BATTERY_LIST_SUFFIX = "/devicestatus/batterylist";
     private static final String LIVE_VIEW_SUFFIX = "/shooting/liveview";
     private static final String VERSION_ROOT_PREFIX = "/ccapi/ver";
+    private static final int DEVICE_BUSY_MAX_RETRIES = 5;
+    private static final long DEVICE_BUSY_INITIAL_BACKOFF_MS = 500L;
 
     private final String baseUrl;
     private final RestTemplate restTemplate;
@@ -175,11 +178,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         String url = findEndpoint(LIVE_VIEW_SUFFIX);
         if (url != null && endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {
             try {
-                restTemplate.exchange(
-                        url,
-                        HttpMethod.POST,
-                        ccapiEntity(Map.of("liveviewsize", "off")),
-                        String.class);
+                ccapiPostWithRetry(url, Map.of("liveviewsize", "off"));
                 log.info("Live view stopped.");
             } catch (RestClientException exception) {
                 log.debug("Failed to stop live view (may already be off): {}",
@@ -209,11 +208,54 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend implements Camera
         return Map.copyOf(result);
     }
 
+    /**
+     * Mirrors the base backend's raw-JSON request contract without involving
+     * Spring's message converters or changing the exception type exposed to callers.
+     */
     private static HttpEntity<byte[]> ccapiEntity(Object body) {
+        byte[] jsonBytes;
+        if (body instanceof byte[] bytes) {
+            jsonBytes = bytes;
+        } else {
+            try {
+                jsonBytes = REQUEST_MAPPER.writeValueAsBytes(body);
+            } catch (Exception exception) {
+                throw new CameraException(
+                        "Failed to serialise CCAPI request body: " + exception.getMessage(),
+                        exception);
+            }
+        }
+        return new HttpEntity<>(jsonBytes, new HttpHeaders());
+    }
+
+    /** Preserves the base backend's bounded exponential retry for 503 Device busy. */
+    private void ccapiPostWithRetry(String url, Object body) {
+        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;
+        for (int attempt = 0; ; attempt++) {
+            try {
+                restTemplate.exchange(
+                        url, HttpMethod.POST, ccapiEntity(body), String.class);
+                return;
+            } catch (HttpServerErrorException.ServiceUnavailable exception) {
+                boolean deviceBusy = exception.getResponseBodyAsString()
+                        .contains("Device busy");
+                if (!deviceBusy || attempt >= DEVICE_BUSY_MAX_RETRIES) {
+                    throw exception;
+                }
+                log.warn("Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})",
+                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);
+                sleepBeforeRetry(backoffMs);
+                backoffMs = Math.min(backoffMs * 2, 5_000L);
+            }
+        }
+    }
+
+    private static void sleepBeforeRetry(long milliseconds) {
         try {
-            return new HttpEntity<>(REQUEST_MAPPER.writeValueAsBytes(body), new HttpHeaders());
-        } catch (Exception exception) {
-            throw new IllegalArgumentException("Could not serialize CCAPI request body", exception);
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new CameraException("Interrupted while retrying CCAPI request", exception);
         }
     }
 
