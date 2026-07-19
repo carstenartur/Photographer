@@ -116,8 +116,9 @@ final class FocusBracketingSettingsTransaction implements NativeFocusBracketingS
     }
 
     /**
-     * Restores the complete snapshot once. If restoration fails, the session is
-     * reopened so a transient camera error does not make cleanup impossible to retry.
+     * Attempts the complete snapshot restoration. A successful call makes later
+     * calls no-ops. If restoration fails, the close guard is reset so the caller
+     * can retry the complete restore after a transient camera error.
      */
     @Override
     public void close() {
