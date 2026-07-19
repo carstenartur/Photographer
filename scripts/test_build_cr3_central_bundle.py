@@ -63,8 +63,13 @@ class CentralBundleBuilderTest(unittest.TestCase):
             repository = root / "repository"
             version = "1.2.3"
             self._write_release_repository(repository, version)
-            missing = repository / PUBLIC_GROUP_PATH / "canon-cr3-imageio" / version /
-            missing /= f"canon-cr3-imageio-{version}-javadoc.jar.asc"
+            missing = (
+                repository
+                / PUBLIC_GROUP_PATH
+                / "canon-cr3-imageio"
+                / version
+                / f"canon-cr3-imageio-{version}-javadoc.jar.asc"
+            )
             missing.unlink()
 
             with self.assertRaisesRegex(BundleBuildError, "Missing release file"):
