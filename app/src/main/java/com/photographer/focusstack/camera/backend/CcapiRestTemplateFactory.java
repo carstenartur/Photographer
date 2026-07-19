@@ -18,7 +18,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -67,16 +66,16 @@ public final class CcapiRestTemplateFactory {
                         .disableRedirectHandling();
 
         credentials.ifPresent(value -> {
-            char[] password = value.passwordCopy();
-            try {
-                BasicCredentialsProvider provider = new BasicCredentialsProvider();
-                provider.setCredentials(
-                        new AuthScope(baseUri.getHost(), effectivePort(baseUri)),
-                        new UsernamePasswordCredentials(value.username(), password));
-                clientBuilder.setDefaultCredentialsProvider(provider);
-            } finally {
-                Arrays.fill(password, '\0');
-            }
+            BasicCredentialsProvider provider = new BasicCredentialsProvider();
+            // UsernamePasswordCredentials retains the supplied character array and needs it
+            // when a later 401 challenge is answered. Clearing it here would silently replace
+            // the configured password with NUL characters before Digest authentication runs.
+            // The array is already a defensive copy owned by this profile-scoped transport;
+            // explicit clearing belongs to the transport lifecycle implemented with eviction.
+            provider.setCredentials(
+                    new AuthScope(baseUri.getHost(), effectivePort(baseUri)),
+                    new UsernamePasswordCredentials(value.username(), value.passwordCopy()));
+            clientBuilder.setDefaultCredentialsProvider(provider);
         });
 
         CloseableHttpClient httpClient = clientBuilder.build();
