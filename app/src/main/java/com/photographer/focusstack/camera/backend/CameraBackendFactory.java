@@ -169,7 +169,7 @@ public class CameraBackendFactory {
         }
 
         CcapiTransportCreation creation =
-                ccapiRestTemplateFactory.create(profile, ccapiBaseUri(profile));
+                ccapiRestTemplateFactory.createWithFingerprint(profile, ccapiBaseUri(profile));
         CcapiTransport transport = creation.transport();
         try {
             log.info("Creating CanonCcapiNativeFocusBracketingBackend for profile '{}' ({})",
