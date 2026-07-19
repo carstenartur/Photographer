@@ -46,6 +46,7 @@ class CcapiTransportFailureClassificationTest {
                 fixture.interceptor(), new SocketTimeoutException("secret-host:8080 timed out"));
 
         assertEquals(TIMEOUT, failure.reason());
+        assertFalse(failure.retryable());
         assertFalse(failure.getMessage().contains("secret-host"));
         assertEquals(1.0, fixture.count("timeout"));
     }
@@ -58,6 +59,7 @@ class CcapiTransportFailureClassificationTest {
                 fixture.interceptor(), new InterruptedIOException("read expired with private value"));
 
         assertEquals(TIMEOUT, failure.reason());
+        assertFalse(failure.retryable());
         assertFalse(failure.getMessage().contains("private value"));
         assertFalse(Thread.currentThread().isInterrupted());
         assertEquals(1.0, fixture.count("timeout"));
@@ -72,6 +74,7 @@ class CcapiTransportFailureClassificationTest {
                 fixture.interceptor(), new ConnectException("connection to secret-host refused"));
 
         assertEquals(CONNECTION_FAILED, failure.reason());
+        assertFalse(failure.retryable());
         assertFalse(failure.getMessage().contains("secret-host"));
         assertEquals(1.0, fixture.count("connection_failed"));
     }
@@ -85,6 +88,7 @@ class CcapiTransportFailureClassificationTest {
                 fixture.interceptor(), new InterruptedIOException("cancelled with private value"));
 
         assertEquals(CANCELLED, failure.reason());
+        assertFalse(failure.retryable());
         assertFalse(failure.getMessage().contains("private value"));
         assertEquals(1.0, fixture.count("cancelled"));
         assertEquals(0.0, fixture.count("timeout"));
