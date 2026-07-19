@@ -268,11 +268,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     revisions = ordered_revisions(args.order, base_sha, head_sha)
     if args.dry_run:
-        worktree = Path("<temporary-worktree>")
         for revision in revisions:
             run_revision(
                 repo_root=repo_root,
-                worktree=worktree,
+                worktree=Path(f"<temporary-worktree-{revision.label}>"),
                 revision=revision,
                 output_dir=output_dir,
                 benchmark_pattern=args.benchmark_pattern,
