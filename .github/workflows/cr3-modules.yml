@@ -44,8 +44,9 @@ permissions:
 
 jobs:
   test:
-    name: CR3 unit and external Maven tests
+    name: CR3 packaged-artifact and external Maven tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       MAVEN_OPTS: '-Xmx2g'
     steps:
@@ -60,27 +61,27 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Compile all CR3 test sources and run unit tests
+      - name: Install CR3 production artifacts without repeating unit tests
         run: >-
-          mvn -B --no-transfer-progress clean test
-          -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-reference-testkit,canon-cr3-imageio,canon-cr3-research,canon-cr3-cli
+          mvn -B --no-transfer-progress clean install
+          -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio
           -am
+          -DskipTests
           -Djava.awt.headless=true
 
-      - name: Build and verify the isolated Maven consumer
+      - name: Verify the isolated Maven consumer and compiled architecture rules
         run: >-
           mvn -B --no-transfer-progress verify
           -pl canon-cr3-maven-smoke
-          -am
           -Djava.awt.headless=true
 
-      - name: Publish CR3 test results
+      - name: Publish external-consumer test results
         uses: dorny/test-reporter@v3
         if: always()
         continue-on-error: true
         with:
-          name: CR3 Tests
-          path: 'canon-cr3-*/target/surefire-reports/TEST-*.xml,canon-cr3-maven-smoke/target/it/**/target/surefire-reports/TEST-*.xml'
+          name: CR3 External Maven Tests
+          path: 'canon-cr3-maven-smoke/target/it/**/target/surefire-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
           max-annotations: '50'
