@@ -73,7 +73,7 @@ python3 scripts/test_validate_cr3_central_bundle.py
 # no Central credentials are configured or accepted by this preflight.
 mvn -B --no-transfer-progress \
   -f release/canon-cr3-public/pom.xml \
-  -Pcentral-release,central-publish \
+  -Pcentral-release \
   -Drevision="$version" \
   -DskipTests \
   -Dcentral.skipPublishing=true \
