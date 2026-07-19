@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.photographer.focusstack</groupId>
+        <artifactId>canon-focus-stack-parent</artifactId>
+        <version>0.1.5-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>canon-cr3-maven-smoke</artifactId>
+    <version>0.1.5-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Canon CR3 - External Maven Smoke Test</name>
+    <description>Invoker-based verification that packaged CR3 modules work from an independent Maven project</description>
+
+    <properties>
+        <maven-invoker-plugin.version>3.10.1</maven-invoker-plugin.version>
+        <external.junit.version>5.14.4</external.junit.version>
+        <external.surefire.version>3.5.5</external.surefire.version>
+        <external.compiler.version>3.14.1</external.compiler.version>
+        <external.dependency-plugin.version>3.11.0</external.dependency-plugin.version>
+    </properties>
+
+    <!--
+        These dependencies are intentionally declared on the invoker host so
+        invoker:install stages the exact reactor artifacts and their reachable
+        parents into the isolated integration-test repository.
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-container</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-metadata</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-codec</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-imageio</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-invoker-plugin</artifactId>
+                <version>${maven-invoker-plugin.version}</version>
+                <configuration>
+                    <projectsDirectory>src/it</projectsDirectory>
+                    <cloneProjectsTo>${project.build.directory}/it</cloneProjectsTo>
+                    <localRepositoryPath>${project.build.directory}/local-repo</localRepositoryPath>
+                    <pomIncludes>
+                        <pomInclude>external-consumer/pom.xml</pomInclude>
+                    </pomIncludes>
+                    <streamLogs>true</streamLogs>
+                    <showErrors>true</showErrors>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>external-maven-consumption</id>
+                        <goals>
+                            <goal>install</goal>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

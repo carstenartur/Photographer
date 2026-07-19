@@ -25,7 +25,22 @@
         </dependency>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
-            <artifactId>canon-cr3-core</artifactId>
+            <artifactId>canon-cr3-container</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-metadata</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-codec</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-container</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

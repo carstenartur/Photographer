@@ -15,9 +15,36 @@
     <version>0.1.5-SNAPSHOT</version>
 
     <name>Canon CR3 - Core</name>
-    <description>Canon CR3 file parser, metadata extraction, preview extraction, and RAW decoding</description>
+    <description>CR3 decode orchestration and compatibility facade</description>
 
     <dependencies>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-container</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-metadata</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-codec</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-processing</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.photographer.focusstack</groupId>
+            <artifactId>canon-cr3-container</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>

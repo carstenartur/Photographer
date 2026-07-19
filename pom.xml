@@ -33,8 +33,15 @@
         <module>observer-core</module>
         <module>ai-vision</module>
         <module>astro-core</module>
+        <module>canon-cr3-container</module>
+        <module>canon-cr3-metadata</module>
+        <module>canon-cr3-codec</module>
+        <module>canon-cr3-processing</module>
         <module>canon-cr3-core</module>
+        <module>canon-cr3-reference-testkit</module>
+        <module>canon-cr3-research</module>
         <module>canon-cr3-imageio</module>
+        <module>canon-cr3-maven-smoke</module>
         <module>canon-cr3-cli</module>
         <module>frontend-web</module>
         <module>app</module>
