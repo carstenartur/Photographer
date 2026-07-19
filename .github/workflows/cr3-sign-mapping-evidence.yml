@@ -1,0 +1,79 @@
+name: CR3 D5 Sign Mapping Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/cr3-sign-mapping-evidence.yml'
+      - 'canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/SignMappingDiscriminatorIT.java'
+      - 'canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/CrxNormativeLosslessCandidate.java'
+      - 'canon-cr3-research/pom.xml'
+      - 'canon-cr3-reference-testkit/**'
+      - 'canon-cr3-imageio/src/test/resources/samples/**'
+
+concurrency:
+  group: cr3-d5-sign-mapping-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sign-mapping-evidence:
+    name: Execute full 11-fixture D5 discriminator
+    if: github.head_ref == 'research/sign-mapping-evidence-run'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      MAVEN_OPTS: '-Xmx4g'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Stage research dependencies without repeating upstream tests
+        run: >-
+          mvn -B --no-transfer-progress install
+          -DskipTests
+          -pl canon-cr3-research
+          -am
+          -Djava.awt.headless=true
+
+      - name: Run only the D5 sign-mapping discriminator
+        run: >-
+          mvn -B --no-transfer-progress verify
+          -Pcr3-research-it
+          -pl canon-cr3-research
+          -Dit.test=SignMappingDiscriminatorIT
+          -DfailIfNoTests=false
+          -Djava.awt.headless=true
+
+      - name: Publish D5 test result
+        uses: dorny/test-reporter@v3
+        if: always()
+        continue-on-error: true
+        with:
+          name: CR3 D5 Sign Mapping
+          path: 'canon-cr3-research/target/failsafe-reports/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload D5 evidence
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: cr3-d5-sign-mapping-evidence
+          path: |
+            canon-cr3-research/target/sign-mapping-discriminator/results.md
+            canon-cr3-research/target/sign-mapping-discriminator/results.json
+            canon-cr3-research/target/sign-mapping-discriminator/results.tsv
+            canon-cr3-research/target/failsafe-reports/
+          if-no-files-found: error
+          retention-days: 7
