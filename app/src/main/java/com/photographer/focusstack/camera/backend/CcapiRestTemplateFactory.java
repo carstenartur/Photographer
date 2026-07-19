@@ -50,8 +50,13 @@ public final class CcapiRestTemplateFactory {
                 authenticationProperties.state(profile.id()));
     }
 
+    /** Creates a transport for callers that do not need its cache fingerprint. */
+    CcapiTransport create(CameraProfile profile, URI baseUri) {
+        return createWithFingerprint(profile, baseUri).transport();
+    }
+
     /** Creates a transport and returns the exact configuration snapshot it consumed. */
-    CcapiTransportCreation create(CameraProfile profile, URI baseUri) {
+    CcapiTransportCreation createWithFingerprint(CameraProfile profile, URI baseUri) {
         Objects.requireNonNull(profile, "profile");
         URI normalizedBaseUri = normalizeBaseUri(baseUri);
 
