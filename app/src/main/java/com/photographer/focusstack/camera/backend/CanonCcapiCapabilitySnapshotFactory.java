@@ -6,7 +6,6 @@ import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingProvider;
 import org.springframework.http.HttpMethod;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
@@ -14,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -59,13 +57,19 @@ final class CanonCcapiCapabilitySnapshotFactory {
                     "/shooting/settings/focusbracketing"),
             definition("native-focus-bracketing-shot-count", true,
                     methods(HttpMethod.GET, HttpMethod.PUT),
-                    "/shooting/settings/focusbracketing/shotnumber"),
+                    "/shooting/settings/focusbracketing/numberofshots"),
             definition("native-focus-bracketing-increment", true,
                     methods(HttpMethod.GET, HttpMethod.PUT),
                     "/shooting/settings/focusbracketing/focusincrement"),
             definition("native-focus-bracketing-exposure-smoothing", true,
                     methods(HttpMethod.GET, HttpMethod.PUT),
-                    "/shooting/settings/focusbracketing/exposuresmoothing")
+                    "/shooting/settings/focusbracketing/exposuresmoothing"),
+            definition("native-focus-bracketing-depth-composition", true,
+                    methods(HttpMethod.GET, HttpMethod.PUT),
+                    "/shooting/settings/focusbracketing/depthcomposite"),
+            definition("native-focus-bracketing-crop-depth-composition", true,
+                    methods(HttpMethod.GET, HttpMethod.PUT),
+                    "/shooting/settings/focusbracketing/cropdepthcomp")
     );
 
     private final CanonCcapiStatusBackend backend;
@@ -95,7 +99,7 @@ final class CanonCcapiCapabilitySnapshotFactory {
         List<CapabilityResult> resolved = definitions.stream()
                 .map(definition -> resolve(definition, advertised))
                 .toList();
-        LensResult lensResult = readLens(resolved, advertised);
+        LensResult lensResult = readLens(resolved);
 
         List<CameraCapabilitySnapshot.Capability> capabilities = resolved.stream()
                 .map(result -> result.definition().id().equals("lens-status")
@@ -151,9 +155,7 @@ final class CanonCcapiCapabilitySnapshotFactory {
         return new Identity(response.productname(), response.firmwareversion());
     }
 
-    private LensResult readLens(
-            List<CapabilityResult> capabilities,
-            List<AdvertisedEndpoint> endpoints) {
+    private LensResult readLens(List<CapabilityResult> capabilities) {
         CapabilityResult result = capabilities.stream()
                 .filter(candidate -> candidate.definition().id().equals("lens-status"))
                 .findFirst()
