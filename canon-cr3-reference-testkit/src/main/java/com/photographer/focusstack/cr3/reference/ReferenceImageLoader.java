@@ -17,9 +17,11 @@ public final class ReferenceImageLoader {
      * Loads the first raster band of an image sidecar without display conversion.
      *
      * <p>Unsigned 16-bit TIFF mosaics retain their full sample range. PNG sidecars
-     * retain the first-band values supplied by the registered ImageIO reader; RGB
-     * PNGs therefore expose the red band rather than being converted to luminance.
-     * Callers that need color-aware comparison must use a different representation.</p>
+     * retain the first-band values supplied by the registered ImageIO reader. For
+     * multi-band PNGs, the semantic channel represented by raster band 0 depends on
+     * the concrete ImageIO reader and decoded image layout; no luminance or color
+     * conversion is performed. Callers that need color-aware comparison must use a
+     * different representation.</p>
      *
      * @param path TIFF or PNG reference-image path
      * @return canonical single-band reference image
