@@ -1,6 +1,6 @@
 # CR3 Results Index
 
-Durable entry point for CR3 research. Every result records fixed inputs, one changed variable, evidence, verdict and next step.
+Durable entry point for CR3 research. Every result records fixed inputs, one changed variable or observation boundary, evidence, verdict and next step.
 
 | Date | Hypothesis | Status | Document |
 |---|---|---|---|
@@ -12,15 +12,16 @@ Durable entry point for CR3 research. Every result records fixed inputs, one cha
 | 2026-07-20 | D6 symbol-bracket K update | REJECTED; completion regression | [D6](cr3-results/2026-07-20-D6-k-adaptation-discriminator.md) |
 | 2026-07-20 | D7 first K/bit divergence | COMPLETE; zero-symbol cause found | [D7](cr3-results/2026-07-20-D7-first-k-divergence.md) |
 | 2026-07-20 | D8 zero-contracted K bracket | PARTIAL; 1/3 discriminator successes; completion regression | [D8](cr3-results/2026-07-20-D8-zero-contracted-k.md) |
+| 2026-07-20 | D9 first non-zero K divergence | COMPLETE; NO COMMON CAUSE | [D9](cr3-results/2026-07-20-D9-first-nonzero-k-divergence.md) |
 
-## Current priority: D9
+## Current priority: D10 observation matrix
 
-D8 shows that zero-symbol contraction is necessary but the current non-zero symbol bracket is still not universal.
+D9 found three distinct first non-zero decisions:
 
-Trace HYBRID and D8 without changing either decoder until the first non-zero K-state or bit-position divergence on:
+- EOS R: HYBRID decrease / D8 hold;
+- G5 X II `asis`: HYBRID decrease / D8 increase;
+- `sample-iso-high`: HYBRID hold / D8 increase.
 
-- `eosr-iso-low.cr3` — complete improvement;
-- `research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3` — complete but global regression;
-- `sample-iso-high.cr3` — completion regression.
+No semantic decoder change is justified. The next task is an observation-only transition matrix over the fixed reference panel. It must count and localize direction disagreements, the first subsequent bit-position split and the associated D8 outcome class.
 
-Record the aligned zero-run length, first non-zero symbol, byte:bit positions, K before/after, HYBRID accumulator/sample count, D8 bracket bounds, predictor and value. The next semantic experiment must change exactly one cause established by that trace.
+A semantic experiment may follow only when one transition class consistently predicts the same error or completion behavior across multiple fixtures. Otherwise retain `NO_COMMON_CAUSE` and narrow the observation again.
