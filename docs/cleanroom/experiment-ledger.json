@@ -109,7 +109,7 @@
       "commit": null,
       "workflowRun": null,
       "artifactDigest": null,
-      "durableReport": "docs/cleanroom/d11-canon-k-adaptation-source-audit.md",
+      "durableReport": "docs/cr3-results/2026-07-20-D11-canon-k-source-audit.md",
       "verdict": "IN_PROGRESS: exact base code-length bracket identified; CRX applicability and full embodiment remain unresolved",
       "productionDecision": "No production decoder change; D12 blocked until D11 review and CI complete",
       "status": "running"
