@@ -56,7 +56,7 @@ jobs:
           -Pcr3-research-it
           -pl canon-cr3-research
           -am
-          -Dit.test=KTransitionMatrixIT
+          -Dit.test=ExactBracketKDiscriminatorIT
           -Djava.awt.headless=true
       - name: Run complete research integration profile
         if: ${{ github.event_name != 'pull_request' }}

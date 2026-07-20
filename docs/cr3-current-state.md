@@ -3,72 +3,62 @@
 ## Verified foundation
 
 - CR3 container parsing, CMP1/IAD1/CRX extraction and subband inventory work.
-- The fixed lossless panel has LibRaw-backed TIFF/PNG references and a validated manifest.
-- Geometry, alignment, optical-black, per-plane and tile-boundary diagnostics exist.
-- Stages 1–4 are verified; Stage 5 is partial; Stage 6 entropy decoding remains the earliest failure.
-- CR3/CRX research now follows the auditable clean-room process in [`docs/cleanroom/`](cleanroom/README.md).
+- The fixed lossless panel has manifest-bound LibRaw TIFF/PNG references.
+- Geometry, alignment, optical-black, per-plane, boundary and tile/plane completion diagnostics exist.
+- Stages 1–4 are verified; Stage 5 is partial; Stage 6 entropy reconstruction remains the earliest failure.
+- Research follows the auditable process in [`docs/cleanroom/`](cleanroom/README.md).
 
-## Strong findings
+## Durable findings
 
 - Optical-black regions remain the strongest falsification axis.
 - MED is the best-supported predictor family. Pure N/W/NW swaps, tile-state continuation, cross-plane seeding and a general per-plane predictor split were rejected.
-- D5 conventional zig-zag residual mapping was rejected.
-- D6 universal `floor(log2(S+1)) ± 1` K bracketing was rejected.
-- D7 located the first D6 divergence: after the same initial `S=0`, HYBRID contracts `K 1→0` while D6 keeps `K=1`.
-- D8 confirms zero-symbol contraction is necessary under the current candidate boundary, but not sufficient for a correct non-zero K update.
-- D9 found no common first non-zero K-decision cause across one EOS-R improvement, one G5-X-II regression and one completion-regressing sample.
+- D5 rejected conventional zig-zag residual mapping.
+- D6 rejected a universal `floor(log2(S+1)) ± 1` K bracket.
+- D7 located D6's first difference at an identical `S=0` and divergent K state.
+- D8 showed that zero contraction is useful but insufficient.
+- D9 found no common first non-zero decision cause.
+- D10 found no transition class that predicted failure without contradicting complete-improvement fixtures.
+- D11 established the exact public-primary-source base bracket: minimise `L(S,K)=(S>>K)+1+K` over a finite K domain and move K by at most one toward the optimum range.
+- D11 did not establish CRX subband mapping, tentative-symbol context, reset state or the complete `Kd` correction.
 
-## D8 result
+## D12 result
 
-D8 uses:
+D12 changed exactly one test-decoder variable: D8's approximate non-zero bracket was replaced by D11's exact finite-domain code-length range. Zero contraction, parser, sign mapping, predictor, K seed/reset, geometry, padding and production code were unchanged.
 
-```text
-if S == 0 and K > 0:
-    K = K - 1
-else:
-    apply the unchanged D6 symbol bracket
-```
+Final verdict: **PARTIAL**.
 
-Final fixed-panel verdict: **PARTIAL**.
+| Metric | D8 | D12 exact bracket | Gate |
+|---|---:|---:|:---:|
+| Median global MAE | 2415.055583 | 5065.604043 | fail |
+| Median optical-black MAE | 1927.434494 | 1824.424003 | pass |
+| Median boundary MAE | 2850.193666 | 5073.395553 | fail |
+| Median saturation | 0.000001 | 0.000216 | fail |
 
-- discriminator successes: `1/3`;
-- median global MAE: `1833.9213→2415.0556`;
-- median boundary error: `2365.6625→2850.1937`;
-- median saturation unchanged at `0.0000`;
-- completion gate failed.
+Additional evidence:
 
-Zero contraction removes D6's new exhaustion of the G5 X II `asis` fixture and improves several complete fixtures, but the current non-zero bracket remains invalid as a universal replacement.
+- six fixtures improve on at least one primary quality metric;
+- no previously incomplete fixture becomes complete;
+- nine tile/plane streams regress in completion;
+- zero streams become newly exhausted;
+- seven streams recover partially;
+- all three camera-family median gates fail;
+- 6,873,844 K decisions differ from D8.
 
-## D9 result
+The exact bracket is therefore not a universal fix when driven by the currently decoded symbol. The lower optical-black median is useful positive evidence, but it is contradicted by global, boundary, saturation, family and completion failures.
 
-D9 observes unchanged HYBRID and D8 rules through one shared parser and stops at the first non-zero divergence.
+The durable report is [D12 exact K bracket](cr3-results/2026-07-20-D12-exact-k-bracket.md), with full per-plane evidence in the adjacent TSV. Production remains unchanged.
 
-| Fixture | First non-zero divergence |
-|---|---|
-| `eosr-iso-low.cr3` | HYBRID decreases `K 1→0`; D8 holds `K=1` for `S=1` |
-| `g5xm2-asis…` | HYBRID decreases `K 1→0`; D8 increases `K 1→2` for `S=8` |
-| `sample-iso-high.cr3` | HYBRID holds `K=0`; D8 increases `K 0→1` for `S=3` |
+## Current priority: D13 context resolution
 
-Verdict: **NO_COMMON_CAUSE**.
+Before another semantic candidate, resolve the source and structural meaning of the patent's tentative-symbol inputs:
 
-No concrete predeclared classification occurs in at least two fixtures. D9 therefore does not authorize a semantic decoder change. The history-dependent HYBRID rule and current-symbol D8 bracket disagree for different reasons in different fixtures.
+- `Sx` and `Sd` for the LL embodiment;
+- arithmetic/rounding and causal boundary behavior of `(Sx+Sd)/2`;
+- complete `Kd` correction and clamp;
+- mapping of current CRX records to LL/HL/LH/HH and decomposition levels;
+- whether the required context is causal and consistent across EOS R, G5 X Mark II and sample fixtures.
 
-The durable report is [D9 first non-zero K divergence](cr3-results/2026-07-20-D9-first-nonzero-k-divergence.md). Production remains unchanged.
-
-## Current priority
-
-The next work must remain observation-only: build a fixed-panel K-transition matrix and correlate transition classes with D8's global, optical-black, boundary and completion deltas.
-
-Record at least:
-
-- HYBRID decrease / D8 hold;
-- HYBRID decrease / D8 increase;
-- HYBRID hold / D8 increase;
-- opposite-direction transitions;
-- first subsequent bit-position split;
-- fixture outcome class.
-
-A new semantic experiment is allowed only if one transition class consistently predicts the same failure mode across multiple fixtures. Do not combine accumulator thresholds, bracket width, symbol estimate or reset scope in one candidate.
+D13 is source analysis and deterministic topology observation only. It must not select a mapping by image MAE, brute-force neighbours or combine `Sd`, `Kd`, resets and predictor changes.
 
 ## Durable results
 
@@ -77,5 +67,8 @@ A new semantic experiment is allowed only if one transition class consistently p
 - [D7 first divergence](cr3-results/2026-07-20-D7-first-k-divergence.md)
 - [D8 zero-contracted K](cr3-results/2026-07-20-D8-zero-contracted-k.md)
 - [D9 first non-zero K divergence](cr3-results/2026-07-20-D9-first-nonzero-k-divergence.md)
+- [D10 transition/outcome matrix](cr3-results/2026-07-20-D10-k-transition-outcome-matrix.md)
+- [D11 Canon K source audit](cr3-results/2026-07-20-D11-canon-k-source-audit.md)
+- [D12 exact K bracket](cr3-results/2026-07-20-D12-exact-k-bracket.md)
 
-Do not repeat broad predictor, CFA, alignment, sign-mapping or universal bracket sweeps without new structural evidence.
+Do not repeat broad predictor, CFA, alignment, sign-mapping, transition-frequency or current-symbol K-bracket sweeps without new structural evidence.

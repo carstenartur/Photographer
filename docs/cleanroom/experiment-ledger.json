@@ -113,6 +113,22 @@
       "verdict": "COMPLETE: EXACT_CANDIDATE_AVAILABLE for the finite-domain Golomb-Rice code-length bracket and one-step update only",
       "productionDecision": "No production decoder change; authorize only the predeclared D12 test-scope exact-bracket discriminator in issue 236",
       "status": "complete"
+    },
+    {
+      "id": "D12",
+      "title": "Exact Golomb-Rice code-length K bracket discriminator",
+      "issue": 236,
+      "sourceIds": ["SRC-001", "SRC-007", "SRC-008", "SRC-009"],
+      "oneChangedVariable": "Replace only D8's approximate non-zero K range with the exact finite-domain argmin of L(S,K) = (S >> K) + 1 + K",
+      "fixedInputs": "Explicit eleven-fixture lossless CR3 panel with the same reference images and D8 decoder boundary",
+      "implementationScope": "canon-cr3-research test scope only; production decoder unchanged",
+      "commit": "e939da3c7df851454d69f5b120bc7fb59cc8faf1",
+      "workflowRun": 29779232886,
+      "artifactDigest": "sha256:10ecb3506ad3f5265939534210f832e3e75c8f0a5585ec29c5cd068e31575c51",
+      "durableReport": "docs/cr3-results/2026-07-20-D12-exact-k-bracket.md",
+      "verdict": "PARTIAL: optical-black median and six fixtures improve on selected metrics, but global, boundary, saturation, family and nine stream-completion gates fail",
+      "productionDecision": "No production decoder change; select observation-only D13 context and CRX topology analysis in issue 238",
+      "status": "complete"
     }
   ]
 }
