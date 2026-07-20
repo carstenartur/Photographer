@@ -28,6 +28,8 @@ class ExactBracketKReportTest {
         assertThat(verdict.corpusGate()).isTrue();
         assertThat(verdict.familyGate()).isTrue();
         assertThat(verdict.bracketDifferences()).isEqualTo(39);
+        assertThat(verdict.regressedStreams()).isZero();
+        assertThat(verdict.newlyExhaustedStreams()).isZero();
     }
 
     @Test
@@ -42,6 +44,24 @@ class ExactBracketKReportTest {
 
         assertThat(verdict.state()).isEqualTo("PARTIAL");
         assertThat(verdict.completionOkay()).isFalse();
+    }
+
+    @Test
+    void hiddenTilePlaneRegressionPreventsSupport() {
+        List<ExactBracketKReport.Fixture> fixtures = List.of(
+                fixture("eosr-iso-low.cr3", 100, 90, 100, 90,
+                        100, 90, 1.0, 1.0, false, false,
+                        10, 1, 1, 0),
+                fixture("research/g5xm2-dark.cr3", 200, 190, 200, 190,
+                        200, 190, 1.0, 1.0, false, false,
+                        10, 0, 0, 0));
+
+        ExactBracketKReport.Verdict verdict = ExactBracketKReport.verdict(fixtures);
+
+        assertThat(verdict.state()).isEqualTo("PARTIAL");
+        assertThat(verdict.completionOkay()).isFalse();
+        assertThat(verdict.regressedStreams()).isEqualTo(1);
+        assertThat(verdict.newlyExhaustedStreams()).isEqualTo(1);
     }
 
     @Test
@@ -80,16 +100,20 @@ class ExactBracketKReportTest {
     }
 
     @Test
-    void jsonContainsPerPlaneMetrics() {
+    void jsonContainsPerPlaneAndStreamMetrics() {
         List<ExactBracketKReport.Fixture> fixtures = List.of(
                 fixture("eosr-iso-low.cr3", 100, 90, 100, 90,
-                        100, 90, 1.0, 1.0, false, false, 2));
+                        100, 90, 1.0, 1.0, false, false,
+                        2, 1, 1, 3));
         ExactBracketKReport.Verdict verdict = ExactBracketKReport.verdict(fixtures);
 
         assertThat(ExactBracketKReport.json(fixtures, verdict))
                 .contains("\"planes\"")
                 .contains("\"plane\":0")
-                .contains("\"mae\":100.0");
+                .contains("\"mae\":100.0")
+                .contains("\"regressedStreams\":1")
+                .contains("\"newlyExhaustedStreams\":1")
+                .contains("\"recoveredStreams\":3");
     }
 
     private static ExactBracketKReport.Fixture fixture(
@@ -100,13 +124,30 @@ class ExactBracketKReportTest {
             double d8Completion, double exactCompletion,
             boolean d8Exhausted, boolean exactExhausted,
             long differences) {
+        return fixture(name, d8Mae, exactMae, d8Ob, exactOb,
+                d8Boundary, exactBoundary, d8Completion, exactCompletion,
+                d8Exhausted, exactExhausted, differences, 0, 0, 0);
+    }
+
+    private static ExactBracketKReport.Fixture fixture(
+            String name,
+            double d8Mae, double exactMae,
+            double d8Ob, double exactOb,
+            double d8Boundary, double exactBoundary,
+            double d8Completion, double exactCompletion,
+            boolean d8Exhausted, boolean exactExhausted,
+            long differences,
+            int regressedStreams,
+            int newlyExhaustedStreams,
+            int recoveredStreams) {
         return new ExactBracketKReport.Fixture(
                 name,
                 metrics(d8Mae, d8Ob, d8Boundary,
                         d8Completion, d8Exhausted),
                 metrics(exactMae, exactOb, exactBoundary,
                         exactCompletion, exactExhausted),
-                differences);
+                differences, regressedStreams,
+                newlyExhaustedStreams, recoveredStreams);
     }
 
     private static KAdaptationPanelMetrics.Result metrics(
