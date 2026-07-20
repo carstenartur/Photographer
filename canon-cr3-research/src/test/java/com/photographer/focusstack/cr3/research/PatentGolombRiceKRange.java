@@ -11,6 +11,8 @@ package com.photographer.focusstack.cr3.research;
  */
 final class PatentGolombRiceKRange {
 
+    private static final int MAX_LONG_K = Long.SIZE - 1;
+
     record Range(int minK, int maxK, long minimumCodeLength) {
         Range {
             if (minK < 0 || maxK < minK) {
@@ -31,9 +33,7 @@ final class PatentGolombRiceKRange {
 
     static long codeLength(long symbol, int k) {
         requireSymbol(symbol);
-        if (k < 0 || k > 62) {
-            throw new IllegalArgumentException("k must be in 0..62");
-        }
+        requireK(k, "k");
         long quotient = symbol >>> k;
         long suffixAndStop = 1L + k;
         if (quotient > Long.MAX_VALUE - suffixAndStop) {
@@ -44,9 +44,7 @@ final class PatentGolombRiceKRange {
 
     static Range optimalRange(long symbol, int maxK) {
         requireSymbol(symbol);
-        if (maxK < 0 || maxK > 62) {
-            throw new IllegalArgumentException("maxK must be in 0..62");
-        }
+        requireK(maxK, "maxK");
 
         long minimum = Long.MAX_VALUE;
         int minimumK = -1;
@@ -65,6 +63,7 @@ final class PatentGolombRiceKRange {
     }
 
     static int nextK(int currentK, long tentativeNextSymbol, int maxK) {
+        requireK(maxK, "maxK");
         if (currentK < 0 || currentK > maxK) {
             throw new IllegalArgumentException("currentK must be in 0..maxK");
         }
@@ -76,6 +75,12 @@ final class PatentGolombRiceKRange {
             return currentK - 1;
         }
         return currentK;
+    }
+
+    private static void requireK(int k, String name) {
+        if (k < 0 || k > MAX_LONG_K) {
+            throw new IllegalArgumentException(name + " must be in 0.." + MAX_LONG_K);
+        }
     }
 
     private static void requireSymbol(long symbol) {
