@@ -11,6 +11,7 @@ on:
       - 'canon-cr3-codec/**'
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/src/test/resources/**'
+      - 'docs/cr3-results/**'
       - '.github/workflows/cr3-research.yml'
       - 'pom.xml'
   workflow_dispatch:
@@ -55,7 +56,7 @@ jobs:
           -Pcr3-research-it
           -pl canon-cr3-research
           -am
-          -Dit.test=KAdaptationNonZeroDivergenceIT
+          -Dit.test=KTransitionMatrixIT
           -Djava.awt.headless=true
       - name: Run complete research integration profile
         if: ${{ github.event_name != 'pull_request' }}
