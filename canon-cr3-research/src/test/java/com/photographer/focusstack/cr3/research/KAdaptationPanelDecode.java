@@ -19,7 +19,17 @@ final class KAdaptationPanelDecode {
     }
 
     record PlaneResult(int[] pixels, int symbolsDecoded, boolean exhausted) {}
-    record ImageResult(int[] pixels, double completion, boolean exhausted) {}
+
+    record StreamResult(int tileSequence, int planeIndex,
+                        int symbolsDecoded, long capacity,
+                        boolean exhausted) {
+        double completion() {
+            return capacity == 0 ? 0.0 : (double) symbolsDecoded / capacity;
+        }
+    }
+
+    record ImageResult(int[] pixels, double completion, boolean exhausted,
+                       List<StreamResult> streams) {}
 
     private KAdaptationPanelDecode() {}
 
@@ -38,6 +48,7 @@ final class KAdaptationPanelDecode {
         int planeWidth = (imageWidth + 1) / 2;
         int planeHeight = (imageHeight + 1) / 2;
         int[][] planes = new int[4][planeWidth * planeHeight];
+        List<StreamResult> streams = new ArrayList<>(refs.size());
         int xOffset = 0;
         int tileOrdinal = 0;
         long symbols = 0;
@@ -61,8 +72,13 @@ final class KAdaptationPanelDecode {
                     System.arraycopy(result.pixels(), y * width,
                             planes[ref.planeIndex()], y * planeWidth + xOffset, width);
                 }
+                long streamCapacity = (long) width * height;
+                streams.add(new StreamResult(
+                        ref.tileSequence(), ref.planeIndex(),
+                        result.symbolsDecoded(), streamCapacity,
+                        result.exhausted()));
                 symbols += result.symbolsDecoded();
-                capacity += (long) width * height;
+                capacity += streamCapacity;
                 exhausted |= result.exhausted();
             }
             xOffset += width;
@@ -72,7 +88,7 @@ final class KAdaptationPanelDecode {
         return new ImageResult(interleave(planes, imageWidth, imageHeight,
                         planeWidth, planeHeight),
                 capacity == 0 ? 0.0 : (double) symbols / capacity,
-                exhausted);
+                exhausted, List.copyOf(streams));
     }
 
     private static int[] interleave(int[][] planes, int width, int height,
