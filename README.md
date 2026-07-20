@@ -8,7 +8,7 @@
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
 [![GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?style=flat-square)](https://github.com/carstenartur/Photographer/releases)
 
-Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automated focus stacking, timelapse, and AI-assisted image analysis. It connects to Canon cameras via CCAPI, provides a React/Vite frontend, and is extensible through a ServiceLoader-based plugin architecture.
+Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automated focus stacking, timelapse, and AI-assisted image analysis. It connects to Canon cameras via CCAPI and USB/PTP, provides a React/Vite frontend, and is extensible through a ServiceLoader-based plugin architecture.
 
 > **Note:** This project uses Java 25 and Spring Boot 4, which are recent releases. An up-to-date toolchain is required (JDK 25, Maven 3.9+).
 
@@ -20,7 +20,8 @@ Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automa
 - PTP/USB camera backend (`camera-ptp`)
 
 **Imaging & AI**
-- Adaptive focus stacking with Canon CR3 decoding pipeline
+- Adaptive focus-stacking capture with CR3 media ingestion
+- CR3 container/metadata support and an explicitly experimental clean-room CRX RAW decoder
 - HDR timelapse capture and merging
 - Face-orbit multi-angle capture sessions
 - Astro (long-exposure) session management
@@ -107,9 +108,9 @@ graph TD
 | `observer-core` | Wildlife observer workflow. |
 | `ai-vision` | AI vision abstraction (`VisionProvider` interface, Gemini + mock implementations). |
 | `astro-core` | Astro/long-exposure session management. |
-| `canon-cr3-core` | Canon CR3 BMFF parser and CRX entropy codec. |
+| `canon-cr3-core` | Canon CR3 BMFF parser, metadata facade and experimental CRX codec APIs. |
 | `canon-cr3-imageio` | Java ImageIO plugin for CR3 files. |
-| `canon-cr3-cli` | CLI tooling for CR3 inspection and decoding. |
+| `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
 
 ## Quickstart (Docker)
@@ -231,14 +232,12 @@ Set `OBSERVER_AI_PROVIDER=gemini` and provide `GEMINI_API_KEY` to enable live an
 
 See [`ai-vision/README.md`](ai-vision/README.md) for full configuration details.
 
-## Supported Cameras
+## Hardware-backed camera evidence
 
-Tested CCAPI models:
+- **Canon PowerShot G5 X Mark II:** CCAPI live view, capture, focus drive and manual focus-stacking flow; USB/PTP CR3 fixture capture.
+- **Canon EOS R:** USB/PTP CR3 capture with committed ISO variants and external reference outputs.
 
-- Canon PowerShot G5 X Mark II
-- Canon EOS R
-
-Other Canon cameras that support CCAPI may work but are not officially verified. See [docs/camera-setup.md](docs/camera-setup.md) for setup instructions.
+Other compatible Canon cameras may work but are not officially verified. See [docs/camera-setup.md](docs/camera-setup.md) and the model/firmware evidence issues for the exact support boundary.
 
 ## Reports & Benchmarks
 
@@ -256,10 +255,13 @@ Published to GitHub Pages after each push to `main`:
 - [REST API Reference](docs/api.md)
 - [Test Strategy](docs/test-strategy.md)
 - [Camera Setup](docs/camera-setup.md)
+- [CR3 / CRX clean-room engineering record](docs/cleanroom/README.md)
 
 ## Contributing
 
 Contributions are welcome. Please open an issue or pull request on GitHub. There is no formal CLA; by submitting a PR you agree to license your contribution under the MIT License.
+
+Changes to CR3/CRX container, entropy, predictor, wavelet, dequantisation or assembly semantics must also include the [clean-room contributor attestation](docs/cleanroom/contributor-attestation.md) and cite registered sources plus project-owned evidence.
 
 ## License
 
