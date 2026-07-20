@@ -68,7 +68,7 @@ r = read K-bit remainder
 S = (q << K) | r
 ```
 
-The concrete unary digit convention and any CRX escape/run-length mode still require payload validation. Generic Golomb-Rice background alone does not establish CRX bit ordering.
+`FIRST_PARTY_OBSERVATION`: fixture statistics and the current `BitReader` path support MSB-first processing with no JPEG-style byte stuffing (H5 in `canon-cr3-core/SubbandFixtures.md`). The exact unary digit/stop convention and any CRX escape or run-length mode remain unresolved; the patent alone does not establish those concrete payload semantics.
 
 ### 4.2 Exact optimal K range
 
