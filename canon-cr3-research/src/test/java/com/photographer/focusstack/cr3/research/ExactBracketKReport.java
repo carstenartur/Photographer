@@ -10,7 +10,10 @@ final class ExactBracketKReport {
     record Fixture(String name,
                    KAdaptationPanelMetrics.Result d8,
                    KAdaptationPanelMetrics.Result exact,
-                   long bracketDifferences) {
+                   long bracketDifferences,
+                   int regressedStreams,
+                   int newlyExhaustedStreams,
+                   int recoveredStreams) {
     }
 
     record Family(String name,
@@ -23,6 +26,9 @@ final class ExactBracketKReport {
     record Verdict(String state,
                    int improvedFixtures,
                    int recoveredFixtures,
+                   int regressedStreams,
+                   int newlyExhaustedStreams,
+                   int recoveredStreams,
                    double d8Mae, double exactMae,
                    double d8ObMae, double exactObMae,
                    double d8Boundary, double exactBoundary,
@@ -45,7 +51,10 @@ final class ExactBracketKReport {
                 .append("optimum K bracket.\n\n")
                 .append("## Verdict: **").append(verdict.state()).append("**\n\n")
                 .append("- improved fixtures: ").append(verdict.improvedFixtures()).append('\n')
-                .append("- recovered fixtures/streams: ").append(verdict.recoveredFixtures()).append('\n')
+                .append("- recovered fixtures: ").append(verdict.recoveredFixtures()).append('\n')
+                .append("- regressed tile/plane streams: ").append(verdict.regressedStreams()).append('\n')
+                .append("- newly exhausted tile/plane streams: ").append(verdict.newlyExhaustedStreams()).append('\n')
+                .append("- recovered tile/plane streams: ").append(verdict.recoveredStreams()).append('\n')
                 .append("- exact-vs-D8 K decisions: ").append(verdict.bracketDifferences()).append('\n')
                 .append("- median global MAE D8/exact: ")
                 .append(fmt(verdict.d8Mae())).append(" / ")
@@ -78,19 +87,21 @@ final class ExactBracketKReport {
         }
 
         out.append("\n## Fixture metrics\n\n")
-                .append("| Fixture | Rule | MAE | RMSE | Pearson | OB MAE | Boundary | Saturation | Completion | Exhausted | K differences |\n")
-                .append("|---|---|---:|---:|---:|---:|---:|---:|---:|:---:|---:|\n");
+                .append("| Fixture | Rule | MAE | RMSE | Pearson | OB MAE | Boundary | Saturation | Completion | Exhausted | K differences | Stream regressions | New exhaustions | Recoveries |\n")
+                .append("|---|---|---:|---:|---:|---:|---:|---:|---:|:---:|---:|---:|---:|---:|\n");
         for (Fixture fixture : fixtures) {
-            row(out, fixture.name(), "D8_ZERO_CONTRACT", fixture.d8(), 0);
+            row(out, fixture.name(), "D8_ZERO_CONTRACT", fixture.d8(),
+                    0, 0, 0, 0);
             row(out, fixture.name(), "D12_EXACT_BRACKET", fixture.exact(),
-                    fixture.bracketDifferences());
+                    fixture.bracketDifferences(), fixture.regressedStreams(),
+                    fixture.newlyExhaustedStreams(), fixture.recoveredStreams());
         }
         return out.toString();
     }
 
     static String tsv(List<Fixture> fixtures) {
         StringBuilder out = new StringBuilder(
-                "fixture\trule\tmae\trmse\tpearson\tobMae\tboundary\tsaturation\tcompletion\texhausted\tbracketDifferences");
+                "fixture\trule\tmae\trmse\tpearson\tobMae\tboundary\tsaturation\tcompletion\texhausted\tbracketDifferences\tregressedStreams\tnewlyExhaustedStreams\trecoveredStreams");
         for (int plane = 0; plane < 4; plane++) {
             out.append("\tp").append(plane).append("Mae")
                     .append("\tp").append(plane).append("Rmse")
@@ -98,9 +109,11 @@ final class ExactBracketKReport {
         }
         out.append('\n');
         for (Fixture fixture : fixtures) {
-            tsvRow(out, fixture.name(), "D8_ZERO_CONTRACT", fixture.d8(), 0);
+            tsvRow(out, fixture.name(), "D8_ZERO_CONTRACT", fixture.d8(),
+                    0, 0, 0, 0);
             tsvRow(out, fixture.name(), "D12_EXACT_BRACKET", fixture.exact(),
-                    fixture.bracketDifferences());
+                    fixture.bracketDifferences(), fixture.regressedStreams(),
+                    fixture.newlyExhaustedStreams(), fixture.recoveredStreams());
         }
         return out.toString();
     }
@@ -112,6 +125,12 @@ final class ExactBracketKReport {
                 .append(verdict.improvedFixtures())
                 .append(",\n  \"recoveredFixtures\": ")
                 .append(verdict.recoveredFixtures())
+                .append(",\n  \"regressedStreams\": ")
+                .append(verdict.regressedStreams())
+                .append(",\n  \"newlyExhaustedStreams\": ")
+                .append(verdict.newlyExhaustedStreams())
+                .append(",\n  \"recoveredStreams\": ")
+                .append(verdict.recoveredStreams())
                 .append(",\n  \"bracketDifferences\": ")
                 .append(verdict.bracketDifferences())
                 .append(",\n  \"completionGate\": ")
@@ -140,23 +159,33 @@ final class ExactBracketKReport {
         boolean first = true;
         for (Fixture fixture : fixtures) {
             first = jsonRow(out, first, fixture.name(), "D8_ZERO_CONTRACT",
-                    fixture.d8(), 0);
+                    fixture.d8(), 0, 0, 0, 0);
             first = jsonRow(out, first, fixture.name(), "D12_EXACT_BRACKET",
-                    fixture.exact(), fixture.bracketDifferences());
+                    fixture.exact(), fixture.bracketDifferences(),
+                    fixture.regressedStreams(), fixture.newlyExhaustedStreams(),
+                    fixture.recoveredStreams());
         }
         return out.append("\n  ]\n}\n").toString();
     }
 
     static Verdict verdict(List<Fixture> fixtures) {
         int improved = 0;
-        int recovered = 0;
+        int recoveredFixtures = 0;
+        int regressedStreams = 0;
+        int newlyExhaustedStreams = 0;
+        int recoveredStreams = 0;
         boolean completionOkay = true;
         long differences = 0;
         for (Fixture fixture : fixtures) {
             differences += fixture.bracketDifferences();
+            regressedStreams += fixture.regressedStreams();
+            newlyExhaustedStreams += fixture.newlyExhaustedStreams();
+            recoveredStreams += fixture.recoveredStreams();
             boolean completionRegression = fixture.exact().completion() + 1e-12
                     < fixture.d8().completion()
-                    || (fixture.exact().exhausted() && !fixture.d8().exhausted());
+                    || (fixture.exact().exhausted() && !fixture.d8().exhausted())
+                    || fixture.regressedStreams() > 0
+                    || fixture.newlyExhaustedStreams() > 0;
             if (completionRegression) {
                 completionOkay = false;
             }
@@ -164,8 +193,9 @@ final class ExactBracketKReport {
                 improved++;
             }
             if (fixture.exact().completion() > fixture.d8().completion() + 1e-12
-                    || (!fixture.exact().exhausted() && fixture.d8().exhausted())) {
-                recovered++;
+                    || (!fixture.exact().exhausted() && fixture.d8().exhausted())
+                    || fixture.recoveredStreams() > 0) {
+                recoveredFixtures++;
             }
         }
 
@@ -192,13 +222,14 @@ final class ExactBracketKReport {
                 && nonRegressing(exactSaturation, d8Saturation);
         List<Family> families = families(fixtures);
         boolean familyGate = families.stream().allMatch(Family::nonRegressing);
-        boolean enoughEvidence = improved >= 2 || recovered >= 1;
+        boolean enoughEvidence = improved >= 2 || recoveredFixtures >= 1;
         String state = completionOkay && corpusGate && familyGate && enoughEvidence
                 ? "SUPPORTED"
-                : improved > 0 || recovered > 0
+                : improved > 0 || recoveredFixtures > 0
                 ? "PARTIAL"
                 : "REJECTED";
-        return new Verdict(state, improved, recovered,
+        return new Verdict(state, improved, recoveredFixtures,
+                regressedStreams, newlyExhaustedStreams, recoveredStreams,
                 d8Mae, exactMae, d8Ob, exactOb,
                 d8Boundary, exactBoundary,
                 d8Saturation, exactSaturation,
@@ -283,7 +314,10 @@ final class ExactBracketKReport {
 
     private static void row(StringBuilder out, String fixture, String rule,
                             KAdaptationPanelMetrics.Result value,
-                            long bracketDifferences) {
+                            long bracketDifferences,
+                            int regressedStreams,
+                            int newlyExhaustedStreams,
+                            int recoveredStreams) {
         out.append("| `").append(fixture).append("` | ").append(rule)
                 .append(" | ").append(fmt(value.global().mae()))
                 .append(" | ").append(fmt(value.global().rmse()))
@@ -293,12 +327,18 @@ final class ExactBracketKReport {
                 .append(" | ").append(fmt(value.saturation()))
                 .append(" | ").append(fmt(value.completion()))
                 .append(" | ").append(value.exhausted() ? "yes" : "no")
-                .append(" | ").append(bracketDifferences).append(" |\n");
+                .append(" | ").append(bracketDifferences)
+                .append(" | ").append(regressedStreams)
+                .append(" | ").append(newlyExhaustedStreams)
+                .append(" | ").append(recoveredStreams).append(" |\n");
     }
 
     private static void tsvRow(StringBuilder out, String fixture, String rule,
                                KAdaptationPanelMetrics.Result value,
-                               long bracketDifferences) {
+                               long bracketDifferences,
+                               int regressedStreams,
+                               int newlyExhaustedStreams,
+                               int recoveredStreams) {
         out.append(fixture).append('\t').append(rule).append('\t')
                 .append(value.global().mae()).append('\t')
                 .append(value.global().rmse()).append('\t')
@@ -308,7 +348,10 @@ final class ExactBracketKReport {
                 .append(value.saturation()).append('\t')
                 .append(value.completion()).append('\t')
                 .append(value.exhausted()).append('\t')
-                .append(bracketDifferences);
+                .append(bracketDifferences).append('\t')
+                .append(regressedStreams).append('\t')
+                .append(newlyExhaustedStreams).append('\t')
+                .append(recoveredStreams);
         for (KAdaptationPanelMetrics.Metric plane : value.planes()) {
             out.append('\t').append(plane.mae())
                     .append('\t').append(plane.rmse())
@@ -320,7 +363,10 @@ final class ExactBracketKReport {
     private static boolean jsonRow(StringBuilder out, boolean first,
                                    String fixture, String rule,
                                    KAdaptationPanelMetrics.Result value,
-                                   long bracketDifferences) {
+                                   long bracketDifferences,
+                                   int regressedStreams,
+                                   int newlyExhaustedStreams,
+                                   int recoveredStreams) {
         if (!first) {
             out.append(",\n");
         }
@@ -335,6 +381,9 @@ final class ExactBracketKReport {
                 .append(",\"completion\":").append(number(value.completion()))
                 .append(",\"exhausted\":").append(value.exhausted())
                 .append(",\"bracketDifferences\":").append(bracketDifferences)
+                .append(",\"regressedStreams\":").append(regressedStreams)
+                .append(",\"newlyExhaustedStreams\":").append(newlyExhaustedStreams)
+                .append(",\"recoveredStreams\":").append(recoveredStreams)
                 .append(",\"planes\":[");
         for (int index = 0; index < value.planes().size(); index++) {
             if (index > 0) {
