@@ -41,8 +41,32 @@ final class KAdaptationStateTracer {
     private KAdaptationStateTracer() {
     }
 
+    /**
+     * Fully decodes the plane while retaining at most {@code traceLimit} trace entries.
+     * Used by unit tests that prove the observer does not alter decoder output.
+     */
     static Result decode(byte[] payload, int width, int height, int bitDepth,
                          Rule rule, int traceLimit) {
+        return decodeInternal(payload, width, height, bitDepth,
+                rule, traceLimit, false);
+    }
+
+    /**
+     * Decodes only the first {@code symbolLimit} symbols. D9 needs the first
+     * divergence, not a complete sensor-plane reconstruction.
+     */
+    static Result decodePrefix(byte[] payload, int width, int height, int bitDepth,
+                               Rule rule, int symbolLimit) {
+        if (symbolLimit <= 0) {
+            throw new IllegalArgumentException("symbolLimit must be positive");
+        }
+        return decodeInternal(payload, width, height, bitDepth,
+                rule, symbolLimit, true);
+    }
+
+    private static Result decodeInternal(byte[] payload, int width, int height,
+                                         int bitDepth, Rule rule, int traceLimit,
+                                         boolean stopAtTraceLimit) {
         int[] pixels = new int[width * height];
         int max = (1 << bitDepth) - 1;
         CountingBits bits = new CountingBits(payload);
@@ -58,6 +82,11 @@ final class KAdaptationStateTracer {
             long sampleCount = 1;
             int zeroRun = 0;
             for (int x = 0; x < width; x++) {
+                if (stopAtTraceLimit && symbols >= traceLimit) {
+                    traceTruncated = true;
+                    break outer;
+                }
+
                 int predictor = predictor(pixels, width, x, y);
                 int kBefore = k;
                 long accumulatorBefore = accumulator;
@@ -76,7 +105,9 @@ final class KAdaptationStateTracer {
                     int value = clamp(predictor, max);
                     pixels[y * width + x] = value;
                     if (!bits.hasMore()) {
-                        pad(pixels, width, height, x, y, value);
+                        if (!stopAtTraceLimit) {
+                            pad(pixels, width, height, x, y, value);
+                        }
                         break outer;
                     }
                     continue;
