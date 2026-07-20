@@ -55,6 +55,13 @@ class PatentGolombRiceKRangeTest {
     }
 
     @Test
+    void supportsTheCompleteNonNegativeLongKDomain() {
+        assertThat(PatentGolombRiceKRange.codeLength(0, 63)).isEqualTo(64);
+        assertThat(PatentGolombRiceKRange.optimalRange(Long.MAX_VALUE, 63))
+                .isEqualTo(new PatentGolombRiceKRange.Range(62, 63, 64));
+    }
+
+    @Test
     void calculatesCodeLengthFromUnaryPrefixStopBitAndSuffix() {
         assertThat(PatentGolombRiceKRange.codeLength(6, 0)).isEqualTo(7);
         assertThat(PatentGolombRiceKRange.codeLength(6, 1)).isEqualTo(5);
@@ -68,7 +75,7 @@ class PatentGolombRiceKRangeTest {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> PatentGolombRiceKRange.optimalRange(-1, 15));
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> PatentGolombRiceKRange.optimalRange(0, 63));
+                .isThrownBy(() -> PatentGolombRiceKRange.optimalRange(0, 64));
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> PatentGolombRiceKRange.nextK(16, 0, 15));
     }
