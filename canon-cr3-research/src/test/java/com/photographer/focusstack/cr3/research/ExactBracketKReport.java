@@ -335,7 +335,19 @@ final class ExactBracketKReport {
                 .append(",\"completion\":").append(number(value.completion()))
                 .append(",\"exhausted\":").append(value.exhausted())
                 .append(",\"bracketDifferences\":").append(bracketDifferences)
-                .append('}');
+                .append(",\"planes\":[");
+        for (int index = 0; index < value.planes().size(); index++) {
+            if (index > 0) {
+                out.append(',');
+            }
+            KAdaptationPanelMetrics.Metric plane = value.planes().get(index);
+            out.append("{\"plane\":").append(index)
+                    .append(",\"mae\":").append(number(plane.mae()))
+                    .append(",\"rmse\":").append(number(plane.rmse()))
+                    .append(",\"pearson\":").append(number(plane.pearson()))
+                    .append('}');
+        }
+        out.append("]}");
         return false;
     }
 
