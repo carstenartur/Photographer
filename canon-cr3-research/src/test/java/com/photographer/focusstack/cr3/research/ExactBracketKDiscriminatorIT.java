@@ -72,6 +72,7 @@ class ExactBracketKDiscriminatorIT {
                             result.pixels(), result.symbolsDecoded(),
                             result.exhausted());
                 });
+        StreamComparison streamComparison = compareStreams(d8, exact);
 
         return new ExactBracketKReport.Fixture(
                 KAdaptationFixtureSet.name(SAMPLES, fixture),
@@ -79,7 +80,38 @@ class ExactBracketKDiscriminatorIT {
                         reference, d8, structure.cmp1(), structure.iad1()),
                 KAdaptationPanelMetrics.evaluate(
                         reference, exact, structure.cmp1(), structure.iad1()),
-                differences[0]);
+                differences[0],
+                streamComparison.regressed(),
+                streamComparison.newlyExhausted(),
+                streamComparison.recovered());
+    }
+
+    private static StreamComparison compareStreams(
+            KAdaptationPanelDecode.ImageResult d8,
+            KAdaptationPanelDecode.ImageResult exact) {
+        assertThat(exact.streams()).hasSameSizeAs(d8.streams());
+        int regressed = 0;
+        int newlyExhausted = 0;
+        int recovered = 0;
+        for (int index = 0; index < d8.streams().size(); index++) {
+            KAdaptationPanelDecode.StreamResult baseline = d8.streams().get(index);
+            KAdaptationPanelDecode.StreamResult candidate = exact.streams().get(index);
+            assertThat(candidate.tileSequence()).isEqualTo(baseline.tileSequence());
+            assertThat(candidate.planeIndex()).isEqualTo(baseline.planeIndex());
+            assertThat(candidate.capacity()).isEqualTo(baseline.capacity());
+
+            if (candidate.completion() + 1e-12 < baseline.completion()) {
+                regressed++;
+            }
+            if (candidate.exhausted() && !baseline.exhausted()) {
+                newlyExhausted++;
+            }
+            if (candidate.completion() > baseline.completion() + 1e-12
+                    || (!candidate.exhausted() && baseline.exhausted())) {
+                recovered++;
+            }
+        }
+        return new StreamComparison(regressed, newlyExhausted, recovered);
     }
 
     private static KAdaptationPanelDecode.PlaneResult decodeD8Plane(
@@ -89,5 +121,10 @@ class ExactBracketKDiscriminatorIT {
                         payload, width, height, bitDepth);
         return new KAdaptationPanelDecode.PlaneResult(
                 result.pixels(), result.symbolsDecoded(), result.exhausted());
+    }
+
+    private record StreamComparison(int regressed,
+                                    int newlyExhausted,
+                                    int recovered) {
     }
 }
