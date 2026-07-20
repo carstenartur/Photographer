@@ -74,13 +74,29 @@
       "oneChangedVariable": "No decoder variable changed; observe HYBRID and D8 state through the first non-zero divergence",
       "fixedInputs": "eosr-iso-low.cr3, g5xm2-asis-iso200-ss130-ff2p5-01.cr3 and sample-iso-high.cr3",
       "implementationScope": "canon-cr3-research instrumentation only",
-      "commit": "25091ed8a619b0d2a29fd1c4278a808d30cc7320",
+      "commit": "2b3a945ed41076cb37289bfec058eb1d696a00bf",
+      "workflowRun": 29771321438,
+      "artifactDigest": "sha256:d1b44e42279219959b999ecdf296e1f0cb269d0fb1aeafe04b855370178d9249",
+      "durableReport": "docs/cr3-results/2026-07-20-D9-first-nonzero-k-divergence.md",
+      "verdict": "COMPLETE: NO_COMMON_CAUSE across the three fixed outcome representatives",
+      "productionDecision": "No production decoder change; select observation-only D10 transition matrix",
+      "status": "complete"
+    },
+    {
+      "id": "D10",
+      "title": "K-transition disagreement and decoder-outcome matrix",
+      "issue": 232,
+      "sourceIds": ["SRC-007", "SRC-008", "SRC-009"],
+      "oneChangedVariable": "No decoder variable changed; correlate unchanged HYBRID/D8 transition classes with fixed D8 outcome metrics",
+      "fixedInputs": "Explicit eleven-fixture lossless CR3 panel and durable D8 outcome metrics",
+      "implementationScope": "canon-cr3-research instrumentation and deterministic reporting only",
+      "commit": null,
       "workflowRun": null,
       "artifactDigest": null,
       "durableReport": null,
-      "verdict": "PENDING",
-      "productionDecision": "Blocked pending observation and common-cause classification",
-      "status": "running"
+      "verdict": "PLANNED",
+      "productionDecision": "Blocked pending transition/outcome association evidence",
+      "status": "planned"
     }
   ]
 }
