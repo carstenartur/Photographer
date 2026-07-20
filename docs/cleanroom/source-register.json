@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "SRC-001",
+      "class": "public-specification",
+      "title": "Canon patent application US 2016/0323602 A1",
+      "citation": "US 2016/0323602 A1, Image processing apparatus, image processing method, and storage medium",
+      "verifiedDate": "2026-05-14",
+      "permittedUse": "Algorithm-family and structural hypotheses for wavelet, prediction and Golomb-Rice coding",
+      "prohibitedUse": "Treating patent embodiments as proof of exact CRX on-disk semantics without fixture validation",
+      "repositoryEvidence": [
+        "docs/patent-us20160323602a1-analysis.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-002",
+      "class": "public-specification",
+      "title": "ITU-T T.87 / ISO/IEC 14495-1 JPEG-LS",
+      "citation": "Lossless and near-lossless compression of continuous-tone still images",
+      "verifiedDate": "2026-05-14",
+      "permittedUse": "Public MED-predictor and Golomb coding background",
+      "prohibitedUse": "Assuming CRX equals JPEG-LS without project evidence",
+      "repositoryEvidence": [
+        "docs/crx-cleanroom-spec.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-003",
+      "class": "public-specification",
+      "title": "ITU-T T.800 / ISO/IEC 15444-1 JPEG 2000",
+      "citation": "JPEG 2000 core coding system",
+      "verifiedDate": "2026-05-14",
+      "permittedUse": "Public wavelet terminology and reversible 5/3 transform background",
+      "prohibitedUse": "Assuming CRX packet syntax or coefficients follow JPEG 2000",
+      "repositoryEvidence": [
+        "docs/crx-cleanroom-spec.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-004",
+      "class": "public-specification",
+      "title": "ISO Base Media File Format",
+      "citation": "ISO/IEC 14496-12",
+      "verifiedDate": "2026-05-14",
+      "permittedUse": "Container box and track structure",
+      "prohibitedUse": "Inferring Canon-private payload semantics from generic boxes",
+      "repositoryEvidence": [
+        "canon-cr3-container"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-005",
+      "class": "public-specification",
+      "title": "Exif 2.3",
+      "citation": "Exchangeable image file format for digital still cameras",
+      "verifiedDate": "2026-05-14",
+      "permittedUse": "Metadata tag interpretation",
+      "prohibitedUse": "Using metadata values as unvalidated entropy-decoder rules",
+      "repositoryEvidence": [
+        "canon-cr3-metadata"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-006",
+      "class": "public-specification",
+      "title": "Canon Camera Control API Reference",
+      "citation": "Canon Camera Control API Reference, version 1.4.0",
+      "verifiedDate": "2026-07-20",
+      "permittedUse": "Camera-control API paths, methods, abilities and error semantics",
+      "prohibitedUse": "Treating CCAPI documentation as CRX codec documentation",
+      "repositoryEvidence": [
+        "docs/canon-ccapi-native-focus-sequence.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-007",
+      "class": "first-party-observation",
+      "title": "PowerShot G5 X Mark II CR3 research fixtures",
+      "citation": "Captured over project USB/PTP integration tests with recorded settings",
+      "verifiedDate": "2026-05-18",
+      "permittedUse": "Container, metadata, entropy and image-reference experiments",
+      "prohibitedUse": "Publishing private image content not already approved for repository release",
+      "repositoryEvidence": [
+        "camera-ptp/src/test/java/com/photographer/ptp/integration/CleanroomCr3FixtureCaptureIT.java",
+        "canon-cr3-imageio/src/test/resources/samples/research/manifest.tsv",
+        "canon-cr3-imageio/src/test/resources/samples/research/README.md"
+      ],
+      "integrity": {
+        "algorithm": "manifest-defined",
+        "digest": "see canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
+      }
+    },
+    {
+      "id": "SRC-008",
+      "class": "first-party-observation",
+      "title": "Canon EOS R CR3 ISO fixture series",
+      "citation": "Captured through EosRSampleCaptureIT over the production USB/PTP backend",
+      "verifiedDate": "2026-07-20",
+      "permittedUse": "Cross-camera CR3 structure and decoder experiments",
+      "prohibitedUse": "Inferring unsupported models or firmware behavior",
+      "repositoryEvidence": [
+        "app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/EosRSampleCaptureIT.java",
+        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "individual fixture hashes are recorded in reference-manifest.json"
+      }
+    },
+    {
+      "id": "SRC-009",
+      "class": "black-box-reference",
+      "title": "LibRaw reference TIFF and PNG outputs",
+      "citation": "rawpy 0.27.0 / LibRaw 0.22.1",
+      "verifiedDate": "2026-07-20",
+      "permittedUse": "Expected decoded pixels and rendered previews for metric comparison",
+      "prohibitedUse": "Consulting LibRaw source or translating its CRX implementation",
+      "repositoryEvidence": [
+        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
+        "docs/cr3-reference-inventory.md"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "input and reference records are bound by the repository manifest"
+      }
+    }
+  ]
+}

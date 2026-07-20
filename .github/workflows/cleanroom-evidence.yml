@@ -1,0 +1,61 @@
+name: CR3 Clean-room Evidence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/cleanroom/**'
+      - 'docs/cr3-results/**'
+      - 'scripts/validate_cleanroom_evidence.py'
+      - 'scripts/test_validate_cleanroom_evidence.py'
+      - 'scripts/build_cleanroom_evidence_bundle.py'
+      - 'scripts/test_build_cleanroom_evidence_bundle.py'
+      - '.github/workflows/cleanroom-evidence.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/cleanroom/**'
+      - 'docs/cr3-results/**'
+      - 'scripts/validate_cleanroom_evidence.py'
+      - 'scripts/test_validate_cleanroom_evidence.py'
+      - 'scripts/build_cleanroom_evidence_bundle.py'
+      - 'scripts/test_build_cleanroom_evidence_bundle.py'
+      - '.github/workflows/cleanroom-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cleanroom-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate and bundle provenance evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Test evidence tooling
+        run: |
+          python3 scripts/test_validate_cleanroom_evidence.py
+          python3 scripts/test_build_cleanroom_evidence_bundle.py
+
+      - name: Validate repository evidence
+        run: python3 scripts/validate_cleanroom_evidence.py .
+
+      - name: Build deterministic evidence bundle
+        run: python3 scripts/build_cleanroom_evidence_bundle.py .
+
+      - name: Upload evidence bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: cr3-cleanroom-evidence
+          path: |
+            target/cleanroom-evidence/cleanroom-evidence.zip
+            target/cleanroom-evidence/cleanroom-evidence.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
