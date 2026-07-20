@@ -27,11 +27,19 @@ final class ZeroContractedBracketDecoder {
                     unsigned = read(bits, k);
                 } catch (IOException | UnaryOverflow failure) {
                     exhausted = true;
+                    unsigned = 0;
+                }
+
+                if (exhausted && unsigned == 0) {
                     int value = clamp(predictor, max);
                     pixels[y * width + x] = value;
-                    pad(pixels, width, height, x, y, value);
-                    break outer;
+                    if (!bits.hasMore()) {
+                        pad(pixels, width, height, x, y, value);
+                        break outer;
+                    }
+                    continue;
                 }
+
                 int magnitude = unsigned >>> 1;
                 int signed = (unsigned & 1) == 0 ? magnitude : -magnitude;
                 pixels[y * width + x] = clamp(predictor + signed, max);
