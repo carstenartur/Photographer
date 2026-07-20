@@ -113,6 +113,22 @@
       "verdict": "COMPLETE: EXACT_CANDIDATE_AVAILABLE for the finite-domain Golomb-Rice code-length bracket and one-step update only",
       "productionDecision": "No production decoder change; authorize only the predeclared D12 test-scope exact-bracket discriminator in issue 236",
       "status": "complete"
+    },
+    {
+      "id": "D12",
+      "title": "Exact Golomb-Rice code-length K bracket discriminator",
+      "issue": 236,
+      "sourceIds": ["SRC-001", "SRC-007", "SRC-008", "SRC-009"],
+      "oneChangedVariable": "Replace only D8's approximate non-zero K range with the exact finite-domain argmin of L(S,K) = (S >> K) + 1 + K",
+      "fixedInputs": "Explicit eleven-fixture lossless CR3 panel with the same reference images and D8 decoder boundary",
+      "implementationScope": "canon-cr3-research test scope only; production decoder unchanged",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": null,
+      "durableReport": "docs/cr3-results/2026-07-20-D12-exact-k-bracket.md",
+      "verdict": "PENDING: predeclared corpus, family and tile/plane completion gates not yet evaluated",
+      "productionDecision": "Blocked until fixed-panel execution, review and clean-room evidence binding",
+      "status": "running"
     }
   ]
 }
