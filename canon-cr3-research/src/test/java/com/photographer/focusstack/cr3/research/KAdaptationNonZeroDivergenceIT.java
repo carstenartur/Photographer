@@ -181,10 +181,11 @@ class KAdaptationNonZeroDivergenceIT {
                     && left.predictor() == right.predictor()
                     && left.reconstructed() == right.reconstructed();
 
+            // D9 deliberately observes the first non-zero divergence. Identically
+            // parsed zero symbols are context even when their K-after decisions differ.
             if (left.unsignedSymbol() == 0
                     && right.unsignedSymbol() == 0
-                    && sameParsedState
-                    && left.kAfter() == right.kAfter()) {
+                    && sameParsedState) {
                 continue;
             }
 
