@@ -2,7 +2,7 @@ package com.photographer.focusstack.cr3.research;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,8 +44,19 @@ final class KTransitionMatrixReport {
                        List<String> supportingFixtures,
                        List<String> contradictingFixtures) {
         boolean predictive() {
-            return support >= 2 && completeImprovementContradictions == 0;
+            return selectableFailureOutcome(outcomeClass)
+                    && support >= 2
+                    && completeImprovementContradictions == 0;
         }
+    }
+
+    record AggregateCell(boolean zeroSymbol,
+                         TransitionClass transition,
+                         long count) {
+    }
+
+    private record AggregateKey(boolean zeroSymbol,
+                                TransitionClass transition) {
     }
 
     private KTransitionMatrixReport() {
@@ -69,9 +80,8 @@ final class KTransitionMatrixReport {
             if (!isCandidateTransition(transition)) {
                 continue;
             }
-            for (D8OutcomeTable.OutcomeClass outcomeClass : List.of(
-                    D8OutcomeTable.OutcomeClass.COMPLETION_REGRESSION,
-                    D8OutcomeTable.OutcomeClass.COMPLETE_GLOBAL_REGRESSION)) {
+            for (D8OutcomeTable.OutcomeClass outcomeClass
+                    : D8OutcomeTable.OutcomeClass.values()) {
                 List<String> support = new ArrayList<>();
                 List<String> contradictions = new ArrayList<>();
                 for (Fixture fixture : fixtures) {
@@ -91,6 +101,13 @@ final class KTransitionMatrixReport {
             }
         }
         return List.copyOf(output);
+    }
+
+    private static boolean selectableFailureOutcome(
+            D8OutcomeTable.OutcomeClass outcomeClass) {
+        return outcomeClass == D8OutcomeTable.OutcomeClass.COMPLETION_REGRESSION
+                || outcomeClass
+                == D8OutcomeTable.OutcomeClass.COMPLETE_GLOBAL_REGRESSION;
     }
 
     private static boolean isCandidateTransition(TransitionClass transition) {
@@ -113,14 +130,40 @@ final class KTransitionMatrixReport {
                         && cell.count() > 0);
     }
 
+    static List<AggregateCell> aggregateCells(List<Fixture> fixtures) {
+        Map<AggregateKey, Long> totals = new LinkedHashMap<>();
+        for (boolean zeroSymbol : List.of(true, false)) {
+            for (TransitionClass transition : TransitionClass.values()) {
+                totals.put(new AggregateKey(zeroSymbol, transition), 0L);
+            }
+        }
+        for (Fixture fixture : fixtures) {
+            for (Cell cell : fixture.cells()) {
+                totals.merge(new AggregateKey(cell.zeroSymbol(), cell.transition()),
+                        cell.count(), Long::sum);
+            }
+        }
+        return totals.entrySet().stream()
+                .filter(entry -> entry.getValue() > 0)
+                .map(entry -> new AggregateCell(
+                        entry.getKey().zeroSymbol(),
+                        entry.getKey().transition(),
+                        entry.getValue()))
+                .toList();
+    }
+
     static String markdown(List<Fixture> fixtures,
                            List<Association> associations) {
         String selected = selectedNextCause(associations);
+        long corpusAlignedSymbols = fixtures.stream()
+                .mapToLong(Fixture::alignedSymbols)
+                .sum();
         StringBuilder out = new StringBuilder(
                 "# D10 K-Transition / Decoder-Outcome Matrix\n\n")
                 .append("Only symbols decoded identically by HYBRID and D8 before the first ")
                 .append("bit/symbol split of each tile-plane are counted. Predictive ")
-                .append("associations use non-zero symbols only.\n\n")
+                .append("associations use non-zero symbols only. `COMPLETE_MIXED` and ")
+                .append("`COMPLETE_IMPROVEMENT` are reported but cannot auto-select a semantic change.\n\n")
                 .append("## Verdict\n\n`").append(selected).append("`\n\n")
                 .append("## Fixture summary\n\n")
                 .append("| Fixture | Outcome | Aligned symbols | Cells | Splits | ΔMAE | ΔOB | ΔBoundary | ΔCompletion |\n")
@@ -137,7 +180,7 @@ final class KTransitionMatrixReport {
                     .append(fmt(fixture.outcome().deltaCompletion())).append(" |\n");
         }
 
-        out.append("\n## Associations\n\n")
+        out.append("\n## Associations across all D8 outcome classes\n\n")
                 .append("| Transition | Outcome | Support | Improvement contradictions | Predictive | Supporting fixtures | Contradictions |\n")
                 .append("|---|---|---:|---:|:---:|---|---|\n");
         for (Association association : associations) {
@@ -148,6 +191,20 @@ final class KTransitionMatrixReport {
                     .append(association.predictive() ? "yes" : "no").append(" | ")
                     .append(join(association.supportingFixtures())).append(" | ")
                     .append(join(association.contradictingFixtures())).append(" |\n");
+        }
+
+        out.append("\n## Corpus transition totals\n\n")
+                .append("Total aligned symbols: `")
+                .append(corpusAlignedSymbols).append("`. Rates use this fixed corpus total.\n\n")
+                .append("| Symbol kind | Transition | Count | Corpus rate |\n")
+                .append("|---|---|---:|---:|\n");
+        for (AggregateCell cell : aggregateCells(fixtures)) {
+            double rate = corpusAlignedSymbols == 0 ? 0.0
+                    : (double) cell.count() / corpusAlignedSymbols;
+            out.append("| ").append(cell.zeroSymbol() ? "ZERO" : "NON_ZERO")
+                    .append(" | ").append(cell.transition())
+                    .append(" | ").append(cell.count())
+                    .append(" | ").append(fmt(rate)).append(" |\n");
         }
 
         out.append("\n## Transition totals per fixture\n\n")
@@ -191,9 +248,28 @@ final class KTransitionMatrixReport {
 
     static String json(List<Fixture> fixtures,
                        List<Association> associations) {
+        long corpusAlignedSymbols = fixtures.stream()
+                .mapToLong(Fixture::alignedSymbols)
+                .sum();
         StringBuilder out = new StringBuilder("{\n  \"verdict\": \"")
                 .append(selectedNextCause(associations))
-                .append("\",\n  \"fixtures\": [\n");
+                .append("\",\n  \"corpusAlignedSymbols\": ")
+                .append(corpusAlignedSymbols)
+                .append(",\n  \"corpusTotals\": [");
+        List<AggregateCell> aggregateCells = aggregateCells(fixtures);
+        for (int index = 0; index < aggregateCells.size(); index++) {
+            if (index > 0) {
+                out.append(',');
+            }
+            AggregateCell cell = aggregateCells.get(index);
+            out.append("{\"symbolKind\":\"")
+                    .append(cell.zeroSymbol() ? "ZERO" : "NON_ZERO")
+                    .append("\",\"transition\":\"")
+                    .append(cell.transition())
+                    .append("\",\"count\":")
+                    .append(cell.count()).append('}');
+        }
+        out.append("],\n  \"fixtures\": [\n");
         for (int index = 0; index < fixtures.size(); index++) {
             if (index > 0) {
                 out.append(",\n");
