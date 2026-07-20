@@ -90,13 +90,29 @@
       "oneChangedVariable": "No decoder variable changed; correlate unchanged HYBRID/D8 transition classes with fixed D8 outcome metrics",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel and durable D8 outcome metrics",
       "implementationScope": "canon-cr3-research instrumentation and deterministic reporting only",
+      "commit": "dabaec694fb7d76a672d85c0c1fcf97bfce426be",
+      "workflowRun": 29775376570,
+      "artifactDigest": "sha256:d558edc45ed9fc093acbd6e50cfbc0a8c1bc7d789f3e731f3f3a3ec7d7cfff30",
+      "durableReport": "docs/cr3-results/2026-07-20-D10-k-transition-outcome-matrix.md",
+      "verdict": "COMPLETE: NO_PREDICTIVE_TRANSITION_CLASS; all candidate classes contradict complete-improvement fixtures",
+      "productionDecision": "No production decoder change; select primary-source D11 audit rather than another fitted K rule",
+      "status": "complete"
+    },
+    {
+      "id": "D11",
+      "title": "Canon K-adaptation primary-source audit",
+      "issue": 234,
+      "sourceIds": ["SRC-001"],
+      "oneChangedVariable": "No decoder semantics changed; replace guessed patent interpretation with paragraph, figure and claim level extraction",
+      "fixedInputs": "US 2016/0323602 A1 public publication and committed D5-D10 evidence",
+      "implementationScope": "Documentation and fixture-independent canon-cr3-research test model only",
       "commit": null,
       "workflowRun": null,
       "artifactDigest": null,
-      "durableReport": null,
-      "verdict": "PLANNED",
-      "productionDecision": "Blocked pending transition/outcome association evidence",
-      "status": "planned"
+      "durableReport": "docs/cleanroom/d11-canon-k-adaptation-source-audit.md",
+      "verdict": "IN_PROGRESS: exact base code-length bracket identified; CRX applicability and full embodiment remain unresolved",
+      "productionDecision": "No production decoder change; D12 blocked until D11 review and CI complete",
+      "status": "running"
     }
   ]
 }
