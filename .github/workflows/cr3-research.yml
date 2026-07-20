@@ -1,13 +1,25 @@
 name: CR3 Research Integration
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'canon-cr3-research/**'
+      - 'canon-cr3-reference-testkit/**'
+      - 'canon-cr3-container/**'
+      - 'canon-cr3-metadata/**'
+      - 'canon-cr3-codec/**'
+      - 'canon-cr3-core/**'
+      - 'canon-cr3-imageio/src/test/resources/**'
+      - '.github/workflows/cr3-research.yml'
+      - 'pom.xml'
   workflow_dispatch:
   schedule:
     # Heavy evidence run on the first Sunday of each month.
     - cron: '30 3 1-7 * 0'
 
 concurrency:
-  group: cr3-research-${{ github.ref }}
+  group: cr3-research-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -40,7 +52,17 @@ jobs:
           -am
           -Djava.awt.headless=true
 
-      - name: Run the Maven-owned research integration profile
+      - name: Run focused pull-request discriminator
+        if: ${{ github.event_name == 'pull_request' }}
+        run: >-
+          mvn -B --no-transfer-progress verify
+          -Pcr3-research-it
+          -pl canon-cr3-research
+          -Dit.test=KAdaptationDiscriminatorIT
+          -Djava.awt.headless=true
+
+      - name: Run the complete Maven-owned research integration profile
+        if: ${{ github.event_name != 'pull_request' }}
         run: >-
           mvn -B --no-transfer-progress verify
           -Pcr3-research-it
