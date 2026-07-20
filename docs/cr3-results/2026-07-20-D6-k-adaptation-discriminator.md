@@ -22,7 +22,7 @@ otherwise:   K unchanged
 
 ## Fixtures used
 
-The discriminator used the same eleven lossless CR3 fixtures and LibRaw-backed reference TIFFs as D5:
+The discriminator uses exactly the same eleven lossless CR3 fixtures and LibRaw-backed reference TIFFs as D5. The list is explicit in `KAdaptationDiscriminatorIT`, so later corpus growth cannot silently change medians or the verdict:
 
 - three EOS R ISO variants;
 - three PowerShot G5 X Mark II research fixtures (`asis`, `dark`, `flat`);
@@ -53,10 +53,10 @@ Both variants retained exactly the same:
 - K clamp `0..12`;
 - tile/plane extraction and Bayer assembly.
 
-The test generated Markdown, TSV and JSON evidence and was executed in GitHub Actions run `29761300369` at commit `668ca4cf0c3445f9090e1ef190e2ea1a93431e5b`. The uploaded artifact digest was:
+The test generates deterministic Markdown, TSV and JSON evidence without a runtime timestamp. The final review-corrected execution was GitHub Actions run `29762696674` at commit `1d2d64e6c5ce25200ec3ac2d3ede475389c46fe5`. The uploaded artifact digest was:
 
 ```text
-sha256:9a0d972e786270daebbd2c5e67a443fe3c8d93c3c95e36b4292afb820592c8ad
+sha256:4d5301ae014e75175e88785b41969788baa2ae23cb14e49fb8e28ee71e829953
 ```
 
 ## Predeclared acceptance gate
@@ -119,7 +119,7 @@ Those were deliberately held constant to preserve isolation.
 
 ## Next step
 
-Before selecting another decoding rule, add a bounded K/bit-position divergence trace for one fixture where the candidate improves (`eosr-iso-mid.cr3`) and one where it fails (`g5xm2-asis-iso200-ss130-ff2p5-01.cr3`). Record, for the first divergence only:
+Issue #224 adds a bounded K/bit-position divergence trace for one fixture where the candidate improves (`eosr-iso-mid.cr3`) and one where it fails (`g5xm2-asis-iso200-ss130-ff2p5-01.cr3`). It records, for the first divergence only:
 
 - tile and plane identity;
 - pixel coordinate;
@@ -128,4 +128,4 @@ Before selecting another decoding rule, add a bounded K/bit-position divergence 
 - previous/current/next K;
 - predictor and reconstructed value.
 
-The trace must compare HYBRID and SYMBOL_BRACKET without changing either decoder. Its purpose is to determine whether the split begins with different K state, different symbol interpretation, row reset, or a structural tile/plane boundary. The next semantic experiment should then change exactly one evidenced cause rather than trying another broad K formula.
+The trace compares HYBRID and SYMBOL_BRACKET without changing either decoder. Its purpose is to determine whether the split begins with different K state, different symbol interpretation, row reset, or a structural tile/plane boundary. The next semantic experiment must change exactly one evidenced cause rather than trying another broad K formula.
