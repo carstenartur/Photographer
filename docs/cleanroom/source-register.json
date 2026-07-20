@@ -5,12 +5,14 @@
       "id": "SRC-001",
       "class": "public-specification",
       "title": "Canon patent application US 2016/0323602 A1",
-      "citation": "US 2016/0323602 A1, Image processing apparatus, image processing method, and storage medium",
-      "verifiedDate": "2026-05-14",
-      "permittedUse": "Algorithm-family and structural hypotheses for wavelet, prediction and Golomb-Rice coding",
-      "prohibitedUse": "Treating patent embodiments as proof of exact CRX on-disk semantics without fixture validation",
+      "citation": "US 2016/0323602 A1, Image encoding apparatus and control method of the same, Canon Inc., published 2016-11-03",
+      "verifiedDate": "2026-07-20",
+      "permittedUse": "Primary-source extraction of the disclosed Golomb-Rice code length, optimal K range, tentative-symbol estimation and one-step K update; algorithm-family and structural hypotheses",
+      "prohibitedUse": "Treating patent embodiments as proof of exact CRX on-disk semantics, silently filling unresolved equations or combining optional embodiments without fixture validation",
       "repositoryEvidence": [
-        "docs/patent-us20160323602a1-analysis.md"
+        "docs/cleanroom/d11-canon-k-adaptation-source-audit.md",
+        "docs/patent-us20160323602a1-analysis.md",
+        "docs/crx-cleanroom-spec.md"
       ],
       "integrity": null
     },
@@ -22,9 +24,7 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Public MED-predictor and Golomb coding background",
       "prohibitedUse": "Assuming CRX equals JPEG-LS without project evidence",
-      "repositoryEvidence": [
-        "docs/crx-cleanroom-spec.md"
-      ],
+      "repositoryEvidence": ["docs/crx-cleanroom-spec.md"],
       "integrity": null
     },
     {
@@ -35,9 +35,7 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Public wavelet terminology and reversible 5/3 transform background",
       "prohibitedUse": "Assuming CRX packet syntax or coefficients follow JPEG 2000",
-      "repositoryEvidence": [
-        "docs/crx-cleanroom-spec.md"
-      ],
+      "repositoryEvidence": ["docs/crx-cleanroom-spec.md"],
       "integrity": null
     },
     {
@@ -48,9 +46,7 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Container box and track structure",
       "prohibitedUse": "Inferring Canon-private payload semantics from generic boxes",
-      "repositoryEvidence": [
-        "canon-cr3-container"
-      ],
+      "repositoryEvidence": ["canon-cr3-container"],
       "integrity": null
     },
     {
@@ -61,9 +57,7 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Metadata tag interpretation",
       "prohibitedUse": "Using metadata values as unvalidated entropy-decoder rules",
-      "repositoryEvidence": [
-        "canon-cr3-metadata"
-      ],
+      "repositoryEvidence": ["canon-cr3-metadata"],
       "integrity": null
     },
     {
@@ -74,9 +68,7 @@
       "verifiedDate": "2026-07-20",
       "permittedUse": "Camera-control API paths, methods, abilities and error semantics",
       "prohibitedUse": "Treating CCAPI documentation as CRX codec documentation",
-      "repositoryEvidence": [
-        "docs/canon-ccapi-native-focus-sequence.md"
-      ],
+      "repositoryEvidence": ["docs/canon-ccapi-native-focus-sequence.md"],
       "integrity": null
     },
     {
