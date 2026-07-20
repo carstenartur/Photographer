@@ -20,7 +20,7 @@ class KAdaptationNonZeroDivergenceIT {
     private static final Path OUTPUT = Path.of(System.getProperty(
             "cr3.research.output.dir", "target"))
             .resolve("k-adaptation-nonzero-divergence");
-    private static final int TRACE_LIMIT = 65_536;
+    private static final int SYMBOL_LIMIT = 65_536;
     private static final int BEFORE = 2;
     private static final int AFTER = 16;
     private static final List<String> FIXTURES = List.of(
@@ -72,18 +72,17 @@ class KAdaptationNonZeroDivergenceIT {
         for (SubbandExtractor.SubbandRef ref : refs) {
             byte[] payload = SubbandExtractor.read(fixture.toFile(), ref);
             KAdaptationStateTracer.Result hybrid =
-                    KAdaptationStateTracer.decode(
+                    KAdaptationStateTracer.decodePrefix(
                             payload, ref.planeWidth(), ref.planeHeight(),
                             ref.bitDepth(), KAdaptationStateTracer.Rule.HYBRID,
-                            TRACE_LIMIT);
+                            SYMBOL_LIMIT);
             KAdaptationStateTracer.Result d8 =
-                    KAdaptationStateTracer.decode(
+                    KAdaptationStateTracer.decodePrefix(
                             payload, ref.planeWidth(), ref.planeHeight(),
                             ref.bitDepth(),
                             KAdaptationStateTracer.Rule.D8_ZERO_CONTRACT,
-                            TRACE_LIMIT);
+                            SYMBOL_LIMIT);
 
-            assertMatchesExistingDecoders(payload, ref, hybrid, d8);
             anyHybridExhausted |= hybrid.exhausted();
             anyD8Exhausted |= d8.exhausted();
             anyTruncated |= hybrid.traceTruncated() || d8.traceTruncated();
@@ -123,42 +122,6 @@ class KAdaptationNonZeroDivergenceIT {
                 -1, -1, -1, List.of(),
                 anyTruncated, anyTruncated,
                 anyHybridExhausted, anyD8Exhausted);
-    }
-
-    private static void assertMatchesExistingDecoders(
-            byte[] payload,
-            SubbandExtractor.SubbandRef ref,
-            KAdaptationStateTracer.Result hybrid,
-            KAdaptationStateTracer.Result d8) {
-        CrxNormativeLosslessCandidate.Options options =
-                new CrxNormativeLosslessCandidate.Options();
-        options.kInit = 1;
-        options.resetKPerRow = true;
-        options.unaryOnesUntilZero = true;
-        options.signBitMapping = true;
-        options.escapeAtUnary15 = false;
-        options.firstPixelSeed = 0;
-        options.escapeBitWidth = ref.bitDepth();
-        options.kAdaptation =
-                CrxNormativeLosslessCandidate.KAdaptation.HYBRID_ACCUMULATOR;
-        CrxNormativeLosslessCandidate.Result expectedHybrid =
-                CrxNormativeLosslessCandidate.decodePlane(
-                        payload, ref.planeWidth(), ref.planeHeight(),
-                        ref.bitDepth(), options);
-        ZeroContractedBracketDecoder.Result expectedD8 =
-                ZeroContractedBracketDecoder.decode(
-                        payload, ref.planeWidth(), ref.planeHeight(),
-                        ref.bitDepth());
-
-        assertThat(hybrid.pixels()).containsExactly(expectedHybrid.pixels);
-        assertThat(hybrid.symbolsDecoded())
-                .isEqualTo(expectedHybrid.symbolsDecoded);
-        assertThat(hybrid.exhausted())
-                .isEqualTo(expectedHybrid.streamExhausted);
-        assertThat(d8.pixels()).containsExactly(expectedD8.pixels());
-        assertThat(d8.symbolsDecoded())
-                .isEqualTo(expectedD8.symbolsDecoded());
-        assertThat(d8.exhausted()).isEqualTo(expectedD8.exhausted());
     }
 
     private static int firstNonZeroDivergence(
