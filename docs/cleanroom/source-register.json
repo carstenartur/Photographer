@@ -5,12 +5,14 @@
       "id": "SRC-001",
       "class": "public-specification",
       "title": "Canon patent application US 2016/0323602 A1",
-      "citation": "US 2016/0323602 A1, Image processing apparatus, image processing method, and storage medium",
-      "verifiedDate": "2026-05-14",
-      "permittedUse": "Algorithm-family and structural hypotheses for wavelet, prediction and Golomb-Rice coding",
-      "prohibitedUse": "Treating patent embodiments as proof of exact CRX on-disk semantics without fixture validation",
+      "citation": "US 2016/0323602 A1, Image encoding apparatus and control method of the same, Canon Inc., published 2016-11-03",
+      "verifiedDate": "2026-07-20",
+      "permittedUse": "Primary-source extraction of the disclosed Golomb-Rice code length, optimal K range, tentative-symbol estimation and one-step K update; algorithm-family and structural hypotheses",
+      "prohibitedUse": "Treating patent embodiments as proof of exact CRX on-disk semantics, silently filling unresolved equations or combining optional embodiments without fixture validation",
       "repositoryEvidence": [
-        "docs/patent-us20160323602a1-analysis.md"
+        "docs/cleanroom/d11-canon-k-adaptation-source-audit.md",
+        "docs/patent-us20160323602a1-analysis.md",
+        "docs/crx-cleanroom-spec.md"
       ],
       "integrity": null
     },
