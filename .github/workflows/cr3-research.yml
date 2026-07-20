@@ -54,6 +54,7 @@ jobs:
           mvn -B --no-transfer-progress verify
           -Pcr3-research-it
           -pl canon-cr3-research
+          -am
           -Dit.test=KAdaptationNonZeroDivergenceIT
           -Djava.awt.headless=true
       - name: Run complete research integration profile
