@@ -44,17 +44,17 @@ Both use the same one-step movement toward the range. D8 zero contraction for
 
 Exactly the eleven reference-backed lossless fixtures used by D8 and D10:
 
+- `eosr-iso-high.cr3`
 - `eosr-iso-low.cr3`
 - `eosr-iso-mid.cr3`
-- `eosr-iso-high.cr3`
 - `research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3`
-- `research/g5xm2-dark.cr3`
-- `research/g5xm2-flat.cr3`
+- `research/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02.cr3`
+- `research/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02.cr3`
 - `sample-iso-high.cr3`
 - `sample-tele.cr3`
 - `sample-wb-tungsten.cr3`
 - `sample-wide.cr3`
-- the remaining explicit fixture in `KAdaptationFixtureSet.PANEL`
+- `sample.cr3`
 
 `KAdaptationFixtureSet.PANEL` is the executable source of truth. Later corpus
 growth must not change this experiment's inputs or verdict.
