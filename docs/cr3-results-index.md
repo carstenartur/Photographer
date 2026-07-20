@@ -11,6 +11,7 @@ Examples:
 - `2026-06-14-B1-predictor-state-isolation.md`
 - `2026-06-14-predictor-evidence-matrix.md`
 - `2026-07-19-D5-sign-mapping-discriminator.md`
+- `2026-07-20-D6-k-adaptation-discriminator.md`
 
 ## Required contents
 
@@ -42,20 +43,29 @@ Whenever a result document is added, update:
 | 2026-06-14 | D1 (reference sidecars), D2 (reference comparison baseline) | D1 COMPLETE · D2 COMPLETE | [reference-comparison.md](cr3-results/reference-comparison.md) |
 | 2026-07-03 | Stage audit (pipeline verification order) | Stage 6 FAILING · earliest unverified/failing stage identified | [2026-07-03-cr3-pipeline-stage-audit.md](cr3-results/2026-07-03-cr3-pipeline-stage-audit.md) |
 | 2026-07-19 | D5 (isolated residual sign mapping) | D5 REJECTED · 0/3 required discriminator successes | [2026-07-19-D5-sign-mapping-discriminator.md](cr3-results/2026-07-19-D5-sign-mapping-discriminator.md) |
+| 2026-07-20 | D6 (isolated symbol-bracket K adaptation) | D6 REJECTED · 0/3 discriminator successes · completion regression | [2026-07-20-D6-k-adaptation-discriminator.md](cr3-results/2026-07-20-D6-k-adaptation-discriminator.md) |
 
 ## Current priority
 
-Phase D6: select one structurally motivated Stage-6 entropy semantic—preferably a precise K-adaptation or escape-handling rule—and execute it alone against the same external-reference panel.
+Phase D7: explain the first K/bit-position divergence between a fixture where D6 improves and one where it fails, without changing either decoder.
 
-The next result document must predeclare:
+Use exactly:
 
-- the one variable that changes;
-- the 11 reference-backed fixtures;
-- discriminator and full-corpus thresholds;
-- completion and exhaustion constraints;
-- the condition that would justify a production decoder change.
+- `eosr-iso-mid.cr3` as the complete EOS R improvement case;
+- `research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3` as the newly exhausted G5 X Mark II case.
 
-Do not repeat generic predictor, alignment, CFA or BIT0-versus-ZIGZAG sweeps without new structural evidence.
+Record only the first divergence between HYBRID and SYMBOL_BRACKET:
+
+- tile and plane;
+- pixel coordinate;
+- input bit position;
+- quotient, remainder, and unsigned symbol;
+- previous/current/next K;
+- predictor and reconstructed value.
+
+The trace is instrumentation, not a decoder hypothesis. The next semantic experiment must be selected from the observed first cause and change exactly one variable. Do not infer camera-model-specific entropy rules from aggregate results.
+
+Do not repeat generic predictor, alignment, CFA, BIT0-versus-ZIGZAG, or universal current-symbol K-bracket sweeps without new structural evidence.
 
 ## Goal
 
