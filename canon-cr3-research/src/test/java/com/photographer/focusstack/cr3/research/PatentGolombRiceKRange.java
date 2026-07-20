@@ -1,7 +1,5 @@
 package com.photographer.focusstack.cr3.research;
 
-import java.util.Objects;
-
 /**
  * Pure model of the base K-range rule disclosed around FIG. 12, steps S1204/S1206,
  * of Canon patent application US 2016/0323602 A1.
