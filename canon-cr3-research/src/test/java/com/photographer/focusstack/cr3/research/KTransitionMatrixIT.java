@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -128,7 +129,9 @@ class KTransitionMatrixIT {
                 .toList();
         return new KTransitionMatrixReport.Fixture(
                 name, outcome, alignedSymbols, cells,
-                Map.copyOf(kBins), Map.copyOf(symbolBins), List.copyOf(splits));
+                Collections.unmodifiableMap(new TreeMap<>(kBins)),
+                Collections.unmodifiableMap(new LinkedHashMap<>(symbolBins)),
+                List.copyOf(splits));
     }
 
     private static boolean sameParsedState(
