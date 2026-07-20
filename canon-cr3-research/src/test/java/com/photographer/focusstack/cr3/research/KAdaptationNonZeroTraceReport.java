@@ -76,7 +76,7 @@ final class KAdaptationNonZeroTraceReport {
                     .append("- exhausted HYBRID/D8: ")
                     .append(result.hybridExhausted()).append(" / ")
                     .append(result.d8Exhausted()).append("\n\n")
-                    .append("| i | rule | x | y | start | end | K0 | q | r | S | diff | pred | value | K1 | zero-run | accum0 | accum1 | count0 | count1 | K* | Kmin | Kmax | decision |\n")
+                    .append("| i | rule | x | y | start | end | K0 | q | r | S | signed residual | pred | value | K1 | zero-run | accum0 | accum1 | count0 | count1 | K* | Kmin | Kmax | decision |\n")
                     .append("|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|\n");
             for (Pair pair : result.context()) {
                 row(out, pair.index(), "HYBRID", pair.hybrid());
