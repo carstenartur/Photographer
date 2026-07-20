@@ -13,7 +13,7 @@ import com.photographer.focusstack.common.camera.ExposureInfo;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingCapabilities;
-import com.photographer.focusstack.common.camera.NativeFocusBracketingProvider;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
 import com.photographer.focusstack.common.camera.Operation;
@@ -28,23 +28,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
 
-/**
- * Production Canon CCAPI composition with one authoritative endpoint catalog.
- *
- * <p>The established status/native backend remains responsible for discovery and
- * camera control. The bounded media and monitoring clients consume that backend's
- * normalized endpoint and method views rather than performing a second discovery.</p>
- */
+/** Production Canon CCAPI composition with one authoritative endpoint catalog. */
 final class CanonCcapiProductionBackend implements
         CameraBackend,
         CameraStatusProvider,
         CameraCapabilityProvider,
-        NativeFocusBracketingProvider,
+        NativeFocusBracketingExecutionProvider,
         CameraMediaProvider {
 
     private static final Set<String> EVENT_METHODS = Set.of("GET", "DELETE");
@@ -227,7 +222,17 @@ final class CanonCcapiProductionBackend implements
     @Override
     public NativeFocusBracketingSession prepareNativeFocusBracketing(
             NativeFocusBracketingRequest request) {
-        return delegate.prepareNativeFocusBracketing(request);
+        return new OwnedNativeSession(
+                this, delegate.prepareNativeFocusBracketing(request));
+    }
+
+    @Override
+    public void triggerNativeFocusBracketing(NativeFocusBracketingSession session) {
+        if (!(session instanceof OwnedNativeSession owned) || owned.owner != this) {
+            throw new IllegalArgumentException(
+                    "native focus-bracketing session belongs to another backend");
+        }
+        owned.trigger(() -> CanonCcapiNativeSequenceTrigger.trigger(delegate));
     }
 
     @Override
@@ -250,5 +255,49 @@ final class CanonCcapiProductionBackend implements
         return mode == EventMode.MONITORING
                 ? monitoringClient.awaitAddedMedia(timeout)
                 : mediaClient.awaitAddedMedia(mode, timeout);
+    }
+
+    private static final class OwnedNativeSession implements NativeFocusBracketingSession {
+        private final CanonCcapiProductionBackend owner;
+        private final NativeFocusBracketingSession delegate;
+        private final AtomicBoolean triggered = new AtomicBoolean();
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        private OwnedNativeSession(
+                CanonCcapiProductionBackend owner,
+                NativeFocusBracketingSession delegate) {
+            this.owner = Objects.requireNonNull(owner, "owner");
+            this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+
+        @Override
+        public NativeFocusBracketingRequest request() {
+            return delegate.request();
+        }
+
+        private void trigger(Runnable triggerAction) {
+            if (closed.get()) {
+                throw new IllegalStateException(
+                        "native focus-bracketing session is already closed");
+            }
+            if (!triggered.compareAndSet(false, true)) {
+                throw new IllegalStateException(
+                        "native focus-bracketing session was already triggered");
+            }
+            triggerAction.run();
+        }
+
+        @Override
+        public void close() {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                delegate.close();
+            } catch (RuntimeException failure) {
+                closed.set(false);
+                throw failure;
+            }
+        }
     }
 }

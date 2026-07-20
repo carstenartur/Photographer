@@ -1,82 +1,140 @@
 # Native focus bracketing
 
-Canon CCAPI can expose a camera-owned fixed focus-bracketing sequence in addition to the application's existing adaptive manual `drivefocus` loop.
+Canon CCAPI can expose a camera-owned fixed focus-bracketing sequence in addition to the application's adaptive manual `drivefocus` loop.
 
-## Why this is a separate strategy
+## Strategy selection
 
-The current manual stack loop can inspect every captured frame and adapt the next focus step. Native bracketing cannot preserve that behavior: the camera receives fixed settings and owns the complete multi-frame sequence after one shutter action.
+Every stacking request now selects one explicit `captureStrategy`:
 
-Native bracketing is therefore an optional execution strategy, not a faster implementation of `setFocus(...)`.
+| Value | Behaviour |
+| --- | --- |
+| `MANUAL` | Uses the existing application-controlled capture/analyse/focus loop. This remains the backward-compatible default. |
+| `NATIVE` | Requires complete native settings, an exact shutter POST endpoint and media/event transport. Missing capability is a terminal job error; there is no silent fallback. |
+| `AUTO` | Prefers native execution when the connected camera advertises a complete executable contract, otherwise selects the manual loop and records the fallback reason. |
+
+Example request parameters:
+
+```json
+{
+  "startPosition": 0,
+  "stepSize": 2,
+  "maxFrames": 20,
+  "abortThreshold": 0.01,
+  "motionDetectionEnabled": false,
+  "qualityMode": "HIGH",
+  "captureStrategy": "NATIVE",
+  "nativeFocusBracketing": {
+    "numberOfShots": 20,
+    "focusIncrement": 2,
+    "exposureSmoothing": true,
+    "depthComposition": false,
+    "cropDepthComposition": false
+  }
+}
+```
+
+When a non-manual strategy omits `nativeFocusBracketing`, the service derives the fixed request from `maxFrames` and `stepSize`, with optional features disabled.
+
+## Why native execution is separate
+
+The manual stack loop inspects every frame and can adapt the next focus step. Native bracketing cannot preserve that behaviour: the camera receives fixed settings and owns the complete multi-frame sequence after one shutter action.
+
+Native bracketing is therefore a separate execution strategy, not a faster implementation of `setFocus(...)`. Manual adaptive stepping remains available and is the fallback selected by explicit `AUTO` only.
 
 ## Canon CCAPI setting family
 
-CCAPI Reference 1.4.0 defines the following independently advertised GET/PUT resources:
+CCAPI Reference 1.4.0 defines independently advertised GET/PUT resources:
 
-| Purpose | Stable path suffix | Documented value shape |
-| --- | --- | --- |
-| Enable sequence | `/shooting/settings/focusbracketing` | `enable` / `disable` |
-| Number of shots | `/shooting/settings/focusbracketing/numberofshots` | integer range; example 2-999, step 1 |
-| Focus increment | `/shooting/settings/focusbracketing/focusincrement` | integer range; example 1-10, step 1 |
-| Exposure smoothing | `/shooting/settings/focusbracketing/exposuresmoothing` | `enable` / `disable` |
-| Depth composition | `/shooting/settings/focusbracketing/depthcomposite` | `enable` / `disable` |
-| Crop depth composition | `/shooting/settings/focusbracketing/cropdepthcomp` | `enable` / `disable` |
+| Purpose | Stable path suffix |
+| --- | --- |
+| Enable sequence | `/shooting/settings/focusbracketing` |
+| Number of shots | `/shooting/settings/focusbracketing/numberofshots` |
+| Focus increment | `/shooting/settings/focusbracketing/focusincrement` |
+| Exposure smoothing | `/shooting/settings/focusbracketing/exposuresmoothing` |
+| Depth composition | `/shooting/settings/focusbracketing/depthcomposite` |
+| Crop depth composition | `/shooting/settings/focusbracketing/cropdepthcomp` |
 
-The examples are not universal camera limits. Production code derives support, methods and ranges from the connected camera's advertised endpoint catalog and GET responses.
+Reference examples are not universal camera limits. Production code derives support, methods and ranges from the connected camera's exact advertised endpoint catalog and GET responses.
 
-## Vendor-neutral API
+## Vendor-neutral contracts
 
 `common-api` separates:
 
 - `NativeFocusBracketingCapabilities`: advertised base support, required integer ranges and optional features;
 - `NativeFocusBracketingRequest`: one fixed native sequence request;
-- `NativeFocusBracketingProvider`: optional camera-backend extension;
+- `NativeFocusBracketingProvider`: transactional settings preparation;
+- `NativeFocusBracketingExecutionProvider`: exactly one trigger for a prepared session;
 - `NativeFocusBracketingSession`: an `AutoCloseable` prepared-setting scope;
-- `IntegerSettingRange`: inclusive, minimum-relative stepped ranges.
+- `NativeFocusBracketingExecutionResult`: expected count, observed media, ingested frame ids, completion state, partial-failure reason and restoration state;
+- `CameraMediaProvider`: bounded media snapshots, event observation and range-safe transfer.
 
-A capability can be advertised but incomplete. Execution requires both the number-of-shots and focus-increment ranges.
+No Canon-specific type enters `StackingJobService`.
 
-## Canon HTTP adapter
+## Settings transaction
 
-`CanonCcapiNativeFocusBracketingBackend` is the production `canon-ccapi` backend created by `CameraBackendFactory`. It extends the existing status/capture backend and implements `NativeFocusBracketingProvider` without changing the normal manual focus API.
-
-The adapter applies the following safety rules:
-
-1. one exact operation path must advertise both `GET` and `PUT`; methodless legacy lists never authorize writes;
-2. when several API versions are present, the highest endpoint satisfying both methods is selected;
-3. boolean support requires both `enable` and `disable` ability values;
-4. integer limits come from the camera's `min`, `max` and `step` response, not from reference examples;
-5. capability inspection performs GET requests only;
-6. all original values are read again before the first write;
-7. setting PUT requests use the Canon-compatible raw JSON body contract;
-8. idempotent setting PUTs retry only Canon's `503 Device busy` response with bounded backoff;
-9. `During shooting or recording` and `Mode not supported` are surfaced as distinct camera failures rather than being treated as unsupported hardware.
-
-An inconsistent advertised response, such as an incomplete integer range or crop-depth support without depth-composition support, is rejected instead of silently inventing a capability.
-
-## Transaction contract
-
-`FocusBracketingSettingsTransaction` establishes the setting lifecycle used by the Canon adapter:
+`FocusBracketingSettingsTransaction` provides the setting lifecycle:
 
 1. validate the request against advertised capabilities;
-2. read the complete original setting snapshot before any write;
-3. disable an already active native sequence;
+2. read the complete original snapshot before any write;
+3. disable an already active sequence;
 4. apply subordinate settings in deterministic order;
 5. enable native bracketing last;
-6. after capture, disable first and restore subordinate settings in reverse order;
+6. after execution, disable first and restore subordinate settings in reverse order;
 7. restore the original enabled state last;
-8. attempt the complete rollback after either an apply or restore failure, preserving suppressed failures;
-9. keep cleanup retryable after a transient restore failure until the full snapshot is restored.
+8. attempt the complete rollback after apply or restore failure and preserve suppressed failures;
+9. keep cleanup retryable after a transient restore failure.
 
-Preparation does not trigger the shutter. Callers must close the returned session after capture, cancellation or failure.
+The production wrapper owns the prepared session. Foreign, closed and already-triggered sessions are rejected.
 
-## Remaining implementation work
+## Trigger contract
 
-Issue #144 still requires:
+Preparation never triggers capture. After preparation and the pre-trigger media snapshot, the Canon adapter:
 
-- trigger and observe the native sequence without assuming one HTTP response or media event per frame;
-- ingest every resulting file and record partial sequences;
-- select native versus manual strategy explicitly in job/session metadata;
-- retain and test the adaptive manual loop as fallback;
-- validate endpoint/range evidence on the available PowerShot and EOS hardware without persisting changed camera settings.
+1. resolves the highest exact `/shooting/control/shutterbutton` endpoint that advertises `POST`;
+2. stops live view only through the existing catalog-aware Canon path, based on established PowerShot evidence that active live view can block capture/media access;
+3. sends exactly one normal shutter POST;
+4. performs no capture-result polling or download in the trigger path.
 
-Until those items are complete, the adapter is a safe settings-preparation capability rather than an end-to-end native stacking workflow.
+The higher API version does not win unless it satisfies the required method contract.
+
+## Observation and ingestion
+
+The native executor snapshots known media before the shutter action. It then selects the best advertised observation mode:
+
+1. binary monitoring when exact GET and DELETE are available;
+2. polling continuation when exact GET and DELETE are available;
+3. bounded one-shot polling otherwise.
+
+An event is only a wake-up hint. The executor refreshes the bounded media snapshot after each event and computes the difference from the pre-trigger state. It therefore does not assume one event or one HTTP response per generated frame.
+
+Each unique new media reference is ingested once. Transfers use bounded 16 MiB ranges and are assembled up to a 1 GiB per-frame safety limit. Successfully ingested files remain in `FrameDataStore` and in job frame metadata even if later files, timeout, cancellation or restoration fail.
+
+## Terminal outcomes
+
+`NativeFocusBracketingExecutionResult` reports:
+
+- `COMPLETE`: every expected media file was observed and ingested and settings were restored;
+- `PARTIAL`: some media was preserved but the sequence was incomplete;
+- `TIMED_OUT`: no media arrived before the bounded deadline;
+- `CANCELLED`: caller cancellation interrupted observation and restoration still ran;
+- `FAILED`: trigger, transfer, capability or restoration failed.
+
+Incomplete restoration always forces `FAILED`, even if all image files were already ingested. The failure reason and `restorationComplete=false` remain visible in persisted job execution metadata.
+
+## Persisted job metadata
+
+Jobs retain:
+
+- requested and selected strategy;
+- effective frame count and focus increment;
+- effective exposure-smoothing/depth-composition options;
+- native completion state;
+- observed and ingested counts;
+- restoration state;
+- explicit fallback or partial-failure detail.
+
+Existing clients that use the former six-field `StackingParameters` constructor or omit `captureStrategy` continue to receive the manual strategy.
+
+## Validation boundary
+
+Synthetic tests cover grouped media discovery, one trigger, partial timeout, cancellation before trigger, restoration failure, exact compatible shutter selection, range ingestion, strategy persistence and `AUTO` fallback. Real-camera verification remains optional and must not leave camera settings changed or persist credentials/network details.

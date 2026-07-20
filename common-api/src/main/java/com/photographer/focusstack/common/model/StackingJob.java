@@ -14,6 +14,25 @@ public record StackingJob(
         @JsonProperty("completedAt") Instant completedAt,
         @JsonProperty("parameters") StackingParameters parameters,
         @JsonProperty("frames") List<String> frames,
-        @JsonProperty("stopReason") String stopReason
+        @JsonProperty("stopReason") String stopReason,
+        @JsonProperty("executionMetadata") StackingExecutionMetadata executionMetadata
 ) {
+
+    public StackingJob {
+        frames = frames == null ? List.of() : List.copyOf(frames);
+    }
+
+    /** Backward-compatible constructor for jobs without persisted execution metadata. */
+    public StackingJob(
+            String id,
+            String cameraProfileId,
+            JobStatus status,
+            Instant startedAt,
+            Instant completedAt,
+            StackingParameters parameters,
+            List<String> frames,
+            String stopReason) {
+        this(id, cameraProfileId, status, startedAt, completedAt,
+                parameters, frames, stopReason, null);
+    }
 }
