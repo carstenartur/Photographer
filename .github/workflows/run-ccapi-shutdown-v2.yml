@@ -56,6 +56,10 @@ jobs:
           Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(block)
           PY
 
+          git fetch origin \
+            +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2 \
+            +refs/heads/automation/implement-ccapi-shutdown-v2:refs/remotes/origin/automation/implement-ccapi-shutdown-v2
+
           if bash /tmp/implement-ccapi-shutdown-v2.sh \
               > /tmp/shutdown-v2-outer.log 2>&1; then
             status=0
@@ -74,11 +78,15 @@ jobs:
 
       - name: Upload complete execution diagnostics
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: ccapi-shutdown-v2-runner-log
-          path: runner-diagnostics/
-          if-no-files-found: error
+          path: |
+            runner-diagnostics/exit-code
+            runner-diagnostics/failure-tail.log
+            runner-diagnostics/shutdown-v2-outer.log
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Fail when implementation or verification failed
