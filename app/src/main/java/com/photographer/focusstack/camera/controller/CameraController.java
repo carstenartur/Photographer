@@ -93,7 +93,7 @@ public class CameraController {
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete camera profile by id")
     public ResponseEntity<Void> deleteProfile(@PathVariable String id) {
-        directControl.withProfileLease(id, () -> {
+        directControl.withProfileLeaseVoid(id, () -> {
             backendFactory.evict(id);
             profileService.deleteProfile(id);
         });
@@ -152,7 +152,7 @@ public class CameraController {
     public ResponseEntity<Void> adjustFocus(
             @PathVariable String id,
             @Valid @RequestBody FocusCommand command) {
-        directControl.withBackend(id, backend -> backend.setFocus(command));
+        directControl.withBackendVoid(id, backend -> backend.setFocus(command));
         return ResponseEntity.ok().build();
     }
 }
