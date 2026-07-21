@@ -14,7 +14,8 @@ class CameraSessionConflictProblemDetailTest {
     @Test
     void exposesStableCodeWithoutPrivateCameraOrOwnerIdentity() {
         CameraSessionConflictException conflict = new CameraSessionConflictException(
-                "corr00000001", "FOCUS_STACKING", Duration.ofSeconds(12));
+                "corr00000001", CameraWorkflowType.FOCUS_STACKING,
+                Duration.ofSeconds(12));
 
         ProblemDetail detail = new GlobalExceptionHandler()
                 .handleCameraSessionConflict(conflict);
