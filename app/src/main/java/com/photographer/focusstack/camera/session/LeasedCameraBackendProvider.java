@@ -9,11 +9,14 @@ import com.photographer.focusstack.session.CameraBackendSession;
 import com.photographer.focusstack.session.CameraSessionPurpose;
 import com.photographer.focusstack.session.SessionException;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Application adapter that acquires logical camera ownership before backend resolution.
@@ -22,6 +25,7 @@ import java.util.UUID;
  * {@link CameraBackendSession} releases only logical workflow ownership.</p>
  */
 public final class LeasedCameraBackendProvider implements CameraBackendProvider {
+    private static final HexFormat HEX = HexFormat.of();
 
     private final CameraBackendFactory backendFactory;
     private final CameraProfileService profileService;
@@ -65,7 +69,7 @@ public final class LeasedCameraBackendProvider implements CameraBackendProvider 
             CameraSessionPurpose purpose,
             String workflowId) {
         Objects.requireNonNull(purpose, "purpose");
-        requireText(workflowId, "workflowId");
+        String validatedWorkflowId = requireText(workflowId, "workflowId");
         CameraProfile profile = resolveProfile(cameraProfileId);
         Optional<CameraLeaseKey> key = identityProvider.resolve(profile);
         if (key.isEmpty()) {
@@ -75,8 +79,8 @@ public final class LeasedCameraBackendProvider implements CameraBackendProvider 
         CameraSessionLease lease = leaseManager.acquire(new CameraLeaseRequest(
                 key.get(),
                 workflowType(purpose),
-                workflowId,
-                "session-attempt:" + UUID.randomUUID(),
+                validatedWorkflowId,
+                stableOwnerToken(purpose, validatedWorkflowId),
                 lifetimes.get(purpose)));
         try {
             CameraBackend backend = resolveBackend(profile);
@@ -112,10 +116,23 @@ public final class LeasedCameraBackendProvider implements CameraBackendProvider 
         };
     }
 
+    private static String stableOwnerToken(
+            CameraSessionPurpose purpose,
+            String workflowId) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
+                    (purpose.name() + '\0' + workflowId)
+                            .getBytes(StandardCharsets.UTF_8));
+            return "session-" + HEX.formatHex(digest);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is unavailable", impossible);
+        }
+    }
+
     private static String requireText(String value, String name) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " is required");
         }
-        return value;
+        return value.trim();
     }
 }
