@@ -19,6 +19,9 @@ jobs:
   run-versioned-implementation:
     runs-on: ubuntu-latest
     timeout-minutes: 55
+    outputs:
+      inner-exit-code: ${{ steps.implementation.outputs.inner-exit-code }}
+      diagnostic-base64: ${{ steps.implementation.outputs.diagnostic-base64 }}
     steps:
       - name: Checkout technical head
         uses: actions/checkout@v7
@@ -66,37 +69,20 @@ jobs:
           else
             status=$?
           fi
-          mkdir -p "$GITHUB_WORKSPACE/runner-diagnostics"
-          printf '%s\n' "$status" \
-            > "$GITHUB_WORKSPACE/runner-diagnostics/exit-code"
-          cp /tmp/shutdown-v2-outer.log \
-            "$GITHUB_WORKSPACE/runner-diagnostics/shutdown-v2-outer.log"
-          tail -n 100 /tmp/shutdown-v2-outer.log \
-            > "$GITHUB_WORKSPACE/runner-diagnostics/failure-tail.log"
+          tail -n 80 /tmp/shutdown-v2-outer.log > /tmp/shutdown-v2-tail.log
+          echo "inner-exit-code=$status" >> "$GITHUB_OUTPUT"
+          echo "diagnostic-base64=$(base64 -w0 /tmp/shutdown-v2-tail.log)" >> "$GITHUB_OUTPUT"
           exit 0
-
-      - name: Upload complete execution diagnostics
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: ccapi-shutdown-v2-runner-log
-          path: |
-            runner-diagnostics/exit-code
-            runner-diagnostics/failure-tail.log
-            runner-diagnostics/shutdown-v2-outer.log
-          if-no-files-found: warn
-          retention-days: 7
 
       - name: Fail when implementation or verification failed
         if: always()
         shell: bash
         run: |
-          if [ ! -f runner-diagnostics/exit-code ]; then
+          status='${{ steps.implementation.outputs.inner-exit-code }}'
+          if [ -z "$status" ]; then
             echo 'Shutdown runner did not produce an exit code' >&2
             exit 99
           fi
-          status=$(cat runner-diagnostics/exit-code)
           if [ "$status" -ne 0 ]; then
             echo "Coordinated shutdown implementation failed with exit code $status" >&2
             exit "$status"
@@ -107,19 +93,17 @@ jobs:
     needs: run-versioned-implementation
     runs-on: ubuntu-latest
     steps:
-      - name: Download shutdown diagnostics
-        uses: actions/download-artifact@v8
-        with:
-          name: ccapi-shutdown-v2-runner-log
-          path: diagnostics
-
-      - name: Print focused failure summary
+      - name: Print focused shutdown diagnostic
         shell: bash
+        env:
+          DIAGNOSTIC_BASE64: ${{ needs.run-versioned-implementation.outputs.diagnostic-base64 }}
+          INNER_EXIT_CODE: ${{ needs.run-versioned-implementation.outputs.inner-exit-code }}
         run: |
           echo '--- coordinated shutdown focused diagnostic ---'
-          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:' \
-            diagnostics/failure-tail.log | tail -n 30 || \
-            tail -n 30 diagnostics/failure-tail.log
-          status=$(cat diagnostics/exit-code)
-          echo "inner_exit_code=$status"
-          test "$status" -eq 0
+          if [ -n "$DIAGNOSTIC_BASE64" ]; then
+            printf '%s' "$DIAGNOSTIC_BASE64" | base64 -d
+          else
+            echo 'No diagnostic output was exported.'
+          fi
+          echo "inner_exit_code=${INNER_EXIT_CODE:-missing}"
+          test "${INNER_EXIT_CODE:-99}" -eq 0
