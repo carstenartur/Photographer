@@ -50,6 +50,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class StackingJobService {
@@ -75,6 +77,8 @@ public class StackingJobService {
             new NativeFocusBracketingExecutor();
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<String, ActiveStackingAttempt> activeAttempts =
+            new ConcurrentHashMap<>();
     private final Object[] jobLocks = createJobLocks();
 
     @Autowired
@@ -162,8 +166,11 @@ public class StackingJobService {
         return backendFactory.getBackend(profile);
     }
 
-    private CameraSessionLease acquireCameraLease(CameraProfile profile, String jobId) {
-        String ownerToken = "stacking-attempt:" + UUID.randomUUID();
+    private CameraSessionLease acquireCameraLease(
+            CameraProfile profile,
+            String jobId,
+            String attemptToken) {
+        String ownerToken = "stacking-attempt:" + attemptToken;
         return leaseIdentityProvider.resolve(profile)
                 .map(key -> leaseManager.acquire(new CameraLeaseRequest(
                         key,
@@ -189,9 +196,20 @@ public class StackingJobService {
             if (job.status() != JobStatus.CREATED && job.status() != JobStatus.PAUSED) {
                 throw new CameraException("Job cannot be started in state: " + job.status());
             }
+            ActiveStackingAttempt previousAttempt = activeAttempts.get(id);
+            if (previousAttempt != null && previousAttempt.isRunning()) {
+                throw new CameraException("Job is still stopping its previous camera attempt");
+            }
 
             CameraProfile profile = profileService.getProfile(job.cameraProfileId());
-            CameraSessionLease lease = acquireCameraLease(profile, id);
+            String attemptToken = UUID.randomUUID().toString();
+            CameraSessionLease lease = acquireCameraLease(profile, id, attemptToken);
+            ActiveStackingAttempt attempt = new ActiveStackingAttempt(attemptToken, lease);
+            if (activeAttempts.putIfAbsent(id, attempt) != null) {
+                attempt.close();
+                throw new CameraException("Job already has an active camera attempt");
+            }
+
             cancelledJobs.remove(id);
             pausedJobs.remove(id);
             StackingJob running = new StackingJob(
@@ -201,10 +219,12 @@ public class StackingJobService {
             try {
                 repository.save(StackingJobEntity.fromRecord(running));
                 sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "RUNNING"));
-                taskExecutor.execute(() -> executeStackingAsync(running, profile, lease));
+                taskExecutor.execute(() -> executeStackingAsync(running, profile, attempt));
                 return running;
             } catch (RuntimeException schedulingFailure) {
-                lease.close();
+                activeAttempts.remove(id, attempt);
+                attempt.cancelBeforeStart();
+                attempt.close();
                 try {
                     failJob(running, new ArrayList<>(running.frames()),
                             running.executionMetadata(), schedulingFailure);
@@ -223,6 +243,7 @@ public class StackingJobService {
                 throw new CameraException("Job cannot be paused in state: " + job.status());
             }
             pausedJobs.add(id);
+            cancelQueuedAttempt(id);
             StackingJob paused = new StackingJob(
                     job.id(), job.cameraProfileId(), JobStatus.PAUSED,
                     job.startedAt(), null, job.parameters(), job.frames(),
@@ -239,12 +260,20 @@ public class StackingJobService {
                 throw new CameraException("Job cannot be cancelled in state: " + job.status());
             }
             cancelledJobs.add(id);
+            cancelQueuedAttempt(id);
             StackingJob cancelled = new StackingJob(
                     job.id(), job.cameraProfileId(), JobStatus.CANCELLED,
                     job.startedAt(), Instant.now(), job.parameters(), job.frames(),
                     "Cancelled by user", job.executionMetadata());
             repository.save(StackingJobEntity.fromRecord(cancelled));
             sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "CANCELLED"));
+        }
+    }
+
+    private void cancelQueuedAttempt(String jobId) {
+        ActiveStackingAttempt attempt = activeAttempts.get(jobId);
+        if (attempt != null && attempt.cancelBeforeStart()) {
+            activeAttempts.remove(jobId, attempt);
         }
     }
 
@@ -261,66 +290,94 @@ public class StackingJobService {
     }
 
     public boolean deleteJob(String id) {
-        return repository.findById(id).map(entity -> {
-            StackingJob job = entity.toRecord();
-            if (job.status() != JobStatus.COMPLETED
-                    && job.status() != JobStatus.FAILED
-                    && job.status() != JobStatus.CANCELLED) {
-                throw new CameraException(
-                        "Cannot delete job in state " + job.status()
-                                + ". Only terminal jobs can be deleted.");
+        synchronized (jobLock(id)) {
+            if (activeAttempts.containsKey(id)) {
+                throw new CameraException("Cannot delete a job while its camera attempt is still stopping");
             }
-            List<String> frameIds = job.frames();
-            cancelledJobs.remove(id);
-            pausedJobs.remove(id);
-            repository.delete(entity);
-            for (String frameId : frameIds) {
-                try {
-                    frameDataStore.remove(frameId);
-                } catch (Exception exception) {
-                    log.warn("Failed to remove frame data {}: {}",
-                            frameId, exception.getMessage());
+            return repository.findById(id).map(entity -> {
+                StackingJob job = entity.toRecord();
+                if (job.status() != JobStatus.COMPLETED
+                        && job.status() != JobStatus.FAILED
+                        && job.status() != JobStatus.CANCELLED) {
+                    throw new CameraException(
+                            "Cannot delete job in state " + job.status()
+                                    + ". Only terminal jobs can be deleted.");
                 }
-            }
-            log.info("Deleted stacking job {} ({} frames removed)", id, frameIds.size());
-            return true;
-        }).orElse(false);
+                List<String> frameIds = job.frames();
+                cancelledJobs.remove(id);
+                pausedJobs.remove(id);
+                repository.delete(entity);
+                for (String frameId : frameIds) {
+                    try {
+                        frameDataStore.remove(frameId);
+                    } catch (Exception exception) {
+                        log.warn("Failed to remove frame data {}: {}",
+                                frameId, exception.getMessage());
+                    }
+                }
+                log.info("Deleted stacking job {} ({} frames removed)", id, frameIds.size());
+                return true;
+            }).orElse(false);
+        }
     }
 
     void executeStackingAsync(StackingJob job) {
         CameraProfile profile = profileService.getProfile(job.cameraProfileId());
-        executeStackingAsync(job, profile, acquireCameraLease(profile, job.id()));
+        String attemptToken = UUID.randomUUID().toString();
+        ActiveStackingAttempt attempt = new ActiveStackingAttempt(
+                attemptToken,
+                acquireCameraLease(profile, job.id(), attemptToken));
+        synchronized (jobLock(job.id())) {
+            ActiveStackingAttempt previous = activeAttempts.putIfAbsent(job.id(), attempt);
+            if (previous != null) {
+                attempt.close();
+                throw new CameraException("Job already has an active camera attempt");
+            }
+            cancelledJobs.remove(job.id());
+            pausedJobs.remove(job.id());
+        }
+        executeStackingAsync(job, profile, attempt);
     }
 
     private void executeStackingAsync(
             StackingJob job,
             CameraProfile profile,
-            CameraSessionLease lease) {
-        try (lease) {
-            executeOwnedStacking(job, profile);
+            ActiveStackingAttempt attempt) {
+        try (attempt) {
+            if (!attempt.begin()) {
+                return;
+            }
+            executeOwnedStacking(job, profile, attempt);
+        } finally {
+            activeAttempts.remove(job.id(), attempt);
         }
     }
 
-    private void executeOwnedStacking(StackingJob job, CameraProfile profile) {
+    private void executeOwnedStacking(
+            StackingJob job,
+            CameraProfile profile,
+            ActiveStackingAttempt attempt) {
         String id = job.id();
-        synchronized (jobLock(id)) {
-            if (cancelledJobs.contains(id) || pausedJobs.contains(id)) {
-                sendJobLog(id, "INFO", cancelledJobs.contains(id)
-                        ? "Cancelled before camera access"
-                        : "Paused before camera access");
-                return;
-            }
+        if (attemptShouldStop(id, attempt)) {
+            sendStoppedBeforeCameraLog(id);
+            return;
         }
 
         CapturePlan plan = null;
         StackingJob plannedJob = job;
         try {
             CameraBackend backend = backendFor(profile);
+            if (attemptShouldStop(id, attempt)) {
+                sendStoppedBeforeCameraLog(id);
+                return;
+            }
             plan = selectCapturePlan(job.parameters(), backend);
             plannedJob = withExecutionMetadata(
                     job, JobStatus.RUNNING, null, null,
                     job.frames(), plan.metadata());
-            repository.save(StackingJobEntity.fromRecord(plannedJob));
+            if (!persistRunningIfCurrent(id, attempt, plannedJob)) {
+                return;
+            }
             sendJobEvent(id, "CAPTURE_STRATEGY_SELECTED", Map.of(
                     "requested", plan.metadata().requestedStrategy().name(),
                     "selected", plan.metadata().selectedStrategy().name()));
@@ -328,14 +385,42 @@ public class StackingJobService {
                     + plan.metadata().selectedStrategy() + " capture strategy");
 
             if (plan.metadata().selectedStrategy() == StackingCaptureStrategy.NATIVE) {
-                executeNativeStacking(plannedJob, backend, plan);
+                executeNativeStacking(plannedJob, backend, plan, attempt);
             } else {
-                executeManualStacking(plannedJob, backend, plan.metadata());
+                executeManualStacking(plannedJob, backend, plan.metadata(), attempt);
             }
         } catch (Exception exception) {
             StackingExecutionMetadata metadata = plan == null
                     ? plannedJob.executionMetadata() : plan.metadata();
-            failJob(plannedJob, new ArrayList<>(plannedJob.frames()), metadata, exception);
+            failOwnedJob(plannedJob, new ArrayList<>(plannedJob.frames()),
+                    metadata, exception, attempt);
+        }
+    }
+
+    private boolean attemptShouldStop(String jobId, ActiveStackingAttempt attempt) {
+        return activeAttempts.get(jobId) != attempt
+                || cancelledJobs.contains(jobId)
+                || pausedJobs.contains(jobId);
+    }
+
+    private void sendStoppedBeforeCameraLog(String jobId) {
+        sendJobLog(jobId, "INFO", cancelledJobs.contains(jobId)
+                ? "Cancelled before camera access"
+                : pausedJobs.contains(jobId)
+                ? "Paused before camera access"
+                : "Superseded camera attempt stopped before access");
+    }
+
+    private boolean persistRunningIfCurrent(
+            String jobId,
+            ActiveStackingAttempt attempt,
+            StackingJob running) {
+        synchronized (jobLock(jobId)) {
+            if (attemptShouldStop(jobId, attempt)) {
+                return false;
+            }
+            repository.save(StackingJobEntity.fromRecord(running));
+            return true;
         }
     }
 
@@ -397,51 +482,57 @@ public class StackingJobService {
     private void executeNativeStacking(
             StackingJob job,
             CameraBackend backend,
-            CapturePlan plan) {
+            CapturePlan plan,
+            ActiveStackingAttempt attempt) {
         String id = job.id();
         NativeFocusBracketingRequest request = plan.nativeRequest();
         NativeFocusBracketingExecutionResult result = nativeExecutor.execute(
                 backend,
                 request,
                 nativeTimeout(request),
-                () -> cancelledJobs.contains(id) || pausedJobs.contains(id),
+                () -> attemptShouldStop(id, attempt),
                 (mediaProvider, reference) -> NativeFrameFileIngestor.ingest(
                         frameDataStore, mediaProvider, reference));
 
         List<String> frames = new ArrayList<>(job.frames());
         frames.addAll(result.ingestedFrameIds());
         StackingExecutionMetadata metadata = plan.metadata().withNativeResult(result);
-        publishNativeFrames(id, result.ingestedFrameIds(), request.numberOfShots());
 
         JobStatus status;
         String stopReason;
-        if (pausedJobs.contains(id)) {
-            status = JobStatus.PAUSED;
-            stopReason = "Paused by user";
-        } else if (cancelledJobs.contains(id)
-                || result.completionState()
-                == NativeFocusBracketingExecutionResult.CompletionState.CANCELLED) {
-            status = JobStatus.CANCELLED;
-            stopReason = "Cancelled by user";
-        } else if (result.completionState()
-                == NativeFocusBracketingExecutionResult.CompletionState.COMPLETE) {
-            status = JobStatus.COMPLETED;
-            stopReason = "Native sequence completed";
-        } else {
-            status = JobStatus.FAILED;
-            stopReason = result.partialFailureReason() == null
-                    ? "Native sequence did not complete"
-                    : result.partialFailureReason();
+        synchronized (jobLock(id)) {
+            if (activeAttempts.get(id) != attempt) {
+                return;
+            }
+            if (pausedJobs.contains(id)) {
+                status = JobStatus.PAUSED;
+                stopReason = "Paused by user";
+            } else if (cancelledJobs.contains(id)
+                    || result.completionState()
+                    == NativeFocusBracketingExecutionResult.CompletionState.CANCELLED) {
+                status = JobStatus.CANCELLED;
+                stopReason = "Cancelled by user";
+            } else if (result.completionState()
+                    == NativeFocusBracketingExecutionResult.CompletionState.COMPLETE) {
+                status = JobStatus.COMPLETED;
+                stopReason = "Native sequence completed";
+            } else {
+                status = JobStatus.FAILED;
+                stopReason = result.partialFailureReason() == null
+                        ? "Native sequence did not complete"
+                        : result.partialFailureReason();
+            }
+
+            Instant completedAt = switch (status) {
+                case COMPLETED, FAILED, CANCELLED -> Instant.now();
+                default -> null;
+            };
+            StackingJob terminal = withExecutionMetadata(
+                    job, status, completedAt, stopReason, frames, metadata);
+            repository.save(StackingJobEntity.fromRecord(terminal));
         }
 
-        Instant completedAt = switch (status) {
-            case COMPLETED, FAILED, CANCELLED -> Instant.now();
-            default -> null;
-        };
-        StackingJob terminal = withExecutionMetadata(
-                job, status, completedAt, stopReason, frames, metadata);
-        repository.save(StackingJobEntity.fromRecord(terminal));
-
+        publishNativeFrames(id, result.ingestedFrameIds(), request.numberOfShots());
         if (status == JobStatus.COMPLETED) {
             sendJobEvent(id, "SEQUENCE_COMPLETED", Map.of(
                     "strategy", "NATIVE",
@@ -490,7 +581,8 @@ public class StackingJobService {
     private void executeManualStacking(
             StackingJob job,
             CameraBackend cameraBackend,
-            StackingExecutionMetadata metadata) {
+            StackingExecutionMetadata metadata,
+            ActiveStackingAttempt attempt) {
         String id = job.id();
         List<String> frames = new ArrayList<>(job.frames());
         List<AnalysisResult> analysisHistory = new ArrayList<>();
@@ -498,6 +590,9 @@ public class StackingJobService {
         StackingParameters params = job.parameters();
         byte[] previousFrameData = null;
 
+        if (attemptShouldStop(id, attempt)) {
+            return;
+        }
         cameraBackend.setFocus(
                 new FocusCommand(FocusCommand.Direction.FAR, params.startPosition()));
         sendJobLog(id, "INFO", "Starting capture at focus position " + params.startPosition());
@@ -505,12 +600,10 @@ public class StackingJobService {
                 id, stepStrategy.name());
 
         for (int i = 0; i < params.maxFrames(); i++) {
-            if (cancelledJobs.contains(id)) {
-                sendJobLog(id, "INFO", "Job cancelled at frame " + i);
-                return;
-            }
-            if (pausedJobs.contains(id)) {
-                sendJobLog(id, "INFO", "Job paused at frame " + i);
+            if (attemptShouldStop(id, attempt)) {
+                sendJobLog(id, "INFO", cancelledJobs.contains(id)
+                        ? "Job cancelled at frame " + i
+                        : "Job paused or superseded at frame " + i);
                 return;
             }
 
@@ -566,23 +659,97 @@ public class StackingJobService {
                 break;
             }
 
+            if (attemptShouldStop(id, attempt)) {
+                persistStoppedProgress(id, attempt, job, frames, metadata);
+                return;
+            }
             int nextStep = stepStrategy.nextStepSize(analysisHistory, params.stepSize());
             cameraBackend.setFocus(
                     new FocusCommand(FocusCommand.Direction.FAR, nextStep));
             StackingJob updated = withExecutionMetadata(
                     job, JobStatus.RUNNING, null, null,
                     new ArrayList<>(frames), metadata);
-            repository.save(StackingJobEntity.fromRecord(updated));
+            if (!persistRunningIfCurrent(id, attempt, updated)) {
+                persistStoppedProgress(id, attempt, job, frames, metadata);
+                return;
+            }
         }
 
         String stopReason = frames.size() < params.maxFrames()
                 ? "Analysis recommended early stop" : "Captured all frames";
         StackingJob completed = withExecutionMetadata(
                 job, JobStatus.COMPLETED, Instant.now(), stopReason, frames, metadata);
-        repository.save(StackingJobEntity.fromRecord(completed));
+        if (!persistTerminalIfCurrent(id, attempt, completed)) {
+            persistStoppedProgress(id, attempt, job, frames, metadata);
+            return;
+        }
         sendJobEvent(id, "SEQUENCE_COMPLETED", Map.of(
                 "strategy", "MANUAL", "totalFrames", frames.size()));
         sendJobLog(id, "INFO", "Job completed with " + frames.size() + " frames");
+    }
+
+    private boolean persistTerminalIfCurrent(
+            String jobId,
+            ActiveStackingAttempt attempt,
+            StackingJob terminal) {
+        synchronized (jobLock(jobId)) {
+            if (attemptShouldStop(jobId, attempt)) {
+                return false;
+            }
+            repository.save(StackingJobEntity.fromRecord(terminal));
+            return true;
+        }
+    }
+
+    private void persistStoppedProgress(
+            String jobId,
+            ActiveStackingAttempt attempt,
+            StackingJob source,
+            List<String> frames,
+            StackingExecutionMetadata metadata) {
+        synchronized (jobLock(jobId)) {
+            if (activeAttempts.get(jobId) != attempt) {
+                return;
+            }
+            JobStatus status;
+            String stopReason;
+            Instant completedAt;
+            if (cancelledJobs.contains(jobId)) {
+                status = JobStatus.CANCELLED;
+                stopReason = "Cancelled by user";
+                completedAt = Instant.now();
+            } else if (pausedJobs.contains(jobId)) {
+                status = JobStatus.PAUSED;
+                stopReason = "Paused by user";
+                completedAt = null;
+            } else {
+                return;
+            }
+            repository.save(StackingJobEntity.fromRecord(withExecutionMetadata(
+                    source, status, completedAt, stopReason,
+                    new ArrayList<>(frames), metadata)));
+        }
+    }
+
+    private void failOwnedJob(
+            StackingJob job,
+            List<String> frames,
+            StackingExecutionMetadata metadata,
+            Exception exception,
+            ActiveStackingAttempt attempt) {
+        String id = job.id();
+        String message = safeFailure(exception);
+        log.error("Stacking job {} failed: {}", id, message, exception);
+        synchronized (jobLock(id)) {
+            if (attemptShouldStop(id, attempt)) {
+                return;
+            }
+            StackingJob failed = withExecutionMetadata(
+                    job, JobStatus.FAILED, Instant.now(), message, frames, metadata);
+            repository.save(StackingJobEntity.fromRecord(failed));
+        }
+        sendJobEvent(id, "ERROR", Map.of("message", message));
+        sendJobLog(id, "ERROR", "Job failed: " + message);
     }
 
     private void failJob(
@@ -695,6 +862,50 @@ public class StackingJobService {
         return message == null || message.isBlank()
                 ? failure.getClass().getSimpleName()
                 : message;
+    }
+
+    private enum AttemptState {
+        QUEUED,
+        RUNNING,
+        CANCELLED
+    }
+
+    private static final class ActiveStackingAttempt implements AutoCloseable {
+        private final String token;
+        private final CameraSessionLease lease;
+        private final AtomicReference<AttemptState> state =
+                new AtomicReference<>(AttemptState.QUEUED);
+
+        private ActiveStackingAttempt(String token, CameraSessionLease lease) {
+            this.token = token;
+            this.lease = lease;
+        }
+
+        private boolean begin() {
+            return state.compareAndSet(AttemptState.QUEUED, AttemptState.RUNNING);
+        }
+
+        private boolean cancelBeforeStart() {
+            if (state.compareAndSet(AttemptState.QUEUED, AttemptState.CANCELLED)) {
+                lease.close();
+                return true;
+            }
+            return false;
+        }
+
+        private boolean isRunning() {
+            return state.get() == AttemptState.RUNNING;
+        }
+
+        @Override
+        public void close() {
+            lease.close();
+        }
+
+        @Override
+        public String toString() {
+            return "ActiveStackingAttempt[" + token.substring(0, 8) + "]";
+        }
     }
 
     private record CapturePlan(
