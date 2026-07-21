@@ -1,4 +1,8 @@
 spring:
+  config:
+    # Runtime-only secret files are mounted below this directory. The import is
+    # optional so deployments without CCAPI credentials remain unchanged.
+    import: optional:configtree:/run/secrets/
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/focusstack}
     username: ${SPRING_DATASOURCE_USERNAME:focusstack}
