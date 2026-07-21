@@ -13,8 +13,6 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 
-BORDER_GRAY = 0.5
-
 
 def gray(value: float) -> Color:
     return Color(value, value, value)
@@ -61,8 +59,9 @@ def draw_cover(pdf: canvas.Canvas, page_width: float, page_height: float,
 
 
 def draw_base(pdf: canvas.Canvas, page_width: float, page_height: float,
-              active: dict[str, float], pattern: dict) -> tuple[float, float, float, float]:
-    pdf.setFillColor(gray(BORDER_GRAY))
+              active: dict[str, float], border_luminance: float,
+              pattern: dict) -> tuple[float, float, float, float]:
+    pdf.setFillColor(gray(border_luminance))
     pdf.rect(0, 0, page_width, page_height, fill=1, stroke=0)
     x, y, width, height = active_rect(page_width, page_height, active)
     pdf.setStrokeColor(black)
@@ -83,8 +82,10 @@ def draw_base(pdf: canvas.Canvas, page_width: float, page_height: float,
 
 
 def draw_pattern(pdf: canvas.Canvas, page_width: float, page_height: float,
-                 active: dict[str, float], pattern: dict) -> None:
-    x, y, width, height = draw_base(pdf, page_width, page_height, active, pattern)
+                 active: dict[str, float], border_luminance: float,
+                 pattern: dict) -> None:
+    x, y, width, height = draw_base(
+        pdf, page_width, page_height, active, border_luminance, pattern)
     family = pattern["family"]
     params = pattern["parameters"]
 
@@ -166,7 +167,8 @@ def draw_pattern(pdf: canvas.Canvas, page_width: float, page_height: float,
         seed = params["seed"].encode("ascii")
         for row in range(params["rows"]):
             for column in range(params["columns"]):
-                digest = hashlib.sha256(seed + f":{row}:{column}".encode("ascii")).digest()
+                digest = hashlib.sha256(
+                    seed + f":{row}:{column}".encode("ascii")).digest()
                 bit = digest[0] & 1
                 if params["inverse"]:
                     bit ^= 1
@@ -224,9 +226,11 @@ def generate(path: Path, page_size: tuple[float, float], target_name: str,
     draw_cover(pdf, page_width, page_height, target_name,
                len(manifest["patterns"]))
     pdf.showPage()
+    active = manifest["activeRegionNormalizedBottomLeft"]
+    border_luminance = manifest["borderLuminance"]
     for pattern in manifest["patterns"]:
         draw_pattern(pdf, page_width, page_height,
-                     manifest["activeRegionNormalizedBottomLeft"], pattern)
+                     active, border_luminance, pattern)
         pdf.showPage()
     pdf.save()
 
