@@ -4,6 +4,7 @@ import com.photographer.focusstack.camera.exception.CameraAuthenticationExceptio
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.camera.exception.CameraNotFoundException;
 import com.photographer.focusstack.camera.exception.CameraOperationException;
+import com.photographer.focusstack.camera.session.CameraSessionConflictException;
 import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.session.SessionNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -38,6 +39,19 @@ public class GlobalExceptionHandler {
         problem.setTitle("Camera Authentication Failed");
         problem.setProperty("code", ex.reason().name());
         problem.setProperty("cameraProfileId", ex.profileId());
+        return problem;
+    }
+
+    @ExceptionHandler(CameraSessionConflictException.class)
+    public ProblemDetail handleCameraSessionConflict(CameraSessionConflictException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Camera Session Conflict");
+        problem.setProperty("code", ex.code());
+        problem.setProperty("ownerCorrelationId", ex.ownerCorrelationId());
+        problem.setProperty("workflowType", ex.workflowType().name());
+        problem.setProperty("retryable", ex.retryable());
+        problem.setProperty("retryAfterSeconds", ex.retryAfter().toSeconds());
         return problem;
     }
 
