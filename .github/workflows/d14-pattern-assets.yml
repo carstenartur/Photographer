@@ -5,15 +5,16 @@ on:
     branches:
       - research/d14-controlled-patterns
     paths:
-      - 'docs/cr3-patterns/pattern-manifest.json'
-      - 'docs/cr3-patterns/pattern-manifest.schema.json'
+      - 'docs/cr3-patterns/**'
       - 'tools/cr3/generate_d14_patterns.py'
+      - 'canon-cr3-research/**/D14DifferentialAnalyzer*.java'
       - '.github/workflows/d14-pattern-assets.yml'
   pull_request:
     branches: [main]
     paths:
       - 'docs/cr3-patterns/**'
       - 'tools/cr3/generate_d14_patterns.py'
+      - 'canon-cr3-research/**/D14DifferentialAnalyzer*.java'
       - '.github/workflows/d14-pattern-assets.yml'
   workflow_dispatch:
 
@@ -28,7 +29,7 @@ jobs:
   generate-and-verify:
     if: ${{ !contains(github.event.head_commit.message || '', '[skip d14 generation]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -40,6 +41,14 @@ jobs:
         with:
           python-version: '3.13'
           cache: pip
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
 
       - name: Install deterministic PDF toolchain
         run: >-
@@ -100,6 +109,15 @@ jobs:
           (root / 'SHA256SUMS').write_text('\n'.join(hashes) + '\n')
           PY
 
+      - name: Run deterministic differential-analysis tests
+        run: >-
+          mvn -B --no-transfer-progress test
+          -pl canon-cr3-research
+          -am
+          -Dtest=D14DifferentialAnalyzerTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Djava.awt.headless=true
+
       - name: Commit generated assets on the source branch
         if: ${{ github.event_name == 'push' }}
         shell: bash
@@ -123,7 +141,10 @@ jobs:
             docs/cr3-patterns/README.md
             docs/cr3-patterns/pattern-manifest.json
             docs/cr3-patterns/pattern-manifest.schema.json
+            docs/cr3-patterns/capture-metadata-template.json
+            docs/cr3-patterns/analysis-input-layout.md
             docs/cr3-patterns/*.pdf
             docs/cr3-patterns/SHA256SUMS
+            canon-cr3-research/target/surefire-reports/
           if-no-files-found: error
           retention-days: 30
