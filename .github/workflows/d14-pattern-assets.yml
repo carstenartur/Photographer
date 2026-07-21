@@ -1,0 +1,138 @@
+name: CR3 D14 Pattern Assets
+
+on:
+  push:
+    branches:
+      - research/d14-controlled-patterns
+    paths:
+      - 'docs/cr3-patterns/**'
+      - 'tools/cr3/generate_d14_patterns.py'
+      - 'canon-cr3-research/**/D14DifferentialAnalyzer*.java'
+      - '.github/workflows/d14-pattern-assets.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/cr3-patterns/**'
+      - 'tools/cr3/generate_d14_patterns.py'
+      - 'canon-cr3-research/**/D14DifferentialAnalyzer*.java'
+      - '.github/workflows/d14-pattern-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cr3-d14-pattern-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout without write credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Install deterministic PDF toolchain
+        run: >-
+          python -m pip install --disable-pip-version-check
+          reportlab==4.4.9 pypdf==6.7.4 pypdfium2==5.6.0 jsonschema==4.26.0
+
+      - name: Generate twice and match committed assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf target/d14-first target/d14-second
+          python tools/cr3/generate_d14_patterns.py --output-dir target/d14-first
+          python tools/cr3/generate_d14_patterns.py --output-dir target/d14-second
+          cmp target/d14-first/cr3-diagnostic-patterns-screen-16x9.pdf \
+              target/d14-second/cr3-diagnostic-patterns-screen-16x9.pdf
+          cmp target/d14-first/cr3-diagnostic-patterns-print-a4-landscape.pdf \
+              target/d14-second/cr3-diagnostic-patterns-print-a4-landscape.pdf
+          cmp target/d14-first/cr3-diagnostic-patterns-screen-16x9.pdf \
+              docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf
+          cmp target/d14-first/cr3-diagnostic-patterns-print-a4-landscape.pdf \
+              docs/cr3-patterns/cr3-diagnostic-patterns-print-a4-landscape.pdf
+
+      - name: Validate manifest, pages, hashes and rendered samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import jsonschema
+          from pypdf import PdfReader
+          import pypdfium2 as pdfium
+
+          root = Path('docs/cr3-patterns')
+          manifest = json.loads((root / 'pattern-manifest.json').read_text())
+          schema = json.loads((root / 'pattern-manifest.schema.json').read_text())
+          jsonschema.Draft202012Validator(schema).validate(manifest)
+          patterns = manifest['patterns']
+          assert len(patterns) == 48
+          assert [p['page'] for p in patterns] == list(range(2, 50))
+          assert len({p['id'] for p in patterns}) == 48
+          assert [p['id'] for p in patterns if p['family'] == 'gray-code-x'] == [f'XG{i}' for i in range(6)]
+          assert [p['id'] for p in patterns if p['family'] == 'gray-code-y'] == [f'YG{i}' for i in range(5)]
+
+          hashes = []
+          for name in (
+              'cr3-diagnostic-patterns-screen-16x9.pdf',
+              'cr3-diagnostic-patterns-print-a4-landscape.pdf'):
+              path = root / name
+              assert len(PdfReader(path).pages) == 49
+              document = pdfium.PdfDocument(str(path))
+              for page_number in (0, 1, 9, 24, 33, 44, 48):
+                  bitmap = document[page_number].render(scale=0.25)
+                  image = bitmap.to_pil()
+                  assert image.width > 0 and image.height > 0
+                  extrema = image.convert('L').getextrema()
+                  assert extrema[0] < extrema[1] or page_number in range(1, 9)
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              hashes.append(f'{digest}  {name}')
+          expected = '\n'.join(hashes) + '\n'
+          assert (root / 'SHA256SUMS').read_text() == expected
+          PY
+
+      - name: Run deterministic differential-analysis tests
+        run: >-
+          mvn -B --no-transfer-progress test
+          -pl canon-cr3-research
+          -am
+          -Dtest=D14DifferentialAnalyzerTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Djava.awt.headless=true
+
+      - name: Upload verified pattern pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: cr3-d14-diagnostic-patterns
+          path: |
+            docs/cr3-patterns/README.md
+            docs/cr3-patterns/pattern-manifest.json
+            docs/cr3-patterns/pattern-manifest.schema.json
+            docs/cr3-patterns/capture-metadata-template.json
+            docs/cr3-patterns/analysis-input-layout.md
+            docs/cr3-patterns/*.pdf
+            docs/cr3-patterns/SHA256SUMS
+            canon-cr3-research/target/surefire-reports/
+          if-no-files-found: error
+          retention-days: 30

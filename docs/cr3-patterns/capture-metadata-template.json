@@ -1,0 +1,58 @@
+{
+  "schema": "cr3-d14-capture-metadata-v1",
+  "seriesId": "REPLACE-WITH-UNIQUE-SERIES-ID",
+  "capturedAtUtc": "YYYY-MM-DDTHH:MM:SSZ",
+  "operator": "",
+  "camera": {
+    "manufacturer": "Canon",
+    "model": "",
+    "firmware": "",
+    "serialHash": ""
+  },
+  "lens": {
+    "model": "",
+    "focalLengthMm": null,
+    "focusMode": "manual",
+    "distanceDescription": ""
+  },
+  "exposure": {
+    "mode": "manual",
+    "iso": null,
+    "aperture": "",
+    "shutter": "",
+    "whiteBalance": "manual",
+    "pictureStyle": "",
+    "noiseReduction": {
+      "longExposure": "disabled-or-record-value",
+      "highIso": "disabled-or-record-value"
+    }
+  },
+  "target": {
+    "edition": "screen-16x9-or-print-a4-landscape",
+    "displayOrPrinterModel": "",
+    "brightnessOrIllumination": "",
+    "slightDefocusUsed": false,
+    "activeFieldFillsFrame": true,
+    "completeIdentificationBorderVisible": true
+  },
+  "captureOrder": [
+    {
+      "patternId": "U00",
+      "repeat": "A",
+      "cr3File": "",
+      "companionFile": "",
+      "cr3Sha256": "",
+      "companionSha256": "",
+      "notes": ""
+    },
+    {
+      "patternId": "U00",
+      "repeat": "B",
+      "cr3File": "",
+      "companionFile": "",
+      "cr3Sha256": "",
+      "companionSha256": "",
+      "notes": ""
+    }
+  ]
+}
