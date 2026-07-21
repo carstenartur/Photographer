@@ -6,23 +6,23 @@ import java.util.Objects;
 /** Logical ownership request for one camera. */
 public record CameraLeaseRequest(
         CameraLeaseKey cameraKey,
-        String workflowType,
+        CameraWorkflowType workflowType,
         String workflowId,
         String ownerToken,
         Duration requestedLifetime) {
 
     public CameraLeaseRequest {
         Objects.requireNonNull(cameraKey, "cameraKey");
-        workflowType = requireText(workflowType, "workflowType");
-        workflowId = requireText(workflowId, "workflowId");
-        ownerToken = requireText(ownerToken, "ownerToken");
+        Objects.requireNonNull(workflowType, "workflowType");
+        workflowId = requirePrivateText(workflowId, "workflowId");
+        ownerToken = requirePrivateText(ownerToken, "ownerToken");
         Objects.requireNonNull(requestedLifetime, "requestedLifetime");
         if (requestedLifetime.isZero() || requestedLifetime.isNegative()) {
             throw new IllegalArgumentException("requestedLifetime must be positive");
         }
     }
 
-    private static String requireText(String value, String name) {
+    private static String requirePrivateText(String value, String name) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " is required");
         }
