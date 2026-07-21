@@ -21,7 +21,7 @@ class CrxSubbandTopologyIT {
 
     @Test
     void inventoryFixedPanelTopologyWithoutSelectingByImageQuality() throws Exception {
-        List<Path> fixtures = KAdaptationFixtureSet.require(SAMPLES);
+        List<Path> fixtures = requireFixedPanel(SAMPLES);
         assertThat(fixtures).hasSize(KAdaptationFixtureSet.PANEL.size());
         Files.createDirectories(OUTPUT);
 
@@ -56,6 +56,23 @@ class CrxSubbandTopologyIT {
         assertThat(OUTPUT.resolve("results.md")).exists();
         assertThat(OUTPUT.resolve("results.tsv")).exists();
         assertThat(OUTPUT.resolve("results.json")).exists();
+    }
+
+    private static List<Path> requireFixedPanel(Path samples) {
+        List<Path> fixtures = new ArrayList<>();
+        List<String> missing = new ArrayList<>();
+        for (String name : KAdaptationFixtureSet.PANEL) {
+            Path fixture = samples.resolve(name);
+            if (Files.isRegularFile(fixture)) {
+                fixtures.add(fixture);
+            } else {
+                missing.add(name);
+            }
+        }
+        assertThat(missing)
+                .as("D13 requires the complete fixed CR3 panel under %s", samples)
+                .isEmpty();
+        return List.copyOf(fixtures);
     }
 
     private static List<CrxSubbandTopologyReport.Row> inventory(Path fixture)
