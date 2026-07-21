@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -52,6 +54,10 @@ class FaceOrbitControllerTest {
     private static final CaptureSession SAMPLE_SESSION = new CaptureSession(
             "sess-2", "face-orbit", SessionStatus.CREATED,
             Instant.now(), null, null,
+            List.of(), null, Map.of());
+    private static final CaptureSession RUNNING_SESSION = new CaptureSession(
+            "sess-2", "face-orbit", SessionStatus.RUNNING,
+            SAMPLE_SESSION.createdAt(), Instant.now(), null,
             List.of(), null, Map.of());
 
     @Test
@@ -89,14 +95,34 @@ class FaceOrbitControllerTest {
     }
 
     @Test
-    void startAutoMode_returnsAccepted() throws Exception {
-        when(faceOrbitService.getSession("sess-2")).thenReturn(SAMPLE_SESSION);
+    void startAutoMode_preparesOwnershipBeforeScheduling() throws Exception {
+        FaceOrbitService.PreparedAutoExecution execution =
+                mock(FaceOrbitService.PreparedAutoExecution.class);
+        when(faceOrbitService.prepareAutoExecution("sess-2")).thenReturn(execution);
+        when(faceOrbitService.getSession("sess-2")).thenReturn(RUNNING_SESSION);
 
         mockMvc.perform(post("/api/face-orbit/sess-2/auto")
                         .with(csrf()))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("RUNNING"));
 
-        verify(faceOrbitService).validateAutoModeStartable("sess-2");
+        verify(faceOrbitService).prepareAutoExecution("sess-2");
+        verify(sessionTaskExecutor).execute(execution);
+    }
+
+    @Test
+    void executorRejection_rejectsPreparedAutoExecution() throws Exception {
+        FaceOrbitService.PreparedAutoExecution execution =
+                mock(FaceOrbitService.PreparedAutoExecution.class);
+        IllegalStateException rejection = new IllegalStateException("executor rejected");
+        when(faceOrbitService.prepareAutoExecution("sess-2")).thenReturn(execution);
+        doThrow(rejection).when(sessionTaskExecutor).execute(execution);
+
+        mockMvc.perform(post("/api/face-orbit/sess-2/auto")
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(execution).reject(rejection);
     }
 
     @Test

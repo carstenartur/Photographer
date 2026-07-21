@@ -21,10 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * REST API for Face Orbit Capture sessions.
- * Delegates all business logic to {@link FaceOrbitService}.
- */
+/** REST API for Face Orbit Capture sessions. */
 @RestController
 @RequestMapping("/api/face-orbit")
 @Tag(name = "Face Orbit", description = "Face-orbit capture sessions and profile generation endpoints.")
@@ -49,18 +46,21 @@ public class FaceOrbitController {
     @PostMapping("/{sessionId}/capture")
     @Operation(summary = "Capture next face-orbit step")
     public ResponseEntity<QualityCheck> captureNextStep(@PathVariable String sessionId) {
-        QualityCheck quality = service.captureNextStep(sessionId);
-        return ResponseEntity.ok(quality);
+        return ResponseEntity.ok(service.captureNextStep(sessionId));
     }
 
     @PostMapping("/{sessionId}/auto")
     @Operation(summary = "Start automatic face-orbit mode")
     public ResponseEntity<CaptureSession> startAutoMode(@PathVariable String sessionId) {
-        // Validate state synchronously before scheduling async execution
-        service.validateAutoModeStartable(sessionId);
-        taskExecutor.execute(() -> service.executeAutoMode(sessionId));
-        CaptureSession session = service.getSession(sessionId);
-        return ResponseEntity.accepted().body(session);
+        FaceOrbitService.PreparedAutoExecution execution =
+                service.prepareAutoExecution(sessionId);
+        try {
+            taskExecutor.execute(execution);
+        } catch (RuntimeException schedulingFailure) {
+            execution.reject(schedulingFailure);
+            throw schedulingFailure;
+        }
+        return ResponseEntity.accepted().body(service.getSession(sessionId));
     }
 
     @PostMapping("/{sessionId}/stop")
@@ -91,8 +91,7 @@ public class FaceOrbitController {
     @PostMapping("/{sessionId}/profile")
     @Operation(summary = "Generate a face profile job from a session")
     public ResponseEntity<FaceProfileJob> generateProfile(@PathVariable String sessionId) {
-        FaceProfileJob job = service.generateProfile(sessionId);
-        return ResponseEntity.ok(job);
+        return ResponseEntity.ok(service.generateProfile(sessionId));
     }
 
     @GetMapping("/profile/{jobId}")
