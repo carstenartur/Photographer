@@ -18,7 +18,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -40,19 +42,19 @@ class HdrTimelapseLeaseLifecycleTest {
         HdrTimelapseService.PreparedExecution execution =
                 service.prepareExecution(created.sessionId());
 
-        assertThat(provider.opens.get()).isEqualTo(1);
-        assertThat(provider.closes.get()).isZero();
-        assertThat(service.getSession(created.sessionId()).status())
-                .isEqualTo(SessionStatus.RUNNING);
+        assertEquals(1, provider.opens.get());
+        assertEquals(0, provider.closes.get());
+        assertEquals(SessionStatus.RUNNING,
+                service.getSession(created.sessionId()).status());
         verify(backend, never()).capture();
 
         CaptureSession completed = execution.execute();
 
-        assertThat(completed.status()).isEqualTo(SessionStatus.COMPLETED);
-        assertThat(provider.closes.get()).isEqualTo(1);
+        assertEquals(SessionStatus.COMPLETED, completed.status());
+        assertEquals(1, provider.closes.get());
         verify(backend).capture();
-        assertThat(provider.lastPurpose).isEqualTo(CameraSessionPurpose.HDR_TIMELAPSE);
-        assertThat(provider.lastWorkflowId).isEqualTo(created.sessionId());
+        assertEquals(CameraSessionPurpose.HDR_TIMELAPSE, provider.lastPurpose);
+        assertEquals(created.sessionId(), provider.lastWorkflowId);
     }
 
     @Test
@@ -66,12 +68,12 @@ class HdrTimelapseLeaseLifecycleTest {
 
         service.stopSession(created.sessionId());
 
-        assertThat(provider.closes.get()).isEqualTo(1);
-        assertThat(service.getSession(created.sessionId()).status())
-                .isEqualTo(SessionStatus.CANCELLED);
+        assertEquals(1, provider.closes.get());
+        assertEquals(SessionStatus.CANCELLED,
+                service.getSession(created.sessionId()).status());
         execution.run();
         verify(backend, never()).capture();
-        assertThat(provider.closes.get()).isEqualTo(1);
+        assertEquals(1, provider.closes.get());
     }
 
     @Test
@@ -86,9 +88,9 @@ class HdrTimelapseLeaseLifecycleTest {
         execution.reject(new IllegalStateException("executor rejected"));
         execution.reject(new IllegalStateException("duplicate rejection"));
 
-        assertThat(service.getSession(created.sessionId()).status())
-                .isEqualTo(SessionStatus.FAILED);
-        assertThat(provider.closes.get()).isEqualTo(1);
+        assertEquals(SessionStatus.FAILED,
+                service.getSession(created.sessionId()).status());
+        assertEquals(1, provider.closes.get());
         execution.run();
         verify(backend, never()).capture();
     }
@@ -112,21 +114,21 @@ class HdrTimelapseLeaseLifecycleTest {
                 service.prepareExecution(created.sessionId());
         Thread worker = new Thread(execution, "hdr-owned-execution-test");
         worker.start();
-        assertThat(captureEntered.await(5, TimeUnit.SECONDS)).isTrue();
+        assertTrue(captureEntered.await(5, TimeUnit.SECONDS));
 
         service.stopSession(created.sessionId());
 
-        assertThat(provider.closes.get()).isZero();
-        assertThat(service.getSession(created.sessionId()).status())
-                .isEqualTo(SessionStatus.RUNNING);
+        assertEquals(0, provider.closes.get());
+        assertEquals(SessionStatus.RUNNING,
+                service.getSession(created.sessionId()).status());
 
         releaseCapture.countDown();
         worker.join(5_000);
 
-        assertThat(worker.isAlive()).isFalse();
-        assertThat(service.getSession(created.sessionId()).status())
-                .isEqualTo(SessionStatus.CANCELLED);
-        assertThat(provider.closes.get()).isEqualTo(1);
+        assertFalse(worker.isAlive());
+        assertEquals(SessionStatus.CANCELLED,
+                service.getSession(created.sessionId()).status());
+        assertEquals(1, provider.closes.get());
     }
 
     @Test
@@ -139,8 +141,8 @@ class HdrTimelapseLeaseLifecycleTest {
 
         CaptureSession result = service.prepareExecution(created.sessionId()).execute();
 
-        assertThat(result.status()).isEqualTo(SessionStatus.FAILED);
-        assertThat(provider.closes.get()).isEqualTo(1);
+        assertEquals(SessionStatus.FAILED, result.status());
+        assertEquals(1, provider.closes.get());
     }
 
     private HdrTimelapseService service(CameraBackendProvider provider) {
