@@ -2,11 +2,13 @@ package com.photographer.focusstack.cr3.research;
 
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Deterministic, quality-independent primitives for the D14 controlled-pattern
@@ -67,7 +69,7 @@ public final class D14DifferentialAnalyzer {
         }
     }
 
-    /** One stable Gray-code mapping candidate for a payload observation vector. */
+    /** One bounded Gray-code mapping candidate for a payload observation vector. */
     public record GrayCodeMatch(
             int cellIndex,
             int hammingDistance,
@@ -77,6 +79,26 @@ public final class D14DifferentialAnalyzer {
             if (cellIndex < 0 || hammingDistance < 0 || observedBits < 1) {
                 throw new IllegalArgumentException("Invalid Gray-code match");
             }
+        }
+    }
+
+    /** Duplicate observations for the same payload position and pattern sequence. */
+    public record ObservationPair(BitSet repeatA, BitSet repeatB) {
+        public ObservationPair {
+            Objects.requireNonNull(repeatA, "repeatA");
+            Objects.requireNonNull(repeatB, "repeatB");
+            repeatA = (BitSet) repeatA.clone();
+            repeatB = (BitSet) repeatB.clone();
+        }
+
+        @Override
+        public BitSet repeatA() {
+            return (BitSet) repeatA.clone();
+        }
+
+        @Override
+        public BitSet repeatB() {
+            return (BitSet) repeatB.clone();
         }
     }
 
@@ -115,12 +137,14 @@ public final class D14DifferentialAnalyzer {
         int payloadLength = duplicatePairs.getFirst().left().length;
         int[] changedCounts = new int[payloadLength];
         for (PayloadPair pair : duplicatePairs) {
-            requireSameLength(pair.left(), pair.right());
-            if (pair.left().length != payloadLength) {
+            byte[] left = pair.left();
+            byte[] right = pair.right();
+            requireSameLength(left, right);
+            if (left.length != payloadLength) {
                 throw new IllegalArgumentException("Duplicate payload lengths differ");
             }
             for (int index = 0; index < payloadLength; index++) {
-                if (pair.left()[index] != pair.right()[index]) {
+                if (left[index] != right[index]) {
                     changedCounts[index]++;
                 }
             }
@@ -173,6 +197,10 @@ public final class D14DifferentialAnalyzer {
     /**
      * Finds the bounded best Gray-code match. The result is marked unique only
      * when no other cell has the same Hamming distance.
+     *
+     * <p>For a complete power-of-two domain every bit word is itself a valid
+     * Gray code. Callers must therefore use {@link #matchDuplicateStableGrayCode}
+     * rather than treating a zero-distance single-repeat match as evidence.</p>
      */
     public static GrayCodeMatch matchGrayCode(
             BitSet observed,
@@ -188,9 +216,8 @@ public final class D14DifferentialAnalyzer {
 
         List<GrayCodeMatch> candidates = new ArrayList<>();
         for (int cell = 0; cell < cellCount; cell++) {
-            BitSet difference = (BitSet) observed.clone();
+            BitSet difference = boundedCopy(observed, observedBits);
             difference.xor(grayCodeVector(cell, observedBits));
-            difference.clear(observedBits, Math.max(observedBits, difference.length()));
             candidates.add(new GrayCodeMatch(
                     cell, difference.cardinality(), observedBits, false));
         }
@@ -204,33 +231,69 @@ public final class D14DifferentialAnalyzer {
     }
 
     /**
-     * Correlates one observation vector per payload bit position. Positions are
-     * sorted in the returned map to keep reports byte-for-byte deterministic.
+     * Accepts a coordinate only when both duplicate captures independently map
+     * to the same unique cell and their vectors stay within the pre-registered
+     * repeat-disagreement and code-distance bounds.
      */
-    public static Map<Long, GrayCodeMatch> correlateGrayCodeVectors(
-            Map<Long, BitSet> observations,
+    public static Optional<GrayCodeMatch> matchDuplicateStableGrayCode(
+            ObservationPair observations,
             int observedBits,
             int cellCount,
-            int maximumHammingDistance) {
+            int maximumRepeatDisagreement,
+            int maximumCodeDistance) {
         Objects.requireNonNull(observations, "observations");
-        if (maximumHammingDistance < 0) {
-            throw new IllegalArgumentException("Maximum Hamming distance must not be negative");
+        if (maximumRepeatDisagreement < 0 || maximumCodeDistance < 0) {
+            throw new IllegalArgumentException("Hamming-distance bounds must not be negative");
         }
+        BitSet repeatA = boundedCopy(observations.repeatA(), observedBits);
+        BitSet repeatB = boundedCopy(observations.repeatB(), observedBits);
+        BitSet repeatDifference = (BitSet) repeatA.clone();
+        repeatDifference.xor(repeatB);
+        if (repeatDifference.cardinality() > maximumRepeatDisagreement) {
+            return Optional.empty();
+        }
+
+        GrayCodeMatch matchA = matchGrayCode(repeatA, observedBits, cellCount);
+        GrayCodeMatch matchB = matchGrayCode(repeatB, observedBits, cellCount);
+        if (!matchA.uniqueBest()
+                || !matchB.uniqueBest()
+                || matchA.cellIndex() != matchB.cellIndex()
+                || matchA.hammingDistance() > maximumCodeDistance
+                || matchB.hammingDistance() > maximumCodeDistance) {
+            return Optional.empty();
+        }
+        return Optional.of(new GrayCodeMatch(
+                matchA.cellIndex(),
+                Math.max(matchA.hammingDistance(), matchB.hammingDistance()),
+                observedBits,
+                true));
+    }
+
+    /**
+     * Correlates duplicate observations per payload bit position. Positions are
+     * sorted in the returned map to keep reports byte-for-byte deterministic.
+     */
+    public static Map<Long, GrayCodeMatch> correlateDuplicateStableGrayCodeVectors(
+            Map<Long, ObservationPair> observations,
+            int observedBits,
+            int cellCount,
+            int maximumRepeatDisagreement,
+            int maximumCodeDistance) {
+        Objects.requireNonNull(observations, "observations");
         Map<Long, GrayCodeMatch> matches = new LinkedHashMap<>();
         observations.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> {
                     if (entry.getKey() < 0) {
-                        throw new IllegalArgumentException("Payload bit positions must be non-negative");
+                        throw new IllegalArgumentException(
+                                "Payload bit positions must be non-negative");
                     }
-                    GrayCodeMatch match = matchGrayCode(
-                            entry.getValue(), observedBits, cellCount);
-                    if (match.uniqueBest()
-                            && match.hammingDistance() <= maximumHammingDistance) {
-                        matches.put(entry.getKey(), match);
-                    }
+                    matchDuplicateStableGrayCode(
+                            entry.getValue(), observedBits, cellCount,
+                            maximumRepeatDisagreement, maximumCodeDistance)
+                            .ifPresent(match -> matches.put(entry.getKey(), match));
                 });
-        return Map.copyOf(matches);
+        return Collections.unmodifiableMap(new LinkedHashMap<>(matches));
     }
 
     public record PayloadPair(byte[] left, byte[] right) {
@@ -250,6 +313,15 @@ public final class D14DifferentialAnalyzer {
         public byte[] right() {
             return right.clone();
         }
+    }
+
+    private static BitSet boundedCopy(BitSet source, int bitCount) {
+        Objects.requireNonNull(source, "source");
+        BitSet bounded = (BitSet) source.clone();
+        if (bounded.length() > bitCount) {
+            bounded.clear(bitCount, bounded.length());
+        }
+        return bounded;
     }
 
     private static boolean bit(byte[] data, long bitIndex) {
