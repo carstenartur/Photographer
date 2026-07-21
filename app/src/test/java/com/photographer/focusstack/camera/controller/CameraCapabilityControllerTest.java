@@ -4,6 +4,7 @@ import com.photographer.focusstack.app.security.UserRepository;
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.service.DirectCameraControlExecutor;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
 import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
@@ -47,6 +48,9 @@ class CameraCapabilityControllerTest {
 
     @MockitoBean
     private SearchService searchService;
+
+    @MockitoBean
+    private DirectCameraControlExecutor directControl;
 
     @MockitoBean
     private UserRepository userRepository;
