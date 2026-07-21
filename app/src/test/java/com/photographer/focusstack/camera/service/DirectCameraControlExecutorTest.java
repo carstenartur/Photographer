@@ -70,7 +70,7 @@ class DirectCameraControlExecutorTest {
                 "stack-job",
                 "stack-owner",
                 Duration.ofHours(1)))) {
-            assertThatThrownBy(() -> executor.withProfileLease(
+            assertThatThrownBy(() -> executor.withProfileLeaseVoid(
                     "camera", () -> mutationCalled.set(true)))
                     .isInstanceOf(CameraSessionConflictException.class);
         }
