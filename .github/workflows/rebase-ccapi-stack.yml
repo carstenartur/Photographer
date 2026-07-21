@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: rebase-reviewed-ccapi-stack
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   rebase-and-verify:
@@ -34,9 +34,11 @@ jobs:
           cache-dependency-path: pom.xml
 
       - name: Rebuild stacked branches from current main
+        id: rebase
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee rebase-stack.log) 2>&1
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin --prune
@@ -76,6 +78,39 @@ jobs:
             "$ASTRO_SHA:refs/heads/hardening/ccapi-astro-session-lease" \
             "$DIRECT_SHA:refs/heads/hardening/ccapi-direct-control-lease"
 
+      - name: Publish success status
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin automation/rebase-ccapi-stack
+          git switch -C automation-status origin/automation/rebase-ccapi-stack
+          {
+            echo 'status=success'
+            echo "source_commit=${GITHUB_SHA}"
+            cat rebased-shas.txt
+          } > rebase-status.txt
+          git add rebase-status.txt
+          git commit -m 'ci: record successful CCAPI stack rebase'
+          git push origin HEAD:automation/rebase-ccapi-stack
+
+      - name: Publish failure status
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cherry-pick --abort 2>/dev/null || true
+          git reset --hard
+          git fetch origin automation/rebase-ccapi-stack
+          git switch -C automation-status origin/automation/rebase-ccapi-stack
+          {
+            echo 'status=failure'
+            echo "source_commit=${GITHUB_SHA}"
+          } > rebase-status.txt
+          git add rebase-status.txt
+          git commit -m 'ci: record failed CCAPI stack rebase'
+          git push origin HEAD:automation/rebase-ccapi-stack
+
       - name: Upload rebase evidence
         if: always()
         uses: actions/upload-artifact@v7
@@ -83,6 +118,7 @@ jobs:
           name: ccapi-stack-rebase-evidence
           path: |
             rebased-shas.txt
+            rebase-stack.log
             **/target/surefire-reports/
           if-no-files-found: warn
           retention-days: 7
