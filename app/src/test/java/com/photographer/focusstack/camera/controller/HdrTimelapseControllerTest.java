@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -51,6 +53,10 @@ class HdrTimelapseControllerTest {
             "sess-1", "hdr-timelapse", SessionStatus.CREATED,
             Instant.now(), null, null,
             List.of(), null, Map.of());
+    private static final CaptureSession RUNNING_SESSION = new CaptureSession(
+            "sess-1", "hdr-timelapse", SessionStatus.RUNNING,
+            SAMPLE_SESSION.createdAt(), Instant.now(), null,
+            List.of(), null, Map.of());
 
     @Test
     void createSession_returnsCreated() throws Exception {
@@ -76,14 +82,34 @@ class HdrTimelapseControllerTest {
     }
 
     @Test
-    void startSession_returnsAccepted() throws Exception {
-        when(hdrTimelapseService.getSession("sess-1")).thenReturn(SAMPLE_SESSION);
+    void startSession_preparesOwnershipBeforeScheduling() throws Exception {
+        HdrTimelapseService.PreparedExecution execution =
+                mock(HdrTimelapseService.PreparedExecution.class);
+        when(hdrTimelapseService.prepareExecution("sess-1")).thenReturn(execution);
+        when(hdrTimelapseService.getSession("sess-1")).thenReturn(RUNNING_SESSION);
 
         mockMvc.perform(post("/api/hdr-timelapse/sess-1/start")
                         .with(csrf()))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status").value("RUNNING"));
 
-        verify(hdrTimelapseService).validateStartable("sess-1");
+        verify(hdrTimelapseService).prepareExecution("sess-1");
+        verify(sessionTaskExecutor).execute(execution);
+    }
+
+    @Test
+    void executorRejection_rejectsPreparedExecution() throws Exception {
+        HdrTimelapseService.PreparedExecution execution =
+                mock(HdrTimelapseService.PreparedExecution.class);
+        IllegalStateException rejection = new IllegalStateException("executor rejected");
+        when(hdrTimelapseService.prepareExecution("sess-1")).thenReturn(execution);
+        doThrow(rejection).when(sessionTaskExecutor).execute(execution);
+
+        mockMvc.perform(post("/api/hdr-timelapse/sess-1/start")
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(execution).reject(rejection);
     }
 
     @Test
