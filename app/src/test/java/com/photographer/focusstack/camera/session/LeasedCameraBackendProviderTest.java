@@ -54,6 +54,42 @@ class LeasedCameraBackendProviderTest {
     }
 
     @Test
+    void sameLogicalWorkflowReacquiresReentrantlyAcrossProfileAliases() {
+        CameraBackendFactory backendFactory = mock(CameraBackendFactory.class);
+        CameraProfileService profileService = mock(CameraProfileService.class);
+        CameraBackend backend = mock(CameraBackend.class);
+        CameraProfile first = profile("first", "camera.example");
+        CameraProfile alias = profile("alias", "HTTP://CAMERA.EXAMPLE:8080/other");
+        when(profileService.getProfile("first")).thenReturn(first);
+        when(profileService.getProfile("alias")).thenReturn(alias);
+        when(backendFactory.getBackend(first)).thenReturn(backend);
+        when(backendFactory.getBackend(alias)).thenReturn(backend);
+        InMemoryCameraSessionLeaseManager manager = manager();
+        LeasedCameraBackendProvider provider = provider(
+                backendFactory, profileService, manager);
+
+        CameraBackendSession firstHandle = provider.openSession(
+                "first", CameraSessionPurpose.HDR_TIMELAPSE, "same-hdr-session");
+        CameraBackendSession secondHandle = provider.openSession(
+                "alias", CameraSessionPurpose.HDR_TIMELAPSE, "same-hdr-session");
+        try {
+            assertThat(firstHandle.backend()).isSameAs(backend);
+            assertThat(secondHandle.backend()).isSameAs(backend);
+            assertThat(manager.metrics().activeLeases()).isEqualTo(1);
+
+            firstHandle.close();
+            assertThat(manager.metrics().activeLeases()).isEqualTo(1);
+            assertThatThrownBy(() -> provider.openSession(
+                    "alias", CameraSessionPurpose.HDR_TIMELAPSE, "different-session"))
+                    .isInstanceOf(CameraSessionConflictException.class);
+        } finally {
+            firstHandle.close();
+            secondHandle.close();
+        }
+        assertThat(manager.metrics().activeLeases()).isZero();
+    }
+
+    @Test
     void backendInitializationFailureReleasesLeaseAndSanitizesFailure() {
         CameraBackendFactory backendFactory = mock(CameraBackendFactory.class);
         CameraProfileService profileService = mock(CameraProfileService.class);
