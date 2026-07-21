@@ -14,18 +14,20 @@ Durable entry point for CR3 research. Every result records fixed inputs, one cha
 | 2026-07-20 | D8 zero-contracted K bracket | PARTIAL | [D8](cr3-results/2026-07-20-D8-zero-contracted-k.md) |
 | 2026-07-20 | D9 first non-zero K divergence | COMPLETE; NO COMMON CAUSE | [D9](cr3-results/2026-07-20-D9-first-nonzero-k-divergence.md) |
 | 2026-07-20 | D10 transition/outcome matrix | COMPLETE; NO PREDICTIVE CLASS | [D10](cr3-results/2026-07-20-D10-k-transition-outcome-matrix.md) |
-| 2026-07-20 | D11 Canon K primary-source audit | COMPLETE; EXACT CANDIDATE AVAILABLE | [D11](cr3-results/2026-07-20-D11-canon-k-source-audit.md) |
+| 2026-07-20 | D11 Canon K primary-source audit | COMPLETE; EXACT BASE CANDIDATE | [D11](cr3-results/2026-07-20-D11-canon-k-source-audit.md) |
 | 2026-07-20 | D12 exact code-length K bracket | PARTIAL | [D12](cr3-results/2026-07-20-D12-exact-k-bracket.md) |
+| 2026-07-20 | D13 tentative-symbol context and lossless topology | COMPLETE; PRIMARY SOURCE OR MAPPING INSUFFICIENT | [D13](cr3-results/2026-07-20-D13-context-topology.md) |
 
-## Current priority: D13 context and topology
+## Current state: semantic work blocked
 
-D12 confirms that the source-backed optimum K range is not sufficient when the currently decoded symbol is used as the tentative next symbol. The optical-black median improves, but global, boundary, saturation, camera-family and stream-completion gates fail.
+D13 executed a deterministic topology inventory over the fixed panel:
 
-The next work is observation and source analysis only:
+- 11 fixtures;
+- 88 lossless single-subband records;
+- 220,347,400 payload bytes;
+- 77 contiguous transitions, no gaps and no overlaps;
+- one stable topology per camera family and two variants across the full panel.
 
-- transcribe the remaining `Sd`, `Sn` and `Kd` semantics with figure/claim references;
-- map the fixed CRX subband topology without selecting by output quality;
-- verify causal availability at row, tile, plane and decomposition boundaries;
-- produce one exact context candidate or keep semantic work blocked.
+Because every record has `waveletLevels=0` and `subband=0`, the panel exposes no deeper parent, LL/HL/LH/HH identity, causal `Sd` source or `Kd` lifecycle. The registered public source also does not yet provide enough implementable detail to close those gaps.
 
-Issue #238 defines the acceptance boundary. No D12 behavior may enter production.
+No D14 entropy candidate is justified. RAW research may resume only with genuinely new public-primary-source or multi-subband structural evidence. D12 behavior remains research-only and production is unchanged.
