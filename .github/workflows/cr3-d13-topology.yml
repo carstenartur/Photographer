@@ -38,7 +38,7 @@ jobs:
       - name: Stage research dependencies
         run: >-
           mvn -B --no-transfer-progress install
-          -DskipTests
+          -Dmaven.test.skip=true
           -pl canon-cr3-research
           -am
           -Djava.awt.headless=true
