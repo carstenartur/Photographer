@@ -46,6 +46,9 @@ public final class CameraLeaseKey {
         }
         String trimmed = location.trim();
         boolean explicitScheme = hasHttpScheme(trimmed);
+        if (!explicitScheme && hasExplicitUriScheme(trimmed)) {
+            throw new IllegalArgumentException("CCAPI camera location must use HTTP or HTTPS");
+        }
         URI uri;
         try {
             uri = URI.create(explicitScheme ? trimmed : "http://" + trimmed);
@@ -83,6 +86,21 @@ public final class CameraLeaseKey {
     private static boolean hasHttpScheme(String value) {
         return value.regionMatches(true, 0, "http://", 0, 7)
                 || value.regionMatches(true, 0, "https://", 0, 8);
+    }
+
+    private static boolean hasExplicitUriScheme(String value) {
+        int separator = value.indexOf("://");
+        if (separator <= 0 || !Character.isLetter(value.charAt(0))) {
+            return false;
+        }
+        for (int index = 1; index < separator; index++) {
+            char character = value.charAt(index);
+            if (!Character.isLetterOrDigit(character)
+                    && character != '+' && character != '-' && character != '.') {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String normalizeScheme(String scheme) {
