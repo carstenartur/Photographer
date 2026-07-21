@@ -37,13 +37,23 @@ public final class CcapiCredentialStartupValidator implements ApplicationRunner 
         }
 
         long missing = required.stream()
-                .filter(profileId -> !authentication.state(profileId)
-                        .credentialsConfigured())
+                .filter(profileId -> !hasCompleteCredentials(profileId))
                 .count();
         if (missing != 0) {
             throw new IllegalStateException(
                     "Required CCAPI credentials are missing for "
                             + missing + " configured profile(s)");
+        }
+    }
+
+    private boolean hasCompleteCredentials(String profileId) {
+        try {
+            return authentication.state(profileId).credentialsConfigured();
+        } catch (IllegalStateException incompleteBinding) {
+            // CcapiAuthenticationProperties deliberately diagnoses the exact
+            // profile for internal callers. Packaged startup must collapse that
+            // detail to the same count-only missing-credential result.
+            return false;
         }
     }
 }
