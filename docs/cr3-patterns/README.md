@@ -7,6 +7,10 @@ This directory contains a pre-registered clean-room stimulus pack for issue #249
 - `cr3-diagnostic-patterns-screen-16x9.pdf`: screen/tablet edition.
 - `cr3-diagnostic-patterns-print-a4-landscape.pdf`: A4 landscape edition.
 - `pattern-manifest.json`: stable pattern IDs, parameters, page numbers and analysis intent.
+- `pattern-manifest.schema.json`: machine-verifiable manifest contract.
+- `capture-metadata-template.json`: provenance and capture-settings template.
+- `analysis-input-layout.md`: immutable series layout expected by the future differential harness.
+- `SHA256SUMS`: hashes of the generated PDFs.
 
 Both PDFs contain the same 48 pattern pages after one cover page. The active field uses the normalized rectangle:
 
@@ -74,4 +78,4 @@ Capture two repeats per page.
 - deterministic PRBS field and inverse;
 - orientation and diagonal controls.
 
-All generation parameters are in `pattern-manifest.json`.
+All generation parameters are in `pattern-manifest.json`. The generator and CI regenerate both PDFs twice, require byte-identical output, validate the manifest schema and render representative pages before publishing the assets.
