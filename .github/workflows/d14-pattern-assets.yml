@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: cr3-d14-pattern-assets-${{ github.ref }}
@@ -27,14 +27,13 @@ concurrency:
 
 jobs:
   generate-and-verify:
-    if: ${{ !contains(github.event.head_commit.message || '', '[skip d14 generation]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout
+      - name: Checkout without write credentials
         uses: actions/checkout@v7
         with:
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -55,7 +54,7 @@ jobs:
           python -m pip install --disable-pip-version-check
           reportlab==4.4.9 pypdf==6.7.4 pypdfium2==5.6.0 jsonschema==4.26.0
 
-      - name: Generate twice and prove byte reproducibility
+      - name: Generate twice and match committed assets
         shell: bash
         run: |
           set -euo pipefail
@@ -66,9 +65,12 @@ jobs:
               target/d14-second/cr3-diagnostic-patterns-screen-16x9.pdf
           cmp target/d14-first/cr3-diagnostic-patterns-print-a4-landscape.pdf \
               target/d14-second/cr3-diagnostic-patterns-print-a4-landscape.pdf
-          cp target/d14-first/*.pdf docs/cr3-patterns/
+          cmp target/d14-first/cr3-diagnostic-patterns-screen-16x9.pdf \
+              docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf
+          cmp target/d14-first/cr3-diagnostic-patterns-print-a4-landscape.pdf \
+              docs/cr3-patterns/cr3-diagnostic-patterns-print-a4-landscape.pdf
 
-      - name: Validate manifest, pages and rendered samples
+      - name: Validate manifest, pages, hashes and rendered samples
         shell: bash
         run: |
           set -euo pipefail
@@ -106,7 +108,8 @@ jobs:
                   assert extrema[0] < extrema[1] or page_number in range(1, 9)
               digest = hashlib.sha256(path.read_bytes()).hexdigest()
               hashes.append(f'{digest}  {name}')
-          (root / 'SHA256SUMS').write_text('\n'.join(hashes) + '\n')
+          expected = '\n'.join(hashes) + '\n'
+          assert (root / 'SHA256SUMS').read_text() == expected
           PY
 
       - name: Run deterministic differential-analysis tests
@@ -117,21 +120,6 @@ jobs:
           -Dtest=D14DifferentialAnalyzerTest
           -Dsurefire.failIfNoSpecifiedTests=false
           -Djava.awt.headless=true
-
-      - name: Commit generated assets on the source branch
-        if: ${{ github.event_name == 'push' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/cr3-patterns/*.pdf docs/cr3-patterns/SHA256SUMS
-          if git diff --cached --quiet; then
-            echo 'Generated assets already match the committed files.'
-          else
-            git commit -m 'docs(cr3): publish verified D14 pattern PDFs [skip d14 generation]'
-            git push
-          fi
 
       - name: Upload verified pattern pack
         uses: actions/upload-artifact@v7
