@@ -96,7 +96,10 @@ ADMIN_PASSWORD="Admin-runtime-${UUID_A}-Aa1!"
 DB_PASSWORD="Database-runtime-${UUID_B}-Bb2!"
 printf '%s' "$CCAPI_USERNAME" > "$TEMP_DIR/username"
 printf '%s' "$CCAPI_PASSWORD" > "$TEMP_DIR/password"
-chmod 600 "$TEMP_DIR/username" "$TEMP_DIR/password"
+# The image runs as UID 10001. Local file-backed Compose secrets preserve host
+# ownership, so the files must be readable in the container. The mktemp parent
+# remains mode 0700 and prevents unrelated host users from traversing to them.
+chmod 444 "$TEMP_DIR/username" "$TEMP_DIR/password"
 
 mkdir -p "$TEMP_DIR/image"
 docker save "$IMAGE_TAG" -o "$TEMP_DIR/image.tar"
