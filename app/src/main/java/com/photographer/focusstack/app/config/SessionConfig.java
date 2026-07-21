@@ -2,6 +2,9 @@ package com.photographer.focusstack.app.config;
 
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.session.CameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.CameraSessionLeaseManager;
+import com.photographer.focusstack.camera.session.LeasedCameraBackendProvider;
 import com.photographer.focusstack.face.analysis.FaceAnalysisEngine;
 import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;
 import com.photographer.focusstack.face.profile.FaceProfileEngine;
@@ -11,15 +14,13 @@ import com.photographer.focusstack.hdr.MockHdrProcessor;
 import com.photographer.focusstack.hdr.MockTonemapper;
 import com.photographer.focusstack.hdr.Tonemapper;
 import com.photographer.focusstack.session.CameraBackendProvider;
+import com.photographer.focusstack.session.CameraSessionPurpose;
 import com.photographer.focusstack.session.FaceOrbitService;
 import com.photographer.focusstack.session.HdrTimelapseService;
-import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.storage.FileSessionStorage;
 import com.photographer.focusstack.storage.SessionStorage;
 import com.photographer.focusstack.video.MockVideoEncoder;
 import com.photographer.focusstack.video.VideoEncoder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,17 +28,16 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Map;
 
 /**
  * Spring configuration for HDR Timelapse and Face Orbit session services.
- * Wires the core modules together.  Camera backends are resolved at
- * session-start time via {@link CameraBackendFactory} using the camera profile
- * ID stored in the session settings.
+ * Camera-owning executions open a backend session whose logical ownership is
+ * independent of the backend cache.
  */
 @Configuration
 public class SessionConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(SessionConfig.class);
 
     @Bean
     public SessionStorage sessionStorage(
@@ -70,22 +70,27 @@ public class SessionConfig {
         return new MockFaceProfileEngine();
     }
 
-    /**
-     * {@link CameraBackendProvider} that resolves camera backends at session-start
-     * time via {@link CameraBackendFactory}, just as {@code StackingJobService} does.
-     */
     @Bean
-    public CameraBackendProvider cameraBackendProvider(CameraBackendFactory backendFactory,
-                                                        CameraProfileService profileService) {
-        return cameraProfileId -> {
-            try {
-                return backendFactory.getBackend(profileService.getProfile(cameraProfileId));
-            } catch (Exception ex) {
-                log.warn("Cannot resolve camera backend for profile '{}': {}", cameraProfileId, ex.getMessage());
-                throw new SessionException(
-                        "Cannot resolve camera backend for profile '" + cameraProfileId + "'");
-            }
-        };
+    public CameraBackendProvider cameraBackendProvider(
+            CameraBackendFactory backendFactory,
+            CameraProfileService profileService,
+            CameraSessionLeaseManager leaseManager,
+            CameraLeaseIdentityProvider identityProvider,
+            @Value("${camera.session-lease.hdr-timelapse-lifetime:PT6H}")
+            Duration hdrTimelapseLifetime,
+            @Value("${camera.session-lease.face-orbit-lifetime:PT2H}")
+            Duration faceOrbitLifetime,
+            @Value("${camera.session-lease.astro-lifetime:PT6H}")
+            Duration astroLifetime) {
+        return new LeasedCameraBackendProvider(
+                backendFactory,
+                profileService,
+                leaseManager,
+                identityProvider,
+                Map.of(
+                        CameraSessionPurpose.HDR_TIMELAPSE, hdrTimelapseLifetime,
+                        CameraSessionPurpose.FACE_ORBIT, faceOrbitLifetime,
+                        CameraSessionPurpose.ASTRO, astroLifetime));
     }
 
     @Bean
@@ -109,9 +114,6 @@ public class SessionConfig {
                 faceAnalysisEngine, faceProfileEngine);
     }
 
-    /**
-     * Dedicated thread pool for session tasks (HDR timelapse, face orbit auto mode).
-     */
     @Bean("sessionTaskExecutor")
     public TaskExecutor sessionTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
