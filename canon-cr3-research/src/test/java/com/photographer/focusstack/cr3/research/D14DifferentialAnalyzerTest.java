@@ -20,7 +20,7 @@ class D14DifferentialAnalyzerTest {
         assertThat(D14DifferentialAnalyzer.changedBitIntervals(left, right))
                 .containsExactly(
                         new D14DifferentialAnalyzer.BitInterval(1, 4),
-                        new D14DifferentialAnalyzer.BitInterval(7, 7 + 1),
+                        new D14DifferentialAnalyzer.BitInterval(7, 8),
                         new D14DifferentialAnalyzer.BitInterval(10, 12));
     }
 
@@ -38,7 +38,7 @@ class D14DifferentialAnalyzerTest {
         List<D14DifferentialAnalyzer.PayloadPair> duplicates = List.of(
                 pair(0, 0, 0, 0, 0, 1),
                 pair(0, 0, 0, 0, 0, 1),
-                pair(0, 0, 0, 1, 0, 0),
+                pair(0, 0, 0, 0, 1, 0),
                 pair(0, 0, 0, 0, 0, 1));
 
         D14DifferentialAnalyzer.DuplicateNoiseBaseline baseline =
@@ -90,7 +90,7 @@ class D14DifferentialAnalyzerTest {
     }
 
     @Test
-    void oneBitErrorStillMapsWithinPreRegisteredBound() {
+    void fullDomainOneBitErrorLooksLikeAValidButWrongCell() {
         BitSet observed = D14DifferentialAnalyzer.grayCodeVector(19, 6);
         observed.flip(4);
 
@@ -103,10 +103,31 @@ class D14DifferentialAnalyzerTest {
     }
 
     @Test
+    void duplicateGateRejectsTheFullDomainFalseCoordinate() {
+        BitSet repeatA = D14DifferentialAnalyzer.grayCodeVector(19, 6);
+        BitSet repeatB = (BitSet) repeatA.clone();
+        repeatB.flip(4);
+
+        assertThat(D14DifferentialAnalyzer.matchDuplicateStableGrayCode(
+                new D14DifferentialAnalyzer.ObservationPair(repeatA, repeatB),
+                6, 64, 0, 0)).isEmpty();
+    }
+
+    @Test
+    void duplicateGateAcceptsTwoIndependentEqualVectors() {
+        BitSet repeatA = D14DifferentialAnalyzer.grayCodeVector(19, 6);
+        BitSet repeatB = D14DifferentialAnalyzer.grayCodeVector(19, 6);
+
+        assertThat(D14DifferentialAnalyzer.matchDuplicateStableGrayCode(
+                new D14DifferentialAnalyzer.ObservationPair(repeatA, repeatB),
+                6, 64, 0, 0))
+                .contains(new D14DifferentialAnalyzer.GrayCodeMatch(19, 0, 6, true));
+    }
+
+    @Test
     void boundedDomainCanExposeAmbiguousBestMatch() {
         BitSet observed = new BitSet(3);
-        observed.set(0);
-        observed.set(2);
+        observed.set(1);
 
         D14DifferentialAnalyzer.GrayCodeMatch match =
                 D14DifferentialAnalyzer.matchGrayCode(observed, 3, 3);
@@ -116,26 +137,37 @@ class D14DifferentialAnalyzerTest {
     }
 
     @Test
-    void correlationRejectsAmbiguousAndOutOfBoundVectorsAndSortsPositions() {
-        Map<Long, BitSet> observations = new LinkedHashMap<>();
-        observations.put(80L, D14DifferentialAnalyzer.grayCodeVector(2, 3));
-        observations.put(16L, D14DifferentialAnalyzer.grayCodeVector(1, 3));
+    void correlationRejectsUnstableAndAmbiguousVectorsAndSortsPositions() {
+        Map<Long, D14DifferentialAnalyzer.ObservationPair> observations =
+                new LinkedHashMap<>();
+        observations.put(80L, stable(2, 3));
+        observations.put(16L, stable(1, 3));
+
         BitSet ambiguous = new BitSet(3);
-        ambiguous.set(0);
-        ambiguous.set(2);
-        observations.put(32L, ambiguous);
+        ambiguous.set(1);
+        observations.put(32L, new D14DifferentialAnalyzer.ObservationPair(
+                ambiguous, ambiguous));
+
+        BitSet unstableA = D14DifferentialAnalyzer.grayCodeVector(0, 3);
+        BitSet unstableB = D14DifferentialAnalyzer.grayCodeVector(0, 3);
+        unstableB.flip(0);
+        observations.put(48L, new D14DifferentialAnalyzer.ObservationPair(
+                unstableA, unstableB));
 
         Map<Long, D14DifferentialAnalyzer.GrayCodeMatch> matches =
-                D14DifferentialAnalyzer.correlateGrayCodeVectors(
-                        observations, 3, 3, 0);
+                D14DifferentialAnalyzer.correlateDuplicateStableGrayCodeVectors(
+                        observations, 3, 3, 0, 0);
 
         assertThat(matches.keySet()).containsExactly(16L, 80L);
         assertThat(matches.get(16L).cellIndex()).isEqualTo(1);
         assertThat(matches.get(80L).cellIndex()).isEqualTo(2);
+        assertThatThrownBy(() -> matches.put(
+                96L, new D14DifferentialAnalyzer.GrayCodeMatch(0, 0, 3, true)))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
-    void payloadInputsAreDefensivelyCopied() {
+    void payloadAndObservationInputsAreDefensivelyCopied() {
         byte[] left = {0};
         byte[] right = {1};
         D14DifferentialAnalyzer.PayloadPair pair =
@@ -148,6 +180,15 @@ class D14DifferentialAnalyzerTest {
         byte[] returned = pair.right();
         returned[0] = 9;
         assertThat(pair.right()).containsExactly((byte) 1);
+
+        BitSet repeatA = D14DifferentialAnalyzer.grayCodeVector(2, 3);
+        BitSet repeatB = D14DifferentialAnalyzer.grayCodeVector(2, 3);
+        D14DifferentialAnalyzer.ObservationPair observation =
+                new D14DifferentialAnalyzer.ObservationPair(repeatA, repeatB);
+        repeatA.clear();
+        repeatB.clear();
+        assertThat(observation.repeatA()).isEqualTo(
+                D14DifferentialAnalyzer.grayCodeVector(2, 3));
     }
 
     @Test
@@ -160,6 +201,14 @@ class D14DifferentialAnalyzerTest {
         assertThatThrownBy(() -> D14DifferentialAnalyzer.matchGrayCode(
                 new BitSet(), 2, 5))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private static D14DifferentialAnalyzer.ObservationPair stable(
+            int cellIndex,
+            int bitCount) {
+        return new D14DifferentialAnalyzer.ObservationPair(
+                D14DifferentialAnalyzer.grayCodeVector(cellIndex, bitCount),
+                D14DifferentialAnalyzer.grayCodeVector(cellIndex, bitCount));
     }
 
     private static D14DifferentialAnalyzer.PayloadPair pair(int... values) {
