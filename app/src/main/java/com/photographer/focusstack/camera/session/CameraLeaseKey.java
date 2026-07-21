@@ -49,8 +49,8 @@ public final class CameraLeaseKey {
         URI uri;
         try {
             uri = URI.create(explicitScheme ? trimmed : "http://" + trimmed);
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Malformed CCAPI camera location", exception);
+        } catch (IllegalArgumentException privateParseFailure) {
+            throw new IllegalArgumentException("Malformed CCAPI camera location");
         }
 
         String scheme = normalizeScheme(uri.getScheme());
@@ -112,14 +112,14 @@ public final class CameraLeaseKey {
                     throw new IllegalArgumentException("Invalid IPv6 camera location");
                 }
                 return address.getHostAddress().toLowerCase(Locale.ROOT);
-            } catch (UnknownHostException exception) {
-                throw new IllegalArgumentException("Invalid IPv6 camera location", exception);
+            } catch (UnknownHostException privateHostFailure) {
+                throw new IllegalArgumentException("Invalid IPv6 camera location");
             }
         }
         try {
             return IDN.toASCII(value, IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Invalid CCAPI camera host", exception);
+        } catch (IllegalArgumentException privateHostFailure) {
+            throw new IllegalArgumentException("Invalid CCAPI camera host");
         }
     }
 
