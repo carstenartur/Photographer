@@ -47,6 +47,27 @@ class CcapiCredentialStartupValidatorTest {
     }
 
     @Test
+    void incompleteCredentialMountIsCountedWithoutLeakingProfileOrUsername() {
+        String privateProfile = "private-camera-partial";
+        String visibleUsername = "must-not-leak-user";
+        CcapiAuthenticationProperties authentication =
+                new CcapiAuthenticationProperties();
+        authentication.setCredentials(Map.of(
+                privateProfile, credential(visibleUsername, null)));
+        CcapiRuntimeProperties runtime = new CcapiRuntimeProperties();
+        runtime.setRequiredProfileIds(List.of(privateProfile));
+        CcapiCredentialStartupValidator validator =
+                new CcapiCredentialStartupValidator(authentication, runtime);
+
+        assertThatThrownBy(() -> validator.run(new DefaultApplicationArguments()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("1 configured profile(s)")
+                .hasMessageNotContaining(privateProfile)
+                .hasMessageNotContaining(visibleUsername)
+                .hasNoCause();
+    }
+
+    @Test
     void rejectsBlankRequirementWithoutInspectingCredentials() {
         CcapiRuntimeProperties runtime = new CcapiRuntimeProperties();
         runtime.setRequiredProfileIds(List.of(" "));
