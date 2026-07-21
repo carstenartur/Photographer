@@ -1,0 +1,225 @@
+name: Fix reviewed Face Orbit lifecycle findings
+
+on:
+  push:
+    branches:
+      - automation/fix-face-orbit-reviews
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-reviewed-face-orbit-findings
+  cancel-in-progress: true
+
+jobs:
+  fix-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[skip face fix]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout complete repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Apply review fixes and rebuild downstream stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee face-orbit-fix.log) 2>&1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --prune
+          git switch -C face-fix origin/hardening/ccapi-face-orbit-session-lease
+
+          python - <<'PY'
+          from pathlib import Path
+
+          service = Path('session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java')
+          text = service.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one occurrence, found {count}: {old[:80]!r}')
+              text = text.replace(old, new)
+
+          replace_once(
+              'import java.util.ArrayList;\nimport java.util.List;',
+              'import java.util.ArrayList;\nimport java.util.Collections;\nimport java.util.List;')
+          replace_once('import java.util.concurrent.CopyOnWriteArrayList;\n', '')
+          replace_once(
+              '        sessionFrames.put(sessionId, new CopyOnWriteArrayList<>());\n'
+              '        sessionQualityChecks.put(sessionId, new CopyOnWriteArrayList<>());',
+              '        sessionFrames.put(sessionId, Collections.synchronizedList(new ArrayList<>()));\n'
+              '        sessionQualityChecks.put(sessionId, Collections.synchronizedList(new ArrayList<>()));')
+          replace_once(
+              '                CaptureFrame frame = ownership.capture.service().captureFrame(\n'
+              '                        sessionId, stepIndex, angle);\n'
+              '                QualityCheck quality = analysisEngine.analyzeQuality(\n'
+              '                        new byte[]{0}, frame.frameId());\n'
+              '                frames.add(frame);',
+              '                CaptureFrame frame = ownership.capture.service().captureFrame(\n'
+              '                        sessionId, stepIndex, angle);\n'
+              '                frames.add(frame);\n'
+              '                QualityCheck quality = analysisEngine.analyzeQuality(\n'
+              '                        new byte[]{0}, frame.frameId());')
+          replace_once(
+              '                CaptureFrame frame = execution.capture.service().captureFrame(\n'
+              '                        sessionId, step, angle);\n'
+              '                QualityCheck quality = analysisEngine.analyzeQuality(\n'
+              '                        new byte[]{0}, frame.frameId());\n'
+              '                frames.add(frame);',
+              '                CaptureFrame frame = execution.capture.service().captureFrame(\n'
+              '                        sessionId, step, angle);\n'
+              '                frames.add(frame);\n'
+              '                QualityCheck quality = analysisEngine.analyzeQuality(\n'
+              '                        new byte[]{0}, frame.frameId());')
+
+          text = text.replace(
+              'frames.stream().map(CaptureFrame::frameId).toList()',
+              'frameIds(frames)')
+          text = text.replace(
+              'List<CaptureFrame> frames = sessionFrames.getOrDefault(sessionId, List.of());',
+              'List<CaptureFrame> frames = snapshot(\n'
+              '                sessionFrames.getOrDefault(sessionId, List.of()));')
+          replace_once(
+              '        return checks == null ? List.of() : List.copyOf(checks);',
+              '        return checks == null ? List.of() : snapshot(checks);')
+          replace_once(
+              '    private FaceOrbitSettings requireSettings(String sessionId) {',
+              '    private static List<String> frameIds(List<CaptureFrame> frames) {\n'
+              '        synchronized (frames) {\n'
+              '            return frames.stream().map(CaptureFrame::frameId).toList();\n'
+              '        }\n'
+              '    }\n\n'
+              '    private static <T> List<T> snapshot(List<T> values) {\n'
+              '        synchronized (values) {\n'
+              '            return List.copyOf(values);\n'
+              '        }\n'
+              '    }\n\n'
+              '    private FaceOrbitSettings requireSettings(String sessionId) {')
+
+          service.write_text(text)
+
+          test = Path('session-core/src/test/java/com/photographer/focusstack/session/FaceOrbitLeaseLifecycleTest.java')
+          text = test.read_text()
+
+          def test_replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one test occurrence, found {count}: {old[:80]!r}')
+              text = text.replace(old, new)
+
+          test_replace_once(
+              'import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;',
+              'import com.photographer.focusstack.face.analysis.FaceAnalysisEngine;\n'
+              'import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;')
+          test_replace_once(
+              'import java.time.Instant;\nimport java.util.concurrent.CountDownLatch;',
+              'import java.time.Instant;\nimport java.util.List;\nimport java.util.concurrent.CountDownLatch;')
+          test_replace_once(
+              'import static org.mockito.Mockito.mock;',
+              'import static org.mockito.ArgumentMatchers.any;\n'
+              'import static org.mockito.ArgumentMatchers.eq;\n'
+              'import static org.mockito.Mockito.mock;')
+
+          marker = '''    @Test\n    void queuedAutoStopReleasesWithoutCameraContact() {'''
+          tests = '''    @Test\n    void manualAnalysisFailurePreservesCapturedFrameAndReleases() {\n        CameraBackend backend = mock(CameraBackend.class);\n        when(backend.capture()).thenReturn(capture("manual-analysis"));\n        FaceAnalysisEngine analysisEngine = mock(FaceAnalysisEngine.class);\n        when(analysisEngine.name()).thenReturn("throwing-analysis");\n        when(analysisEngine.analyzeQuality(any(byte[].class), eq("manual-analysis")))\n                .thenThrow(new IllegalStateException("synthetic analysis failure"));\n        TrackingProvider provider = new TrackingProvider(backend);\n        FaceOrbitService service = service(provider, analysisEngine);\n        CaptureSession created = service.createSession(settings(false, 1));\n\n        assertThrows(SessionException.class,\n                () -> service.captureNextStep(created.sessionId()));\n\n        CaptureSession failed = service.getSession(created.sessionId());\n        assertEquals(SessionStatus.FAILED, failed.status());\n        assertEquals(List.of("manual-analysis"), failed.frameIds());\n        assertEquals(1, provider.closes.get());\n        verify(backend).capture();\n    }\n\n    @Test\n    void autoAnalysisFailurePreservesCapturedFrameAndReleases() {\n        CameraBackend backend = mock(CameraBackend.class);\n        when(backend.capture()).thenReturn(capture("auto-analysis"));\n        FaceAnalysisEngine analysisEngine = mock(FaceAnalysisEngine.class);\n        when(analysisEngine.name()).thenReturn("throwing-analysis");\n        when(analysisEngine.analyzeQuality(any(byte[].class), eq("auto-analysis")))\n                .thenThrow(new IllegalStateException("synthetic analysis failure"));\n        TrackingProvider provider = new TrackingProvider(backend);\n        FaceOrbitService service = service(provider, analysisEngine);\n        CaptureSession created = service.createSession(settings(true, 1));\n\n        CaptureSession failed = service.prepareAutoExecution(created.sessionId()).execute();\n\n        assertEquals(SessionStatus.FAILED, failed.status());\n        assertEquals(List.of("auto-analysis"), failed.frameIds());\n        assertEquals(1, provider.closes.get());\n        verify(backend).capture();\n    }\n\n''' + marker
+          test_replace_once(marker, tests)
+          test_replace_once(
+              '''    private FaceOrbitService service(CameraBackendProvider provider) {\n        return new FaceOrbitService(\n                provider,\n                new FileSessionStorage(tempDir),\n                new MockFaceAnalysisEngine(),\n                new MockFaceProfileEngine());\n    }''',
+              '''    private FaceOrbitService service(CameraBackendProvider provider) {\n        return service(provider, new MockFaceAnalysisEngine());\n    }\n\n    private FaceOrbitService service(\n            CameraBackendProvider provider,\n            FaceAnalysisEngine analysisEngine) {\n        return new FaceOrbitService(\n                provider,\n                new FileSessionStorage(tempDir),\n                analysisEngine,\n                new MockFaceProfileEngine());\n    }''')
+          test.write_text(text)
+          PY
+
+          git diff --check
+          git add session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
+                  session-core/src/test/java/com/photographer/focusstack/session/FaceOrbitLeaseLifecycleTest.java
+          git commit -m "fix(face-orbit): preserve captured frames on analysis failure"
+          FACE_SHA=$(git rev-parse HEAD)
+
+          cherry_pick_range() {
+            local base="$1"
+            local head="$2"
+            while IFS= read -r commit; do
+              git cherry-pick "$commit"
+            done < <(git rev-list --reverse "${base}..${head}")
+          }
+
+          cherry_pick_range 2cfb0ca20ea0f6339f588948251a8e718259a60c a1c4a31b2b49ed72adfc42735bc2f29707a0cfc6
+          ASTRO_SHA=$(git rev-parse HEAD)
+          cherry_pick_range a1c4a31b2b49ed72adfc42735bc2f29707a0cfc6 41c4374427512f067e40188ea47014e09db86c8a
+          DIRECT_SHA=$(git rev-parse HEAD)
+
+          printf 'FACE_SHA=%s\nASTRO_SHA=%s\nDIRECT_SHA=%s\n' \
+            "$FACE_SHA" "$ASTRO_SHA" "$DIRECT_SHA" | tee face-fix-shas.txt
+
+          mvn -B --no-transfer-progress test \
+            -pl app \
+            -am \
+            -Djava.awt.headless=true
+
+          git push --force-with-lease origin \
+            "$FACE_SHA:refs/heads/hardening/ccapi-face-orbit-session-lease" \
+            "$ASTRO_SHA:refs/heads/hardening/ccapi-astro-session-lease" \
+            "$DIRECT_SHA:refs/heads/hardening/ccapi-direct-control-lease"
+
+      - name: Publish success status
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin automation/fix-face-orbit-reviews
+          git switch -C status origin/automation/fix-face-orbit-reviews
+          {
+            echo status=success
+            echo "source_commit=${GITHUB_SHA}"
+            cat face-fix-shas.txt
+          } > face-fix-status.txt
+          git add face-fix-status.txt
+          git commit -m '[skip face fix] ci: record successful Face Orbit review fix'
+          git push origin HEAD:automation/fix-face-orbit-reviews
+
+      - name: Publish failure status
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cherry-pick --abort 2>/dev/null || true
+          git reset --hard
+          git fetch origin automation/fix-face-orbit-reviews
+          git switch -C status origin/automation/fix-face-orbit-reviews
+          {
+            echo status=failure
+            echo "source_commit=${GITHUB_SHA}"
+          } > face-fix-status.txt
+          git add face-fix-status.txt
+          git commit -m '[skip face fix] ci: record failed Face Orbit review fix'
+          git push origin HEAD:automation/fix-face-orbit-reviews
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: face-orbit-review-fix-evidence
+          path: |
+            face-fix-shas.txt
+            face-orbit-fix.log
+            **/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
