@@ -95,7 +95,8 @@ class InMemoryCameraSessionLeaseManagerTest {
         InMemoryCameraSessionLeaseManager manager = manager(clock);
         CameraLeaseKey key = CameraLeaseKey.fromCcapiLocation("camera.example");
         CameraSessionLease active = manager.acquire(new CameraLeaseRequest(
-                key, "FOCUS_STACKING", "job-1", "owner-1", Duration.ofSeconds(1)));
+                key, CameraWorkflowType.FOCUS_STACKING,
+                "job-1", "owner-1", Duration.ofSeconds(1)));
 
         clock.advance(Duration.ofHours(1));
 
@@ -138,7 +139,8 @@ class InMemoryCameraSessionLeaseManagerTest {
 
             assertThat(conflict.code()).isEqualTo("CAMERA_SESSION_CONFLICT");
             assertThat(conflict.ownerCorrelationId()).matches("corr[0-9]{8}");
-            assertThat(conflict.workflowType()).isEqualTo("FOCUS_STACKING");
+            assertThat(conflict.workflowType())
+                    .isEqualTo(CameraWorkflowType.FOCUS_STACKING);
             assertThat(conflict.retryAfter()).isBetween(Duration.ZERO, Duration.ofSeconds(30));
             assertThat(conflict.getMessage())
                     .doesNotContain("private-camera")
@@ -153,7 +155,8 @@ class InMemoryCameraSessionLeaseManagerTest {
         CameraLeaseKey key = CameraLeaseKey.fromCcapiLocation("camera.example");
 
         assertThatThrownBy(() -> manager.acquire(new CameraLeaseRequest(
-                key, "FOCUS_STACKING", "job", "owner", Duration.ofHours(7))))
+                key, CameraWorkflowType.FOCUS_STACKING,
+                "job", "owner", Duration.ofHours(7))))
                 .isInstanceOf(IllegalArgumentException.class);
 
         InMemoryCameraSessionLeaseManager singleHandleManager =
@@ -178,7 +181,8 @@ class InMemoryCameraSessionLeaseManagerTest {
 
     private static CameraLeaseRequest request(CameraLeaseKey key, String owner) {
         return new CameraLeaseRequest(
-                key, "FOCUS_STACKING", "job-1", owner, Duration.ofMinutes(30));
+                key, CameraWorkflowType.FOCUS_STACKING,
+                "job-1", owner, Duration.ofMinutes(30));
     }
 
     private static final class MutableClock extends Clock {
