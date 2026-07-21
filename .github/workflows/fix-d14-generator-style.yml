@@ -1,0 +1,82 @@
+name: Fix D14 generator style
+
+on:
+  push:
+    branches:
+      - automation/fix-d14-generator-style
+
+permissions:
+  contents: write
+
+jobs:
+  fix-verify-publish:
+    if: ${{ !contains(github.event.head_commit.message, '[skip d14 style]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Apply review fixes without changing generated assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --prune
+          git switch -C d14-style origin/research/d14-diagnostic-pattern-assets
+          python -m pip install --disable-pip-version-check reportlab==4.4.9
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('docs/cr3-patterns/generate_cr3_patterns.py')
+          source = path.read_text()
+          replacements = {
+              '        for line in textwrap.wrap(paragraph, width=100): pdf.drawString(page_width * 0.06, cursor_y, line); cursor_y -= page_height * 0.035\n':
+              '        for line in textwrap.wrap(paragraph, width=100):\n            pdf.drawString(page_width * 0.06, cursor_y, line)\n            cursor_y -= page_height * 0.035\n',
+              '    pdf.setFont("Helvetica-Bold", page_height * 0.024); pdf.drawString(page_width * 0.06, page_height * 0.16, f"Patterns: {pattern_count}")\n':
+              '    pdf.setFont("Helvetica-Bold", page_height * 0.024)\n    pdf.drawString(page_width * 0.06, page_height * 0.16, f"Patterns: {pattern_count}")\n',
+              '    pdf.setFont("Helvetica", page_height * 0.016); pdf.drawString(page_width * 0.06, page_height * 0.11, "Both editions share identical normalized active fields.")\n':
+              '    pdf.setFont("Helvetica", page_height * 0.016)\n    pdf.drawString(\n        page_width * 0.06,\n        page_height * 0.11,\n        "Both editions share identical normalized active fields.",\n    )\n',
+              '    pdf.setTitle("CR3 D14 Diagnostic Pattern Pack"); pdf.setAuthor("Photographer project clean-room research"); pdf.setSubject("Controlled spatial patterns for CR3/CRX differential analysis")\n':
+              '    pdf.setTitle("CR3 D14 Diagnostic Pattern Pack")\n    pdf.setAuthor("Photographer project clean-room research")\n    pdf.setSubject("Controlled spatial patterns for CR3/CRX differential analysis")\n',
+              '    draw_cover(pdf, page_width, page_height, edition, len(patterns)); pdf.showPage()\n':
+              '    draw_cover(pdf, page_width, page_height, edition, len(patterns))\n    pdf.showPage()\n',
+              '    for pattern in patterns: draw_pattern(pdf, page_width, page_height, pattern); pdf.showPage()\n':
+              '    for pattern in patterns:\n        draw_pattern(pdf, page_width, page_height, pattern)\n        pdf.showPage()\n',
+              '    parser = argparse.ArgumentParser(); parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parent); args = parser.parse_args(); args.out_dir.mkdir(parents=True, exist_ok=True)\n':
+              '    parser = argparse.ArgumentParser()\n    parser.add_argument(\n        "--out-dir",\n        type=Path,\n        default=Path(__file__).resolve().parent,\n    )\n    args = parser.parse_args()\n    args.out_dir.mkdir(parents=True, exist_ok=True)\n',
+          }
+          for old, new in replacements.items():
+              count = source.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected one style anchor, found {count}: {old!r}')
+              source = source.replace(old, new)
+          path.write_text(source)
+          PY
+
+          mkdir -p /tmp/d14-style
+          cp docs/cr3-patterns/*.pdf docs/cr3-patterns/pattern-manifest.json /tmp/d14-style/
+          python docs/cr3-patterns/generate_cr3_patterns.py --out-dir /tmp/d14-regenerated
+          cmp /tmp/d14-style/cr3-diagnostic-patterns-screen-16x9.pdf /tmp/d14-regenerated/cr3-diagnostic-patterns-screen-16x9.pdf
+          cmp /tmp/d14-style/cr3-diagnostic-patterns-print-a4-landscape.pdf /tmp/d14-regenerated/cr3-diagnostic-patterns-print-a4-landscape.pdf
+          cmp /tmp/d14-style/pattern-manifest.json /tmp/d14-regenerated/pattern-manifest.json
+
+          git add docs/cr3-patterns/generate_cr3_patterns.py
+          git commit -m "style(cr3): expand D14 generator statements"
+          git push origin HEAD:research/d14-diagnostic-pattern-assets
+          PRODUCT_SHA=$(git rev-parse HEAD)
+
+          git switch automation/fix-d14-generator-style
+          cat > d14-style.status <<EOF
+          status=success
+          product_commit=${PRODUCT_SHA}
+          assets_byte_identical=true
+          EOF
+          git add d14-style.status
+          git commit -m "ci(cr3): record D14 style fix [skip d14 style]"
+          git push origin automation/fix-d14-generator-style
