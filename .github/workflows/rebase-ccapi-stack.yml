@@ -1,0 +1,88 @@
+name: Rebase reviewed CCAPI stack
+
+on:
+  push:
+    branches:
+      - automation/rebase-ccapi-stack
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rebase-reviewed-ccapi-stack
+  cancel-in-progress: false
+
+jobs:
+  rebase-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout complete repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Rebuild stacked branches from current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --prune
+          git switch --detach origin/main
+
+          cherry_pick_range() {
+            local base="$1"
+            local head="$2"
+            while IFS= read -r commit; do
+              git cherry-pick "$commit"
+            done < <(git rev-list --reverse "${base}..${head}")
+          }
+
+          cherry_pick_range 839f2a06b2df2067019362db1e803eb1043dac54 0ba426c760376bd47a8120626f8ff97164840367
+          HDR_SHA=$(git rev-parse HEAD)
+
+          cherry_pick_range 0ba426c760376bd47a8120626f8ff97164840367 2cfb0ca20ea0f6339f588948251a8e718259a60c
+          FACE_SHA=$(git rev-parse HEAD)
+
+          cherry_pick_range 2cfb0ca20ea0f6339f588948251a8e718259a60c a1c4a31b2b49ed72adfc42735bc2f29707a0cfc6
+          ASTRO_SHA=$(git rev-parse HEAD)
+
+          cherry_pick_range a1c4a31b2b49ed72adfc42735bc2f29707a0cfc6 41c4374427512f067e40188ea47014e09db86c8a
+          DIRECT_SHA=$(git rev-parse HEAD)
+
+          printf 'HDR_SHA=%s\nFACE_SHA=%s\nASTRO_SHA=%s\nDIRECT_SHA=%s\n' \
+            "$HDR_SHA" "$FACE_SHA" "$ASTRO_SHA" "$DIRECT_SHA" | tee rebased-shas.txt
+
+          mvn -B --no-transfer-progress test \
+            -pl app \
+            -am \
+            -Djava.awt.headless=true
+
+          git push --force-with-lease origin \
+            "$HDR_SHA:refs/heads/hardening/ccapi-hdr-session-lease" \
+            "$FACE_SHA:refs/heads/hardening/ccapi-face-orbit-session-lease" \
+            "$ASTRO_SHA:refs/heads/hardening/ccapi-astro-session-lease" \
+            "$DIRECT_SHA:refs/heads/hardening/ccapi-direct-control-lease"
+
+      - name: Upload rebase evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-stack-rebase-evidence
+          path: |
+            rebased-shas.txt
+            **/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
