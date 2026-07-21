@@ -5,9 +5,14 @@ on:
     paths:
       - 'app/src/main/java/com/photographer/focusstack/camera/session/**'
       - 'app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java'
+      - 'app/src/main/java/com/photographer/focusstack/camera/controller/HdrTimelapseController.java'
+      - 'app/src/main/java/com/photographer/focusstack/app/config/SessionConfig.java'
       - 'app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java'
       - 'app/src/test/java/com/photographer/focusstack/camera/session/**'
       - 'app/src/test/java/com/photographer/focusstack/camera/service/*Lease*.java'
+      - 'app/src/test/java/com/photographer/focusstack/camera/controller/HdrTimelapseControllerTest.java'
+      - 'session-core/src/main/java/com/photographer/focusstack/session/**'
+      - 'session-core/src/test/java/com/photographer/focusstack/session/**'
       - 'docs/ccapi-session-ownership.md'
       - '.github/workflows/ccapi-session-lease.yml'
   workflow_dispatch:
@@ -37,11 +42,14 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
       - name: Run app and dependency unit tests
-        run: >-
-          mvn -B --no-transfer-progress test
-          -pl app
-          -am
-          -Djava.awt.headless=true
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B --no-transfer-progress test \
+            -pl app \
+            -am \
+            -Djava.awt.headless=true \
+            2>&1 | tee ccapi-session-lease-maven.log
       - name: Publish lease test results
         uses: dorny/test-reporter@v3
         if: always()
@@ -58,6 +66,7 @@ jobs:
         with:
           name: ccapi-session-lease-failure
           path: |
+            ccapi-session-lease-maven.log
             **/target/surefire-reports/
             **/target/failsafe-reports/
           if-no-files-found: warn
