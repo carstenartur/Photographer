@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class CameraLeaseKeyTest {
 
@@ -58,6 +59,20 @@ class CameraLeaseKeyTest {
                 .isThrownBy(() -> CameraLeaseKey.fromCcapiLocation("ftp://camera.example"));
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> CameraLeaseKey.fromCcapiLocation("http:///missing-host"));
+    }
+
+    @Test
+    void invalidOriginNeverSurvivesInExceptionCauseChain() {
+        IllegalArgumentException failure = catchThrowableOfType(
+                IllegalArgumentException.class,
+                () -> CameraLeaseKey.fromCcapiLocation(
+                        "http://user:super-secret@[invalid-private-host"));
+
+        assertThat(failure.getCause()).isNull();
+        assertThat(failure.getMessage())
+                .doesNotContain("super-secret")
+                .doesNotContain("invalid-private-host")
+                .doesNotContain("user");
     }
 
     @Test
