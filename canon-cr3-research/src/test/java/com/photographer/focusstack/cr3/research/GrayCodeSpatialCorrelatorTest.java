@@ -52,17 +52,20 @@ class GrayCodeSpatialCorrelatorTest {
     }
 
     @Test
-    void oneNoisyPlaneProducesBoundedNearestCandidatesInsteadOfFalseExactMatch() {
+    void oneNoisyPlaneCanAliasAnotherExactCoordinate() {
         boolean[] observed = GrayCodeSpatialCorrelator.codeWord(42, 64);
         observed[4] = !observed[4];
 
         GrayCodeSpatialCorrelator.Result result =
                 GrayCodeSpatialCorrelator.correlate(observed, 64);
 
-        assertThat(result.exactUnique()).isFalse();
-        assertThat(result.minimumDistance()).isZero();
-        assertThat(result.bestCandidates())
-                .doesNotContain(new GrayCodeSpatialCorrelator.Candidate(42, false, 0));
+        // A complete six-bit Gray code covers all 64 code words. A single unstable
+        // plane may therefore look like another exact coordinate rather than a
+        // non-zero-distance candidate. Duplicate filtering and an independent
+        // stimulus family are mandatory before accepting the mapping.
+        assertThat(result.exactUnique()).isTrue();
+        assertThat(result.uniqueCandidate().coordinate()).isNotEqualTo(42);
+        assertThat(result.uniqueCandidate().hammingDistance()).isZero();
         assertThat(GrayCodeSpatialCorrelator.correlate(
                 GrayCodeSpatialCorrelator.codeWord(42, 64), 64).uniqueCandidate().coordinate())
                 .isEqualTo(42);
