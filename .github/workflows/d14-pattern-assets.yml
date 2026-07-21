@@ -1,0 +1,122 @@
+name: CR3 D14 Pattern Assets
+
+on:
+  push:
+    branches:
+      - research/d14-controlled-patterns
+    paths:
+      - 'docs/cr3-patterns/pattern-manifest.json'
+      - 'tools/cr3/generate_d14_patterns.py'
+      - '.github/workflows/d14-pattern-assets.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/cr3-patterns/**'
+      - 'tools/cr3/generate_d14_patterns.py'
+      - '.github/workflows/d14-pattern-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cr3-d14-pattern-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-and-verify:
+    if: ${{ !contains(github.event.head_commit.message || '', '[skip d14 generation]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install deterministic PDF toolchain
+        run: python -m pip install --disable-pip-version-check reportlab==4.4.9 pypdf==6.7.4 pypdfium2==5.6.0
+
+      - name: Generate twice and prove byte reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf target/d14-first target/d14-second
+          python tools/cr3/generate_d14_patterns.py --output-dir target/d14-first
+          python tools/cr3/generate_d14_patterns.py --output-dir target/d14-second
+          cmp target/d14-first/cr3-diagnostic-patterns-screen-16x9.pdf \
+              target/d14-second/cr3-diagnostic-patterns-screen-16x9.pdf
+          cmp target/d14-first/cr3-diagnostic-patterns-print-a4-landscape.pdf \
+              target/d14-second/cr3-diagnostic-patterns-print-a4-landscape.pdf
+          cp target/d14-first/*.pdf docs/cr3-patterns/
+
+      - name: Validate manifest, pages and rendered samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          from pypdf import PdfReader
+          import pypdfium2 as pdfium
+
+          root = Path('docs/cr3-patterns')
+          manifest = json.loads((root / 'pattern-manifest.json').read_text())
+          patterns = manifest['patterns']
+          assert len(patterns) == 48
+          assert [p['page'] for p in patterns] == list(range(2, 50))
+          assert len({p['id'] for p in patterns}) == 48
+          assert [p['id'] for p in patterns if p['family'] == 'gray-code-x'] == [f'XG{i}' for i in range(6)]
+          assert [p['id'] for p in patterns if p['family'] == 'gray-code-y'] == [f'YG{i}' for i in range(5)]
+
+          hashes = []
+          for name in (
+              'cr3-diagnostic-patterns-screen-16x9.pdf',
+              'cr3-diagnostic-patterns-print-a4-landscape.pdf'):
+              path = root / name
+              assert len(PdfReader(path).pages) == 49
+              document = pdfium.PdfDocument(str(path))
+              for page_number in (0, 1, 9, 24, 33, 44, 48):
+                  bitmap = document[page_number].render(scale=0.25)
+                  image = bitmap.to_pil()
+                  assert image.width > 0 and image.height > 0
+                  extrema = image.convert('L').getextrema()
+                  assert extrema[0] < extrema[1] or page_number in range(1, 9)
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              hashes.append(f'{digest}  {name}')
+          (root / 'SHA256SUMS').write_text('\n'.join(hashes) + '\n')
+          PY
+
+      - name: Commit generated assets on the source branch
+        if: ${{ github.event_name == 'push' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/cr3-patterns/*.pdf docs/cr3-patterns/SHA256SUMS
+          if git diff --cached --quiet; then
+            echo 'Generated assets already match the committed files.'
+          else
+            git commit -m 'docs(cr3): publish verified D14 pattern PDFs [skip d14 generation]'
+            git push
+          fi
+
+      - name: Upload verified pattern pack
+        uses: actions/upload-artifact@v7
+        with:
+          name: cr3-d14-diagnostic-patterns
+          path: |
+            docs/cr3-patterns/README.md
+            docs/cr3-patterns/pattern-manifest.json
+            docs/cr3-patterns/*.pdf
+            docs/cr3-patterns/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 30
