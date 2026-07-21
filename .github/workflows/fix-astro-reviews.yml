@@ -1,0 +1,142 @@
+name: Fix reviewed Astro abort findings
+
+on:
+  push:
+    branches:
+      - automation/fix-astro-reviews
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-reviewed-astro-findings
+  cancel-in-progress: true
+
+jobs:
+  fix-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[skip astro fix]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout complete repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Apply review fixes and rebuild direct-control branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee astro-fix.log) 2>&1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --prune
+          git switch -C astro-fix origin/hardening/ccapi-astro-session-lease
+
+          python - <<'PY'
+          from pathlib import Path
+
+          service = Path('app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java')
+          text = service.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one occurrence, found {count}: {old[:100]!r}')
+              text = text.replace(old, new)
+
+          replace_once('import com.photographer.focusstack.common.model.AstroFrame;\n', '')
+          replace_once(
+              '''    public void requestAbort(String sessionId) {\n        synchronized (sessionLock(sessionId)) {\n            AstroSessionEntity entity = requireEntity(sessionId);\n            PreparedExecution execution = activeExecutions.get(sessionId);\n            if (execution == null) {\n                if (!isTerminal(entity.getStatus())) {\n                    markAborted(entity);\n                }\n                return;\n            }\n            if (execution.cancelBeforeStart()) {\n                activeExecutions.remove(sessionId, execution);\n                markAborted(entity);\n                execution.closeCamera();\n            } else {\n                execution.requestAbort();\n            }\n        }\n        log.info("Abort requested for astro session {}", sessionId);\n    }''',
+              '''    public void requestAbort(String sessionId) {\n        synchronized (sessionLock(sessionId)) {\n            PreparedExecution execution = activeExecutions.get(sessionId);\n            AstroSessionEntity entity = repository.findById(sessionId).orElse(null);\n            if (execution == null) {\n                if (entity != null && !isTerminal(entity.getStatus())) {\n                    markAborted(entity);\n                }\n                return;\n            }\n            if (execution.cancelBeforeStart()) {\n                activeExecutions.remove(sessionId, execution);\n                if (entity != null) {\n                    markAborted(entity);\n                }\n                execution.closeCamera();\n            } else {\n                execution.requestAbort();\n            }\n        }\n        log.info("Abort requested for an active astro session");\n    }''')
+          service.write_text(text)
+
+          test = Path('app/src/test/java/com/photographer/focusstack/astro/service/AstroModeServiceLeaseLifecycleTest.java')
+          text = test.read_text()
+          marker = '''    @Test\n    void queuedAbortReleasesWithoutCameraContact() {'''
+          addition = '''    @Test\n    void unknownAbortIsIdempotentAndDoesNotOpenCameraOwnership() {\n        CameraBackend backend = mock(CameraBackend.class);\n        TrackingProvider provider = new TrackingProvider(backend);\n        Fixture fixture = fixture(provider);\n\n        fixture.service.requestAbort("unknown-session");\n        fixture.service.requestAbort("unknown-session");\n\n        assertThat(provider.opens.get()).isZero();\n        assertThat(provider.closes.get()).isZero();\n        verify(backend, never()).capture();\n    }\n\n    @Test\n    void queuedExecutionStillClosesWhenSessionRowDisappears() {\n        CameraBackend backend = mock(CameraBackend.class);\n        TrackingProvider provider = new TrackingProvider(backend);\n        Fixture fixture = fixture(provider);\n        AstroSession created = fixture.service.createSession(\n                settings("real-camera", 1), AstroFocusConfig.manualFixed());\n        AstroModeService.PreparedExecution execution =\n                fixture.service.prepareExecution(created.id());\n        fixture.stored.set(null);\n\n        fixture.service.requestAbort(created.id());\n\n        assertThat(provider.closes.get()).isEqualTo(1);\n        execution.run();\n        verify(backend, never()).capture();\n    }\n\n''' + marker
+          count = text.count(marker)
+          if count != 1:
+              raise SystemExit(f'Expected one queued-abort marker, found {count}')
+          test.write_text(text.replace(marker, addition))
+          PY
+
+          git diff --check
+          git add app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
+                  app/src/test/java/com/photographer/focusstack/astro/service/AstroModeServiceLeaseLifecycleTest.java
+          git commit -m "fix(astro): make abort existence-neutral and idempotent"
+          ASTRO_SHA=$(git rev-parse HEAD)
+
+          while IFS= read -r commit; do
+            git cherry-pick "$commit"
+          done < <(git rev-list --reverse a1c4a31b2b49ed72adfc42735bc2f29707a0cfc6..41c4374427512f067e40188ea47014e09db86c8a)
+          DIRECT_SHA=$(git rev-parse HEAD)
+
+          printf 'ASTRO_SHA=%s\nDIRECT_SHA=%s\n' \
+            "$ASTRO_SHA" "$DIRECT_SHA" | tee astro-fix-shas.txt
+
+          mvn -B --no-transfer-progress test \
+            -pl app \
+            -am \
+            -Djava.awt.headless=true
+
+          git push --force-with-lease origin \
+            "$ASTRO_SHA:refs/heads/hardening/ccapi-astro-session-lease" \
+            "$DIRECT_SHA:refs/heads/hardening/ccapi-direct-control-lease"
+
+      - name: Publish success status
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin automation/fix-astro-reviews
+          git switch -C status origin/automation/fix-astro-reviews
+          {
+            echo status=success
+            echo "source_commit=${GITHUB_SHA}"
+            cat astro-fix-shas.txt
+          } > astro-fix-status.txt
+          git add astro-fix-status.txt
+          git commit -m '[skip astro fix] ci: record successful Astro review fix'
+          git push origin HEAD:automation/fix-astro-reviews
+
+      - name: Publish failure status
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cherry-pick --abort 2>/dev/null || true
+          git reset --hard
+          git fetch origin automation/fix-astro-reviews
+          git switch -C status origin/automation/fix-astro-reviews
+          {
+            echo status=failure
+            echo "source_commit=${GITHUB_SHA}"
+          } > astro-fix-status.txt
+          git add astro-fix-status.txt
+          git commit -m '[skip astro fix] ci: record failed Astro review fix'
+          git push origin HEAD:automation/fix-astro-reviews
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: astro-review-fix-evidence
+          path: |
+            astro-fix-shas.txt
+            astro-fix.log
+            **/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
