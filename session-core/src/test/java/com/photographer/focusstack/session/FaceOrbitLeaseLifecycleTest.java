@@ -5,6 +5,7 @@ import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.FaceOrbitSettings;
 import com.photographer.focusstack.common.model.SessionStatus;
+import com.photographer.focusstack.face.analysis.FaceAnalysisEngine;
 import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;
 import com.photographer.focusstack.face.profile.MockFaceProfileEngine;
 import com.photographer.focusstack.storage.FileSessionStorage;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -93,6 +97,48 @@ class FaceOrbitLeaseLifecycleTest {
         assertEquals("Face orbit capture failed",
                 service.getSession(created.sessionId()).errorMessage());
         assertEquals(1, provider.closes.get());
+    }
+
+    @Test
+    void manualAnalysisFailurePreservesCapturedFrameAndReleases() {
+        CameraBackend backend = mock(CameraBackend.class);
+        when(backend.capture()).thenReturn(capture("manual-analysis"));
+        FaceAnalysisEngine analysisEngine = mock(FaceAnalysisEngine.class);
+        when(analysisEngine.name()).thenReturn("throwing-analysis");
+        when(analysisEngine.analyzeQuality(any(byte[].class), eq("manual-analysis")))
+                .thenThrow(new IllegalStateException("synthetic analysis failure"));
+        TrackingProvider provider = new TrackingProvider(backend);
+        FaceOrbitService service = service(provider, analysisEngine);
+        CaptureSession created = service.createSession(settings(false, 1));
+
+        assertThrows(SessionException.class,
+                () -> service.captureNextStep(created.sessionId()));
+
+        CaptureSession failed = service.getSession(created.sessionId());
+        assertEquals(SessionStatus.FAILED, failed.status());
+        assertEquals(List.of("manual-analysis"), failed.frameIds());
+        assertEquals(1, provider.closes.get());
+        verify(backend).capture();
+    }
+
+    @Test
+    void autoAnalysisFailurePreservesCapturedFrameAndReleases() {
+        CameraBackend backend = mock(CameraBackend.class);
+        when(backend.capture()).thenReturn(capture("auto-analysis"));
+        FaceAnalysisEngine analysisEngine = mock(FaceAnalysisEngine.class);
+        when(analysisEngine.name()).thenReturn("throwing-analysis");
+        when(analysisEngine.analyzeQuality(any(byte[].class), eq("auto-analysis")))
+                .thenThrow(new IllegalStateException("synthetic analysis failure"));
+        TrackingProvider provider = new TrackingProvider(backend);
+        FaceOrbitService service = service(provider, analysisEngine);
+        CaptureSession created = service.createSession(settings(true, 1));
+
+        CaptureSession failed = service.prepareAutoExecution(created.sessionId()).execute();
+
+        assertEquals(SessionStatus.FAILED, failed.status());
+        assertEquals(List.of("auto-analysis"), failed.frameIds());
+        assertEquals(1, provider.closes.get());
+        verify(backend).capture();
     }
 
     @Test
@@ -169,10 +215,16 @@ class FaceOrbitLeaseLifecycleTest {
     }
 
     private FaceOrbitService service(CameraBackendProvider provider) {
+        return service(provider, new MockFaceAnalysisEngine());
+    }
+
+    private FaceOrbitService service(
+            CameraBackendProvider provider,
+            FaceAnalysisEngine analysisEngine) {
         return new FaceOrbitService(
                 provider,
                 new FileSessionStorage(tempDir),
-                new MockFaceAnalysisEngine(),
+                analysisEngine,
                 new MockFaceProfileEngine());
     }
 

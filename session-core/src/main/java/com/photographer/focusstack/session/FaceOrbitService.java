@@ -16,13 +16,13 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -126,8 +126,8 @@ public class FaceOrbitService {
                        "autoMode", String.valueOf(settings.autoMode())));
         sessions.put(sessionId, session);
         sessionSettings.put(sessionId, settings);
-        sessionFrames.put(sessionId, new CopyOnWriteArrayList<>());
-        sessionQualityChecks.put(sessionId, new CopyOnWriteArrayList<>());
+        sessionFrames.put(sessionId, Collections.synchronizedList(new ArrayList<>()));
+        sessionQualityChecks.put(sessionId, Collections.synchronizedList(new ArrayList<>()));
 
         log.info("Created face orbit session: {}", sessionId);
         return session;
@@ -180,11 +180,11 @@ public class FaceOrbitService {
             try {
                 CaptureFrame frame = ownership.capture.service().captureFrame(
                         sessionId, stepIndex, angle);
+                frames.add(frame);
                 QualityCheck quality = analysisEngine.analyzeQuality(
                         new byte[]{0}, frame.frameId());
-                frames.add(frame);
                 sessionQualityChecks.get(sessionId).add(quality);
-                List<String> frameIds = frames.stream().map(CaptureFrame::frameId).toList();
+                List<String> frameIds = frameIds(frames);
                 sessions.put(sessionId, new CaptureSession(
                         sessionId, running.type(), SessionStatus.RUNNING,
                         running.createdAt(), running.startedAt(), null,
@@ -210,7 +210,7 @@ public class FaceOrbitService {
         sessions.put(sessionId, new CaptureSession(
                 sessionId, running.type(), SessionStatus.FAILED,
                 running.createdAt(), running.startedAt(), Instant.now(),
-                frames.stream().map(CaptureFrame::frameId).toList(),
+                frameIds(frames),
                 "Face orbit capture failed", running.metadata()));
         log.error("Face orbit session {} capture failed", sessionId);
     }
@@ -275,9 +275,9 @@ public class FaceOrbitService {
                 double angle = angleFor(settings, step);
                 CaptureFrame frame = execution.capture.service().captureFrame(
                         sessionId, step, angle);
+                frames.add(frame);
                 QualityCheck quality = analysisEngine.analyzeQuality(
                         new byte[]{0}, frame.frameId());
-                frames.add(frame);
                 sessionQualityChecks.get(sessionId).add(quality);
                 updateAutoProgress(execution, frames);
 
@@ -294,7 +294,7 @@ public class FaceOrbitService {
             CaptureSession terminal = new CaptureSession(
                     sessionId, source.type(), status,
                     source.createdAt(), running.startedAt(), Instant.now(),
-                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    frameIds(frames),
                     null, source.metadata());
             storeAutoTerminal(execution, terminal);
             return getSession(sessionId);
@@ -304,7 +304,7 @@ public class FaceOrbitService {
             CaptureSession terminal = new CaptureSession(
                     sessionId, source.type(), status,
                     source.createdAt(), running.startedAt(), Instant.now(),
-                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    frameIds(frames),
                     status == SessionStatus.FAILED ? "Face orbit capture failed" : null,
                     source.metadata());
             storeAutoTerminal(execution, terminal);
@@ -326,7 +326,7 @@ public class FaceOrbitService {
             sessions.put(execution.sessionId(), new CaptureSession(
                     execution.sessionId(), running.type(), SessionStatus.RUNNING,
                     running.createdAt(), running.startedAt(), null,
-                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    frameIds(frames),
                     null, running.metadata()));
         }
     }
@@ -408,11 +408,12 @@ public class FaceOrbitService {
                 throw new SessionException("Session cannot be completed in state: "
                         + session.status());
             }
-            List<CaptureFrame> frames = sessionFrames.getOrDefault(sessionId, List.of());
+            List<CaptureFrame> frames = snapshot(
+                sessionFrames.getOrDefault(sessionId, List.of()));
             CaptureSession completed = new CaptureSession(
                     sessionId, session.type(), SessionStatus.COMPLETED,
                     session.createdAt(), session.startedAt(), Instant.now(),
-                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    frameIds(frames),
                     null, session.metadata());
             sessions.put(sessionId, completed);
             ManualOwnership manual = manualOwnerships.remove(sessionId);
@@ -425,7 +426,8 @@ public class FaceOrbitService {
 
     public FaceProfileJob generateProfile(String sessionId) {
         CaptureSession session = getSession(sessionId);
-        List<CaptureFrame> frames = sessionFrames.getOrDefault(sessionId, List.of());
+        List<CaptureFrame> frames = snapshot(
+                sessionFrames.getOrDefault(sessionId, List.of()));
         String jobId = UUID.randomUUID().toString();
         FaceProfileJob job = new FaceProfileJob(
                 jobId, sessionId, SessionStatus.RUNNING,
@@ -486,7 +488,7 @@ public class FaceOrbitService {
 
     public List<QualityCheck> getQualityChecks(String sessionId) {
         List<QualityCheck> checks = sessionQualityChecks.get(sessionId);
-        return checks == null ? List.of() : List.copyOf(checks);
+        return checks == null ? List.of() : snapshot(checks);
     }
 
     public FaceProfileJob getProfileJob(String jobId) {
@@ -495,6 +497,18 @@ public class FaceOrbitService {
             throw new SessionNotFoundException("Profile job not found: " + jobId);
         }
         return job;
+    }
+
+    private static List<String> frameIds(List<CaptureFrame> frames) {
+        synchronized (frames) {
+            return frames.stream().map(CaptureFrame::frameId).toList();
+        }
+    }
+
+    private static <T> List<T> snapshot(List<T> values) {
+        synchronized (values) {
+            return List.copyOf(values);
+        }
     }
 
     private FaceOrbitSettings requireSettings(String sessionId) {
