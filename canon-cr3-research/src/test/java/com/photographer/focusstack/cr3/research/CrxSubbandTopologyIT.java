@@ -7,9 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +42,17 @@ class CrxSubbandTopologyIT {
         assertThat(rows).isNotEmpty();
         assertThat(rows.stream().map(CrxSubbandTopologyReport.Row::fixture).distinct())
                 .hasSize(KAdaptationFixtureSet.PANEL.size());
+        assertThat(rows).allSatisfy(row -> {
+            assertThat(row.declaredWaveletLevels()).isZero();
+            assertThat(row.subband()).isZero();
+            assertThat(row.payloadOffset()).isNonNegative();
+            assertThat(row.payloadSize()).isPositive();
+            assertThat(row.payloadEndExclusive())
+                    .isEqualTo(row.payloadOffset() + row.payloadSize());
+            assertThat(row.dimensionParentCandidates()).isEmpty();
+            assertThat(row.causalAssessment())
+                    .isEqualTo("NOT_APPLICABLE_WAVELET_LEVELS_0");
+        });
         assertThat(OUTPUT.resolve("results.md")).exists();
         assertThat(OUTPUT.resolve("results.tsv")).exists();
         assertThat(OUTPUT.resolve("results.json")).exists();
@@ -54,87 +63,102 @@ class CrxSubbandTopologyIT {
         List<SubbandExtractor.SubbandRef> source =
                 SubbandExtractor.list(fixture.toFile());
         assertThat(source).as("subbands for %s", fixture).isNotEmpty();
-        Map<SubbandExtractor.SubbandRef, Integer> recordOrder = new HashMap<>();
-        for (int index = 0; index < source.size(); index++) {
-            recordOrder.put(source.get(index), index);
-        }
 
-        List<SubbandExtractor.SubbandRef> deterministic = source.stream()
-                .sorted(Comparator.comparingInt(SubbandExtractor.SubbandRef::tileSequence)
-                        .thenComparingInt(SubbandExtractor.SubbandRef::planeIndex)
-                        .thenComparingInt(SubbandExtractor.SubbandRef::waveletLevels)
-                        .thenComparingInt(SubbandExtractor.SubbandRef::subbandIndex)
-                        .thenComparingInt(recordOrder::get))
-                .toList();
         List<CrxSubbandTopologyReport.Row> rows = new ArrayList<>();
         String fixtureName = KAdaptationFixtureSet.name(SAMPLES, fixture);
-        for (SubbandExtractor.SubbandRef ref : deterministic) {
-            List<SubbandExtractor.SubbandRef> candidates = deterministic.stream()
-                    .filter(other -> other != ref)
-                    .filter(other -> other.tileSequence() == ref.tileSequence())
-                    .filter(other -> other.planeIndex() == ref.planeIndex())
-                    .filter(other -> dimensionCompatible(ref, other))
-                    .toList();
-            String dimensionCandidates = candidateIds(candidates, recordOrder);
-            String causalCandidates = candidateIds(candidates.stream()
-                    .filter(other -> recordOrder.get(other) < recordOrder.get(ref))
-                    .toList(), recordOrder);
-            int payloadBytes = SubbandExtractor.read(fixture.toFile(), ref).length;
+        for (int recordOrder = 0; recordOrder < source.size(); recordOrder++) {
+            SubbandExtractor.SubbandRef ref = source.get(recordOrder);
             rows.add(new CrxSubbandTopologyReport.Row(
-                    fixtureName, family(fixtureName), recordOrder.get(ref),
-                    ref.tileSequence(), ref.planeIndex(), ref.waveletLevels(),
-                    ref.subbandIndex(), ref.planeWidth(), ref.planeHeight(),
-                    ref.bitDepth(), payloadBytes,
-                    dimensionCandidates, causalCandidates,
+                    fixtureName,
+                    family(fixtureName),
+                    recordOrder,
+                    ref.tileIndex(),
+                    ref.tileSequence(),
+                    ref.planeIndex(),
+                    ref.waveletLevels(),
+                    ref.subbandIndex(),
+                    ref.planeWidth(),
+                    ref.planeHeight(),
+                    ref.bitDepth(),
+                    ref.dataOffsetInFile(),
+                    ref.dataSize(),
+                    Math.addExact(ref.dataOffsetInFile(), ref.dataSize()),
+                    dimensionParentCandidates(ref, source),
+                    causalAssessment(ref),
+                    continuity(recordOrder, ref, source),
                     boundaryFlags(ref, source)));
         }
         return rows;
     }
 
-    private static boolean dimensionCompatible(
-            SubbandExtractor.SubbandRef current,
-            SubbandExtractor.SubbandRef candidate) {
-        int widthDifference = Math.abs(current.planeWidth() - candidate.planeWidth() * 2);
-        int heightDifference = Math.abs(current.planeHeight() - candidate.planeHeight() * 2);
-        boolean candidateIsDeeper = candidate.waveletLevels()
-                == current.waveletLevels() + 1;
-        return candidateIsDeeper && widthDifference <= 1 && heightDifference <= 1;
+    /**
+     * The current extractor exposes the undecomposed plane grid for lossy data.
+     * It therefore cannot derive a same-position wavelet parent from dimensions.
+     * The fixed D13 panel is lossless, so no deeper-level relation exists there.
+     */
+    private static String dimensionParentCandidates(
+            SubbandExtractor.SubbandRef ref,
+            List<SubbandExtractor.SubbandRef> source) {
+        if (ref.waveletLevels() == 0) {
+            return "";
+        }
+        boolean hasSamePlanePeer = source.stream()
+                .anyMatch(other -> other != ref
+                        && other.tileSequence() == ref.tileSequence()
+                        && other.planeIndex() == ref.planeIndex());
+        return hasSamePlanePeer
+                ? "UNRESOLVED_UNDECOMPOSED_PLANE_DIMENSIONS"
+                : "";
     }
 
-    private static String candidateIds(
-            List<SubbandExtractor.SubbandRef> candidates,
-            Map<SubbandExtractor.SubbandRef, Integer> recordOrder) {
-        return candidates.stream()
-                .sorted(Comparator.comparingInt(recordOrder::get))
-                .map(ref -> "r" + recordOrder.get(ref)
-                        + ":t" + ref.tileSequence()
-                        + ":p" + ref.planeIndex()
-                        + ":l" + ref.waveletLevels()
-                        + ":s" + ref.subbandIndex())
-                .collect(java.util.stream.Collectors.joining(","));
+    private static String causalAssessment(SubbandExtractor.SubbandRef ref) {
+        return ref.waveletLevels() == 0
+                ? "NOT_APPLICABLE_WAVELET_LEVELS_0"
+                : "UNRESOLVED_NO_PER_SUBBAND_GEOMETRY_OR_ROLE";
+    }
+
+    private static String continuity(
+            int recordOrder,
+            SubbandExtractor.SubbandRef current,
+            List<SubbandExtractor.SubbandRef> source) {
+        if (recordOrder == 0) {
+            return "FIRST_RECORD";
+        }
+        SubbandExtractor.SubbandRef previous = source.get(recordOrder - 1);
+        long previousEnd = Math.addExact(
+                previous.dataOffsetInFile(), previous.dataSize());
+        long delta = current.dataOffsetInFile() - previousEnd;
+        if (delta == 0) {
+            return "CONTIGUOUS_WITH_PREVIOUS";
+        }
+        return delta > 0
+                ? "GAP_FROM_PREVIOUS_" + delta
+                : "OVERLAP_WITH_PREVIOUS_" + -delta;
     }
 
     private static String boundaryFlags(
             SubbandExtractor.SubbandRef ref,
             List<SubbandExtractor.SubbandRef> source) {
         List<String> flags = new ArrayList<>();
-        if (ref.tileSequence() == source.stream()
-                .mapToInt(SubbandExtractor.SubbandRef::tileSequence).min().orElse(0)) {
-            flags.add("FIRST_TILE");
-        }
-        if (ref.tileSequence() == source.stream()
-                .mapToInt(SubbandExtractor.SubbandRef::tileSequence).max().orElse(0)) {
-            flags.add("LAST_TILE");
-        }
-        if (ref.planeIndex() == 0) {
-            flags.add("FIRST_PLANE");
-        }
-        if (ref.subbandIndex() == 0) {
-            flags.add("FIRST_SUBBAND");
-        }
-        if (ref.waveletLevels() == 0) {
-            flags.add("LEVEL_ZERO");
-        }
+        int minTile = source.stream()
+                .mapToInt(SubbandExtractor.SubbandRef::tileSequence).min().orElse(0);
+        int maxTile = source.stream()
+                .mapToInt(SubbandExtractor.SubbandRef::tileSequence).max().orElse(0);
+        int maxPlane = source.stream()
+                .filter(other -> other.tileSequence() == ref.tileSequence())
+                .mapToInt(SubbandExtractor.SubbandRef::planeIndex).max().orElse(0);
+        int maxSubband = source.stream()
+                .filter(other -> other.tileSequence() == ref.tileSequence())
+                .filter(other -> other.planeIndex() == ref.planeIndex())
+                .mapToInt(SubbandExtractor.SubbandRef::subbandIndex).max().orElse(0);
+
+        if (ref.tileSequence() == minTile) flags.add("FIRST_TILE");
+        if (ref.tileSequence() == maxTile) flags.add("LAST_TILE");
+        if (ref.planeIndex() == 0) flags.add("FIRST_PLANE");
+        if (ref.planeIndex() == maxPlane) flags.add("LAST_PLANE");
+        if (ref.subbandIndex() == 0) flags.add("FIRST_SUBBAND");
+        if (ref.subbandIndex() == maxSubband) flags.add("LAST_SUBBAND");
+        if (ref.waveletLevels() == 0) flags.add("LOSSLESS_SINGLE_SUBBAND");
         return String.join(",", flags);
     }
 
