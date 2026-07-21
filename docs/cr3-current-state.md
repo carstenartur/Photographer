@@ -3,12 +3,12 @@
 ## Verified foundation
 
 - CR3 container parsing, CMP1/IAD1/CRX extraction and subband inventory work.
-- The fixed lossless panel has manifest-bound LibRaw TIFF/PNG references.
+- The fixed lossless panel has manifest-bound external TIFF/PNG references.
 - Geometry, alignment, optical-black, per-plane, boundary and tile/plane completion diagnostics exist.
-- Stages 1–4 are verified; Stage 5 is partial; Stage 6 entropy reconstruction remains the earliest failure.
+- Stages 1–3 are verified; Stage 4 structural framing is partial; Stage 6 entropy reconstruction is the earliest verified semantic failure. Inverse wavelet reconstruction is not reached for the lossless panel because correct entropy output is still unavailable.
 - Research follows the auditable process in [`docs/cleanroom/`](cleanroom/README.md).
 
-## Durable findings
+## Durable entropy findings
 
 - Optical-black regions remain the strongest falsification axis.
 - MED is the best-supported predictor family. Pure N/W/NW swaps, tile-state continuation, cross-plane seeding and a general per-plane predictor split were rejected.
@@ -19,7 +19,8 @@
 - D9 found no common first non-zero decision cause.
 - D10 found no transition class that predicted failure without contradicting complete-improvement fixtures.
 - D11 established the exact public-primary-source base bracket: minimise `L(S,K)=(S>>K)+1+K` over a finite K domain and move K by at most one toward the optimum range.
-- D11 did not establish CRX subband mapping, tentative-symbol context, reset state or the complete `Kd` correction.
+- D12 showed that the exact range is not sufficient when driven by the currently decoded symbol.
+- D13 found no source-supported and causally representable `Sd`/`Kd` mapping in the current evidence.
 
 ## D12 result
 
@@ -34,31 +35,34 @@ Final verdict: **PARTIAL**.
 | Median boundary MAE | 2850.193666 | 5073.395553 | fail |
 | Median saturation | 0.000001 | 0.000216 | fail |
 
-Additional evidence:
+Six fixtures improve on at least one primary metric, but nine tile/plane streams regress, no incomplete fixture becomes complete and every camera-family gate fails. Production remains unchanged.
 
-- six fixtures improve on at least one primary quality metric;
-- no previously incomplete fixture becomes complete;
-- nine tile/plane streams regress in completion;
-- zero streams become newly exhausted;
-- seven streams recover partially;
-- all three camera-family median gates fail;
-- 6,873,844 K decisions differ from D8.
+## D13 result
 
-The exact bracket is therefore not a universal fix when driven by the currently decoded symbol. The lower optical-black median is useful positive evidence, but it is contradicted by global, boundary, saturation, family and completion failures.
+Final verdict: **PRIMARY_SOURCE_OR_MAPPING_INSUFFICIENT**.
 
-The durable report is [D12 exact K bracket](cr3-results/2026-07-20-D12-exact-k-bracket.md), with full per-plane evidence in the adjacent TSV. Production remains unchanged.
+The deterministic fixed-panel inventory found:
 
-## Current priority: D13 context resolution
+- 11 fixtures and 88 records;
+- 220,347,400 extracted payload bytes;
+- all 88 records with `waveletLevels=0` and `subband=0`;
+- 77 byte-contiguous record transitions, with no gaps or overlaps;
+- one internally uniform topology per camera family;
+- two geometry/topology variants across the whole panel.
 
-Before another semantic candidate, resolve the source and structural meaning of the patent's tentative-symbol inputs:
+The fixed panel therefore proves a stable lossless two-tile/four-plane/single-subband organization and real payload continuity. It cannot expose a deeper wavelet parent, LL/HL/LH/HH identity, a causal `Sd` source or a `Kd` lifecycle. File order is not treated as proof of decoder-time causality.
 
-- `Sx` and `Sd` for the LL embodiment;
-- arithmetic/rounding and causal boundary behavior of `(Sx+Sd)/2`;
-- complete `Kd` correction and clamp;
-- mapping of current CRX records to LL/HL/LH/HH and decomposition levels;
-- whether the required context is causal and consistent across EOS R, G5 X Mark II and sample fixtures.
+The durable report is [D13 context and topology](cr3-results/2026-07-20-D13-context-topology.md). No D14 semantic experiment is authorized.
 
-D13 is source analysis and deterministic topology observation only. It must not select a mapping by image MAE, brute-force neighbours or combine `Sd`, `Kd`, resets and predictor changes.
+## Current priority
+
+RAW work is blocked on genuinely new evidence, not on another fitted formula. Useful next inputs would be one of:
+
+- a legally usable multi-subband CRX corpus with independently established per-subband geometry and ordering;
+- a public primary source that fully specifies `Sd`, `Kd`, initialization, rounding, clamps and boundaries;
+- new first-party structural observations that identify causal context without selecting by image quality.
+
+Do not repeat current-symbol K rules, neighbour-coordinate searches, subband permutations, broad predictor sweeps, CFA/alignment sweeps or combined `Sd`/`Kd`/reset experiments.
 
 ## Durable results
 
@@ -70,5 +74,4 @@ D13 is source analysis and deterministic topology observation only. It must not 
 - [D10 transition/outcome matrix](cr3-results/2026-07-20-D10-k-transition-outcome-matrix.md)
 - [D11 Canon K source audit](cr3-results/2026-07-20-D11-canon-k-source-audit.md)
 - [D12 exact K bracket](cr3-results/2026-07-20-D12-exact-k-bracket.md)
-
-Do not repeat broad predictor, CFA, alignment, sign-mapping, transition-frequency or current-symbol K-bracket sweeps without new structural evidence.
+- [D13 context and topology](cr3-results/2026-07-20-D13-context-topology.md)

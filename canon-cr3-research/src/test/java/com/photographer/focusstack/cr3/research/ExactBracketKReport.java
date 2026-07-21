@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 final class ExactBracketKReport {
+    private static final double EPSILON = 1e-12;
+
     record Fixture(String name,
                    KAdaptationPanelMetrics.Result d8,
                    KAdaptationPanelMetrics.Result exact,
@@ -69,17 +71,20 @@ final class ExactBracketKReport {
             newlyExhaustedStreams += fixture.newlyExhaustedStreams();
             recoveredStreams += fixture.recoveredStreams();
 
-            boolean completionRegression = fixture.exact().completion() + 1e-12
+            boolean incompleteExhaustion = fixture.exact().exhausted()
+                    && fixture.exact().completion() < 1.0 - EPSILON
+                    && !fixture.d8().exhausted();
+            boolean completionRegression = fixture.exact().completion() + EPSILON
                     < fixture.d8().completion()
-                    || (fixture.exact().exhausted() && !fixture.d8().exhausted())
+                    || incompleteExhaustion
                     || fixture.regressedStreams() > 0
                     || fixture.newlyExhaustedStreams() > 0;
             completionOkay &= !completionRegression;
             if (!completionRegression && primaryImprovement(fixture)) {
                 improved++;
             }
-            if (fixture.d8().completion() < 1.0 - 1e-12
-                    && fixture.exact().completion() >= 1.0 - 1e-12
+            if (fixture.d8().completion() < 1.0 - EPSILON
+                    && fixture.exact().completion() >= 1.0 - EPSILON
                     && !fixture.exact().exhausted()) {
                 completed++;
             }
@@ -138,13 +143,13 @@ final class ExactBracketKReport {
                     .add(fixture);
         }
         return grouped.entrySet().stream().map(entry -> {
-            List<Fixture> values = entry.getValue();
-            double d8Mae = median(values(values, MetricKind.D8_MAE));
-            double exactMae = median(values(values, MetricKind.EXACT_MAE));
-            double d8Ob = medianFinite(values(values, MetricKind.D8_OB));
-            double exactOb = medianFinite(values(values, MetricKind.EXACT_OB));
-            double d8Boundary = medianFinite(values(values, MetricKind.D8_BOUNDARY));
-            double exactBoundary = medianFinite(values(values, MetricKind.EXACT_BOUNDARY));
+            List<Fixture> group = entry.getValue();
+            double d8Mae = median(values(group, MetricKind.D8_MAE));
+            double exactMae = median(values(group, MetricKind.EXACT_MAE));
+            double d8Ob = medianFinite(values(group, MetricKind.D8_OB));
+            double exactOb = medianFinite(values(group, MetricKind.EXACT_OB));
+            double d8Boundary = medianFinite(values(group, MetricKind.D8_BOUNDARY));
+            double exactBoundary = medianFinite(values(group, MetricKind.EXACT_BOUNDARY));
             boolean okay = nonRegressing(exactMae, d8Mae)
                     && nonRegressing(exactOb, d8Ob)
                     && nonRegressing(exactBoundary, d8Boundary);
@@ -175,7 +180,7 @@ final class ExactBracketKReport {
 
     private static boolean nonRegressing(double candidate, double baseline) {
         return !Double.isFinite(baseline)
-                || (Double.isFinite(candidate) && candidate <= baseline + 1e-12);
+                || (Double.isFinite(candidate) && candidate <= baseline + EPSILON);
     }
 
     private static double median(List<Double> values) {
