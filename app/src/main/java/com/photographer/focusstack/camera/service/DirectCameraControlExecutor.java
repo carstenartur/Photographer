@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -63,9 +64,9 @@ public final class DirectCameraControlExecutor {
         }
     }
 
-    public void withBackend(
+    public void withBackendVoid(
             String profileId,
-            java.util.function.Consumer<CameraBackend> operation) {
+            Consumer<CameraBackend> operation) {
         Objects.requireNonNull(operation, "operation");
         withBackend(profileId, backend -> {
             operation.accept(backend);
@@ -87,7 +88,7 @@ public final class DirectCameraControlExecutor {
         }
     }
 
-    public void withProfileLease(String profileId, Runnable operation) {
+    public void withProfileLeaseVoid(String profileId, Runnable operation) {
         Objects.requireNonNull(operation, "operation");
         withProfileLease(profileId, () -> {
             operation.run();
