@@ -1,0 +1,576 @@
+name: Implement coordinated CCAPI shutdown
+
+on:
+  push:
+    branches:
+      - automation/implement-ccapi-shutdown
+
+permissions:
+  contents: write
+
+concurrency:
+  group: implement-coordinated-ccapi-shutdown
+  cancel-in-progress: true
+
+jobs:
+  implement-and-verify:
+    if: ${{ !contains(github.event.head_commit.message, '[skip shutdown implementation]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout complete repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Implement shutdown lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          exec > >(tee coordinated-shutdown.log) 2>&1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --prune
+          git switch -C shutdown-work origin/hardening/ccapi-coordinated-shutdown
+
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one occurrence, found {count}: {old[:100]!r}')
+              path.write_text(text.replace(old, new))
+
+          # Lease manager contract: shutdown is explicit and new acquisitions can be blocked.
+          Path('app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionLeaseManager.java').write_text('''package com.photographer.focusstack.camera.session;\n\n/** Enforces one logical opposing-device owner per private camera key. */\npublic interface CameraSessionLeaseManager {\n    CameraSessionLease acquire(CameraLeaseRequest request);\n\n    CameraSessionLeaseMetrics metrics();\n\n    /** Stops accepting new owners while existing handles are allowed to close. */\n    default void beginShutdown() {\n        // Unmanaged or test implementations have no process-local ownership state.\n    }\n}\n''')
+
+          manager = Path('app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java')
+          text = manager.read_text()
+          text = text.replace(
+              '    private final AtomicLong staleRecoveries = new AtomicLong();',
+              '    private final AtomicLong staleRecoveries = new AtomicLong();\n'
+              '    private final AtomicBoolean acceptingNewLeases = new AtomicBoolean(true);\n'
+              '    private final Object lifecycleMonitor = new Object();')
+
+          acquire_start = text.index('    @Override\n    public CameraSessionLease acquire(CameraLeaseRequest request) {')
+          metrics_start = text.index('    @Override\n    public CameraSessionLeaseMetrics metrics()', acquire_start)
+          acquire_method = '''    @Override\n    public CameraSessionLease acquire(CameraLeaseRequest request) {\n        Objects.requireNonNull(request, "request");\n        synchronized (lifecycleMonitor) {\n            if (!acceptingNewLeases.get()) {\n                throw new IllegalStateException(\n                        "Camera session lease manager is shutting down");\n            }\n            if (request.requestedLifetime().compareTo(maximumLifetime) > 0) {\n                throw new IllegalArgumentException(\n                        "Requested camera lease lifetime exceeds the configured maximum");\n            }\n\n            Instant now = clock.instant();\n            AtomicReference<LeaseState> acquired = new AtomicReference<>();\n            leases.compute(request.cameraKey(), (key, current) -> {\n                if (!acceptingNewLeases.get()) {\n                    throw new IllegalStateException(\n                            "Camera session lease manager is shutting down");\n                }\n                if (current == null) {\n                    LeaseState created = new LeaseState(\n                            request.ownerToken(),\n                            validatedCorrelationId(correlationIdSupplier.get()),\n                            request.workflowType(),\n                            now.plus(request.requestedLifetime()),\n                            1);\n                    acquired.set(created);\n                    return created;\n                }\n                if (!current.ownerToken().equals(request.ownerToken())) {\n                    conflicts.incrementAndGet();\n                    throw new CameraSessionConflictException(\n                            current.correlationId(),\n                            current.workflowType(),\n                            retryAfter(now, current.hardDeadline()));\n                }\n                if (current.handleCount() >= maximumReentrantHandles) {\n                    throw new IllegalStateException(\n                            "Camera lease reentrant handle limit exceeded");\n                }\n                LeaseState reentrant = current.withHandleCount(current.handleCount() + 1);\n                acquired.set(reentrant);\n                return reentrant;\n            });\n\n            LeaseState state = acquired.get();\n            if (state == null) {\n                throw new IllegalStateException(\n                        "Camera lease acquisition did not produce a handle");\n            }\n            return new Handle(\n                    this, request.cameraKey(), request.ownerToken(), state.correlationId());\n        }\n    }\n\n    @Override\n    public void beginShutdown() {\n        synchronized (lifecycleMonitor) {\n            acceptingNewLeases.set(false);\n        }\n    }\n\n'''
+          text = text[:acquire_start] + acquire_method + text[metrics_start:]
+          old_close = '''    @PreDestroy\n    public void close() {\n        leases.clear();\n    }'''
+          new_close = '''    @PreDestroy\n    public void close() {\n        synchronized (lifecycleMonitor) {\n            acceptingNewLeases.set(false);\n            int active = leases.size();\n            if (active != 0) {\n                throw new IllegalStateException(\n                        "Camera session lease manager closed with "\n                                + active + " active lease(s)");\n            }\n        }\n    }'''
+          if text.count(old_close) != 1:
+              raise SystemExit('Lease-manager close method did not match expected source')
+          text = text.replace(old_close, new_close)
+          old_release = '''    private void release(CameraLeaseKey key, String ownerToken, String correlationId) {\n        leases.computeIfPresent(key, (cameraKey, current) -> {\n            if (!current.ownerToken().equals(ownerToken)\n                    || !current.correlationId().equals(correlationId)) {\n                return current;\n            }\n            int remaining = current.handleCount() - 1;\n            return remaining == 0 ? null : current.withHandleCount(remaining);\n        });\n    }'''
+          new_release = '''    private void release(CameraLeaseKey key, String ownerToken, String correlationId) {\n        synchronized (lifecycleMonitor) {\n            leases.computeIfPresent(key, (cameraKey, current) -> {\n                if (!current.ownerToken().equals(ownerToken)\n                        || !current.correlationId().equals(correlationId)) {\n                    return current;\n                }\n                int remaining = current.handleCount() - 1;\n                return remaining == 0 ? null : current.withHandleCount(remaining);\n            });\n            lifecycleMonitor.notifyAll();\n        }\n    }'''
+          if text.count(old_release) != 1:
+              raise SystemExit('Lease-manager release method did not match expected source')
+          manager.write_text(text.replace(old_release, new_release))
+
+          # Focus stacking shutdown gate and cooperative cancellation.
+          stacking = Path('app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java')
+          replace_once(
+              stacking,
+              'import java.util.concurrent.atomic.AtomicReference;',
+              'import java.util.concurrent.atomic.AtomicBoolean;\n'
+              'import java.util.concurrent.atomic.AtomicReference;')
+          replace_once(
+              stacking,
+              '    private final ConcurrentMap<String, ActiveStackingAttempt> activeAttempts =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final Object[] jobLocks = createJobLocks();',
+              '    private final ConcurrentMap<String, ActiveStackingAttempt> activeAttempts =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final AtomicBoolean shutdownRequested = new AtomicBoolean();\n'
+              '    private final Object[] jobLocks = createJobLocks();')
+          replace_once(
+              stacking,
+              '    public StackingJob startJob(String id) {\n'
+              '        synchronized (jobLock(id)) {\n'
+              '            StackingJob job = getJob(id);',
+              '    public StackingJob startJob(String id) {\n'
+              '        synchronized (jobLock(id)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            StackingJob job = getJob(id);')
+          replace_once(
+              stacking,
+              '    void executeStackingAsync(StackingJob job) {\n'
+              '        CameraProfile profile = profileService.getProfile(job.cameraProfileId());',
+              '    void executeStackingAsync(StackingJob job) {\n'
+              '        ensureCameraServiceOpen();\n'
+              '        CameraProfile profile = profileService.getProfile(job.cameraProfileId());')
+          replace_once(
+              stacking,
+              '    public StackingJob getJob(String id) {',
+              '''    public void requestCameraShutdown() {\n        if (!shutdownRequested.compareAndSet(false, true)) {\n            return;\n        }\n        activeAttempts.forEach((jobId, attempt) -> {\n            cancelledJobs.add(jobId);\n            if (attempt.cancelBeforeStart()) {\n                activeAttempts.remove(jobId, attempt);\n            }\n        });\n    }\n\n    public int activeCameraExecutions() {\n        return activeAttempts.size();\n    }\n\n    private void ensureCameraServiceOpen() {\n        if (shutdownRequested.get()) {\n            throw new CameraException("Camera workflow service is shutting down");\n        }\n    }\n\n    public StackingJob getJob(String id) {''')
+
+          # HDR shutdown gate.
+          hdr = Path('session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java')
+          replace_once(
+              hdr,
+              '    private final ConcurrentMap<String, PreparedExecution> activeExecutions =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final Object[] sessionLocks = createSessionLocks();',
+              '    private final ConcurrentMap<String, PreparedExecution> activeExecutions =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final AtomicBoolean shutdownRequested = new AtomicBoolean();\n'
+              '    private final Object[] sessionLocks = createSessionLocks();')
+          replace_once(
+              hdr,
+              '    public void validateStartable(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            CaptureSession session = getSession(sessionId);',
+              '    public void validateStartable(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            CaptureSession session = getSession(sessionId);')
+          replace_once(
+              hdr,
+              '    public PreparedExecution prepareExecution(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            CaptureSession session = getSession(sessionId);',
+              '    public PreparedExecution prepareExecution(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            CaptureSession session = getSession(sessionId);')
+          replace_once(
+              hdr,
+              '    public void stopSession(String sessionId) {',
+              '''    public void requestCameraShutdown() {\n        if (!shutdownRequested.compareAndSet(false, true)) {\n            return;\n        }\n        List.copyOf(activeExecutions.keySet()).forEach(this::stopSession);\n    }\n\n    public int activeCameraExecutions() {\n        return activeExecutions.size();\n    }\n\n    private void ensureCameraServiceOpen() {\n        if (shutdownRequested.get()) {\n            throw new SessionException("Camera workflow service is shutting down");\n        }\n    }\n\n    public void stopSession(String sessionId) {''')
+
+          # Face Orbit shutdown gate for both manual and automatic ownership.
+          face = Path('session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java')
+          replace_once(
+              face,
+              '    private final ConcurrentMap<String, PreparedAutoExecution> autoExecutions =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final Object[] sessionLocks = createSessionLocks();',
+              '    private final ConcurrentMap<String, PreparedAutoExecution> autoExecutions =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final AtomicBoolean shutdownRequested = new AtomicBoolean();\n'
+              '    private final Object[] sessionLocks = createSessionLocks();')
+          replace_once(
+              face,
+              '    public QualityCheck captureNextStep(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            CaptureSession session = getSession(sessionId);',
+              '    public QualityCheck captureNextStep(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            CaptureSession session = getSession(sessionId);')
+          replace_once(
+              face,
+              '    public void validateAutoModeStartable(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            CaptureSession session = getSession(sessionId);',
+              '    public void validateAutoModeStartable(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            CaptureSession session = getSession(sessionId);')
+          replace_once(
+              face,
+              '    public PreparedAutoExecution prepareAutoExecution(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            CaptureSession session = getSession(sessionId);',
+              '    public PreparedAutoExecution prepareAutoExecution(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            CaptureSession session = getSession(sessionId);')
+          replace_once(
+              face,
+              '    public void stopSession(String sessionId) {',
+              '''    public void requestCameraShutdown() {\n        if (!shutdownRequested.compareAndSet(false, true)) {\n            return;\n        }\n        List.copyOf(autoExecutions.keySet()).forEach(this::stopSession);\n        List.copyOf(manualOwnerships.keySet()).forEach(this::stopSession);\n    }\n\n    public int activeCameraExecutions() {\n        return autoExecutions.size() + manualOwnerships.size();\n    }\n\n    private void ensureCameraServiceOpen() {\n        if (shutdownRequested.get()) {\n            throw new SessionException("Camera workflow service is shutting down");\n        }\n    }\n\n    public void stopSession(String sessionId) {''')
+
+          # Astro shutdown gate and cooperative abort.
+          astro = Path('app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java')
+          replace_once(
+              astro,
+              '    private final ConcurrentMap<String, PreparedExecution> activeExecutions =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final Object[] sessionLocks = createSessionLocks();',
+              '    private final ConcurrentMap<String, PreparedExecution> activeExecutions =\n'
+              '            new ConcurrentHashMap<>();\n'
+              '    private final AtomicBoolean shutdownRequested = new AtomicBoolean();\n'
+              '    private final Object[] sessionLocks = createSessionLocks();')
+          replace_once(
+              astro,
+              '    public PreparedExecution prepareExecution(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            AstroSessionEntity entity = requireEntity(sessionId);',
+              '    public PreparedExecution prepareExecution(String sessionId) {\n'
+              '        synchronized (sessionLock(sessionId)) {\n'
+              '            ensureCameraServiceOpen();\n'
+              '            AstroSessionEntity entity = requireEntity(sessionId);')
+          replace_once(
+              astro,
+              '    public void requestAbort(String sessionId) {',
+              '''    public void requestCameraShutdown() {\n        if (!shutdownRequested.compareAndSet(false, true)) {\n            return;\n        }\n        List.copyOf(activeExecutions.keySet()).forEach(this::requestAbort);\n    }\n\n    public int activeCameraExecutions() {\n        return activeExecutions.size();\n    }\n\n    private void ensureCameraServiceOpen() {\n        if (shutdownRequested.get()) {\n            throw new IllegalStateException("Camera workflow service is shutting down");\n        }\n    }\n\n    public void requestAbort(String sessionId) {''')
+
+          # Graceful executor settings; queued camera tasks are invalidated before executor destruction.
+          camera_config = Path('app/src/main/java/com/photographer/focusstack/camera/config/CameraServiceConfig.java')
+          replace_once(
+              camera_config,
+              'import org.springframework.context.annotation.Bean;',
+              'import org.springframework.beans.factory.annotation.Value;\n'
+              'import org.springframework.context.annotation.Bean;')
+          replace_once(
+              camera_config,
+              '    public TaskExecutor stackingJobTaskExecutor() {',
+              '    public ThreadPoolTaskExecutor stackingJobTaskExecutor(\n'
+              '            @Value("${camera.session-lease.executor-await-seconds:30}")\n'
+              '            int awaitSeconds) {')
+          replace_once(
+              camera_config,
+              '        executor.setThreadNamePrefix("stacking-job-");\n'
+              '        executor.initialize();',
+              '        executor.setThreadNamePrefix("stacking-job-");\n'
+              '        executor.setWaitForTasksToCompleteOnShutdown(true);\n'
+              '        executor.setAwaitTerminationSeconds(Math.max(1, awaitSeconds));\n'
+              '        executor.initialize();')
+          text = camera_config.read_text().replace('import org.springframework.core.task.TaskExecutor;\n', '')
+          camera_config.write_text(text)
+
+          session_config = Path('app/src/main/java/com/photographer/focusstack/app/config/SessionConfig.java')
+          replace_once(
+              session_config,
+              '    public TaskExecutor sessionTaskExecutor() {',
+              '    public ThreadPoolTaskExecutor sessionTaskExecutor(\n'
+              '            @Value("${camera.session-lease.executor-await-seconds:30}")\n'
+              '            int awaitSeconds) {')
+          replace_once(
+              session_config,
+              '        executor.setThreadNamePrefix("session-task-");\n'
+              '        executor.initialize();',
+              '        executor.setThreadNamePrefix("session-task-");\n'
+              '        executor.setWaitForTasksToCompleteOnShutdown(true);\n'
+              '        executor.setAwaitTerminationSeconds(Math.max(1, awaitSeconds));\n'
+              '        executor.initialize();')
+          session_config.write_text(
+              session_config.read_text().replace('import org.springframework.core.task.TaskExecutor;\n', ''))
+
+          # Workflow path coverage for the executor configuration.
+          workflow = Path('.github/workflows/ccapi-session-lease.yml')
+          replace_once(
+              workflow,
+              "      - 'app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java'",
+              "      - 'app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java'\n"
+              "      - 'app/src/main/java/com/photographer/focusstack/camera/config/CameraServiceConfig.java'")
+
+          # Tests: manager no longer hides leaks.
+          manager_test = Path('app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java')
+          marker = '''    @Test\n    void rejectsUnboundedLifetimeAndHandleCount() {'''
+          addition = '''    @Test\n    void shutdownRejectsNewOwnersWithoutDiscardingActiveHandle() {\n        InMemoryCameraSessionLeaseManager manager = manager(new MutableClock());\n        CameraLeaseKey key = CameraLeaseKey.fromCcapiLocation("camera.example");\n        CameraSessionLease active = manager.acquire(request(key, "owner-one"));\n\n        manager.beginShutdown();\n\n        assertThatThrownBy(() -> manager.acquire(request(key, "owner-two")))\n                .isInstanceOf(IllegalStateException.class)\n                .hasMessage("Camera session lease manager is shutting down");\n        assertThat(manager.metrics().activeLeases()).isEqualTo(1);\n\n        active.close();\n        assertThat(manager.metrics().activeLeases()).isZero();\n        manager.close();\n    }\n\n    @Test\n    void closeReportsActiveLeaseInsteadOfSilentlyClearingIt() {\n        InMemoryCameraSessionLeaseManager manager = manager(new MutableClock());\n        CameraSessionLease active = manager.acquire(request(\n                CameraLeaseKey.fromCcapiLocation("camera.example"), "owner"));\n\n        assertThatThrownBy(manager::close)\n                .isInstanceOf(IllegalStateException.class)\n                .hasMessage("Camera session lease manager closed with 1 active lease(s)");\n        assertThat(manager.metrics().activeLeases()).isEqualTo(1);\n\n        active.close();\n        manager.close();\n    }\n\n''' + marker
+          text = manager_test.read_text()
+          if text.count(marker) != 1:
+              raise SystemExit('Manager test insertion marker not found exactly once')
+          manager_test.write_text(text.replace(marker, addition))
+
+          # HDR queued execution is released and future ownership is rejected.
+          hdr_test = Path('session-core/src/test/java/com/photographer/focusstack/session/HdrTimelapseLeaseLifecycleTest.java')
+          replace_once(
+              hdr_test,
+              'import static org.junit.jupiter.api.Assertions.assertFalse;',
+              'import static org.junit.jupiter.api.Assertions.assertFalse;\n'
+              'import static org.junit.jupiter.api.Assertions.assertThrows;')
+          marker = '''    @Test\n    void schedulingRejectionMarksFailedAndReleasesExactlyOnce() {'''
+          addition = '''    @Test\n    void shutdownCancelsQueuedExecutionAndRejectsNewOwnership() {\n        CameraBackend backend = mock(CameraBackend.class);\n        TrackingProvider provider = new TrackingProvider(backend);\n        HdrTimelapseService service = service(provider);\n        CaptureSession created = service.createSession(settings());\n        HdrTimelapseService.PreparedExecution execution =\n                service.prepareExecution(created.sessionId());\n\n        service.requestCameraShutdown();\n\n        assertEquals(1, provider.closes.get());\n        assertEquals(0, service.activeCameraExecutions());\n        CaptureSession later = service.createSession(settings());\n        assertThrows(SessionException.class,\n                () -> service.prepareExecution(later.sessionId()));\n        execution.run();\n        verify(backend, never()).capture();\n    }\n\n''' + marker
+          text = hdr_test.read_text()
+          if text.count(marker) != 1:
+              raise SystemExit('HDR test insertion marker not found exactly once')
+          hdr_test.write_text(text.replace(marker, addition))
+
+          # Face Orbit queued auto execution is released and future ownership is rejected.
+          face_test = Path('session-core/src/test/java/com/photographer/focusstack/session/FaceOrbitLeaseLifecycleTest.java')
+          marker = '''    @Test\n    void queuedAutoStopReleasesWithoutCameraContact() {'''
+          addition = '''    @Test\n    void shutdownCancelsQueuedAutoExecutionAndRejectsNewOwnership() {\n        CameraBackend backend = mock(CameraBackend.class);\n        TrackingProvider provider = new TrackingProvider(backend);\n        FaceOrbitService service = service(provider);\n        CaptureSession created = service.createSession(settings(true, 1));\n        FaceOrbitService.PreparedAutoExecution execution =\n                service.prepareAutoExecution(created.sessionId());\n\n        service.requestCameraShutdown();\n\n        assertEquals(1, provider.closes.get());\n        assertEquals(0, service.activeCameraExecutions());\n        CaptureSession later = service.createSession(settings(true, 1));\n        assertThrows(SessionException.class,\n                () -> service.prepareAutoExecution(later.sessionId()));\n        execution.run();\n        verify(backend, never()).capture();\n    }\n\n''' + marker
+          text = face_test.read_text()
+          if text.count(marker) != 1:
+              raise SystemExit('Face test insertion marker not found exactly once')
+          face_test.write_text(text.replace(marker, addition))
+
+          # Astro queued execution is released and future ownership is rejected.
+          astro_test = Path('app/src/test/java/com/photographer/focusstack/astro/service/AstroModeServiceLeaseLifecycleTest.java')
+          replace_once(
+              astro_test,
+              'import static org.assertj.core.api.Assertions.assertThat;',
+              'import static org.assertj.core.api.Assertions.assertThat;\n'
+              'import static org.assertj.core.api.Assertions.assertThatThrownBy;')
+          marker = '''    @Test\n    void schedulingRejectionMarksFailedAndReleasesExactlyOnce() {'''
+          addition = '''    @Test\n    void shutdownCancelsQueuedExecutionAndRejectsNewOwnership() {\n        CameraBackend backend = mock(CameraBackend.class);\n        TrackingProvider provider = new TrackingProvider(backend);\n        Fixture fixture = fixture(provider);\n        AstroSession created = fixture.service.createSession(\n                settings("real-camera", 1), AstroFocusConfig.manualFixed());\n        AstroModeService.PreparedExecution execution =\n                fixture.service.prepareExecution(created.id());\n\n        fixture.service.requestCameraShutdown();\n\n        assertThat(provider.closes.get()).isEqualTo(1);\n        assertThat(fixture.service.activeCameraExecutions()).isZero();\n        AstroSession later = fixture.service.createSession(\n                settings("real-camera", 1), AstroFocusConfig.manualFixed());\n        assertThatThrownBy(() -> fixture.service.prepareExecution(later.id()))\n                .isInstanceOf(IllegalStateException.class)\n                .hasMessage("Camera workflow service is shutting down");\n        execution.run();\n        verify(backend, never()).capture();\n    }\n\n''' + marker
+          text = astro_test.read_text()
+          if text.count(marker) != 1:
+              raise SystemExit('Astro test insertion marker not found exactly once')
+          astro_test.write_text(text.replace(marker, addition))
+
+          # Focus stacking queued attempt shutdown.
+          stacking_test = Path('app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java')
+          marker = '''    @Test\n    void pauseResumeSupersedesOldQueuedTask() {'''
+          addition = '''    @Test\n    void shutdownCancelsQueuedAttemptAndRejectsNewStarts() {\n        InMemoryCameraSessionLeaseManager manager = manager();\n        AtomicReference<Runnable> scheduled = new AtomicReference<>();\n        StackingJobService service = service(manager, scheduled::set);\n\n        service.startJob("job-1");\n        service.requestCameraShutdown();\n\n        assertThat(manager.metrics().activeLeases()).isZero();\n        assertThat(service.activeCameraExecutions()).isZero();\n        assertThatThrownBy(() -> service.startJob("job-1"))\n                .isInstanceOf(CameraException.class)\n                .hasMessage("Camera workflow service is shutting down");\n        scheduled.get().run();\n        verify(backendFactory, never()).getBackend(any());\n    }\n\n''' + marker
+          text = stacking_test.read_text()
+          if text.count(marker) != 1:
+              raise SystemExit('Stacking test insertion marker not found exactly once')
+          stacking_test.write_text(text.replace(marker, addition))
+
+          # Documentation records the shutdown order and zero-lease invariant.
+          docs = Path('docs/ccapi-session-ownership.md')
+          text = docs.read_text()
+          section = '''\n## Coordinated application shutdown\n\nApplication shutdown is fail-closed and ordered:\n\n1. the lease manager stops accepting new camera owners;\n2. focus stacking, HDR timelapse, Face Orbit and Astro receive cooperative stop requests;\n3. queued executions release their handles without camera contact and running executions retain ownership until their current camera call returns;\n4. the shutdown coordinator waits for both zero active workflow executions and zero active camera leases;\n5. executor beans then complete Spring destruction with bounded termination waits.\n\nThe lease manager never clears referenced leases to manufacture a zero metric. Closing it with an active lease is an aggregate lifecycle error and does not expose camera identity, origin or owner tokens.\n'''
+          if '## Coordinated application shutdown' not in text:
+              docs.write_text(text.rstrip() + '\n' + section)
+          PY
+
+          cat > app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java <<'JAVA'
+          package com.photographer.focusstack.camera.session;
+
+          import com.photographer.focusstack.astro.service.AstroModeService;
+          import com.photographer.focusstack.camera.service.StackingJobService;
+          import com.photographer.focusstack.session.FaceOrbitService;
+          import com.photographer.focusstack.session.HdrTimelapseService;
+          import jakarta.annotation.PreDestroy;
+          import org.slf4j.Logger;
+          import org.slf4j.LoggerFactory;
+          import org.springframework.beans.factory.annotation.Value;
+          import org.springframework.stereotype.Component;
+
+          import java.time.Duration;
+          import java.util.Objects;
+          import java.util.concurrent.atomic.AtomicBoolean;
+          import java.util.concurrent.locks.LockSupport;
+
+          /** Coordinates fail-closed camera workflow shutdown before lease-manager destruction. */
+          @Component
+          public final class CameraSessionShutdownCoordinator {
+              private static final Logger log =
+                      LoggerFactory.getLogger(CameraSessionShutdownCoordinator.class);
+
+              private final CameraSessionLeaseManager leaseManager;
+              private final StackingJobService stackingJobService;
+              private final HdrTimelapseService hdrTimelapseService;
+              private final FaceOrbitService faceOrbitService;
+              private final AstroModeService astroModeService;
+              private final Duration timeout;
+              private final Duration pollInterval;
+              private final AtomicBoolean shutdownStarted = new AtomicBoolean();
+
+              public CameraSessionShutdownCoordinator(
+                      CameraSessionLeaseManager leaseManager,
+                      StackingJobService stackingJobService,
+                      HdrTimelapseService hdrTimelapseService,
+                      FaceOrbitService faceOrbitService,
+                      AstroModeService astroModeService,
+                      @Value("${camera.session-lease.shutdown-timeout:PT30S}") Duration timeout,
+                      @Value("${camera.session-lease.shutdown-poll-interval:PT0.025S}")
+                      Duration pollInterval) {
+                  this.leaseManager = Objects.requireNonNull(leaseManager, "leaseManager");
+                  this.stackingJobService = Objects.requireNonNull(
+                          stackingJobService, "stackingJobService");
+                  this.hdrTimelapseService = Objects.requireNonNull(
+                          hdrTimelapseService, "hdrTimelapseService");
+                  this.faceOrbitService = Objects.requireNonNull(
+                          faceOrbitService, "faceOrbitService");
+                  this.astroModeService = Objects.requireNonNull(
+                          astroModeService, "astroModeService");
+                  this.timeout = requirePositive(timeout, "timeout");
+                  this.pollInterval = requirePositive(pollInterval, "pollInterval");
+              }
+
+              @PreDestroy
+              public void close() {
+                  shutdown();
+              }
+
+              public void shutdown() {
+                  if (!shutdownStarted.compareAndSet(false, true)) {
+                      return;
+                  }
+
+                  leaseManager.beginShutdown();
+                  stackingJobService.requestCameraShutdown();
+                  hdrTimelapseService.requestCameraShutdown();
+                  faceOrbitService.requestCameraShutdown();
+                  astroModeService.requestCameraShutdown();
+
+                  long timeoutNanos = timeout.toNanos();
+                  long deadline = System.nanoTime() + timeoutNanos;
+                  while (true) {
+                      int activeWorkflows = activeWorkflowExecutions();
+                      int activeLeases = leaseManager.metrics().activeLeases();
+                      if (activeWorkflows == 0 && activeLeases == 0) {
+                          log.info("Camera shutdown completed with zero active workflows and leases");
+                          return;
+                      }
+
+                      long remaining = deadline - System.nanoTime();
+                      if (remaining <= 0) {
+                          throw new IllegalStateException(
+                                  "Camera shutdown incomplete: activeWorkflows="
+                                          + activeWorkflows + ", activeLeases=" + activeLeases);
+                      }
+                      LockSupport.parkNanos(Math.min(remaining, pollInterval.toNanos()));
+                      if (Thread.interrupted()) {
+                          Thread.currentThread().interrupt();
+                          throw new IllegalStateException(
+                                  "Camera shutdown interrupted before ownership was released");
+                      }
+                  }
+              }
+
+              private int activeWorkflowExecutions() {
+                  return stackingJobService.activeCameraExecutions()
+                          + hdrTimelapseService.activeCameraExecutions()
+                          + faceOrbitService.activeCameraExecutions()
+                          + astroModeService.activeCameraExecutions();
+              }
+
+              private static Duration requirePositive(Duration value, String name) {
+                  Objects.requireNonNull(value, name);
+                  if (value.isZero() || value.isNegative()) {
+                      throw new IllegalArgumentException(name + " must be positive");
+                  }
+                  return value;
+              }
+          }
+          JAVA
+
+          cat > app/src/test/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinatorTest.java <<'JAVA'
+          package com.photographer.focusstack.camera.session;
+
+          import com.photographer.focusstack.astro.service.AstroModeService;
+          import com.photographer.focusstack.camera.service.StackingJobService;
+          import com.photographer.focusstack.session.FaceOrbitService;
+          import com.photographer.focusstack.session.HdrTimelapseService;
+          import org.junit.jupiter.api.Test;
+          import org.mockito.InOrder;
+
+          import java.time.Duration;
+
+          import static org.assertj.core.api.Assertions.assertThatThrownBy;
+          import static org.mockito.Mockito.inOrder;
+          import static org.mockito.Mockito.mock;
+          import static org.mockito.Mockito.times;
+          import static org.mockito.Mockito.verify;
+          import static org.mockito.Mockito.when;
+
+          class CameraSessionShutdownCoordinatorTest {
+
+              @Test
+              void blocksNewLeasesBeforeRequestingEveryWorkflowAndIsIdempotent() {
+                  CameraSessionLeaseManager leaseManager = mock(CameraSessionLeaseManager.class);
+                  StackingJobService stacking = mock(StackingJobService.class);
+                  HdrTimelapseService hdr = mock(HdrTimelapseService.class);
+                  FaceOrbitService face = mock(FaceOrbitService.class);
+                  AstroModeService astro = mock(AstroModeService.class);
+                  when(leaseManager.metrics()).thenReturn(
+                          new CameraSessionLeaseMetrics(0, 0, 0));
+
+                  CameraSessionShutdownCoordinator coordinator = new CameraSessionShutdownCoordinator(
+                          leaseManager, stacking, hdr, face, astro,
+                          Duration.ofMillis(100), Duration.ofMillis(1));
+
+                  coordinator.shutdown();
+                  coordinator.shutdown();
+
+                  InOrder order = inOrder(leaseManager, stacking, hdr, face, astro);
+                  order.verify(leaseManager).beginShutdown();
+                  order.verify(stacking).requestCameraShutdown();
+                  order.verify(hdr).requestCameraShutdown();
+                  order.verify(face).requestCameraShutdown();
+                  order.verify(astro).requestCameraShutdown();
+                  verify(leaseManager, times(1)).beginShutdown();
+              }
+
+              @Test
+              void timeoutReportsOnlyAggregateWorkflowAndLeaseCounts() {
+                  CameraSessionLeaseManager leaseManager = mock(CameraSessionLeaseManager.class);
+                  StackingJobService stacking = mock(StackingJobService.class);
+                  HdrTimelapseService hdr = mock(HdrTimelapseService.class);
+                  FaceOrbitService face = mock(FaceOrbitService.class);
+                  AstroModeService astro = mock(AstroModeService.class);
+                  when(stacking.activeCameraExecutions()).thenReturn(1);
+                  when(leaseManager.metrics()).thenReturn(
+                          new CameraSessionLeaseMetrics(2, 0, 0));
+
+                  CameraSessionShutdownCoordinator coordinator = new CameraSessionShutdownCoordinator(
+                          leaseManager, stacking, hdr, face, astro,
+                          Duration.ofMillis(5), Duration.ofMillis(1));
+
+                  assertThatThrownBy(coordinator::shutdown)
+                          .isInstanceOf(IllegalStateException.class)
+                          .hasMessage("Camera shutdown incomplete: activeWorkflows=1, activeLeases=2")
+                          .hasMessageNotContaining("camera.example")
+                          .hasMessageNotContaining("owner");
+              }
+          }
+          JAVA
+
+          git diff --check
+          git status --short
+          git add .
+          git commit -m "feat(ccapi): coordinate shutdown and assert zero active leases"
+          SHUTDOWN_SHA=$(git rev-parse HEAD)
+          printf 'SHUTDOWN_SHA=%s\n' "$SHUTDOWN_SHA" | tee shutdown-sha.txt
+
+          mvn -B --no-transfer-progress test \
+            -pl app \
+            -am \
+            -Djava.awt.headless=true
+
+          git push --force-with-lease origin \
+            "$SHUTDOWN_SHA:refs/heads/hardening/ccapi-coordinated-shutdown"
+
+      - name: Publish success status
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin automation/implement-ccapi-shutdown
+          git switch -C status origin/automation/implement-ccapi-shutdown
+          {
+            echo status=success
+            echo "source_commit=${GITHUB_SHA}"
+            cat shutdown-sha.txt
+          } > shutdown-status.txt
+          git add shutdown-status.txt
+          git commit -m '[skip shutdown implementation] ci: record successful shutdown implementation'
+          git push origin HEAD:automation/implement-ccapi-shutdown
+
+      - name: Publish failure status
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard
+          git fetch origin automation/implement-ccapi-shutdown
+          git switch -C status origin/automation/implement-ccapi-shutdown
+          {
+            echo status=failure
+            echo "source_commit=${GITHUB_SHA}"
+          } > shutdown-status.txt
+          git add shutdown-status.txt
+          git commit -m '[skip shutdown implementation] ci: record failed shutdown implementation'
+          git push origin HEAD:automation/implement-ccapi-shutdown
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coordinated-ccapi-shutdown-evidence
+          path: |
+            shutdown-sha.txt
+            coordinated-shutdown.log
+            **/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
