@@ -1,140 +1,129 @@
 # D13 Tentative-symbol context and CRX topology
 
-## Status
+## Final verdict
 
-**PENDING** — corrected source and topology boundaries are fixed before execution.
+**`PRIMARY_SOURCE_OR_MAPPING_INSUFFICIENT`**
 
-No decoder or production semantic changes are permitted in D13.
+D13 found no source-supported and causally representable `Sd`/`Kd` context mapping for the current CRX research structures. No further semantic decoder candidate is authorized from the present evidence.
 
-## Motivation
+No production decoder behavior changed.
 
-D11 established the exact finite-domain Golomb-Rice K range. D12 showed that this range is not sufficient when the currently decoded symbol is used directly as the tentative next symbol:
+## Evidence binding
 
-- optical-black median improved;
-- global, boundary, saturation and every camera-family gate failed;
-- nine tile/plane streams regressed and seven recovered partially;
-- no incomplete fixture became complete.
+- executed code commit: `5df1851f7da7642e3a55e7684fb5d04c71aa9edf`;
+- D13 workflow run: `29799183124`;
+- artifact digest: `sha256:a9bb5223a3c23de3712e328ec86261cc476ffac1711ce8fd4ab7fbdd0199ae94`;
+- fixed inputs: the eleven paths in `KAdaptationFixtureSet.PANEL`;
+- permitted registered inputs: `SRC-001`, `SRC-007`, `SRC-008`.
 
-The unresolved variables are the patent embodiment's `Sx`, `Sd`, `Sn` and `Kd` context and their possible relationship to CRX records.
+The generated Markdown, TSV and JSON are deterministic and include every exposed record and payload range.
 
-## Fixed inputs
+## Executed topology summary
 
-Exactly these eleven reference-backed lossless fixtures, enforced by `KAdaptationFixtureSet.PANEL`:
+| Observation | Result |
+|---|---:|
+| Fixtures | 11 |
+| Exposed records | 88 |
+| Extracted payload bytes | 220,347,400 |
+| Records with `waveletLevels=0`, `subband=0` | 88 |
+| Byte-contiguous record transitions | 77 |
+| Gaps | 0 |
+| Overlaps | 0 |
+| Distinct fixture topology variants | 2 |
+| Families with internal topology variation | 0 |
+| One topology shared by every fixture | no |
 
-- `eosr-iso-high.cr3`
-- `eosr-iso-low.cr3`
-- `eosr-iso-mid.cr3`
-- `research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3`
-- `research/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02.cr3`
-- `research/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02.cr3`
-- `sample-iso-high.cr3`
-- `sample-tele.cr3`
-- `sample-wb-tungsten.cr3`
-- `sample-wide.cr3`
-- `sample.cr3`
+Every fixture contains two tile sequences, four planes per tile and one subband per plane. All payload records after the first record of a fixture start exactly where the preceding record ends.
 
-Primary-source input remains the registered Canon publication and the completed D11 extraction. No missing equation is filled by inference in D13.
+## Camera-family result
+
+| Family | Fixtures | Distinct topology variants |
+|---|---:|---:|
+| EOS R | 3 | 1 |
+| G5 X Mark II research | 3 | 1 |
+| Sample series | 5 | 1 |
+
+The EOS R fixtures use a `1722×2273`, 14-bit plane grid. The G5 X Mark II and sample-series fixtures use the second observed plane-grid topology, while remaining internally uniform within their recorded families. Payload size is deliberately excluded from the structural signature because it is content-dependent.
+
+The two variants do not reveal different entropy context rules. They establish only that the fixture inventory contains two stable geometry/topology families.
 
 ## Corrected extractor boundary
 
-The current `SubbandRef` exposes:
-
-- original record order;
-- tile index and tile sequence;
-- plane and subband index;
-- declared CMP1 wavelet-level count;
-- plane grid and bit depth;
-- absolute payload offset and payload size.
-
-The report must preserve the actual half-open range:
+`SubbandRef` exposes actual absolute payload offsets and sizes. D13 records each half-open range as:
 
 ```text
 [payloadOffset, payloadOffset + payloadSize)
 ```
 
-Two values must not be overinterpreted:
+D13 also corrects two earlier overinterpretations:
 
-1. `waveletLevels` is the image-wide CMP1 decomposition count, not a per-record level.
-2. For lossy files, the current plane width and height are the undecomposed grid, not per-subband coefficient dimensions.
+1. `waveletLevels` is the image-wide CMP1 decomposition count, not a per-record wavelet level.
+2. For lossy data, the exposed plane width and height describe the undecomposed plane grid, not per-subband coefficient dimensions.
 
-The detailed boundary is recorded in `docs/cleanroom/d13-extractor-topology-boundary.md`.
+Therefore dimensions and file order cannot be used to manufacture a deeper-level parent or claim decoder-time causal availability.
 
-## Fixed-panel assertions
+## Fixed-panel limitation established by execution
 
-D13 requires every record in the fixed panel to satisfy:
+All 88 records satisfy:
 
 ```text
 declaredWaveletLevels = 0
 subbandIndex = 0
+causalAssessment = NOT_APPLICABLE_WAVELET_LEVELS_0
 ```
 
-This panel can measure:
+Consequently, the fixed reference-backed lossless panel can establish:
 
-- tile/plane record order;
+- record ordering;
+- tile and plane structure;
 - absolute payload ranges;
-- continuity, gaps and overlaps;
-- topology variants by fixture and camera family.
+- byte continuity;
+- fixture and camera-family topology variants.
 
-It cannot measure:
+It cannot establish:
 
-- a deeper-level parent;
+- a deeper decomposition-level parent;
 - LL/HL/LH/HH identity;
 - a causal `Sd` source;
-- a `Kd` lifecycle;
-- decoder causality merely from earlier file order.
+- `Kd` state origin or lifecycle;
+- row, tile, plane or subband reset behavior for the patent embodiment;
+- causal availability merely because another record occurs earlier in the file.
 
-## Source-analysis boundary
+This is a completed negative result, not a missing test implementation.
 
-Every statement about `Sd`, `Sn` or `Kd` remains labelled as one of:
+## Source-analysis result
 
-- `PATENT_EXPLICIT`;
-- `PATENT_EMBODIMENT`;
-- `CRX_HYPOTHESIS`;
-- `UNRESOLVED`.
+The primary-source boundary remains:
 
-The source-backed boundary remains:
+- the LL embodiment discloses `Sn=(Sx+Sd)/2`;
+- the first disclosed high-pass path uses `Sn=Sx` before a possible later correction;
+- a `Kd`-related correction is disclosed;
+- the complete implementable `Kd` arithmetic, comparison, state origin, initialization, clamp and CRX role mapping remain unresolved.
 
-- LL embodiment: `Sn=(Sx+Sd)/2`;
-- first high-pass embodiment: base estimate `Sn=Sx`;
-- a later `Kd` correction exists;
-- exact `Kd` arithmetic, state origin, initialization and CRX mapping remain unresolved.
+D13 found no structural information in the fixed lossless panel that closes those source gaps. D12's mixed quality result cannot be used to choose a neighbour, subband role or state lifecycle because that would be output-driven fitting.
 
-## Prohibited selection criteria
+## Decision against a D14 semantic candidate
 
-D13 must not:
+The predeclared `EXACT_CONTEXT_CANDIDATE_AVAILABLE` gate required one mapping that was:
 
-- decode a new symbol sequence;
-- render or score candidate images;
-- select topology with image metrics;
-- search neighbour coordinates or subband permutations;
-- combine `Sd`, `Kd`, reset, predictor or sign changes;
-- promote D12 behavior to production.
+1. source-supported;
+2. causally available from already decoded state;
+3. structurally consistent across the evidence;
+4. selected without image-quality fitting;
+5. isolatable as exactly one semantic change.
 
-## Decision gate
-
-`EXACT_CONTEXT_CANDIDATE_AVAILABLE` requires one context mapping that:
-
-1. is supported by an explicit or clearly delimited public-source embodiment;
-2. is available causally from already decoded state;
-3. is structurally consistent across the evidence;
-4. does not depend on output-quality selection;
-5. can be isolated as exactly one later semantic change.
-
-The fixed lossless panel cannot by itself satisfy the deeper-level or high-pass mapping requirements. Unless an independently registered primary source closes those gaps, the final verdict is:
+No candidate satisfies the first three requirements. D13 therefore concludes:
 
 ```text
 PRIMARY_SOURCE_OR_MAPPING_INSUFFICIENT
 ```
 
-and another decoder candidate remains blocked.
+A D14 decoder experiment is blocked. The next useful work must obtain genuinely new structural or public-primary-source evidence, such as a legally usable multi-subband corpus with independently established subband geometry or a public source that fully defines `Sd` and `Kd`. Repeating current-symbol K rules, neighbour searches or subband permutations is not justified.
 
-## Required outputs
+## Additional defect fixed during D13
 
-- source matrix for `Sx`, `Sd`, `Sn` and `Kd`;
-- deterministic topology Markdown, TSV and JSON;
-- actual payload ranges;
-- continuity, gap and overlap counts;
-- camera-family topology variants;
-- explicit lossless-panel limitation;
-- final verdict and production decision;
-- clean-room ledger binding to commit, workflow run, artifact digest and durable report.
+The focused verification exposed a D12 test/implementation contradiction: a fixture with full completion was still classified as a completion regression solely because its decoder result carried an exhaustion flag. The verdict logic now treats exhaustion as a regression only when completion is actually below one. The existing regression test now passes. This change affects research-gate classification only and does not modify production decoding.
+
+## Production decision
+
+**No production decoder change.** Keep the current RAW decoder behavior unchanged and retain D13 as a durable blocking result.
