@@ -7,6 +7,12 @@ import com.photographer.focusstack.camera.config.PlainWebSocketBridge;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
+import com.photographer.focusstack.camera.session.CameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.CameraLeaseRequest;
+import com.photographer.focusstack.camera.session.CameraSessionLease;
+import com.photographer.focusstack.camera.session.CameraSessionLeaseManager;
+import com.photographer.focusstack.camera.session.CameraSessionLeaseMetrics;
+import com.photographer.focusstack.camera.session.CameraWorkflowType;
 import com.photographer.focusstack.camera.strategy.AdaptiveStepStrategy;
 import com.photographer.focusstack.camera.strategy.FocusStepStrategy;
 import com.photographer.focusstack.camera.strategy.LinearStepStrategy;
@@ -27,6 +33,7 @@ import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
@@ -60,11 +67,15 @@ public class StackingJobService {
     private final TaskExecutor taskExecutor;
     private final FrameDataStore frameDataStore;
     private final PlainWebSocketBridge plainWebSocketBridge;
+    private final CameraSessionLeaseManager leaseManager;
+    private final CameraLeaseIdentityProvider leaseIdentityProvider;
+    private final Duration focusStackingLeaseLifetime;
     private final NativeFocusBracketingExecutor nativeExecutor =
             new NativeFocusBracketingExecutor();
     private final Set<String> cancelledJobs = ConcurrentHashMap.newKeySet();
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
 
+    @Autowired
     public StackingJobService(CameraBackendFactory backendFactory,
                               CameraProfileService profileService,
                               StackingJobRepository repository,
@@ -73,8 +84,12 @@ public class StackingJobService {
                               StackMerger stackMerger,
                               FrameDataStore frameDataStore,
                               PlainWebSocketBridge plainWebSocketBridge,
+                              CameraSessionLeaseManager leaseManager,
+                              CameraLeaseIdentityProvider leaseIdentityProvider,
                               @Qualifier("stackingJobTaskExecutor") TaskExecutor taskExecutor,
-                              @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName) {
+                              @Value("${camera.focus.step-strategy:adaptive}") String stepStrategyName,
+                              @Value("${camera.session-lease.focus-stacking-lifetime:PT2H}")
+                              Duration focusStackingLeaseLifetime) {
         this.backendFactory = backendFactory;
         this.profileService = profileService;
         this.repository = repository;
@@ -83,16 +98,65 @@ public class StackingJobService {
         this.stackMerger = stackMerger;
         this.frameDataStore = frameDataStore;
         this.plainWebSocketBridge = plainWebSocketBridge;
+        this.leaseManager = leaseManager;
+        this.leaseIdentityProvider = leaseIdentityProvider;
         this.taskExecutor = taskExecutor;
+        if (focusStackingLeaseLifetime == null
+                || focusStackingLeaseLifetime.isZero()
+                || focusStackingLeaseLifetime.isNegative()) {
+            throw new IllegalArgumentException("focusStackingLeaseLifetime must be positive");
+        }
+        this.focusStackingLeaseLifetime = focusStackingLeaseLifetime;
         this.stepStrategy = "linear".equalsIgnoreCase(stepStrategyName)
                 ? new LinearStepStrategy()
                 : new AdaptiveStepStrategy();
         log.info("StackingJobService initialized with '{}' step strategy", this.stepStrategy.name());
     }
 
-    private CameraBackend backendFor(String cameraProfileId) {
-        CameraProfile profile = profileService.getProfile(cameraProfileId);
+    /** Backward-compatible unmanaged constructor for focused unit tests. */
+    StackingJobService(CameraBackendFactory backendFactory,
+                       CameraProfileService profileService,
+                       StackingJobRepository repository,
+                       SimpMessagingTemplate messagingTemplate,
+                       StackingAdvisor stackingAdvisor,
+                       StackMerger stackMerger,
+                       FrameDataStore frameDataStore,
+                       PlainWebSocketBridge plainWebSocketBridge,
+                       TaskExecutor taskExecutor,
+                       String stepStrategyName) {
+        this(backendFactory, profileService, repository, messagingTemplate,
+                stackingAdvisor, stackMerger, frameDataStore, plainWebSocketBridge,
+                unmanagedLeaseManager(), profile -> java.util.Optional.empty(),
+                taskExecutor, stepStrategyName, Duration.ofHours(2));
+    }
+
+    private static CameraSessionLeaseManager unmanagedLeaseManager() {
+        return new CameraSessionLeaseManager() {
+            @Override
+            public CameraSessionLease acquire(CameraLeaseRequest request) {
+                return CameraSessionLease.noop();
+            }
+
+            @Override
+            public CameraSessionLeaseMetrics metrics() {
+                return new CameraSessionLeaseMetrics(0, 0, 0);
+            }
+        };
+    }
+
+    private CameraBackend backendFor(CameraProfile profile) {
         return backendFactory.getBackend(profile);
+    }
+
+    private CameraSessionLease acquireCameraLease(CameraProfile profile, String jobId) {
+        return leaseIdentityProvider.resolve(profile)
+                .map(key -> leaseManager.acquire(new CameraLeaseRequest(
+                        key,
+                        CameraWorkflowType.FOCUS_STACKING,
+                        jobId,
+                        "stacking-job:" + jobId,
+                        focusStackingLeaseLifetime)))
+                .orElseGet(CameraSessionLease::noop);
     }
 
     public StackingJob createJob(String cameraProfileId, StackingParameters parameters) {
@@ -109,16 +173,30 @@ public class StackingJobService {
         if (job.status() != JobStatus.CREATED && job.status() != JobStatus.PAUSED) {
             throw new CameraException("Job cannot be started in state: " + job.status());
         }
+
+        CameraProfile profile = profileService.getProfile(job.cameraProfileId());
+        CameraSessionLease lease = acquireCameraLease(profile, id);
         cancelledJobs.remove(id);
         pausedJobs.remove(id);
         StackingJob running = new StackingJob(
                 job.id(), job.cameraProfileId(), JobStatus.RUNNING,
                 Instant.now(), null, job.parameters(), new ArrayList<>(job.frames()),
                 null, job.executionMetadata());
-        repository.save(StackingJobEntity.fromRecord(running));
-        sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "RUNNING"));
-        taskExecutor.execute(() -> executeStackingAsync(running));
-        return running;
+        try {
+            repository.save(StackingJobEntity.fromRecord(running));
+            sendJobEvent(id, "STATUS_CHANGED", Map.of("status", "RUNNING"));
+            taskExecutor.execute(() -> executeStackingAsync(running, profile, lease));
+            return running;
+        } catch (RuntimeException schedulingFailure) {
+            lease.close();
+            try {
+                failJob(running, new ArrayList<>(running.frames()),
+                        running.executionMetadata(), schedulingFailure);
+            } catch (RuntimeException persistenceFailure) {
+                schedulingFailure.addSuppressed(persistenceFailure);
+            }
+            throw schedulingFailure;
+        }
     }
 
     public void pauseJob(String id) {
@@ -189,10 +267,24 @@ public class StackingJobService {
     }
 
     void executeStackingAsync(StackingJob job) {
+        CameraProfile profile = profileService.getProfile(job.cameraProfileId());
+        executeStackingAsync(job, profile, acquireCameraLease(profile, job.id()));
+    }
+
+    private void executeStackingAsync(
+            StackingJob job,
+            CameraProfile profile,
+            CameraSessionLease lease) {
+        try (lease) {
+            executeOwnedStacking(job, profile);
+        }
+    }
+
+    private void executeOwnedStacking(StackingJob job, CameraProfile profile) {
         CapturePlan plan = null;
         StackingJob plannedJob = job;
         try {
-            CameraBackend backend = backendFor(job.cameraProfileId());
+            CameraBackend backend = backendFor(profile);
             plan = selectCapturePlan(job.parameters(), backend);
             plannedJob = withExecutionMetadata(
                     job, JobStatus.RUNNING, null, null,
