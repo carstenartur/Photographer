@@ -60,12 +60,9 @@ public final class CameraLeaseKey {
         if (uri.getRawUserInfo() != null) {
             throw new IllegalArgumentException("Credentials are not allowed in a CCAPI camera location");
         }
-        String host = uri.getHost();
-        if (host == null || host.isBlank()) {
-            throw new IllegalArgumentException("CCAPI camera location must contain a valid host");
-        }
-        String normalizedHost = normalizeHost(host);
-        int effectivePort = uri.getPort();
+        Authority authority = extractAuthority(uri);
+        String normalizedHost = normalizeHost(authority.host());
+        int effectivePort = authority.port();
         if (effectivePort < 0) {
             effectivePort = explicitScheme ? defaultPort(scheme) : 8080;
         }
@@ -118,6 +115,58 @@ public final class CameraLeaseKey {
         return "https".equals(scheme) ? 443 : 80;
     }
 
+    private static Authority extractAuthority(URI uri) {
+        if (uri.getHost() != null && !uri.getHost().isBlank()) {
+            return new Authority(uri.getHost(), uri.getPort());
+        }
+        String rawAuthority = uri.getRawAuthority();
+        if (rawAuthority == null || rawAuthority.isBlank() || rawAuthority.indexOf('@') >= 0) {
+            throw new IllegalArgumentException("CCAPI camera location must contain a valid host");
+        }
+
+        if (rawAuthority.startsWith("[")) {
+            int closingBracket = rawAuthority.indexOf(']');
+            if (closingBracket < 2) {
+                throw new IllegalArgumentException("Invalid IPv6 camera location");
+            }
+            String host = rawAuthority.substring(1, closingBracket);
+            String remainder = rawAuthority.substring(closingBracket + 1);
+            return new Authority(host, parseOptionalPort(remainder));
+        }
+
+        int colon = rawAuthority.lastIndexOf(':');
+        if (colon > 0 && rawAuthority.indexOf(':') == colon) {
+            String portText = rawAuthority.substring(colon + 1);
+            if (portText.chars().allMatch(Character::isDigit)) {
+                return new Authority(
+                        rawAuthority.substring(0, colon), parsePort(portText));
+            }
+            throw new IllegalArgumentException("CCAPI camera location contains an invalid port");
+        }
+        if (rawAuthority.indexOf(':') >= 0) {
+            throw new IllegalArgumentException("IPv6 camera locations must use brackets");
+        }
+        return new Authority(rawAuthority, -1);
+    }
+
+    private static int parseOptionalPort(String remainder) {
+        if (remainder.isEmpty()) {
+            return -1;
+        }
+        if (!remainder.startsWith(":") || remainder.length() == 1) {
+            throw new IllegalArgumentException("CCAPI camera location contains an invalid port");
+        }
+        return parsePort(remainder.substring(1));
+    }
+
+    private static int parsePort(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException privatePortFailure) {
+            throw new IllegalArgumentException("CCAPI camera location contains an invalid port");
+        }
+    }
+
     private static String normalizeHost(String host) {
         String value = stripBrackets(host).toLowerCase(Locale.ROOT);
         if (value.indexOf('%') >= 0) {
@@ -135,7 +184,9 @@ public final class CameraLeaseKey {
             }
         }
         try {
-            return IDN.toASCII(value, IDN.USE_STD3_ASCII_RULES).toLowerCase(Locale.ROOT);
+            String ascii = IDN.toASCII(value, IDN.USE_STD3_ASCII_RULES)
+                    .toLowerCase(Locale.ROOT);
+            return ascii.endsWith(".") ? ascii.substring(0, ascii.length() - 1) : ascii;
         } catch (IllegalArgumentException privateHostFailure) {
             throw new IllegalArgumentException("Invalid CCAPI camera host");
         }
@@ -175,5 +226,14 @@ public final class CameraLeaseKey {
     @Override
     public String toString() {
         return "CameraLeaseKey[" + redactedId + ']';
+    }
+
+    private record Authority(String host, int port) {
+        private Authority {
+            if (host == null || host.isBlank()) {
+                throw new IllegalArgumentException(
+                        "CCAPI camera location must contain a valid host");
+            }
+        }
     }
 }
