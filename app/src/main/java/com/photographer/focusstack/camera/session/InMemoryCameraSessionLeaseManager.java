@@ -1,6 +1,7 @@
 package com.photographer.focusstack.camera.session;
 
 import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -39,6 +40,7 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
     private final AtomicLong conflicts = new AtomicLong();
     private final AtomicLong staleRecoveries = new AtomicLong();
 
+    @Autowired
     public InMemoryCameraSessionLeaseManager(
             @Value("${camera.session-lease.maximum-lifetime:PT6H}") Duration maximumLifetime,
             @Value("${camera.session-lease.maximum-reentrant-handles:1024}") int maximumReentrantHandles) {
