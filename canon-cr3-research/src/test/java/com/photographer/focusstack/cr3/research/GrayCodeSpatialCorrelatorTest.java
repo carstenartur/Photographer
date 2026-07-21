@@ -10,11 +10,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class GrayCodeSpatialCorrelatorTest {
 
     @Test
-    void identifiesExactUniqueCoordinate() {
+    void directPolarityIdentifiesExactUniqueCoordinate() {
         boolean[] observed = GrayCodeSpatialCorrelator.codeWord(37, 64);
 
-        GrayCodeSpatialCorrelator.Result result =
-                GrayCodeSpatialCorrelator.correlate(observed, 64);
+        GrayCodeSpatialCorrelator.Result result = GrayCodeSpatialCorrelator.correlate(
+                observed, 64, GrayCodeSpatialCorrelator.Polarity.DIRECT);
 
         assertThat(result.exactUnique()).isTrue();
         assertThat(result.uniqueCandidate())
@@ -22,14 +22,14 @@ class GrayCodeSpatialCorrelatorTest {
     }
 
     @Test
-    void identifiesExactInvertedCoordinate() {
+    void invertedPolarityIdentifiesExactUniqueCoordinate() {
         boolean[] observed = GrayCodeSpatialCorrelator.codeWord(11, 64);
         for (int bit = 0; bit < observed.length; bit++) {
             observed[bit] = !observed[bit];
         }
 
-        GrayCodeSpatialCorrelator.Result result =
-                GrayCodeSpatialCorrelator.correlate(observed, 64);
+        GrayCodeSpatialCorrelator.Result result = GrayCodeSpatialCorrelator.correlate(
+                observed, 64, GrayCodeSpatialCorrelator.Polarity.INVERTED);
 
         assertThat(result.exactUnique()).isTrue();
         assertThat(result.uniqueCandidate())
@@ -37,12 +37,26 @@ class GrayCodeSpatialCorrelatorTest {
     }
 
     @Test
+    void unknownPolarityRemainsAmbiguousAcrossTheCompleteCodeSpace() {
+        boolean[] observed = GrayCodeSpatialCorrelator.codeWord(37, 64);
+
+        GrayCodeSpatialCorrelator.Result result =
+                GrayCodeSpatialCorrelator.correlate(observed, 64);
+
+        assertThat(result.minimumDistance()).isZero();
+        assertThat(result.exactUnique()).isFalse();
+        assertThat(result.bestCandidates()).hasSize(2);
+        assertThat(result.bestCandidates())
+                .contains(new GrayCodeSpatialCorrelator.Candidate(37, false, 0));
+    }
+
+    @Test
     void truncatedSignatureRemainsExplicitlyAmbiguous() {
         boolean[] full = GrayCodeSpatialCorrelator.codeWord(23, 64);
         boolean[] observed = Arrays.copyOf(full, 3);
 
-        GrayCodeSpatialCorrelator.Result result =
-                GrayCodeSpatialCorrelator.correlate(observed, 64);
+        GrayCodeSpatialCorrelator.Result result = GrayCodeSpatialCorrelator.correlate(
+                observed, 64, GrayCodeSpatialCorrelator.Polarity.DIRECT);
 
         assertThat(result.minimumDistance()).isZero();
         assertThat(result.exactUnique()).isFalse();
@@ -52,23 +66,24 @@ class GrayCodeSpatialCorrelatorTest {
     }
 
     @Test
-    void oneNoisyPlaneCanAliasAnotherExactCoordinate() {
+    void oneNoisyPlaneCanAliasAnotherExactCoordinateEvenWithKnownPolarity() {
         boolean[] observed = GrayCodeSpatialCorrelator.codeWord(42, 64);
         observed[4] = !observed[4];
 
-        GrayCodeSpatialCorrelator.Result result =
-                GrayCodeSpatialCorrelator.correlate(observed, 64);
+        GrayCodeSpatialCorrelator.Result result = GrayCodeSpatialCorrelator.correlate(
+                observed, 64, GrayCodeSpatialCorrelator.Polarity.DIRECT);
 
         // A complete six-bit Gray code covers all 64 code words. A single unstable
-        // plane may therefore look like another exact coordinate rather than a
-        // non-zero-distance candidate. Duplicate filtering and an independent
-        // stimulus family are mandatory before accepting the mapping.
+        // plane may therefore look like another exact coordinate. Duplicate
+        // filtering and an independent stimulus family remain mandatory.
         assertThat(result.exactUnique()).isTrue();
         assertThat(result.uniqueCandidate().coordinate()).isNotEqualTo(42);
         assertThat(result.uniqueCandidate().hammingDistance()).isZero();
         assertThat(GrayCodeSpatialCorrelator.correlate(
-                GrayCodeSpatialCorrelator.codeWord(42, 64), 64).uniqueCandidate().coordinate())
-                .isEqualTo(42);
+                GrayCodeSpatialCorrelator.codeWord(42, 64),
+                64,
+                GrayCodeSpatialCorrelator.Polarity.DIRECT)
+                .uniqueCandidate().coordinate()).isEqualTo(42);
     }
 
     @Test
