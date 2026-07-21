@@ -2,14 +2,15 @@ package com.photographer.focusstack.camera.controller;
 
 import com.photographer.focusstack.app.security.UserRepository;
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.search.SearchService;
+import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.service.DirectCameraControlExecutor;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.model.CameraProfile;
-import com.photographer.focusstack.camera.search.SearchService;
-import com.photographer.focusstack.camera.service.CameraProfileService;
-import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,16 +19,25 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +62,9 @@ class CameraControllerTest {
     private SearchService searchService;
 
     @MockitoBean
+    private DirectCameraControlExecutor directControl;
+
+    @MockitoBean
     private UserRepository userRepository;
 
     private CameraBackend cameraBackend;
@@ -60,10 +73,26 @@ class CameraControllerTest {
             new CameraProfile("cam-1", "Test Cam", "mock", "localhost", 10, 30, 0.1);
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         cameraBackend = mock(CameraBackend.class);
         when(profileService.getProfile("cam-1")).thenReturn(PROFILE);
         when(backendFactory.getBackend(PROFILE)).thenReturn(cameraBackend);
+
+        when(directControl.withBackend(eq("cam-1"), any(Function.class)))
+                .thenAnswer(invocation -> ((Function<CameraBackend, Object>) invocation
+                        .getArgument(1)).apply(cameraBackend));
+        doAnswer(invocation -> {
+            ((Consumer<CameraBackend>) invocation.getArgument(1)).accept(cameraBackend);
+            return null;
+        }).when(directControl).withBackend(eq("cam-1"), any(Consumer.class));
+        when(directControl.withProfileLease(eq("cam-1"), any(Supplier.class)))
+                .thenAnswer(invocation -> ((Supplier<Object>) invocation
+                        .getArgument(1)).get());
+        doAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(1)).run();
+            return null;
+        }).when(directControl).withProfileLease(eq("cam-1"), any(Runnable.class));
     }
 
     @Test
@@ -115,7 +144,7 @@ class CameraControllerTest {
     }
 
     @Test
-    void capture_returnsResult() throws Exception {
+    void capture_runsThroughDirectControlExecutor() throws Exception {
         when(cameraBackend.capture()).thenReturn(
                 new CaptureResult("img-1", "IMG_0.jpg", "/mock/captures/img-1.jpg",
                         Instant.now(), 0, 1024L, null));
@@ -124,5 +153,47 @@ class CameraControllerTest {
                         .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.imageId").value("img-1"));
+
+        verify(directControl).withBackend(eq("cam-1"), any(Function.class));
+    }
+
+    @Test
+    void focus_runsThroughDirectControlExecutor() throws Exception {
+        FocusCommand command = new FocusCommand(FocusCommand.Direction.FAR, 3);
+
+        mockMvc.perform(post("/api/cameras/cam-1/focus")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(command)))
+                .andExpect(status().isOk());
+
+        verify(directControl).withBackend(eq("cam-1"), any(Consumer.class));
+        verify(cameraBackend).setFocus(command);
+    }
+
+    @Test
+    void updateProfile_runsEvictionAndMutationInsideProfileLease() throws Exception {
+        when(profileService.updateProfile("cam-1", PROFILE)).thenReturn(PROFILE);
+
+        mockMvc.perform(put("/api/cameras/cam-1")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(PROFILE)))
+                .andExpect(status().isOk());
+
+        verify(directControl).withProfileLease(eq("cam-1"), any(Supplier.class));
+        verify(backendFactory).evict("cam-1");
+        verify(profileService).updateProfile("cam-1", PROFILE);
+    }
+
+    @Test
+    void deleteProfile_runsEvictionAndDeletionInsideProfileLease() throws Exception {
+        mockMvc.perform(delete("/api/cameras/cam-1")
+                        .with(csrf()))
+                .andExpect(status().isNoContent());
+
+        verify(directControl).withProfileLease(eq("cam-1"), any(Runnable.class));
+        verify(backendFactory).evict("cam-1");
+        verify(profileService).deleteProfile("cam-1");
     }
 }
