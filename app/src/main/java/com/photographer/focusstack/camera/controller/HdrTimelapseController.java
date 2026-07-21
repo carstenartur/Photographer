@@ -23,10 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * REST API for HDR Timelapse sessions.
- * Delegates all business logic to {@link HdrTimelapseService}.
- */
+/** REST API for HDR Timelapse sessions. */
 @RestController
 @RequestMapping("/api/hdr-timelapse")
 @Tag(name = "HDR Timelapse", description = "HDR timelapse capture, bracket retrieval and video generation endpoints.")
@@ -51,11 +48,14 @@ public class HdrTimelapseController {
     @PostMapping("/{sessionId}/start")
     @Operation(summary = "Start HDR timelapse session")
     public ResponseEntity<CaptureSession> startSession(@PathVariable String sessionId) {
-        // Validate state synchronously before scheduling async execution
-        service.validateStartable(sessionId);
-        taskExecutor.execute(() -> service.executeSession(sessionId));
-        CaptureSession session = service.getSession(sessionId);
-        return ResponseEntity.accepted().body(session);
+        HdrTimelapseService.PreparedExecution execution = service.prepareExecution(sessionId);
+        try {
+            taskExecutor.execute(execution);
+        } catch (RuntimeException schedulingFailure) {
+            execution.reject(schedulingFailure);
+            throw schedulingFailure;
+        }
+        return ResponseEntity.accepted().body(service.getSession(sessionId));
     }
 
     @PostMapping("/{sessionId}/stop")
@@ -96,7 +96,9 @@ public class HdrTimelapseController {
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"timelapse-" + sessionId.replaceAll("[^a-zA-Z0-9\\-]", "_") + "." + safeFormat + "\"")
+                        "attachment; filename=\"timelapse-"
+                                + sessionId.replaceAll("[^a-zA-Z0-9\\-]", "_")
+                                + "." + safeFormat + "\"")
                 .body(video);
     }
 }
