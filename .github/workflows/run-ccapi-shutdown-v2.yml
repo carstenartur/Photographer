@@ -60,14 +60,16 @@ jobs:
           if [ "$status" -ne 0 ]; then
             grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:' \
               /tmp/shutdown-v2-outer.log | tail -n 240 > /tmp/shutdown-v2-outer-diagnostics.txt || true
-            git fetch origin automation/implement-ccapi-shutdown-v2
-            git switch -C shutdown-diagnostics origin/automation/implement-ccapi-shutdown-v2
-            cp /tmp/shutdown-v2-outer-diagnostics.txt ccapi-shutdown-v2.outer-diagnostics.txt
-            printf 'status=failure\nexit_code=%s\n' "$status" > ccapi-shutdown-v2.outer-status
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add ccapi-shutdown-v2.outer-diagnostics.txt ccapi-shutdown-v2.outer-status
-            git commit -m 'ci(ccapi): record outer shutdown v2 diagnostics [skip shutdown v2]' || true
-            git push origin HEAD:automation/implement-ccapi-shutdown-v2
             exit "$status"
           fi
+
+      - name: Upload complete execution diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-shutdown-v2-runner-log
+          path: |
+            /tmp/shutdown-v2-outer.log
+            /tmp/shutdown-v2-outer-diagnostics.txt
+          if-no-files-found: warn
+          retention-days: 7
