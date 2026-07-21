@@ -15,7 +15,6 @@ import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.model.AstroCaptureConfig;
 import com.photographer.focusstack.common.model.AstroFocusConfig;
 import com.photographer.focusstack.common.model.AstroFocusStrategy;
-import com.photographer.focusstack.common.model.AstroFrame;
 import com.photographer.focusstack.common.model.AstroSession;
 import com.photographer.focusstack.common.model.AstroSessionStatus;
 import com.photographer.focusstack.common.model.CameraProfile;
@@ -236,23 +235,25 @@ public class AstroModeService {
 
     public void requestAbort(String sessionId) {
         synchronized (sessionLock(sessionId)) {
-            AstroSessionEntity entity = requireEntity(sessionId);
             PreparedExecution execution = activeExecutions.get(sessionId);
+            AstroSessionEntity entity = repository.findById(sessionId).orElse(null);
             if (execution == null) {
-                if (!isTerminal(entity.getStatus())) {
+                if (entity != null && !isTerminal(entity.getStatus())) {
                     markAborted(entity);
                 }
                 return;
             }
             if (execution.cancelBeforeStart()) {
                 activeExecutions.remove(sessionId, execution);
-                markAborted(entity);
+                if (entity != null) {
+                    markAborted(entity);
+                }
                 execution.closeCamera();
             } else {
                 execution.requestAbort();
             }
         }
-        log.info("Abort requested for astro session {}", sessionId);
+        log.info("Abort requested for an active astro session");
     }
 
     private void runPrepared(PreparedExecution execution) {

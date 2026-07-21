@@ -67,6 +67,38 @@ class AstroModeServiceLeaseLifecycleTest {
     }
 
     @Test
+    void unknownAbortIsIdempotentAndDoesNotOpenCameraOwnership() {
+        CameraBackend backend = mock(CameraBackend.class);
+        TrackingProvider provider = new TrackingProvider(backend);
+        Fixture fixture = fixture(provider);
+
+        fixture.service.requestAbort("unknown-session");
+        fixture.service.requestAbort("unknown-session");
+
+        assertThat(provider.opens.get()).isZero();
+        assertThat(provider.closes.get()).isZero();
+        verify(backend, never()).capture();
+    }
+
+    @Test
+    void queuedExecutionStillClosesWhenSessionRowDisappears() {
+        CameraBackend backend = mock(CameraBackend.class);
+        TrackingProvider provider = new TrackingProvider(backend);
+        Fixture fixture = fixture(provider);
+        AstroSession created = fixture.service.createSession(
+                settings("real-camera", 1), AstroFocusConfig.manualFixed());
+        AstroModeService.PreparedExecution execution =
+                fixture.service.prepareExecution(created.id());
+        fixture.stored.set(null);
+
+        fixture.service.requestAbort(created.id());
+
+        assertThat(provider.closes.get()).isEqualTo(1);
+        execution.run();
+        verify(backend, never()).capture();
+    }
+
+    @Test
     void queuedAbortReleasesWithoutCameraContact() {
         CameraBackend backend = mock(CameraBackend.class);
         TrackingProvider provider = new TrackingProvider(backend);
