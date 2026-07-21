@@ -203,19 +203,32 @@ def draw_cover(pdf: canvas.Canvas, page_width: float, page_height: float, editio
         f"Issue: #{ISSUE}. Pattern specification version: {VERSION}.",)
     cursor_y = page_height * 0.73; pdf.setFont("Helvetica", page_height * 0.020)
     for paragraph in paragraphs:
-        for line in textwrap.wrap(paragraph, width=100): pdf.drawString(page_width * 0.06, cursor_y, line); cursor_y -= page_height * 0.035
+        for line in textwrap.wrap(paragraph, width=100):
+            pdf.drawString(page_width * 0.06, cursor_y, line)
+            cursor_y -= page_height * 0.035
         cursor_y -= page_height * 0.015
-    pdf.setFont("Helvetica-Bold", page_height * 0.024); pdf.drawString(page_width * 0.06, page_height * 0.16, f"Patterns: {pattern_count}")
-    pdf.setFont("Helvetica", page_height * 0.016); pdf.drawString(page_width * 0.06, page_height * 0.11, "Both editions share identical normalized active fields.")
+    pdf.setFont("Helvetica-Bold", page_height * 0.024)
+    pdf.drawString(page_width * 0.06, page_height * 0.16, f"Patterns: {pattern_count}")
+    pdf.setFont("Helvetica", page_height * 0.016)
+    pdf.drawString(
+        page_width * 0.06,
+        page_height * 0.11,
+        "Both editions share identical normalized active fields.",
+    )
 
 
 def write_pdf(path: Path, page_size: tuple[float, float], edition: str,
               patterns: list[dict[str, Any]]) -> None:
     page_width, page_height = page_size
     pdf = canvas.Canvas(str(path), pagesize=page_size, pageCompression=1, invariant=1)
-    pdf.setTitle("CR3 D14 Diagnostic Pattern Pack"); pdf.setAuthor("Photographer project clean-room research"); pdf.setSubject("Controlled spatial patterns for CR3/CRX differential analysis")
-    draw_cover(pdf, page_width, page_height, edition, len(patterns)); pdf.showPage()
-    for pattern in patterns: draw_pattern(pdf, page_width, page_height, pattern); pdf.showPage()
+    pdf.setTitle("CR3 D14 Diagnostic Pattern Pack")
+    pdf.setAuthor("Photographer project clean-room research")
+    pdf.setSubject("Controlled spatial patterns for CR3/CRX differential analysis")
+    draw_cover(pdf, page_width, page_height, edition, len(patterns))
+    pdf.showPage()
+    for pattern in patterns:
+        draw_pattern(pdf, page_width, page_height, pattern)
+        pdf.showPage()
     pdf.save()
 
 
@@ -231,7 +244,14 @@ def write_manifest(path: Path, patterns: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(); parser.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parent); args = parser.parse_args(); args.out_dir.mkdir(parents=True, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(__file__).resolve().parent,
+    )
+    args = parser.parse_args()
+    args.out_dir.mkdir(parents=True, exist_ok=True)
     patterns = pattern_manifest()
     write_pdf(args.out_dir / "cr3-diagnostic-patterns-screen-16x9.pdf", (13.333 * inch, 7.5 * inch), "Screen edition - 16:9 landscape", patterns)
     write_pdf(args.out_dir / "cr3-diagnostic-patterns-print-a4-landscape.pdf", landscape(A4), "Print edition - A4 landscape", patterns)
