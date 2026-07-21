@@ -1,0 +1,64 @@
+name: CCAPI Session Lease
+
+on:
+  pull_request:
+    paths:
+      - 'app/src/main/java/com/photographer/focusstack/camera/session/**'
+      - 'app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java'
+      - 'app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java'
+      - 'app/src/test/java/com/photographer/focusstack/camera/session/**'
+      - 'app/src/test/java/com/photographer/focusstack/camera/service/*Lease*.java'
+      - 'docs/ccapi-session-ownership.md'
+      - '.github/workflows/ccapi-session-lease.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ccapi-session-lease-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lease-tests:
+    name: Exclusive ownership tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MAVEN_OPTS: '-Xmx2g'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+      - name: Run app and dependency unit tests
+        run: >-
+          mvn -B --no-transfer-progress test
+          -pl app
+          -am
+          -Djava.awt.headless=true
+      - name: Publish lease test results
+        uses: dorny/test-reporter@v3
+        if: always()
+        continue-on-error: true
+        with:
+          name: CCAPI Session Lease Tests
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+          max-annotations: '50'
+      - name: Upload Maven failure diagnostics
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ccapi-session-lease-failure
+          path: |
+            **/target/surefire-reports/
+            **/target/failsafe-reports/
+          if-no-files-found: warn
+          retention-days: 3
