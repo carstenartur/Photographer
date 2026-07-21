@@ -6,6 +6,7 @@ on:
     paths:
       - 'canon-cr3-research/**/CrxSubbandTopology*.java'
       - 'docs/cleanroom/d13-*.md'
+      - 'docs/cleanroom/experiment-ledger.json'
       - 'docs/cr3-results/*D13*.md'
       - '.github/workflows/cr3-d13-topology.yml'
   workflow_dispatch:
@@ -41,13 +42,19 @@ jobs:
           -pl canon-cr3-research
           -am
           -Djava.awt.headless=true
+      - name: Run deterministic report unit tests
+        run: >-
+          mvn -B --no-transfer-progress test
+          -pl canon-cr3-research
+          -Dtest=CrxSubbandTopologyReportTest
+          -Djava.awt.headless=true
       - name: Run fixed-panel topology inventory
         run: >-
           mvn -B --no-transfer-progress verify
           -Pcr3-research-it
           -pl canon-cr3-research
-          -am
           -Dit.test=CrxSubbandTopologyIT
+          -DskipTests
           -Djava.awt.headless=true
       - name: Publish test result
         uses: dorny/test-reporter@v3
@@ -55,7 +62,7 @@ jobs:
         continue-on-error: true
         with:
           name: CR3 D13 Topology Test
-          path: 'canon-cr3-research/target/failsafe-reports/TEST-*.xml'
+          path: 'canon-cr3-research/target/surefire-reports/TEST-*.xml,canon-cr3-research/target/failsafe-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
       - name: Upload deterministic topology evidence
@@ -67,6 +74,7 @@ jobs:
             canon-cr3-research/target/**/results.md
             canon-cr3-research/target/**/results.tsv
             canon-cr3-research/target/**/results.json
+            canon-cr3-research/target/surefire-reports/
             canon-cr3-research/target/failsafe-reports/
           if-no-files-found: error
           retention-days: 14
