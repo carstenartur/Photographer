@@ -1,0 +1,86 @@
+name: Diagnose coordinated CCAPI shutdown
+
+on:
+  push:
+    branches:
+      - automation/implement-ccapi-shutdown
+
+permissions:
+  contents: write
+
+concurrency:
+  group: diagnose-coordinated-ccapi-shutdown
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    if: >-
+      !contains(github.event.head_commit.message, '[skip shutdown implementation]') &&
+      !contains(github.event.head_commit.message, '[skip shutdown diagnostic]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Extract and execute implementation step
+        shell: bash
+        run: |
+          set -uo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          lines = Path('.github/workflows/implement-ccapi-shutdown.yml').read_text().splitlines()
+          marker = '      - name: Implement shutdown lifecycle'
+          start = lines.index(marker)
+          run_line = next(i for i in range(start + 1, len(lines)) if lines[i] == '        run: |')
+          body = []
+          for line in lines[run_line + 1:]:
+              if line.startswith('      - name:'):
+                  break
+              if line.startswith('          '):
+                  body.append(line[10:])
+              elif not line:
+                  body.append('')
+              else:
+                  raise SystemExit(f'Unexpected workflow indentation: {line!r}')
+          Path('/tmp/implement-shutdown.sh').write_text('\n'.join(body) + '\n')
+          PY
+
+          set +e
+          bash /tmp/implement-shutdown.sh
+          rc=$?
+          set -e
+
+          {
+            echo "exit_code=$rc"
+            echo "source_commit=${GITHUB_SHA}"
+            if [[ -f coordinated-shutdown.log ]]; then
+              echo '--- log tail ---'
+              tail -n 160 coordinated-shutdown.log
+            fi
+          } > shutdown-diagnostic.txt
+
+          git cherry-pick --abort 2>/dev/null || true
+          git reset --hard
+          git fetch origin automation/implement-ccapi-shutdown
+          git switch -C diagnostic-status origin/automation/implement-ccapi-shutdown
+          cp "$GITHUB_WORKSPACE/shutdown-diagnostic.txt" shutdown-diagnostic.txt 2>/dev/null || \
+            cp /tmp/shutdown-diagnostic.txt shutdown-diagnostic.txt 2>/dev/null || true
+          if [[ ! -f shutdown-diagnostic.txt ]]; then
+            printf 'exit_code=%s\nsource_commit=%s\ndiagnostic unavailable\n' "$rc" "$GITHUB_SHA" > shutdown-diagnostic.txt
+          fi
+          git add shutdown-diagnostic.txt
+          git commit -m '[skip shutdown implementation] [skip shutdown diagnostic] ci: record shutdown diagnostics'
+          git push origin HEAD:automation/implement-ccapi-shutdown
+          exit 0
