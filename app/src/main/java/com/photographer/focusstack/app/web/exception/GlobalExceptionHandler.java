@@ -49,11 +49,9 @@ public class GlobalExceptionHandler {
         problem.setTitle("Camera Session Conflict");
         problem.setProperty("code", ex.code());
         problem.setProperty("ownerCorrelationId", ex.ownerCorrelationId());
-        problem.setProperty("workflowType", ex.workflowType());
+        problem.setProperty("workflowType", ex.workflowType().name());
         problem.setProperty("retryable", ex.retryable());
-        if (ex.retryAfter() != null) {
-            problem.setProperty("retryAfterSeconds", ex.retryAfter().toSeconds());
-        }
+        problem.setProperty("retryAfterSeconds", ex.retryAfter().toSeconds());
         return problem;
     }
 
