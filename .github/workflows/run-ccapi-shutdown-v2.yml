@@ -42,7 +42,7 @@ jobs:
       - name: Install workflow parser
         run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
 
-      - name: Execute reviewed implementation and retain status
+      - name: Execute reviewed implementation and retain bounded status
         id: implementation
         shell: bash
         run: |
@@ -68,9 +68,15 @@ jobs:
           else
             status=$?
           fi
-          tail -n 80 /tmp/shutdown-v2-outer.log > /tmp/shutdown-v2-tail.log
+          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError' \
+            /tmp/shutdown-v2-outer.log | tail -n 20 \
+            > /tmp/shutdown-v2-diagnostic.log || true
+          if [ ! -s /tmp/shutdown-v2-diagnostic.log ]; then
+            tail -n 12 /tmp/shutdown-v2-outer.log \
+              > /tmp/shutdown-v2-diagnostic.log
+          fi
           echo "inner-exit-code=$status" >> "$GITHUB_OUTPUT"
-          echo "diagnostic-base64=$(base64 -w0 /tmp/shutdown-v2-tail.log)" >> "$GITHUB_OUTPUT"
+          echo "diagnostic-base64=$(base64 -w0 /tmp/shutdown-v2-diagnostic.log)" >> "$GITHUB_OUTPUT"
           exit 0
 
   report-diagnostics:
