@@ -30,6 +30,28 @@ class CameraLeaseKeyTest {
     }
 
     @Test
+    void normalizesUnicodeDnsAndPunycodeAliases() {
+        CameraLeaseKey unicode = CameraLeaseKey.fromCcapiLocation(
+                "http://BÜCHER.example:8080/ccapi");
+        CameraLeaseKey punycode = CameraLeaseKey.fromCcapiLocation(
+                "http://xn--bcher-kva.example:8080");
+
+        assertThat(unicode).isEqualTo(punycode);
+        assertThat(unicode.canonicalOriginForTesting())
+                .isEqualTo("http://xn--bcher-kva.example:8080");
+    }
+
+    @Test
+    void normalizesAbsoluteDnsTrailingDot() {
+        CameraLeaseKey absolute = CameraLeaseKey.fromCcapiLocation(
+                "http://camera.example.:8080");
+        CameraLeaseKey ordinary = CameraLeaseKey.fromCcapiLocation(
+                "http://camera.example:8080");
+
+        assertThat(absolute).isEqualTo(ordinary);
+    }
+
+    @Test
     void mapsDifferentProfilesForOneOriginToOnePrivateKey() {
         CameraProfile first = profile("one", "camera.example");
         CameraProfile second = profile("two", "http://CAMERA.EXAMPLE:8080/ccapi");
@@ -59,6 +81,9 @@ class CameraLeaseKeyTest {
                 .isThrownBy(() -> CameraLeaseKey.fromCcapiLocation("ftp://camera.example"));
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> CameraLeaseKey.fromCcapiLocation("http:///missing-host"));
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> CameraLeaseKey.fromCcapiLocation(
+                        "http://camera.example:not-a-port"));
     }
 
     @Test
