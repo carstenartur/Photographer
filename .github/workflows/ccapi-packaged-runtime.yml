@@ -38,12 +38,16 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
       - name: Test external binding and startup validation
-        run: >-
-          mvn -B --no-transfer-progress test
-          -pl app -am
-          -Dtest=CcapiAuthenticationPropertiesTest,CcapiConfigTreeBindingTest,CcapiCredentialStartupValidatorTest
-          -Dsurefire.failIfNoSpecifiedTests=false
-          -Djava.awt.headless=true
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p target/ccapi-packaged-runtime
+          mvn -B --no-transfer-progress test \
+            -pl app -am \
+            -Dtest=CcapiAuthenticationPropertiesTest,CcapiConfigTreeBindingTest,CcapiCredentialStartupValidatorTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Djava.awt.headless=true \
+            2>&1 | tee target/ccapi-packaged-runtime/binding-contract.log
       - name: Publish binding tests
         uses: dorny/test-reporter@v3
         if: always()
@@ -53,6 +57,16 @@ jobs:
           path: 'app/target/surefire-reports/TEST-*.xml'
           reporter: java-junit
           fail-on-error: false
+      - name: Upload binding diagnostics
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ccapi-binding-contract-diagnostics
+          path: |
+            target/ccapi-packaged-runtime/binding-contract.log
+            app/target/surefire-reports/
+          if-no-files-found: warn
+          retention-days: 7
 
   packaged-runtime:
     name: Image secrets and bounded shutdown
@@ -64,4 +78,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Build and run packaged-runtime smoke
-        run: bash scripts/verify_ccapi_packaged_runtime.sh
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p target/ccapi-packaged-runtime
+          bash scripts/verify_ccapi_packaged_runtime.sh \
+            2>&1 | tee target/ccapi-packaged-runtime/runtime-smoke.log
+      - name: Upload packaged-runtime diagnostics
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ccapi-packaged-runtime-diagnostics
+          path: target/ccapi-packaged-runtime/runtime-smoke.log
+          if-no-files-found: error
+          retention-days: 7
