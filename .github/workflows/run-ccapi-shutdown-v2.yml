@@ -24,7 +24,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          fetch-depth: 1
+          show-progress: false
           persist-credentials: true
 
       - name: Set up JDK 25
@@ -58,21 +59,6 @@ jobs:
             > /tmp/shutdown-v2-outer.log 2>&1
           status=$?
           set -e
-          echo '--- shutdown v2 diagnostic tail ---'
-          tail -n 220 /tmp/shutdown-v2-outer.log
-          mkdir -p "$GITHUB_WORKSPACE/runner-diagnostics"
-          cp /tmp/shutdown-v2-outer.log \
-             "$GITHUB_WORKSPACE/runner-diagnostics/shutdown-v2-outer.log"
-          printf 'exit_code=%s\n' "$status" \
-            > "$GITHUB_WORKSPACE/runner-diagnostics/status.txt"
+          echo '--- shutdown v2 final diagnostic lines ---'
+          tail -n 20 /tmp/shutdown-v2-outer.log
           exit "$status"
-
-      - name: Upload complete execution diagnostics
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: ccapi-shutdown-v2-runner-log
-          path: runner-diagnostics/
-          if-no-files-found: warn
-          retention-days: 7
