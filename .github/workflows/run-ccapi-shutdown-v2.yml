@@ -39,7 +39,7 @@ jobs:
       - name: Install workflow parser
         run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
 
-      - name: Extract and execute reviewed implementation block
+      - name: Execute reviewed implementation and retain status
         shell: bash
         run: |
           set -euo pipefail
@@ -54,11 +54,31 @@ jobs:
           Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(block)
           PY
 
+          mkdir -p runner-diagnostics
           set +e
           bash /tmp/implement-ccapi-shutdown-v2.sh \
-            > /tmp/shutdown-v2-outer.log 2>&1
+            > runner-diagnostics/shutdown-v2-outer.log 2>&1
           status=$?
           set -e
-          echo '--- shutdown v2 final diagnostic lines ---'
-          tail -n 20 /tmp/shutdown-v2-outer.log
-          exit "$status"
+          printf '%s\n' "$status" > runner-diagnostics/exit-code
+          tail -n 80 runner-diagnostics/shutdown-v2-outer.log \
+            > runner-diagnostics/failure-tail.log
+          cat runner-diagnostics/failure-tail.log
+          exit 0
+
+      - name: Upload complete execution diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-shutdown-v2-runner-log
+          path: runner-diagnostics/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail when implementation or verification failed
+        shell: bash
+        run: |
+          status=$(cat runner-diagnostics/exit-code)
+          if [ "$status" -ne 0 ]; then
+            echo "Coordinated shutdown implementation failed with exit code $status" >&2
+            exit "$status"
+          fi
