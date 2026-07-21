@@ -6,6 +6,7 @@ on:
       - research/d14-controlled-patterns
     paths:
       - 'docs/cr3-patterns/pattern-manifest.json'
+      - 'docs/cr3-patterns/pattern-manifest.schema.json'
       - 'tools/cr3/generate_d14_patterns.py'
       - '.github/workflows/d14-pattern-assets.yml'
   pull_request:
@@ -41,7 +42,9 @@ jobs:
           cache: pip
 
       - name: Install deterministic PDF toolchain
-        run: python -m pip install --disable-pip-version-check reportlab==4.4.9 pypdf==6.7.4 pypdfium2==5.6.0
+        run: >-
+          python -m pip install --disable-pip-version-check
+          reportlab==4.4.9 pypdf==6.7.4 pypdfium2==5.6.0 jsonschema==4.26.0
 
       - name: Generate twice and prove byte reproducibility
         shell: bash
@@ -64,11 +67,14 @@ jobs:
           import hashlib
           import json
           from pathlib import Path
+          import jsonschema
           from pypdf import PdfReader
           import pypdfium2 as pdfium
 
           root = Path('docs/cr3-patterns')
           manifest = json.loads((root / 'pattern-manifest.json').read_text())
+          schema = json.loads((root / 'pattern-manifest.schema.json').read_text())
+          jsonschema.Draft202012Validator(schema).validate(manifest)
           patterns = manifest['patterns']
           assert len(patterns) == 48
           assert [p['page'] for p in patterns] == list(range(2, 50))
@@ -116,6 +122,7 @@ jobs:
           path: |
             docs/cr3-patterns/README.md
             docs/cr3-patterns/pattern-manifest.json
+            docs/cr3-patterns/pattern-manifest.schema.json
             docs/cr3-patterns/*.pdf
             docs/cr3-patterns/SHA256SUMS
           if-no-files-found: error
