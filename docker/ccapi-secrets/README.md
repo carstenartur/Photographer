@@ -17,11 +17,12 @@ The target name is a Spring config-tree property key. Replace `camera-smoke` wit
 
 ## Compose example
 
-Create two local files outside the repository and restrict their permissions:
+The image deliberately runs as non-root UID `10001`. Local file-backed Compose secrets preserve host ownership and permissions, so a `0600` file owned by another host UID is unreadable inside the container. Use a host directory with mode `0700` and read-only secret files with mode `0444`. The protected parent directory prevents unrelated host users from traversing to the files, while the non-root container process can read the bind mounts.
 
 ```bash
-install -m 600 /dev/null "$HOME/.config/focusstack/camera-smoke.username"
-install -m 600 /dev/null "$HOME/.config/focusstack/camera-smoke.password"
+install -d -m 700 "$HOME/.config/focusstack"
+install -m 444 /dev/null "$HOME/.config/focusstack/camera-smoke.username"
+install -m 444 /dev/null "$HOME/.config/focusstack/camera-smoke.password"
 printf '%s' 'camera-account' > "$HOME/.config/focusstack/camera-smoke.username"
 printf '%s' 'camera-password' > "$HOME/.config/focusstack/camera-smoke.password"
 ```
@@ -36,6 +37,8 @@ docker compose -f docker-compose.yml -f docker-compose.ccapi-secrets.yml up --bu
 ```
 
 `CCAPI_REQUIRED_PROFILE_IDS` is optional. When present, application startup proves that every listed profile has a complete external credential pair. Failure reports only the missing count and never the profile ids or secret values.
+
+On orchestrators that provide real secret objects instead of local file-backed Compose mounts, use their native UID/GID/mode controls and keep the files readable only by UID `10001`.
 
 ## Security properties
 
