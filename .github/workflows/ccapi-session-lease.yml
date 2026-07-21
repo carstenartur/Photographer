@@ -42,11 +42,14 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
       - name: Run app and dependency unit tests
-        run: >-
-          mvn -B --no-transfer-progress test
-          -pl app
-          -am
-          -Djava.awt.headless=true
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B --no-transfer-progress test \
+            -pl app \
+            -am \
+            -Djava.awt.headless=true \
+            2>&1 | tee ccapi-session-lease-maven.log
       - name: Publish lease test results
         uses: dorny/test-reporter@v3
         if: always()
@@ -63,6 +66,7 @@ jobs:
         with:
           name: ccapi-session-lease-failure
           path: |
+            ccapi-session-lease-maven.log
             **/target/surefire-reports/
             **/target/failsafe-reports/
           if-no-files-found: warn
