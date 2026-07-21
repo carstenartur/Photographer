@@ -1,7 +1,17 @@
 package com.photographer.focusstack.astro.entity;
 
-import com.photographer.focusstack.common.model.*;
-import jakarta.persistence.*;
+import com.photographer.focusstack.common.model.AstroCaptureConfig;
+import com.photographer.focusstack.common.model.AstroFocusConfig;
+import com.photographer.focusstack.common.model.AstroFocusStrategy;
+import com.photographer.focusstack.common.model.AstroSession;
+import com.photographer.focusstack.common.model.AstroSessionStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +34,7 @@ public class AstroSessionEntity {
     private Instant finishedAt;
 
     // Capture config stored as individual columns
+    private String cameraProfileId;
     private int frameCount;
     private long exposureTimeMs;
     private int iso;
@@ -53,39 +64,45 @@ public class AstroSessionEntity {
 
     protected AstroSessionEntity() {}
 
-    public static AstroSessionEntity create(AstroCaptureConfig captureConfig, AstroFocusConfig focusConfig) {
-        AstroSessionEntity e = new AstroSessionEntity();
-        e.id = UUID.randomUUID().toString();
-        e.status = AstroSessionStatus.CREATED;
-        e.createdAt = Instant.now();
-        e.frameCount = captureConfig.frameCount();
-        e.exposureTimeMs = captureConfig.exposureTimeMs();
-        e.iso = captureConfig.iso();
-        e.aperture = captureConfig.aperture();
-        e.delayBetweenFramesMs = captureConfig.delayBetweenFramesMs();
-        e.imageFormat = captureConfig.imageFormat();
-        e.saveRaw = captureConfig.saveRaw();
-        e.saveJpeg = captureConfig.saveJpeg();
-        e.captureDarkFrame = captureConfig.captureDarkFrame();
-        e.focusStrategy = focusConfig.strategy();
-        e.scanSteps = focusConfig.scanSteps();
-        e.scanStepSize = focusConfig.scanStepSize();
-        e.initialFocusPosition = focusConfig.initialFocusPosition();
-        e.bestFocusPosition = focusConfig.bestFocusPosition();
-        return e;
+    public static AstroSessionEntity create(
+            AstroCaptureConfig captureConfig,
+            AstroFocusConfig focusConfig) {
+        AstroSessionEntity entity = new AstroSessionEntity();
+        entity.id = UUID.randomUUID().toString();
+        entity.status = AstroSessionStatus.CREATED;
+        entity.createdAt = Instant.now();
+        entity.cameraProfileId = captureConfig.cameraProfileId();
+        entity.frameCount = captureConfig.frameCount();
+        entity.exposureTimeMs = captureConfig.exposureTimeMs();
+        entity.iso = captureConfig.iso();
+        entity.aperture = captureConfig.aperture();
+        entity.delayBetweenFramesMs = captureConfig.delayBetweenFramesMs();
+        entity.imageFormat = captureConfig.imageFormat();
+        entity.saveRaw = captureConfig.saveRaw();
+        entity.saveJpeg = captureConfig.saveJpeg();
+        entity.captureDarkFrame = captureConfig.captureDarkFrame();
+        entity.focusStrategy = focusConfig.strategy();
+        entity.scanSteps = focusConfig.scanSteps();
+        entity.scanStepSize = focusConfig.scanStepSize();
+        entity.initialFocusPosition = focusConfig.initialFocusPosition();
+        entity.bestFocusPosition = focusConfig.bestFocusPosition();
+        return entity;
     }
 
     public AstroSession toRecord() {
         return new AstroSession(
                 id, status, createdAt, startedAt, finishedAt,
-                new AstroCaptureConfig(frameCount, exposureTimeMs, iso, aperture,
-                        delayBetweenFramesMs, imageFormat, saveRaw, saveJpeg, captureDarkFrame),
-                new AstroFocusConfig(focusStrategy, scanSteps, scanStepSize, initialFocusPosition, bestFocusPosition),
+                new AstroCaptureConfig(
+                        cameraProfileId, frameCount, exposureTimeMs, iso, aperture,
+                        delayBetweenFramesMs, imageFormat, saveRaw, saveJpeg,
+                        captureDarkFrame),
+                new AstroFocusConfig(
+                        focusStrategy, scanSteps, scanStepSize,
+                        initialFocusPosition, bestFocusPosition),
                 outputDirectory, List.of(), resultImagePath, stackingSummary, errorMessage
         );
     }
 
-    // Getters and setters needed for JPA
     public String getId() { return id; }
     public AstroSessionStatus getStatus() { return status; }
     public void setStatus(AstroSessionStatus status) { this.status = status; }
@@ -94,6 +111,7 @@ public class AstroSessionEntity {
     public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }
     public Instant getFinishedAt() { return finishedAt; }
     public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }
+    public String getCameraProfileId() { return cameraProfileId; }
     public String getOutputDirectory() { return outputDirectory; }
     public void setOutputDirectory(String outputDirectory) { this.outputDirectory = outputDirectory; }
     public String getResultImagePath() { return resultImagePath; }
