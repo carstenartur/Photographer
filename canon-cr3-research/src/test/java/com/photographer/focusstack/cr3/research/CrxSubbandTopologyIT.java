@@ -45,7 +45,7 @@ class CrxSubbandTopologyIT {
         assertThat(rows).allSatisfy(row -> {
             assertThat(row.declaredWaveletLevels()).isZero();
             assertThat(row.subband()).isZero();
-            assertThat(row.payloadOffset()).isNonNegative();
+            assertThat(row.payloadOffset()).isGreaterThanOrEqualTo(0L);
             assertThat(row.payloadSize()).isPositive();
             assertThat(row.payloadEndExclusive())
                     .isEqualTo(row.payloadOffset() + row.payloadSize());
