@@ -1,7 +1,6 @@
 package com.photographer.focusstack.session;
 
 import com.photographer.focusstack.capture.SequenceCaptureService;
-import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CaptureFrame;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.FaceOrbitSettings;
@@ -19,30 +18,25 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Orchestrates Face Orbit Capture sessions: guided image series of a face
- * over approximately 180 degrees with quality checks and 3D profile generation.
- *
- * <p>For production use, construct with a {@link CameraBackendProvider} so that
- * the correct camera backend is resolved at session-start time from the profile
- * ID stored in {@link FaceOrbitSettings#cameraProfileId()}.  For tests, the
- * legacy constructor accepting a pre-built {@link SequenceCaptureService} can
- * still be used.</p>
+ * Orchestrates guided or automatic face-orbit capture while retaining one
+ * logical camera owner for the complete capture session.
  */
 public class FaceOrbitService {
 
     private static final Logger log = LoggerFactory.getLogger(FaceOrbitService.class);
+    private static final int SESSION_LOCK_STRIPES = 64;
 
-    /** Legacy fixed capture service (non-null when using test constructors). */
     private final SequenceCaptureService captureService;
-
-    /** Provider that resolves a real backend per camera profile (non-null in production). */
     private final CameraBackendProvider backendProvider;
-
     private final SessionStorage storage;
     private final FaceAnalysisEngine analysisEngine;
     private final FaceProfileEngine profileEngine;
@@ -52,60 +46,70 @@ public class FaceOrbitService {
     private final Map<String, List<CaptureFrame>> sessionFrames = new ConcurrentHashMap<>();
     private final Map<String, List<QualityCheck>> sessionQualityChecks = new ConcurrentHashMap<>();
     private final Map<String, FaceProfileJob> profileJobs = new ConcurrentHashMap<>();
-    private final Map<String, AtomicBoolean> stopFlags = new ConcurrentHashMap<>();
-    /** Per-session capture service resolved on first use from the backend provider. */
-    private final Map<String, SequenceCaptureService> sessionCaptureServices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, ManualOwnership> manualOwnerships =
+            new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, PreparedAutoExecution> autoExecutions =
+            new ConcurrentHashMap<>();
+    private final Object[] sessionLocks = createSessionLocks();
 
-    /** Production constructor: resolves the camera backend via {@code backendProvider} at session start. */
     public FaceOrbitService(CameraBackendProvider backendProvider,
                              SessionStorage storage,
                              FaceAnalysisEngine analysisEngine,
                              FaceProfileEngine profileEngine) {
-        this.backendProvider = backendProvider;
+        this.backendProvider = Objects.requireNonNull(backendProvider, "backendProvider");
         this.captureService = null;
-        this.storage = storage;
-        this.analysisEngine = analysisEngine;
-        this.profileEngine = profileEngine;
+        this.storage = Objects.requireNonNull(storage, "storage");
+        this.analysisEngine = Objects.requireNonNull(analysisEngine, "analysisEngine");
+        this.profileEngine = Objects.requireNonNull(profileEngine, "profileEngine");
     }
 
-    /** Legacy constructor for tests that supply a pre-built {@link SequenceCaptureService}. */
     public FaceOrbitService(SequenceCaptureService captureService,
                              SessionStorage storage,
                              FaceAnalysisEngine analysisEngine,
                              FaceProfileEngine profileEngine) {
-        this.captureService = captureService;
+        this.captureService = Objects.requireNonNull(captureService, "captureService");
         this.backendProvider = null;
-        this.storage = storage;
-        this.analysisEngine = analysisEngine;
-        this.profileEngine = profileEngine;
+        this.storage = Objects.requireNonNull(storage, "storage");
+        this.analysisEngine = Objects.requireNonNull(analysisEngine, "analysisEngine");
+        this.profileEngine = Objects.requireNonNull(profileEngine, "profileEngine");
     }
 
-    /**
-     * Resolves the {@link SequenceCaptureService} for the given session, creating
-     * and caching it on first access.  This avoids constructing a new service
-     * instance on every call to {@link #captureNextStep}.
-     * <p>Uses the {@link CameraBackendProvider} if set; otherwise falls back to
-     * the fixed {@code captureService} (test / mock mode).</p>
-     */
-    private SequenceCaptureService resolveCapture(String sessionId, FaceOrbitSettings settings) {
-        return sessionCaptureServices.computeIfAbsent(sessionId, id -> {
-            if (backendProvider != null && settings.cameraProfileId() != null) {
-                CameraBackend backend = backendProvider.getBackend(settings.cameraProfileId());
-                return new SequenceCaptureService(backend);
-            }
-            if (captureService != null) {
-                return captureService;
-            }
-            throw new SessionException(
-                    "No camera backend available: supply a cameraProfileId in FaceOrbitSettings or " +
-                    "configure the application with a CameraBackendProvider.");
-        });
+    private static Object[] createSessionLocks() {
+        Object[] locks = new Object[SESSION_LOCK_STRIPES];
+        for (int index = 0; index < locks.length; index++) {
+            locks[index] = new Object();
+        }
+        return locks;
     }
 
-    /**
-     * Creates a new face orbit session.
-     */
+    private Object sessionLock(String sessionId) {
+        return sessionLocks[Math.floorMod(sessionId.hashCode(), sessionLocks.length)];
+    }
+
+    private PreparedCapture prepareCapture(
+            String sessionId,
+            FaceOrbitSettings settings) {
+        if (backendProvider != null && settings.cameraProfileId() != null) {
+            CameraBackendSession backendSession = backendProvider.openSession(
+                    settings.cameraProfileId(), CameraSessionPurpose.FACE_ORBIT, sessionId);
+            try {
+                return new PreparedCapture(
+                        new SequenceCaptureService(backendSession.backend()), backendSession::close);
+            } catch (RuntimeException failure) {
+                backendSession.close();
+                throw failure;
+            }
+        }
+        if (captureService != null) {
+            return new PreparedCapture(captureService, () -> { });
+        }
+        throw new SessionException(
+                "No camera backend available: supply a cameraProfileId in FaceOrbitSettings or "
+                        + "configure the application with a CameraBackendProvider.");
+    }
+
     public CaptureSession createSession(FaceOrbitSettings settings) {
+        Objects.requireNonNull(settings, "settings");
         String sessionId = UUID.randomUUID().toString();
         try {
             storage.createSessionDirectory(sessionId);
@@ -122,184 +126,306 @@ public class FaceOrbitService {
                        "autoMode", String.valueOf(settings.autoMode())));
         sessions.put(sessionId, session);
         sessionSettings.put(sessionId, settings);
-        sessionFrames.put(sessionId, new ArrayList<>());
-        sessionQualityChecks.put(sessionId, new ArrayList<>());
+        sessionFrames.put(sessionId, new CopyOnWriteArrayList<>());
+        sessionQualityChecks.put(sessionId, new CopyOnWriteArrayList<>());
 
         log.info("Created face orbit session: {}", sessionId);
         return session;
     }
 
     /**
-     * Captures the next step in manual mode.
-     *
-     * @param sessionId the session identifier
-     * @return the quality check result for the captured frame
+     * Captures one manual step. The first call opens ownership; following calls
+     * reuse it until complete, stop or failure.
      */
     public QualityCheck captureNextStep(String sessionId) {
-        CaptureSession session = getSession(sessionId);
-        FaceOrbitSettings settings = sessionSettings.get(sessionId);
-        List<CaptureFrame> frames = sessionFrames.get(sessionId);
+        synchronized (sessionLock(sessionId)) {
+            CaptureSession session = getSession(sessionId);
+            if (session.status() != SessionStatus.CREATED
+                    && session.status() != SessionStatus.RUNNING) {
+                throw new SessionException("Session is not active: " + session.status());
+            }
+            if (autoExecutions.containsKey(sessionId)) {
+                throw new SessionException("Automatic face orbit execution is active");
+            }
 
-        if (session.status() != SessionStatus.CREATED && session.status() != SessionStatus.RUNNING) {
-            throw new SessionException("Session is not active: " + session.status());
+            FaceOrbitSettings settings = requireSettings(sessionId);
+            List<CaptureFrame> frames = sessionFrames.get(sessionId);
+            int stepIndex = frames.size();
+            if (stepIndex >= settings.totalSteps()) {
+                throw new SessionException("All face orbit steps are already captured");
+            }
+
+            ManualOwnership ownership = manualOwnerships.get(sessionId);
+            if (ownership == null) {
+                ManualOwnership created = new ManualOwnership(
+                        prepareCapture(sessionId, settings));
+                ManualOwnership previous = manualOwnerships.putIfAbsent(sessionId, created);
+                if (previous != null) {
+                    created.close();
+                    ownership = previous;
+                } else {
+                    ownership = created;
+                }
+            }
+
+            CaptureSession running = session.status() == SessionStatus.CREATED
+                    ? new CaptureSession(
+                            sessionId, session.type(), SessionStatus.RUNNING,
+                            session.createdAt(), Instant.now(), null,
+                            session.frameIds(), null, session.metadata())
+                    : session;
+            sessions.put(sessionId, running);
+
+            double angle = angleFor(settings, stepIndex);
+            try {
+                CaptureFrame frame = ownership.capture.service().captureFrame(
+                        sessionId, stepIndex, angle);
+                QualityCheck quality = analysisEngine.analyzeQuality(
+                        new byte[]{0}, frame.frameId());
+                frames.add(frame);
+                sessionQualityChecks.get(sessionId).add(quality);
+                List<String> frameIds = frames.stream().map(CaptureFrame::frameId).toList();
+                sessions.put(sessionId, new CaptureSession(
+                        sessionId, running.type(), SessionStatus.RUNNING,
+                        running.createdAt(), running.startedAt(), null,
+                        frameIds, null, running.metadata()));
+                log.debug("Session {}: captured manual step {}/{} at angle {}",
+                        sessionId, stepIndex + 1, settings.totalSteps(), angle);
+                return quality;
+            } catch (RuntimeException failure) {
+                failManualCapture(sessionId, running, frames);
+                throw new SessionException("Face orbit capture failed");
+            }
         }
+    }
 
-        int stepIndex = frames.size();
-        if (stepIndex >= settings.totalSteps()) {
-            throw new SessionException("All steps completed for session: " + sessionId);
+    private void failManualCapture(
+            String sessionId,
+            CaptureSession running,
+            List<CaptureFrame> frames) {
+        ManualOwnership ownership = manualOwnerships.remove(sessionId);
+        if (ownership != null) {
+            ownership.close();
         }
+        sessions.put(sessionId, new CaptureSession(
+                sessionId, running.type(), SessionStatus.FAILED,
+                running.createdAt(), running.startedAt(), Instant.now(),
+                frames.stream().map(CaptureFrame::frameId).toList(),
+                "Face orbit capture failed", running.metadata()));
+        log.error("Face orbit session {} capture failed", sessionId);
+    }
 
-        double angle = (settings.angleRange() / Math.max(1, settings.totalSteps() - 1)) * stepIndex;
+    public void validateAutoModeStartable(String sessionId) {
+        synchronized (sessionLock(sessionId)) {
+            CaptureSession session = getSession(sessionId);
+            requireAutoStartable(sessionId, session);
+        }
+    }
 
-        // Update to RUNNING if first capture
-        if (session.status() == SessionStatus.CREATED) {
+    private void requireAutoStartable(String sessionId, CaptureSession session) {
+        if (session.status() != SessionStatus.CREATED) {
+            throw new SessionException("Auto mode can only start from CREATED state");
+        }
+        if (manualOwnerships.containsKey(sessionId)
+                || autoExecutions.containsKey(sessionId)) {
+            throw new SessionException("Session already owns a camera execution");
+        }
+    }
+
+    /** Opens ownership before the controller is allowed to enqueue auto mode. */
+    public PreparedAutoExecution prepareAutoExecution(String sessionId) {
+        synchronized (sessionLock(sessionId)) {
+            CaptureSession session = getSession(sessionId);
+            requireAutoStartable(sessionId, session);
+            FaceOrbitSettings settings = requireSettings(sessionId);
+            PreparedCapture capture = prepareCapture(sessionId, settings);
             CaptureSession running = new CaptureSession(
                     sessionId, session.type(), SessionStatus.RUNNING,
                     session.createdAt(), Instant.now(), null,
-                    session.frameIds(), null, session.metadata());
+                    new ArrayList<>(session.frameIds()), null, session.metadata());
+            PreparedAutoExecution execution = new PreparedAutoExecution(
+                    this, session, running, settings, capture);
+            PreparedAutoExecution previous = autoExecutions.putIfAbsent(
+                    sessionId, execution);
+            if (previous != null) {
+                capture.close();
+                throw new SessionException("Session already owns a camera execution");
+            }
             sessions.put(sessionId, running);
-        }
-
-        CaptureFrame frame = resolveCapture(sessionId, settings).captureFrame(sessionId, stepIndex, angle);
-        frames.add(frame);
-
-        // Quality check
-        QualityCheck quality = analysisEngine.analyzeQuality(new byte[]{0}, frame.frameId());
-        sessionQualityChecks.get(sessionId).add(quality);
-
-        // Update frame IDs
-        List<String> frameIds = frames.stream().map(CaptureFrame::frameId).toList();
-        CaptureSession updated = sessions.get(sessionId);
-        sessions.put(sessionId, new CaptureSession(
-                sessionId, updated.type(), updated.status(),
-                updated.createdAt(), updated.startedAt(), null,
-                frameIds, null, updated.metadata()));
-
-        log.debug("Session {}: captured step {}/{} at angle {}", sessionId, stepIndex + 1,
-                settings.totalSteps(), angle);
-        return quality;
-    }
-
-    /**
-     * Validates that the session is in a startable state for auto mode.
-     *
-     * @throws SessionNotFoundException if the session does not exist
-     * @throws SessionException if the session is not in CREATED state
-     */
-    public void validateAutoModeStartable(String sessionId) {
-        CaptureSession session = getSession(sessionId);
-        if (session.status() != SessionStatus.CREATED) {
-            throw new SessionException("Auto mode can only start from CREATED state");
+            return execution;
         }
     }
 
-    /**
-     * Executes the face orbit capture in auto mode.
-     * Call from an async executor for non-blocking operation.
-     */
     public CaptureSession executeAutoMode(String sessionId) {
-        CaptureSession session = getSession(sessionId);
-        FaceOrbitSettings settings = sessionSettings.get(sessionId);
+        return prepareAutoExecution(sessionId).execute();
+    }
 
-        if (session.status() != SessionStatus.CREATED) {
-            throw new SessionException("Auto mode can only start from CREATED state");
-        }
-
-        AtomicBoolean stopFlag = new AtomicBoolean(false);
-        stopFlags.put(sessionId, stopFlag);
-
-        CaptureSession running = new CaptureSession(
-                sessionId, session.type(), SessionStatus.RUNNING,
-                session.createdAt(), Instant.now(), null,
-                new ArrayList<>(), null, session.metadata());
-        sessions.put(sessionId, running);
-
+    private CaptureSession runAuto(PreparedAutoExecution execution) {
+        String sessionId = execution.sessionId();
+        CaptureSession source = execution.sourceSession;
+        CaptureSession running = execution.runningSession;
+        FaceOrbitSettings settings = execution.settings;
         List<CaptureFrame> frames = sessionFrames.get(sessionId);
-        List<String> frameIds = new ArrayList<>();
-
-        // Resolve capture service once for the entire auto mode run (cached per session)
-        SequenceCaptureService resolvedCaptureService = resolveCapture(sessionId, settings);
 
         try {
-            for (int step = 0; step < settings.totalSteps(); step++) {
-                if (stopFlag.get()) {
+            for (int step = frames.size(); step < settings.totalSteps(); step++) {
+                if (execution.stopRequested()) {
                     break;
                 }
-
-                double angle = (settings.angleRange() / Math.max(1, settings.totalSteps() - 1)) * step;
-                CaptureFrame frame = resolvedCaptureService.captureFrame(sessionId, step, angle);
+                double angle = angleFor(settings, step);
+                CaptureFrame frame = execution.capture.service().captureFrame(
+                        sessionId, step, angle);
+                QualityCheck quality = analysisEngine.analyzeQuality(
+                        new byte[]{0}, frame.frameId());
                 frames.add(frame);
-                frameIds.add(frame.frameId());
-
-                // Quality check
-                QualityCheck quality = analysisEngine.analyzeQuality(new byte[]{0}, frame.frameId());
                 sessionQualityChecks.get(sessionId).add(quality);
+                updateAutoProgress(execution, frames);
 
                 if (settings.qualityCheckEnabled() && !quality.passed()) {
-                    log.warn("Session {}: quality check failed at step {}: {}",
-                            sessionId, step, quality.reason());
+                    log.warn("Session {}: quality check failed at step {}",
+                            sessionId, step);
                 }
-
-                log.debug("Session {}: auto step {}/{} angle={}", sessionId, step + 1,
-                        settings.totalSteps(), angle);
+                log.debug("Session {}: auto step {}/{} angle={}",
+                        sessionId, step + 1, settings.totalSteps(), angle);
             }
 
-            SessionStatus finalStatus = stopFlag.get() ? SessionStatus.CANCELLED : SessionStatus.COMPLETED;
-            CaptureSession completed = new CaptureSession(
-                    sessionId, session.type(), finalStatus,
-                    session.createdAt(), running.startedAt(), Instant.now(),
-                    frameIds, null, session.metadata());
-            sessions.put(sessionId, completed);
-            return completed;
-
-        } catch (Exception e) {
-            log.error("Face orbit session {} failed: {}", sessionId, e.getMessage(), e);
-            CaptureSession failed = new CaptureSession(
-                    sessionId, session.type(), SessionStatus.FAILED,
-                    session.createdAt(), running.startedAt(), Instant.now(),
-                    frameIds, e.getMessage(), session.metadata());
-            sessions.put(sessionId, failed);
-            return failed;
-        } finally {
-            stopFlags.remove(sessionId);
+            SessionStatus status = execution.stopRequested()
+                    ? SessionStatus.CANCELLED : SessionStatus.COMPLETED;
+            CaptureSession terminal = new CaptureSession(
+                    sessionId, source.type(), status,
+                    source.createdAt(), running.startedAt(), Instant.now(),
+                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    null, source.metadata());
+            storeAutoTerminal(execution, terminal);
+            return getSession(sessionId);
+        } catch (RuntimeException failure) {
+            SessionStatus status = execution.stopRequested()
+                    ? SessionStatus.CANCELLED : SessionStatus.FAILED;
+            CaptureSession terminal = new CaptureSession(
+                    sessionId, source.type(), status,
+                    source.createdAt(), running.startedAt(), Instant.now(),
+                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    status == SessionStatus.FAILED ? "Face orbit capture failed" : null,
+                    source.metadata());
+            storeAutoTerminal(execution, terminal);
+            log.error("Face orbit session {} failed with {}",
+                    sessionId, failure.getClass().getSimpleName());
+            return getSession(sessionId);
         }
     }
 
-    /**
-     * Requests the session to stop.
-     */
+    private void updateAutoProgress(
+            PreparedAutoExecution execution,
+            List<CaptureFrame> frames) {
+        synchronized (sessionLock(execution.sessionId())) {
+            if (autoExecutions.get(execution.sessionId()) != execution
+                    || execution.stopRequested()) {
+                return;
+            }
+            CaptureSession running = execution.runningSession;
+            sessions.put(execution.sessionId(), new CaptureSession(
+                    execution.sessionId(), running.type(), SessionStatus.RUNNING,
+                    running.createdAt(), running.startedAt(), null,
+                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    null, running.metadata()));
+        }
+    }
+
+    private void storeAutoTerminal(
+            PreparedAutoExecution execution,
+            CaptureSession terminal) {
+        synchronized (sessionLock(execution.sessionId())) {
+            if (autoExecutions.get(execution.sessionId()) == execution) {
+                sessions.put(execution.sessionId(), terminal);
+            }
+        }
+    }
+
+    private void finishAuto(PreparedAutoExecution execution) {
+        autoExecutions.remove(execution.sessionId(), execution);
+        execution.closeCapture();
+    }
+
+    private void rejectAuto(
+            PreparedAutoExecution execution,
+            RuntimeException failure) {
+        synchronized (sessionLock(execution.sessionId())) {
+            if (autoExecutions.remove(execution.sessionId(), execution)) {
+                CaptureSession running = execution.runningSession;
+                sessions.put(execution.sessionId(), new CaptureSession(
+                        execution.sessionId(), running.type(), SessionStatus.FAILED,
+                        running.createdAt(), running.startedAt(), Instant.now(),
+                        running.frameIds(), "Face orbit scheduling failed",
+                        running.metadata()));
+            }
+        }
+        execution.closeCapture();
+    }
+
     public void stopSession(String sessionId) {
-        getSession(sessionId);
-        AtomicBoolean stopFlag = stopFlags.get(sessionId);
-        if (stopFlag != null) {
-            stopFlag.set(true);
+        synchronized (sessionLock(sessionId)) {
+            CaptureSession session = getSession(sessionId);
+            PreparedAutoExecution auto = autoExecutions.get(sessionId);
+            if (auto != null) {
+                if (auto.cancelBeforeStart()) {
+                    autoExecutions.remove(sessionId, auto);
+                    sessions.put(sessionId, cancelled(session));
+                    auto.closeCapture();
+                } else {
+                    auto.requestStop();
+                }
+                return;
+            }
+
+            ManualOwnership manual = manualOwnerships.remove(sessionId);
+            if (manual != null) {
+                manual.close();
+            }
+            if (session.status() == SessionStatus.CREATED
+                    || session.status() == SessionStatus.RUNNING
+                    || session.status() == SessionStatus.PAUSED) {
+                sessions.put(sessionId, cancelled(session));
+            }
         }
     }
 
-    /**
-     * Completes a manual mode session.
-     */
-    public CaptureSession completeSession(String sessionId) {
-        CaptureSession session = getSession(sessionId);
-        List<CaptureFrame> frames = sessionFrames.getOrDefault(sessionId, List.of());
-        List<String> frameIds = frames.stream().map(CaptureFrame::frameId).toList();
-
-        CaptureSession completed = new CaptureSession(
-                sessionId, session.type(), SessionStatus.COMPLETED,
-                session.createdAt(), session.startedAt(), Instant.now(),
-                frameIds, null, session.metadata());
-        sessions.put(sessionId, completed);
-        return completed;
+    private static CaptureSession cancelled(CaptureSession source) {
+        return new CaptureSession(
+                source.sessionId(), source.type(), SessionStatus.CANCELLED,
+                source.createdAt(), source.startedAt(), Instant.now(),
+                source.frameIds(), null, source.metadata());
     }
 
-    /**
-     * Generates a 3D face profile from the captured orbit images.
-     */
+    public CaptureSession completeSession(String sessionId) {
+        synchronized (sessionLock(sessionId)) {
+            CaptureSession session = getSession(sessionId);
+            if (autoExecutions.containsKey(sessionId)) {
+                throw new SessionException("Automatic face orbit execution is active");
+            }
+            if (session.status() != SessionStatus.CREATED
+                    && session.status() != SessionStatus.RUNNING
+                    && session.status() != SessionStatus.PAUSED) {
+                throw new SessionException("Session cannot be completed in state: "
+                        + session.status());
+            }
+            List<CaptureFrame> frames = sessionFrames.getOrDefault(sessionId, List.of());
+            CaptureSession completed = new CaptureSession(
+                    sessionId, session.type(), SessionStatus.COMPLETED,
+                    session.createdAt(), session.startedAt(), Instant.now(),
+                    frames.stream().map(CaptureFrame::frameId).toList(),
+                    null, session.metadata());
+            sessions.put(sessionId, completed);
+            ManualOwnership manual = manualOwnerships.remove(sessionId);
+            if (manual != null) {
+                manual.close();
+            }
+            return completed;
+        }
+    }
+
     public FaceProfileJob generateProfile(String sessionId) {
         CaptureSession session = getSession(sessionId);
         List<CaptureFrame> frames = sessionFrames.getOrDefault(sessionId, List.of());
-        FaceOrbitSettings settings = sessionSettings.get(sessionId);
-
         String jobId = UUID.randomUUID().toString();
         FaceProfileJob job = new FaceProfileJob(
                 jobId, sessionId, SessionStatus.RUNNING,
@@ -316,25 +442,21 @@ public class FaceOrbitService {
                 try {
                     imageData = storage.readFile(sessionId, "frames/" + frame.fileName());
                 } catch (IOException e) {
-                    imageData = new byte[]{0}; // Placeholder for mock testing
+                    imageData = new byte[]{0};
                 }
                 imageDataList.add(imageData);
-
-                double angle = Double.parseDouble(frame.metadata().getOrDefault("angle", "0.0"));
-                angles.add(angle);
-
+                angles.add(Double.parseDouble(
+                        frame.metadata().getOrDefault("angle", "0.0")));
                 landmarksList.add(analysisEngine.detectLandmarks(imageData));
             }
 
             FaceProfileEngine.FaceProfileResult result = profileEngine.generate(
                     imageDataList, angles, landmarksList);
-
-            // Store profile result
             String resultPath = "results/profile_" + jobId + "." + result.format();
             try {
                 storage.storeFile(sessionId, resultPath, result.profileData());
             } catch (IOException e) {
-                log.warn("Failed to store profile result: {}", e.getMessage());
+                log.warn("Failed to store face profile result");
             }
 
             FaceProfileJob completed = new FaceProfileJob(
@@ -343,12 +465,12 @@ public class FaceOrbitService {
                     result.vertexCount(), result.confidence());
             profileJobs.put(jobId, completed);
             return completed;
-
         } catch (Exception e) {
-            log.error("Profile generation failed for session {}: {}", sessionId, e.getMessage(), e);
+            log.error("Face profile generation failed for session {}", sessionId);
             FaceProfileJob failed = new FaceProfileJob(
                     jobId, sessionId, SessionStatus.FAILED,
-                    job.createdAt(), Instant.now(), null, e.getMessage(), 0, 0.0);
+                    job.createdAt(), Instant.now(), null,
+                    "Face profile generation failed", 0, 0.0);
             profileJobs.put(jobId, failed);
             return failed;
         }
@@ -362,16 +484,9 @@ public class FaceOrbitService {
         return session;
     }
 
-    /**
-     * Gets quality checks for a session.
-     * Returns an immutable snapshot to avoid concurrent modification.
-     */
     public List<QualityCheck> getQualityChecks(String sessionId) {
         List<QualityCheck> checks = sessionQualityChecks.get(sessionId);
-        if (checks == null) {
-            return List.of();
-        }
-        return List.copyOf(checks);
+        return checks == null ? List.of() : List.copyOf(checks);
     }
 
     public FaceProfileJob getProfileJob(String jobId) {
@@ -380,5 +495,128 @@ public class FaceOrbitService {
             throw new SessionNotFoundException("Profile job not found: " + jobId);
         }
         return job;
+    }
+
+    private FaceOrbitSettings requireSettings(String sessionId) {
+        FaceOrbitSettings settings = sessionSettings.get(sessionId);
+        if (settings == null) {
+            throw new SessionException("No settings found for face orbit session");
+        }
+        return settings;
+    }
+
+    private static double angleFor(FaceOrbitSettings settings, int stepIndex) {
+        return (settings.angleRange() / Math.max(1, settings.totalSteps() - 1))
+                * stepIndex;
+    }
+
+    private enum AutoState {
+        QUEUED,
+        RUNNING,
+        CANCELLED,
+        FINISHED
+    }
+
+    public static final class PreparedAutoExecution implements Runnable {
+        private final FaceOrbitService owner;
+        private final CaptureSession sourceSession;
+        private final CaptureSession runningSession;
+        private final FaceOrbitSettings settings;
+        private final PreparedCapture capture;
+        private final AtomicReference<AutoState> state =
+                new AtomicReference<>(AutoState.QUEUED);
+        private final AtomicBoolean stopRequested = new AtomicBoolean();
+
+        private PreparedAutoExecution(
+                FaceOrbitService owner,
+                CaptureSession sourceSession,
+                CaptureSession runningSession,
+                FaceOrbitSettings settings,
+                PreparedCapture capture) {
+            this.owner = owner;
+            this.sourceSession = sourceSession;
+            this.runningSession = runningSession;
+            this.settings = settings;
+            this.capture = capture;
+        }
+
+        public String sessionId() {
+            return runningSession.sessionId();
+        }
+
+        public CaptureSession execute() {
+            if (!state.compareAndSet(AutoState.QUEUED, AutoState.RUNNING)) {
+                return owner.getSession(sessionId());
+            }
+            try {
+                return owner.runAuto(this);
+            } finally {
+                state.set(AutoState.FINISHED);
+                owner.finishAuto(this);
+            }
+        }
+
+        @Override
+        public void run() {
+            execute();
+        }
+
+        public void reject(RuntimeException failure) {
+            Objects.requireNonNull(failure, "failure");
+            if (state.compareAndSet(AutoState.QUEUED, AutoState.CANCELLED)) {
+                owner.rejectAuto(this, failure);
+            }
+        }
+
+        private boolean cancelBeforeStart() {
+            return state.compareAndSet(AutoState.QUEUED, AutoState.CANCELLED);
+        }
+
+        private void requestStop() {
+            stopRequested.set(true);
+        }
+
+        private boolean stopRequested() {
+            return stopRequested.get();
+        }
+
+        private void closeCapture() {
+            capture.close();
+        }
+    }
+
+    private static final class ManualOwnership implements AutoCloseable {
+        private final PreparedCapture capture;
+
+        private ManualOwnership(PreparedCapture capture) {
+            this.capture = capture;
+        }
+
+        @Override
+        public void close() {
+            capture.close();
+        }
+    }
+
+    private static final class PreparedCapture implements AutoCloseable {
+        private final SequenceCaptureService service;
+        private final Runnable closeAction;
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        private PreparedCapture(SequenceCaptureService service, Runnable closeAction) {
+            this.service = Objects.requireNonNull(service, "service");
+            this.closeAction = Objects.requireNonNull(closeAction, "closeAction");
+        }
+
+        private SequenceCaptureService service() {
+            return service;
+        }
+
+        @Override
+        public void close() {
+            if (closed.compareAndSet(false, true)) {
+                closeAction.run();
+            }
+        }
     }
 }
