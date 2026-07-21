@@ -54,7 +54,6 @@ jobs:
           -Pcr3-research-it
           -pl canon-cr3-research
           -Dit.test=CrxSubbandTopologyIT
-          -DskipTests
           -Djava.awt.headless=true
       - name: Publish test result
         uses: dorny/test-reporter@v3
