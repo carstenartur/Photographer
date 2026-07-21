@@ -4,6 +4,7 @@ import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.entity.CameraProfileEntity;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.service.DirectCameraControlExecutor;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
 import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
@@ -38,16 +39,21 @@ public class CameraController {
     private final CameraProfileService profileService;
     private final CameraBackendFactory backendFactory;
     private final SearchService searchService;
+    private final DirectCameraControlExecutor directControl;
 
-    public CameraController(CameraProfileService profileService, CameraBackendFactory backendFactory,
-                            SearchService searchService) {
+    public CameraController(
+            CameraProfileService profileService,
+            CameraBackendFactory backendFactory,
+            SearchService searchService,
+            DirectCameraControlExecutor directControl) {
         this.profileService = profileService;
         this.backendFactory = backendFactory;
         this.searchService = searchService;
+        this.directControl = directControl;
     }
 
-    /** Resolve the correct backend for a camera profile. */
-    private CameraBackend backendFor(String profileId) {
+    /** Read-only access remains on the existing cached backend boundary. */
+    private CameraBackend backendForRead(String profileId) {
         CameraProfile profile = profileService.getProfile(profileId);
         return backendFactory.getBackend(profile);
     }
@@ -60,8 +66,10 @@ public class CameraController {
 
     @PostMapping
     @Operation(summary = "Create a camera profile")
-    public ResponseEntity<CameraProfile> createProfile(@Valid @RequestBody CameraProfile profile) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(profileService.createProfile(profile));
+    public ResponseEntity<CameraProfile> createProfile(
+            @Valid @RequestBody CameraProfile profile) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(profileService.createProfile(profile));
     }
 
     @GetMapping("/{id}")
@@ -72,17 +80,23 @@ public class CameraController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update camera profile by id")
-    public ResponseEntity<CameraProfile> updateProfile(@PathVariable String id,
-                                                         @Valid @RequestBody CameraProfile profile) {
-        backendFactory.evict(id);
-        return ResponseEntity.ok(profileService.updateProfile(id, profile));
+    public ResponseEntity<CameraProfile> updateProfile(
+            @PathVariable String id,
+            @Valid @RequestBody CameraProfile profile) {
+        CameraProfile updated = directControl.withProfileLease(id, () -> {
+            backendFactory.evict(id);
+            return profileService.updateProfile(id, profile);
+        });
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete camera profile by id")
     public ResponseEntity<Void> deleteProfile(@PathVariable String id) {
-        backendFactory.evict(id);
-        profileService.deleteProfile(id);
+        directControl.withProfileLeaseVoid(id, () -> {
+            backendFactory.evict(id);
+            profileService.deleteProfile(id);
+        });
         return ResponseEntity.noContent().build();
     }
 
@@ -101,19 +115,20 @@ public class CameraController {
     @GetMapping("/{id}/info")
     @Operation(summary = "Get camera hardware information")
     public ResponseEntity<CameraInfo> getCameraInfo(@PathVariable String id) {
-        return ResponseEntity.ok(backendFor(id).getInfo());
+        return ResponseEntity.ok(backendForRead(id).getInfo());
     }
 
     @GetMapping("/{id}/status")
     @Operation(summary = "Get camera status")
     public ResponseEntity<CameraState> getCameraStatus(@PathVariable String id) {
-        return ResponseEntity.ok(backendFor(id).getState());
+        return ResponseEntity.ok(backendForRead(id).getState());
     }
 
     @GetMapping("/{id}/capabilities")
     @Operation(summary = "Get redacted camera capability diagnostics")
-    public ResponseEntity<CameraCapabilitySnapshot> getCameraCapabilities(@PathVariable String id) {
-        CameraBackend backend = backendFor(id);
+    public ResponseEntity<CameraCapabilitySnapshot> getCameraCapabilities(
+            @PathVariable String id) {
+        CameraBackend backend = backendForRead(id);
         CameraCapabilitySnapshot snapshot = backend instanceof CameraCapabilityProvider provider
                 ? provider.getCapabilitySnapshot()
                 : CameraCapabilitySnapshot.diagnosticsUnavailable(backend.getInfo());
@@ -123,20 +138,21 @@ public class CameraController {
     @GetMapping("/{id}/liveview")
     @Operation(summary = "Get latest live view frame")
     public ResponseEntity<LiveViewFrame> getLiveView(@PathVariable String id) {
-        return ResponseEntity.ok(backendFor(id).getLiveView());
+        return ResponseEntity.ok(backendForRead(id).getLiveView());
     }
 
     @PostMapping("/{id}/capture")
     @Operation(summary = "Capture a frame")
     public ResponseEntity<CaptureResult> capture(@PathVariable String id) {
-        return ResponseEntity.ok(backendFor(id).capture());
+        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::capture));
     }
 
     @PostMapping("/{id}/focus")
     @Operation(summary = "Adjust camera focus")
-    public ResponseEntity<Void> adjustFocus(@PathVariable String id,
-                                              @Valid @RequestBody FocusCommand command) {
-        backendFor(id).setFocus(command);
+    public ResponseEntity<Void> adjustFocus(
+            @PathVariable String id,
+            @Valid @RequestBody FocusCommand command) {
+        directControl.withBackendVoid(id, backend -> backend.setFocus(command));
         return ResponseEntity.ok().build();
     }
 }
