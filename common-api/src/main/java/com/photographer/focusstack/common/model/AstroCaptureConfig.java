@@ -6,6 +6,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 /** Capture configuration for an astrophotography session. */
 public record AstroCaptureConfig(
+        @JsonProperty("cameraProfileId") String cameraProfileId,
         @JsonProperty("frameCount") @Positive int frameCount,
         @JsonProperty("exposureTimeMs") @Positive long exposureTimeMs,
         @JsonProperty("iso") @Positive int iso,
@@ -16,7 +17,23 @@ public record AstroCaptureConfig(
         @JsonProperty("saveJpeg") boolean saveJpeg,
         @JsonProperty("captureDarkFrame") boolean captureDarkFrame
 ) {
+    /** Backward-compatible constructor for existing callers using the default mock backend. */
+    public AstroCaptureConfig(
+            int frameCount,
+            long exposureTimeMs,
+            int iso,
+            String aperture,
+            long delayBetweenFramesMs,
+            String imageFormat,
+            boolean saveRaw,
+            boolean saveJpeg,
+            boolean captureDarkFrame) {
+        this(null, frameCount, exposureTimeMs, iso, aperture,
+                delayBetweenFramesMs, imageFormat, saveRaw, saveJpeg, captureDarkFrame);
+    }
+
     public static AstroCaptureConfig defaults() {
-        return new AstroCaptureConfig(10, 5000, 1600, null, 1000, "PNG", false, true, false);
+        return new AstroCaptureConfig(
+                null, 10, 5000, 1600, null, 1000, "PNG", false, true, false);
     }
 }

@@ -12,9 +12,20 @@ import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
-import com.photographer.focusstack.common.model.*;
+import com.photographer.focusstack.common.model.AstroCaptureConfig;
+import com.photographer.focusstack.common.model.AstroFocusConfig;
+import com.photographer.focusstack.common.model.AstroFocusStrategy;
+import com.photographer.focusstack.common.model.AstroSession;
+import com.photographer.focusstack.common.model.AstroSessionStatus;
+import com.photographer.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.session.CameraBackendProvider;
+import com.photographer.focusstack.session.CameraBackendSession;
+import com.photographer.focusstack.session.CameraSessionPurpose;
+import com.photographer.focusstack.session.SessionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,41 +38,65 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class AstroModeService {
 
     private static final Logger log = LoggerFactory.getLogger(AstroModeService.class);
+    private static final int SESSION_LOCK_STRIPES = 64;
+    private static final String PUBLIC_EXECUTION_FAILURE = "Astro session execution failed";
+    private static final String PUBLIC_SCHEDULING_FAILURE = "Astro session scheduling failed";
 
     private final AstroSessionRepository repository;
     private final CameraBackendFactory cameraBackendFactory;
+    private final CameraBackendProvider backendProvider;
     private final String dataDir;
+    private final ConcurrentMap<String, PreparedExecution> activeExecutions =
+            new ConcurrentHashMap<>();
+    private final Object[] sessionLocks = createSessionLocks();
 
-    /** Tracks sessions that have been requested to abort. */
-    private final Map<String, Boolean> abortFlags = new ConcurrentHashMap<>();
-
-    public AstroModeService(AstroSessionRepository repository, CameraBackendFactory cameraBackendFactory,
-                            @org.springframework.beans.factory.annotation.Value("${astro.data-dir:data/astro-sessions}") String dataDir) {
+    @Autowired
+    public AstroModeService(
+            AstroSessionRepository repository,
+            CameraBackendFactory cameraBackendFactory,
+            CameraBackendProvider backendProvider,
+            @Value("${astro.data-dir:data/astro-sessions}") String dataDir) {
         this.repository = repository;
         this.cameraBackendFactory = cameraBackendFactory;
+        this.backendProvider = backendProvider;
         this.dataDir = dataDir;
     }
 
-    /**
-     * Returns a CameraBackend for astro sessions.
-     * Uses a mock "astro" profile for the default backend from the factory.
-     */
-    private CameraBackend getDefaultBackend() {
-        CameraProfile astroProfile = new CameraProfile(
-                "astro-default", "Astro Camera", "mock", "localhost", 1, 1000, 0.0);
-        return cameraBackendFactory.getBackend(astroProfile);
+    /** Backward-compatible constructor for focused tests using the default mock backend. */
+    public AstroModeService(
+            AstroSessionRepository repository,
+            CameraBackendFactory cameraBackendFactory,
+            String dataDir) {
+        this(repository, cameraBackendFactory, null, dataDir);
+    }
+
+    private static Object[] createSessionLocks() {
+        Object[] locks = new Object[SESSION_LOCK_STRIPES];
+        for (int index = 0; index < locks.length; index++) {
+            locks[index] = new Object();
+        }
+        return locks;
+    }
+
+    private Object sessionLock(String sessionId) {
+        return sessionLocks[Math.floorMod(sessionId.hashCode(), sessionLocks.length)];
     }
 
     @Transactional
-    public AstroSession createSession(AstroCaptureConfig captureConfig, AstroFocusConfig focusConfig) {
+    public AstroSession createSession(
+            AstroCaptureConfig captureConfig,
+            AstroFocusConfig focusConfig) {
         AstroSessionEntity entity = AstroSessionEntity.create(captureConfig, focusConfig);
         entity.setOutputDirectory(Path.of(dataDir, entity.getId()).toString());
         entity = repository.save(entity);
@@ -81,271 +116,456 @@ public class AstroModeService {
                 .toList();
     }
 
-    /**
-     * Returns terminal astro sessions that finished before the given cutoff.
-     * Used for efficient retention cleanup without loading all sessions.
-     */
     @Transactional(readOnly = true)
     public List<AstroSession> findTerminalSessionsBefore(Instant cutoff) {
-        var terminalStatuses = java.util.Set.of(
-                AstroSessionStatus.COMPLETED, AstroSessionStatus.FAILED, AstroSessionStatus.ABORTED);
+        Set<AstroSessionStatus> terminalStatuses = Set.of(
+                AstroSessionStatus.COMPLETED,
+                AstroSessionStatus.FAILED,
+                AstroSessionStatus.ABORTED);
         return repository.findByStatusInAndFinishedAtBefore(terminalStatuses, cutoff)
                 .stream()
                 .map(AstroSessionEntity::toRecord)
                 .toList();
     }
 
-    /**
-     * Deletes an astro session and its associated files on disk.
-     * Only terminal sessions (COMPLETED, FAILED, ABORTED) can be deleted.
-     *
-     * @param id the session id
-     * @return {@code true} if the session was deleted, {@code false} if not found
-     * @throws IllegalStateException if the session is still active
-     */
     @Transactional
     public boolean deleteSession(String id) {
-        return repository.findById(id).map(entity -> {
-            AstroSessionStatus status = entity.getStatus();
-            if (status != AstroSessionStatus.COMPLETED
-                    && status != AstroSessionStatus.FAILED
-                    && status != AstroSessionStatus.ABORTED) {
-                throw new IllegalStateException(
-                        "Cannot delete session in state " + status + ". Abort it first.");
+        synchronized (sessionLock(id)) {
+            if (activeExecutions.containsKey(id)) {
+                throw new IllegalStateException("Cannot delete an active astro session");
             }
-            // Clean up output directory on disk
-            String outputDir = entity.getOutputDirectory();
-            // Delete DB row first so if it fails we don't lose data
-            repository.delete(entity);
-            log.info("Deleted astro session {}", id);
-            // Best-effort cleanup of output directory (after DB delete succeeds)
-            if (outputDir != null) {
-                try {
-                    Path dir = Path.of(outputDir);
-                    if (Files.exists(dir)) {
-                        try (var walk = Files.walk(dir)) {
-                            walk.sorted(java.util.Comparator.reverseOrder())
-                                    .forEach(p -> {
-                                        try { Files.deleteIfExists(p); }
-                                        catch (Exception ex) {
-                                            log.warn("Failed to delete {}: {}", p, ex.getMessage());
-                                        }
-                                    });
-                        }
-                    }
-                } catch (Exception e) {
-                    log.warn("Failed to clean up session directory {}: {}", outputDir, e.getMessage());
+            return repository.findById(id).map(entity -> {
+                AstroSessionStatus status = entity.getStatus();
+                if (status != AstroSessionStatus.COMPLETED
+                        && status != AstroSessionStatus.FAILED
+                        && status != AstroSessionStatus.ABORTED) {
+                    throw new IllegalStateException(
+                            "Cannot delete session in state " + status + ". Abort it first.");
+                }
+                String outputDir = entity.getOutputDirectory();
+                repository.delete(entity);
+                log.info("Deleted astro session {}", id);
+                cleanupOutputDirectory(outputDir);
+                return true;
+            }).orElse(false);
+        }
+    }
+
+    private void cleanupOutputDirectory(String outputDir) {
+        if (outputDir == null) {
+            return;
+        }
+        try {
+            Path directory = Path.of(outputDir);
+            if (Files.exists(directory)) {
+                try (var walk = Files.walk(directory)) {
+                    walk.sorted(java.util.Comparator.reverseOrder())
+                            .forEach(path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (Exception failure) {
+                                    log.warn("Failed to delete astro session output");
+                                }
+                            });
                 }
             }
-            return true;
-        }).orElse(false);
+        } catch (Exception failure) {
+            log.warn("Failed to clean astro session output directory");
+        }
+    }
+
+    /**
+     * Acquires the camera and records one queued execution before scheduling.
+     * The caller must submit the returned runnable or invoke {@link PreparedExecution#reject}.
+     */
+    public PreparedExecution prepareExecution(String sessionId) {
+        synchronized (sessionLock(sessionId)) {
+            AstroSessionEntity entity = requireEntity(sessionId);
+            if (entity.getStatus() != AstroSessionStatus.CREATED) {
+                throw new IllegalStateException(
+                        "Astro session cannot start in state " + entity.getStatus());
+            }
+            if (activeExecutions.containsKey(sessionId)) {
+                throw new IllegalStateException("Astro session already has an active execution");
+            }
+
+            CameraBackendSession cameraSession = openCameraSession(entity);
+            PreparedExecution execution = new PreparedExecution(
+                    this, sessionId, cameraSession);
+            PreparedExecution previous = activeExecutions.putIfAbsent(
+                    sessionId, execution);
+            if (previous != null) {
+                cameraSession.close();
+                throw new IllegalStateException("Astro session already has an active execution");
+            }
+            try {
+                setStatus(entity, AstroSessionStatus.PREPARING, true);
+                return execution;
+            } catch (RuntimeException failure) {
+                activeExecutions.remove(sessionId, execution);
+                cameraSession.close();
+                throw failure;
+            }
+        }
+    }
+
+    /** Legacy synchronous entry point using the same prepared ownership contract. */
+    public void executeSession(String sessionId) {
+        prepareExecution(sessionId).run();
+    }
+
+    private CameraBackendSession openCameraSession(AstroSessionEntity entity) {
+        String cameraProfileId = entity.getCameraProfileId();
+        if (cameraProfileId != null && !cameraProfileId.isBlank()) {
+            if (backendProvider == null) {
+                throw new SessionException("Camera session provider is unavailable");
+            }
+            return backendProvider.openSession(
+                    cameraProfileId,
+                    CameraSessionPurpose.ASTRO,
+                    entity.getId());
+        }
+
+        CameraProfile mockProfile = new CameraProfile(
+                "astro-default", "Astro Camera", "mock", "localhost",
+                1, 1000, 0.0);
+        return CameraBackendSession.unmanaged(
+                cameraBackendFactory.getBackend(mockProfile));
     }
 
     public void requestAbort(String sessionId) {
-        abortFlags.put(sessionId, true);
-        log.info("Abort requested for astro session {}", sessionId);
+        synchronized (sessionLock(sessionId)) {
+            PreparedExecution execution = activeExecutions.get(sessionId);
+            AstroSessionEntity entity = repository.findById(sessionId).orElse(null);
+            if (execution == null) {
+                if (entity != null && !isTerminal(entity.getStatus())) {
+                    markAborted(entity);
+                }
+                return;
+            }
+            if (execution.cancelBeforeStart()) {
+                activeExecutions.remove(sessionId, execution);
+                if (entity != null) {
+                    markAborted(entity);
+                }
+                execution.closeCamera();
+            } else {
+                execution.requestAbort();
+            }
+        }
+        log.info("Abort requested for an active astro session");
     }
 
-    /**
-     * Executes the full astro session workflow.
-     * Called via the bounded sessionTaskExecutor from the controller.
-     */
-    public void executeSession(String sessionId) {
-        log.info("Starting astro session {}", sessionId);
-
+    private void runPrepared(PreparedExecution execution) {
+        String sessionId = execution.sessionId;
         try {
-            // Update status to PREPARING
-            updateStatus(sessionId, AstroSessionStatus.PREPARING);
+            AstroSessionEntity entity = requireEntity(sessionId);
+            createOutputDirectories(entity);
+            if (execution.abortRequested()) {
+                markAborted(entity);
+                return;
+            }
 
-            AstroSessionEntity entity = repository.findById(sessionId).orElseThrow(
-                    () -> new IllegalStateException("Session not found: " + sessionId));
-
-            // Create output directories
-            Path sessionDir = Path.of(entity.getOutputDirectory());
-            Path framesDir = sessionDir.resolve("frames");
-            Path analysisDir = sessionDir.resolve("analysis");
-            Path resultDir = sessionDir.resolve("result");
-            Path focusScanDir = sessionDir.resolve("focus-scan");
-            Files.createDirectories(framesDir);
-            Files.createDirectories(analysisDir);
-            Files.createDirectories(resultDir);
-            Files.createDirectories(focusScanDir);
-
-            if (isAborted(sessionId)) return;
-
-            CameraBackend cameraBackend = getDefaultBackend();
-
-            // Focus strategy
-            AstroFocusStrategy strategy = entity.getFocusStrategy();
-            if (strategy == AstroFocusStrategy.FOCUS_SCAN) {
-                executeFocusScan(entity, focusScanDir, cameraBackend);
+            CameraBackend cameraBackend = execution.cameraSession.backend();
+            if (entity.getFocusStrategy() == AstroFocusStrategy.FOCUS_SCAN) {
+                executeFocusScan(
+                        entity,
+                        Path.of(entity.getOutputDirectory()).resolve("focus-scan"),
+                        cameraBackend,
+                        execution);
             } else {
-                log.info("Using MANUAL_FIXED focus strategy");
+                log.info("Using MANUAL_FIXED focus strategy for astro session {}", sessionId);
             }
 
-            if (isAborted(sessionId)) return;
-
-            // Capture frames
-            updateStatus(sessionId, AstroSessionStatus.CAPTURING);
-            List<BufferedImage> capturedImages = new ArrayList<>();
-            int frameCount = entity.getFrameCount();
-
-            for (int i = 0; i < frameCount; i++) {
-                if (isAborted(sessionId)) return;
-
-                log.info("Capturing frame {}/{} for session {}", i + 1, frameCount, sessionId);
-                CaptureResult result = cameraBackend.capture();
-
-                BufferedImage img = ImageIO.read(new ByteArrayInputStream(result.imageData()));
-                if (img == null) {
-                    log.warn("Frame {} returned null image, skipping", i);
-                    continue;
-                }
-                capturedImages.add(img);
-
-                // Save frame to disk
-                Path framePath = framesDir.resolve("frame_" + String.format("%04d", i) + ".png");
-                ImageIO.write(img, "PNG", framePath.toFile());
-
-                if (entity.getDelayBetweenFramesMs() > 0 && i < frameCount - 1) {
-                    Thread.sleep(entity.getDelayBetweenFramesMs());
-                }
+            if (abortIfRequested(entity, execution)) {
+                return;
             }
 
+            setStatus(entity, AstroSessionStatus.CAPTURING, false);
+            List<BufferedImage> capturedImages = captureFrames(
+                    entity,
+                    Path.of(entity.getOutputDirectory()).resolve("frames"),
+                    cameraBackend,
+                    execution);
+
+            if (abortIfRequested(entity, execution)) {
+                return;
+            }
             if (capturedImages.isEmpty()) {
                 throw new IllegalStateException("No valid frames captured");
             }
 
-            if (isAborted(sessionId)) return;
-
-            // Process pipeline
-            updateStatus(sessionId, AstroSessionStatus.ANALYZING);
-            log.info("Analyzing {} frames for session {}", capturedImages.size(), sessionId);
-
+            setStatus(entity, AstroSessionStatus.ANALYZING, false);
             StarDetectionService starDetection = new StarDetectionService();
             FrameRegistrationService registration = new FrameRegistrationService();
             AstroStackingService stacking = new AstroStackingService();
             AstroCapturePipeline pipeline = new AstroCapturePipeline(
-                    starDetection, registration, stacking, new NoOpStarTrailDeblurService());
+                    starDetection,
+                    registration,
+                    stacking,
+                    new NoOpStarTrailDeblurService());
 
-            updateStatus(sessionId, AstroSessionStatus.STACKING);
-            AstroCapturePipeline.PipelineResult pipelineResult = pipeline.process(capturedImages);
-
-            // Log star counts
-            for (AstroFrame frame : pipelineResult.frames()) {
-                log.info("Frame #{}: {} stars, focusScore={}, used={}",
-                        frame.frameIndex(), frame.starPoints().size(),
-                        String.format("%.2f", frame.focusScore()), frame.usedInStack());
-            }
-
-            // Save result
-            Path resultPath = resultDir.resolve("stacked_result.png");
+            setStatus(entity, AstroSessionStatus.STACKING, false);
+            AstroCapturePipeline.PipelineResult pipelineResult =
+                    pipeline.process(capturedImages);
+            Path resultPath = Path.of(entity.getOutputDirectory())
+                    .resolve("result")
+                    .resolve("stacked_result.png");
             ImageIO.write(pipelineResult.stackedImage(), "PNG", resultPath.toFile());
-            log.info("Stacked result saved to {}", resultPath);
-
-            // Update session as completed
-            completeSession(sessionId, resultPath.toString(), pipelineResult.summary());
-
-        } catch (InterruptedException e) {
+            completeSession(entity, resultPath.toString(), pipelineResult.summary());
+        } catch (InterruptedException failure) {
             Thread.currentThread().interrupt();
-            failSession(sessionId, "Session interrupted");
-        } catch (Exception e) {
-            log.error("Astro session {} failed", sessionId, e);
-            failSession(sessionId, e.getMessage());
-        } finally {
-            abortFlags.remove(sessionId);
+            failOrAbort(execution, PUBLIC_EXECUTION_FAILURE);
+        } catch (Exception failure) {
+            log.error("Astro session {} failed with {}",
+                    sessionId, failure.getClass().getSimpleName());
+            failOrAbort(execution, PUBLIC_EXECUTION_FAILURE);
         }
     }
 
-    private void executeFocusScan(AstroSessionEntity entity, Path focusScanDir, CameraBackend cameraBackend) throws IOException {
-        updateStatus(entity.getId(), AstroSessionStatus.FOCUS_SCANNING);
-        log.info("Executing focus scan: {} steps, step size {}",
-                entity.getScanSteps(), entity.getScanStepSize());
+    private void createOutputDirectories(AstroSessionEntity entity) throws IOException {
+        Path sessionDirectory = Path.of(entity.getOutputDirectory());
+        Files.createDirectories(sessionDirectory.resolve("frames"));
+        Files.createDirectories(sessionDirectory.resolve("analysis"));
+        Files.createDirectories(sessionDirectory.resolve("result"));
+        Files.createDirectories(sessionDirectory.resolve("focus-scan"));
+    }
 
+    private List<BufferedImage> captureFrames(
+            AstroSessionEntity entity,
+            Path framesDirectory,
+            CameraBackend cameraBackend,
+            PreparedExecution execution) throws Exception {
+        List<BufferedImage> capturedImages = new ArrayList<>();
+        for (int index = 0; index < entity.getFrameCount(); index++) {
+            if (execution.abortRequested()) {
+                break;
+            }
+            log.info("Capturing astro frame {}/{} for session {}",
+                    index + 1, entity.getFrameCount(), entity.getId());
+            CaptureResult result = cameraBackend.capture();
+            BufferedImage image = image(result);
+            if (image == null) {
+                log.warn("Astro frame {} contained no decodable image", index);
+                continue;
+            }
+            capturedImages.add(image);
+            Path framePath = framesDirectory.resolve(
+                    "frame_" + String.format("%04d", index) + ".png");
+            ImageIO.write(image, "PNG", framePath.toFile());
+
+            if (entity.getDelayBetweenFramesMs() > 0
+                    && index < entity.getFrameCount() - 1
+                    && !execution.abortRequested()) {
+                Thread.sleep(entity.getDelayBetweenFramesMs());
+            }
+        }
+        return capturedImages;
+    }
+
+    private static BufferedImage image(CaptureResult result) throws IOException {
+        if (result == null || result.imageData() == null || result.imageData().length == 0) {
+            return null;
+        }
+        return ImageIO.read(new ByteArrayInputStream(result.imageData()));
+    }
+
+    private void executeFocusScan(
+            AstroSessionEntity entity,
+            Path focusScanDirectory,
+            CameraBackend cameraBackend,
+            PreparedExecution execution) throws IOException {
+        setStatus(entity, AstroSessionStatus.FOCUS_SCANNING, false);
         StarDetectionService starDetection = new StarDetectionService();
         AstroFocusOptimizer optimizer = new AstroFocusOptimizer(starDetection);
         List<AstroFocusOptimizer.FocusEvaluation> evaluations = new ArrayList<>();
 
         for (int step = 0; step < entity.getScanSteps(); step++) {
-            // Move focus
-            FocusCommand.Direction dir = step < entity.getScanSteps() / 2
-                    ? FocusCommand.Direction.NEAR : FocusCommand.Direction.FAR;
-            cameraBackend.setFocus(new FocusCommand(dir, Math.abs(entity.getScanStepSize())));
-
-            // Capture test frame
+            if (execution.abortRequested()) {
+                break;
+            }
+            FocusCommand.Direction direction = step < entity.getScanSteps() / 2
+                    ? FocusCommand.Direction.NEAR
+                    : FocusCommand.Direction.FAR;
+            cameraBackend.setFocus(new FocusCommand(
+                    direction, Math.abs(entity.getScanStepSize())));
             CaptureResult result = cameraBackend.capture();
-            BufferedImage img = ImageIO.read(new ByteArrayInputStream(result.imageData()));
-            if (img != null) {
-                Path scanPath = focusScanDir.resolve("focus_scan_" + step + ".png");
-                ImageIO.write(img, "PNG", scanPath.toFile());
-
-                AstroFocusOptimizer.FocusEvaluation eval = optimizer.evaluate(img, step);
-                evaluations.add(eval);
-                log.info("Focus scan step {}: position={}, score={}, stars={}",
-                        step, eval.focusPosition(), String.format("%.2f", eval.score()), eval.starCount());
+            BufferedImage image = image(result);
+            if (image != null) {
+                Path scanPath = focusScanDirectory.resolve(
+                        "focus_scan_" + step + ".png");
+                ImageIO.write(image, "PNG", scanPath.toFile());
+                evaluations.add(optimizer.evaluate(image, step));
             }
         }
 
-        if (!evaluations.isEmpty()) {
-            int bestPos = optimizer.selectBestPosition(evaluations);
-            log.info("Best focus position: {}", bestPos);
-            updateBestFocusPosition(entity.getId(), bestPos);
+        if (!evaluations.isEmpty() && !execution.abortRequested()) {
+            updateBestFocusPosition(
+                    entity.getId(), optimizer.selectBestPosition(evaluations));
         }
     }
 
-    private boolean isAborted(String sessionId) {
-        if (Boolean.TRUE.equals(abortFlags.get(sessionId))) {
-            repository.findById(sessionId).ifPresent(e -> {
-                e.setStatus(AstroSessionStatus.ABORTED);
-                e.setFinishedAt(Instant.now());
-                e.setErrorMessage("Session aborted by user");
-                repository.save(e);
-            });
-            log.info("Astro session {} aborted", sessionId);
-            return true;
+    private boolean abortIfRequested(
+            AstroSessionEntity entity,
+            PreparedExecution execution) {
+        if (!execution.abortRequested()) {
+            return false;
         }
-        return false;
+        markAborted(entity);
+        return true;
     }
 
-    @Transactional
-    void updateStatus(String sessionId, AstroSessionStatus status) {
-        repository.findById(sessionId).ifPresent(e -> {
-            e.setStatus(status);
-            if (status == AstroSessionStatus.PREPARING) {
-                e.setStartedAt(Instant.now());
+    private void failOrAbort(PreparedExecution execution, String publicFailure) {
+        synchronized (sessionLock(execution.sessionId)) {
+            AstroSessionEntity entity = requireEntity(execution.sessionId);
+            if (execution.abortRequested()) {
+                markAborted(entity);
+            } else {
+                failSession(entity, publicFailure);
             }
-            repository.save(e);
-        });
+        }
     }
 
-    @Transactional
-    void completeSession(String sessionId, String resultPath, String summary) {
-        repository.findById(sessionId).ifPresent(e -> {
-            e.setStatus(AstroSessionStatus.COMPLETED);
-            e.setFinishedAt(Instant.now());
-            e.setResultImagePath(resultPath);
-            e.setStackingSummary(summary);
-            repository.save(e);
-        });
-        log.info("Astro session {} completed", sessionId);
+    private void rejectExecution(
+            PreparedExecution execution,
+            RuntimeException failure) {
+        synchronized (sessionLock(execution.sessionId)) {
+            if (activeExecutions.remove(execution.sessionId, execution)) {
+                AstroSessionEntity entity = requireEntity(execution.sessionId);
+                failSession(entity, PUBLIC_SCHEDULING_FAILURE);
+            }
+        }
+        execution.closeCamera();
     }
 
-    @Transactional
-    void failSession(String sessionId, String error) {
-        repository.findById(sessionId).ifPresent(e -> {
-            e.setStatus(AstroSessionStatus.FAILED);
-            e.setFinishedAt(Instant.now());
-            e.setErrorMessage(error);
-            repository.save(e);
-        });
-        log.error("Astro session {} failed: {}", sessionId, error);
+    private void finishExecution(PreparedExecution execution) {
+        activeExecutions.remove(execution.sessionId, execution);
+        execution.closeCamera();
+    }
+
+    private AstroSessionEntity requireEntity(String sessionId) {
+        return repository.findById(sessionId).orElseThrow(
+                () -> new IllegalStateException("Astro session not found"));
+    }
+
+    private void setStatus(
+            AstroSessionEntity entity,
+            AstroSessionStatus status,
+            boolean start) {
+        entity.setStatus(status);
+        if (start) {
+            entity.setStartedAt(Instant.now());
+        }
+        repository.save(entity);
+    }
+
+    private void markAborted(AstroSessionEntity entity) {
+        entity.setStatus(AstroSessionStatus.ABORTED);
+        entity.setFinishedAt(Instant.now());
+        entity.setErrorMessage("Session aborted by user");
+        repository.save(entity);
+        log.info("Astro session {} aborted", entity.getId());
+    }
+
+    private void completeSession(
+            AstroSessionEntity entity,
+            String resultPath,
+            String summary) {
+        entity.setStatus(AstroSessionStatus.COMPLETED);
+        entity.setFinishedAt(Instant.now());
+        entity.setResultImagePath(resultPath);
+        entity.setStackingSummary(summary);
+        entity.setErrorMessage(null);
+        repository.save(entity);
+        log.info("Astro session {} completed", entity.getId());
+    }
+
+    private void failSession(AstroSessionEntity entity, String publicError) {
+        entity.setStatus(AstroSessionStatus.FAILED);
+        entity.setFinishedAt(Instant.now());
+        entity.setErrorMessage(publicError);
+        repository.save(entity);
+        log.error("Astro session {} failed", entity.getId());
+    }
+
+    private static boolean isTerminal(AstroSessionStatus status) {
+        return status == AstroSessionStatus.COMPLETED
+                || status == AstroSessionStatus.FAILED
+                || status == AstroSessionStatus.ABORTED;
     }
 
     @Transactional
     void updateBestFocusPosition(String sessionId, int position) {
-        repository.findById(sessionId).ifPresent(e -> {
-            e.setBestFocusPosition(position);
-            repository.save(e);
+        repository.findById(sessionId).ifPresent(entity -> {
+            entity.setBestFocusPosition(position);
+            repository.save(entity);
         });
+    }
+
+    private enum ExecutionState {
+        QUEUED,
+        RUNNING,
+        CANCELLED,
+        FINISHED
+    }
+
+    public static final class PreparedExecution implements Runnable {
+        private final AstroModeService owner;
+        private final String sessionId;
+        private final CameraBackendSession cameraSession;
+        private final AtomicReference<ExecutionState> state =
+                new AtomicReference<>(ExecutionState.QUEUED);
+        private final AtomicBoolean abortRequested = new AtomicBoolean();
+
+        private PreparedExecution(
+                AstroModeService owner,
+                String sessionId,
+                CameraBackendSession cameraSession) {
+            this.owner = owner;
+            this.sessionId = sessionId;
+            this.cameraSession = cameraSession;
+        }
+
+        public String sessionId() {
+            return sessionId;
+        }
+
+        @Override
+        public void run() {
+            if (!state.compareAndSet(ExecutionState.QUEUED, ExecutionState.RUNNING)) {
+                return;
+            }
+            try {
+                owner.runPrepared(this);
+            } finally {
+                state.set(ExecutionState.FINISHED);
+                owner.finishExecution(this);
+            }
+        }
+
+        public void reject(RuntimeException failure) {
+            if (failure == null) {
+                throw new IllegalArgumentException("failure is required");
+            }
+            if (state.compareAndSet(ExecutionState.QUEUED, ExecutionState.CANCELLED)) {
+                owner.rejectExecution(this, failure);
+            }
+        }
+
+        private boolean cancelBeforeStart() {
+            return state.compareAndSet(ExecutionState.QUEUED, ExecutionState.CANCELLED);
+        }
+
+        private void requestAbort() {
+            abortRequested.set(true);
+        }
+
+        private boolean abortRequested() {
+            return abortRequested.get();
+        }
+
+        private void closeCamera() {
+            cameraSession.close();
+        }
     }
 }
