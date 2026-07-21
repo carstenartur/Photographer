@@ -129,6 +129,22 @@
       "verdict": "PARTIAL: optical-black median and six fixtures improve on selected metrics, but global, boundary, saturation, family and nine stream-completion gates fail",
       "productionDecision": "No production decoder change; select observation-only D13 context and CRX topology analysis in issue 238",
       "status": "complete"
+    },
+    {
+      "id": "D13",
+      "title": "Tentative-symbol context and lossless CRX topology audit",
+      "issue": 238,
+      "sourceIds": ["SRC-001", "SRC-007", "SRC-008"],
+      "oneChangedVariable": "No decoder semantics changed; audit source context and inventory exposed lossless topology without output-quality selection",
+      "fixedInputs": "Explicit eleven-fixture reference-backed lossless CR3 panel and the completed D11 source extraction",
+      "implementationScope": "canon-cr3-research observation-only integration test and clean-room documentation",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": null,
+      "durableReport": "docs/cr3-results/2026-07-20-D13-context-topology.md",
+      "verdict": "PENDING: corrected payload-range and lossless-topology inventory not yet executed",
+      "productionDecision": "No production decoder change; semantic work remains blocked pending D13 evidence",
+      "status": "running"
     }
   ]
 }
