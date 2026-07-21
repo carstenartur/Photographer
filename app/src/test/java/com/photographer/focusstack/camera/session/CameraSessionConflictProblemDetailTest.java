@@ -8,6 +8,8 @@ import org.springframework.http.ProblemDetail;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CameraSessionConflictProblemDetailTest {
 
@@ -34,5 +36,41 @@ class CameraSessionConflictProblemDetailTest {
         assertThat(detail.toString())
                 .doesNotContain("private-camera")
                 .doesNotContain("secret");
+    }
+
+    @Test
+    void rejectsInvalidCorrelationIdentifier() {
+        assertThatThrownBy(() -> new CameraSessionConflictException(
+                "private-camera.example", CameraWorkflowType.FOCUS_STACKING,
+                Duration.ZERO))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("ownerCorrelationId is invalid")
+                .hasNoCause();
+    }
+
+    @Test
+    void requiresTypedWorkflowAndRetryDuration() {
+        assertThatNullPointerException()
+                .isThrownBy(() -> new CameraSessionConflictException(
+                        "corr00000001", null, Duration.ZERO))
+                .withMessage("workflowType");
+        assertThatNullPointerException()
+                .isThrownBy(() -> new CameraSessionConflictException(
+                        "corr00000001", CameraWorkflowType.FOCUS_STACKING, null))
+                .withMessage("retryAfter");
+    }
+
+    @Test
+    void rejectsNegativeOrUnboundedRetryAdvice() {
+        assertThatThrownBy(() -> new CameraSessionConflictException(
+                "corr00000001", CameraWorkflowType.FOCUS_STACKING,
+                Duration.ofSeconds(-1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("zero and 30 seconds");
+        assertThatThrownBy(() -> new CameraSessionConflictException(
+                "corr00000001", CameraWorkflowType.FOCUS_STACKING,
+                Duration.ofSeconds(31)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("zero and 30 seconds");
     }
 }
