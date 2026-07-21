@@ -35,6 +35,9 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
+      - name: Install workflow parser
+        run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
+
       - name: Extract and execute reviewed implementation block
         shell: bash
         run: |
