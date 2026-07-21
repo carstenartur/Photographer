@@ -34,14 +34,22 @@ contains_value() {
 scan_saved_image() {
   local value=$1
   local image_dir=$2
-  if contains_value "$value" "$image_dir"/*.json; then
-    return 0
-  fi
-  while IFS= read -r -d '' layer; do
-    if tar -Oxf "$layer" 2>/dev/null | grep -aF -- "$value" >/dev/null; then
+  local metadata
+  while IFS= read -r -d '' metadata; do
+    if grep -aFq -- "$value" "$metadata"; then
       return 0
     fi
-  done < <(find "$image_dir" -name layer.tar -print0)
+  done < <(find "$image_dir" -type f -name '*.json' -print0)
+
+  local layer
+  while IFS= read -r -d '' layer; do
+    # grep exits as soon as it finds a value. Disable pipefail in this bounded
+    # subshell so a resulting SIGPIPE from tar cannot hide a positive match.
+    if (set +o pipefail; tar -Oxf "$layer" 2>/dev/null \
+          | grep -aFq -- "$value"); then
+      return 0
+    fi
+  done < <(find "$image_dir" -type f -name layer.tar -print0)
   return 1
 }
 
