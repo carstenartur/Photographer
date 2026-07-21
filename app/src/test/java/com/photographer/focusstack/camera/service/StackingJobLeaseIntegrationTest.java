@@ -32,12 +32,17 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -63,11 +68,20 @@ class StackingJobLeaseIntegrationTest {
             "job-1", "cam-1", JobStatus.CREATED,
             null, null, PARAMETERS, List.of(), null, null);
 
+    private AtomicReference<StackingJobEntity> persistedJob;
+
     @BeforeEach
     void setUpProfileAndJob() {
-        when(repository.findById("job-1"))
-                .thenReturn(Optional.of(StackingJobEntity.fromRecord(CREATED_JOB)));
-        when(profileService.getProfile("cam-1")).thenReturn(PROFILE);
+        persistedJob = new AtomicReference<>(StackingJobEntity.fromRecord(CREATED_JOB));
+        lenient().when(repository.findById("job-1"))
+                .thenAnswer(invocation -> Optional.ofNullable(persistedJob.get()));
+        lenient().when(repository.save(any(StackingJobEntity.class)))
+                .thenAnswer(invocation -> {
+                    StackingJobEntity entity = invocation.getArgument(0);
+                    persistedJob.set(entity);
+                    return entity;
+                });
+        lenient().when(profileService.getProfile("cam-1")).thenReturn(PROFILE);
     }
 
     @Test
@@ -90,8 +104,7 @@ class StackingJobLeaseIntegrationTest {
 
         verify(backendFactory).getBackend(PROFILE);
         assertThat(manager.metrics().activeLeases()).isZero();
-        verify(repository).save(org.mockito.ArgumentMatchers.argThat(
-                entity -> entity.getStatus() == JobStatus.FAILED));
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.FAILED);
     }
 
     @Test
@@ -108,8 +121,7 @@ class StackingJobLeaseIntegrationTest {
         }
 
         verify(backendFactory, never()).getBackend(any());
-        verify(repository, never()).save(org.mockito.ArgumentMatchers.argThat(
-                entity -> entity.getStatus() == JobStatus.RUNNING));
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.CREATED);
     }
 
     @Test
@@ -126,8 +138,7 @@ class StackingJobLeaseIntegrationTest {
 
         assertThat(manager.metrics().activeLeases()).isZero();
         verify(backendFactory, never()).getBackend(any());
-        verify(repository).save(org.mockito.ArgumentMatchers.argThat(
-                entity -> entity.getStatus() == JobStatus.FAILED));
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.FAILED);
 
         CameraLeaseKey key = CameraLeaseKey.fromCcapiProfile(PROFILE);
         try (CameraSessionLease retry = manager.acquire(new CameraLeaseRequest(
@@ -135,6 +146,104 @@ class StackingJobLeaseIntegrationTest {
                 "direct-2", "different-owner", Duration.ofMinutes(30)))) {
             assertThat(retry).isNotNull();
         }
+    }
+
+    @Test
+    void cancelBeforeQueuedTaskStartsReleasesLeaseWithoutCameraContact() {
+        InMemoryCameraSessionLeaseManager manager = manager();
+        AtomicReference<Runnable> scheduled = new AtomicReference<>();
+        StackingJobService service = service(manager, scheduled::set);
+
+        service.startJob("job-1");
+        assertThat(manager.metrics().activeLeases()).isEqualTo(1);
+
+        service.cancelJob("job-1");
+
+        assertThat(manager.metrics().activeLeases()).isZero();
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.CANCELLED);
+        scheduled.get().run();
+
+        verify(backendFactory, never()).getBackend(any());
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.CANCELLED);
+    }
+
+    @Test
+    void pauseResumeSupersedesOldQueuedTask() {
+        InMemoryCameraSessionLeaseManager manager = manager();
+        List<Runnable> scheduled = new CopyOnWriteArrayList<>();
+        StackingJobService service = service(manager, scheduled::add);
+
+        service.startJob("job-1");
+        service.pauseJob("job-1");
+        assertThat(manager.metrics().activeLeases()).isZero();
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.PAUSED);
+
+        service.startJob("job-1");
+        assertThat(scheduled).hasSize(2);
+        assertThat(manager.metrics().activeLeases()).isEqualTo(1);
+
+        scheduled.get(0).run();
+        verify(backendFactory, never()).getBackend(any());
+
+        when(backendFactory.getBackend(PROFILE))
+                .thenThrow(new CameraException("second attempt completed test path"));
+        scheduled.get(1).run();
+
+        verify(backendFactory, times(1)).getBackend(PROFILE);
+        assertThat(manager.metrics().activeLeases()).isZero();
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.FAILED);
+    }
+
+    @Test
+    void secondStartWhileFirstAttemptIsQueuedIsRejected() {
+        InMemoryCameraSessionLeaseManager manager = manager();
+        List<Runnable> scheduled = new CopyOnWriteArrayList<>();
+        StackingJobService service = service(manager, scheduled::add);
+
+        service.startJob("job-1");
+
+        assertThatThrownBy(() -> service.startJob("job-1"))
+                .isInstanceOf(CameraException.class)
+                .hasMessageContaining("state: RUNNING");
+        assertThat(scheduled).hasSize(1);
+
+        service.cancelJob("job-1");
+        assertThat(manager.metrics().activeLeases()).isZero();
+    }
+
+    @Test
+    void runningAttemptRetainsLeaseAndBlocksResumeUntilItStops() throws Exception {
+        InMemoryCameraSessionLeaseManager manager = manager();
+        AtomicReference<Runnable> scheduled = new AtomicReference<>();
+        StackingJobService service = service(manager, scheduled::set);
+        CountDownLatch backendEntered = new CountDownLatch(1);
+        CountDownLatch releaseBackend = new CountDownLatch(1);
+        when(backendFactory.getBackend(PROFILE)).thenAnswer(invocation -> {
+            backendEntered.countDown();
+            if (!releaseBackend.await(5, TimeUnit.SECONDS)) {
+                throw new CameraException("backend test latch timed out");
+            }
+            throw new CameraException("synthetic stop completion");
+        });
+
+        service.startJob("job-1");
+        Thread worker = new Thread(scheduled.get(), "stacking-lease-test");
+        worker.start();
+        assertThat(backendEntered.await(5, TimeUnit.SECONDS)).isTrue();
+
+        service.pauseJob("job-1");
+
+        assertThat(manager.metrics().activeLeases()).isEqualTo(1);
+        assertThatThrownBy(() -> service.startJob("job-1"))
+                .isInstanceOf(CameraException.class)
+                .hasMessageContaining("still stopping");
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.PAUSED);
+
+        releaseBackend.countDown();
+        worker.join(5_000);
+        assertThat(worker.isAlive()).isFalse();
+        assertThat(manager.metrics().activeLeases()).isZero();
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.PAUSED);
     }
 
     private StackingJobService service(
