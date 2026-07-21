@@ -26,11 +26,12 @@ class CcapiConfigTreeBindingTest {
         Files.writeString(secrets.resolve(
                 "focusstack.camera.ccapi.credentials.camera-smoke.password"), password);
 
+        String configTree = secrets.toAbsolutePath().normalize() + "/";
         new ApplicationContextRunner()
                 .withInitializer(new ConfigDataApplicationContextInitializer())
                 .withUserConfiguration(TestConfiguration.class)
                 .withSystemProperties(
-                        "spring.config.import=configtree:" + secrets.toUri())
+                        "spring.config.import=configtree:" + configTree)
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     CcapiAuthenticationProperties properties =
