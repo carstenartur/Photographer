@@ -18,6 +18,10 @@ CCAPI_CONFIG_FILE = Path(
     "app/src/main/java/com/photographer/focusstack/app/config/"
     "CcapiAuthenticationProperties.java"
 )
+CCAPI_STARTUP_VALIDATOR_FILE = Path(
+    "app/src/main/java/com/photographer/focusstack/app/config/"
+    "CcapiCredentialStartupValidator.java"
+)
 
 ALLOWED_APACHE_MAIN_FILES = {
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java"),
@@ -26,6 +30,7 @@ ALLOWED_APACHE_MAIN_FILES = {
 ALLOWED_CREDENTIAL_MAIN_FILES = {
     Path("app/src/main/java/com/photographer/focusstack/FocusStackApplication.java"),
     CCAPI_CONFIG_FILE,
+    CCAPI_STARTUP_VALIDATOR_FILE,
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CameraBackendFactory.java"),
     Path("app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java"),
 }

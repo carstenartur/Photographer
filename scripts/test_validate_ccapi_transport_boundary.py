@@ -27,7 +27,7 @@ POM = """<?xml version="1.0" encoding="UTF-8"?>
 
 class CcapiTransportBoundaryTest(unittest.TestCase):
 
-    def test_accepts_reviewed_app_transport_and_public_modules_without_httpclient(self) -> None:
+    def test_accepts_reviewed_app_transport_and_binding_components(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             self._write_pom(root / "app/pom.xml", apache=True)
@@ -42,6 +42,12 @@ class CcapiTransportBoundaryTest(unittest.TestCase):
                 root / "app/src/main/java/com/photographer/focusstack/app/config/CcapiAuthenticationProperties.java",
                 "package com.photographer.focusstack.app.config;\n"
                 "class CcapiAuthenticationProperties { public String toString() { return \"<redacted>\"; } }\n",
+            )
+            self._write_java(
+                root / "app/src/main/java/com/photographer/focusstack/app/config/CcapiCredentialStartupValidator.java",
+                "package com.photographer.focusstack.app.config;\n"
+                "class CcapiCredentialStartupValidator { "
+                "CcapiAuthenticationProperties credentials; }\n",
             )
 
             validate(root)
@@ -76,6 +82,18 @@ class CcapiTransportBoundaryTest(unittest.TestCase):
                 "package example;\n"
                 "import com.photographer.focusstack.app.config.CcapiAuthenticationProperties;\n"
                 "class CameraController { CcapiAuthenticationProperties credentials; }\n",
+            )
+
+            with self.assertRaisesRegex(BoundaryValidationError, "credential type"):
+                validate(root)
+
+    def test_does_not_allow_arbitrary_config_class_to_join_credential_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_java(
+                root / "app/src/main/java/com/photographer/focusstack/app/config/LeakyCredentialExporter.java",
+                "package com.photographer.focusstack.app.config;\n"
+                "class LeakyCredentialExporter { CcapiAuthenticationProperties credentials; }\n",
             )
 
             with self.assertRaisesRegex(BoundaryValidationError, "credential type"):
