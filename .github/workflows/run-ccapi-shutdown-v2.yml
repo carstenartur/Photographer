@@ -57,19 +57,21 @@ jobs:
           bash /tmp/implement-ccapi-shutdown-v2.sh 2>&1 | tee /tmp/shutdown-v2-outer.log
           status=${PIPESTATUS[0]}
           set -e
-          if [ "$status" -ne 0 ]; then
-            grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:' \
-              /tmp/shutdown-v2-outer.log | tail -n 240 > /tmp/shutdown-v2-outer-diagnostics.txt || true
-            exit "$status"
-          fi
+          mkdir -p "$GITHUB_WORKSPACE/runner-diagnostics"
+          cp /tmp/shutdown-v2-outer.log \
+             "$GITHUB_WORKSPACE/runner-diagnostics/shutdown-v2-outer.log"
+          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:' \
+            /tmp/shutdown-v2-outer.log | tail -n 240 \
+            > "$GITHUB_WORKSPACE/runner-diagnostics/shutdown-v2-outer-diagnostics.txt" || true
+          printf 'exit_code=%s\n' "$status" \
+            > "$GITHUB_WORKSPACE/runner-diagnostics/status.txt"
+          exit "$status"
 
       - name: Upload complete execution diagnostics
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ccapi-shutdown-v2-runner-log
-          path: |
-            /tmp/shutdown-v2-outer.log
-            /tmp/shutdown-v2-outer-diagnostics.txt
-          if-no-files-found: warn
+          path: runner-diagnostics/
+          if-no-files-found: error
           retention-days: 7
