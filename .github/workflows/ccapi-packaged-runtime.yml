@@ -1,0 +1,67 @@
+name: CCAPI Packaged Runtime
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose*.yml'
+      - 'docker/ccapi-secrets/**'
+      - 'scripts/verify_ccapi_packaged_runtime.sh'
+      - 'app/src/main/java/com/photographer/focusstack/app/config/Ccapi*.java'
+      - 'app/src/main/java/com/photographer/focusstack/FocusStackApplication.java'
+      - 'app/src/main/resources/application-docker.yml'
+      - 'app/src/test/java/com/photographer/focusstack/app/config/Ccapi*.java'
+      - '.github/workflows/ccapi-packaged-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ccapi-packaged-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  binding-contract:
+    name: Config-tree binding contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+      - name: Test external binding and startup validation
+        run: >-
+          mvn -B --no-transfer-progress test
+          -pl app -am
+          -Dtest=CcapiAuthenticationPropertiesTest,CcapiConfigTreeBindingTest,CcapiCredentialStartupValidatorTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Djava.awt.headless=true
+      - name: Publish binding tests
+        uses: dorny/test-reporter@v3
+        if: always()
+        continue-on-error: true
+        with:
+          name: CCAPI config-tree binding tests
+          path: 'app/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
+          fail-on-error: false
+
+  packaged-runtime:
+    name: Image secrets and bounded shutdown
+    needs: binding-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build and run packaged-runtime smoke
+        run: bash scripts/verify_ccapi_packaged_runtime.sh
