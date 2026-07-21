@@ -85,14 +85,14 @@ class CameraControllerTest {
         doAnswer(invocation -> {
             ((Consumer<CameraBackend>) invocation.getArgument(1)).accept(cameraBackend);
             return null;
-        }).when(directControl).withBackend(eq("cam-1"), any(Consumer.class));
+        }).when(directControl).withBackendVoid(eq("cam-1"), any(Consumer.class));
         when(directControl.withProfileLease(eq("cam-1"), any(Supplier.class)))
                 .thenAnswer(invocation -> ((Supplier<Object>) invocation
                         .getArgument(1)).get());
         doAnswer(invocation -> {
             ((Runnable) invocation.getArgument(1)).run();
             return null;
-        }).when(directControl).withProfileLease(eq("cam-1"), any(Runnable.class));
+        }).when(directControl).withProfileLeaseVoid(eq("cam-1"), any(Runnable.class));
     }
 
     @Test
@@ -167,7 +167,7 @@ class CameraControllerTest {
                         .content(objectMapper.writeValueAsString(command)))
                 .andExpect(status().isOk());
 
-        verify(directControl).withBackend(eq("cam-1"), any(Consumer.class));
+        verify(directControl).withBackendVoid(eq("cam-1"), any(Consumer.class));
         verify(cameraBackend).setFocus(command);
     }
 
@@ -192,7 +192,7 @@ class CameraControllerTest {
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(directControl).withProfileLease(eq("cam-1"), any(Runnable.class));
+        verify(directControl).withProfileLeaseVoid(eq("cam-1"), any(Runnable.class));
         verify(backendFactory).evict("cam-1");
         verify(profileService).deleteProfile("cam-1");
     }
