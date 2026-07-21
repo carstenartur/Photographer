@@ -70,35 +70,31 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
 
         Instant now = clock.instant();
         AtomicReference<LeaseState> acquired = new AtomicReference<>();
-        try {
-            leases.compute(request.cameraKey(), (key, current) -> {
-                if (current == null) {
-                    LeaseState created = new LeaseState(
-                            request.ownerToken(),
-                            validatedCorrelationId(correlationIdSupplier.get()),
-                            request.workflowType(),
-                            now.plus(request.requestedLifetime()),
-                            1);
-                    acquired.set(created);
-                    return created;
-                }
-                if (!current.ownerToken().equals(request.ownerToken())) {
-                    conflicts.incrementAndGet();
-                    throw new CameraSessionConflictException(
-                            current.correlationId(),
-                            current.workflowType(),
-                            retryAfter(now, current.hardDeadline()));
-                }
-                if (current.handleCount() >= maximumReentrantHandles) {
-                    throw new IllegalStateException("Camera lease reentrant handle limit exceeded");
-                }
-                LeaseState reentrant = current.withHandleCount(current.handleCount() + 1);
-                acquired.set(reentrant);
-                return reentrant;
-            });
-        } catch (CameraSessionConflictException conflict) {
-            throw conflict;
-        }
+        leases.compute(request.cameraKey(), (key, current) -> {
+            if (current == null) {
+                LeaseState created = new LeaseState(
+                        request.ownerToken(),
+                        validatedCorrelationId(correlationIdSupplier.get()),
+                        request.workflowType(),
+                        now.plus(request.requestedLifetime()),
+                        1);
+                acquired.set(created);
+                return created;
+            }
+            if (!current.ownerToken().equals(request.ownerToken())) {
+                conflicts.incrementAndGet();
+                throw new CameraSessionConflictException(
+                        current.correlationId(),
+                        current.workflowType(),
+                        retryAfter(now, current.hardDeadline()));
+            }
+            if (current.handleCount() >= maximumReentrantHandles) {
+                throw new IllegalStateException("Camera lease reentrant handle limit exceeded");
+            }
+            LeaseState reentrant = current.withHandleCount(current.handleCount() + 1);
+            acquired.set(reentrant);
+            return reentrant;
+        });
 
         LeaseState state = acquired.get();
         if (state == null) {
@@ -185,7 +181,7 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
     private record LeaseState(
             String ownerToken,
             String correlationId,
-            String workflowType,
+            CameraWorkflowType workflowType,
             Instant hardDeadline,
             int handleCount) {
 
