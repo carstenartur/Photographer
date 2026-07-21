@@ -3,14 +3,17 @@ name: CCAPI Session Lease
 on:
   pull_request:
     paths:
+      - 'common-api/src/main/java/com/photographer/focusstack/common/model/AstroCaptureConfig.java'
       - 'app/src/main/java/com/photographer/focusstack/camera/session/**'
       - 'app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java'
       - 'app/src/main/java/com/photographer/focusstack/camera/controller/HdrTimelapseController.java'
+      - 'app/src/main/java/com/photographer/focusstack/astro/**'
       - 'app/src/main/java/com/photographer/focusstack/app/config/SessionConfig.java'
       - 'app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java'
       - 'app/src/test/java/com/photographer/focusstack/camera/session/**'
       - 'app/src/test/java/com/photographer/focusstack/camera/service/*Lease*.java'
       - 'app/src/test/java/com/photographer/focusstack/camera/controller/HdrTimelapseControllerTest.java'
+      - 'app/src/test/java/com/photographer/focusstack/astro/**'
       - 'session-core/src/main/java/com/photographer/focusstack/session/**'
       - 'session-core/src/test/java/com/photographer/focusstack/session/**'
       - 'docs/ccapi-session-ownership.md'
