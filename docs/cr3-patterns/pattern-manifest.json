@@ -1,0 +1,639 @@
+{
+  "activeRegionNormalizedBottomLeft": {
+    "height": 0.88,
+    "width": 0.92,
+    "x": 0.04,
+    "y": 0.06
+  },
+  "borderLuminance": 0.5,
+  "captureRepeatsRequired": 2,
+  "grayCode": {
+    "bitOrder": "least-significant plane first",
+    "encoding": "binary-reflected Gray code: g = n XOR (n >> 1)",
+    "xBits": 6,
+    "xCells": 64,
+    "yBits": 5,
+    "yCells": 32
+  },
+  "issue": 249,
+  "patterns": [
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U00",
+      "page": 2,
+      "parameters": {
+        "level": 0.0
+      },
+      "title": "Uniform luminance 0.0000"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U01",
+      "page": 3,
+      "parameters": {
+        "level": 0.0625
+      },
+      "title": "Uniform luminance 0.0625"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U02",
+      "page": 4,
+      "parameters": {
+        "level": 0.125
+      },
+      "title": "Uniform luminance 0.1250"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U03",
+      "page": 5,
+      "parameters": {
+        "level": 0.25
+      },
+      "title": "Uniform luminance 0.2500"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U04",
+      "page": 6,
+      "parameters": {
+        "level": 0.5
+      },
+      "title": "Uniform luminance 0.5000"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U05",
+      "page": 7,
+      "parameters": {
+        "level": 0.75
+      },
+      "title": "Uniform luminance 0.7500"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U06",
+      "page": 8,
+      "parameters": {
+        "level": 0.9375
+      },
+      "title": "Uniform luminance 0.9375"
+    },
+    {
+      "discriminator": "Constant residual distribution and signal-level dependence.",
+      "family": "uniform",
+      "id": "U07",
+      "page": 9,
+      "parameters": {
+        "level": 1.0
+      },
+      "title": "Uniform luminance 1.0000"
+    },
+    {
+      "discriminator": "Spatial locality, scan direction, predictor boundary and tile/reset alignment.",
+      "family": "edge",
+      "id": "EX25",
+      "page": 10,
+      "parameters": {
+        "axis": "x",
+        "high": 0.875,
+        "low": 0.125,
+        "position": 0.25
+      },
+      "title": "Vertical edge at 25%"
+    },
+    {
+      "discriminator": "Spatial locality, scan direction, predictor boundary and tile/reset alignment.",
+      "family": "edge",
+      "id": "EX50",
+      "page": 11,
+      "parameters": {
+        "axis": "x",
+        "high": 0.875,
+        "low": 0.125,
+        "position": 0.5
+      },
+      "title": "Vertical edge at 50%"
+    },
+    {
+      "discriminator": "Spatial locality, scan direction, predictor boundary and tile/reset alignment.",
+      "family": "edge",
+      "id": "EX75",
+      "page": 12,
+      "parameters": {
+        "axis": "x",
+        "high": 0.875,
+        "low": 0.125,
+        "position": 0.75
+      },
+      "title": "Vertical edge at 75%"
+    },
+    {
+      "discriminator": "Spatial locality, scan direction, predictor boundary and tile/reset alignment.",
+      "family": "edge",
+      "id": "EY25",
+      "page": 13,
+      "parameters": {
+        "axis": "y",
+        "high": 0.875,
+        "low": 0.125,
+        "position": 0.25
+      },
+      "title": "Horizontal edge at 25%"
+    },
+    {
+      "discriminator": "Spatial locality, scan direction, predictor boundary and tile/reset alignment.",
+      "family": "edge",
+      "id": "EY50",
+      "page": 14,
+      "parameters": {
+        "axis": "y",
+        "high": 0.875,
+        "low": 0.125,
+        "position": 0.5
+      },
+      "title": "Horizontal edge at 50%"
+    },
+    {
+      "discriminator": "Spatial locality, scan direction, predictor boundary and tile/reset alignment.",
+      "family": "edge",
+      "id": "EY75",
+      "page": 15,
+      "parameters": {
+        "axis": "y",
+        "high": 0.875,
+        "low": 0.125,
+        "position": 0.75
+      },
+      "title": "Horizontal edge at 75%"
+    },
+    {
+      "discriminator": "Horizontal scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "VX04",
+      "page": 16,
+      "parameters": {
+        "axis": "x",
+        "cycles": 4,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Vertical binary bars, 4 cycles"
+    },
+    {
+      "discriminator": "Vertical scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "HY04",
+      "page": 17,
+      "parameters": {
+        "axis": "y",
+        "cycles": 4,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Horizontal binary bars, 4 cycles"
+    },
+    {
+      "discriminator": "Horizontal scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "VX08",
+      "page": 18,
+      "parameters": {
+        "axis": "x",
+        "cycles": 8,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Vertical binary bars, 8 cycles"
+    },
+    {
+      "discriminator": "Vertical scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "HY08",
+      "page": 19,
+      "parameters": {
+        "axis": "y",
+        "cycles": 8,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Horizontal binary bars, 8 cycles"
+    },
+    {
+      "discriminator": "Horizontal scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "VX16",
+      "page": 20,
+      "parameters": {
+        "axis": "x",
+        "cycles": 16,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Vertical binary bars, 16 cycles"
+    },
+    {
+      "discriminator": "Vertical scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "HY16",
+      "page": 21,
+      "parameters": {
+        "axis": "y",
+        "cycles": 16,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Horizontal binary bars, 16 cycles"
+    },
+    {
+      "discriminator": "Horizontal scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "VX32",
+      "page": 22,
+      "parameters": {
+        "axis": "x",
+        "cycles": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Vertical binary bars, 32 cycles"
+    },
+    {
+      "discriminator": "Vertical scan/predictor response and periodic payload structure.",
+      "family": "directional-frequency",
+      "id": "HY32",
+      "page": 23,
+      "parameters": {
+        "axis": "y",
+        "cycles": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Horizontal binary bars, 32 cycles"
+    },
+    {
+      "discriminator": "Two-dimensional high-frequency response and block/subband sensitivity.",
+      "family": "checkerboard",
+      "id": "C08",
+      "page": 24,
+      "parameters": {
+        "columns": 8,
+        "high": 0.875,
+        "low": 0.125,
+        "rows": 4
+      },
+      "title": "Checkerboard 8 x 4"
+    },
+    {
+      "discriminator": "Two-dimensional high-frequency response and block/subband sensitivity.",
+      "family": "checkerboard",
+      "id": "C32",
+      "page": 25,
+      "parameters": {
+        "columns": 32,
+        "high": 0.875,
+        "low": 0.125,
+        "rows": 18
+      },
+      "title": "Checkerboard 32 x 18"
+    },
+    {
+      "discriminator": "Movement of one local stimulus against changed payload intervals.",
+      "family": "localized-block",
+      "id": "B_C",
+      "page": 26,
+      "parameters": {
+        "background": 0.125,
+        "center_x": 0.5,
+        "center_y": 0.5,
+        "foreground": 0.875,
+        "height": 0.18,
+        "width": 0.18
+      },
+      "title": "Bright block at (0.50, 0.50)"
+    },
+    {
+      "discriminator": "Movement of one local stimulus against changed payload intervals.",
+      "family": "localized-block",
+      "id": "B_TL",
+      "page": 27,
+      "parameters": {
+        "background": 0.125,
+        "center_x": 0.2,
+        "center_y": 0.8,
+        "foreground": 0.875,
+        "height": 0.18,
+        "width": 0.18
+      },
+      "title": "Bright block at (0.20, 0.80)"
+    },
+    {
+      "discriminator": "Movement of one local stimulus against changed payload intervals.",
+      "family": "localized-block",
+      "id": "B_TR",
+      "page": 28,
+      "parameters": {
+        "background": 0.125,
+        "center_x": 0.8,
+        "center_y": 0.8,
+        "foreground": 0.875,
+        "height": 0.18,
+        "width": 0.18
+      },
+      "title": "Bright block at (0.80, 0.80)"
+    },
+    {
+      "discriminator": "Movement of one local stimulus against changed payload intervals.",
+      "family": "localized-block",
+      "id": "B_BL",
+      "page": 29,
+      "parameters": {
+        "background": 0.125,
+        "center_x": 0.2,
+        "center_y": 0.2,
+        "foreground": 0.875,
+        "height": 0.18,
+        "width": 0.18
+      },
+      "title": "Bright block at (0.20, 0.20)"
+    },
+    {
+      "discriminator": "Movement of one local stimulus against changed payload intervals.",
+      "family": "localized-block",
+      "id": "B_BR",
+      "page": 30,
+      "parameters": {
+        "background": 0.125,
+        "center_x": 0.8,
+        "center_y": 0.2,
+        "foreground": 0.875,
+        "height": 0.18,
+        "width": 0.18
+      },
+      "title": "Bright block at (0.80, 0.20)"
+    },
+    {
+      "discriminator": "Predictor residual ramp and horizontal causal neighbourhood.",
+      "family": "ramp",
+      "id": "GX",
+      "page": 31,
+      "parameters": {
+        "axis": "x",
+        "high": 0.9375,
+        "low": 0.0625
+      },
+      "title": "Horizontal linear gradient"
+    },
+    {
+      "discriminator": "Predictor residual ramp and vertical causal neighbourhood.",
+      "family": "ramp",
+      "id": "GY",
+      "page": 32,
+      "parameters": {
+        "axis": "y",
+        "high": 0.9375,
+        "low": 0.0625
+      },
+      "title": "Vertical linear gradient"
+    },
+    {
+      "discriminator": "Discrete residual magnitudes and K-adaptation transitions.",
+      "family": "ramp",
+      "id": "STEP16",
+      "page": 33,
+      "parameters": {
+        "axis": "x",
+        "high": 0.9375,
+        "low": 0.0625,
+        "steps": 16
+      },
+      "title": "Horizontal 16-level staircase"
+    },
+    {
+      "discriminator": "Unique coarse X-coordinate correlation across the complete XG sequence.",
+      "family": "gray-code-x",
+      "id": "XG0",
+      "page": 34,
+      "parameters": {
+        "axis": "x",
+        "bit": 0,
+        "cells": 64,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "X Gray-code plane bit 0 over 64 columns"
+    },
+    {
+      "discriminator": "Unique coarse X-coordinate correlation across the complete XG sequence.",
+      "family": "gray-code-x",
+      "id": "XG1",
+      "page": 35,
+      "parameters": {
+        "axis": "x",
+        "bit": 1,
+        "cells": 64,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "X Gray-code plane bit 1 over 64 columns"
+    },
+    {
+      "discriminator": "Unique coarse X-coordinate correlation across the complete XG sequence.",
+      "family": "gray-code-x",
+      "id": "XG2",
+      "page": 36,
+      "parameters": {
+        "axis": "x",
+        "bit": 2,
+        "cells": 64,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "X Gray-code plane bit 2 over 64 columns"
+    },
+    {
+      "discriminator": "Unique coarse X-coordinate correlation across the complete XG sequence.",
+      "family": "gray-code-x",
+      "id": "XG3",
+      "page": 37,
+      "parameters": {
+        "axis": "x",
+        "bit": 3,
+        "cells": 64,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "X Gray-code plane bit 3 over 64 columns"
+    },
+    {
+      "discriminator": "Unique coarse X-coordinate correlation across the complete XG sequence.",
+      "family": "gray-code-x",
+      "id": "XG4",
+      "page": 38,
+      "parameters": {
+        "axis": "x",
+        "bit": 4,
+        "cells": 64,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "X Gray-code plane bit 4 over 64 columns"
+    },
+    {
+      "discriminator": "Unique coarse X-coordinate correlation across the complete XG sequence.",
+      "family": "gray-code-x",
+      "id": "XG5",
+      "page": 39,
+      "parameters": {
+        "axis": "x",
+        "bit": 5,
+        "cells": 64,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "X Gray-code plane bit 5 over 64 columns"
+    },
+    {
+      "discriminator": "Unique coarse Y-coordinate correlation across the complete YG sequence.",
+      "family": "gray-code-y",
+      "id": "YG0",
+      "page": 40,
+      "parameters": {
+        "axis": "y",
+        "bit": 0,
+        "cells": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Y Gray-code plane bit 0 over 32 rows"
+    },
+    {
+      "discriminator": "Unique coarse Y-coordinate correlation across the complete YG sequence.",
+      "family": "gray-code-y",
+      "id": "YG1",
+      "page": 41,
+      "parameters": {
+        "axis": "y",
+        "bit": 1,
+        "cells": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Y Gray-code plane bit 1 over 32 rows"
+    },
+    {
+      "discriminator": "Unique coarse Y-coordinate correlation across the complete YG sequence.",
+      "family": "gray-code-y",
+      "id": "YG2",
+      "page": 42,
+      "parameters": {
+        "axis": "y",
+        "bit": 2,
+        "cells": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Y Gray-code plane bit 2 over 32 rows"
+    },
+    {
+      "discriminator": "Unique coarse Y-coordinate correlation across the complete YG sequence.",
+      "family": "gray-code-y",
+      "id": "YG3",
+      "page": 43,
+      "parameters": {
+        "axis": "y",
+        "bit": 3,
+        "cells": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Y Gray-code plane bit 3 over 32 rows"
+    },
+    {
+      "discriminator": "Unique coarse Y-coordinate correlation across the complete YG sequence.",
+      "family": "gray-code-y",
+      "id": "YG4",
+      "page": 44,
+      "parameters": {
+        "axis": "y",
+        "bit": 4,
+        "cells": 32,
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Y Gray-code plane bit 4 over 32 rows"
+    },
+    {
+      "discriminator": "High-information fixed spatial signature and polarity control.",
+      "family": "prbs",
+      "id": "PRBS32",
+      "page": 45,
+      "parameters": {
+        "columns": 32,
+        "high": 0.875,
+        "inverse": false,
+        "low": 0.125,
+        "rows": 18,
+        "seed": "CR3-D14-PRBS32-v1"
+      },
+      "title": "deterministic 32 x 18 binary field"
+    },
+    {
+      "discriminator": "High-information fixed spatial signature and polarity control.",
+      "family": "prbs",
+      "id": "PRBS32I",
+      "page": 46,
+      "parameters": {
+        "columns": 32,
+        "high": 0.875,
+        "inverse": true,
+        "low": 0.125,
+        "rows": 18,
+        "seed": "CR3-D14-PRBS32-v1"
+      },
+      "title": "Inverse deterministic 32 x 18 binary field"
+    },
+    {
+      "discriminator": "Confirms rotation, mirroring and active-region registration.",
+      "family": "orientation",
+      "id": "ORI",
+      "page": 47,
+      "parameters": {},
+      "title": "Asymmetric orientation field"
+    },
+    {
+      "discriminator": "Separates row/column ordering from two-dimensional locality.",
+      "family": "diagonal",
+      "id": "D45A",
+      "page": 48,
+      "parameters": {
+        "direction": "rising",
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Diagonal split rising"
+    },
+    {
+      "discriminator": "Mirror control for diagonal locality.",
+      "family": "diagonal",
+      "id": "D45B",
+      "page": 49,
+      "parameters": {
+        "direction": "falling",
+        "high": 0.875,
+        "low": 0.125
+      },
+      "title": "Diagonal split falling"
+    }
+  ],
+  "schema": "pattern-manifest-v1",
+  "version": "1.0.0"
+}
