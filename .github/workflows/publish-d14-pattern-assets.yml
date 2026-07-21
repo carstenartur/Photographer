@@ -1,0 +1,85 @@
+name: Publish D14 CR3 pattern assets
+
+on:
+  push:
+    branches:
+      - automation/publish-d14-pattern-assets
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-d14-pattern-assets
+  cancel-in-progress: true
+
+jobs:
+  generate-verify-publish:
+    if: ${{ !contains(github.event.head_commit.message, '[skip d14 publish]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout complete repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Generate and verify deterministic PDFs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin --prune
+          git switch -C d14-assets origin/research/d14-diagnostic-pattern-assets
+          python -m pip install --disable-pip-version-check reportlab==4.4.9
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+
+          python docs/cr3-patterns/generate_cr3_patterns.py --out-dir docs/cr3-patterns
+          mkdir -p /tmp/d14-first
+          cp docs/cr3-patterns/*.pdf docs/cr3-patterns/pattern-manifest.json /tmp/d14-first/
+          python docs/cr3-patterns/generate_cr3_patterns.py --out-dir docs/cr3-patterns
+          cmp /tmp/d14-first/cr3-diagnostic-patterns-screen-16x9.pdf docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf
+          cmp /tmp/d14-first/cr3-diagnostic-patterns-print-a4-landscape.pdf docs/cr3-patterns/cr3-diagnostic-patterns-print-a4-landscape.pdf
+          cmp /tmp/d14-first/pattern-manifest.json docs/cr3-patterns/pattern-manifest.json
+
+          test "$(pdfinfo docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf | awk '/^Pages:/ {print $2}')" = 49
+          test "$(pdfinfo docs/cr3-patterns/cr3-diagnostic-patterns-print-a4-landscape.pdf | awk '/^Pages:/ {print $2}')" = 49
+          mkdir -p /tmp/d14-render
+          pdftoppm -f 1 -l 1 -singlefile -png -r 90 docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf /tmp/d14-render/cover >/dev/null 2>&1
+          pdftoppm -f 37 -l 37 -singlefile -png -r 90 docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf /tmp/d14-render/graycode >/dev/null 2>&1
+          pdftoppm -f 45 -l 45 -singlefile -png -r 90 docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf /tmp/d14-render/prbs >/dev/null 2>&1
+          test -s /tmp/d14-render/cover.png
+          test -s /tmp/d14-render/graycode.png
+          test -s /tmp/d14-render/prbs.png
+
+          git add docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf \
+                  docs/cr3-patterns/cr3-diagnostic-patterns-print-a4-landscape.pdf \
+                  docs/cr3-patterns/pattern-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "research(cr3): publish deterministic D14 pattern PDFs"
+            git push origin HEAD:research/d14-diagnostic-pattern-assets
+          fi
+          ASSET_SHA=$(git rev-parse HEAD)
+          SCREEN_SHA=$(sha256sum docs/cr3-patterns/cr3-diagnostic-patterns-screen-16x9.pdf | awk '{print $1}')
+          PRINT_SHA=$(sha256sum docs/cr3-patterns/cr3-diagnostic-patterns-print-a4-landscape.pdf | awk '{print $1}')
+          MANIFEST_SHA=$(sha256sum docs/cr3-patterns/pattern-manifest.json | awk '{print $1}')
+
+          git switch automation/publish-d14-pattern-assets
+          cat > d14-pattern-assets.status <<EOF
+          status=success
+          asset_commit=${ASSET_SHA}
+          screen_sha256=${SCREEN_SHA}
+          print_sha256=${PRINT_SHA}
+          manifest_sha256=${MANIFEST_SHA}
+          pages=49
+          EOF
+          git add d14-pattern-assets.status
+          git commit -m "ci(cr3): record D14 asset publication [skip d14 publish]"
+          git push origin automation/publish-d14-pattern-assets
