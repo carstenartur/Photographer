@@ -8,6 +8,12 @@ import java.util.Objects;
 /** Correlates an observed bit-plane signature with predeclared Gray-code cells. */
 final class GrayCodeSpatialCorrelator {
 
+    enum Polarity {
+        DIRECT,
+        INVERTED,
+        EITHER
+    }
+
     record Candidate(int coordinate, boolean inverted, int hammingDistance) {
         Candidate {
             if (coordinate < 0 || hammingDistance < 0) {
@@ -20,9 +26,11 @@ final class GrayCodeSpatialCorrelator {
             int cells,
             int observedBits,
             int requiredBits,
+            Polarity polarity,
             int minimumDistance,
             List<Candidate> bestCandidates) {
         Result {
+            Objects.requireNonNull(polarity, "polarity");
             bestCandidates = List.copyOf(bestCandidates);
         }
 
@@ -42,7 +50,12 @@ final class GrayCodeSpatialCorrelator {
     }
 
     static Result correlate(boolean[] observed, int cells) {
+        return correlate(observed, cells, Polarity.EITHER);
+    }
+
+    static Result correlate(boolean[] observed, int cells, Polarity polarity) {
         Objects.requireNonNull(observed, "observed");
+        Objects.requireNonNull(polarity, "polarity");
         if (cells < 2) {
             throw new IllegalArgumentException("cells must be at least 2");
         }
@@ -52,15 +65,21 @@ final class GrayCodeSpatialCorrelator {
                     "observed bit count must be between 1 and " + requiredBits);
         }
 
-        List<Candidate> candidates = new ArrayList<>(cells * 2);
+        List<Candidate> candidates = new ArrayList<>(
+                polarity == Polarity.EITHER ? cells * 2 : cells);
         int minimumDistance = Integer.MAX_VALUE;
         for (int coordinate = 0; coordinate < cells; coordinate++) {
             int grayCode = coordinate ^ (coordinate >>> 1);
-            int directDistance = distance(observed, grayCode, false);
-            int invertedDistance = distance(observed, grayCode, true);
-            minimumDistance = Math.min(minimumDistance, Math.min(directDistance, invertedDistance));
-            candidates.add(new Candidate(coordinate, false, directDistance));
-            candidates.add(new Candidate(coordinate, true, invertedDistance));
+            if (polarity != Polarity.INVERTED) {
+                int directDistance = distance(observed, grayCode, false);
+                minimumDistance = Math.min(minimumDistance, directDistance);
+                candidates.add(new Candidate(coordinate, false, directDistance));
+            }
+            if (polarity != Polarity.DIRECT) {
+                int invertedDistance = distance(observed, grayCode, true);
+                minimumDistance = Math.min(minimumDistance, invertedDistance);
+                candidates.add(new Candidate(coordinate, true, invertedDistance));
+            }
         }
 
         int bestDistance = minimumDistance;
@@ -69,7 +88,8 @@ final class GrayCodeSpatialCorrelator {
                 .sorted(Comparator.comparingInt(Candidate::coordinate)
                         .thenComparing(Candidate::inverted))
                 .toList();
-        return new Result(cells, observed.length, requiredBits, bestDistance, best);
+        return new Result(cells, observed.length, requiredBits,
+                polarity, bestDistance, best);
     }
 
     static boolean[] codeWord(int coordinate, int cells) {
