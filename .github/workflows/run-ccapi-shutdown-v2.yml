@@ -73,7 +73,6 @@ jobs:
             "$GITHUB_WORKSPACE/runner-diagnostics/shutdown-v2-outer.log"
           tail -n 100 /tmp/shutdown-v2-outer.log \
             > "$GITHUB_WORKSPACE/runner-diagnostics/failure-tail.log"
-          cat "$GITHUB_WORKSPACE/runner-diagnostics/failure-tail.log"
           exit 0
 
       - name: Upload complete execution diagnostics
@@ -102,3 +101,25 @@ jobs:
             echo "Coordinated shutdown implementation failed with exit code $status" >&2
             exit "$status"
           fi
+
+  report-diagnostics:
+    if: always()
+    needs: run-versioned-implementation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download shutdown diagnostics
+        uses: actions/download-artifact@v8
+        with:
+          name: ccapi-shutdown-v2-runner-log
+          path: diagnostics
+
+      - name: Print focused failure summary
+        shell: bash
+        run: |
+          echo '--- coordinated shutdown focused diagnostic ---'
+          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:' \
+            diagnostics/failure-tail.log | tail -n 30 || \
+            tail -n 30 diagnostics/failure-tail.log
+          status=$(cat diagnostics/exit-code)
+          echo "inner_exit_code=$status"
+          test "$status" -eq 0
