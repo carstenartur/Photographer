@@ -14,7 +14,9 @@
 | D10 | One transition class predicts failure | COMPLETE: NO PREDICTIVE CLASS | Candidate classes also occur in improved files. See [D10](cr3-results/2026-07-20-D10-k-transition-outcome-matrix.md). |
 | D11 | Primary source defines an exact base K range | COMPLETE | The range is the finite-domain minimum of the disclosed code length. CRX context remains unresolved. See [D11](cr3-results/2026-07-20-D11-canon-k-source-audit.md). |
 | D12 | The exact range alone fixes D8 | PARTIAL | OB median improves, but global, boundary, saturation, family and stream gates fail. See [D12](cr3-results/2026-07-20-D12-exact-k-bracket.md). |
-| D13 | Tentative-symbol context can be mapped to CRX topology | OPEN OBSERVATION | Resolve `Sd`, `Sn`, `Kd`, causal boundaries and subband roles before another decoder candidate. Issue #238. |
+| D13 | Tentative-symbol context can be mapped from the fixed lossless CRX topology | COMPLETE: INSUFFICIENT | All 88 records are lossless single-subband records. The panel exposes no deeper `Sd`, LL/HL/LH/HH role or `Kd` lifecycle. D14 is blocked. See [D13](cr3-results/2026-07-20-D13-context-topology.md). |
+
+Blocked without genuinely new evidence: `Sd`/`Kd` semantics, multi-subband role mapping and any D14 entropy candidate.
 
 Deferred without new evidence: quantisation, PRVW geometry, CFA layout, generic alignment, predictor-family, sign-mapping, transition-frequency and current-symbol K-bracket sweeps.
 
