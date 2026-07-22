@@ -39,6 +39,18 @@ class DeterministicResultWriterTest {
     }
 
     @Test
+    void writesToTheSameNormalizedPathWhoseParentWasCreated(@TempDir Path temp)
+            throws Exception {
+        Path unresolved = temp.resolve("missing-segment").resolve("..").resolve("result.txt");
+
+        DeterministicResultWriter.write(unresolved, "value");
+
+        assertThat(Files.readString(temp.resolve("result.txt"), StandardCharsets.UTF_8))
+                .isEqualTo("value\n");
+        assertThat(temp.resolve("missing-segment")).doesNotExist();
+    }
+
+    @Test
     void overwritesExistingFilesDeterministically(@TempDir Path temp)
             throws Exception {
         DeterministicResultWriter.writeBundle(temp, "old", "old", "old");
@@ -58,6 +70,8 @@ class DeterministicResultWriterTest {
                 .isEqualTo("a\nb\nc\n");
         assertThat(DeterministicResultWriter.normalize(""))
                 .isEqualTo("\n");
+        assertThat(DeterministicResultWriter.normalize("already\n"))
+                .isEqualTo("already\n");
     }
 
     @Test
