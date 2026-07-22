@@ -1,9 +1,9 @@
 package com.photographer.focusstack.cr3.research;
 
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
+import com.photographer.focusstack.cr3.reference.DeterministicResultWriter;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,18 +40,17 @@ class KTransitionMatrixIT {
         List<KTransitionMatrixReport.Association> associations =
                 KTransitionMatrixReport.associations(fixtures);
 
-        Files.createDirectories(OUTPUT);
-        Files.writeString(OUTPUT.resolve("results.md"),
-                KTransitionMatrixReport.markdown(fixtures, associations));
-        Files.writeString(OUTPUT.resolve("results.tsv"),
-                KTransitionMatrixReport.tsv(fixtures));
-        Files.writeString(OUTPUT.resolve("results.json"),
-                KTransitionMatrixReport.json(fixtures, associations));
+        DeterministicResultWriter.ResultBundle bundle =
+                DeterministicResultWriter.writeBundle(
+                        OUTPUT,
+                        KTransitionMatrixReport.markdown(fixtures, associations),
+                        KTransitionMatrixReport.tsv(fixtures),
+                        KTransitionMatrixReport.json(fixtures, associations));
 
         assertThat(fixtures).hasSize(KAdaptationFixtureSet.PANEL.size());
-        assertThat(OUTPUT.resolve("results.md")).exists();
-        assertThat(OUTPUT.resolve("results.tsv")).exists();
-        assertThat(OUTPUT.resolve("results.json")).exists();
+        assertThat(bundle.markdown()).exists();
+        assertThat(bundle.tsv()).exists();
+        assertThat(bundle.json()).exists();
     }
 
     private static KTransitionMatrixReport.Fixture analyse(

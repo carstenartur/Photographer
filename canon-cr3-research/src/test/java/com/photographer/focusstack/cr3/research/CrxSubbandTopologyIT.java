@@ -1,6 +1,7 @@
 package com.photographer.focusstack.cr3.research;
 
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
+import com.photographer.focusstack.cr3.reference.DeterministicResultWriter;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -23,7 +24,6 @@ class CrxSubbandTopologyIT {
     void inventoryFixedPanelTopologyWithoutSelectingByImageQuality() throws Exception {
         List<Path> fixtures = requireFixedPanel(SAMPLES);
         assertThat(fixtures).hasSize(KAdaptationFixtureSet.PANEL.size());
-        Files.createDirectories(OUTPUT);
 
         List<CrxSubbandTopologyReport.Row> rows = new ArrayList<>();
         for (Path fixture : fixtures) {
@@ -32,12 +32,12 @@ class CrxSubbandTopologyIT {
         rows.sort(Comparator.comparing(CrxSubbandTopologyReport.Row::fixture)
                 .thenComparingInt(CrxSubbandTopologyReport.Row::recordOrder));
 
-        Files.writeString(OUTPUT.resolve("results.md"),
-                CrxSubbandTopologyReport.markdown(rows));
-        Files.writeString(OUTPUT.resolve("results.tsv"),
-                CrxSubbandTopologyReport.tsv(rows));
-        Files.writeString(OUTPUT.resolve("results.json"),
-                CrxSubbandTopologyReport.json(rows));
+        DeterministicResultWriter.ResultBundle bundle =
+                DeterministicResultWriter.writeBundle(
+                        OUTPUT,
+                        CrxSubbandTopologyReport.markdown(rows),
+                        CrxSubbandTopologyReport.tsv(rows),
+                        CrxSubbandTopologyReport.json(rows));
 
         assertThat(rows).isNotEmpty();
         assertThat(rows.stream().map(CrxSubbandTopologyReport.Row::fixture).distinct())
@@ -53,9 +53,9 @@ class CrxSubbandTopologyIT {
             assertThat(row.causalAssessment())
                     .isEqualTo("NOT_APPLICABLE_WAVELET_LEVELS_0");
         });
-        assertThat(OUTPUT.resolve("results.md")).exists();
-        assertThat(OUTPUT.resolve("results.tsv")).exists();
-        assertThat(OUTPUT.resolve("results.json")).exists();
+        assertThat(bundle.markdown()).exists();
+        assertThat(bundle.tsv()).exists();
+        assertThat(bundle.json()).exists();
     }
 
     private static List<Path> requireFixedPanel(Path samples) {
