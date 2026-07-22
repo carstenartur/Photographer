@@ -175,8 +175,10 @@ public final class ReferenceFixtureResolver {
                         "Fixture must remain physically below the configured samples root");
             }
         } catch (IOException failure) {
+            // Do not retain the platform exception because it may contain an
+            // absolute host path in its message or file fields.
             throw new IllegalArgumentException(
-                    "Fixture path could not be resolved safely", failure);
+                    "Fixture path could not be resolved safely");
         }
     }
 
