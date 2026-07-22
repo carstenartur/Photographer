@@ -48,6 +48,87 @@ jobs:
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             cp scripts/harden_ccapi_shutdown_v2.py /tmp/harden_ccapi_shutdown_v2.py
+            python - <<'PY'
+          from pathlib import Path
+
+          path = Path('/tmp/harden_ccapi_shutdown_v2.py')
+          source = path.read_text()
+          helper = '''
+
+          def replace_method(path_name: str, signature: str, next_signature: str, replacement: str) -> None:
+              path = Path(path_name)
+              text = path.read_text()
+              start = text.index(signature)
+              end = text.index(next_signature, start)
+              path.write_text(text[:start] + replacement + "\\n\\n" + text[end:])
+          '''
+          source = source[:source.index('\n\nPath(')] + helper + source[source.index('\n\nPath('):]
+
+          def replace_chunk(start_marker: str, end_marker: str, replacement: str) -> None:
+              global source
+              start = source.index(start_marker)
+              end = source.index(end_marker, start)
+              source = source[:start] + replacement + source[end:]
+
+          replace_chunk(
+              'replace_once(\n    stacking,\n    """    private void ensureCameraServiceOpen()',
+              '\n\nmanager =',
+              '''replace_method(
+              stacking,
+              "    private void ensureCameraServiceOpen() {",
+              "    public StackingJob getJob",
+              """    private void ensureCameraServiceOpen() {
+                  if (shutdownRequested.get()) {
+                      throw new CameraServiceUnavailableException();
+                  }
+              }""",
+          )''')
+          replace_chunk(
+              'hdr = "session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java"',
+              '\nface =',
+              '''hdr = "session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java"
+          replace_method(
+              hdr,
+              "    private void ensureCameraServiceOpen() {",
+              "    public void stopSession",
+              """    private void ensureCameraServiceOpen() {
+                  if (shutdownRequested.get()) {
+                      throw new SessionUnavailableException();
+                  }
+              }""",
+          )
+          ''')
+          replace_chunk(
+              'face = "session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java"',
+              '\nastro =',
+              '''face = "session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java"
+          replace_method(
+              face,
+              "    private void ensureCameraServiceOpen() {",
+              "    public void stopSession",
+              """    private void ensureCameraServiceOpen() {
+                  if (shutdownRequested.get()) {
+                      throw new SessionUnavailableException();
+                  }
+              }""",
+          )
+          ''')
+          astro_start = source.index('astro = "app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java"')
+          astro_replace = source.index('replace_once(', astro_start)
+          astro_ensure = source.index('replace_once(', astro_replace + 1)
+          astro_end = source.index('\n\nhandler =', astro_ensure)
+          source = source[:astro_ensure] + '''replace_method(
+              astro,
+              "    private void ensureCameraServiceOpen() {",
+              "    public void requestAbort",
+              """    private void ensureCameraServiceOpen() {
+                  if (shutdownRequested.get()) {
+                      throw new SessionUnavailableException();
+                  }
+              }""",
+          )''' + source[astro_end:]
+          path.write_text(source)
+          PY
             git fetch origin \
               +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
             git switch -C shutdown-product origin/hardening/ccapi-coordinated-shutdown-v2
