@@ -62,8 +62,21 @@ jobs:
               line[len(yaml_prefix):] if line.startswith(yaml_prefix) else line
               for line in raw.splitlines()
           ]
+          script = '\n'.join(lines) + '\n'
+          fragile = """if manager.count(old_release) != 1:
+              raise SystemExit('Lease manager release anchor mismatch')
+          manager_path.write_text(manager.replace(old_release, new_release))"""
+          structural = """release_start = manager.index(
+              '    private void release(CameraLeaseKey key, String ownerToken, String correlationId) {')
+          release_end = manager.index(
+              '    private static Duration retryAfter', release_start)
+          manager_path.write_text(
+              manager[:release_start] + new_release + '\\n\\n' + manager[release_end:])"""
+          if script.count(fragile) != 1:
+              raise SystemExit(
+                  f'expected one fragile release replacement, found {script.count(fragile)}')
           Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(
-              '\n'.join(lines) + '\n')
+              script.replace(fragile, structural))
           PY
           extract_status=$?
           if [ "$extract_status" -ne 0 ]; then
@@ -92,11 +105,11 @@ jobs:
               target/shutdown-v2-diagnostics/outer.log 2>/dev/null \
               > target/shutdown-v2-diagnostics/combined.log
 
-          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError|Process completed|SyntaxError' \
-            target/shutdown-v2-diagnostics/combined.log | tail -n 40 \
+          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError|Process completed|SyntaxError' \
+            target/shutdown-v2-diagnostics/combined.log | tail -n 60 \
             > target/shutdown-v2-diagnostics/focused.log || true
           if [ ! -s target/shutdown-v2-diagnostics/focused.log ]; then
-            tail -n 30 target/shutdown-v2-diagnostics/combined.log \
+            tail -n 40 target/shutdown-v2-diagnostics/combined.log \
               > target/shutdown-v2-diagnostics/focused.log
           fi
 
