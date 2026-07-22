@@ -11,6 +11,18 @@ def replace_once(path_name: str, old: str, new: str) -> None:
     path.write_text(text.replace(old, new))
 
 
+def replace_method(
+        path_name: str,
+        signature: str,
+        next_signature: str,
+        replacement: str) -> None:
+    path = Path(path_name)
+    text = path.read_text()
+    start = text.index(signature)
+    end = text.index(next_signature, start)
+    path.write_text(text[:start] + replacement + "\n\n" + text[end:])
+
+
 Path(
     "app/src/main/java/com/photographer/focusstack/camera/exception/"
     "CameraServiceUnavailableException.java"
@@ -108,13 +120,10 @@ replace_once(
             }
         }""",
 )
-replace_once(
+replace_method(
     stacking,
-    """    private void ensureCameraServiceOpen() {
-        if (shutdownRequested.get()) {
-            throw new CameraException("Camera workflow service is shutting down");
-        }
-    }""",
+    "    private void ensureCameraServiceOpen() {",
+    "    public StackingJob getJob",
     """    private void ensureCameraServiceOpen() {
         if (shutdownRequested.get()) {
             throw new CameraServiceUnavailableException();
@@ -140,16 +149,26 @@ replace_once(
 )
 
 hdr = "session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java"
-replace_once(
+replace_method(
     hdr,
-    'throw new SessionException("Camera workflow service is shutting down");',
-    "throw new SessionUnavailableException();",
+    "    private void ensureCameraServiceOpen() {",
+    "    public void stopSession",
+    """    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+            throw new SessionUnavailableException();
+        }
+    }""",
 )
 face = "session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java"
-replace_once(
+replace_method(
     face,
-    'throw new SessionException("Camera workflow service is shutting down");',
-    "throw new SessionUnavailableException();",
+    "    private void ensureCameraServiceOpen() {",
+    "    public void stopSession",
+    """    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+            throw new SessionUnavailableException();
+        }
+    }""",
 )
 astro = "app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java"
 replace_once(
@@ -158,10 +177,15 @@ replace_once(
     "import com.photographer.focusstack.session.SessionException;\n"
     "import com.photographer.focusstack.session.SessionUnavailableException;",
 )
-replace_once(
+replace_method(
     astro,
-    'throw new SessionException("Camera workflow service is shutting down");',
-    "throw new SessionUnavailableException();",
+    "    private void ensureCameraServiceOpen() {",
+    "    public void requestAbort",
+    """    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+            throw new SessionUnavailableException();
+        }
+    }""",
 )
 
 handler = (
