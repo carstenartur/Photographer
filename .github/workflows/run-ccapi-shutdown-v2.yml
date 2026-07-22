@@ -51,6 +51,23 @@ jobs:
             git fetch origin \
               +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
             git switch -C shutdown-product origin/hardening/ccapi-coordinated-shutdown-v2
+            python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java')
+          text = path.read_text()
+          old = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("shutting down");'''
+          if old not in text:
+              irregular = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
+       .isInstanceOf(IllegalStateException.class)
+       .hasMessageContaining("shutting down");'''
+              if irregular not in text:
+                  raise SystemExit('shutdown lease test assertion anchor not found')
+              text = text.replace(irregular, old)
+              path.write_text(text)
+          PY
             python /tmp/harden_ccapi_shutdown_v2.py
 
             mvn -B --no-transfer-progress test \
