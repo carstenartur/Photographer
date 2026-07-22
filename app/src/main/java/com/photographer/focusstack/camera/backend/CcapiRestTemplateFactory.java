@@ -2,16 +2,20 @@ package com.photographer.focusstack.camera.backend;
 
 import com.photographer.focusstack.app.config.CameraConfig;
 import com.photographer.focusstack.app.config.CcapiAuthenticationProperties;
+import com.photographer.focusstack.camera.exception.CameraAuthenticationException;
 import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.common.model.CameraProfile;
 import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.StandardAuthScheme;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.util.Timeout;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -27,34 +31,50 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.photographer.focusstack.camera.exception.CameraAuthenticationException.Reason.CREDENTIALS_REJECTED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CONNECTION_FAILED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.TIMEOUT;
 
-/** Creates one host-scoped, optionally Digest-capable transport per Canon backend. */
+/** Creates one host-scoped, Digest-only transport per Canon backend. */
 @Component
 public final class CcapiRestTemplateFactory {
 
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(30);
     private static final String AUTH_CHALLENGED_ATTRIBUTE =
             CcapiRestTemplateFactory.class.getName() + ".authChallenged";
+    private static final Pattern CHALLENGE_PARAMETER = Pattern.compile(
+            "(?i)(?:^|,)\\s*([a-zA-Z0-9_-]+)\\s*=\\s*(?:\\\"([^\\\"]*)\\\"|([^,\\s]+))");
 
     private final CameraConfig cameraConfig;
     private final CcapiAuthenticationProperties authenticationProperties;
     private final CcapiOutcomeRecorder outcomes;
+    private final Duration readTimeout;
 
     public CcapiRestTemplateFactory(
             CameraConfig cameraConfig,
             CcapiAuthenticationProperties authenticationProperties,
             CcapiOutcomeRecorder outcomes) {
+        this(cameraConfig, authenticationProperties, outcomes, DEFAULT_READ_TIMEOUT);
+    }
+
+    CcapiRestTemplateFactory(
+            CameraConfig cameraConfig,
+            CcapiAuthenticationProperties authenticationProperties,
+            CcapiOutcomeRecorder outcomes,
+            Duration readTimeout) {
         this.cameraConfig = Objects.requireNonNull(cameraConfig, "cameraConfig");
         this.authenticationProperties = Objects.requireNonNull(
                 authenticationProperties, "authenticationProperties");
         this.outcomes = Objects.requireNonNull(outcomes, "outcomes");
+        this.readTimeout = requirePositive(readTimeout, "readTimeout");
     }
 
     /** Returns a secret-free view of the transport configuration for cache matching. */
@@ -85,7 +105,13 @@ public final class CcapiRestTemplateFactory {
             ConnectionConfig connectionConfig = ConnectionConfig.custom()
                     .setConnectTimeout(Timeout.ofMilliseconds(
                             cameraConfig.connectionTimeout().toMillis()))
-                    .setSocketTimeout(Timeout.ofMilliseconds(READ_TIMEOUT.toMillis()))
+                    .setSocketTimeout(Timeout.ofMilliseconds(readTimeout.toMillis()))
+                    .build();
+            RequestConfig requestConfig = RequestConfig.custom()
+                    .setTargetPreferredAuthSchemes(List.of(StandardAuthScheme.DIGEST))
+                    .setConnectionRequestTimeout(Timeout.ofMilliseconds(
+                            cameraConfig.connectionTimeout().toMillis()))
+                    .setResponseTimeout(Timeout.ofMilliseconds(readTimeout.toMillis()))
                     .build();
             PoolingHttpClientConnectionManager connectionManager =
                     PoolingHttpClientConnectionManagerBuilder.create()
@@ -96,12 +122,18 @@ public final class CcapiRestTemplateFactory {
             CloseableHttpClient httpClient = null;
 
             try {
+                boolean credentialsConfigured = credentials.isPresent();
                 org.apache.hc.client5.http.impl.classic.HttpClientBuilder clientBuilder =
                         HttpClients.custom()
                                 .setConnectionManager(connectionManager)
+                                .setDefaultRequestConfig(requestConfig)
                                 .disableRedirectHandling()
                                 .addResponseInterceptorLast((response, entity, context) -> {
                                     int status = response.getCode();
+                                    if (status == 401 && credentialsConfigured) {
+                                        validateCanonDigestChallenge(profile.id(), response.getHeaders(
+                                                "WWW-Authenticate"));
+                                    }
                                     if (status == 401
                                             && !Boolean.TRUE.equals(context.getAttribute(
                                             AUTH_CHALLENGED_ATTRIBUTE))) {
@@ -116,7 +148,7 @@ public final class CcapiRestTemplateFactory {
                                     }
                                 });
 
-                if (credentials.isPresent()) {
+                if (credentialsConfigured) {
                     CcapiAuthenticationProperties.ResolvedCredentials value =
                             credentials.orElseThrow();
                     password = value.passwordCopy();
@@ -136,7 +168,7 @@ public final class CcapiRestTemplateFactory {
                 HttpComponentsClientHttpRequestFactory requestFactory =
                         new HttpComponentsClientHttpRequestFactory(httpClient);
                 requestFactory.setConnectionRequestTimeout(cameraConfig.connectionTimeout());
-                requestFactory.setReadTimeout(READ_TIMEOUT);
+                requestFactory.setReadTimeout(readTimeout);
 
                 RestTemplate restTemplate = new RestTemplate(requestFactory);
                 restTemplate.getInterceptors().add((request, body, execution) -> {
@@ -173,6 +205,41 @@ public final class CcapiRestTemplateFactory {
                 throw exception;
             }
         }
+    }
+
+    private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
+        for (Header challenge : challenges) {
+            String value = challenge.getValue();
+            if (value == null || !value.regionMatches(true, 0, "Digest ", 0, 7)) {
+                continue;
+            }
+            String parameters = value.substring(7);
+            String algorithm = parameter(parameters, "algorithm").orElse("MD5");
+            String qop = parameter(parameters, "qop").orElse("");
+            boolean supportsAuth = Arrays.stream(qop.split(","))
+                    .map(String::trim)
+                    .anyMatch("auth"::equalsIgnoreCase);
+            if (!"MD5".equalsIgnoreCase(algorithm) || !supportsAuth) {
+                outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
+                throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
+            }
+            return;
+        }
+        // A Basic-only or otherwise non-Digest challenge is not answered because
+        // RequestConfig permits Digest only. The bounded final 401 is translated by
+        // CcapiResponseErrorHandler without exposing challenge material.
+    }
+
+    private static Optional<String> parameter(String challenge, String name) {
+        Matcher matcher = CHALLENGE_PARAMETER.matcher(challenge);
+        while (matcher.find()) {
+            if (name.equalsIgnoreCase(matcher.group(1))) {
+                return Optional.ofNullable(matcher.group(2) != null
+                        ? matcher.group(2)
+                        : matcher.group(3));
+            }
+        }
+        return Optional.empty();
     }
 
     private CameraOperationException transportFailure(
@@ -244,6 +311,14 @@ public final class CcapiRestTemplateFactory {
             return uri.getPort();
         }
         return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    }
+
+    private static Duration requirePositive(Duration value, String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isZero() || value.isNegative()) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        return value;
     }
 }
 
