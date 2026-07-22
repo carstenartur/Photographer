@@ -121,14 +121,12 @@ class CcapiDigestEdgeCaseTest {
         assertThat(server.requestCount()).isEqualTo(3);
         assertThat(server.authorizationParameters())
                 .extracting(parameters -> parameters.get("nonce"))
-                .containsExactly(
-                        CcapiDigestTestServer.NONCE_ONE,
-                        CcapiDigestTestServer.NONCE_TWO);
+                .containsExactly(server.nonceOne(), server.nonceTwo());
         assertThat(server.staleChallengeSent()).isTrue();
     }
 
     @Test
-    void nonceCountProgressesForRepeatedRequestsOnOneTransport() throws Exception {
+    void independentRequestsUseFreshCnonceWithoutDigestReplay() throws Exception {
         CcapiDigestTestServer server = server(
                 CcapiDigestTestServer.Mode.QUOTED_WITH_OPAQUE,
                 InetAddress.getLoopbackAddress(), "counter-user", "counter-password");
@@ -144,15 +142,18 @@ class CcapiDigestEdgeCaseTest {
             assertThat(response).containsEntry("status", "ok");
         }
 
-        List<Long> nonceCounts = server.authorizationParameters().stream()
-                .map(parameters -> parameters.get("nc"))
-                .filter(value -> value != null && !value.isBlank())
-                .map(value -> Long.parseLong(value, 16))
-                .toList();
-        assertThat(nonceCounts).hasSize(3);
-        for (int index = 1; index < nonceCounts.size(); index++) {
-            assertThat(nonceCounts.get(index)).isGreaterThan(nonceCounts.get(index - 1));
-        }
+        List<Map<String, String>> parameters = server.authorizationParameters();
+        assertThat(parameters).hasSize(3);
+        assertThat(parameters)
+                .extracting(values -> values.get("nc"))
+                .containsOnly("00000001");
+        assertThat(parameters)
+                .extracting(values -> values.get("cnonce"))
+                .doesNotContainNull()
+                .doesNotHaveDuplicates();
+        assertThat(parameters)
+                .extracting(values -> values.get("nonce"))
+                .containsOnly(server.nonceOne());
         assertThat(server.requestCount()).isBetween(4, 6);
     }
 
