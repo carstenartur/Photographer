@@ -39,9 +39,6 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Install workflow parser
-        run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
-
       - name: Execute reviewed implementation and retain bounded status
         id: implementation
         shell: bash
@@ -53,14 +50,20 @@ jobs:
 
           python - <<'PY' > target/shutdown-v2-diagnostics/extract.log 2>&1
           from pathlib import Path
-          import yaml
 
-          workflow = yaml.safe_load(
-              Path('.github/workflows/implement-ccapi-shutdown-v2.yml').read_text())
-          steps = workflow['jobs']['implement-test-publish']['steps']
-          block = next(step['run'] for step in steps
-                       if step.get('name') == 'Implement and verify shutdown lifecycle')
-          Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(block)
+          source = Path('.github/workflows/implement-ccapi-shutdown-v2.yml').read_text()
+          marker = '        run: |\n'
+          if source.count(marker) != 1:
+              raise SystemExit(
+                  f'expected one implementation run marker, found {source.count(marker)}')
+          raw = source.split(marker, 1)[1]
+          yaml_prefix = '          '
+          lines = [
+              line[len(yaml_prefix):] if line.startswith(yaml_prefix) else line
+              for line in raw.splitlines()
+          ]
+          Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(
+              '\n'.join(lines) + '\n')
           PY
           extract_status=$?
           if [ "$extract_status" -ne 0 ]; then
@@ -89,7 +92,7 @@ jobs:
               target/shutdown-v2-diagnostics/outer.log 2>/dev/null \
               > target/shutdown-v2-diagnostics/combined.log
 
-          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError|Process completed' \
+          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError|Process completed|SyntaxError' \
             target/shutdown-v2-diagnostics/combined.log | tail -n 40 \
             > target/shutdown-v2-diagnostics/focused.log || true
           if [ ! -s target/shutdown-v2-diagnostics/focused.log ]; then
