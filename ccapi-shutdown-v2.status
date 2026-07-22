@@ -1,3 +1,4 @@
-status=failure
-source_commit=f6d75d6206f1181393854e0b7769139cd9c1b2f3
-exit_code=1
+status=success
+product_commit=5655444804b418841549e323493407060b48a246
+focused_tests=passed
+full_app_tests=passed
