@@ -35,8 +35,7 @@ final class CcapiDigestTestServer implements AutoCloseable {
         SLOW_SUCCESS
     }
 
-    static final String NONCE_ONE = "edge-nonce-one";
-    static final String NONCE_TWO = "edge-nonce-two";
+    private static final AtomicInteger SERVER_SEQUENCE = new AtomicInteger();
     private static final Pattern PARAMETER = Pattern.compile(
             "([a-zA-Z0-9_]+)=(?:\\\"([^\\\"]*)\\\"|([^,\\s]+))");
 
@@ -44,6 +43,8 @@ final class CcapiDigestTestServer implements AutoCloseable {
     private final String username;
     private final String password;
     private final String realm;
+    private final String nonceOne;
+    private final String nonceTwo;
     private final String opaque;
     private final HttpServer server;
     private final AtomicInteger requests = new AtomicInteger();
@@ -59,8 +60,12 @@ final class CcapiDigestTestServer implements AutoCloseable {
         this.mode = mode;
         this.username = username;
         this.password = password;
-        this.realm = "edge-realm-" + mode.name().toLowerCase(Locale.ROOT);
-        this.opaque = "edge-opaque-" + mode.name().toLowerCase(Locale.ROOT);
+        int sequence = SERVER_SEQUENCE.incrementAndGet();
+        String identity = mode.name().toLowerCase(Locale.ROOT) + "-" + sequence;
+        this.realm = "edge-realm-" + identity;
+        this.nonceOne = "edge-nonce-one-" + identity;
+        this.nonceTwo = "edge-nonce-two-" + identity;
+        this.opaque = "edge-opaque-" + identity;
         this.server = HttpServer.create(new InetSocketAddress(address, 0), 0);
         this.server.createContext("/", this::handle);
         this.server.start();
@@ -98,7 +103,11 @@ final class CcapiDigestTestServer implements AutoCloseable {
     }
 
     String nonceOne() {
-        return NONCE_ONE;
+        return nonceOne;
+    }
+
+    String nonceTwo() {
+        return nonceTwo;
     }
 
     boolean staleChallengeSent() {
@@ -138,16 +147,16 @@ final class CcapiDigestTestServer implements AutoCloseable {
             return;
         }
         if (mode == Mode.UNSUPPORTED_ALGORITHM) {
-            challenge(exchange, digestChallenge(NONCE_ONE, "SHA-256", "auth", false, true));
+            challenge(exchange, digestChallenge(nonceOne, "SHA-256", "auth", false, true));
             return;
         }
         if (mode == Mode.AUTH_INT_ONLY) {
-            challenge(exchange, digestChallenge(NONCE_ONE, "MD5", "auth-int", false, true));
+            challenge(exchange, digestChallenge(nonceOne, "MD5", "auth-int", false, true));
             return;
         }
 
         String expectedNonce = mode == Mode.STALE_ONCE && staleSent.get()
-                ? NONCE_TWO : NONCE_ONE;
+                ? nonceTwo : nonceOne;
         if (authorization == null || !validAuthorization(exchange, authorization, expectedNonce)) {
             challenge(exchange, digestChallenge(
                     expectedNonce,
@@ -158,7 +167,7 @@ final class CcapiDigestTestServer implements AutoCloseable {
             return;
         }
         if (mode == Mode.STALE_ONCE && staleSent.compareAndSet(false, true)) {
-            challenge(exchange, digestChallenge(NONCE_TWO, "MD5", "auth", true, true));
+            challenge(exchange, digestChallenge(nonceTwo, "MD5", "auth", true, true));
             return;
         }
         sendSuccess(exchange);
