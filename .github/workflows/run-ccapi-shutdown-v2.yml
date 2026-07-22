@@ -44,10 +44,11 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          cp scripts/harden_ccapi_shutdown_v2.py /tmp/harden_ccapi_shutdown_v2.py
           git fetch origin \
             +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
           git switch -C shutdown-product origin/hardening/ccapi-coordinated-shutdown-v2
-          python "$GITHUB_WORKSPACE/scripts/harden_ccapi_shutdown_v2.py"
+          python /tmp/harden_ccapi_shutdown_v2.py
 
           mvn -B --no-transfer-progress test \
             -pl app -am \
