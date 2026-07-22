@@ -56,9 +56,7 @@ final class GrayCodeSpatialCorrelator {
     static Result correlate(boolean[] observed, int cells, Polarity polarity) {
         Objects.requireNonNull(observed, "observed");
         Objects.requireNonNull(polarity, "polarity");
-        if (cells < 2) {
-            throw new IllegalArgumentException("cells must be at least 2");
-        }
+        validateCellCount(cells);
         int requiredBits = Integer.SIZE - Integer.numberOfLeadingZeros(cells - 1);
         if (observed.length < 1 || observed.length > requiredBits) {
             throw new IllegalArgumentException(
@@ -93,6 +91,7 @@ final class GrayCodeSpatialCorrelator {
     }
 
     static boolean[] codeWord(int coordinate, int cells) {
+        validateCellCount(cells);
         if (coordinate < 0 || coordinate >= cells) {
             throw new IllegalArgumentException("coordinate is outside the declared cell range");
         }
@@ -103,6 +102,12 @@ final class GrayCodeSpatialCorrelator {
             result[bit] = ((grayCode >>> bit) & 1) != 0;
         }
         return result;
+    }
+
+    private static void validateCellCount(int cells) {
+        if (cells < 2) {
+            throw new IllegalArgumentException("cells must be at least 2");
+        }
     }
 
     private static int distance(boolean[] observed, int grayCode, boolean inverted) {
