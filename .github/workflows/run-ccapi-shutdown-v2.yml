@@ -41,32 +41,45 @@ jobs:
       - name: Apply reviewed shutdown hardening
         shell: bash
         run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          cp scripts/harden_ccapi_shutdown_v2.py /tmp/harden_ccapi_shutdown_v2.py
-          git fetch origin \
-            +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
-          git switch -C shutdown-product origin/hardening/ccapi-coordinated-shutdown-v2
-          python /tmp/harden_ccapi_shutdown_v2.py
+          set -o pipefail
+          mkdir -p target/shutdown-hardening-diagnostics
+          {
+            set -e
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            cp scripts/harden_ccapi_shutdown_v2.py /tmp/harden_ccapi_shutdown_v2.py
+            git fetch origin \
+              +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
+            git switch -C shutdown-product origin/hardening/ccapi-coordinated-shutdown-v2
+            python /tmp/harden_ccapi_shutdown_v2.py
 
-          mvn -B --no-transfer-progress test \
-            -pl app -am \
-            -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
-            -Dsurefire.failIfNoSpecifiedTests=false \
-            -Djava.awt.headless=true
-          mvn -B --no-transfer-progress test -pl app -am -Djava.awt.headless=true
+            mvn -B --no-transfer-progress test \
+              -pl app -am \
+              -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
+              -Dsurefire.failIfNoSpecifiedTests=false \
+              -Djava.awt.headless=true
+            mvn -B --no-transfer-progress test -pl app -am -Djava.awt.headless=true
 
-          git add app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
-                  session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
-                  app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
-                  app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
-                  app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
-                  session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
-                  session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
-                  app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
-                  app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
-                  app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
-                  app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
-          git commit -m 'fix(ccapi): persist queued shutdown and expose fixed 503'
-          git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
+            git add app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
+                    session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
+                    app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
+                    app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
+                    app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
+                    session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
+                    session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
+                    app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
+                    app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
+                    app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
+                    app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
+            git commit -m 'fix(ccapi): persist queued shutdown and expose fixed 503'
+            git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
+          } 2>&1 | tee target/shutdown-hardening-diagnostics/full.log
+
+      - name: Upload shutdown hardening diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-shutdown-hardening-diagnostics
+          path: target/shutdown-hardening-diagnostics
+          if-no-files-found: error
+          retention-days: 14
