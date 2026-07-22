@@ -1,2 +1,2 @@
-run=2026-07-22T17:56:00Z
-purpose=retry-after-raw-extraction
+run=2026-07-22T18:00:00Z
+purpose=verify-raw-extraction
