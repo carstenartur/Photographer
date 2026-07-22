@@ -46,38 +46,70 @@ jobs:
         id: implementation
         shell: bash
         run: |
-          set -uo pipefail
-          python - <<'PY'
+          set +e
+          status=0
+          mkdir -p target/shutdown-v2-diagnostics
+          : > target/shutdown-v2-diagnostics/outer.log
+
+          python - <<'PY' > target/shutdown-v2-diagnostics/extract.log 2>&1
           from pathlib import Path
           import yaml
 
-          workflow = yaml.safe_load(Path('.github/workflows/implement-ccapi-shutdown-v2.yml').read_text())
+          workflow = yaml.safe_load(
+              Path('.github/workflows/implement-ccapi-shutdown-v2.yml').read_text())
           steps = workflow['jobs']['implement-test-publish']['steps']
           block = next(step['run'] for step in steps
                        if step.get('name') == 'Implement and verify shutdown lifecycle')
           Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(block)
           PY
+          extract_status=$?
+          if [ "$extract_status" -ne 0 ]; then
+            status=$extract_status
+          fi
 
-          git fetch origin \
-            +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2 \
-            +refs/heads/automation/implement-ccapi-shutdown-v2:refs/remotes/origin/automation/implement-ccapi-shutdown-v2
+          if [ "$status" -eq 0 ]; then
+            git fetch origin \
+              +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2 \
+              +refs/heads/automation/implement-ccapi-shutdown-v2:refs/remotes/origin/automation/implement-ccapi-shutdown-v2 \
+              > target/shutdown-v2-diagnostics/fetch.log 2>&1
+            fetch_status=$?
+            if [ "$fetch_status" -ne 0 ]; then
+              status=$fetch_status
+            fi
+          fi
 
-          if bash /tmp/implement-ccapi-shutdown-v2.sh \
-              > /tmp/shutdown-v2-outer.log 2>&1; then
-            status=0
-          else
+          if [ "$status" -eq 0 ]; then
+            bash /tmp/implement-ccapi-shutdown-v2.sh \
+              > target/shutdown-v2-diagnostics/outer.log 2>&1
             status=$?
           fi
-          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError' \
-            /tmp/shutdown-v2-outer.log | tail -n 20 \
-            > /tmp/shutdown-v2-diagnostic.log || true
-          if [ ! -s /tmp/shutdown-v2-diagnostic.log ]; then
-            tail -n 12 /tmp/shutdown-v2-outer.log \
-              > /tmp/shutdown-v2-diagnostic.log
+
+          cat target/shutdown-v2-diagnostics/extract.log \
+              target/shutdown-v2-diagnostics/fetch.log \
+              target/shutdown-v2-diagnostics/outer.log 2>/dev/null \
+              > target/shutdown-v2-diagnostics/combined.log
+
+          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one anchor|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError|Process completed' \
+            target/shutdown-v2-diagnostics/combined.log | tail -n 40 \
+            > target/shutdown-v2-diagnostics/focused.log || true
+          if [ ! -s target/shutdown-v2-diagnostics/focused.log ]; then
+            tail -n 30 target/shutdown-v2-diagnostics/combined.log \
+              > target/shutdown-v2-diagnostics/focused.log
           fi
+
           echo "inner-exit-code=$status" >> "$GITHUB_OUTPUT"
-          echo "diagnostic-base64=$(base64 -w0 /tmp/shutdown-v2-diagnostic.log)" >> "$GITHUB_OUTPUT"
+          echo "diagnostic-base64=$(base64 -w0 target/shutdown-v2-diagnostics/focused.log)" \
+            >> "$GITHUB_OUTPUT"
           exit 0
+
+      - name: Upload shutdown implementation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-shutdown-v2-diagnostics
+          path: target/shutdown-v2-diagnostics
+          if-no-files-found: error
+          retention-days: 14
 
   report-diagnostics:
     if: always()
