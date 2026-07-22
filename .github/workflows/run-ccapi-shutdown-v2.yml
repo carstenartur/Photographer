@@ -6,13 +6,12 @@ on:
     paths:
       - '.github/workflows/run-ccapi-shutdown-v2.yml'
       - 'scripts/harden_ccapi_shutdown_v2.py'
-      - 'ccapi-shutdown-v2.trigger'
 
 permissions:
   contents: write
 
 concurrency:
-  group: run-ccapi-shutdown-v2
+  group: run-ccapi-shutdown-v2-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -56,17 +55,16 @@ jobs:
 
           path = Path('app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java')
           text = path.read_text()
-          old = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("shutting down");'''
-          if old not in text:
-              irregular = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
+          irregular = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
        .isInstanceOf(IllegalStateException.class)
        .hasMessageContaining("shutting down");'''
-              if irregular not in text:
-                  raise SystemExit('shutdown lease test assertion anchor not found')
-              text = text.replace(irregular, old)
-              path.write_text(text)
+          canonical = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("shutting down");'''
+          if irregular in text:
+              path.write_text(text.replace(irregular, canonical))
+          elif canonical not in text:
+              raise SystemExit('shutdown lease test assertion anchor not found')
           PY
             python /tmp/harden_ccapi_shutdown_v2.py
 
