@@ -39,6 +39,8 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
     private final int maximumReentrantHandles;
     private final AtomicLong conflicts = new AtomicLong();
     private final AtomicLong staleRecoveries = new AtomicLong();
+    private final AtomicBoolean acceptingNewLeases = new AtomicBoolean(true);
+    private final Object lifecycleMonitor = new Object();
 
     @Autowired
     public InMemoryCameraSessionLeaseManager(
@@ -66,43 +68,56 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
     @Override
     public CameraSessionLease acquire(CameraLeaseRequest request) {
         Objects.requireNonNull(request, "request");
-        if (request.requestedLifetime().compareTo(maximumLifetime) > 0) {
-            throw new IllegalArgumentException("Requested camera lease lifetime exceeds the configured maximum");
-        }
+        synchronized (lifecycleMonitor) {
+  if (!acceptingNewLeases.get()) {
+      throw new IllegalStateException("Camera session lease manager is shutting down");
+  }
+  if (request.requestedLifetime().compareTo(maximumLifetime) > 0) {
+      throw new IllegalArgumentException(
+              "Requested camera lease lifetime exceeds the configured maximum");
+  }
 
-        Instant now = clock.instant();
-        AtomicReference<LeaseState> acquired = new AtomicReference<>();
-        leases.compute(request.cameraKey(), (key, current) -> {
-            if (current == null) {
-                LeaseState created = new LeaseState(
-                        request.ownerToken(),
-                        validatedCorrelationId(correlationIdSupplier.get()),
-                        request.workflowType(),
-                        now.plus(request.requestedLifetime()),
-                        1);
-                acquired.set(created);
-                return created;
-            }
-            if (!current.ownerToken().equals(request.ownerToken())) {
-                conflicts.incrementAndGet();
-                throw new CameraSessionConflictException(
-                        current.correlationId(),
-                        current.workflowType(),
-                        retryAfter(now, current.hardDeadline()));
-            }
-            if (current.handleCount() >= maximumReentrantHandles) {
-                throw new IllegalStateException("Camera lease reentrant handle limit exceeded");
-            }
-            LeaseState reentrant = current.withHandleCount(current.handleCount() + 1);
-            acquired.set(reentrant);
-            return reentrant;
-        });
+  Instant now = clock.instant();
+  AtomicReference<LeaseState> acquired = new AtomicReference<>();
+  leases.compute(request.cameraKey(), (key, current) -> {
+      if (current == null) {
+          LeaseState created = new LeaseState(
+                  request.ownerToken(),
+                  validatedCorrelationId(correlationIdSupplier.get()),
+                  request.workflowType(),
+                  now.plus(request.requestedLifetime()),
+                  1);
+          acquired.set(created);
+          return created;
+      }
+      if (!current.ownerToken().equals(request.ownerToken())) {
+          conflicts.incrementAndGet();
+          throw new CameraSessionConflictException(
+                  current.correlationId(),
+                  current.workflowType(),
+                  retryAfter(now, current.hardDeadline()));
+      }
+      if (current.handleCount() >= maximumReentrantHandles) {
+          throw new IllegalStateException("Camera lease reentrant handle limit exceeded");
+      }
+      LeaseState reentrant = current.withHandleCount(current.handleCount() + 1);
+      acquired.set(reentrant);
+      return reentrant;
+  });
 
-        LeaseState state = acquired.get();
-        if (state == null) {
-            throw new IllegalStateException("Camera lease acquisition did not produce a handle");
+  LeaseState state = acquired.get();
+  if (state == null) {
+      throw new IllegalStateException("Camera lease acquisition did not produce a handle");
+  }
+  return new Handle(this, request.cameraKey(), request.ownerToken(), state.correlationId());
         }
-        return new Handle(this, request.cameraKey(), request.ownerToken(), state.correlationId());
+    }
+
+    @Override
+    public void beginShutdown() {
+        synchronized (lifecycleMonitor) {
+  acceptingNewLeases.set(false);
+        }
     }
 
     @Override
@@ -131,18 +146,25 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
 
     @PreDestroy
     public void close() {
-        leases.clear();
+        beginShutdown();
+        int active = leases.size();
+        if (active != 0) {
+  throw new IllegalStateException(
+          "Camera session lease manager closed with " + active + " active lease(s)");
+        }
     }
 
     private void release(CameraLeaseKey key, String ownerToken, String correlationId) {
-        leases.computeIfPresent(key, (cameraKey, current) -> {
-            if (!current.ownerToken().equals(ownerToken)
-                    || !current.correlationId().equals(correlationId)) {
-                return current;
-            }
-            int remaining = current.handleCount() - 1;
-            return remaining == 0 ? null : current.withHandleCount(remaining);
-        });
+        synchronized (lifecycleMonitor) {
+  leases.computeIfPresent(key, (cameraKey, current) -> {
+      if (!current.ownerToken().equals(ownerToken)
+              || !current.correlationId().equals(correlationId)) {
+          return current;
+      }
+      int remaining = current.handleCount() - 1;
+      return remaining == 0 ? null : current.withHandleCount(remaining);
+  });
+        }
     }
 
     private static Duration retryAfter(Instant now, Instant hardDeadline) {

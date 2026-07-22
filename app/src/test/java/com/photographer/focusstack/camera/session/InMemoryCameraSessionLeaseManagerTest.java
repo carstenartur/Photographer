@@ -169,6 +169,26 @@ class InMemoryCameraSessionLeaseManagerTest {
         }
     }
 
+    @Test
+    void shutdownRejectsNewHandlesAndCloseRequiresExistingHandlesToRelease() {
+        InMemoryCameraSessionLeaseManager manager = manager(new MutableClock());
+        CameraLeaseKey key = CameraLeaseKey.fromCcapiLocation("camera.example");
+        CameraSessionLease active = manager.acquire(request(key, "owner"));
+
+        manager.beginShutdown();
+
+        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
+      .isInstanceOf(IllegalStateException.class)
+      .hasMessageContaining("shutting down");
+        assertThatThrownBy(manager::close)
+      .isInstanceOf(IllegalStateException.class)
+      .hasMessageContaining("1 active lease");
+
+        active.close();
+        manager.close();
+        assertThat(manager.metrics().activeLeases()).isZero();
+    }
+
     private static InMemoryCameraSessionLeaseManager manager(Clock clock) {
         return new InMemoryCameraSessionLeaseManager(
                 clock, correlationSupplier(), Duration.ofHours(6), 1024);

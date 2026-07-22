@@ -68,6 +68,7 @@ public class HdrTimelapseService {
     private final Map<String, HdrSettings> sessionSettings = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, PreparedExecution> activeExecutions =
             new ConcurrentHashMap<>();
+    private final AtomicBoolean shutdownRequested = new AtomicBoolean();
     private final Object[] sessionLocks = createSessionLocks();
 
     public HdrTimelapseService(CameraBackendProvider backendProvider,
@@ -173,6 +174,7 @@ public class HdrTimelapseService {
 
     public void validateStartable(String sessionId) {
         synchronized (sessionLock(sessionId)) {
+            ensureCameraServiceOpen();
             CaptureSession session = getSession(sessionId);
             requireStartable(session);
             if (activeExecutions.containsKey(sessionId)) {
@@ -196,6 +198,7 @@ public class HdrTimelapseService {
      */
     public PreparedExecution prepareExecution(String sessionId) {
         synchronized (sessionLock(sessionId)) {
+            ensureCameraServiceOpen();
             CaptureSession session = getSession(sessionId);
             requireStartable(session);
             if (activeExecutions.containsKey(sessionId)) {
@@ -371,6 +374,23 @@ public class HdrTimelapseService {
             }
         }
         execution.closeCapture();
+    }
+
+    public void requestCameraShutdown() {
+        if (!shutdownRequested.compareAndSet(false, true)) {
+  return;
+        }
+        List.copyOf(activeExecutions.keySet()).forEach(this::stopSession);
+    }
+
+    public int activeCameraExecutions() {
+        return activeExecutions.size();
+    }
+
+    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+  throw new SessionException("Camera workflow service is shutting down");
+        }
     }
 
     public void stopSession(String sessionId) {

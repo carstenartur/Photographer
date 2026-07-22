@@ -51,6 +51,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -79,6 +80,7 @@ public class StackingJobService {
     private final Set<String> pausedJobs = ConcurrentHashMap.newKeySet();
     private final ConcurrentMap<String, ActiveStackingAttempt> activeAttempts =
             new ConcurrentHashMap<>();
+    private final AtomicBoolean shutdownRequested = new AtomicBoolean();
     private final Object[] jobLocks = createJobLocks();
 
     @Autowired
@@ -192,6 +194,7 @@ public class StackingJobService {
 
     public StackingJob startJob(String id) {
         synchronized (jobLock(id)) {
+            ensureCameraServiceOpen();
             StackingJob job = getJob(id);
             if (job.status() != JobStatus.CREATED && job.status() != JobStatus.PAUSED) {
                 throw new CameraException("Job cannot be started in state: " + job.status());
@@ -277,6 +280,28 @@ public class StackingJobService {
         }
     }
 
+    public void requestCameraShutdown() {
+        if (!shutdownRequested.compareAndSet(false, true)) {
+  return;
+        }
+        activeAttempts.forEach((jobId, attempt) -> {
+  cancelledJobs.add(jobId);
+  if (attempt.cancelBeforeStart()) {
+      activeAttempts.remove(jobId, attempt);
+  }
+        });
+    }
+
+    public int activeCameraExecutions() {
+        return activeAttempts.size();
+    }
+
+    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+  throw new CameraException("Camera workflow service is shutting down");
+        }
+    }
+
     public StackingJob getJob(String id) {
         return repository.findById(id)
                 .map(StackingJobEntity::toRecord)
@@ -322,6 +347,7 @@ public class StackingJobService {
     }
 
     void executeStackingAsync(StackingJob job) {
+        ensureCameraServiceOpen();
         CameraProfile profile = profileService.getProfile(job.cameraProfileId());
         String attemptToken = UUID.randomUUID().toString();
         ActiveStackingAttempt attempt = new ActiveStackingAttempt(
