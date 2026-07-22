@@ -2,6 +2,7 @@ package com.photographer.focusstack.cr3.reference;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -101,14 +102,14 @@ public final class ReferenceFixtureResolver {
         return samplesRoot;
     }
 
-    /** Discovers all CR3 files with stable slash-separated relative ordering. */
+    /** Discovers all real CR3 files with stable slash-separated relative ordering. */
     public List<ResolvedFixture> discover() throws IOException {
         if (!Files.isDirectory(samplesRoot)) {
             return List.of();
         }
         try (Stream<Path> paths = Files.walk(samplesRoot)) {
             return paths
-                    .filter(Files::isRegularFile)
+                    .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .filter(ReferenceFixtureResolver::isCr3)
                     .map(this::resolve)
                     .sorted(Comparator.comparing(ResolvedFixture::relativeName))
@@ -132,16 +133,20 @@ public final class ReferenceFixtureResolver {
         if (!isCr3(normalized)) {
             throw new IllegalArgumentException("Fixture must use the .cr3 extension");
         }
+        if (!Files.isRegularFile(normalized, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalArgumentException("Fixture must be a regular non-symbolic-link file");
+        }
+        requirePhysicalContainment(normalized);
 
         String filename = normalized.getFileName().toString();
         String stem = filename.substring(0, filename.length() - 4);
         Path tiff = normalized.resolveSibling(stem + ".reference.tiff");
         Path png = normalized.resolveSibling(stem + ".reference.png");
         EnumSet<MissingSidecar> missing = EnumSet.noneOf(MissingSidecar.class);
-        if (!Files.isRegularFile(tiff)) {
+        if (!Files.isRegularFile(tiff, LinkOption.NOFOLLOW_LINKS)) {
             missing.add(MissingSidecar.TIFF);
         }
-        if (!Files.isRegularFile(png)) {
+        if (!Files.isRegularFile(png, LinkOption.NOFOLLOW_LINKS)) {
             missing.add(MissingSidecar.PNG);
         }
         String relative = samplesRoot.relativize(normalized)
@@ -159,6 +164,20 @@ public final class ReferenceFixtureResolver {
             }
         }
         return List.copyOf(incomplete);
+    }
+
+    private void requirePhysicalContainment(Path fixture) {
+        try {
+            Path physicalRoot = samplesRoot.toRealPath();
+            Path physicalFixture = fixture.toRealPath();
+            if (!physicalFixture.startsWith(physicalRoot)) {
+                throw new IllegalArgumentException(
+                        "Fixture must remain physically below the configured samples root");
+            }
+        } catch (IOException failure) {
+            throw new IllegalArgumentException(
+                    "Fixture path could not be resolved safely", failure);
+        }
     }
 
     private static boolean isCr3(Path path) {
