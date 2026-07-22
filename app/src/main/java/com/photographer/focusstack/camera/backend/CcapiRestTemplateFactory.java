@@ -58,6 +58,7 @@ public final class CcapiRestTemplateFactory {
     private final CcapiOutcomeRecorder outcomes;
     private final Duration readTimeout;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CcapiRestTemplateFactory(
             CameraConfig cameraConfig,
             CcapiAuthenticationProperties authenticationProperties,
