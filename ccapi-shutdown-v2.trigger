@@ -1,2 +1,2 @@
-run=2026-07-21T21:31:00Z
-purpose=implement-test-publish-readable-tail
+run=2026-07-22T17:55:00Z
+purpose=retry-after-raw-extraction
