@@ -1,0 +1,66 @@
+name: Migrate active CR3 reference consumers
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-cr3-active-consumers.yml'
+      - 'scripts/migrate_cr3_active_consumers.py'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: migrate-cr3-active-consumers
+  cancel-in-progress: true
+
+jobs:
+  migrate-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout technical head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          show-progress: false
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Apply migration and verify research consumers
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          cp scripts/migrate_cr3_active_consumers.py /tmp/migrate_cr3_active_consumers.py
+          git fetch origin \
+            +refs/heads/testkit/cr3-active-consumer-migration:refs/remotes/origin/testkit/cr3-active-consumer-migration
+          git switch -C product origin/testkit/cr3-active-consumer-migration
+          python /tmp/migrate_cr3_active_consumers.py
+
+          mvn -B --no-transfer-progress test \
+            -pl canon-cr3-research -am \
+            -Dtest=Cr3ReferenceComparisonIT,PedestalHypothesisValidationIT,DcComponentIsolationIT \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Djava.awt.headless=true
+          mvn -B --no-transfer-progress test \
+            -pl canon-cr3-reference-testkit,canon-cr3-research -am \
+            -Djava.awt.headless=true
+
+          git add \
+            canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/Cr3ReferenceComparisonIT.java \
+            canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PedestalHypothesisValidationIT.java \
+            canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/DcComponentIsolationIT.java
+          git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
+          git push origin HEAD:testkit/cr3-active-consumer-migration
