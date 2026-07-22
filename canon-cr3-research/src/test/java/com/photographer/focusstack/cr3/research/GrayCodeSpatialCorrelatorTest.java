@@ -94,5 +94,11 @@ class GrayCodeSpatialCorrelatorTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> GrayCodeSpatialCorrelator.codeWord(64, 64))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> GrayCodeSpatialCorrelator.codeWord(0, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cells must be at least 2");
+        assertThatThrownBy(() -> GrayCodeSpatialCorrelator.codeWord(0, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cells must be at least 2");
     }
 }
