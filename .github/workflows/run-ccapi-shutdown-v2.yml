@@ -1,6 +1,12 @@
 name: Run coordinated CCAPI shutdown v2 implementation
 
 on:
+  push:
+    branches:
+      - automation/implement-ccapi-shutdown-final
+    paths:
+      - '.github/workflows/run-ccapi-shutdown-v2.yml'
+      - 'scripts/harden_ccapi_shutdown_v2.py'
   pull_request:
     branches: [main]
     paths:
@@ -11,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: run-ccapi-shutdown-v2-${{ github.event.pull_request.number }}
+  group: run-ccapi-shutdown-v2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,7 +30,7 @@ jobs:
       - name: Checkout technical head
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
           show-progress: false
           persist-credentials: true
