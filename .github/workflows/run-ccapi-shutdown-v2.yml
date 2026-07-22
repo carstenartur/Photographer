@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/implement-ccapi-shutdown-v2.yml'
       - '.github/workflows/run-ccapi-shutdown-v2.yml'
+      - 'scripts/harden_ccapi_shutdown_v2.py'
       - 'ccapi-shutdown-v2.trigger'
 
 permissions:
@@ -16,12 +16,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  run-versioned-implementation:
+  harden-test-publish:
     runs-on: ubuntu-latest
     timeout-minutes: 55
-    outputs:
-      inner-exit-code: ${{ steps.implementation.outputs.inner-exit-code }}
-      diagnostic-base64: ${{ steps.implementation.outputs.diagnostic-base64 }}
+    env:
+      MAVEN_OPTS: -Xmx2g
     steps:
       - name: Checkout technical head
         uses: actions/checkout@v7
@@ -39,110 +38,34 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Execute reviewed implementation and retain bounded status
-        id: implementation
+      - name: Apply reviewed shutdown hardening
         shell: bash
         run: |
-          set +e
-          status=0
-          mkdir -p target/shutdown-v2-diagnostics
-          : > target/shutdown-v2-diagnostics/outer.log
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin \
+            +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
+          git switch -C shutdown-product origin/hardening/ccapi-coordinated-shutdown-v2
+          python "$GITHUB_WORKSPACE/scripts/harden_ccapi_shutdown_v2.py"
 
-          python - <<'PY' > target/shutdown-v2-diagnostics/extract.log 2>&1
-          from pathlib import Path
+          mvn -B --no-transfer-progress test \
+            -pl app -am \
+            -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Djava.awt.headless=true
+          mvn -B --no-transfer-progress test -pl app -am -Djava.awt.headless=true
 
-          source = Path('.github/workflows/implement-ccapi-shutdown-v2.yml').read_text()
-          marker = '        run: |\n'
-          if source.count(marker) != 1:
-              raise SystemExit(
-                  f'expected one implementation run marker, found {source.count(marker)}')
-          raw = source.split(marker, 1)[1]
-          yaml_prefix = '          '
-          lines = [
-              line[len(yaml_prefix):] if line.startswith(yaml_prefix) else line
-              for line in raw.splitlines()
-          ]
-          script = '\n'.join(lines) + '\n'
-          fragile = """if manager.count(old_release) != 1:
-              raise SystemExit('Lease manager release anchor mismatch')
-          manager_path.write_text(manager.replace(old_release, new_release))"""
-          structural = """release_start = manager.index(
-              '    private void release(CameraLeaseKey key, String ownerToken, String correlationId) {')
-          release_end = manager.index(
-              '    private static Duration retryAfter', release_start)
-          manager_path.write_text(
-              manager[:release_start] + new_release + '\\n\\n' + manager[release_end:])"""
-          if script.count(fragile) != 1:
-              raise SystemExit(
-                  f'expected one fragile release replacement, found {script.count(fragile)}')
-          Path('/tmp/implement-ccapi-shutdown-v2.sh').write_text(
-              script.replace(fragile, structural))
-          PY
-          extract_status=$?
-          if [ "$extract_status" -ne 0 ]; then
-            status=$extract_status
-          fi
-
-          if [ "$status" -eq 0 ]; then
-            git fetch origin \
-              +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2 \
-              +refs/heads/automation/implement-ccapi-shutdown-v2:refs/remotes/origin/automation/implement-ccapi-shutdown-v2 \
-              > target/shutdown-v2-diagnostics/fetch.log 2>&1
-            fetch_status=$?
-            if [ "$fetch_status" -ne 0 ]; then
-              status=$fetch_status
-            fi
-          fi
-
-          if [ "$status" -eq 0 ]; then
-            bash /tmp/implement-ccapi-shutdown-v2.sh \
-              > target/shutdown-v2-diagnostics/outer.log 2>&1
-            status=$?
-          fi
-
-          cat target/shutdown-v2-diagnostics/extract.log \
-              target/shutdown-v2-diagnostics/fetch.log \
-              target/shutdown-v2-diagnostics/outer.log 2>/dev/null \
-              > target/shutdown-v2-diagnostics/combined.log
-
-          grep -E '\[ERROR\]|COMPILATION|BUILD FAILURE|Failures:|Errors:|cannot find symbol|AssertionFailedError|Traceback|expected exactly one|mismatch|fatal:|ModuleNotFoundError|KeyError|ValueError|Process completed|SyntaxError' \
-            target/shutdown-v2-diagnostics/combined.log | tail -n 60 \
-            > target/shutdown-v2-diagnostics/focused.log || true
-          if [ ! -s target/shutdown-v2-diagnostics/focused.log ]; then
-            tail -n 40 target/shutdown-v2-diagnostics/combined.log \
-              > target/shutdown-v2-diagnostics/focused.log
-          fi
-
-          echo "inner-exit-code=$status" >> "$GITHUB_OUTPUT"
-          echo "diagnostic-base64=$(base64 -w0 target/shutdown-v2-diagnostics/focused.log)" \
-            >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Upload shutdown implementation diagnostics
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ccapi-shutdown-v2-diagnostics
-          path: target/shutdown-v2-diagnostics
-          if-no-files-found: error
-          retention-days: 14
-
-  report-diagnostics:
-    if: always()
-    needs: run-versioned-implementation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print focused shutdown diagnostic and evaluate status
-        shell: bash
-        env:
-          DIAGNOSTIC_BASE64: ${{ needs.run-versioned-implementation.outputs.diagnostic-base64 }}
-          INNER_EXIT_CODE: ${{ needs.run-versioned-implementation.outputs.inner-exit-code }}
-        run: |
-          echo '--- coordinated shutdown focused diagnostic ---'
-          if [ -n "$DIAGNOSTIC_BASE64" ]; then
-            printf '%s' "$DIAGNOSTIC_BASE64" | base64 -d
-          else
-            echo 'No diagnostic output was exported.'
-          fi
-          echo "inner_exit_code=${INNER_EXIT_CODE:-missing}"
-          test "${INNER_EXIT_CODE:-99}" -eq 0
+          git add app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
+                  session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
+                  app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
+                  app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
+                  app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
+                  session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
+                  session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
+                  app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
+                  app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
+                  app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
+                  app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
+          git commit -m 'fix(ccapi): persist queued shutdown and expose fixed 503'
+          git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
