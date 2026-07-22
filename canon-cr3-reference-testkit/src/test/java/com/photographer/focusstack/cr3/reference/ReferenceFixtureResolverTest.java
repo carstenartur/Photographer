@@ -79,7 +79,7 @@ class ReferenceFixtureResolverTest {
     }
 
     @Test
-    void rejectsFixturesOutsideRootAndNonCr3Files(@TempDir Path root)
+    void rejectsFixturesOutsideRootNonCr3AndMissingFiles(@TempDir Path root)
             throws Exception {
         Path samples = Files.createDirectories(root.resolve("samples"));
         Path outside = root.resolve("outside.cr3");
@@ -95,6 +95,63 @@ class ReferenceFixtureResolverTest {
         assertThatThrownBy(() -> resolver.resolve(text))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(".cr3 extension");
+        assertThatThrownBy(() -> resolver.resolve(samples.resolve("missing.cr3")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("regular non-symbolic-link file")
+                .hasNoCause();
+    }
+
+    @Test
+    void rejectsFinalAndIntermediateSymlinkEscapeWithoutLeakingHostPath(
+            @TempDir Path root) throws Exception {
+        Path samples = Files.createDirectories(root.resolve("samples"));
+        Path outsideDirectory = Files.createDirectories(root.resolve("private-outside"));
+        Path outsideFixture = outsideDirectory.resolve("outside.cr3");
+        create(outsideFixture);
+        ReferenceFixtureResolver resolver = new ReferenceFixtureResolver(samples);
+
+        Path finalLink = samples.resolve("final-link.cr3");
+        Path directoryLink = samples.resolve("linked-directory");
+        try {
+            Files.createSymbolicLink(finalLink, outsideFixture);
+            Files.createSymbolicLink(directoryLink, outsideDirectory);
+        } catch (UnsupportedOperationException | SecurityException failure) {
+            return;
+        }
+
+        assertThatThrownBy(() -> resolver.resolve(finalLink))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("regular non-symbolic-link file")
+                .hasMessageNotContaining(root.toString())
+                .hasNoCause();
+        assertThatThrownBy(() -> resolver.resolve(directoryLink.resolve("outside.cr3")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("physically below")
+                .hasMessageNotContaining(root.toString())
+                .hasNoCause();
+        assertThat(resolver.discover()).isEmpty();
+    }
+
+    @Test
+    void symbolicSidecarsAreClassifiedAsMissing(@TempDir Path root) throws Exception {
+        Path samples = Files.createDirectories(root.resolve("samples"));
+        Path fixture = samples.resolve("sample.cr3");
+        create(fixture);
+        Path outside = root.resolve("outside.tiff");
+        create(outside);
+        try {
+            Files.createSymbolicLink(samples.resolve("sample.reference.tiff"), outside);
+        } catch (UnsupportedOperationException | SecurityException failure) {
+            return;
+        }
+
+        ReferenceFixtureResolver.ResolvedFixture resolved =
+                new ReferenceFixtureResolver(samples).resolve(fixture);
+
+        assertThat(resolved.missingSidecars())
+                .containsExactlyInAnyOrder(
+                        ReferenceFixtureResolver.MissingSidecar.TIFF,
+                        ReferenceFixtureResolver.MissingSidecar.PNG);
     }
 
     @Test
