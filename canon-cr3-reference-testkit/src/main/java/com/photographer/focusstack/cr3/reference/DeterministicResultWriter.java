@@ -44,12 +44,13 @@ public final class DeterministicResultWriter {
     public static void write(Path path, String content) throws IOException {
         Objects.requireNonNull(path, "path");
         Objects.requireNonNull(content, "content");
-        Path parent = path.toAbsolutePath().normalize().getParent();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        Path parent = normalizedPath.getParent();
         if (parent != null) {
             Files.createDirectories(parent);
         }
         Files.writeString(
-                path,
+                normalizedPath,
                 normalize(content),
                 StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE,
