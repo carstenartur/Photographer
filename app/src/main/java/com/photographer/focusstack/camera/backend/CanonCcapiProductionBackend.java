@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
 import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
@@ -19,17 +20,23 @@ import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
 import com.photographer.focusstack.common.camera.Operation;
 import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.LIVE_VIEW_NOT_STARTED;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
@@ -43,16 +50,26 @@ final class CanonCcapiProductionBackend implements
         CameraMediaProvider {
 
     private static final Set<String> EVENT_METHODS = Set.of("GET", "DELETE");
+    private static final Set<HttpMethod> SCROLL_METHODS = Set.of(HttpMethod.GET, HttpMethod.DELETE);
+    private static final String SCROLL_SUFFIX = "/shooting/liveview/scroll";
+    private static final Pattern VERSION = Pattern.compile("(?:^|/)ver(\\d+)(?:/|$)");
 
     private final CanonCcapiNativeFocusBracketingBackend delegate;
     private final CcapiLiveViewClient liveViewClient;
+    private final CanonCcapiScrollLiveViewReader scrollLiveViewReader;
     private final CanonCcapiMediaClient mediaClient;
     private final CanonCcapiMonitoringClient monitoringClient;
+
+    CanonCcapiProductionBackend(String profileId, String baseUrl, RestTemplate restTemplate) {
+        this(profileId, baseUrl, restTemplate,
+                new CanonCcapiScrollLiveViewReader(profileId, restTemplate));
+    }
 
     CanonCcapiProductionBackend(
             String profileId,
             String baseUrl,
-            RestTemplate restTemplate) {
+            RestTemplate restTemplate,
+            CanonCcapiScrollLiveViewReader scrollLiveViewReader) {
         Objects.requireNonNull(profileId, "profileId");
         Objects.requireNonNull(baseUrl, "baseUrl");
         Objects.requireNonNull(restTemplate, "restTemplate");
@@ -63,6 +80,8 @@ final class CanonCcapiProductionBackend implements
                 delegate::getDiscoveredEndpoints,
                 delegate::getDiscoveredEndpointMethods,
                 delegate::ccapiPost);
+        this.scrollLiveViewReader = Objects.requireNonNull(
+                scrollLiveViewReader, "scrollLiveViewReader");
         this.mediaClient = new CanonCcapiMediaClient(
                 profileId,
                 baseUrl,
@@ -84,20 +103,46 @@ final class CanonCcapiProductionBackend implements
 
     @Override
     public LiveViewFrame getLiveView() {
-        return liveViewClient.getFrame();
+        if (liveViewClient.supportsFrameRetrieval()) {
+            return liveViewClient.getFrame();
+        }
+        String scrollUrl = scrollEndpoint().orElse(null);
+        if (scrollUrl == null) {
+            return liveViewClient.getFrame();
+        }
+
+        liveViewClient.start("medium");
+        try {
+            return scrollLiveViewReader.nextFrame(scrollUrl);
+        } catch (RuntimeException failure) {
+            if (reason(failure) != LIVE_VIEW_NOT_STARTED) {
+                throw failure;
+            }
+            scrollLiveViewReader.abort();
+            liveViewClient.markStopped();
+            liveViewClient.start("medium");
+            return scrollLiveViewReader.nextFrame(scrollUrl);
+        }
     }
 
     @Override
     public void stopLiveView() {
-        liveViewClient.stop();
+        try {
+            scrollLiveViewReader.stop();
+        } finally {
+            liveViewClient.stop();
+        }
     }
 
     @Override
     public CaptureResult capture() {
-        // The inherited capture sequence starts by stopping live view through the
-        // delegate. Reset the production lifecycle first so a later frame request
-        // performs one capability-driven restart rather than trusting stale state.
-        liveViewClient.markStopped();
+        // A scroll GET owns a separate long-running camera operation and must be
+        // cancelled before the inherited capture path stops the control endpoint.
+        try {
+            scrollLiveViewReader.stop();
+        } finally {
+            liveViewClient.markStopped();
+        }
         return delegate.capture();
     }
 
@@ -114,7 +159,7 @@ final class CanonCcapiProductionBackend implements
     @Override
     public boolean supports(Operation operation) {
         return operation == Operation.LIVE_VIEW
-                ? liveViewClient.supportsFrameRetrieval()
+                ? liveViewClient.supportsFrameRetrieval() || scrollEndpoint().isPresent()
                 : delegate.supports(operation);
     }
 
@@ -180,6 +225,54 @@ final class CanonCcapiProductionBackend implements
                 base.lens());
     }
 
+    private Optional<String> scrollEndpoint() {
+        Map<String, String> endpoints = delegate.getDiscoveredEndpoints();
+        Map<String, Set<HttpMethod>> methods = delegate.getDiscoveredEndpointMethods();
+        return endpoints.entrySet().stream()
+                .filter(entry -> endpointPath(entry.getValue()).endsWith(SCROLL_SUFFIX))
+                .filter(entry -> {
+                    Set<HttpMethod> advertised = methods.get(entry.getKey());
+                    return advertised != null && advertised.containsAll(SCROLL_METHODS);
+                })
+                .max(Comparator.comparingInt(
+                                (Map.Entry<String, String> entry) ->
+                                        versionNumber(endpointPath(entry.getValue())))
+                        .thenComparing(entry -> endpointPath(entry.getValue())))
+                .map(Map.Entry::getValue);
+    }
+
+    private static CameraOperationException.Reason reason(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof CameraOperationException operation) {
+                return operation.reason();
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private static String endpointPath(String value) {
+        try {
+            String path = URI.create(value).getPath();
+            return path == null ? value : path;
+        } catch (IllegalArgumentException ignored) {
+            return value;
+        }
+    }
+
+    private static int versionNumber(String path) {
+        Matcher matcher = VERSION.matcher(path);
+        if (!matcher.find()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException exception) {
+            return -1;
+        }
+    }
+
     private static CameraCapabilitySnapshot.Capability eventCapability(
             CameraCapabilitySnapshot snapshot,
             String id,
@@ -196,7 +289,9 @@ final class CanonCcapiProductionBackend implements
         CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()
                 .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)
                 .filter(candidate -> candidate.methods().containsAll(EVENT_METHODS))
-                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                .max(Comparator.comparingInt(
+                                (CameraCapabilitySnapshot.Endpoint endpoint) ->
+                                        endpointVersionNumber(endpoint))
                         .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
                 .orElse(null);
         if (compatible != null) {
@@ -206,7 +301,9 @@ final class CanonCcapiProductionBackend implements
         }
 
         CameraCapabilitySnapshot.Endpoint highest = advertised.stream()
-                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                .max(Comparator.comparingInt(
+                                (CameraCapabilitySnapshot.Endpoint endpoint) ->
+                                        endpointVersionNumber(endpoint))
                         .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
                 .orElseThrow();
         if (!highest.methodMetadataKnown()) {
@@ -219,7 +316,7 @@ final class CanonCcapiProductionBackend implements
                 EVENT_METHODS, highest.methods(), true, "METHOD_NOT_ADVERTISED");
     }
 
-    private static int versionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
+    private static int endpointVersionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
         String version = endpoint.version();
         if (version == null || !version.startsWith("ver")) {
             return -1;
