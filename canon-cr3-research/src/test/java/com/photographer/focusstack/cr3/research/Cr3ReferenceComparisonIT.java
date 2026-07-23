@@ -12,11 +12,11 @@ import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
 import com.photographer.focusstack.cr3.reference.ReferenceDifferenceImage;
+import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
 import com.photographer.focusstack.cr3.reference.ReferenceImage;
 import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
 import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
 import com.photographer.focusstack.cr3.reference.SpatialReferenceMetrics;
-import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -30,10 +30,8 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -180,24 +178,18 @@ class Cr3ReferenceComparisonIT {
     private static List<PlaneResult> computePlaneMetrics(int[] reference, Cr3RawImage decoded, int cfaLayout) {
         List<PlaneSpec> specs = planeSpecs(cfaLayout);
         List<PlaneResult> results = new ArrayList<>(specs.size());
-        int width = decoded.width();
-        int height = decoded.height();
-        int[] actual = decoded.data();
         for (PlaneSpec spec : specs) {
-            double absSum = 0;
-            double sqSum = 0;
-            long count = 0;
-            for (int y = spec.rowOffset; y < height; y += 2) {
-                int rowBase = y * width;
-                for (int x = spec.colOffset; x < width; x += 2) {
-                    double diff = actual[rowBase + x] - reference[rowBase + x];
-                    absSum += Math.abs(diff);
-                    sqSum += diff * diff;
-                    count++;
-                }
-            }
+            SpatialReferenceMetrics.DifferenceStats stats = SpatialReferenceMetrics.compareGrid(
+                    reference,
+                    decoded.data(),
+                    decoded.width(),
+                    decoded.height(),
+                    spec.rowOffset,
+                    spec.colOffset,
+                    2,
+                    2);
             results.add(new PlaneResult(spec.label,
-                    new ReferenceMetrics.Metrics(absSum / count, Math.sqrt(sqSum / count), Double.NaN)));
+                    new ReferenceMetrics.Metrics(stats.mae(), stats.rmse(), Double.NaN)));
         }
         return results;
     }
@@ -207,73 +199,35 @@ class Cr3ReferenceComparisonIT {
         if (iad1 == null) {
             return new ObMetrics(Double.NaN, Double.NaN);
         }
-        List<VisibleRect> rects = new ArrayList<>(2);
-        VisibleRect left = toRect(iad1.leftObLeft(), iad1.leftObTop(), iad1.leftObRight(), iad1.leftObBottom(),
-                width, height);
-        VisibleRect top = toRect(iad1.topObLeft(), iad1.topObTop(), iad1.topObRight(), iad1.topObBottom(),
-                width, height);
-        if (left.width > 0 && left.height > 0) {
-            rects.add(left);
-        }
-        if (top.width > 0 && top.height > 0) {
-            rects.add(top);
-        }
-        if (rects.isEmpty()) {
+        List<SpatialReferenceMetrics.Rect> regions = new ArrayList<>(2);
+        addNonEmpty(regions, SpatialReferenceMetrics.Rect.clip(
+                iad1.leftObLeft(), iad1.leftObTop(), iad1.leftObRight(), iad1.leftObBottom(),
+                width, height));
+        addNonEmpty(regions, SpatialReferenceMetrics.Rect.clip(
+                iad1.topObLeft(), iad1.topObTop(), iad1.topObRight(), iad1.topObBottom(),
+                width, height));
+        if (regions.isEmpty()) {
             return new ObMetrics(Double.NaN, Double.NaN);
         }
+        SpatialReferenceMetrics.DifferenceStats stats = SpatialReferenceMetrics.compareRegions(
+                reference, actual, width, height, regions);
+        return new ObMetrics(stats.mae(), stats.errorStdDev());
+    }
 
-        double absSum = 0;
-        double diffSum = 0;
-        double diffSqSum = 0;
-        long count = 0;
-        for (VisibleRect rect : rects) {
-            for (int y = rect.y; y < rect.y + rect.height; y++) {
-                int rowBase = y * width;
-                for (int x = rect.x; x < rect.x + rect.width; x++) {
-                    int diff = actual[rowBase + x] - reference[rowBase + x];
-                    absSum += Math.abs(diff);
-                    diffSum += diff;
-                    diffSqSum += (double) diff * diff;
-                    count++;
-                }
-            }
+    private static void addNonEmpty(
+            List<SpatialReferenceMetrics.Rect> regions,
+            SpatialReferenceMetrics.Rect region) {
+        if (!region.isEmpty()) {
+            regions.add(region);
         }
-        if (count == 0) {
-            return new ObMetrics(Double.NaN, Double.NaN);
-        }
-        double mean = diffSum / count;
-        double variance = Math.max(0.0, diffSqSum / count - mean * mean);
-        return new ObMetrics(absSum / count, Math.sqrt(variance));
     }
 
     private static double computeBoundaryError(int[] reference, int[] actual, int width, int height, Cmp1Box cmp1) {
         if (cmp1 == null || cmp1.tileWidth() <= 0 || cmp1.tileHeight() <= 0) {
             return Double.NaN;
         }
-        double absSum = 0;
-        long count = 0;
-        for (int seamX = cmp1.tileWidth(); seamX < width; seamX += cmp1.tileWidth()) {
-            int left = seamX - 1;
-            int right = seamX;
-            for (int y = 0; y < height; y++) {
-                int rowBase = y * width;
-                absSum += Math.abs(actual[rowBase + left] - reference[rowBase + left]);
-                absSum += Math.abs(actual[rowBase + right] - reference[rowBase + right]);
-                count += 2;
-            }
-        }
-        for (int seamY = cmp1.tileHeight(); seamY < height; seamY += cmp1.tileHeight()) {
-            int top = seamY - 1;
-            int bottom = seamY;
-            int topBase = top * width;
-            int bottomBase = bottom * width;
-            for (int x = 0; x < width; x++) {
-                absSum += Math.abs(actual[topBase + x] - reference[topBase + x]);
-                absSum += Math.abs(actual[bottomBase + x] - reference[bottomBase + x]);
-                count += 2;
-            }
-        }
-        return count == 0 ? Double.NaN : absSum / count;
+        return SpatialReferenceMetrics.tileBoundaryMae(
+                reference, actual, width, height, cmp1.tileWidth(), cmp1.tileHeight());
     }
 
     private static VisibleRect resolveVisibleRect(Iad1Box iad1, int width, int height) {
