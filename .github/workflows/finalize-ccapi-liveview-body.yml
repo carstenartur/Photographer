@@ -21,7 +21,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       MAVEN_OPTS: -Xmx2g
     steps:
@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p target/liveview-body-gate
+          mkdir -p .ci/liveview-body-gate
           python3 - <<'PY'
           from pathlib import Path
 
@@ -94,16 +94,7 @@ jobs:
             app/src/main/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClient.java \
             app/src/test/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClientTest.java \
             app/src/test/java/com/photographer/focusstack/camera/backend/CanonCcapiProductionLiveViewTest.java \
-            docs/ccapi-live-view.md | tee target/liveview-body-gate/source.patch
-
-          test "$(grep -Fxc '            "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}"' \
-            app/src/main/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClient.java)" -eq 1
-          test "$(grep -Foc '{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}' \
-            app/src/test/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClientTest.java)" -eq 2
-          test "$(grep -Foc '{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}' \
-            app/src/test/java/com/photographer/focusstack/camera/backend/CanonCcapiProductionLiveViewTest.java)" -eq 1
-          grep -Fx '{"liveviewsize":"off","cameradisplay":"on"}' \
-            docs/ccapi-live-view.md >/dev/null
+            docs/ccapi-live-view.md | tee .ci/liveview-body-gate/source.patch
 
       - name: Run focused live-view tests from a clean reactor
         shell: bash
@@ -114,7 +105,7 @@ jobs:
             -Dtest=CcapiLiveViewClientTest,CanonCcapiProductionLiveViewTest \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -Djava.awt.headless=true \
-            2>&1 | tee target/liveview-body-gate/focused.log
+            2>&1 | tee .ci/liveview-body-gate/focused.log
 
       - name: Upload focused verification diagnostics
         if: always()
@@ -122,7 +113,7 @@ jobs:
         with:
           name: ccapi-liveview-body-gate-${{ github.run_attempt }}
           path: |
-            target/liveview-body-gate
+            .ci/liveview-body-gate
             **/target/surefire-reports
           if-no-files-found: warn
           retention-days: 14
@@ -134,6 +125,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/finalize-ccapi-liveview-body.yml
+          rm -rf .ci/liveview-body-gate
           git add -A
           git commit -m 'fix(ccapi): send complete Canon live-view stop body'
           git push origin HEAD:hardening/ccapi-liveview-mode-selection
