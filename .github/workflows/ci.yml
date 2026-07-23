@@ -1,4 +1,5 @@
 name: Finalize CCAPI scroll product branch
+# Temporary PR-only verifier; the publish step restores canonical ci.yml from main.
 
 on:
   pull_request:
