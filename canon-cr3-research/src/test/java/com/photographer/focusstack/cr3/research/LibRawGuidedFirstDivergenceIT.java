@@ -125,8 +125,9 @@ class LibRawGuidedFirstDivergenceIT {
 
             for (SubbandExtractor.SubbandRef ref : tile) {
                 assertThat(ref.planeIndex()).isBetween(0, 3);
-                assertThat(ref.bitDepth()).as("reference bit depth for %s", entry.fixture())
-                        .isEqualTo(entry.bitDepth());
+                assertThat(entry.bitDepth())
+                        .as("TIFF storage depth must hold CRX samples for %s", entry.fixture())
+                        .isGreaterThanOrEqualTo(ref.bitDepth());
                 var mapping = new ReferenceGuidedFirstDivergenceAnalyzer.PlaneMapping(
                         reference.width(),
                         reference.height(),
