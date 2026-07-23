@@ -48,7 +48,7 @@ The API compatibility source of truth remains `docs/cr3-api-boundaries.md`. Clea
 | `.github/copilot-instructions.md` | canonical | Repository-specific agent policy; link to the manuals instead of duplicating changing architecture. |
 | `BACKUP.md` | merge | Durable content moved to `docs/developer/operations.md`; retain redirect. |
 | `README.md` | canonical | Concise product/user entry point with a Developer Manual path. |
-| `TODO.md` | merge | Retired roadmap pointer. GitHub issues own current work; Git history preserves the former checklist. |
+| `TODO.md` | canonical | Stable issue-tracker entry point. GitHub issues own current work; Git history preserves the retired checklist. |
 
 The TODO audit moved confirmed current work into scoped issues:
 
