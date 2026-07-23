@@ -39,6 +39,7 @@ graph TD
     STORAGE --> COMMON
     PTP --> COMMON
     OBSERVER --> COMMON
+    AI --> COMMON
     ASTRO --> COMMON
     HDR --> COMMON
     VIDEO --> COMMON
@@ -54,7 +55,6 @@ graph TD
     SESSION --> PROFILE
 
     PLUGIN --> COMMON
-    PLUGIN --> AI
 ```
 
 The diagram is intentionally conceptual. Exact dependencies are defined by the current module POMs; [`modules.md`](modules.md) classifies every reactor module.
@@ -102,10 +102,9 @@ Upper layers must therefore consult the reported capability set and must not inf
 Canon CCAPI production code is contained in the camera backend and transport packages inside `app`. Important boundaries are documented separately:
 
 - [transport ownership](../ccapi-transport-boundary.md);
-- [session ownership and leases](../ccapi-session-ownership.md);
-- [shutdown behavior](../ccapi-shutdown.md);
+- [session ownership, shutdown cleanup and leases](../ccapi-session-ownership.md);
 - [live-view modes and lifecycle](../ccapi-live-view.md);
-- [security and Digest authentication](../ccapi-security.md).
+- [Digest authentication and credential handling](../ccapi-authentication.md).
 
 The camera-advertised endpoint catalogue is authoritative for endpoint path, API version and HTTP-method availability. Code must not construct an endpoint merely because another camera model exposes it. Canon specifies that supported paths and methods vary by model and firmware, so the production catalogue preserves exact advertised metadata. The private Canon reference manuals are not redistributed in the repository.
 
@@ -117,7 +116,7 @@ Only one logical workflow may own a physical CCAPI camera at a time. Session lea
 
 `session-core` composes longer workflows, including HDR timelapse and face-orbit sessions. It depends on capture, storage and the specialized image/video/face contracts it orchestrates. It does not own Spring scheduling or HTTP concerns.
 
-`observer-core` contains the wildlife-observer state machine, rules and capture orchestration. `ai-vision` provides AI-provider implementations and permission/privacy gates. The current `plugin-api → ai-vision` dependency is real and should be reflected as current architecture rather than hidden as a desired future state.
+`common-api` owns the provider-neutral `VisionProvider`, context/result/capability records and shared `BoundingBox` compatibility type. `plugin-api` exposes external provider SPIs, `observer-core` owns observer-domain ports and event semantics, and `ai-vision` contains concrete Gemini/mock provider implementations. All three depend downward on the neutral contracts rather than on each other.
 
 `astro-core`, `hdr-core`, `video-core`, `face-analysis-core` and `face-profile-core` contain focused, framework-light algorithms or ports. Mock implementations are intentional test/development seams and are not evidence of production integration with every external processor.
 
@@ -188,7 +187,7 @@ The frontend may use public REST/capability data, but must not branch on private
 
 `plugin-api` exposes ServiceLoader extension points for analysis, camera backends and AI vision providers. Plugin JARs are discovered from the configured plugins directory.
 
-The plugin SPI is framework-independent, but it currently depends on `ai-vision` for the vision-provider contract. That dependency is part of the current graph; moving the shared vision port to a lower-level module is a possible refactoring, not an implemented feature.
+The plugin SPI is framework-independent and depends only on neutral contracts in `common-api`. External vision-provider plugins continue to implement the stable `com.photographer.focusstack.ai.VisionProvider` FQN, while concrete built-in provider implementations remain outside the SPI in `ai-vision`.
 
 ## Concurrency, ownership and shutdown
 
