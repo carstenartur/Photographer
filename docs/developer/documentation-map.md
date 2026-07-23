@@ -7,7 +7,7 @@ This map classifies the Markdown inventory recorded in [`repository-inventory.md
 - **canonical** — authoritative maintained documentation for a cross-module topic after audit against current code, tests and POMs.
 - **merge** — useful content has been consolidated into a canonical destination; keep the old path as a redirect while links migrate.
 - **obsolete** — no longer a valid source of truth; retain only until useful, code-backed content is cross-referenced.
-- **generated** — reproducible evidence or inventory; change the generator rather than manually editing the output.
+- **generated** — reproducible or historical evidence/inventory governed by an explicit ownership lifecycle rather than edited as current prose.
 - **local** — module-, fixture- or experiment-local documentation that remains near its code/data and links to canonical documentation.
 
 Removal still requires a content audit and link-preserving migration.
@@ -79,7 +79,7 @@ Local documentation does not become a supported external API merely because a Ja
 | `docs/reference-pipeline.md` | canonical | Independent CR3 reference-sidecar generation and validation. |
 | `docs/cr3-api-boundaries.md` | canonical | Symbol/package compatibility classification. |
 | `docs/crx-cleanroom-spec.md` | canonical | Implementation-aligned internal clean-room specification. |
-| `docs/cleanroom/**` process/attestation files | canonical | Clean-room policy, source registry and contributor records. |
+| `docs/cleanroom/**` process/attestation files | canonical | Clean-room policy, source registry, experiment ledger, generated-evidence ownership and contributor records. |
 | `docs/ccapi-*.md` maintained contracts | canonical | Transport, security, ownership, shutdown, media, event and live-view behavior backed by code/tests. |
 
 Private Canon manuals and extracted text remain outside Git and are never redistributable project documentation.
@@ -108,10 +108,12 @@ The last two redirects retire obsolete D5/Phase-A defaults while preserving hist
 | `docs/cr3-reference-inventory.md` | generated | Reference-corpus snapshot. |
 | `docs/cr3-reference-manifest.md` | canonical/generated boundary | Maintained schema plus generated/hash-bound entries. |
 | `docs/patent-us20160323602a1-analysis.md` | local | Registered-source analysis, not product/API documentation. |
-| `docs/cr3-results/**` | generated | Dated/generated evidence except the curated index at `docs/cr3/reports/index.md`. |
+| `docs/cr3-results/**` | generated | Complete per-file ownership is defined by `docs/cleanroom/generated-evidence.json`; the curated current interpretation remains in `docs/cr3/reports/index.md`. |
+| `docs/cleanroom/generated-evidence.json` | canonical machine-readable evidence contract | Exact owner, generator/input metadata, classification, outputs, timestamp policy, mappings and locks. |
+| `docs/cleanroom/generated-evidence.md` | canonical process documentation | Read-only verify/compare and explicit reviewed update procedure. |
 | `docs/cr3-patterns/**` | local/generated boundary | Deterministic D14 stimulus assets, schema and capture contract. |
 
-Generated reports are not relocated until their generators, links and verify/update modes move atomically.
+Historical reports are not relocated or normalized merely to make them look reproducible. A path moves only with its generator, links and verify/update behavior. Managed outputs are generated outside `docs/` and compared before an explicit reviewed update.
 
 ## Generated build documentation
 
@@ -126,9 +128,16 @@ python3 scripts/test_validate_documentation.py
 python3 scripts/validate_documentation.py .
 ```
 
-`scripts/verify-product.sh` runs the same commands before Maven verification, so pull-request CI uses exactly the checkout-local implementation.
+Validate committed CR3 evidence ownership separately:
 
-The validator checks every tracked Markdown file for repository-relative file and heading-anchor links. External URL schemes are not fetched. It also enforces `documentation-ownership.json`:
+```bash
+python3 scripts/test_manage_cr3_generated_evidence.py
+python3 scripts/manage_cr3_generated_evidence.py --root . verify
+```
+
+`scripts/verify-product.sh` runs the Markdown/ownership commands before Maven verification. The CR3 Clean-room Evidence workflow runs the generated-evidence validator and deterministic bundle builder. The focused CR3 research workflow performs a read-only D12 generator comparison.
+
+The documentation validator checks every tracked Markdown file for repository-relative file and heading-anchor links. External URL schemes are not fetched. It also enforces `documentation-ownership.json`:
 
 - each topic id has exactly one existing canonical owner;
 - generated evidence cannot be registered as current canonical truth;
@@ -136,13 +145,23 @@ The validator checks every tracked Markdown file for repository-relative file an
 - selected module READMEs link to their required Developer or CR3 Manual chapters;
 - build output under target, coverage, dist, site and equivalent generated directories is not committed.
 
+The generated-evidence validator additionally checks:
+
+- every tracked file below `docs/cr3-results/` has exactly one owner;
+- generator and input paths exist;
+- historical classifications state why current regeneration is not claimed;
+- managed outputs have isolated mappings and current Git blob locks;
+- no blanket result-root pattern hides missing ownership.
+
 When validation fails, correct the source rather than adding a broad ignore:
 
 1. fix or remove the stale relative link at the reported file and line;
 2. update the target heading deliberately when an anchor changed;
-3. change the JSON manifest only when ownership or redirect policy genuinely changed;
+3. change the JSON manifest only when ownership, evidence classification or redirect policy genuinely changed;
 4. add a module requirement only together with the corresponding README link;
-5. keep generated reports out of canonical-topic ownership and fix their generator under the Phase 4 contract.
+5. register each new research output under its actual generator or reviewed manual owner;
+6. migrate historical evidence only with an isolated generator and a passing compare contract;
+7. keep normal CI read-only and invoke generated-evidence `update` only as a deliberate reviewed action.
 
 Explicit exclusions must be narrow, reviewable and represented by a focused test. Private or external documents are linked through URL schemes and are outside repository-file validation; their contents are never fetched.
 
