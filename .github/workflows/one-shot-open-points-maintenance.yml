@@ -21,7 +21,7 @@ jobs:
   harden-verify-publish:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 45
     env:
       MAVEN_OPTS: -Xmx2g
     steps:
@@ -61,7 +61,7 @@ jobs:
           git worktree add /tmp/photographer-testkit origin/testkit/cr3-active-consumer-migration
           mkdir -p target/open-points-maintenance
 
-      - name: Harden, verify and publish coordinated shutdown
+      - name: Rebase and publish verified coordinated shutdown
         shell: bash
         working-directory: /tmp/photographer-shutdown
         run: |
@@ -70,14 +70,6 @@ jobs:
             set -e
             python /tmp/run_ccapi_shutdown_review_hardening.py \
               /tmp/harden_ccapi_shutdown_v2.py
-            mvn -B --no-transfer-progress test \
-              -pl app -am \
-              -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
-              -Dsurefire.failIfNoSpecifiedTests=false \
-              -Djava.awt.headless=true
-            mvn -B --no-transfer-progress clean verify \
-              -pl common-api,app -am \
-              -Djava.awt.headless=true
             git add \
               app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
               session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
@@ -95,6 +87,9 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
             fi
+            git fetch origin \
+              +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2
+            git rebase origin/hardening/ccapi-coordinated-shutdown-v2
             git push origin HEAD:refs/heads/hardening/ccapi-coordinated-shutdown-v2
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/shutdown.log"
 
@@ -121,6 +116,9 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
             fi
+            git fetch origin \
+              +refs/heads/testkit/cr3-active-consumer-migration:refs/remotes/origin/testkit/cr3-active-consumer-migration
+            git rebase origin/testkit/cr3-active-consumer-migration
             git push origin HEAD:refs/heads/testkit/cr3-active-consumer-migration
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/testkit.log"
 
