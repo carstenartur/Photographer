@@ -51,7 +51,8 @@ final class CcapiLiveViewClient {
     private static final Pattern VERSION = Pattern.compile("(?:^|/)ver(\\d+)(?:/|$)");
     private static final Duration DEFAULT_START_DELAY = Duration.ofMillis(500);
     private static final byte[] STOP_BODY =
-            "{\"liveviewsize\":\"off\"}".getBytes(StandardCharsets.UTF_8);
+            "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}"
+                    .getBytes(StandardCharsets.UTF_8);
 
     enum Mode {
         SINGLE_FRAME(

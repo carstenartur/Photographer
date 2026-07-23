@@ -37,7 +37,7 @@ Repeated frame requests send one start request. Repeated stop requests send one 
 ```
 
 ```json
-{"liveviewsize":"off"}
+{"liveviewsize":"off","cameradisplay":"on"}
 ```
 
 `Already started` is accepted as an idempotent start result. `Not started` is accepted as an idempotent stop result.

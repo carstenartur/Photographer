@@ -68,7 +68,7 @@ class CanonCcapiProductionLiveViewTest {
                         (byte[]) entity.getBody(), StandardCharsets.UTF_8))
                 .containsExactly(
                         "{\"liveviewsize\":\"medium\",\"cameradisplay\":\"on\"}",
-                        "{\"liveviewsize\":\"off\"}");
+                        "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}");
     }
 
     @Test

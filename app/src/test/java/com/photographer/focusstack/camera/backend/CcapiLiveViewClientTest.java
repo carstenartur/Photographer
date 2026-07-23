@@ -111,7 +111,7 @@ class CcapiLiveViewClientTest {
         assertThat(second.data()).containsExactly(jpeg);
         assertThat(fixture.poster.bodyStrings()).containsExactly(
                 "{\"liveviewsize\":\"medium\",\"cameradisplay\":\"on\"}",
-                "{\"liveviewsize\":\"off\"}");
+                "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}");
         assertThat(fixture.client.state()).isEqualTo(CcapiLiveViewClient.State.STOPPED);
     }
 
@@ -179,7 +179,7 @@ class CcapiLiveViewClientTest {
 
         assertThat(fixture.poster.bodyStrings()).containsExactly(
                 "{\"liveviewsize\":\"medium\",\"cameradisplay\":\"on\"}",
-                "{\"liveviewsize\":\"off\"}");
+                "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}");
         assertThat(fixture.client.state()).isEqualTo(CcapiLiveViewClient.State.STOPPED);
     }
 
