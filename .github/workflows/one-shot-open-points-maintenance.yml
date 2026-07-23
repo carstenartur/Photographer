@@ -5,16 +5,21 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/one-shot-open-points-maintenance.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/maintenance/open-points-maintenance.trigger'
 
 permissions:
   contents: write
 
 concurrency:
   group: one-shot-open-points-maintenance
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   harden-verify-publish:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -47,142 +52,27 @@ jobs:
             +refs/heads/testkit/cr3-active-consumer-migration:refs/remotes/origin/testkit/cr3-active-consumer-migration \
             +refs/heads/automation/implement-ccapi-shutdown-final:refs/remotes/origin/automation/implement-ccapi-shutdown-final \
             +refs/heads/automation/migrate-cr3-active-consumers:refs/remotes/origin/automation/migrate-cr3-active-consumers
+          git show origin/automation/implement-ccapi-shutdown-final:scripts/harden_ccapi_digest_review.py \
+            > /tmp/harden_ccapi_digest_review.py
           git show origin/automation/implement-ccapi-shutdown-final:scripts/harden_ccapi_shutdown_v2.py \
             > /tmp/harden_ccapi_shutdown_v2.py
+          git show origin/automation/implement-ccapi-shutdown-final:scripts/run_ccapi_shutdown_review_hardening.py \
+            > /tmp/run_ccapi_shutdown_review_hardening.py
           git show origin/automation/migrate-cr3-active-consumers:scripts/migrate_cr3_active_consumers.py \
             > /tmp/migrate_cr3_active_consumers.py
           git worktree add /tmp/photographer-digest origin/hardening/ccapi-digest-edge-cases
           git worktree add /tmp/photographer-shutdown origin/hardening/ccapi-coordinated-shutdown-v2
           git worktree add /tmp/photographer-testkit origin/testkit/cr3-active-consumer-migration
+          mkdir -p target/open-points-maintenance
 
       - name: Harden and verify Digest challenge handling
         shell: bash
         working-directory: /tmp/photographer-digest
         run: |
           set -o pipefail
-          mkdir -p "$GITHUB_WORKSPACE/target/open-points-maintenance"
           {
             set -e
-            python - <<'PY'
-          from pathlib import Path
-
-          path = Path('app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java')
-          text = path.read_text(encoding='utf-8')
-          old = '''    private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
-              for (Header challenge : challenges) {
-                  String value = challenge.getValue();
-                  if (value == null || !value.regionMatches(true, 0, "Digest ", 0, 7)) {
-                      continue;
-                  }
-                  String parameters = value.substring(7);
-                  String algorithm = parameter(parameters, "algorithm").orElse("MD5");
-                  String qop = parameter(parameters, "qop").orElse("");
-                  boolean supportsAuth = Arrays.stream(qop.split(","))
-                          .map(String::trim)
-                          .anyMatch("auth"::equalsIgnoreCase);
-                  if (!"MD5".equalsIgnoreCase(algorithm) || !supportsAuth) {
-                      outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
-                      throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
-                  }
-                  return;
-              }
-              // A Basic-only or otherwise non-Digest challenge is not answered because
-              // RequestConfig permits Digest only. The bounded final 401 is translated by
-              // CcapiResponseErrorHandler without exposing challenge material.
-          }'''
-          new = '''    private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
-              if (hasCompatibleCanonDigestChallenge(challenges)) {
-                  return;
-              }
-              if (containsDigestChallenge(challenges)) {
-                  outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
-                  throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
-              }
-              // A Basic-only or otherwise non-Digest challenge is not answered because
-              // RequestConfig permits Digest only. The bounded final 401 is translated by
-              // CcapiResponseErrorHandler without exposing challenge material.
-          }
-
-          static boolean hasCompatibleCanonDigestChallenge(Header[] challenges) {
-              for (Header challenge : challenges) {
-                  String value = challenge.getValue();
-                  if (!isDigestChallenge(value)) {
-                      continue;
-                  }
-                  String parameters = value.substring(7);
-                  String algorithm = parameter(parameters, "algorithm").orElse("MD5");
-                  String qop = parameter(parameters, "qop").orElse("");
-                  boolean supportsAuth = Arrays.stream(qop.split(","))
-                          .map(String::trim)
-                          .anyMatch("auth"::equalsIgnoreCase);
-                  if ("MD5".equalsIgnoreCase(algorithm) && supportsAuth) {
-                      return true;
-                  }
-              }
-              return false;
-          }
-
-          private static boolean containsDigestChallenge(Header[] challenges) {
-              return Arrays.stream(challenges)
-                      .map(Header::getValue)
-                      .anyMatch(CcapiRestTemplateFactory::isDigestChallenge);
-          }
-
-          private static boolean isDigestChallenge(String value) {
-              return value != null && value.regionMatches(true, 0, "Digest ", 0, 7);
-          }'''
-          count = text.count(old)
-          if count != 1:
-              raise SystemExit(f'expected one Digest validator anchor, found {count}')
-          path.write_text(text.replace(old, new), encoding='utf-8')
-
-          Path('app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java').write_text(
-          '''package com.photographer.focusstack.camera.backend;
-
-          import org.apache.hc.core5.http.Header;
-          import org.apache.hc.core5.http.message.BasicHeader;
-          import org.junit.jupiter.api.Test;
-
-          import static org.assertj.core.api.Assertions.assertThat;
-
-          class CcapiDigestChallengeSelectionTest {
-
-              @Test
-              void acceptsCompatibleDigestChallengeAfterUnsupportedAlternative() {
-                  Header[] challenges = {
-                          challenge("Digest realm=\\"camera\\", algorithm=\\"SHA-256\\", qop=\\"auth\\""),
-                          challenge("Digest realm=\\"camera\\", algorithm=\\"MD5\\", qop=\\"auth,auth-int\\"")
-                  };
-                  assertThat(CcapiRestTemplateFactory
-                          .hasCompatibleCanonDigestChallenge(challenges)).isTrue();
-              }
-
-              @Test
-              void acceptsOmittedAlgorithmAsMd5Default() {
-                  Header[] challenges = {
-                          challenge("Digest realm=\\"camera\\", qop=\\"auth\\"")
-                  };
-                  assertThat(CcapiRestTemplateFactory
-                          .hasCompatibleCanonDigestChallenge(challenges)).isTrue();
-              }
-
-              @Test
-              void rejectsDigestSetWithoutCompatibleCanonContract() {
-                  Header[] challenges = {
-                          challenge("Basic realm=\\"camera\\""),
-                          challenge("Digest realm=\\"camera\\", algorithm=\\"SHA-256\\", qop=\\"auth\\""),
-                          challenge("Digest realm=\\"camera\\", algorithm=\\"MD5\\", qop=\\"auth-int\\"")
-                  };
-                  assertThat(CcapiRestTemplateFactory
-                          .hasCompatibleCanonDigestChallenge(challenges)).isFalse();
-              }
-
-              private static Header challenge(String value) {
-                  return new BasicHeader("WWW-Authenticate", value);
-              }
-          }
-          ''', encoding='utf-8')
-          PY
+            python /tmp/harden_ccapi_digest_review.py
             mvn -B --no-transfer-progress test \
               -pl app -am \
               -Dtest=CcapiDigestEdgeCaseTest,CcapiDigestChallengeSelectionTest \
@@ -191,9 +81,12 @@ jobs:
             mvn -B --no-transfer-progress clean verify \
               -pl common-api,app -am \
               -Djava.awt.headless=true
-            git add app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java \
-                    app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java
-            git commit -m 'fix(ccapi): select any compatible Digest challenge'
+            git add \
+              app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java \
+              app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java
+            if ! git diff --cached --quiet; then
+              git commit -m 'fix(ccapi): select any compatible Digest challenge'
+            fi
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/digest.log"
 
       - name: Harden and verify coordinated shutdown
@@ -203,64 +96,8 @@ jobs:
           set -o pipefail
           {
             set -e
-            python - <<'PY'
-          from pathlib import Path
-
-          path = Path('app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java')
-          text = path.read_text(encoding='utf-8')
-          irregular = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-                 .isInstanceOf(IllegalStateException.class)
-                 .hasMessageContaining("shutting down");'''
-          canonical = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-                  .isInstanceOf(IllegalStateException.class)
-                  .hasMessageContaining("shutting down");'''
-          if irregular in text:
-              path.write_text(text.replace(irregular, canonical), encoding='utf-8')
-          elif canonical not in text:
-              raise SystemExit('shutdown lease test assertion anchor not found')
-          PY
-            python /tmp/harden_ccapi_shutdown_v2.py
-            python - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path_name: str, old: str, new: str) -> None:
-              path = Path(path_name)
-              text = path.read_text(encoding='utf-8')
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(
-                      f'{path_name}: expected one anchor, found {count}: {old[:100]!r}')
-              path.write_text(text.replace(old, new), encoding='utf-8')
-
-          replace_once(
-              'app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java',
-              '''    @PreDestroy
-              public void close() {
-                  beginShutdown();
-                  int active = leases.size();
-                  if (active != 0) {
-            throw new IllegalStateException(
-                    "Camera session lease manager closed with " + active + " active lease(s)");
-                  }
-              }''',
-              '''    @PreDestroy
-              public void close() {
-                  synchronized (lifecycleMonitor) {
-                      beginShutdown();
-                      int active = leases.size();
-                      if (active != 0) {
-                          throw new IllegalStateException(
-                                  "Camera session lease manager closed with " + active
-                                          + " active lease(s)");
-                      }
-                  }
-              }''')
-
-          replace_once(
-              'app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java',
-              '      duration -> Thread.sleep(duration.toMillis()));',
-              '      Thread::sleep);')
-          PY
+            python /tmp/run_ccapi_shutdown_review_hardening.py \
+              /tmp/harden_ccapi_shutdown_v2.py
             mvn -B --no-transfer-progress test \
               -pl app -am \
               -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
@@ -269,19 +106,22 @@ jobs:
             mvn -B --no-transfer-progress clean verify \
               -pl common-api,app -am \
               -Djava.awt.headless=true
-            git add app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
-                    session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
-                    app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
-                    app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
-                    app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java \
-                    app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
-                    session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
-                    session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
-                    app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
-                    app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
-                    app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
-                    app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
-            git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
+            git add \
+              app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
+              session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
+              app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
+              app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
+              app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java \
+              app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
+              session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
+              session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
+              app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
+              app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
+              app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
+              app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
+            if ! git diff --cached --quiet; then
+              git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
+            fi
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/shutdown.log"
 
       - name: Migrate and verify active CR3 testkit consumers
@@ -300,10 +140,13 @@ jobs:
             mvn -B --no-transfer-progress clean verify \
               -pl canon-cr3-reference-testkit,canon-cr3-research -am \
               -Djava.awt.headless=true
-            git add canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/Cr3ReferenceComparisonIT.java \
-                    canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PedestalHypothesisValidationIT.java \
-                    canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/DcComponentIsolationIT.java
-            git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
+            git add \
+              canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/Cr3ReferenceComparisonIT.java \
+              canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PedestalHypothesisValidationIT.java \
+              canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/DcComponentIsolationIT.java
+            if ! git diff --cached --quiet; then
+              git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
+            fi
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/testkit.log"
 
       - name: Publish all verified product branches
