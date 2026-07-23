@@ -115,13 +115,26 @@ param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
 BufferedImage rawProcessed = reader.read(0, param);
 ```
 
-### Linear RAW / raster — experimental
+### Linear RAW with explicit options — experimental
+
+Use `read(0, param)` when crop or other `Cr3DecodeOptions` must be honored:
 
 ```java
 CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
 param.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
-Raster raster = reader.readRaster(0, param);
+BufferedImage linear = reader.read(0, param);
+Raster croppedRaster = linear.getRaster();
 ```
+
+### `readRaster()` current limitation
+
+`CanonCr3ImageReader.readRaster(0, param)` currently ignores the supplied `ImageReadParam` and always decodes with default `Cr3DecodeOptions.rawLinear()` settings. In particular, `cropToActiveArea(true)` passed through `CanonCr3ImageReadParam` does not affect `readRaster()` today:
+
+```java
+Raster fullLinearRaster = reader.readRaster(0, null);
+```
+
+Treat this as an experimental API limitation, not as configurable raster behavior. A future implementation change must add tests before the parameter can be documented as honored.
 
 RAW-specific modes support only the CR3/CRX variants covered by the experimental decoder and fixed regression corpus. Unsupported variants must be reported as limitations; they must not silently fall back to the embedded preview when the caller explicitly requested RAW.
 
@@ -133,8 +146,8 @@ RAW-specific modes support only the CR3/CRX variants covered by the experimental
 | `CanonCr3ImageReader` preview/thumbnail/metadata behavior | `PUBLIC_STABLE` |
 | `Cr3ImageMetadata` native metadata contract | `PUBLIC_STABLE` |
 | `CanonCr3ImageReadParam` preview selection | Stable subset |
-| RAW-specific `CanonCr3ImageReadParam` options | `PUBLIC_EXPERIMENTAL` |
-| `readRaster()` full-RAW result | Experimental |
+| RAW-specific `CanonCr3ImageReadParam` options through `read()` | `PUBLIC_EXPERIMENTAL` |
+| `readRaster()` full-RAW result | Experimental; supplied read parameters currently ignored |
 
 See [API boundaries](../cr3-api-boundaries.md) for symbol-level ownership.
 
