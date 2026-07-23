@@ -6,7 +6,6 @@ import com.photographer.focusstack.common.camera.LiveViewFrame;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
@@ -68,7 +67,7 @@ final class CcapiLiveViewClient {
         MULTIPART_STREAM(
                 "multipart-stream",
                 "/shooting/liveview/multipart",
-                Set.of(HttpMethod.GET),
+                Set.of(HttpMethod.GET, HttpMethod.DELETE),
                 false),
         RTP_STREAM(
                 "rtp-stream",
@@ -305,12 +304,17 @@ final class CcapiLiveViewClient {
     List<AdvertisedMode> advertisedModes() {
         Map<Mode, AdvertisedMode> modes = new EnumMap<>(Mode.class);
         for (Mode mode : Mode.values()) {
-            highestExact(mode.suffix()).ifPresent(endpoint -> modes.put(mode, new AdvertisedMode(
+            Optional<Endpoint> compatible = highestCompatible(
+                    mode.suffix(), mode.requiredMethods());
+            Optional<Endpoint> selected = compatible.isPresent()
+                    ? compatible
+                    : highestExact(mode.suffix());
+            selected.ifPresent(endpoint -> modes.put(mode, new AdvertisedMode(
                     mode,
                     endpoint.path(),
                     endpoint.methods(),
                     endpoint.methodMetadataKnown(),
-                    endpoint.supports(mode.requiredMethods()),
+                    compatible.isPresent(),
                     mode.frameRetrievalImplemented())));
         }
         return List.copyOf(modes.values());
@@ -401,17 +405,13 @@ final class CcapiLiveViewClient {
     }
 
     private LiveViewFrame readFrame(Endpoint endpoint) {
-        try {
-            byte[] data = restTemplate.getForObject(endpoint.url(), byte[].class);
-            return new LiveViewFrame(
-                    data == null ? new byte[0] : data,
-                    960,
-                    640,
-                    Instant.now(),
-                    MediaType.IMAGE_JPEG_VALUE);
-        } catch (RuntimeException failure) {
-            throw failure;
-        }
+        byte[] data = restTemplate.getForObject(endpoint.url(), byte[].class);
+        return new LiveViewFrame(
+                data == null ? new byte[0] : data,
+                960,
+                640,
+                Instant.now(),
+                MediaType.IMAGE_JPEG_VALUE);
     }
 
     private void awaitStartDelay() {
