@@ -39,6 +39,23 @@ function stackingMode(session) {
   return session?.captureConfig?.stackingConfig?.mode || 'MEAN';
 }
 
+function stackingConfig(form) {
+  const sigmaThreshold = Number(form.sigmaThreshold);
+  const maxIterations = Number(form.maxIterations);
+  const minimumSamples = Number(form.minimumSamples);
+  if (!Number.isFinite(sigmaThreshold) || sigmaThreshold < 0.1
+      || !Number.isInteger(maxIterations) || maxIterations < 1
+      || !Number.isInteger(minimumSamples) || minimumSamples < 3) {
+    return null;
+  }
+  return {
+    mode: form.mode,
+    sigmaThreshold,
+    maxIterations,
+    minimumSamples,
+  };
+}
+
 export default function AstroSessions() {
   const [sessions, setSessions] = useState([]);
   const [captureForm, setCaptureForm] = useState(DEFAULT_CAPTURE);
@@ -102,6 +119,11 @@ export default function AstroSessions() {
   async function handleCreate(e) {
     e.preventDefault();
     setError(null);
+    const resolvedStackingConfig = stackingConfig(stackingForm);
+    if (!resolvedStackingConfig) {
+      setError('Create failed: enter valid stacking parameters.');
+      return;
+    }
     try {
       const config = {
         captureConfig: {
@@ -114,12 +136,7 @@ export default function AstroSessions() {
           saveRaw: captureForm.saveRaw,
           saveJpeg: captureForm.saveJpeg,
           captureDarkFrame: captureForm.captureDarkFrame,
-          stackingConfig: {
-            mode: stackingForm.mode,
-            sigmaThreshold: Number(stackingForm.sigmaThreshold),
-            maxIterations: Number(stackingForm.maxIterations),
-            minimumSamples: Number(stackingForm.minimumSamples),
-          },
+          stackingConfig: resolvedStackingConfig,
         },
         focusConfig: {
           strategy: focusForm.strategy,
@@ -248,15 +265,15 @@ export default function AstroSessions() {
             <>
               <label>
                 Sigma Threshold
-                <input name="sigmaThreshold" type="number" min="0.1" step="0.1" value={stackingForm.sigmaThreshold} onChange={handleStackingChange} />
+                <input required name="sigmaThreshold" type="number" min="0.1" step="0.1" value={stackingForm.sigmaThreshold} onChange={handleStackingChange} />
               </label>
               <label>
                 Maximum Iterations
-                <input name="maxIterations" type="number" min="1" max="20" value={stackingForm.maxIterations} onChange={handleStackingChange} />
+                <input required name="maxIterations" type="number" min="1" max="20" value={stackingForm.maxIterations} onChange={handleStackingChange} />
               </label>
               <label>
                 Minimum Samples
-                <input name="minimumSamples" type="number" min="3" value={stackingForm.minimumSamples} onChange={handleStackingChange} />
+                <input required name="minimumSamples" type="number" min="3" value={stackingForm.minimumSamples} onChange={handleStackingChange} />
               </label>
             </>
           )}
