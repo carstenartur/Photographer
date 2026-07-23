@@ -5,6 +5,8 @@ import com.photographer.focusstack.common.model.AstroFocusConfig;
 import com.photographer.focusstack.common.model.AstroFocusStrategy;
 import com.photographer.focusstack.common.model.AstroSession;
 import com.photographer.focusstack.common.model.AstroSessionStatus;
+import com.photographer.focusstack.common.model.AstroStackingConfig;
+import com.photographer.focusstack.common.model.AstroStackingMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -45,6 +47,13 @@ public class AstroSessionEntity {
     private boolean saveJpeg;
     private boolean captureDarkFrame;
 
+    // Stacking config and persisted scientific provenance
+    @Enumerated(EnumType.STRING)
+    private AstroStackingMode stackingMode;
+    private double stackingSigmaThreshold;
+    private int stackingMaxIterations;
+    private int stackingMinimumSamples;
+
     // Focus config
     @Enumerated(EnumType.STRING)
     private AstroFocusStrategy focusStrategy;
@@ -81,6 +90,11 @@ public class AstroSessionEntity {
         entity.saveRaw = captureConfig.saveRaw();
         entity.saveJpeg = captureConfig.saveJpeg();
         entity.captureDarkFrame = captureConfig.captureDarkFrame();
+        AstroStackingConfig stacking = captureConfig.stackingConfig();
+        entity.stackingMode = stacking.mode();
+        entity.stackingSigmaThreshold = stacking.sigmaThreshold();
+        entity.stackingMaxIterations = stacking.maxIterations();
+        entity.stackingMinimumSamples = stacking.minimumSamples();
         entity.focusStrategy = focusConfig.strategy();
         entity.scanSteps = focusConfig.scanSteps();
         entity.scanStepSize = focusConfig.scanStepSize();
@@ -91,16 +105,51 @@ public class AstroSessionEntity {
 
     public AstroSession toRecord() {
         return new AstroSession(
-                id, status, createdAt, startedAt, finishedAt,
+                id,
+                status,
+                createdAt,
+                startedAt,
+                finishedAt,
                 new AstroCaptureConfig(
-                        cameraProfileId, frameCount, exposureTimeMs, iso, aperture,
-                        delayBetweenFramesMs, imageFormat, saveRaw, saveJpeg,
-                        captureDarkFrame),
+                        cameraProfileId,
+                        frameCount,
+                        exposureTimeMs,
+                        iso,
+                        aperture,
+                        delayBetweenFramesMs,
+                        imageFormat,
+                        saveRaw,
+                        saveJpeg,
+                        captureDarkFrame,
+                        resolvedStackingConfig()),
                 new AstroFocusConfig(
-                        focusStrategy, scanSteps, scanStepSize,
-                        initialFocusPosition, bestFocusPosition),
-                outputDirectory, List.of(), resultImagePath, stackingSummary, errorMessage
-        );
+                        focusStrategy,
+                        scanSteps,
+                        scanStepSize,
+                        initialFocusPosition,
+                        bestFocusPosition),
+                outputDirectory,
+                List.of(),
+                resultImagePath,
+                stackingSummary,
+                errorMessage);
+    }
+
+    public AstroStackingConfig resolvedStackingConfig() {
+        if (stackingMode == null) {
+            return AstroStackingConfig.defaults();
+        }
+        return new AstroStackingConfig(
+                stackingMode,
+                stackingSigmaThreshold >= 0.1
+                        ? stackingSigmaThreshold
+                        : AstroStackingConfig.DEFAULT_SIGMA_THRESHOLD,
+                stackingMaxIterations >= 1
+                        ? stackingMaxIterations
+                        : AstroStackingConfig.DEFAULT_MAX_ITERATIONS,
+                stackingMinimumSamples >= 3
+                        ? stackingMinimumSamples
+                        : AstroStackingConfig.DEFAULT_MINIMUM_SAMPLES);
     }
 
     public String getId() { return id; }
@@ -129,4 +178,8 @@ public class AstroSessionEntity {
     public AstroFocusStrategy getFocusStrategy() { return focusStrategy; }
     public int getScanSteps() { return scanSteps; }
     public int getScanStepSize() { return scanStepSize; }
+    public AstroStackingMode getStackingMode() { return resolvedStackingConfig().mode(); }
+    public double getStackingSigmaThreshold() { return resolvedStackingConfig().sigmaThreshold(); }
+    public int getStackingMaxIterations() { return resolvedStackingConfig().maxIterations(); }
+    public int getStackingMinimumSamples() { return resolvedStackingConfig().minimumSamples(); }
 }
