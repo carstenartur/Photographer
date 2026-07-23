@@ -145,6 +145,22 @@
       "verdict": "COMPLETE: PRIMARY_SOURCE_OR_MAPPING_INSUFFICIENT; all 88 fixed-panel records are lossless single-subband records and expose no deeper Sd or Kd context mapping",
       "productionDecision": "No production decoder change; block D14 until genuinely new primary-source or multi-subband structural evidence exists",
       "status": "complete"
+    },
+    {
+      "id": "RG1",
+      "title": "LibRaw-guided first-reference divergence with isolated initialization",
+      "issue": 276,
+      "sourceIds": ["SRC-007", "SRC-008", "SRC-009"],
+      "oneChangedVariable": "Configured first-pixel seed 0 versus a diagnostic per-stream seed equal to the first registered reference sample; all other test-decoder semantics unchanged",
+      "fixedInputs": "Explicit eleven-fixture lossless CR3 panel, 88 tile/plane streams and manifest-bound RAW_LINEAR TIFF references",
+      "implementationScope": "canon-cr3-research observation and diagnostic test scope only; production decoder unchanged",
+      "commit": "a5f1194a45f5bbb7a6a0cbc40303434192ec4218",
+      "workflowRun": 29996762560,
+      "artifactDigest": "sha256:74c1f2045649b9ace1857f4b8ab8b47008e8caf6009f2054286ed1c0dc62a0b0",
+      "durableReport": "docs/cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md",
+      "verdict": "COMPLETE: PEDESTAL_ONLY_INSUFFICIENT_AND_EARLIEST_NONZERO_SYMBOL_UNEXPLAINED",
+      "productionDecision": "No production decoder change; use the machine-readable prefix evidence only for a separately pre-registered structural hypothesis or controlled capture experiment",
+      "status": "complete"
     }
   ]
 }
