@@ -23,7 +23,8 @@ def replace_between(
     if start_count != 1 or end_count != 1:
         raise SystemExit(
             f"{path_name}: expected unique markers, found "
-            f"start={start_count}, end={end_count}")
+            f"start={start_count}, end={end_count}; "
+            f"start_marker={start_marker!r}, end_marker={end_marker!r}")
     start = text.index(start_marker)
     end = text.index(end_marker, start + len(start_marker))
     if end <= start:
@@ -67,10 +68,15 @@ replace_once(
     "        ReferenceImage reference = ReferenceImageLoader.load(\n"
     "                FIXTURES.resolve(fixture).requiredTiff());",
 )
+replace_once(
+    comparison,
+    "                SAMPLES_DIR.relativize(fixture).toString().replace('\\\\', '/'),",
+    "                FIXTURES.samplesRoot().relativize(fixture).toString().replace('\\\\', '/'),",
+)
 replace_between(
     comparison,
     "    private static Path referenceTiffPath(Path fixture) {",
-    "    private static String escapePipes",
+    "    private static List<PlaneSpec> planeSpecs",
     "",
 )
 
@@ -96,6 +102,11 @@ replace_once(
     "        ReferenceImage reference = loadReference(referenceTiffPath(fixture));",
     "        ReferenceImage reference = loadReference(\n"
     "                FIXTURES.resolve(fixture).requiredTiff());",
+)
+replace_once(
+    pedestal,
+    "                SAMPLES_DIR.relativize(fixture).toString().replace('\\\\', '/'),",
+    "                FIXTURES.samplesRoot().relativize(fixture).toString().replace('\\\\', '/'),",
 )
 replace_between(
     pedestal,
@@ -139,6 +150,12 @@ replace_once(
     """            Path refTiff = referenceTiffPath(fixture);
             if (!Files.exists(refTiff)) continue;""",
     """            Path refTiff = FIXTURES.resolve(fixture).requiredTiff();""",
+)
+replace_once(
+    dc,
+    "            String name = SAMPLES_DIR.relativize(fixture).toString().replace('\\\\', '/');",
+    "            String name = FIXTURES.samplesRoot().relativize(fixture)\n"
+    "                    .toString().replace('\\\\', '/');",
 )
 replace_between(
     dc,
