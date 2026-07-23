@@ -48,11 +48,28 @@ class CleanroomEvidenceBundleTest(unittest.TestCase):
             "productionDecision": "No change",
             "status": "complete",
         }
+        generated = {
+            "schemaVersion": 1,
+            "resultsRoot": "docs/cr3-results",
+            "entries": [{
+                "id": "D1-report",
+                "classification": "historical-manual",
+                "ownerModule": "docs",
+                "inputs": ["docs/source.md"],
+                "outputs": ["docs/cr3-results/D1.md"],
+                "ledgerExperiment": "D1",
+                "timestampPolicy": "not-applicable",
+                "rationale": "Synthetic historical report used by the bundle test.",
+            }],
+        }
         (self.root / "docs" / "cleanroom" / "source-register.json").write_text(
             json.dumps({"schemaVersion": 1, "sources": [source]}), encoding="utf-8"
         )
         (self.root / "docs" / "cleanroom" / "experiment-ledger.json").write_text(
             json.dumps({"schemaVersion": 1, "experiments": [experiment]}), encoding="utf-8"
+        )
+        (self.root / "docs" / "cleanroom" / "generated-evidence.json").write_text(
+            json.dumps(generated), encoding="utf-8"
         )
         (self.root / "docs" / "cleanroom" / "README.md").write_text(
             "clean room\n", encoding="utf-8"
@@ -75,6 +92,7 @@ class CleanroomEvidenceBundleTest(unittest.TestCase):
             manifest = json.loads(archive.read("BUNDLE-MANIFEST.json"))
             paths = [item["path"] for item in manifest["files"]]
             self.assertIn("docs/cleanroom/source-register.json", paths)
+            self.assertIn("docs/cleanroom/generated-evidence.json", paths)
             self.assertIn("docs/cr3-results/D1.md", paths)
 
     def test_media_is_excluded_from_bundle(self) -> None:
