@@ -2,6 +2,7 @@ package com.photographer.focusstack.astro;
 
 import com.photographer.focusstack.common.model.AstroFrame;
 import com.photographer.focusstack.common.model.AstroStackingConfig;
+import com.photographer.focusstack.common.model.AstroStackingMode;
 import com.photographer.focusstack.common.model.FrameTransform;
 import com.photographer.focusstack.common.model.StarPoint;
 
@@ -49,9 +50,28 @@ public class AstroCapturePipeline {
             int framesUsedInStack,
             AstroStackingConfig stackingConfig,
             String summary
-    ) {}
+    ) {
+        /**
+         * Compatibility constructor for callers compiled against the historical
+         * Mean-only result shape.
+         */
+        public PipelineResult(
+                List<AstroFrame> frames,
+                BufferedImage stackedImage,
+                int referenceFrameIndex,
+                int framesUsedInStack,
+                String summary) {
+            this(
+                    frames,
+                    stackedImage,
+                    referenceFrameIndex,
+                    framesUsedInStack,
+                    AstroStackingConfig.defaults(),
+                    summary);
+        }
+    }
 
-    /** Processes using the historical mean stacking configuration. */
+    /** Processes using the historical Mean stacking configuration. */
     public PipelineResult process(List<BufferedImage> images) {
         return process(
                 images,
@@ -59,7 +79,7 @@ public class AstroCapturePipeline {
                 AstroStackingService.StackingControl.none());
     }
 
-    /** Processes with explicit stacking provenance and cooperative cancellation. */
+    /** Processes with an explicit stacking configuration and cooperative cancellation. */
     public PipelineResult process(
             List<BufferedImage> images,
             AstroStackingConfig stackingConfig,
@@ -74,7 +94,6 @@ public class AstroCapturePipeline {
         int width = images.getFirst().getWidth();
         int height = images.getFirst().getHeight();
 
-        // 1. Detect stars in each frame
         List<List<StarPoint>> allStars = new ArrayList<>();
         List<Double> focusScores = new ArrayList<>();
         for (BufferedImage image : images) {
@@ -83,7 +102,6 @@ public class AstroCapturePipeline {
             focusScores.add(starDetectionService.computeFocusScore(stars));
         }
 
-        // 2. Choose reference frame (highest focus score)
         int referenceIndex = 0;
         double bestScore = focusScores.getFirst();
         for (int index = 1; index < focusScores.size(); index++) {
@@ -94,7 +112,6 @@ public class AstroCapturePipeline {
         }
         List<StarPoint> referenceStars = allStars.get(referenceIndex);
 
-        // 3. Register each frame to reference
         List<FrameRegistrationService.RegistrationResult> registrations =
                 new ArrayList<>();
         for (int index = 0; index < images.size(); index++) {
@@ -108,7 +125,6 @@ public class AstroCapturePipeline {
             }
         }
 
-        // 4. Build frame metadata and stack inputs
         List<AstroFrame> frames = new ArrayList<>();
         List<AstroStackingService.FrameInput> stackInputs = new ArrayList<>();
         int usedInStack = 0;
@@ -140,7 +156,6 @@ public class AstroCapturePipeline {
             }
         }
 
-        // 5. Stack accepted frames
         BufferedImage stacked;
         if (stackInputs.isEmpty()) {
             stacked = images.get(referenceIndex);
@@ -154,7 +169,6 @@ public class AstroCapturePipeline {
                     stackingControl);
         }
 
-        // 6. Apply deblur (no-op for now)
         stacked = deblurService.deblur(stacked);
 
         String summary = String.format(
@@ -165,9 +179,7 @@ public class AstroCapturePipeline {
                 usedInStack,
                 images.size() - usedInStack,
                 stackingConfig.mode(),
-                stackingConfig.mode()
-                                == com.photographer.focusstack.common.model.AstroStackingMode
-                                        .SIGMA_CLIPPED_MEAN
+                stackingConfig.mode() == AstroStackingMode.SIGMA_CLIPPED_MEAN
                         ? String.format(
                                 "(sigma=%.3f,iterations=%d,minSamples=%d)",
                                 stackingConfig.sigmaThreshold(),
