@@ -94,9 +94,12 @@ def _path_or_pattern_exists(root: Path, value: str, tracked: list[Path]) -> bool
 
 
 def git_blob_sha1(path: Path) -> str:
+    """Return the SHA-1 object id Git assigns to the current file bytes."""
     payload = path.read_bytes()
     header = f"blob {len(payload)}\0".encode("ascii")
-    return hashlib.sha1(header + payload).hexdigest()  # noqa: S324 - Git object identity
+    # SHA-1 is required here because this is a Git object identifier, not a
+    # cryptographic trust decision. Scientific artifact integrity remains SHA-256.
+    return hashlib.sha1(header + payload).hexdigest()  # noqa: S324
 
 
 def _validate_entry(
@@ -128,8 +131,9 @@ def _validate_entry(
     if classification not in CLASSIFICATIONS:
         errors.append(f"{context}: invalid classification {classification!r}")
 
-    if not _non_blank(entry.get("ownerModule")):
-        errors.append(f"{context}: ownerModule must be non-empty")
+    owner = _safe_relative(entry.get("ownerModule"), f"{context}.ownerModule", errors)
+    if owner is not None and not (root / owner).exists():
+        errors.append(f"{context}: ownerModule does not exist: {owner}")
 
     timestamp_policy = entry.get("timestampPolicy")
     if timestamp_policy not in TIMESTAMP_POLICIES:
@@ -194,8 +198,11 @@ def _validate_entry(
             locks = {}
     elif mappings:
         errors.append(f"{context}: only managed-generated entries may define generatedMappings")
+    if classification != "managed-generated" and locks:
+        errors.append(f"{context}: only managed-generated entries may define gitBlobLocks")
 
     output_set = set(matched)
+    mapped_destinations: set[str] = set()
     if isinstance(mappings, list):
         for mapping_index, mapping in enumerate(mappings):
             mapping_context = f"{context}.generatedMappings[{mapping_index}]"
@@ -207,11 +214,15 @@ def _validate_entry(
                 mapping.get("destination"), mapping_context + ".destination", errors)
             if source is None or destination is None:
                 continue
+            destination_text = destination.as_posix()
+            if destination_text in mapped_destinations:
+                errors.append(f"{mapping_context}: duplicate destination {destination}")
+            mapped_destinations.add(destination_text)
             if destination not in output_set:
                 errors.append(
                     f"{mapping_context}: destination is not covered by outputs: {destination}"
                 )
-            expected = locks.get(destination.as_posix()) if isinstance(locks, dict) else None
+            expected = locks.get(destination_text) if isinstance(locks, dict) else None
             if not isinstance(expected, str) or len(expected) != 40:
                 errors.append(
                     f"{mapping_context}: destination requires a 40-character Git blob lock"
@@ -223,6 +234,16 @@ def _validate_entry(
                         f"{context}: stale Git blob lock for {destination}: "
                         f"expected {expected}, actual {actual}"
                     )
+
+    if classification == "managed-generated" and isinstance(locks, dict):
+        lock_destinations = set(locks)
+        if lock_destinations != mapped_destinations:
+            missing = sorted(mapped_destinations - lock_destinations)
+            extra = sorted(lock_destinations - mapped_destinations)
+            if missing:
+                errors.append(f"{context}: missing locks for mapped destinations: {missing}")
+            if extra:
+                errors.append(f"{context}: locks without generated mappings: {extra}")
 
     return entry_id, sorted(set(matched))
 
@@ -310,7 +331,9 @@ def compare_generated(root: Path, entry_id: str, source_root: Path) -> None:
         elif source.read_bytes() != committed.read_bytes():
             differences.append(f"generated output differs: {source} -> {destination}")
     if differences:
-        raise EvidenceContractError("Generated-evidence comparison failed:\n- " + "\n- ".join(differences))
+        raise EvidenceContractError(
+            "Generated-evidence comparison failed:\n- " + "\n- ".join(differences)
+        )
 
 
 def update_generated(root: Path, entry_id: str, source_root: Path) -> None:
@@ -346,7 +369,8 @@ def main(argv: list[str] | None = None) -> int:
             errors = validate_repository(root)
             if errors:
                 raise EvidenceContractError(
-                    "CR3 generated-evidence validation failed:\n- " + "\n- ".join(errors)
+                    "CR3 generated-evidence validation failed:\n- "
+                    + "\n- ".join(errors)
                 )
         elif args.command == "compare":
             compare_generated(root, args.entry_id, args.source_root.resolve())
