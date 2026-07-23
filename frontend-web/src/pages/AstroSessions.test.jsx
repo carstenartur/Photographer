@@ -59,7 +59,7 @@ describe('AstroSessions robust stacking', () => {
     fireEvent.change(screen.getByLabelText(/minimum samples/i), {
       target: { value: '5' },
     })
-    fireEvent.submit(screen.getByRole('button', { name: /start astro session/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start astro session/i }))
 
     await waitFor(() => expect(createAstroSession).toHaveBeenCalledTimes(1))
     expect(createAstroSession).toHaveBeenCalledWith(expect.objectContaining({
@@ -83,6 +83,6 @@ describe('AstroSessions robust stacking', () => {
     fireEvent.click(sessionCell)
 
     expect(screen.getAllByText('SIGMA_CLIPPED_MEAN').length).toBeGreaterThan(0)
-    expect(screen.getByText('37%')).toBeInTheDocument()
+    expect(screen.getByText(/stacking progress:\s*37%/i)).toBeInTheDocument()
   })
 })
