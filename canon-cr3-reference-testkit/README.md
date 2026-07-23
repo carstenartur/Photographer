@@ -32,23 +32,37 @@ helper can remain independent of production decoding and report-specific renderi
 - `DecoderHypothesisD1D2IT` uses the shared TIFF loader and sample metrics.
 - `ReferenceRebuildValidationIT` uses the shared image and histogram metrics.
 - `SignMappingDiscriminatorIT` uses shared TIFF loading, global metrics, optical-black regions and tile-seam metrics.
-- `Cr3ReferenceComparisonIT` uses `ReferenceFixtureResolver` for deterministic complete-fixture discovery and typed TIFF resolution, plus shared difference-image rendering and deterministic output scaling.
-- `PedestalHypothesisValidationIT` uses the same resolver and sidecar contract while retaining its report-specific plots and experimental metrics locally.
-- `DcComponentIsolationIT` uses resolver-based TIFF availability filtering and typed TIFF resolution; its decoder experiment and report structure remain local.
+- `Cr3ReferenceComparisonIT` uses `ReferenceFixtureResolver`, `ReferenceImageLoader`, `ReferenceMetrics`, `SpatialReferenceMetrics` and `ReferenceDifferenceImage` for complete-fixture discovery, global/CFA/optical-black/seam statistics and deterministic diagnostic heat maps.
+- `PedestalHypothesisValidationIT` uses the same resolver, loader, global/offset metrics, optical-black statistics and difference renderer. Its metadata interpretation, black-level scalarization, scatterplots and hypothesis decision remain report-specific.
+- `DcComponentIsolationIT` uses resolver-based TIFF availability filtering, `ReferenceImageLoader`, whole-image means and shared MAE/Pearson calculations. Its candidate decoder, Bayer-plane extraction, regional means, seed experiment and pixel-step trace remain research-specific.
+- `KAdaptationPanelMetrics` centralizes the reference-backed metric panel used by the active K-adaptation candidate reports and delegates global, optical-black and seam calculations to this testkit.
 - `KTransitionMatrixIT` and `CrxSubbandTopologyIT` use `DeterministicResultWriter` for shared stable tabular/structured output semantics.
 
-## Intentionally local or frozen reporters
+## Intentionally local or frozen research logic
 
-Historical experiment series, including the `CrxPlaneFollowupRound*` reports, retain
-their local writers. Their committed reports document a specific investigation state;
-rewriting them merely for uniformity would create churn without improving active
-validation. Reporters that combine unique diagrams, image generation or one-off
-hypothesis structures also stay local until a second active consumer demonstrates the
-same data contract.
+Historical diagnostic lineages including `CrxPlaneSemanticsIT`, `CrxPlaneFollowupIT`
+and the `CrxPlaneFollowupRound*` reports retain their local calculations and writers.
+They reproduce a fixed sequence of predictor, layout and preview experiments; rewriting
+them would alter the implementation evidence attached to those historical reports without
+strengthening an active regression gate.
 
-This boundary means that fixture discovery, sidecar validation and genuinely shared
-serialization are centralized, while report-specific scientific meaning remains with
-the experiment that owns it.
+`BurstFrameStabilityIT` also remains local by design. It compares decoded burst frames
+to each other rather than to a TIFF/PNG reference and combines full-resolution disagreement
+with row-profile, column-profile and block-correlation measures. That frame-to-frame
+stability contract is unique to the burst experiment and is not another implementation of
+the reference-sidecar metrics in this module.
+
+Candidate-specific verdict/report classes such as `ExactBracketKReport` and the related
+K-adaptation reports aggregate the already shared reference metrics into experiment-specific
+medians, family gates and completion/exhaustion decisions. Those scientific schemas and
+verdict policies stay with the experiment. They are not generalized merely because they use
+common mathematical operations such as a median.
+
+Reporters that combine unique diagrams, decoder traces, image generation or one-off
+hypothesis structures likewise stay local until a second active consumer demonstrates the
+same data contract. This boundary centralizes fixture discovery, sidecar validation,
+quantitative reference metrics and genuinely shared serialization while preserving the
+meaning and reproducibility of individual experiments.
 
 ## Fixture and sidecar resolution
 

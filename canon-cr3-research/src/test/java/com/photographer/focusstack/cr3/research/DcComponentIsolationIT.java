@@ -11,14 +11,13 @@ import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
 import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
+import com.photographer.focusstack.cr3.reference.ReferenceImage;
+import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
+import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
-import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferUShort;
-import java.awt.image.Raster;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -142,9 +141,9 @@ class DcComponentIsolationIT {
             String name = FIXTURES.samplesRoot().relativize(fixture)
                     .toString().replace('\\', '/');
 
-            ReferenceImage ri;
+            ReferenceImage reference;
             try {
-                ri = loadReferenceTiff(refTiff);
+                reference = ReferenceImageLoader.load(refTiff);
             } catch (Exception e) {
                 md.append("> WARNING: cannot load reference for `").append(name)
                         .append("`: ").append(e.getMessage()).append("\n\n");
@@ -153,7 +152,7 @@ class DcComponentIsolationIT {
 
             int[] decoded;
             try {
-                decoded = decodeProductionFull(fixture, ri.width, ri.height);
+                decoded = decodeProductionFull(fixture, reference.width(), reference.height());
             } catch (Exception e) {
                 md.append("> WARNING: decode error for `").append(name)
                         .append("`: ").append(e.getMessage()).append("\n\n");
@@ -164,14 +163,14 @@ class DcComponentIsolationIT {
             Iad1Box iad1 = loadIad1(fixture);
             int[] leftOb = iad1 != null
                     ? clampRect(iad1.leftObLeft(), iad1.leftObTop(),
-                    iad1.leftObRight(), iad1.leftObBottom(), ri.width, ri.height)
+                    iad1.leftObRight(), iad1.leftObBottom(), reference.width(), reference.height())
                     : new int[]{0, 0, 0, 0};
             int[] active = iad1 != null
-                    ? resolveActiveRect(iad1, leftOb, ri.width, ri.height)
-                    : new int[]{0, 0, ri.width, ri.height};
+                    ? resolveActiveRect(iad1, leftOb, reference.width(), reference.height())
+                    : new int[]{0, 0, reference.width(), reference.height()};
 
-            double refMean = mean(ri.samples);
-            double decMean = mean(decoded);
+            double refMean = ReferenceMetrics.mean(reference.samples());
+            double decMean = ReferenceMetrics.mean(decoded);
             double dcBias = refMean - decMean;
 
             double obMean = Double.NaN;
@@ -179,17 +178,17 @@ class DcComponentIsolationIT {
             double obMeanPlane0 = Double.NaN;
 
             if (leftOb[2] > 0 && leftOb[3] > 0) {
-                obMean = meanRect(decoded, ri.width, leftOb[0], leftOb[1], leftOb[2], leftOb[3]);
-                obMeanPlane0 = meanRectForPlane(decoded, ri.width, ri.height,
+                obMean = meanRect(decoded, reference.width(), leftOb[0], leftOb[1], leftOb[2], leftOb[3]);
+                obMeanPlane0 = meanRectForPlane(decoded, reference.width(), reference.height(),
                         leftOb[0], leftOb[1], leftOb[2], leftOb[3], 0);
             }
             if (active[2] > 0 && active[3] > 0) {
-                activeMean = meanRect(decoded, ri.width, active[0], active[1], active[2], active[3]);
+                activeMean = meanRect(decoded, reference.width(), active[0], active[1], active[2], active[3]);
             }
 
             result.add(new FixtureData(name, fixture, refMean, decMean, dcBias,
                     obMean, activeMean, obMeanPlane0,
-                    decoded, ri.width, ri.height, ri.samples, iad1));
+                    decoded, reference.width(), reference.height(), reference.samples(), iad1));
         }
         return result;
     }
@@ -305,8 +304,10 @@ class DcComponentIsolationIT {
                         CrxNormativeLosslessCandidate.Result res =
                                 CrxNormativeLosslessCandidate.decodePlane(
                                         payload, tilePW, tilePH, sub.bitDepth(), opt);
-                        maes[i] = mae(res.pixels, refTilePlane);
-                        pearsons[i] = pearson(res.pixels, refTilePlane);
+                        ReferenceMetrics.Metrics metrics = ReferenceMetrics.compare(
+                                refTilePlane, res.pixels);
+                        maes[i] = metrics.mae();
+                        pearsons[i] = metrics.pearson();
                         if (maes[i] < bestMae) bestMae = maes[i];
                     } catch (Exception e) {
                         maes[i] = Double.NaN;
@@ -519,28 +520,6 @@ class DcComponentIsolationIT {
                 .toList();
     }
 
-    // ── Reference TIFF loading ────────────────────────────────────────────
-
-    private record ReferenceImage(int width, int height, int[] samples) {}
-
-    private static ReferenceImage loadReferenceTiff(Path tiffPath) throws IOException {
-        BufferedImage img = ImageIO.read(tiffPath.toFile());
-        if (img == null) throw new IOException("Cannot decode TIFF: " + tiffPath);
-        int w = img.getWidth();
-        int h = img.getHeight();
-        Raster raster = img.getRaster();
-        DataBuffer buf = raster.getDataBuffer();
-        int[] samples;
-        if (buf instanceof DataBufferUShort ushort && ushort.getNumBanks() == 1) {
-            short[] bank = ushort.getData();
-            samples = new int[bank.length];
-            for (int i = 0; i < bank.length; i++) samples[i] = Short.toUnsignedInt(bank[i]);
-        } else {
-            samples = raster.getSamples(0, 0, w, h, 0, (int[]) null);
-        }
-        return new ReferenceImage(w, h, samples);
-    }
-
     // ── Production decoder ────────────────────────────────────────────────
 
     /**
@@ -731,37 +710,6 @@ class DcComponentIsolationIT {
         if (nw >= Math.max(w, n)) return Math.min(w, n);
         if (nw <= Math.min(w, n)) return Math.max(w, n);
         return w + n - nw;
-    }
-
-    // ── Statistics ────────────────────────────────────────────────────────
-
-    private static double mean(int[] a) {
-        long sum = 0;
-        for (int v : a) sum += v;
-        return (double) sum / a.length;
-    }
-
-    private static double mae(int[] a, int[] b) {
-        int n = Math.min(a.length, b.length);
-        double sum = 0;
-        for (int i = 0; i < n; i++) sum += Math.abs(a[i] - b[i]);
-        return sum / n;
-    }
-
-    private static double pearson(int[] a, int[] b) {
-        int n = Math.min(a.length, b.length);
-        double sumA = 0, sumB = 0, sumA2 = 0, sumB2 = 0, sumAB = 0;
-        for (int i = 0; i < n; i++) {
-            sumA += a[i]; sumB += b[i];
-            sumA2 += (double) a[i] * a[i]; sumB2 += (double) b[i] * b[i];
-            sumAB += (double) a[i] * b[i];
-        }
-        double meanA = sumA / n, meanB = sumB / n;
-        double cov = sumAB / n - meanA * meanB;
-        double varA = Math.max(0, sumA2 / n - meanA * meanA);
-        double varB = Math.max(0, sumB2 / n - meanB * meanB);
-        double denom = Math.sqrt(varA * varB);
-        return denom == 0 ? 0 : cov / denom;
     }
 
     private static String fmt(double v) {
