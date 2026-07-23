@@ -25,7 +25,6 @@ The maintained research boundary is in [`docs/cr3/current-state.md`](docs/cr3/cu
 
 ### Architecture, quality and resilience
 
-- [#282 — correct vision SPI and module dependency direction](https://github.com/carstenartur/Photographer/issues/282)
 - [#283 — real-browser E2E coverage](https://github.com/carstenartur/Photographer/issues/283)
 - [#284 — explicit REST API versioning](https://github.com/carstenartur/Photographer/issues/284)
 - [#285 — bounded AI-provider outage/fallback behavior](https://github.com/carstenartur/Photographer/issues/285)
@@ -34,7 +33,6 @@ The maintained research boundary is in [`docs/cr3/current-state.md`](docs/cr3/cu
 ### Documentation quality
 
 - [#279 — generated CR3 evidence ownership and verify/update contract](https://github.com/carstenartur/Photographer/issues/279)
-- [#281 — Markdown links and canonical documentation ownership enforcement](https://github.com/carstenartur/Photographer/issues/281)
 
 ## Deliberately not committed roadmap items
 

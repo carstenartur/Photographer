@@ -153,3 +153,7 @@ No runtime dependency on `canon-cr3-research` or
 ```bash
 mvn -B clean verify -pl canon-cr3-imageio -am
 ```
+
+## Canonical documentation
+
+The [CR3 / CRX Manual](../docs/cr3/index.md) owns stable-versus-experimental ImageIO claims and cross-module navigation. This README remains the module-local API and packaging guide.

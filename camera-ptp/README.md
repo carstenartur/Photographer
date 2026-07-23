@@ -47,3 +47,7 @@ mvn -B clean verify -pl common-api,camera-ptp -am -Djava.awt.headless=true
 
 - Unit tests (`*Test.java`): run with `mvn test`, no hardware required
 - Integration test (`UsbCanonCameraIT.java`): requires a connected Canon camera, tagged `real-camera`, excluded by default
+
+## Canonical documentation
+
+Transport placement and dependency direction are maintained in [Architecture](../docs/developer/architecture.md). Test-layer and real-camera evidence rules are maintained in [Testing](../docs/developer/testing.md).

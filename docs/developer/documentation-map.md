@@ -22,7 +22,8 @@ Removal still requires a content audit and link-preserving migration.
 | `docs/developer/contributing.md` | canonical | Checkout, local development, build and contribution workflow. |
 | `docs/developer/testing.md` | canonical | Test layers, local commands, CI orchestration and evidence boundaries. |
 | `docs/developer/operations.md` | canonical | Secrets, private references, runtime data, backup and recovery. |
-| `docs/developer/documentation-map.md` | canonical | Documentation ownership and migration state. |
+| `docs/developer/documentation-map.md` | canonical | Documentation ownership, classification and correction workflow. |
+| `docs/developer/documentation-ownership.json` | canonical machine-readable contract | Unique topic owners, redirects, required module links and forbidden generated-output paths. |
 | `docs/developer/migration-plan.md` | canonical | Remaining documentation work. |
 | `docs/developer/repository-inventory.md` | generated | Dated 2026-06-17 baseline; regenerate as a whole instead of editing counts. |
 
@@ -115,6 +116,35 @@ Generated reports are not relocated until their generators, links and verify/upd
 ## Generated build documentation
 
 Maven Site, Javadoc, coverage, test HTML and frontend build output are build artifacts or GitHub Pages publications. They are not committed maintained documentation.
+
+## Automated validation and correction workflow
+
+Run the complete documentation gate from a normal checkout:
+
+```bash
+python3 scripts/test_validate_documentation.py
+python3 scripts/validate_documentation.py .
+```
+
+`scripts/verify-product.sh` runs the same commands before Maven verification, so pull-request CI uses exactly the checkout-local implementation.
+
+The validator checks every tracked Markdown file for repository-relative file and heading-anchor links. External URL schemes are not fetched. It also enforces `documentation-ownership.json`:
+
+- each topic id has exactly one existing canonical owner;
+- generated evidence cannot be registered as current canonical truth;
+- retained redirect documents link to every declared canonical destination;
+- selected module READMEs link to their required Developer or CR3 Manual chapters;
+- build output under target, coverage, dist, site and equivalent generated directories is not committed.
+
+When validation fails, correct the source rather than adding a broad ignore:
+
+1. fix or remove the stale relative link at the reported file and line;
+2. update the target heading deliberately when an anchor changed;
+3. change the JSON manifest only when ownership or redirect policy genuinely changed;
+4. add a module requirement only together with the corresponding README link;
+5. keep generated reports out of canonical-topic ownership and fix their generator under the Phase 4 contract.
+
+Explicit exclusions must be narrow, reviewable and represented by a focused test. Private or external documents are linked through URL schemes and are outside repository-file validation; their contents are never fetched.
 
 ## Duplicate-resolution rule
 

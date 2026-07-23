@@ -21,3 +21,7 @@ It must not depend on the RAW codec, processing, ImageIO, CLI, or research modul
 ```bash
 mvn -B verify -pl canon-cr3-metadata -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module CR3 maturity, supported surfaces and navigation are maintained in the [CR3 / CRX Manual](../docs/cr3/index.md).

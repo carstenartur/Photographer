@@ -56,3 +56,7 @@ docker compose up --build
 | Username | Password |
 |---|---|
 | `admin` | `focusstack` (override via `FOCUSSTACK_SECURITY_ADMIN_PASSWORD`) |
+
+## Canonical documentation
+
+The application composition root and dependency direction are maintained in [Architecture](../docs/developer/architecture.md) and [Modules and public surfaces](../docs/developer/modules.md). This README covers only application-local build and runtime details.

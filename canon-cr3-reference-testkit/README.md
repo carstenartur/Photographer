@@ -137,3 +137,7 @@ or serialize arbitrary object graphs.
 ```bash
 mvn -B verify -pl canon-cr3-reference-testkit -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Evidence hierarchy, clean-room constraints and promotion rules are maintained in [CR3 research](../docs/cr3/research.md). This README owns only the shared testkit semantics.

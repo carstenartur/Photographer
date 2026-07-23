@@ -48,3 +48,7 @@ SceneMonitor monitor = new SceneMonitor(new PixelDiffMotionDetector(), rules, pr
 python3 scripts/validate_vision_module_boundaries.py .
 mvn -B clean verify -pl observer-core -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module workflow and provider-boundary ownership is maintained in [Modules and public surfaces](../docs/developer/modules.md). Observer-domain behavior remains local to this README and the module tests.

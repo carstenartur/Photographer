@@ -75,3 +75,7 @@ The same checks run through `scripts/verify-product.sh`.
 ```bash
 mvn -B clean verify -pl common-api -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module ownership and support classification are maintained in [Modules and public surfaces](../docs/developer/modules.md). This README remains authoritative only for `common-api`-local contracts and verification.
