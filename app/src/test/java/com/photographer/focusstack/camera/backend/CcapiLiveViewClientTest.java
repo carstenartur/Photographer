@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +38,8 @@ class CcapiLiveViewClientTest {
     private static final String BASE = "http://camera.example";
     private static final String CONTROL_100 = BASE + "/ccapi/ver100/shooting/liveview";
     private static final String FLIP_100 = CONTROL_100 + "/flip";
+    private static final String SCROLL_110 =
+            BASE + "/ccapi/ver110/shooting/liveview/scroll";
 
     @Test
     void mapsAdvertisedCanonTransportsToVendorNeutralModes() {
@@ -67,11 +70,10 @@ class CcapiLiveViewClientTest {
                         "rtp-stream");
         assertThat(fixture.client.advertisedModes())
                 .filteredOn(CcapiLiveViewClient.AdvertisedMode::frameRetrievalImplemented)
-                .singleElement()
-                .satisfies(mode -> {
-                    assertThat(mode.mode()).isEqualTo(CcapiLiveViewClient.Mode.SINGLE_FRAME);
-                    assertThat(mode.methodCompatible()).isTrue();
-                });
+                .extracting(CcapiLiveViewClient.AdvertisedMode::mode)
+                .containsExactly(
+                        CcapiLiveViewClient.Mode.SINGLE_FRAME,
+                        CcapiLiveViewClient.Mode.CURSOR_STREAM);
     }
 
     @Test
@@ -184,28 +186,52 @@ class CcapiLiveViewClientTest {
     }
 
     @Test
-    void mapsScrollOnlyCatalogButDoesNotClaimFrameRetrieval() {
+    void consumesOneBoundedFrameFromScrollOnlyCatalogAndDeletesTheStream() {
         Fixture fixture = fixture(
                 endpoints(
                         "/ccapi/ver110/shooting/liveview", BASE + "/ccapi/ver110/shooting/liveview",
-                        "/ccapi/ver110/shooting/liveview/scroll",
-                        BASE + "/ccapi/ver110/shooting/liveview/scroll"),
+                        "/ccapi/ver110/shooting/liveview/scroll", SCROLL_110),
                 methods(
                         "/ccapi/ver110/shooting/liveview", Set.of(HttpMethod.POST),
                         "/ccapi/ver110/shooting/liveview/scroll",
                         Set.of(HttpMethod.GET, HttpMethod.DELETE)));
+        byte[] jpeg = {(byte) 0xff, (byte) 0xd8, 4, (byte) 0xff, (byte) 0xd9};
+        when(fixture.scrollTransport.readFirstFrame(SCROLL_110)).thenReturn(jpeg);
 
+        LiveViewFrame frame = fixture.client.getFrame();
+
+        assertThat(frame.data()).containsExactly(jpeg);
+        assertThat(fixture.client.supportsFrameRetrieval()).isTrue();
         assertThat(fixture.client.advertisedModes())
                 .singleElement()
                 .satisfies(mode -> {
                     assertThat(mode.mode()).isEqualTo(CcapiLiveViewClient.Mode.CURSOR_STREAM);
                     assertThat(mode.methodCompatible()).isTrue();
-                    assertThat(mode.frameRetrievalImplemented()).isFalse();
+                    assertThat(mode.frameRetrievalImplemented()).isTrue();
                 });
-        assertThat(fixture.client.supportsFrameRetrieval()).isFalse();
-        assertThatThrownBy(fixture.client::getFrame)
-                .isInstanceOfSatisfying(CameraOperationException.class,
-                        failure -> assertThat(failure.reason()).isEqualTo(ENDPOINT_NOT_FOUND));
+        verify(fixture.scrollTransport).readFirstFrame(SCROLL_110);
+        verify(fixture.scrollTransport).stop(SCROLL_110);
+    }
+
+    @Test
+    void closesStaleScrollAndRetriesOnceWhenCameraReportsAlreadyStarted() {
+        Fixture fixture = fixture(
+                endpoints(
+                        "/ccapi/ver110/shooting/liveview", BASE + "/ccapi/ver110/shooting/liveview",
+                        "/ccapi/ver110/shooting/liveview/scroll", SCROLL_110),
+                methods(
+                        "/ccapi/ver110/shooting/liveview", Set.of(HttpMethod.POST),
+                        "/ccapi/ver110/shooting/liveview/scroll",
+                        Set.of(HttpMethod.GET, HttpMethod.DELETE)));
+        byte[] jpeg = {(byte) 0xff, (byte) 0xd8, 8, (byte) 0xff, (byte) 0xd9};
+        when(fixture.scrollTransport.readFirstFrame(SCROLL_110))
+                .thenThrow(operation(ALREADY_STARTED))
+                .thenReturn(jpeg);
+
+        assertThat(fixture.client.getFrame().data()).containsExactly(jpeg);
+
+        verify(fixture.scrollTransport, times(2)).readFirstFrame(SCROLL_110);
+        verify(fixture.scrollTransport, times(2)).stop(SCROLL_110);
     }
 
     private static Fixture standardFixture() {
@@ -222,6 +248,7 @@ class CcapiLiveViewClientTest {
             Map<String, String> endpoints,
             Map<String, Set<HttpMethod>> methods) {
         RestTemplate restTemplate = mock(RestTemplate.class);
+        CcapiScrollFrameTransport scrollTransport = mock(CcapiScrollFrameTransport.class);
         RecordingPoster poster = new RecordingPoster();
         CcapiLiveViewClient client = new CcapiLiveViewClient(
                 PROFILE,
@@ -230,8 +257,9 @@ class CcapiLiveViewClientTest {
                 () -> methods,
                 poster,
                 Duration.ZERO,
-                ignored -> { });
-        return new Fixture(restTemplate, poster, client);
+                ignored -> { },
+                scrollTransport);
+        return new Fixture(restTemplate, scrollTransport, poster, client);
     }
 
     private static Map<String, String> endpoints(String... values) {
@@ -271,6 +299,7 @@ class CcapiLiveViewClientTest {
 
     private record Fixture(
             RestTemplate restTemplate,
+            CcapiScrollFrameTransport scrollTransport,
             RecordingPoster poster,
             CcapiLiveViewClient client) { }
 

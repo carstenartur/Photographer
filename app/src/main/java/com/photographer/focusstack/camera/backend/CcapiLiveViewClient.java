@@ -40,10 +40,11 @@ import static com.photographer.focusstack.camera.exception.CameraOperationExcept
 /**
  * Capability-driven Canon CCAPI live-view lifecycle for the production backend.
  *
- * <p>The client maps every exact advertised Canon transport to a vendor-neutral mode,
- * but currently implements frame retrieval only for {@link Mode#SINGLE_FRAME}. An
- * advertised endpoint with incompatible method metadata is never called, and an
- * unimplemented stream mode is never reported as a usable frame source.</p>
+ * <p>The client maps every exact advertised Canon transport to a vendor-neutral mode.
+ * It implements direct {@link Mode#SINGLE_FRAME} retrieval and a bounded one-frame pull
+ * from Canon's long-lived {@link Mode#CURSOR_STREAM}. An advertised endpoint with
+ * incompatible method metadata is never called, and an unimplemented stream mode is
+ * never reported as a usable frame source.</p>
  */
 final class CcapiLiveViewClient {
 
@@ -64,7 +65,7 @@ final class CcapiLiveViewClient {
                 "cursor-stream",
                 "/shooting/liveview/scroll",
                 Set.of(HttpMethod.GET, HttpMethod.DELETE),
-                false),
+                true),
         MULTIPART_STREAM(
                 "multipart-stream",
                 "/shooting/liveview/multipart",
@@ -170,6 +171,7 @@ final class CcapiLiveViewClient {
     private final Poster poster;
     private final Duration startDelay;
     private final Waiter waiter;
+    private final CcapiScrollFrameTransport scrollTransport;
     private final Object lifecycleMonitor = new Object();
 
     private State state = State.STOPPED;
@@ -199,6 +201,26 @@ final class CcapiLiveViewClient {
             Poster poster,
             Duration startDelay,
             Waiter waiter) {
+        this(
+                profileId,
+                restTemplate,
+                endpointSupplier,
+                methodSupplier,
+                poster,
+                startDelay,
+                waiter,
+                new CcapiScrollFrameTransport(restTemplate));
+    }
+
+    CcapiLiveViewClient(
+            String profileId,
+            RestTemplate restTemplate,
+            Supplier<Map<String, String>> endpointSupplier,
+            Supplier<Map<String, Set<HttpMethod>>> methodSupplier,
+            Poster poster,
+            Duration startDelay,
+            Waiter waiter,
+            CcapiScrollFrameTransport scrollTransport) {
         this.profileId = requireProfileId(profileId);
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
         this.endpointSupplier = Objects.requireNonNull(endpointSupplier, "endpointSupplier");
@@ -206,6 +228,7 @@ final class CcapiLiveViewClient {
         this.poster = Objects.requireNonNull(poster, "poster");
         this.startDelay = requireNonNegative(startDelay, "startDelay");
         this.waiter = Objects.requireNonNull(waiter, "waiter");
+        this.scrollTransport = Objects.requireNonNull(scrollTransport, "scrollTransport");
     }
 
     LiveViewFrame getFrame() {
@@ -346,10 +369,15 @@ final class CcapiLiveViewClient {
             return selected.orElseThrow();
         }
 
-        Optional<Endpoint> advertisedSingleFrame = highestExact(Mode.SINGLE_FRAME.suffix());
-        if (advertisedSingleFrame.isPresent()
-                && advertisedSingleFrame.orElseThrow().methodMetadataKnown()) {
-            throw operation(METHOD_NOT_ALLOWED);
+        for (Mode mode : Mode.values()) {
+            if (!mode.frameRetrievalImplemented()) {
+                continue;
+            }
+            Optional<Endpoint> advertised = highestExact(mode.suffix());
+            if (advertised.isPresent()
+                    && advertised.orElseThrow().methodMetadataKnown()) {
+                throw operation(METHOD_NOT_ALLOWED);
+            }
         }
         throw operation(ENDPOINT_NOT_FOUND);
     }
@@ -406,7 +434,61 @@ final class CcapiLiveViewClient {
     }
 
     private LiveViewFrame readFrame(Endpoint endpoint) {
+        if (endpoint.path().endsWith(Mode.CURSOR_STREAM.suffix())) {
+            return readCursorFrame(endpoint);
+        }
         byte[] data = restTemplate.getForObject(endpoint.url(), byte[].class);
+        return frame(data);
+    }
+
+    private LiveViewFrame readCursorFrame(Endpoint endpoint) {
+        RuntimeException primaryFailure = null;
+        try {
+            byte[] data = readCursorBytes(endpoint);
+            return frame(data);
+        } catch (RuntimeException failure) {
+            primaryFailure = failure;
+            throw failure;
+        } finally {
+            try {
+                stopCursor(endpoint);
+            } catch (RuntimeException cleanupFailure) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw liveViewFailure(
+                            "Could not stop the Canon scroll live-view stream",
+                            cleanupFailure);
+                }
+            }
+        }
+    }
+
+    private byte[] readCursorBytes(Endpoint endpoint) {
+        try {
+            return scrollTransport.readFirstFrame(endpoint.url());
+        } catch (RuntimeException failure) {
+            if (reason(failure) != ALREADY_STARTED) {
+                throw failure;
+            }
+            stopCursor(endpoint);
+            return scrollTransport.readFirstFrame(endpoint.url());
+        }
+    }
+
+    private void stopCursor(Endpoint endpoint) {
+        try {
+            scrollTransport.stop(endpoint.url());
+        } catch (RuntimeException failure) {
+            CameraOperationException.Reason typedReason = reason(failure);
+            if (typedReason == LIVE_VIEW_NOT_STARTED || typedReason == NOT_STARTED) {
+                return;
+            }
+            throw failure;
+        }
+    }
+
+    private static LiveViewFrame frame(byte[] data) {
         return new LiveViewFrame(
                 data == null ? new byte[0] : data,
                 960,

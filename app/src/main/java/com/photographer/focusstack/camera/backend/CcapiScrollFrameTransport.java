@@ -20,7 +20,7 @@ import java.util.Objects;
  * only one frame, has no queue, and returns immediately after the first complete JPEG.
  * The owning live-view client is responsible for the matching DELETE request.</p>
  */
-final class CcapiScrollFrameTransport {
+class CcapiScrollFrameTransport {
 
     static final int DEFAULT_MAX_PREAMBLE_BYTES = 64 * 1024;
     static final int DEFAULT_MAX_FRAME_BYTES = 4 * 1024 * 1024;

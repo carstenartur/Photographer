@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.ADVERTISED_NOT_IMPLEMENTED;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -72,7 +72,7 @@ class CanonCcapiProductionLiveViewTest {
     }
 
     @Test
-    void productionSnapshotExposesAdvertisedButUnimplementedScrollMode() {
+    void productionSnapshotExposesImplementedScrollMode() {
         RestTemplate restTemplate = mock(RestTemplate.class);
         when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
                 .thenReturn(catalog(true));
@@ -86,12 +86,12 @@ class CanonCcapiProductionLiveViewTest {
                 .orElseThrow();
 
         assertThat(scroll.advertised()).isTrue();
-        assertThat(scroll.implemented()).isFalse();
-        assertThat(scroll.availability()).isEqualTo(ADVERTISED_NOT_IMPLEMENTED);
+        assertThat(scroll.implemented()).isTrue();
+        assertThat(scroll.availability()).isEqualTo(AVAILABLE);
         assertThat(scroll.requiredMethods()).containsExactlyInAnyOrder("GET", "DELETE");
         assertThat(scroll.advertisedMethods()).containsExactlyInAnyOrder("GET", "DELETE");
         assertThat(scroll.methodMetadataKnown()).isTrue();
-        assertThat(scroll.condition()).isEqualTo("APPLICATION_NOT_IMPLEMENTED");
+        assertThat(scroll.condition()).isNull();
     }
 
     @Test
