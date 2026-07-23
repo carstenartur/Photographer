@@ -84,6 +84,18 @@ jobs:
           if text.count(comparator_old) != 1:
               raise SystemExit(f'{production}: expected one scroll endpoint comparator')
           production.write_text(text.replace(comparator_old, comparator_new), encoding='utf-8')
+
+          status_test = Path(
+              'app/src/test/java/com/photographer/focusstack/camera/backend/'
+              'CanonCcapiStatusBackendTest.java'
+          )
+          test_text = status_test.read_text(encoding='utf-8')
+          old_package = 'com.fasterxml.jackson.databind'
+          if test_text.count(old_package) != 2:
+              raise SystemExit(f'{status_test}: expected two Jackson 2 imports')
+          status_test.write_text(
+              test_text.replace(old_package, 'tools.jackson.databind'),
+              encoding='utf-8')
           PY
           git diff --check
 
