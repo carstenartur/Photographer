@@ -48,7 +48,17 @@ The API compatibility source of truth remains `docs/cr3-api-boundaries.md`. Clea
 | `.github/copilot-instructions.md` | canonical | Repository-specific agent policy; link to the manuals instead of duplicating changing architecture. |
 | `BACKUP.md` | merge | Durable content moved to `docs/developer/operations.md`; retain redirect. |
 | `README.md` | canonical | Concise product/user entry point with a Developer Manual path. |
-| `TODO.md` | obsolete | GitHub issues own roadmap state; unique valid items must be linked to issues before retirement. |
+| `TODO.md` | canonical | Stable issue-tracker entry point. GitHub issues own current work; Git history preserves the retired checklist. |
+
+The TODO audit moved confirmed current work into scoped issues:
+
+- #282 vision SPI/module dependency direction;
+- #283 real-browser E2E coverage;
+- #284 API versioning;
+- #285 AI-provider resilience;
+- #286 robust astro stacking.
+
+Existing issues continue to own CCAPI/hardware evidence, CR3 research/release/benchmark work and documentation phases. Additional brands, multi-user/RBAC and a dedicated hardware runner remain product/operational decisions rather than implied commitments.
 
 ## Module-local documentation
 
@@ -87,7 +97,7 @@ Private Canon manuals and extracted text remain outside Git and are never redist
 | `docs/cr3-agent-playbook.md` | merge | `docs/cr3/research.md` |
 | `docs/cleanroom-fixture-plan.md` | merge | `docs/cr3/research.md` |
 
-The last two redirects retire obsolete D5/Phase-A defaults while preserving history. They now point to the active controlled-capture contract and RG1-aware research boundary.
+The last two redirects retire obsolete D5/Phase-A defaults while preserving history. They now point to the active controlled-capture contract and RG1-aware research boundary. The redirect audit retained these paths plus `BACKUP.md` because they are cheap, useful compatibility entry points and no replacement benefit justifies link breakage.
 
 ## CR3 evidence and research-local documents
 
