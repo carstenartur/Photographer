@@ -2,6 +2,7 @@ package com.photographer.focusstack.astro.entity;
 
 import com.photographer.focusstack.common.model.AstroCaptureConfig;
 import com.photographer.focusstack.common.model.AstroFocusConfig;
+import com.photographer.focusstack.common.model.AstroFocusStrategy;
 import com.photographer.focusstack.common.model.AstroSessionStatus;
 import com.photographer.focusstack.common.model.AstroStackingConfig;
 import com.photographer.focusstack.common.model.AstroStackingMode;
@@ -39,6 +40,7 @@ class AstroSessionEntityStackingTest {
         set(entity, "iso", 800);
         set(entity, "delayBetweenFramesMs", 0L);
         set(entity, "imageFormat", "PNG");
+        set(entity, "focusStrategy", AstroFocusStrategy.MANUAL_FIXED);
 
         assertEquals(AstroStackingConfig.defaults(), entity.resolvedStackingConfig());
         assertEquals(AstroStackingMode.MEAN,
