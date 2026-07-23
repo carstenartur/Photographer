@@ -10,6 +10,7 @@ import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
 import com.photographer.focusstack.cr3.raw.codec.SubbandExtractor;
+import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -60,6 +61,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class DcComponentIsolationIT {
 
     private static final Path SAMPLES_DIR = Path.of("src/test/resources/samples");
+    private static final ReferenceFixtureResolver FIXTURES =
+            new ReferenceFixtureResolver(SAMPLES_DIR);
     private static final Path OUT_DIR = Path.of("target/dc-component-isolation");
 
     /** Number of pixels captured in the step report. */
@@ -134,10 +137,10 @@ class DcComponentIsolationIT {
             throws IOException {
         List<FixtureData> result = new ArrayList<>();
         for (Path fixture : fixtures) {
-            Path refTiff = referenceTiffPath(fixture);
-            if (!Files.exists(refTiff)) continue;
+            Path refTiff = FIXTURES.resolve(fixture).requiredTiff();
 
-            String name = SAMPLES_DIR.relativize(fixture).toString().replace('\\', '/');
+            String name = FIXTURES.samplesRoot().relativize(fixture)
+                    .toString().replace('\\', '/');
 
             ReferenceImage ri;
             try {
@@ -509,21 +512,11 @@ class DcComponentIsolationIT {
     // ── Fixture discovery ─────────────────────────────────────────────────
 
     private static List<Path> discoverFixturesWithReferences() throws IOException {
-        if (!Files.isDirectory(SAMPLES_DIR)) return List.of();
-        List<Path> found = new ArrayList<>();
-        try (var stream = Files.walk(SAMPLES_DIR)) {
-            stream.filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".cr3"))
-                    .filter(p -> Files.exists(referenceTiffPath(p)))
-                    .sorted(Comparator.comparing(p -> SAMPLES_DIR.relativize(p).toString()))
-                    .forEach(found::add);
-        }
-        return found;
-    }
-
-    private static Path referenceTiffPath(Path fixture) {
-        String name = fixture.getFileName().toString().replaceAll("(?i)\\.cr3$", ".reference.tiff");
-        return fixture.resolveSibling(name);
+        return FIXTURES.discover().stream()
+                .filter(fixture -> !fixture.missingSidecars().contains(
+                        ReferenceFixtureResolver.MissingSidecar.TIFF))
+                .map(ReferenceFixtureResolver.ResolvedFixture::cr3)
+                .toList();
     }
 
     // ── Reference TIFF loading ────────────────────────────────────────────

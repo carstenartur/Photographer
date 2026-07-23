@@ -12,6 +12,7 @@ import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -43,6 +44,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class PedestalHypothesisValidationIT {
 
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
+    private static final ReferenceFixtureResolver FIXTURES =
+            new ReferenceFixtureResolver(SAMPLES_DIR);
     private static final String STABLE_REPORT_NAME = "pedestal-hypothesis-validation.md";
     private static final Path DOCS_REPORT = Path.of("..", "docs", "cr3-results", STABLE_REPORT_NAME);
     private static final Path DOCS_IMAGE_DIR = Path.of("..", "docs", "cr3-results", "images", "pedestal-hypothesis-validation");
@@ -93,7 +96,8 @@ class PedestalHypothesisValidationIT {
     }
 
     private static FixtureResult analyseFixture(Path fixture, boolean includeExampleImages) throws Exception {
-        ReferenceImage reference = loadReference(referenceTiffPath(fixture));
+        ReferenceImage reference = loadReference(
+                FIXTURES.resolve(fixture).requiredTiff());
         DecodedFixture decoded = decodeFixture(fixture);
         assertThat(decoded.raw().width()).as("width for %s", fixture.getFileName()).isEqualTo(reference.width());
         assertThat(decoded.raw().height()).as("height for %s", fixture.getFileName()).isEqualTo(reference.height());
@@ -132,7 +136,7 @@ class PedestalHypothesisValidationIT {
                 : new ExampleImages("", "", "");
 
         return new FixtureResult(
-                SAMPLES_DIR.relativize(fixture).toString().replace('\\', '/'),
+                FIXTURES.samplesRoot().relativize(fixture).toString().replace('\\', '/'),
                 metadata != null && metadata.cameraModel() != null ? metadata.cameraModel() : "unknown",
                 pedestalReport.source().name(),
                 pedestalReport.blackLevel().mode().name(),
@@ -622,23 +626,10 @@ class PedestalHypothesisValidationIT {
     }
 
     private static List<Path> discoverFixtures() throws IOException {
-        if (!Files.isDirectory(SAMPLES_DIR)) {
-            return List.of();
-        }
-        try (Stream<Path> stream = Files.walk(SAMPLES_DIR)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".cr3"))
-                    .filter(PedestalHypothesisValidationIT::hasReferenceSidecars)
-                    .filter(PedestalHypothesisValidationIT::isLosslessFixture)
-                    .sorted(Comparator.comparing(path -> SAMPLES_DIR.relativize(path).toString()))
-                    .toList();
-        }
-    }
-
-    private static boolean hasReferenceSidecars(Path fixture) {
-        return Files.isRegularFile(referenceTiffPath(fixture))
-                && Files.isRegularFile(referencePngPath(fixture));
+        return FIXTURES.discoverComplete().stream()
+                .map(ReferenceFixtureResolver.ResolvedFixture::cr3)
+                .filter(PedestalHypothesisValidationIT::isLosslessFixture)
+                .toList();
     }
 
     private static boolean isLosslessFixture(Path fixture) {
@@ -706,14 +697,6 @@ class PedestalHypothesisValidationIT {
             return out;
         }
         return raster.getSamples(0, 0, width, height, 0, (int[]) null);
-    }
-
-    private static Path referenceTiffPath(Path fixture) {
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", ".reference.tiff"));
-    }
-
-    private static Path referencePngPath(Path fixture) {
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", ".reference.png"));
     }
 
     private static String escapePipes(String s) {
