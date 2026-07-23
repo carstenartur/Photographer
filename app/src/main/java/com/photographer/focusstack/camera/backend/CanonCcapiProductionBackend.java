@@ -166,6 +166,10 @@ final class CanonCcapiProductionBackend implements
         }
         capabilities.add(eventCapability(
                 base, "event-polling-continuation", "/event/polling"));
+        if (capabilities.stream().noneMatch(
+                capability -> "live-view-scroll".equals(capability.id()))) {
+            capabilities.add(CcapiLiveViewCapabilities.scroll(base));
+        }
 
         return new CameraCapabilitySnapshot(
                 base.model(),
