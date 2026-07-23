@@ -10,6 +10,8 @@ readonly PRODUCT_MODULES="common-api,plugin-api,capture-core,storage,camera-ptp,
 
 python3 scripts/test_validate_vision_module_boundaries.py
 python3 scripts/validate_vision_module_boundaries.py .
+python3 scripts/test_validate_documentation.py
+python3 scripts/validate_documentation.py .
 
 exec mvn -B --no-transfer-progress clean verify \
   -pl "${PRODUCT_MODULES}" \
