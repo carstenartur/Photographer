@@ -16,7 +16,8 @@ Photographer is a multi-module Java 25 / Spring Boot 4 application with a React 
 | Use the REST API | [REST API reference](../api.md) |
 | Configure a camera | [Camera setup](../camera-setup.md) |
 | Work on Canon CCAPI session ownership | [CCAPI session ownership](../ccapi-session-ownership.md) |
-| Work on CR3/CRX | [CR3 current state](../cr3-current-state.md) and [CR3 results index](../cr3-results-index.md) |
+| Use or develop CR3/CRX functionality | [CR3 / CRX Manual](../cr3/index.md) |
+| Inspect the current RAW research boundary | [CR3 current state](../cr3/current-state.md) and [results](../cr3/reports/index.md) |
 | Follow clean-room rules | [Clean-room engineering record](../cleanroom/README.md) |
 | Understand remaining documentation migration | [Migration plan](migration-plan.md) |
 | Inspect the dated 2026-06-17 baseline | [Repository inventory](repository-inventory.md) |
@@ -27,7 +28,7 @@ When sources disagree, use this order:
 
 1. **Production code and executable tests** define implemented behaviour.
 2. **Current Maven POMs and public API contracts** define the reactor, dependencies and supported public surfaces.
-3. **Canonical Developer Manual chapters** describe audited cross-module architecture, development, testing and operations.
+3. **Canonical Developer and CR3 Manual chapters** describe audited cross-module architecture, development, testing, operations and CR3 maturity.
 4. **Module-local README/ARCHITECTURE files** define one module's supported surface when they agree with code, tests, POMs and canonical cross-module documentation.
 5. **Current-state and hypothesis documents** describe explicitly dated research state.
 6. **Generated reports and inventories** are reproducible evidence snapshots, not current normative truth.
@@ -59,13 +60,14 @@ Camera support is capability- and evidence-driven:
 
 ## CR3 and CRX documentation
 
-The CR3 area has three distinct document classes:
+The [CR3 / CRX Manual](../cr3/index.md) distinguishes three document classes and four maturity boundaries:
 
-- **maintained implementation documentation** — module READMEs, current state, format/API documentation;
-- **research process and hypotheses** — clean-room rules, playbooks and open hypotheses;
+- **supported implementation documentation** — stable container, metadata, embedded preview/thumbnail and ImageIO surfaces;
+- **experimental implementation documentation** — full RAW/CRX reconstruction, processing and evolving diagnostics;
+- **research process and hypotheses** — clean-room rules, current state and blocked/rejected directions;
 - **generated or dated evidence** — comparison reports, benchmark outputs and experiment results.
 
-Do not replace generated or dated evidence with a short summary that loses provenance. Keep the evidence and link it from a maintained current-state or results-index document that explains whether it still applies to current code.
+Do not replace generated or dated evidence with a short summary that loses provenance. Keep the evidence and link it from maintained current-state and results-index documents that explain whether it still applies to current code.
 
 ## Generated documentation
 
@@ -83,6 +85,6 @@ Documentation changes follow the same correctness standard as code:
 - experimental and planned behaviour is labelled explicitly;
 - file moves preserve links or leave a short redirect;
 - generated reports are not rewritten as maintained prose;
-- obsolete workstation snapshots and duplicate roadmaps are retired rather than copied forward.
+- obsolete workstation snapshots, research plans and duplicate roadmaps are retired rather than copied forward.
 
-See the [documentation map](documentation-map.md) for ownership and the [migration plan](migration-plan.md) for the remaining CR3/report and stale-root-document phases.
+See the [documentation map](documentation-map.md) for ownership and the [migration plan](migration-plan.md) for generated-report boundaries, stale-roadmap retirement and final documentation validation.
