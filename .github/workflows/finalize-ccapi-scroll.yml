@@ -1,0 +1,82 @@
+name: Finalize CCAPI scroll and legacy stop body
+
+on:
+  push:
+    branches: [hardening/ccapi-liveview-scroll]
+    paths:
+      - '.github/workflows/finalize-ccapi-scroll.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finalize-ccapi-scroll
+  cancel-in-progress: true
+
+jobs:
+  patch-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@v7
+        with:
+          ref: hardening/ccapi-liveview-scroll
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Apply complete Canon stop body to inherited paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          old = 'ccapiPost(url, Map.of("liveviewsize", "off"));'
+          new = ('ccapiPost(url, Map.of(\n'
+                 '                        "liveviewsize", "off",\n'
+                 '                        "cameradisplay", "on"));')
+          paths = [
+              Path('app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiBackend.java'),
+              Path('app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiStatusBackend.java'),
+          ]
+          for path in paths:
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one legacy stop body, found {count}')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiBackend.java \
+            app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiStatusBackend.java
+
+      - name: Run focused CCAPI live-view tests
+        shell: bash
+        run: |
+          mvn -B --no-transfer-progress clean test \
+            -pl app -am \
+            -Dtest=CanonCcapiScrollLiveViewReaderTest,CanonCcapiProductionLiveViewTest,CanonCcapiStatusBackendTest,CcapiLiveViewClientTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Djava.awt.headless=true
+
+      - name: Publish verified product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/finalize-ccapi-scroll.yml
+          git add -A
+          git commit -m 'fix(ccapi): use complete live-view stop body on all paths'
+          git push origin HEAD:hardening/ccapi-liveview-scroll
