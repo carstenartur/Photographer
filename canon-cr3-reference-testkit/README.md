@@ -120,7 +120,7 @@ inputs.
   minimizes L1 error.
 - Spatial signed error is `actual - reference`.
 - Rectangles use exclusive right and bottom edges; overlapping regions count
-  overlapping pixels once per supplied region.
+overlapping pixels once per supplied region.
 - Tile-boundary MAE includes both sides of every internal seam. Intersections of
   horizontal and vertical seams are counted once for each seam direction.
 - Population standard deviation is used for spatial signed-error dispersion.
@@ -137,3 +137,7 @@ or serialize arbitrary object graphs.
 ```bash
 mvn -B verify -pl canon-cr3-reference-testkit -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Evidence hierarchy, clean-room constraints and promotion rules are maintained in [CR3 research](../docs/cr3/research.md). This README owns only the shared testkit semantics.
