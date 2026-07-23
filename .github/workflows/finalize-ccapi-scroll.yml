@@ -1,20 +1,25 @@
 name: Finalize CCAPI scroll and legacy stop body
 
 on:
-  push:
-    branches: [hardening/ccapi-liveview-scroll]
+  pull_request:
+    branches: [main]
     paths:
       - '.github/workflows/finalize-ccapi-scroll.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: finalize-ccapi-scroll
+  group: finalize-ccapi-scroll-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   patch-test-publish:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'hardening/ccapi-liveview-scroll'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -23,7 +28,7 @@ jobs:
       - name: Checkout product branch
         uses: actions/checkout@v7
         with:
-          ref: hardening/ccapi-liveview-scroll
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
 
