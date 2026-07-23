@@ -118,7 +118,7 @@ class CanonCcapiProductionLiveViewTest {
         return Map.of("ver100", List.of(
                 descriptor("/ccapi/ver100/shooting/liveview", false, true, false),
                 descriptor("/ccapi/ver100/shooting/liveview/flip", flipGet, !flipGet, false),
-                descriptor("/ccapi/ver100/shooting/liveview/scroll", true, false, true),
+                descriptor("/ccapi/ver100/shooting/liveview/scroll", flipGet, false, flipGet),
                 descriptor("/ccapi/ver100/shooting/liveview/multipart", true, false, true),
                 descriptor("/ccapi/ver100/shooting/liveview/rtp", false, true, false)));
     }
