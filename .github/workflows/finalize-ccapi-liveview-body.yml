@@ -44,6 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p target/liveview-body-gate
           python3 - <<'PY'
           from pathlib import Path
 
@@ -66,30 +67,43 @@ jobs:
               text = path.read_text(encoding='utf-8')
               for old, new in rules:
                   count = text.count(old)
-                  if path.name == 'CcapiLiveViewClientTest.java':
-                      if count != 2:
-                          raise SystemExit(f'{path}: expected two old stop-body assertions, found {count}')
-                      text = text.replace(old, new)
-                  else:
-                      if count != 1:
-                          raise SystemExit(f'{path}: expected one old stop body, found {count}')
-                      text = text.replace(old, new)
+                  expected = 2 if path.name == 'CcapiLiveViewClientTest.java' else 1
+                  if count != expected:
+                      raise SystemExit(f'{path}: expected {expected} old stop-body matches, found {count}')
+                  text = text.replace(old, new)
               path.write_text(text, encoding='utf-8')
           PY
 
       - name: Run focused live-view tests
+        shell: bash
         run: |
+          set -o pipefail
           mvn -B --no-transfer-progress test \
             -pl app -am \
             -Dtest=CcapiLiveViewClientTest,CanonCcapiProductionLiveViewTest \
             -Dsurefire.failIfNoSpecifiedTests=false \
-            -Djava.awt.headless=true
+            -Djava.awt.headless=true \
+            2>&1 | tee target/liveview-body-gate/focused.log
 
       - name: Run complete application verification
+        shell: bash
         run: |
+          set -o pipefail
           mvn -B --no-transfer-progress clean verify \
             -pl common-api,app -am \
-            -Djava.awt.headless=true
+            -Djava.awt.headless=true \
+            2>&1 | tee target/liveview-body-gate/verify.log
+
+      - name: Upload verification diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-liveview-body-gate
+          path: |
+            target/liveview-body-gate
+            **/target/surefire-reports
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Publish verified product branch
         shell: bash
