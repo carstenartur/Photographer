@@ -389,7 +389,7 @@ public class HdrTimelapseService {
 
     private void ensureCameraServiceOpen() {
         if (shutdownRequested.get()) {
-  throw new SessionException("Camera workflow service is shutting down");
+            throw new SessionUnavailableException();
         }
     }
 

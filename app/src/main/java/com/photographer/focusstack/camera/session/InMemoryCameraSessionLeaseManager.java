@@ -1,5 +1,7 @@
 package com.photographer.focusstack.camera.session;
 
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
+
 import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,7 +72,7 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
         Objects.requireNonNull(request, "request");
         synchronized (lifecycleMonitor) {
   if (!acceptingNewLeases.get()) {
-      throw new IllegalStateException("Camera session lease manager is shutting down");
+      throw new CameraServiceUnavailableException();
   }
   if (request.requestedLifetime().compareTo(maximumLifetime) > 0) {
       throw new IllegalArgumentException(
@@ -146,11 +148,14 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
 
     @PreDestroy
     public void close() {
-        beginShutdown();
-        int active = leases.size();
-        if (active != 0) {
-  throw new IllegalStateException(
-          "Camera session lease manager closed with " + active + " active lease(s)");
+        synchronized (lifecycleMonitor) {
+            beginShutdown();
+            int active = leases.size();
+            if (active != 0) {
+                throw new IllegalStateException(
+                        "Camera session lease manager closed with " + active
+                                + " active lease(s)");
+            }
         }
     }
 

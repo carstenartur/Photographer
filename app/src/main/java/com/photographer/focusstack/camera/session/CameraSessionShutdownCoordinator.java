@@ -48,7 +48,7 @@ public final class CameraSessionShutdownCoordinator {
   @Value("${camera.session-lease.shutdown-poll-interval:PT0.05S}") Duration pollInterval) {
         this(leaseManager, stackingJobs, hdrTimelapse, faceOrbit, astroMode,
       timeout, pollInterval, System::nanoTime,
-      duration -> Thread.sleep(duration.toMillis()));
+      Thread::sleep);
     }
 
     CameraSessionShutdownCoordinator(

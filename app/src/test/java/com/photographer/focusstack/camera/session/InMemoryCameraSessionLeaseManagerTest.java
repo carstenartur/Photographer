@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.session;
 
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -178,8 +179,8 @@ class InMemoryCameraSessionLeaseManagerTest {
         manager.beginShutdown();
 
         assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-      .isInstanceOf(IllegalStateException.class)
-      .hasMessageContaining("shutting down");
+                .isInstanceOf(CameraServiceUnavailableException.class)
+                .hasMessage("Camera services are shutting down");
         assertThatThrownBy(manager::close)
       .isInstanceOf(IllegalStateException.class)
       .hasMessageContaining("1 active lease");

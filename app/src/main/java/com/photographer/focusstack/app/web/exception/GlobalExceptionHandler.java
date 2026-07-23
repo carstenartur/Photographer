@@ -4,9 +4,11 @@ import com.photographer.focusstack.camera.exception.CameraAuthenticationExceptio
 import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.camera.exception.CameraNotFoundException;
 import com.photographer.focusstack.camera.exception.CameraOperationException;
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
 import com.photographer.focusstack.camera.session.CameraSessionConflictException;
 import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.session.SessionNotFoundException;
+import com.photographer.focusstack.session.SessionUnavailableException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,20 @@ public class GlobalExceptionHandler {
         problem.setTitle("Camera Authentication Failed");
         problem.setProperty("code", ex.reason().name());
         problem.setProperty("cameraProfileId", ex.profileId());
+        return problem;
+    }
+
+    @ExceptionHandler({
+            CameraServiceUnavailableException.class,
+            SessionUnavailableException.class
+    })
+    public ProblemDetail handleCameraServiceUnavailable(RuntimeException ignored) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Camera services are shutting down");
+        problem.setTitle("Camera Service Unavailable");
+        problem.setProperty("code", "CAMERA_SERVICE_SHUTTING_DOWN");
+        problem.setProperty("retryable", false);
         return problem;
     }
 

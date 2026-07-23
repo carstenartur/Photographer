@@ -22,6 +22,7 @@ import com.photographer.focusstack.session.CameraBackendProvider;
 import com.photographer.focusstack.session.CameraBackendSession;
 import com.photographer.focusstack.session.CameraSessionPurpose;
 import com.photographer.focusstack.session.SessionException;
+import com.photographer.focusstack.session.SessionUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -248,7 +249,7 @@ public class AstroModeService {
 
     private void ensureCameraServiceOpen() {
         if (shutdownRequested.get()) {
-  throw new SessionException("Camera workflow service is shutting down");
+            throw new SessionUnavailableException();
         }
     }
 

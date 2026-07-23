@@ -6,6 +6,7 @@ import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.config.PlainWebSocketBridge;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.camera.session.CameraLeaseIdentityProvider;
 import com.photographer.focusstack.camera.session.CameraLeaseRequest;
@@ -282,14 +283,40 @@ public class StackingJobService {
 
     public void requestCameraShutdown() {
         if (!shutdownRequested.compareAndSet(false, true)) {
-  return;
+            return;
         }
-        activeAttempts.forEach((jobId, attempt) -> {
-  cancelledJobs.add(jobId);
-  if (attempt.cancelBeforeStart()) {
-      activeAttempts.remove(jobId, attempt);
-  }
+        List.copyOf(activeAttempts.keySet()).forEach(jobId -> {
+            synchronized (jobLock(jobId)) {
+                ActiveStackingAttempt attempt = activeAttempts.get(jobId);
+                if (attempt == null) {
+                    return;
+                }
+                cancelledJobs.add(jobId);
+                if (attempt.cancelBeforeStart()) {
+                    activeAttempts.remove(jobId, attempt);
+                    persistShutdownCancellation(jobId);
+                }
+            }
         });
+    }
+
+    private void persistShutdownCancellation(String jobId) {
+        synchronized (jobLock(jobId)) {
+            repository.findById(jobId).ifPresent(entity -> {
+                StackingJob current = entity.toRecord();
+                if (current.status() == JobStatus.COMPLETED
+                        || current.status() == JobStatus.FAILED
+                        || current.status() == JobStatus.CANCELLED) {
+                    return;
+                }
+                repository.save(StackingJobEntity.fromRecord(new StackingJob(
+                        current.id(), current.cameraProfileId(), JobStatus.CANCELLED,
+                        current.startedAt(), Instant.now(), current.parameters(),
+                        new ArrayList<>(current.frames()),
+                        "Cancelled during application shutdown",
+                        current.executionMetadata())));
+            });
+        }
     }
 
     public int activeCameraExecutions() {
@@ -298,7 +325,7 @@ public class StackingJobService {
 
     private void ensureCameraServiceOpen() {
         if (shutdownRequested.get()) {
-  throw new CameraException("Camera workflow service is shutting down");
+            throw new CameraServiceUnavailableException();
         }
     }
 
@@ -376,6 +403,9 @@ public class StackingJobService {
             executeOwnedStacking(job, profile, attempt);
         } finally {
             activeAttempts.remove(job.id(), attempt);
+            if (shutdownRequested.get() && cancelledJobs.contains(job.id())) {
+                persistShutdownCancellation(job.id());
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.session;
 
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
 import com.photographer.focusstack.astro.service.AstroModeService;
 import com.photographer.focusstack.camera.service.StackingJobService;
 import com.photographer.focusstack.session.FaceOrbitService;
@@ -51,8 +52,8 @@ class CameraSessionShutdownCoordinatorTest {
       CameraLeaseKey.fromCcapiLocation("camera.example"),
       CameraWorkflowType.DIRECT_CONTROL,
       "later", "later-owner", Duration.ofMinutes(5))))
-      .isInstanceOf(IllegalStateException.class)
-      .hasMessageContaining("shutting down");
+      .isInstanceOf(CameraServiceUnavailableException.class)
+      .hasMessage("Camera services are shutting down");
 
         coordinator.shutdown();
     }
