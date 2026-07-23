@@ -52,6 +52,44 @@ class ReferenceGuidedFirstDivergenceAnalyzerTest {
     }
 
     @Test
+    void referenceSeedModeNeutralizesOnlyTheInitialDcMismatch() {
+        var mapping = new ReferenceGuidedFirstDivergenceAnalyzer.PlaneMapping(
+                2, 2, 0, 0, 0, 1, 1);
+        int[] reference = {7, 0, 0, 0};
+        byte[] zeroSymbolPayload = {0};
+
+        var baseline = ReferenceGuidedFirstDivergenceAnalyzer.analyzePlane(
+                zeroSymbolPayload,
+                mapping,
+                14,
+                reference,
+                ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode.CONFIGURED_BASELINE,
+                baselineOptions());
+        var oracle = ReferenceGuidedFirstDivergenceAnalyzer.analyzePlane(
+                zeroSymbolPayload,
+                mapping,
+                14,
+                reference,
+                ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode
+                        .REFERENCE_FIRST_SAMPLE_ORACLE,
+                baselineOptions());
+
+        assertThat(baseline.firstPixelSeed()).isZero();
+        assertThat(baseline.classification())
+                .isEqualTo(ReferenceGuidedFirstDivergenceAnalyzer.Classification
+                        .SYMBOL_OR_RESIDUAL_INTERPRETATION);
+        assertThat(baseline.matchedPrefixSymbols()).isZero();
+        assertThat(baseline.firstDivergence()).get()
+                .extracting(d -> d.trace().ordinal()).isEqualTo(0);
+
+        assertThat(oracle.firstPixelSeed()).isEqualTo(7);
+        assertThat(oracle.classification())
+                .isEqualTo(ReferenceGuidedFirstDivergenceAnalyzer.Classification.NO_DIVERGENCE);
+        assertThat(oracle.matchedPrefixSymbols()).isEqualTo(1);
+        assertThat(oracle.firstDivergence()).isEmpty();
+    }
+
+    @Test
     void classifiesTheEarliestStageThatContradictsReferenceContext() {
         var reference = new ReferenceGuidedFirstDivergenceAnalyzer.ReferenceContext(
                 11, 12, 10, 12, 13, 1, 2);
@@ -92,6 +130,9 @@ class ReferenceGuidedFirstDivergenceAnalyzerTest {
                 1, 1, 2, 2, trace, reference);
         var stream = new ReferenceGuidedFirstDivergenceAnalyzer.AnalysisResult(
                 mapping,
+                ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode
+                        .REFERENCE_FIRST_SAMPLE_ORACLE,
+                11,
                 divergence.classification(),
                 4,
                 4,
@@ -108,17 +149,35 @@ class ReferenceGuidedFirstDivergenceAnalyzerTest {
 
         assertThat(markdown)
                 .contains("LibRaw-guided first CRX reference divergence")
+                .contains("REFERENCE_FIRST_SAMPLE_ORACLE")
                 .contains("SYMBOL_OR_RESIDUAL_INTERPRETATION")
                 .contains("predictor=12");
         assertThat(tsv)
                 .startsWith("fixture\treferenceTool")
-                .contains("fixture.cr3\tLibRaw\ttest-version");
+                .contains("fixture.cr3\tLibRaw\ttest-version")
+                .contains("REFERENCE_FIRST_SAMPLE_ORACLE\t11");
         assertThat(json)
                 .contains("\"fixture\": \"fixture.cr3\"")
+                .contains("\"initializationMode\": \"REFERENCE_FIRST_SAMPLE_ORACLE\"")
                 .contains("\"classification\": \"SYMBOL_OR_RESIDUAL_INTERPRETATION\"")
                 .contains("\"firstDivergence\": {");
         assertThat(ReferenceGuidedFirstDivergenceReport.json(List.of(fixture)))
                 .isEqualTo(json);
+    }
+
+    private static CrxNormativeLosslessCandidate.Options baselineOptions() {
+        CrxNormativeLosslessCandidate.Options options =
+                new CrxNormativeLosslessCandidate.Options();
+        options.kInit = 1;
+        options.resetKPerRow = true;
+        options.unaryOnesUntilZero = true;
+        options.signBitMapping = true;
+        options.escapeAtUnary15 = false;
+        options.firstPixelSeed = 0;
+        options.escapeBitWidth = 14;
+        options.kAdaptation =
+                CrxNormativeLosslessCandidate.KAdaptation.HYBRID_ACCUMULATOR;
+        return options;
     }
 
     private static CrxNormativeLosslessCandidate.SymbolTrace trace(
