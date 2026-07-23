@@ -53,6 +53,7 @@ public class AstroSessionEntity {
     private double stackingSigmaThreshold;
     private int stackingMaxIterations;
     private int stackingMinimumSamples;
+    private int stackingProgressPercent;
 
     // Focus config
     @Enumerated(EnumType.STRING)
@@ -95,6 +96,7 @@ public class AstroSessionEntity {
         entity.stackingSigmaThreshold = stacking.sigmaThreshold();
         entity.stackingMaxIterations = stacking.maxIterations();
         entity.stackingMinimumSamples = stacking.minimumSamples();
+        entity.stackingProgressPercent = 0;
         entity.focusStrategy = focusConfig.strategy();
         entity.scanSteps = focusConfig.scanSteps();
         entity.scanStepSize = focusConfig.scanStepSize();
@@ -104,11 +106,15 @@ public class AstroSessionEntity {
     }
 
     public AstroSession toRecord() {
-        int progress = status == AstroSessionStatus.COMPLETED ? 100 : 0;
-        return toRecord(progress);
+        return toRecord(stackingProgressPercent);
     }
 
-    public AstroSession toRecord(int stackingProgressPercent) {
+    public AstroSession toRecord(int activeProgressPercent) {
+        AstroStackingConfig resolved = resolvedStackingConfig();
+        int persistedProgress = boundedProgress(stackingProgressPercent);
+        int effectiveProgress = status == AstroSessionStatus.COMPLETED
+                ? 100
+                : Math.max(persistedProgress, boundedProgress(activeProgressPercent));
         return new AstroSession(
                 id,
                 status,
@@ -126,7 +132,7 @@ public class AstroSessionEntity {
                         saveRaw,
                         saveJpeg,
                         captureDarkFrame,
-                        resolvedStackingConfig()),
+                        resolved),
                 new AstroFocusConfig(
                         focusStrategy,
                         scanSteps,
@@ -137,26 +143,20 @@ public class AstroSessionEntity {
                 List.of(),
                 resultImagePath,
                 stackingSummary,
-                stackingProgressPercent,
+                effectiveProgress,
                 errorMessage);
     }
 
     public AstroStackingConfig resolvedStackingConfig() {
-        if (stackingMode == null) {
-            return AstroStackingConfig.defaults();
-        }
-        double sigma = Double.isFinite(stackingSigmaThreshold)
-                && stackingSigmaThreshold >= 0.1
-                ? stackingSigmaThreshold
-                : AstroStackingConfig.DEFAULT_SIGMA_THRESHOLD;
-        int iterations = stackingMaxIterations >= 1
-                ? stackingMaxIterations
-                : AstroStackingConfig.DEFAULT_MAX_ITERATIONS;
-        int minimumSamples = stackingMinimumSamples >= 3
-                ? stackingMinimumSamples
-                : AstroStackingConfig.DEFAULT_MINIMUM_SAMPLES;
         return new AstroStackingConfig(
-                stackingMode, sigma, iterations, minimumSamples);
+                getStackingMode(),
+                getStackingSigmaThreshold(),
+                getStackingMaxIterations(),
+                getStackingMinimumSamples());
+    }
+
+    private static int boundedProgress(int value) {
+        return Math.max(0, Math.min(100, value));
     }
 
     public String getId() { return id; }
@@ -174,6 +174,8 @@ public class AstroSessionEntity {
     public void setResultImagePath(String resultImagePath) { this.resultImagePath = resultImagePath; }
     public String getStackingSummary() { return stackingSummary; }
     public void setStackingSummary(String stackingSummary) { this.stackingSummary = stackingSummary; }
+    public int getStackingProgressPercent() { return boundedProgress(stackingProgressPercent); }
+    public void setStackingProgressPercent(int value) { this.stackingProgressPercent = boundedProgress(value); }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
     public Integer getBestFocusPosition() { return bestFocusPosition; }
@@ -185,8 +187,23 @@ public class AstroSessionEntity {
     public AstroFocusStrategy getFocusStrategy() { return focusStrategy; }
     public int getScanSteps() { return scanSteps; }
     public int getScanStepSize() { return scanStepSize; }
-    public AstroStackingMode getStackingMode() { return resolvedStackingConfig().mode(); }
-    public double getStackingSigmaThreshold() { return resolvedStackingConfig().sigmaThreshold(); }
-    public int getStackingMaxIterations() { return resolvedStackingConfig().maxIterations(); }
-    public int getStackingMinimumSamples() { return resolvedStackingConfig().minimumSamples(); }
+    public AstroStackingMode getStackingMode() {
+        return stackingMode == null ? AstroStackingMode.MEAN : stackingMode;
+    }
+    public double getStackingSigmaThreshold() {
+        return Double.isFinite(stackingSigmaThreshold)
+                && stackingSigmaThreshold >= 0.1
+                ? stackingSigmaThreshold
+                : AstroStackingConfig.DEFAULT_SIGMA_THRESHOLD;
+    }
+    public int getStackingMaxIterations() {
+        return stackingMaxIterations >= 1
+                ? stackingMaxIterations
+                : AstroStackingConfig.DEFAULT_MAX_ITERATIONS;
+    }
+    public int getStackingMinimumSamples() {
+        return stackingMinimumSamples >= 3
+                ? stackingMinimumSamples
+                : AstroStackingConfig.DEFAULT_MINIMUM_SAMPLES;
+    }
 }
