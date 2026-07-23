@@ -16,6 +16,10 @@ COORDINATOR = Path(
     "app/src/main/java/com/photographer/focusstack/camera/session/"
     "CameraSessionShutdownCoordinator.java"
 )
+COORDINATOR_TEST = Path(
+    "app/src/test/java/com/photographer/focusstack/camera/session/"
+    "CameraSessionShutdownCoordinatorTest.java"
+)
 
 ASSERTION_PATTERN = re.compile(
     r'''(?m)^        assertThatThrownBy\(\(\) -> manager\.acquire\(request\(key, "owner"\)\)\)\n'''
@@ -25,6 +29,19 @@ ASSERTION_PATTERN = re.compile(
 CANONICAL_ASSERTION = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("shutting down");'''
+
+COORDINATOR_SHUTDOWN_ASSERTION = re.compile(
+    r'''(?m)^(?P<indent>\s+)\.isInstanceOf\(IllegalStateException\.class\)\n'''
+    r'''(?P=indent)\.hasMessageContaining\("shutting down"\);'''
+)
+COORDINATOR_IMPORT_ANCHOR = (
+    "package com.photographer.focusstack.camera.session;\n\n"
+)
+COORDINATOR_IMPORT = (
+    COORDINATOR_IMPORT_ANCHOR
+    + "import com.photographer.focusstack.camera.exception."
+    + "CameraServiceUnavailableException;\n"
+)
 
 OLD_CLOSE = '''    @PreDestroy
     public void close() {
@@ -70,6 +87,26 @@ def normalize_lease_test() -> None:
     LEASE_TEST.write_text(normalized, encoding="utf-8")
 
 
+def update_coordinator_test() -> None:
+    text = COORDINATOR_TEST.read_text(encoding="utf-8")
+    if "CameraServiceUnavailableException;" not in text:
+        if text.count(COORDINATOR_IMPORT_ANCHOR) != 1:
+            raise SystemExit("coordinator test package/import anchor not unique")
+        text = text.replace(
+            COORDINATOR_IMPORT_ANCHOR,
+            COORDINATOR_IMPORT,
+            1)
+    replacement = (
+        r'''\g<indent>.isInstanceOf(CameraServiceUnavailableException.class)\n'''
+        r'''\g<indent>.hasMessage("Camera services are shutting down");'''
+    )
+    updated, count = COORDINATOR_SHUTDOWN_ASSERTION.subn(replacement, text)
+    if count != 1:
+        raise SystemExit(
+            f"coordinator shutdown assertion anchor count was {count}, expected 1")
+    COORDINATOR_TEST.write_text(updated, encoding="utf-8")
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: run_ccapi_shutdown_review_hardening.py <base-script>")
@@ -77,6 +114,7 @@ def main() -> None:
     runpy.run_path(sys.argv[1], run_name="__main__")
     replace_once(LEASE_MANAGER, OLD_CLOSE, NEW_CLOSE)
     replace_once(COORDINATOR, OLD_WAITER, NEW_WAITER)
+    update_coordinator_test()
 
 
 if __name__ == "__main__":
