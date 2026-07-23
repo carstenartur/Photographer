@@ -7,6 +7,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PredictorStateIsolationIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=PredictorStateIsolationIT -Djava.awt.headless=true",
       "inputs": [
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
       ],
@@ -14,7 +15,7 @@
         "docs/cr3-results/2026-06-14-B1-predictor-state-isolation.md"
       ],
       "timestampPolicy": "historical-embedded",
-      "rationale": "This snapshot predates the generated-evidence contract and is retained byte-for-byte until its generator is migrated to explicit compare/update mode."
+      "rationale": "This snapshot predates the generated-evidence contract and is retained byte-for-byte until its generator is migrated to explicit compare/update mode. The legacy command is documented for archaeology, not authorized as a CI update operation."
     },
     {
       "id": "B1-B4-predictor-evidence-matrix",
@@ -35,6 +36,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/Cr3ReferenceComparisonIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=Cr3ReferenceComparisonIT -Djava.awt.headless=true",
       "inputs": [
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
       ],
@@ -43,13 +45,14 @@
         "docs/cr3-results/images/reference-comparison/**"
       ],
       "timestampPolicy": "historical-embedded",
-      "rationale": "The legacy test writes directly to docs and embeds wall-clock time. It is registered but must not run in CI update mode until migrated to isolated generation and comparison."
+      "rationale": "The legacy test writes directly to docs and embeds wall-clock time. The command is recorded but must not run as a CI update until generation is isolated from committed paths."
     },
     {
       "id": "pedestal-hypothesis-validation",
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PedestalHypothesisValidationIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=PedestalHypothesisValidationIT -Djava.awt.headless=true",
       "inputs": [
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
       ],
@@ -58,7 +61,7 @@
         "docs/cr3-results/images/pedestal-hypothesis-validation/**"
       ],
       "timestampPolicy": "historical-embedded",
-      "rationale": "The report and diagnostic images predate isolated verify/update operation and are preserved as the evidence used for the recorded decision."
+      "rationale": "The report and diagnostic images predate isolated verify/update operation and are preserved as the evidence used for the recorded decision. The command may write committed paths and is not a CI-safe update contract."
     },
     {
       "id": "pipeline-stage-audit",
@@ -79,6 +82,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/SignMappingDiscriminatorIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=SignMappingDiscriminatorIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
@@ -95,6 +99,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/KAdaptationDiscriminatorIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=KAdaptationDiscriminatorIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
@@ -111,6 +116,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/KAdaptationFirstDivergenceIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=KAdaptationFirstDivergenceIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
@@ -127,6 +133,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/ZeroContractedKDiscriminatorIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=ZeroContractedKDiscriminatorIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
@@ -143,6 +150,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/KAdaptationNonZeroDivergenceIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=KAdaptationNonZeroDivergenceIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
@@ -159,6 +167,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/KTransitionMatrixIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=KTransitionMatrixIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
@@ -206,6 +215,7 @@
       "classification": "managed-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/ExactBracketKDiscriminatorIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=ExactBracketKDiscriminatorIT -Djava.awt.headless=true",
       "inputs": [
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
         "docs/cleanroom/experiment-ledger.json"
@@ -215,7 +225,6 @@
       ],
       "ledgerExperiment": "D12",
       "timestampPolicy": "prohibited",
-      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=ExactBracketKDiscriminatorIT -Djava.awt.headless=true",
       "generatedMappings": [
         {
           "source": "results.tsv",
@@ -231,6 +240,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/CrxSubbandTopologyIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=CrxSubbandTopologyIT -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/d13-canon-context-source-audit.md",
         "docs/cleanroom/experiment-ledger.json",
@@ -248,6 +258,7 @@
       "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LibRawGuidedFirstDivergenceIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=LibRawGuidedFirstDivergenceIT -Dcr3.libraw.first-divergence.enabled=true -Djava.awt.headless=true",
       "inputs": [
         "docs/cleanroom/experiment-ledger.json",
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
