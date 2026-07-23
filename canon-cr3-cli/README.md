@@ -133,3 +133,7 @@ java -jar canon-cr3-cli.jar pedestal-report photo.cr3
 ```bash
 mvn -B clean verify -pl canon-cr3-cli -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Supported inspection/extraction commands and experimental decode boundaries are maintained in the [CR3 / CRX Manual](../docs/cr3/index.md). This README remains the detailed command inventory.
