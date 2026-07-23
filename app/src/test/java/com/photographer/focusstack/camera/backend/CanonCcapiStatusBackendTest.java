@@ -1,10 +1,16 @@
 package com.photographer.focusstack.camera.backend;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
@@ -15,6 +21,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,6 +37,7 @@ class CanonCcapiStatusBackendTest {
     private static final String CURRENT_STORAGE_V110 = BASE_URL + "/ccapi/ver110/devicestatus/currentstorage";
     private static final String BATTERY_V100 = BASE_URL + "/ccapi/ver100/devicestatus/battery";
     private static final String BATTERY_LIST_V110 = BASE_URL + "/ccapi/ver110/devicestatus/batterylist";
+    private static final String LIVE_VIEW_V110 = BASE_URL + "/ccapi/ver110/shooting/liveview";
 
     private RestTemplate restTemplate;
 
@@ -221,6 +229,33 @@ class CanonCcapiStatusBackendTest {
                 eq(BASE_URL + "/ccapi/ver100/topurlfordev"), eq(Map.class));
     }
 
+    @Test
+    void stopLiveViewSendsBothCanonRequestFields() throws Exception {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of("ver110", List.of(descriptor(
+                        "path", "/ccapi/ver110/shooting/liveview",
+                        false, true, false))));
+        when(restTemplate.exchange(
+                eq(LIVE_VIEW_V110),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{}"));
+        CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
+
+        backend.stopLiveView();
+
+        ArgumentCaptor<HttpEntity> entity = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).exchange(
+                eq(LIVE_VIEW_V110),
+                eq(HttpMethod.POST),
+                entity.capture(),
+                eq(String.class));
+        JsonNode body = new ObjectMapper().readTree((byte[]) entity.getValue().getBody());
+        assertEquals("off", body.path("liveviewsize").asText());
+        assertEquals("on", body.path("cameradisplay").asText());
+    }
+
     private static Map<String, Object> apiRootWithVersionedStatus() {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("ver100", List.of(
@@ -236,12 +271,21 @@ class CanonCcapiStatusBackendTest {
     }
 
     private static Map<String, Object> descriptor(String field, String endpoint) {
+        return descriptor(field, endpoint, true, false, false);
+    }
+
+    private static Map<String, Object> descriptor(
+            String field,
+            String endpoint,
+            boolean get,
+            boolean post,
+            boolean delete) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put(field, endpoint);
-        result.put("get", true);
-        result.put("post", false);
+        result.put("get", get);
+        result.put("post", post);
         result.put("put", false);
-        result.put("delete", false);
+        result.put("delete", delete);
         return result;
     }
 }
