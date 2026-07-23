@@ -17,8 +17,9 @@ Durable entry point for CR3 research. Every result records fixed inputs, one cha
 | 2026-07-20 | D11 Canon K primary-source audit | COMPLETE; EXACT BASE CANDIDATE | [D11](cr3-results/2026-07-20-D11-canon-k-source-audit.md) |
 | 2026-07-20 | D12 exact code-length K bracket | PARTIAL | [D12](cr3-results/2026-07-20-D12-exact-k-bracket.md) |
 | 2026-07-20 | D13 tentative-symbol context and lossless topology | COMPLETE; PRIMARY SOURCE OR MAPPING INSUFFICIENT | [D13](cr3-results/2026-07-20-D13-context-topology.md) |
+| 2026-07-23 | RG1 LibRaw-guided first-reference divergence | COMPLETE; PEDESTAL-ONLY INSUFFICIENT | [RG1](cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md) |
 
-## Current state: semantic work blocked
+## Current state: semantic work blocked, initialization narrowed
 
 D13 executed a deterministic topology inventory over the fixed panel:
 
@@ -30,4 +31,6 @@ D13 executed a deterministic topology inventory over the fixed panel:
 
 Because every record has `waveletLevels=0` and `subband=0`, the panel exposes no deeper parent, LL/HL/LH/HH identity, causal `Sd` source or `Kd` lifecycle. The registered public source also does not yet provide enough implementable detail to close those gaps.
 
-No D14 entropy candidate is justified. RAW research may resume only with genuinely new public-primary-source or multi-subband structural evidence. D12 behavior remains research-only and production is unchanged.
+RG1 then used the existing hash-bound LibRaw mosaics to locate the first actual sensor-value contradiction. The configured seed fails at symbol 0 in all 88 streams. Replacing only that seed with the first correct reference sample moves the mismatch to symbols 1–6, but every stream still fails before decoding a required non-zero residual: the candidate reads zero while the reference requires a signed change. A missing scalar pedestal is therefore not the sole cause.
+
+No D14 entropy candidate is justified. RAW research may resume only with genuinely new primary-source, multi-subband or controlled first-party structural evidence. The closed-loop capture corpus is a suitable source of such observations because it can relate known stimulus changes to JPEG-visible and CRX-payload changes without selecting a decoder formula by rendered-image quality. Production is unchanged.
