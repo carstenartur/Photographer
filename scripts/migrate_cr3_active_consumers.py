@@ -3,12 +3,12 @@ from pathlib import Path
 
 def replace_once(path_name: str, old: str, new: str) -> None:
     path = Path(path_name)
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     count = text.count(old)
     if count != 1:
         raise SystemExit(
             f"{path_name}: expected one anchor, found {count}: {old[:100]!r}")
-    path.write_text(text.replace(old, new))
+    path.write_text(text.replace(old, new), encoding="utf-8")
 
 
 def replace_between(
@@ -17,10 +17,18 @@ def replace_between(
         end_marker: str,
         replacement: str) -> None:
     path = Path(path_name)
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
+    start_count = text.count(start_marker)
+    end_count = text.count(end_marker)
+    if start_count != 1 or end_count != 1:
+        raise SystemExit(
+            f"{path_name}: expected unique markers, found "
+            f"start={start_count}, end={end_count}")
     start = text.index(start_marker)
-    end = text.index(end_marker, start)
-    path.write_text(text[:start] + replacement + text[end:])
+    end = text.index(end_marker, start + len(start_marker))
+    if end <= start:
+        raise SystemExit(f"{path_name}: end marker does not follow start marker")
+    path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
 
 
 comparison = (
