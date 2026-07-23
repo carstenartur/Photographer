@@ -38,11 +38,24 @@ Median and sigma-clipped modes process one output row at a time and reuse tempor
 
 Exact unit fixtures cover unchanged mean output, odd/even median, saturated values, isolated and multi-stage outlier rejection, insufficient-sample fallback, invalid configuration and cancellation/progress.
 
-The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke belong to the next #286 slice together with performance thresholds; this core PR does not make unverified performance claims.
+The application integration additionally verifies that:
 
-## Current integration boundary
+- missing JSON/session configuration retains historical `MEAN`;
+- selected mode and parameters round-trip through persistence;
+- the exact persisted configuration is supplied to `AstroCapturePipeline`;
+- user abort reaches `StackingControl`;
+- row progress is exposed as bounded `0..100` polling data without per-row database writes;
+- terminal summaries identify the executed mode.
 
-The core service and pipeline accept explicit `AstroStackingConfig`; existing overloads remain Mean-based. The current application session model, persistence, REST API and frontend do not yet expose or persist robust-mode selection. Those layers must be added together in the next #286 slice so persisted provenance always describes the algorithm actually executed.
+The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke remain open before performance thresholds can be promoted.
+
+## Application integration
+
+`AstroCaptureConfig.stackingConfig` is optional for backward compatibility and normalizes to `AstroStackingConfig.defaults()`.
+
+New sessions persist mode, sigma threshold, maximum iterations and minimum samples. Historical rows without those columns normalize to Mean. The service executes exactly the resolved persisted configuration; the REST response and Astro Sessions UI expose the same provenance.
+
+During `STACKING`, progress is held by the active execution and returned by normal session polling. It is not written to the database for every image row. Completed sessions report 100%; aborted or failed sessions retain their terminal state without fabricating completion.
 
 ## Build
 
