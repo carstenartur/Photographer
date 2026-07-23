@@ -21,9 +21,9 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
-      MAVEN_OPTS: -Xmx2g
+      MAVEN_OPTS: -Xmx1g
     steps:
       - name: Checkout product branch
         uses: actions/checkout@v7
@@ -53,7 +53,7 @@ jobs:
             set +e
             printf 'status=failure\nsource_commit=%s\nexit_code=%s\n' "$GITHUB_SHA" "$status" \
               > finalize-cr3-consumers.status
-            tail -n 240 finalize-cr3-consumers.log > finalize-cr3-consumers.diagnostics.txt
+            tail -n 320 finalize-cr3-consumers.log > finalize-cr3-consumers.diagnostics.txt
             git add finalize-cr3-consumers.status finalize-cr3-consumers.diagnostics.txt
             git commit -m 'ci(testkit): record active-consumer migration failure' || true
             git push origin HEAD:testkit/cr3-active-consumer-migration || true
@@ -70,13 +70,26 @@ jobs:
             > /tmp/migrate_cr3_active_consumers.py
           python3 /tmp/migrate_cr3_active_consumers.py
 
-          mvn -B --no-transfer-progress test \
-            -pl canon-cr3-research -am \
-            -Dtest=Cr3ReferenceComparisonIT,PedestalHypothesisValidationIT,DcComponentIsolationIT \
-            -Dsurefire.failIfNoSpecifiedTests=false \
-            -Djava.awt.headless=true
+          for test_class in \
+            Cr3ReferenceComparisonIT \
+            PedestalHypothesisValidationIT \
+            DcComponentIsolationIT
+          do
+            mvn -B --no-transfer-progress test \
+              -pl canon-cr3-research -am \
+              -Dtest="$test_class" \
+              -Dsurefire.failIfNoSpecifiedTests=false \
+              -DforkCount=1 \
+              -DreuseForks=false \
+              -DargLine=-Xmx4g \
+              -Djava.awt.headless=true
+          done
+
           mvn -B --no-transfer-progress clean verify \
             -pl canon-cr3-reference-testkit,canon-cr3-research -am \
+            -DforkCount=1 \
+            -DreuseForks=false \
+            -DargLine=-Xmx3g \
             -Djava.awt.headless=true
 
           rm -f finalize-cr3-consumers.status finalize-cr3-consumers.diagnostics.txt
