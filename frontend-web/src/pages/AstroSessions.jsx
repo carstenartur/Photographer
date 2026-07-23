@@ -26,18 +26,29 @@ const DEFAULT_FOCUS = {
   scanStepSize: 10,
 };
 
+const DEFAULT_STACKING = {
+  mode: 'MEAN',
+  sigmaThreshold: 2.5,
+  maxIterations: 3,
+  minimumSamples: 4,
+};
+
 const TERMINAL = new Set(['COMPLETED', 'FAILED', 'ABORTED']);
+
+function stackingMode(session) {
+  return session?.captureConfig?.stackingConfig?.mode || 'MEAN';
+}
 
 export default function AstroSessions() {
   const [sessions, setSessions] = useState([]);
   const [captureForm, setCaptureForm] = useState(DEFAULT_CAPTURE);
   const [focusForm, setFocusForm] = useState(DEFAULT_FOCUS);
+  const [stackingForm, setStackingForm] = useState(DEFAULT_STACKING);
   const [showForm, setShowForm] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
   const [error, setError] = useState(null);
   const [polling, setPolling] = useState(false);
 
-  // Load sessions on mount
   useEffect(() => {
     let cancelled = false;
     listAstroSessions()
@@ -50,7 +61,6 @@ export default function AstroSessions() {
     };
   }, []);
 
-  // Poll active session
   const activeSessionId = activeSession?.id;
   useEffect(() => {
     if (!activeSessionId || !polling) return;
@@ -60,7 +70,6 @@ export default function AstroSessions() {
         setActiveSession(session);
         if (TERMINAL.has(session.status)) {
           setPolling(false);
-          // Refresh session list
           listAstroSessions()
             .then((data) => setSessions(data || []))
             .catch(() => {});
@@ -85,6 +94,11 @@ export default function AstroSessions() {
     setFocusForm((prev) => ({ ...prev, [name]: value }));
   }
 
+  function handleStackingChange(e) {
+    const { name, value } = e.target;
+    setStackingForm((prev) => ({ ...prev, [name]: value }));
+  }
+
   async function handleCreate(e) {
     e.preventDefault();
     setError(null);
@@ -100,6 +114,12 @@ export default function AstroSessions() {
           saveRaw: captureForm.saveRaw,
           saveJpeg: captureForm.saveJpeg,
           captureDarkFrame: captureForm.captureDarkFrame,
+          stackingConfig: {
+            mode: stackingForm.mode,
+            sigmaThreshold: Number(stackingForm.sigmaThreshold),
+            maxIterations: Number(stackingForm.maxIterations),
+            minimumSamples: Number(stackingForm.minimumSamples),
+          },
         },
         focusConfig: {
           strategy: focusForm.strategy,
@@ -165,11 +185,7 @@ export default function AstroSessions() {
 
   function selectSession(session) {
     setActiveSession(session);
-    if (!TERMINAL.has(session.status)) {
-      setPolling(true);
-    } else {
-      setPolling(false);
-    }
+    setPolling(!TERMINAL.has(session.status));
   }
 
   return (
@@ -217,6 +233,32 @@ export default function AstroSessions() {
             Capture Dark Frame
           </label>
 
+          <h3>Stacking Settings</h3>
+          <label>
+            Algorithm
+            <select name="mode" value={stackingForm.mode} onChange={handleStackingChange}>
+              <option value="MEAN">Mean (historical)</option>
+              <option value="MEDIAN">Median</option>
+              <option value="SIGMA_CLIPPED_MEAN">Sigma-clipped mean</option>
+            </select>
+          </label>
+          {stackingForm.mode === 'SIGMA_CLIPPED_MEAN' && (
+            <>
+              <label>
+                Sigma Threshold
+                <input name="sigmaThreshold" type="number" min="0.1" step="0.1" value={stackingForm.sigmaThreshold} onChange={handleStackingChange} />
+              </label>
+              <label>
+                Maximum Iterations
+                <input name="maxIterations" type="number" min="1" max="20" value={stackingForm.maxIterations} onChange={handleStackingChange} />
+              </label>
+              <label>
+                Minimum Samples
+                <input name="minimumSamples" type="number" min="3" value={stackingForm.minimumSamples} onChange={handleStackingChange} />
+              </label>
+            </>
+          )}
+
           <h3>Focus Settings</h3>
           <label>
             Strategy
@@ -253,29 +295,23 @@ export default function AstroSessions() {
               {activeSession.status}
             </span>
           </p>
-          <p>
-            <strong>Frames:</strong> {activeSession.captureConfig?.frameCount || 0}
-          </p>
-          <p>
-            <strong>Focus:</strong> {activeSession.focusConfig?.strategy || '—'}
-          </p>
+          <p><strong>Frames:</strong> {activeSession.captureConfig?.frameCount || 0}</p>
+          <p><strong>Focus:</strong> {activeSession.focusConfig?.strategy || '—'}</p>
+          <p><strong>Stacking:</strong> {stackingMode(activeSession)}</p>
+          {activeSession.status === 'STACKING' && (
+            <p><strong>Stacking progress:</strong> {activeSession.stackingProgressPercent || 0}%</p>
+          )}
           {activeSession.stackingSummary && (
-            <p>
-              <strong>Result:</strong> {activeSession.stackingSummary}
-            </p>
+            <p><strong>Result:</strong> {activeSession.stackingSummary}</p>
           )}
           {activeSession.resultImagePath && (
-            <p>
-              <strong>Output:</strong> {activeSession.resultImagePath}
-            </p>
+            <p><strong>Output:</strong> {activeSession.resultImagePath}</p>
           )}
           {activeSession.errorMessage && <p className="error">{activeSession.errorMessage}</p>}
 
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
             {!TERMINAL.has(activeSession.status) && (
-              <button className="btn btn-danger" onClick={handleAbort}>
-                Abort
-              </button>
+              <button className="btn btn-danger" onClick={handleAbort}>Abort</button>
             )}
             {activeSession.status === 'COMPLETED' && (
               <button className="btn btn-primary" onClick={() => handleDownloadResult(activeSession.id)}>
@@ -303,6 +339,7 @@ export default function AstroSessions() {
                 <th>Status</th>
                 <th>Frames</th>
                 <th>Focus</th>
+                <th>Stacking</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -318,6 +355,7 @@ export default function AstroSessions() {
                   </td>
                   <td>{s.captureConfig?.frameCount || '—'}</td>
                   <td>{s.focusConfig?.strategy || '—'}</td>
+                  <td>{stackingMode(s)}</td>
                   <td>{s.createdAt ? new Date(s.createdAt).toLocaleString() : '—'}</td>
                   <td className="action-cell">
                     {TERMINAL.has(s.status) && (
