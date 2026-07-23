@@ -3,11 +3,10 @@ package com.photographer.focusstack.common.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 
-/** Configuration and provenance for astronomical frame combination. */
+/** Configuration for astronomical frame combination. */
 public record AstroStackingConfig(
-        @JsonProperty("mode") @NotNull AstroStackingMode mode,
+        @JsonProperty("mode") AstroStackingMode mode,
         @JsonProperty("sigmaThreshold") @DecimalMin("0.1") double sigmaThreshold,
         @JsonProperty("maxIterations") @Min(1) int maxIterations,
         @JsonProperty("minimumSamples") @Min(3) int minimumSamples
