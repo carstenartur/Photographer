@@ -84,9 +84,9 @@ class AstroStackingServiceTest {
     }
 
     @Test
-    void medianAveragesMiddleValuesForEvenSampleCount() {
+    void medianFloorsMiddlePairForEvenSampleCount() {
         BufferedImage result = service.stack(
-                inputs(10, 20, 200, 250),
+                inputs(10, 20, 201, 250),
                 1,
                 1,
                 AstroStackingConfig.median());
