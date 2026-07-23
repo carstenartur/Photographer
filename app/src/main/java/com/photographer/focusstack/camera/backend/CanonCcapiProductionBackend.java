@@ -60,14 +60,8 @@ final class CanonCcapiProductionBackend implements
     private final CanonCcapiMediaClient mediaClient;
     private final CanonCcapiMonitoringClient monitoringClient;
 
-    CanonCcapiProductionBackend(
-            String profileId,
-            String baseUrl,
-            RestTemplate restTemplate) {
-        this(
-                profileId,
-                baseUrl,
-                restTemplate,
+    CanonCcapiProductionBackend(String profileId, String baseUrl, RestTemplate restTemplate) {
+        this(profileId, baseUrl, restTemplate,
                 new CanonCcapiScrollLiveViewReader(profileId, restTemplate));
     }
 
@@ -295,7 +289,9 @@ final class CanonCcapiProductionBackend implements
         CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()
                 .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)
                 .filter(candidate -> candidate.methods().containsAll(EVENT_METHODS))
-                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                .max(Comparator.comparingInt(
+                                (CameraCapabilitySnapshot.Endpoint endpoint) ->
+                                        endpointVersionNumber(endpoint))
                         .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
                 .orElse(null);
         if (compatible != null) {
@@ -305,7 +301,9 @@ final class CanonCcapiProductionBackend implements
         }
 
         CameraCapabilitySnapshot.Endpoint highest = advertised.stream()
-                .max(Comparator.comparingInt(CanonCcapiProductionBackend::versionNumber)
+                .max(Comparator.comparingInt(
+                                (CameraCapabilitySnapshot.Endpoint endpoint) ->
+                                        endpointVersionNumber(endpoint))
                         .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
                 .orElseThrow();
         if (!highest.methodMetadataKnown()) {
@@ -318,7 +316,7 @@ final class CanonCcapiProductionBackend implements
                 EVENT_METHODS, highest.methods(), true, "METHOD_NOT_ADVERTISED");
     }
 
-    private static int versionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
+    private static int endpointVersionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
         String version = endpoint.version();
         if (version == null || !version.startsWith("ver")) {
             return -1;
