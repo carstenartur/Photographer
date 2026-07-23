@@ -52,6 +52,18 @@ class VisionModuleBoundaryTest(unittest.TestCase):
                     "plugin-api -> ai-vision"):
                 validate(root)
 
+    def test_rejects_plugin_api_dependency_on_observer_core(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self._write_pom(root, "plugin-api", ["common-api", "observer-core"])
+            self._write_pom(root, "ai-vision", ["common-api"])
+            self._write_contracts(root)
+
+            with self.assertRaisesRegex(
+                    BoundaryValidationError,
+                    "plugin-api -> observer-core"):
+                validate(root)
+
     def test_rejects_ai_vision_dependency_on_observer_core(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -78,13 +90,13 @@ class VisionModuleBoundaryTest(unittest.TestCase):
                     "not owned by common-api"):
                 validate(root)
 
-    def test_rejects_duplicate_contract_in_implementation_module(self) -> None:
+    def test_rejects_duplicate_contract_in_any_product_module(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             self._write_pom(root, "plugin-api", ["common-api"])
             self._write_pom(root, "ai-vision", ["common-api"])
             self._write_contracts(root)
-            duplicate = root / "ai-vision/src/main/java" / CONTRACT_FILES[0]
+            duplicate = root / "app/src/main/java" / CONTRACT_FILES[0]
             duplicate.parent.mkdir(parents=True, exist_ok=True)
             duplicate.write_text("package example;\n", encoding="utf-8")
 
