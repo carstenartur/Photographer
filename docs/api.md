@@ -64,7 +64,7 @@ The raw OpenAPI spec (JSON) is available at `/v3/api-docs`.
 
 Supported modes are `MEAN`, `MEDIAN` and `SIGMA_CLIPPED_MEAN`. Sigma parameters are persisted even for non-sigma modes so the complete submitted provenance can round-trip without hidden defaults. The service executes exactly the persisted configuration.
 
-While status is `STACKING`, `stackingProgressPercent` reports cooperative row progress in the range `0..100`. Progress is process-local and intended for polling; it is not persisted for every image row. A completed session reports 100. Historical database rows and clients that omit the new field continue to resolve to `MEAN`.
+While status is `STACKING`, `stackingProgressPercent` reports cooperative row progress in the range `0..100`. Active-process polling receives the latest in-memory percentage. Durable checkpoints are stored in 5-percentage-point increments, with exact progress written on failure/abort and 100 on successful completion. This avoids a database write per image row while preserving useful last-known progress after process loss or restart. Historical database rows and clients that omit the new configuration continue to resolve to `MEAN`.
 
 ### Analysis
 
