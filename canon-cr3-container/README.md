@@ -21,3 +21,7 @@ CLI, or research modules. Higher CR3 layers may depend on this module.
 ```bash
 mvn -B verify -pl canon-cr3-container -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module CR3 maturity, supported surfaces and navigation are maintained in the [CR3 / CRX Manual](../docs/cr3/index.md).
