@@ -8,11 +8,19 @@ import java.util.Optional;
  * full-sensor RAW-linear reference mosaic.
  *
  * <p>The reference values are observations only. They are not used to alter the
- * bitstream parser, predictor, residual mapping or K adaptation. The analyzer
- * stops retaining trace data after the first reconstructed-sample mismatch and
- * reports the independently derived reference context at that position.</p>
+ * bitstream parser, residual mapping or K adaptation. Two explicitly labelled
+ * initialization modes are supported: the configured research baseline and a
+ * diagnostic oracle seed equal to the first reference sample of each stream.
+ * The latter neutralizes the already-known DC/pedestal mismatch so the next
+ * content-bearing contradiction can be located; it is not a production-decoder
+ * candidate.</p>
  */
 final class ReferenceGuidedFirstDivergenceAnalyzer {
+
+    enum InitializationMode {
+        CONFIGURED_BASELINE,
+        REFERENCE_FIRST_SAMPLE_ORACLE
+    }
 
     enum Classification {
         PREDICTOR_CONTEXT,
@@ -117,6 +125,8 @@ final class ReferenceGuidedFirstDivergenceAnalyzer {
 
     record AnalysisResult(
             PlaneMapping mapping,
+            InitializationMode initializationMode,
+            int firstPixelSeed,
             Classification classification,
             long capacity,
             int symbolsDecoded,
@@ -126,9 +136,11 @@ final class ReferenceGuidedFirstDivergenceAnalyzer {
 
         AnalysisResult {
             Objects.requireNonNull(mapping, "mapping");
+            Objects.requireNonNull(initializationMode, "initializationMode");
             Objects.requireNonNull(classification, "classification");
             Objects.requireNonNull(firstDivergence, "firstDivergence");
-            if (capacity <= 0 || symbolsDecoded < 0 || consumedBytes < 0) {
+            if (firstPixelSeed < 0 || capacity <= 0 || symbolsDecoded < 0
+                    || consumedBytes < 0) {
                 throw new IllegalArgumentException("Invalid stream result dimensions");
             }
             if (firstDivergence.isPresent() != isSampleDivergence(classification)) {
@@ -138,6 +150,13 @@ final class ReferenceGuidedFirstDivergenceAnalyzer {
 
         double completion() {
             return (double) symbolsDecoded / capacity;
+        }
+
+        long matchedPrefixSymbols() {
+            if (firstDivergence.isPresent()) {
+                return firstDivergence.orElseThrow().trace().ordinal();
+            }
+            return streamExhausted ? symbolsDecoded : capacity;
         }
     }
 
@@ -149,10 +168,12 @@ final class ReferenceGuidedFirstDivergenceAnalyzer {
             PlaneMapping mapping,
             int bitDepth,
             int[] referenceSamples,
+            InitializationMode initializationMode,
             CrxNormativeLosslessCandidate.Options baselineOptions) {
         Objects.requireNonNull(payload, "payload");
         Objects.requireNonNull(mapping, "mapping");
         Objects.requireNonNull(referenceSamples, "referenceSamples");
+        Objects.requireNonNull(initializationMode, "initializationMode");
         Objects.requireNonNull(baselineOptions, "baselineOptions");
         if (bitDepth < 1 || bitDepth > 30) {
             throw new IllegalArgumentException("Unsupported bit depth " + bitDepth);
@@ -164,9 +185,15 @@ final class ReferenceGuidedFirstDivergenceAnalyzer {
                             + " does not match " + expectedSamples);
         }
 
-        FirstMismatchCollector collector = new FirstMismatchCollector(
-                mapping, referenceSamples, baselineOptions.firstPixelSeed, bitDepth);
+        int effectiveSeed = switch (initializationMode) {
+            case CONFIGURED_BASELINE -> baselineOptions.firstPixelSeed;
+            case REFERENCE_FIRST_SAMPLE_ORACLE ->
+                    sample(mapping, referenceSamples, 0, 0);
+        };
         CrxNormativeLosslessCandidate.Options options = baselineOptions.copy();
+        options.firstPixelSeed = effectiveSeed;
+        FirstMismatchCollector collector = new FirstMismatchCollector(
+                mapping, referenceSamples, effectiveSeed, bitDepth);
         options.traceSink = collector;
 
         CrxNormativeLosslessCandidate.Result decoded =
@@ -188,6 +215,8 @@ final class ReferenceGuidedFirstDivergenceAnalyzer {
 
         return new AnalysisResult(
                 mapping,
+                initializationMode,
+                effectiveSeed,
                 classification,
                 Math.multiplyExact((long) mapping.planeWidth(), mapping.planeHeight()),
                 decoded.symbolsDecoded,
