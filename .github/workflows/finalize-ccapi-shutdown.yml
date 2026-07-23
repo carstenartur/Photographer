@@ -1,21 +1,25 @@
 name: Finalize coordinated CCAPI shutdown
 
 on:
-  push:
-    branches:
-      - hardening/ccapi-coordinated-shutdown-v2
+  pull_request:
+    branches: [main]
     paths:
       - '.github/workflows/finalize-ccapi-shutdown.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: finalize-ccapi-shutdown
+  group: finalize-ccapi-shutdown-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   merge-harden-verify-publish:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'hardening/ccapi-coordinated-shutdown-v2'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -24,7 +28,7 @@ jobs:
       - name: Checkout product branch
         uses: actions/checkout@v7
         with:
-          ref: hardening/ccapi-coordinated-shutdown-v2
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
 
