@@ -20,7 +20,7 @@ The current public image contract is packed 8-bit RGB `BufferedImage` input and 
 `AstroStackingMode` makes the algorithm choice explicit:
 
 - `MEAN` preserves the historical per-channel arithmetic mean and integer-floor behavior;
-- `MEDIAN` selects the per-channel middle sample; even counts use the floor of the two middle values;
+- `MEDIAN` selects the per-channel middle sample; even counts use integer-floor division of the middle pair;
 - `SIGMA_CLIPPED_MEAN` iteratively rejects a complete RGB sample when any channel lies strictly beyond `sigmaThreshold × population standard deviation`, then averages the survivors.
 
 Sigma decisions within one iteration use the same pre-rejection statistics. A rejection set that would leave fewer than `minimumSamples` is not applied. When the initial count is below that minimum, the pixel falls back to the historical mean rather than silently inventing a robust estimate.
@@ -36,15 +36,9 @@ Median and sigma-clipped modes process one output row at a time and reuse tempor
 
 ## Verification
 
-Exact unit fixtures cover unchanged mean output, odd/even median, saturated values, isolated and multi-stage outlier rejection, insufficient-sample fallback and cancellation/progress.
+Exact unit fixtures cover unchanged mean output, odd/even median, saturated values, isolated and multi-stage outlier rejection, insufficient-sample fallback, invalid configuration and cancellation/progress.
 
-The optional JMH benchmark measures one- and eight-frame stacks for all three algorithms at 1024×768 and 5632×3710:
-
-```bash
-mvn -B -P benchmarks -pl astro-core-benchmark -am package -DskipTests
-```
-
-Benchmark results are environment-sensitive and must record runner/JVM metadata before performance conclusions are promoted.
+The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke belong to the next #286 slice together with performance thresholds; this core PR does not make unverified performance claims.
 
 ## Current integration boundary
 
