@@ -56,8 +56,7 @@ jobs:
           -Pcr3-research-it
           -pl canon-cr3-research
           -am
-          -Dit.test=LibRawGuidedFirstDivergenceIT
-          -Dcr3.libraw.first-divergence.enabled=true
+          -Dit.test=ExactBracketKDiscriminatorIT
           -Djava.awt.headless=true
       - name: Run complete research integration profile
         if: ${{ github.event_name != 'pull_request' }}
