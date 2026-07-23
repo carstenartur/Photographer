@@ -51,6 +51,7 @@ public class AstroModeService {
 
     private static final Logger log = LoggerFactory.getLogger(AstroModeService.class);
     private static final int SESSION_LOCK_STRIPES = 64;
+    private static final int PROGRESS_PERSISTENCE_STEP_PERCENT = 5;
     private static final String PUBLIC_EXECUTION_FAILURE = "Astro session execution failed";
     private static final String PUBLIC_SCHEDULING_FAILURE = "Astro session scheduling failed";
 
@@ -134,7 +135,7 @@ public class AstroModeService {
         PreparedExecution execution = activeExecutions.get(entity.getId());
         int progress = execution != null
                 ? execution.stackingProgressPercent()
-                : entity.getStatus() == AstroSessionStatus.COMPLETED ? 100 : 0;
+                : entity.getStackingProgressPercent();
         return entity.toRecord(progress);
     }
 
@@ -334,8 +335,9 @@ public class AstroModeService {
                     stacking,
                     new NoOpStarTrailDeblurService());
 
-            setStatus(entity, AstroSessionStatus.STACKING, false);
             execution.resetStackingProgress();
+            entity.setStackingProgressPercent(0);
+            setStatus(entity, AstroSessionStatus.STACKING, false);
             AstroCapturePipeline.PipelineResult pipelineResult = pipeline.process(
                     capturedImages,
                     entity.resolvedStackingConfig(),
@@ -453,6 +455,7 @@ public class AstroModeService {
         if (!execution.abortRequested()) {
             return false;
         }
+        entity.setStackingProgressPercent(execution.stackingProgressPercent());
         markAborted(entity);
         return true;
     }
@@ -460,6 +463,7 @@ public class AstroModeService {
     private void failOrAbort(PreparedExecution execution, String publicFailure) {
         synchronized (sessionLock(execution.sessionId)) {
             AstroSessionEntity entity = requireEntity(execution.sessionId);
+            entity.setStackingProgressPercent(execution.stackingProgressPercent());
             if (execution.abortRequested()) {
                 markAborted(entity);
             } else {
@@ -501,6 +505,18 @@ public class AstroModeService {
         repository.save(entity);
     }
 
+    private void persistStackingProgress(String sessionId, int progressPercent) {
+        synchronized (sessionLock(sessionId)) {
+            repository.findById(sessionId).ifPresent(entity -> {
+                if (entity.getStatus() == AstroSessionStatus.STACKING
+                        && progressPercent > entity.getStackingProgressPercent()) {
+                    entity.setStackingProgressPercent(progressPercent);
+                    repository.save(entity);
+                }
+            });
+        }
+    }
+
     private void markAborted(AstroSessionEntity entity) {
         entity.setStatus(AstroSessionStatus.ABORTED);
         entity.setFinishedAt(Instant.now());
@@ -517,6 +533,7 @@ public class AstroModeService {
         entity.setFinishedAt(Instant.now());
         entity.setResultImagePath(resultPath);
         entity.setStackingSummary(summary);
+        entity.setStackingProgressPercent(100);
         entity.setErrorMessage(null);
         repository.save(entity);
         log.info("Astro session {} completed", entity.getId());
@@ -560,6 +577,7 @@ public class AstroModeService {
         private final AtomicBoolean abortRequested = new AtomicBoolean();
         private final AtomicInteger stackingRowsCompleted = new AtomicInteger();
         private final AtomicInteger stackingRowsTotal = new AtomicInteger();
+        private final AtomicInteger lastPersistedStackingPercent = new AtomicInteger();
 
         private PreparedExecution(
                 AstroModeService owner,
@@ -611,6 +629,7 @@ public class AstroModeService {
         private void resetStackingProgress() {
             stackingRowsCompleted.set(0);
             stackingRowsTotal.set(0);
+            lastPersistedStackingPercent.set(0);
         }
 
         private void updateStackingProgress(int completedRows, int totalRows) {
@@ -620,6 +639,24 @@ public class AstroModeService {
             int boundedCompleted = Math.max(0, Math.min(completedRows, totalRows));
             stackingRowsTotal.set(totalRows);
             stackingRowsCompleted.accumulateAndGet(boundedCompleted, Math::max);
+            persistCheckpointIfNeeded(stackingProgressPercent());
+        }
+
+        private void persistCheckpointIfNeeded(int actualPercent) {
+            int checkpoint = actualPercent >= 100
+                    ? 100
+                    : (actualPercent / PROGRESS_PERSISTENCE_STEP_PERCENT)
+                    * PROGRESS_PERSISTENCE_STEP_PERCENT;
+            while (checkpoint > 0) {
+                int previous = lastPersistedStackingPercent.get();
+                if (checkpoint <= previous) {
+                    return;
+                }
+                if (lastPersistedStackingPercent.compareAndSet(previous, checkpoint)) {
+                    owner.persistStackingProgress(sessionId, checkpoint);
+                    return;
+                }
+            }
         }
 
         private int stackingProgressPercent() {
