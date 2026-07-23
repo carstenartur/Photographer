@@ -2,62 +2,80 @@
 
 ## Overview
 
-The observer-core module implements the full Wildlife Observer pipeline as a
-dependency-free Java library. All Spring and AI integrations are handled by
-adapter classes in the `app` module.
+`observer-core` implements the Wildlife Observer domain pipeline as a pure Java library. Spring composition, persistence and concrete AI provider selection are handled by adapters in `app`.
 
-## Layered Architecture
+The module depends on neutral contracts from `common-api`, but not on `ai-vision`.
 
-```
+## Layered architecture
+
+```text
                  ┌─────────────────────────────────────────┐
-                 │             ObserverPipeline              │
-                 │  (coordinates all components per frame)  │
-                 └────┬──────────┬───────────┬──────────────┘
+                 │             ObserverPipeline            │
+                 │  coordinates all components per frame  │
+                 └────┬──────────┬───────────┬────────────┘
                       │          │           │
               ┌───────▼───┐ ┌────▼─────┐ ┌──▼──────────────┐
               │SceneMonitor│ │Capture   │ │VisionProviderPort│
-              │(monitoring)│ │Orchestr. │ │(ai-vision port) │
+              │ monitoring │ │Orchestr. │ │ observer port    │
               └─────┬──────┘ └──────────┘ └──────────────────┘
                     │
          ┌──────────▼──────────┐
-         │    RulesEngine       │
-         │  (all ObserverRules) │
+         │     RulesEngine      │
          └──────────┬──────────┘
                     │
          ┌──────────▼──────────┐
-         │   MotionDetector     │
-         │   SharpnessEval.     │
-         │   WindFilter         │
+         │ MotionDetector       │
+         │ SharpnessEvaluator   │
+         │ WindFilter           │
          └─────────────────────┘
 ```
 
-## Event Lifecycle (State Machine)
+## Dependency direction
 
+```text
+common-api shared contracts
+        ↓
+observer-core domain ports and events
+        ↓
+app provider adapter / persistence / controllers
 ```
-IDLE ──► MOTION_DETECTED ──► TRACKING ──► CAPTURING ──► SELECTING ──► ANALYZING ──► COMPLETED
-  │              │              │              │              │              │
-  └──────────────┴──────────────┴──────────────┴──────────────┴──────────────┴──► DISCARDED
+
+`VisionProviderPort` is the observer-domain port. It is not implemented in `ai-vision`; the application adapter selects a neutral `VisionProvider` and maps its `VisionResult` to `VisionResultData`.
+
+The shared `BoundingBox` FQN remains `com.photographer.focusstack.observer.events.BoundingBox` for compatibility, but its source is owned by `common-api`. This prevents `ai-vision -> observer-core` while keeping existing serialized/imported type names stable.
+
+## Event lifecycle
+
+```text
+IDLE → MOTION_DETECTED → TRACKING → CAPTURING → SELECTING → ANALYZING → COMPLETED
+  └──────────────────────────────────────────────────────────────────→ DISCARDED
 ```
 
-- `IDLE`: No active event. `SceneMonitor` is polling.
-- `MOTION_DETECTED`: Motion exceeded threshold, rules evaluation in progress.
-- `TRACKING`: Object confirmed, capture will begin.
-- `CAPTURING`: `CaptureOrchestrator` is executing the burst/bracket sequence.
-- `SELECTING`: Best-shot selection by sharpness score.
-- `ANALYZING`: `VisionProviderPort` is classifying the best image.
-- `COMPLETED`: Event stored with AI result.
-- `DISCARDED`: False positive, wind, or no subject detected.
+- `IDLE`: no active event; monitoring continues.
+- `MOTION_DETECTED`: motion exceeded the trigger threshold.
+- `TRACKING`: subject confirmed and capture planned.
+- `CAPTURING`: burst or bracket sequence in progress.
+- `SELECTING`: best-shot selection.
+- `ANALYZING`: `VisionProviderPort` classifies the selected image.
+- `COMPLETED`: event has a final result.
+- `DISCARDED`: false positive or rejected event.
 
-## Rules Engine
+## Rules engine
 
-Rules are evaluated in descending priority order. All rules must return `true`
-for a trigger to occur. Adding a new rule requires only implementing `ObserverRule`
-and passing it to `RulesEngine`.
+Rules are evaluated in descending priority order. All rules must accept a trigger. New rule behavior belongs in an `ObserverRule` implementation and focused tests.
 
-## Extension Points
+## Extension points
 
-- **New motion detectors**: Implement `MotionDetector` (e.g. optical-flow based).
-- **New profiles**: Add static factory methods to `ObserverProfile`.
-- **New rules**: Implement `ObserverRule` and register in `RulesEngine`.
-- **AI providers**: Implement `VisionProviderPort` (done in `ai-vision` module).
-- **Event persistence**: Implement `ObservationEventListener` (done in `app` module).
+- **Motion detection**: implement `MotionDetector`.
+- **Profiles**: add reviewed `ObserverProfile` factories/configuration.
+- **Rules**: implement `ObserverRule` and register it.
+- **AI integration**: implement/adapt `VisionProviderPort` in the application composition layer.
+- **Persistence**: implement `ObservationEventListener` in an outer module.
+
+## Guard
+
+```bash
+python3 scripts/validate_vision_module_boundaries.py .
+```
+
+The validator rejects provider→observer and plugin→implementation dependency edges.
