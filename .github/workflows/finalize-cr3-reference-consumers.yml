@@ -1,21 +1,25 @@
 name: Finalize CR3 reference consumer migration
 
 on:
-  push:
-    branches:
-      - testkit/cr3-active-consumer-migration
+  pull_request:
+    branches: [main]
     paths:
       - '.github/workflows/finalize-cr3-reference-consumers.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: finalize-cr3-reference-consumers
+  group: finalize-cr3-reference-consumers-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   migrate-verify-publish:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'testkit/cr3-active-consumer-migration'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -24,7 +28,7 @@ jobs:
       - name: Checkout product branch
         uses: actions/checkout@v7
         with:
-          ref: testkit/cr3-active-consumer-migration
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
           persist-credentials: true
 
