@@ -74,6 +74,22 @@ describe('AstroSessions robust stacking', () => {
     }))
   })
 
+  it('does not coerce an empty sigma value to zero', async () => {
+    render(<AstroSessions />)
+
+    fireEvent.click(screen.getByRole('button', { name: /new session/i }))
+    fireEvent.change(screen.getByLabelText(/algorithm/i), {
+      target: { value: 'SIGMA_CLIPPED_MEAN' },
+    })
+    const sigma = screen.getByLabelText(/sigma threshold/i)
+    expect(sigma).toBeRequired()
+    fireEvent.change(sigma, { target: { value: '' } })
+    fireEvent.submit(sigma.closest('form'))
+
+    expect(await screen.findByText(/enter valid stacking parameters/i)).toBeInTheDocument()
+    expect(createAstroSession).not.toHaveBeenCalled()
+  })
+
   it('shows persisted algorithm provenance and live stacking progress', async () => {
     listAstroSessions.mockResolvedValue([SESSION])
 
