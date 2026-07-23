@@ -75,21 +75,16 @@ jobs:
             PedestalHypothesisValidationIT \
             DcComponentIsolationIT
           do
-            mvn -B --no-transfer-progress test \
+            MAVEN_OPTS=-Xmx10g mvn -B --no-transfer-progress test \
               -pl canon-cr3-research -am \
               -Dtest="$test_class" \
               -Dsurefire.failIfNoSpecifiedTests=false \
-              -DforkCount=1 \
-              -DreuseForks=false \
-              -DargLine=-Xmx4g \
+              -DforkCount=0 \
               -Djava.awt.headless=true
           done
 
           mvn -B --no-transfer-progress clean verify \
             -pl canon-cr3-reference-testkit,canon-cr3-research -am \
-            -DforkCount=1 \
-            -DreuseForks=false \
-            -DargLine=-Xmx3g \
             -Djava.awt.headless=true
 
           rm -f finalize-cr3-consumers.status finalize-cr3-consumers.diagnostics.txt
