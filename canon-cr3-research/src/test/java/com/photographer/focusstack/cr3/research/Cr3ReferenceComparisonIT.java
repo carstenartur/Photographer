@@ -16,6 +16,7 @@ import com.photographer.focusstack.cr3.reference.ReferenceImage;
 import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
 import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
 import com.photographer.focusstack.cr3.reference.SpatialReferenceMetrics;
+import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -40,6 +41,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class Cr3ReferenceComparisonIT {
 
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
+    private static final ReferenceFixtureResolver FIXTURES =
+            new ReferenceFixtureResolver(SAMPLES_DIR);
     private static final Path DOCS_REPORT = Path.of("..", "docs", "cr3-results", "reference-comparison.md");
     private static final Path DOCS_IMAGE_DIR = Path.of("..", "docs", "cr3-results", "images", "reference-comparison");
     private static final Path TARGET_DIR = Path.of("target", "cr3-reference-comparison");
@@ -72,23 +75,10 @@ class Cr3ReferenceComparisonIT {
     }
 
     private static List<Path> discoverFixtures() throws IOException {
-        if (!Files.isDirectory(SAMPLES_DIR)) {
-            return List.of();
-        }
-        try (Stream<Path> stream = Files.walk(SAMPLES_DIR)) {
-            return stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".cr3"))
-                    .filter(Cr3ReferenceComparisonIT::hasReferenceSidecars)
-                    .filter(Cr3ReferenceComparisonIT::isLosslessFixture)
-                    .sorted(Comparator.comparing(path -> SAMPLES_DIR.relativize(path).toString()))
-                    .toList();
-        }
-    }
-
-    private static boolean hasReferenceSidecars(Path fixture) {
-        return Files.isRegularFile(referenceTiffPath(fixture))
-                && Files.isRegularFile(referencePngPath(fixture));
+        return FIXTURES.discoverComplete().stream()
+                .map(ReferenceFixtureResolver.ResolvedFixture::cr3)
+                .filter(Cr3ReferenceComparisonIT::isLosslessFixture)
+                .toList();
     }
 
     private static boolean isLosslessFixture(Path fixture) {
@@ -109,7 +99,8 @@ class Cr3ReferenceComparisonIT {
     }
 
     private static FixtureResult analyseFixture(Path fixture) throws Exception {
-        ReferenceImage reference = ReferenceImageLoader.load(referenceTiffPath(fixture));
+        ReferenceImage reference = ReferenceImageLoader.load(
+                FIXTURES.resolve(fixture).requiredTiff());
         DecodedFixture decoded = decodeFixture(fixture);
 
         assertThat(decoded.raw.width()).as("width for %s", fixture.getFileName()).isEqualTo(reference.width());
@@ -138,7 +129,7 @@ class Cr3ReferenceComparisonIT {
         Path diffOut = writeImage(fixture, "difference", diffVisual, DOCS_IMAGE_DIR, TARGET_IMAGE_DIR);
 
         return new FixtureResult(
-                SAMPLES_DIR.relativize(fixture).toString().replace('\\', '/'),
+                FIXTURES.samplesRoot().relativize(fixture).toString().replace('\\', '/'),
                 decoded.raw.width(),
                 decoded.raw.height(),
                 global,
@@ -455,14 +446,6 @@ class Cr3ReferenceComparisonIT {
 
     private static String fmt(double value) {
         return Double.isFinite(value) ? String.format(Locale.ROOT, "%.4f", value) : "n/a";
-    }
-
-    private static Path referenceTiffPath(Path fixture) {
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", ".reference.tiff"));
-    }
-
-    private static Path referencePngPath(Path fixture) {
-        return fixture.resolveSibling(fixture.getFileName().toString().replaceAll("\\.cr3$", ".reference.png"));
     }
 
     private static List<PlaneSpec> planeSpecs(int cfaLayout) {
