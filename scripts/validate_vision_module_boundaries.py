@@ -26,11 +26,7 @@ CONTRACT_FILES = (
     Path("com/photographer/focusstack/observer/events/BoundingBox.java"),
 )
 COMMON_MAIN = Path("common-api/src/main/java")
-OTHER_MAIN_ROOTS = (
-    Path("plugin-api/src/main/java"),
-    Path("ai-vision/src/main/java"),
-    Path("observer-core/src/main/java"),
-)
+IGNORED_SOURCE_PARTS = {"target", ".git", "node_modules"}
 
 
 @dataclass(frozen=True)
@@ -53,6 +49,17 @@ def _artifact_id(project: ET.Element, pom: Path) -> str:
     if not artifact_id:
         raise BoundaryValidationError(f"Missing artifactId in {pom}")
     return artifact_id
+
+
+def _product_main_source_roots(root: Path) -> list[Path]:
+    roots: list[Path] = []
+    for candidate in root.rglob("src/main/java"):
+        relative = candidate.relative_to(root)
+        if any(part in IGNORED_SOURCE_PARTS for part in relative.parts):
+            continue
+        if candidate.is_dir():
+            roots.append(candidate)
+    return sorted(roots)
 
 
 def find_pom_violations(root: Path) -> list[BoundaryViolation]:
@@ -81,13 +88,17 @@ def find_pom_violations(root: Path) -> list[BoundaryViolation]:
 
 def find_contract_ownership_violations(root: Path) -> list[BoundaryViolation]:
     violations: list[BoundaryViolation] = []
+    canonical_root = root / COMMON_MAIN
+    source_roots = _product_main_source_roots(root)
     for relative in CONTRACT_FILES:
-        canonical = root / COMMON_MAIN / relative
+        canonical = canonical_root / relative
         if not canonical.is_file():
             violations.append(BoundaryViolation(
                 canonical.relative_to(root), "neutral vision contract is not owned by common-api"))
-        for source_root in OTHER_MAIN_ROOTS:
-            duplicate = root / source_root / relative
+        for source_root in source_roots:
+            if source_root == canonical_root:
+                continue
+            duplicate = source_root / relative
             if duplicate.exists():
                 violations.append(BoundaryViolation(
                     duplicate.relative_to(root),
