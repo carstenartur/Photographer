@@ -160,6 +160,8 @@ docker run -d --name "$APP_CONTAINER" --network "$NETWORK" \
   -e SPRING_DATASOURCE_PASSWORD="$DB_PASSWORD" \
   -e FOCUSSTACK_SECURITY_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
   -e CAMERA_MOCK_ENABLED=true \
+  -e CAMERA_SESSION_LEASE_SHUTDOWN_TIMEOUT=PT12S \
+  -e CAMERA_SESSION_LEASE_SHUTDOWN_POLL_INTERVAL=PT0.02S \
   -e FOCUSSTACK_CAMERA_CCAPI_RUNTIME_REQUIRED_PROFILE_IDS=camera-smoke \
   --mount "type=bind,src=$TEMP_DIR/username,dst=/run/secrets/focusstack.camera.ccapi.credentials.camera-smoke.username,readonly" \
   --mount "type=bind,src=$TEMP_DIR/password,dst=/run/secrets/focusstack.camera.ccapi.credentials.camera-smoke.password,readonly" \
@@ -200,5 +202,19 @@ if [ "$(docker inspect -f '{{.State.OOMKilled}}' "$APP_CONTAINER")" != false ]; 
   exit 1
 fi
 
-printf 'packaged_runtime=passed\nimage=%s\nshutdown_seconds=%s\n' \
+# Re-read the final log after SIGTERM. This proves that the packaged Spring
+# context uses the production lease/shutdown coordinator and reaches the same
+# zero-workflow, zero-lease terminal state as the in-process lifecycle tests.
+docker logs "$APP_CONTAINER" > "$APP_LOG" 2>&1 || true
+if ! grep -F 'Camera shutdown completed with zero active workflows and leases' \
+    "$APP_LOG" >/dev/null; then
+  echo "Packaged shutdown did not confirm zero active camera workflows and leases" >&2
+  exit 1
+fi
+if grep -F 'Camera shutdown timed out with' "$APP_LOG" >/dev/null; then
+  echo "Packaged shutdown reported active camera workflows or leases" >&2
+  exit 1
+fi
+
+printf 'packaged_runtime=passed\nimage=%s\nshutdown_seconds=%s\nlease_shutdown=zero\n' \
   "$IMAGE_TAG" "$STOP_SECONDS"
