@@ -15,17 +15,12 @@
     <version>0.1.5-SNAPSHOT</version>
 
     <name>Focus Stack - Plugin API</name>
-    <description>Stable plugin SPI for Focus Stack — no Spring dependencies</description>
+    <description>Stable plugin SPI for Focus Stack — no Spring or provider-implementation dependencies</description>
 
     <dependencies>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
             <artifactId>common-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.photographer.focusstack</groupId>
-            <artifactId>ai-vision</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
