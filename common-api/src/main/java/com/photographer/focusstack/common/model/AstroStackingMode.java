@@ -5,7 +5,7 @@ public enum AstroStackingMode {
     /** Arithmetic mean with the historical integer-floor behavior. */
     MEAN,
 
-    /** Per-channel median; an even sample count averages the two middle values. */
+    /** Per-channel median; even counts use integer-floor division of the middle pair. */
     MEDIAN,
 
     /** Iterative per-pixel RGB sigma rejection followed by an arithmetic mean. */
