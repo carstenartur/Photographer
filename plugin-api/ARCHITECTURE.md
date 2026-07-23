@@ -2,29 +2,27 @@
 
 ## Overview
 
-The `plugin-api` module defines the public contract between Focus Stack and
-external runtime-loaded plugins. It contains only interfaces, records, and
-value types — no implementation logic, no Spring dependency.
+`plugin-api` defines the public contract between Focus Stack and external runtime-loaded plugins. It contains interfaces and value records only: no implementation logic, Spring dependency or provider implementation dependency.
 
-## Package Structure
+## Package structure
 
-```
+```text
 com.photographer.focusstack.plugin
 ├── AnalysisPlugin.java          # SPI: custom image analysis
-├── AnalysisContext.java          # Input: parameter map for plugins
-├── AnalysisPluginResult.java     # Output: score + metadata from plugins
-├── CameraBackendPlugin.java      # SPI: camera backend (extends CameraBackend)
-├── VisionProviderPlugin.java     # SPI: AI vision provider (extends VisionProvider)
-└── PluginMetadata.java           # Metadata record (id, name, version, author, license)
+├── AnalysisContext.java         # Input parameter map
+├── AnalysisPluginResult.java    # Output score and metadata
+├── CameraBackendPlugin.java     # SPI: camera backend
+├── VisionProviderPlugin.java    # SPI: AI provider
+└── PluginMetadata.java          # Plugin id/name/version/author/license
 ```
 
-## Plugin Loading
+`CameraBackendPlugin` extends the neutral camera contract from `common-api`. `VisionProviderPlugin` extends the neutral `VisionProvider` contract, also owned by `common-api`.
 
-Plugins are loaded by `FocusStackPluginManager` (in the `app` module) using
-`ServiceLoader` + `URLClassLoader`. External JARs in the `plugins/` directory
-register their implementations via `META-INF/services/` files.
+## Plugin loading
 
-```
+`FocusStackPluginManager` in `app` uses `ServiceLoader` and a controlled `URLClassLoader`. External JARs register implementations through `META-INF/services/`.
+
+```text
 plugins/
 └── my-plugin-1.0.jar
     ├── com/example/MyAnalysisPlugin.class
@@ -34,15 +32,29 @@ plugins/
 
 ## Dependencies
 
-```
-plugin-api ──► common-api   (CameraBackend interface)
-           ──► ai-vision    (VisionProvider interface)
+```text
+plugin-api ──► common-api
 ```
 
-## Design Decisions
+Forbidden edges:
 
-- **ServiceLoader over PF4J**: PF4J was removed due to a Zip Slip
-  vulnerability (CVE). The custom loader provides equivalent functionality
-  with a smaller attack surface.
-- **No Spring**: Plugins must work without Spring context to keep the SPI
-  portable and dependency-light.
+```text
+plugin-api -X-> ai-vision
+plugin-api -X-> observer-core
+```
+
+An external provider plugin therefore compiles against the SPI and neutral contracts without pulling Gemini/mock implementations or observer workflow internals.
+
+## Design decisions
+
+- **ServiceLoader over PF4J**: the custom loader avoids the previously identified PF4J/Zip Slip risk and keeps the surface small.
+- **No Spring**: plugin contracts remain portable outside the application context.
+- **Neutral contracts**: implementation modules must never become dependencies of the public SPI.
+- **Compatibility first**: contract packages and FQNs remain stable unless a versioned migration is explicitly approved.
+
+## Guard
+
+```bash
+python3 scripts/test_validate_vision_module_boundaries.py
+python3 scripts/validate_vision_module_boundaries.py .
+```

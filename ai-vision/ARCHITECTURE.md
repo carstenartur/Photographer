@@ -2,46 +2,70 @@
 
 ## Overview
 
-The ai-vision module provides a thin abstraction over AI vision APIs.
-It depends on `observer-core` (for `VisionResultData`, `BoundingBox`) and
-`common-api`, but has no Spring dependency.
+`ai-vision` contains concrete AI provider implementations and provider-local support code. The neutral `VisionProvider`, `VisionContext`, `VisionResult` and `ProviderCapabilities` contracts are owned by `common-api` under their existing Java package names.
 
-## Provider Interface
+The module depends on `common-api`, Jackson and SLF4J. It has no Spring or `observer-core` dependency.
 
+```text
+common-api contracts
+        ↓
+ai-vision provider implementations
+        ↓
+app composition/adapters
 ```
+
+## Provider contract
+
+```text
 VisionProvider
 ├── classifyImage(byte[], VisionContext) → VisionResult
 ├── describeImage(byte[], VisionContext) → VisionResult
+├── detectObjects(byte[], VisionContext) → VisionResult
 ├── rankBestImage(List<byte[]>, VisionContext) → VisionResult
 ├── isAvailable() → boolean
 └── capabilities() → ProviderCapabilities
 ```
 
+The contract is compiled from `common-api`; this module implements it.
+
 ## Implementations
 
 | Class | Description |
 |---|---|
-| `GeminiVisionProvider` | Production: calls Google Gemini REST API |
-| `MockVisionProvider` | Testing: returns pre-configured results in round-robin |
+| `GeminiVisionProvider` | Production provider using the Gemini REST API. |
+| `MockVisionProvider` | Deterministic testing/development provider. |
+| `TwoStageVisionProvider` | Provider composition for staged analysis. |
 
-## Prompt Flow
+## Prompt flow
 
-```
+```text
 VisionContext.mode → PromptTemplates.forMode() → JSON prompt
-                                                      ↓
-                                              GeminiVisionProvider
-                                                      ↓
-                                           buildRequestBody(prompt, base64image)
-                                                      ↓
-                                            Gemini REST API
-                                                      ↓
-                                          GeminiResponseParser.parse()
-                                                      ↓
-                                                VisionResult
+                                              ↓
+                                      GeminiVisionProvider
+                                              ↓
+                                   build request / HTTP call
+                                              ↓
+                                  GeminiResponseParser.parse()
+                                              ↓
+                                         VisionResult
 ```
 
-## Extension Points
+## Observer integration
 
-- **New providers**: Implement `VisionProvider` (e.g. `OpenAiVisionProvider`, `OllamaVisionProvider`).
-- **New prompts**: Add constants to `PromptTemplates`.
-- **Custom parsing**: Subclass or compose `GeminiResponseParser`.
+`observer-core` owns the domain-specific `VisionProviderPort` and `VisionResultData`. The `app` module adapts those observer contracts to a selected `VisionProvider`; provider implementations do not depend on observer-domain code.
+
+## Extension points
+
+- **Built-in providers**: implement `VisionProvider` in this module.
+- **External providers**: implement `VisionProviderPlugin` from `plugin-api`.
+- **New prompts**: extend `PromptTemplates` with tests.
+- **Custom parsing**: compose provider-local parsers rather than leaking provider responses into neutral contracts.
+
+## Guard
+
+```bash
+python3 scripts/test_validate_vision_module_boundaries.py
+python3 scripts/validate_vision_module_boundaries.py .
+```
+
+The validator rejects `ai-vision -> observer-core` and misplaced/duplicated neutral contracts.

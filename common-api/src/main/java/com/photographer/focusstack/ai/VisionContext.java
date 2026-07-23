@@ -2,9 +2,7 @@ package com.photographer.focusstack.ai;
 
 import java.util.Map;
 
-/**
- * Context passed to a {@link VisionProvider} to configure the analysis task.
- */
+/** Context passed to a {@link VisionProvider} to configure the analysis task. */
 public record VisionContext(
         String mode,
         String promptTemplate,

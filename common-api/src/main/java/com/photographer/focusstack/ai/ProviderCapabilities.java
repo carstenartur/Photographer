@@ -2,9 +2,7 @@ package com.photographer.focusstack.ai;
 
 import java.util.List;
 
-/**
- * Capabilities advertised by a {@link VisionProvider}.
- */
+/** Capabilities advertised by a {@link VisionProvider}. */
 public record ProviderCapabilities(
         boolean classification,
         boolean description,
