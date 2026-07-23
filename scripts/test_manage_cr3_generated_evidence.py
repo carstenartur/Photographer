@@ -32,6 +32,31 @@ class GeneratedEvidenceContractTest(unittest.TestCase):
 
             self.assertEqual([], validate_repository(root))
 
+    def test_normalizes_whitespace_in_input_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._base_files(root)
+            output = self._write(root, "docs/cr3-results/managed.tsv", "a\tb\n")
+            managed = self._managed(output)
+            managed["inputs"] = ["  inputs/manifest.json  "]
+            self._manifest(root, [managed])
+
+            self.assertEqual([], validate_repository(root))
+
+    def test_validate_returns_error_for_missing_or_invalid_json(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            missing = validate_repository(root)
+            self.assertTrue(any("Missing JSON file" in error for error in missing))
+
+            self._base_files(root)
+            output = self._write(root, "docs/cr3-results/managed.tsv", "a\n")
+            self._manifest(root, [self._managed(output)])
+            (root / "docs/cleanroom/experiment-ledger.json").write_text(
+                "not-json", encoding="utf-8")
+            invalid = validate_repository(root)
+            self.assertTrue(any("Invalid JSON" in error for error in invalid))
+
     def test_rejects_unregistered_result(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -71,6 +96,21 @@ class GeneratedEvidenceContractTest(unittest.TestCase):
 
             self.assertTrue(any(
                 "requires a rationale" in error
+                for error in validate_repository(root)
+            ))
+
+    def test_rejects_historical_generated_entry_without_command(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._base_files(root)
+            self._write(root, "docs/cr3-results/history.md", "# History\n")
+            historical = self._historical()
+            historical["classification"] = "historical-generated"
+            historical["generator"] = "generator.java"
+            self._manifest(root, [historical])
+
+            self.assertTrue(any(
+                "requires generateCommand" in error
                 for error in validate_repository(root)
             ))
 
@@ -129,6 +169,44 @@ class GeneratedEvidenceContractTest(unittest.TestCase):
             with self.assertRaisesRegex(EvidenceContractError, "generated output differs"):
                 compare_generated(root, "managed", generated.parent)
             self.assertEqual("same\n", output.read_text(encoding="utf-8"))
+
+    def test_compare_rejects_malformed_mapping_with_contract_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._base_files(root)
+            output = self._write(root, "docs/cr3-results/managed.tsv", "same\n")
+            managed = self._managed(output)
+            managed["generatedMappings"] = [42]
+            self._manifest(root, [managed])
+
+            with self.assertRaisesRegex(EvidenceContractError, "must be an object"):
+                compare_generated(root, "managed", root / "generated")
+
+    def test_update_rejects_unsafe_or_out_of_root_destination_without_writing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._base_files(root)
+            output = self._write(root, "docs/cr3-results/managed.tsv", "old\n")
+            generated = self._write(root, "generated/results.tsv", "new\n")
+
+            traversal = self._managed(output)
+            traversal["generatedMappings"][0]["destination"] = "../escape.tsv"
+            self._manifest(root, [traversal])
+            escaped = root.parent / "escape.tsv"
+            escaped.unlink(missing_ok=True)
+            with self.assertRaisesRegex(EvidenceContractError, "invalid repository-relative"):
+                update_generated(root, "managed", generated.parent)
+            self.assertFalse(escaped.exists())
+            self.assertEqual("old\n", output.read_text(encoding="utf-8"))
+
+            outside = self._managed(output)
+            outside["generatedMappings"][0]["destination"] = "docs/outside.tsv"
+            outside["outputs"] = ["docs/outside.tsv"]
+            self._manifest(root, [outside])
+            with self.assertRaisesRegex(EvidenceContractError, "must be below"):
+                update_generated(root, "managed", generated.parent)
+            self.assertFalse((root / "docs/outside.tsv").exists())
+            self.assertEqual("old\n", output.read_text(encoding="utf-8"))
 
     def test_update_copies_generated_output_and_refreshes_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
