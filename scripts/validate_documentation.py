@@ -28,7 +28,7 @@ HTML_LINK = re.compile(
     r"<(?:a|img)\b[^>]*?\b(?:href|src)=[\"']([^\"']+)[\"']",
     re.IGNORECASE,
 )
-INLINE_CODE = re.compile(r"`+[^`]*`+")
+INLINE_CODE = re.compile(r"(`+)([^`]*?)\1")
 HTML_TAG = re.compile(r"<[^>]+>")
 MARKDOWN_PUNCTUATION = re.compile(r"[!\"#$%&'()*+,./:;<=>?@\[\\\]^`{|}~]")
 
@@ -117,7 +117,13 @@ def _markdown_files(root: Path, tracked: Iterable[Path]) -> list[Path]:
     )
 
 
-def _strip_code_and_comments(lines: Iterable[str]) -> list[tuple[int, str]]:
+def _strip_fences_and_comments(lines: Iterable[str]) -> list[tuple[int, str]]:
+    """Return visible Markdown lines while preserving inline-code text.
+
+    Fenced code and HTML comments are excluded entirely. Inline code is retained
+    because GitHub includes its textual content in heading anchors; link parsing
+    masks it separately so link-like examples are not treated as real links.
+    """
     result: list[tuple[int, str]] = []
     fence: str | None = None
     in_comment = False
@@ -152,8 +158,18 @@ def _strip_code_and_comments(lines: Iterable[str]) -> list[tuple[int, str]]:
                 in_comment = True
                 break
             visible = visible[:start] + visible[end + 3 :]
-        result.append((number, INLINE_CODE.sub("", visible)))
+        result.append((number, visible))
     return result
+
+
+def _mask_inline_code(value: str) -> str:
+    """Hide inline-code contents without changing surrounding character offsets."""
+    return INLINE_CODE.sub(lambda match: " " * len(match.group(0)), value)
+
+
+def _inline_code_text(value: str) -> str:
+    """Remove Markdown code delimiters but retain code text for heading slugs."""
+    return INLINE_CODE.sub(lambda match: match.group(2), value)
 
 
 def _destination(raw: str) -> str:
@@ -165,10 +181,10 @@ def _destination(raw: str) -> str:
 
 
 def parse_links(path: Path, text: str) -> list[Link]:
-    visible = _strip_code_and_comments(text.splitlines(keepends=True))
+    visible = _strip_fences_and_comments(text.splitlines(keepends=True))
     references: dict[str, str] = {}
     for _, line in visible:
-        match = REFERENCE_DEF.match(line)
+        match = REFERENCE_DEF.match(_mask_inline_code(line))
         if match:
             references[match.group(1).strip().casefold()] = _destination(
                 match.group(2)
@@ -176,18 +192,19 @@ def parse_links(path: Path, text: str) -> list[Link]:
 
     links: list[Link] = []
     for number, line in visible:
-        if REFERENCE_DEF.match(line):
+        link_line = _mask_inline_code(line)
+        if REFERENCE_DEF.match(link_line):
             continue
-        for match in INLINE_LINK.finditer(line):
+        for match in INLINE_LINK.finditer(link_line):
             target = _destination(match.group(1))
             if target:
                 links.append(Link(path, number, target))
-        for match in REFERENCE_USE.finditer(line):
+        for match in REFERENCE_USE.finditer(link_line):
             label = (match.group(2) or match.group(1)).strip().casefold()
             target = references.get(label)
             if target:
                 links.append(Link(path, number, target))
-        for match in HTML_LINK.finditer(line):
+        for match in HTML_LINK.finditer(link_line):
             target = html.unescape(match.group(1).strip())
             if target:
                 links.append(Link(path, number, target))
@@ -196,7 +213,7 @@ def parse_links(path: Path, text: str) -> list[Link]:
 
 def _slug(text: str) -> str:
     value = html.unescape(HTML_TAG.sub("", text))
-    value = INLINE_CODE.sub("", value)
+    value = _inline_code_text(value)
     value = re.sub(r"[*_~]", "", value).strip().casefold()
     value = MARKDOWN_PUNCTUATION.sub("", value)
     value = re.sub(r"\s+", "-", value)
@@ -207,7 +224,7 @@ def _slug(text: str) -> str:
 def anchors(text: str) -> set[str]:
     result: set[str] = set()
     counts: dict[str, int] = {}
-    for _, line in _strip_code_and_comments(text.splitlines(keepends=True)):
+    for _, line in _strip_fences_and_comments(text.splitlines(keepends=True)):
         for explicit in EXPLICIT_ANCHOR.findall(line):
             result.add(unquote(explicit))
         match = HEADING.match(line)
