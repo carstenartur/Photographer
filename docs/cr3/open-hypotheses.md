@@ -1,0 +1,62 @@
+# CR3 Open Hypotheses
+
+This table records durable status, including rejected and completed questions so they are not silently reopened.
+
+| ID | Hypothesis / observation | Status | Evidence / next step |
+|---|---|---|---|
+| B1 | Predictor row context is incorrect | PARTIAL | MED remains best supported; revisit only after genuinely new entropy evidence points back to predictor context. |
+| B2 | Tile predictor state should continue | REJECTED | Continuation doubles optical-black variation. |
+| B3 | Plane predictor state should continue | REJECTED | Cross-plane seeding has no useful effect. |
+| B4 | Predictor family differs by plane | REJECTED | No systematic plane split. |
+| D5 | Replace BIT0 sign mapping with zig-zag | REJECTED | Fixed reference panel regressed. |
+| D6 | Use one universal logarithmic K bracket | REJECTED | Corpus medians and completion regressed. See [D6](../cr3-results/2026-07-20-D6-k-adaptation-discriminator.md). |
+| D7 | Locate the first D6 K divergence | COMPLETE | First cause is zero-symbol K state. See [D7](../cr3-results/2026-07-20-D7-first-k-divergence.md). |
+| D8 | Contract K after zero symbols | PARTIAL | Helps selected files; corpus and completion gates fail. See [D8](../cr3-results/2026-07-20-D8-zero-contracted-k.md). |
+| D9 | Find one common first non-zero cause | COMPLETE: NO COMMON CAUSE | Three representatives produce different decision classes. See [D9](../cr3-results/2026-07-20-D9-first-nonzero-k-divergence.md). |
+| D10 | One transition class predicts failure | COMPLETE: NO PREDICTIVE CLASS | Candidate classes also occur in improved files. See [D10](../cr3-results/2026-07-20-D10-k-transition-outcome-matrix.md). |
+| D11 | Primary source defines an exact base K range | COMPLETE | The range is the finite-domain minimum of the disclosed code length. CRX context remains unresolved. See [D11](../cr3-results/2026-07-20-D11-canon-k-source-audit.md). |
+| D12 | The exact range alone fixes D8 | PARTIAL | Optical-black median improves, but global, boundary, saturation, family and stream gates fail. See [D12](../cr3-results/2026-07-20-D12-exact-k-bracket.md). |
+| D13 | Tentative-symbol context can be mapped from the fixed lossless topology | COMPLETE: INSUFFICIENT | All 88 records are lossless single-subband records. The panel exposes no deeper `Sd`, LL/HL/LH/HH role or `Kd` lifecycle. See [D13](../cr3-results/2026-07-20-D13-context-topology.md). |
+| RG1 | LibRaw reference values can locate the first incorrect sample | COMPLETE: OBSERVATION ONLY | The first reference value removes symbol-0 offset, but 71/88 streams then fail at symbol 1 with predictor agreement and an incorrectly decoded zero residual. See [RG1](../cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md). |
+| D14 acquisition | Controlled spatial stimuli can add causal payload evidence | PARTIAL / OPEN | Pattern PDFs, manifest and analysis primitives exist. Duplicate camera captures, JPEG calibration, noise baselines and independent stimulus reproduction remain open in issue #249. |
+| Next entropy candidate | A new `Sd`/`Kd` or residual-grammar rule can be promoted from current files | BLOCKED | Neither D13 topology nor RG1 output values expose the private state transition. Wait for new controlled first-party, multi-subband or primary-source evidence. |
+
+## Open evidence-acquisition work
+
+The controlled capture path is open because it can create evidence not present in the static corpus:
+
+- a known display stimulus and its exact presentation state;
+- a JPEG/embedded-preview observation showing whether and where the camera detected the change;
+- the corresponding CR3/CRX payload from the same exposure;
+- duplicate A/B captures that establish the noise floor;
+- spatial, intensity and polarity changes chosen before looking at payload outcomes;
+- independent reproduction with another pattern family.
+
+This is an observation program, not an authorized decoder formula. A later semantic experiment must cite a stable result from that corpus and still change only one declared variable.
+
+## Blocked semantic questions
+
+Blocked without genuinely new evidence:
+
+- causal `Sd` / `Kd` semantics;
+- multi-subband role mapping and lifecycle;
+- the non-zero residual grammar/state that RG1 shows is already wrong near stream start;
+- a production entropy candidate;
+- C-RAW semantic sweeps without independent lossy ground truth.
+
+## Deferred directions
+
+Deferred without new evidence:
+
+- quantization-first exploration;
+- PRVW geometry and CFA rediscovery;
+- generic alignment sweeps;
+- predictor-family and sign-mapping sweeps;
+- transition-frequency searches;
+- current-symbol K brackets;
+- combined `Sd`/`Kd`/reset searches on the same panel;
+- further passive LibRaw score fitting that does not create a new causal observation.
+
+Status values: `OPEN`, `SUPPORTED`, `REJECTED`, `BLOCKED`, `PARTIAL`, `DEFERRED`, `COMPLETE`.
+
+Before changing a status, follow [Research](research.md) and update [Current state](current-state.md) plus the [Results index](reports/index.md).
