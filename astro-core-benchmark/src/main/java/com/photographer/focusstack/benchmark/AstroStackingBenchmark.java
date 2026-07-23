@@ -1,8 +1,6 @@
 package com.photographer.focusstack.benchmark;
 
 import com.photographer.focusstack.astro.AstroStackingService;
-import com.photographer.focusstack.common.model.AstroStackingConfig;
-import com.photographer.focusstack.common.model.AstroStackingMode;
 import com.photographer.focusstack.common.model.FrameTransform;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -34,13 +32,9 @@ public class AstroStackingBenchmark {
     @Param({"1024x768", "5632x3710"})
     public String size;
 
-    @Param({"MEAN", "MEDIAN", "SIGMA_CLIPPED_MEAN"})
-    public AstroStackingMode mode;
-
     private int width;
     private int height;
     private AstroStackingService stackingService;
-    private AstroStackingConfig stackingConfig;
     private List<AstroStackingService.FrameInput> singleFrame;
     private List<AstroStackingService.FrameInput> eightFrames;
 
@@ -49,38 +43,31 @@ public class AstroStackingBenchmark {
         width = Integer.parseInt(size.substring(0, size.indexOf('x')));
         height = Integer.parseInt(size.substring(size.indexOf('x') + 1));
         stackingService = new AstroStackingService();
-        stackingConfig = new AstroStackingConfig(mode, 2.5, 3, 4);
-        singleFrame = List.of(new AstroStackingService.FrameInput(
-                createImage(0), FrameTransform.identity()));
+        singleFrame = List.of(new AstroStackingService.FrameInput(createImage(0), FrameTransform.identity()));
 
         List<AstroStackingService.FrameInput> frames = new ArrayList<>(8);
-        for (int index = 0; index < 8; index++) {
-            frames.add(new AstroStackingService.FrameInput(
-                    createImage(index),
-                    new FrameTransform(0, index % 2, index / 2 % 2, null)));
+        for (int i = 0; i < 8; i++) {
+            frames.add(new AstroStackingService.FrameInput(createImage(i), new FrameTransform(0, i % 2, i / 2 % 2, null)));
         }
         eightFrames = List.copyOf(frames);
     }
 
     @Benchmark
-    public void singleFrameStack(Blackhole blackhole) {
-        blackhole.consume(stackingService.stack(
-                singleFrame, width, height, stackingConfig));
+    public void singleFrameStack(Blackhole bh) {
+        bh.consume(stackingService.stack(singleFrame, width, height));
     }
 
     @Benchmark
-    public void eightFrameStack(Blackhole blackhole) {
-        blackhole.consume(stackingService.stack(
-                eightFrames, width, height, stackingConfig));
+    public void eightFrameStack(Blackhole bh) {
+        bh.consume(stackingService.stack(eightFrames, width, height));
     }
 
     private BufferedImage createImage(int salt) {
-        BufferedImage image = new BufferedImage(
-                width, height, BufferedImage.TYPE_INT_RGB);
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
-        for (int index = 0; index < pixels.length; index++) {
-            int value = (index + salt * 97) & 0xFF;
-            pixels[index] = (value << 16) | (value << 8) | value;
+        for (int i = 0; i < pixels.length; i++) {
+            int v = (i + (salt * 97)) & 0xFF;
+            pixels[i] = (v << 16) | (v << 8) | v;
         }
         return image;
     }
