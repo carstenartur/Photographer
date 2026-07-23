@@ -1,171 +1,171 @@
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 19768 size 584
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 19776 size 92
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 19868 size 484
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 19876 size 32
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 19908 size 33
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 19941 size 411
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 19949 size 20
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 19969 size 36
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 19977 size 28
-05:18:02.661 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20005 size 347
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20013 size 228
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20029 size 212
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20119 size 60
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20179 size 52
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20191 size 40
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20231 size 10
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20241 size 24
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20265 size 28
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20293 size 20
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20313 size 15
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20328 size 24
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20352 size 600
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20360 size 92
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 20452 size 500
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 20460 size 32
-05:18:02.662 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 20492 size 33
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 20525 size 427
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 20533 size 20
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 20553 size 36
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 20561 size 28
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20589 size 363
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20597 size 244
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20613 size 228
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20703 size 60
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20763 size 68
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20775 size 56
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20831 size 10
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20841 size 24
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20865 size 28
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20893 size 20
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20913 size 15
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20928 size 24
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20952 size 440
-05:18:02.663 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20960 size 92
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 21052 size 340
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 21060 size 32
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 21092 size 33
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 21125 size 267
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'nmhd' at offset 21133 size 12
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 21145 size 36
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 21153 size 28
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 21181 size 211
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 21189 size 92
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CTMD' at offset 21205 size 76
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 21281 size 24
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 21305 size 28
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 21333 size 20
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 21353 size 15
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 21368 size 24
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 21392 size 65560
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 21392 identified as XMP uuid, skipping child box parsing
-05:18:02.664 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 86952 size 173001
-05:18:02.665 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 86952 identified as Canon PRVW uuid, childStart=86984
-05:18:02.665 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'PRVW' at offset 86984 size 172969
-05:18:02.665 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdat' at offset 259953 size 39983712
-05:18:03.194 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'ftyp' at offset 0 size 24
-05:18:03.194 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'moov' at offset 24 size 21376
-05:18:03.194 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 32 size 19152
-05:18:03.194 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 32 UUID=85C0B687820F11E08111F4CE462B6A48, parsing children from offset 56
-05:18:03.194 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CNCV' at offset 56 size 38
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCTP' at offset 94 size 92
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCDT' at offset 114 size 24
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCDT' at offset 138 size 24
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCDT' at offset 162 size 24
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CTBO' at offset 186 size 92
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 278 size 10
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT1' at offset 288 size 392
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT2' at offset 680 size 1128
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT3' at offset 1808 size 9176
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT4' at offset 10984 size 1816
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'THMB' at offset 12800 size 6384
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mvhd' at offset 19184 size 108
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 19292 size 484
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 19300 size 92
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 19392 size 384
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 19400 size 32
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 19432 size 33
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 19465 size 311
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 19473 size 20
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 19493 size 36
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 19501 size 28
-05:18:03.195 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 19529 size 247
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 19537 size 128
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 19553 size 112
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'JPEG' at offset 19643 size 12
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 19655 size 10
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 19665 size 24
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 19689 size 28
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 19717 size 20
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 19737 size 15
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 19752 size 24
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 19776 size 584
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 19784 size 92
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 19876 size 484
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 19884 size 32
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 19916 size 33
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 19949 size 411
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 19957 size 20
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 19977 size 36
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 19985 size 28
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20013 size 347
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20021 size 228
-05:18:03.196 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20037 size 212
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20127 size 60
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20187 size 52
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20199 size 40
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20239 size 10
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20249 size 24
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20273 size 28
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20301 size 20
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20321 size 15
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20336 size 24
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20360 size 600
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20368 size 92
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 20460 size 500
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 20468 size 32
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 20500 size 33
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 20533 size 427
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 20541 size 20
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 20561 size 36
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 20569 size 28
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20597 size 363
-05:18:03.197 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20605 size 244
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20621 size 228
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20711 size 60
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20771 size 68
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20783 size 56
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20839 size 10
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20849 size 24
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20873 size 28
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20901 size 20
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20921 size 15
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20936 size 24
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20960 size 440
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20968 size 92
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 21060 size 340
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 21068 size 32
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 21100 size 33
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 21133 size 267
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'nmhd' at offset 21141 size 12
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 21153 size 36
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 21161 size 28
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 21189 size 211
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 21197 size 92
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CTMD' at offset 21213 size 76
-05:18:03.198 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 21289 size 24
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 21313 size 28
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 21341 size 20
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 21361 size 15
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 21376 size 24
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 21400 size 65560
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 21400 identified as XMP uuid, skipping child box parsing
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 86960 size 173931
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 86960 identified as Canon PRVW uuid, childStart=86992
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'PRVW' at offset 86992 size 173899
-05:18:03.199 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdat' at offset 260891 size 40022024
-05:18:03.222 [main] INFO com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- CRX lossless decode: 6888x4546, 14-bit, 35927208 bytes compressed, codec V1
-05:18:03.222 [main] DEBUG com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- Parsed CRX header: 2 tiles, header size=220
+05:21:47.483 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20241 size 24
+05:21:47.483 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20265 size 28
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20293 size 20
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20313 size 15
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20328 size 24
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20352 size 600
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20360 size 92
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 20452 size 500
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 20460 size 32
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 20492 size 33
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 20525 size 427
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 20533 size 20
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 20553 size 36
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 20561 size 28
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20589 size 363
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20597 size 244
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20613 size 228
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20703 size 60
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20763 size 68
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20775 size 56
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20831 size 10
+05:21:47.484 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20841 size 24
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20865 size 28
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20893 size 20
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20913 size 15
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20928 size 24
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20952 size 440
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20960 size 92
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 21052 size 340
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 21060 size 32
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 21092 size 33
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 21125 size 267
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'nmhd' at offset 21133 size 12
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 21145 size 36
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 21153 size 28
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 21181 size 211
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 21189 size 92
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CTMD' at offset 21205 size 76
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 21281 size 24
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 21305 size 28
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 21333 size 20
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 21353 size 15
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 21368 size 24
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 21392 size 65560
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 21392 identified as XMP uuid, skipping child box parsing
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 86952 size 173001
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 86952 identified as Canon PRVW uuid, childStart=86984
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'PRVW' at offset 86984 size 172969
+05:21:47.485 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdat' at offset 259953 size 39983712
+05:21:47.535 [main] INFO com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- CRX lossless decode: 6888x4546, 14-bit, 35900528 bytes compressed, codec V1
+05:21:47.535 [main] DEBUG com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- Parsed CRX header: 2 tiles, header size=220
+05:21:47.999 [main] DEBUG com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- Subband 0 in plane 3 tile 0 extends 4 bytes past CRX payload; clamping to available data
+05:21:48.283 [main] INFO com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- CRX lossless decode complete: 31312848 pixels, pattern=RGGB
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'ftyp' at offset 0 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'moov' at offset 24 size 21368
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 32 size 19144
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 32 UUID=85C0B687820F11E08111F4CE462B6A48, parsing children from offset 56
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CNCV' at offset 56 size 38
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCTP' at offset 94 size 92
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCDT' at offset 114 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCDT' at offset 138 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CCDT' at offset 162 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CTBO' at offset 186 size 92
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 278 size 10
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT1' at offset 288 size 392
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT2' at offset 680 size 1128
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT3' at offset 1808 size 9176
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMT4' at offset 10984 size 1816
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'THMB' at offset 12800 size 6376
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mvhd' at offset 19176 size 108
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 19284 size 484
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 19292 size 92
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 19384 size 384
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 19392 size 32
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 19424 size 33
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 19457 size 311
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 19465 size 20
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 19485 size 36
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 19493 size 28
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 19521 size 247
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 19529 size 128
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 19545 size 112
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'JPEG' at offset 19635 size 12
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 19647 size 10
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 19657 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 19681 size 28
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 19709 size 20
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 19729 size 15
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 19744 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 19768 size 584
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 19776 size 92
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 19868 size 484
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 19876 size 32
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 19908 size 33
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 19941 size 411
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 19949 size 20
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 19969 size 36
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 19977 size 28
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20005 size 347
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20013 size 228
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20029 size 212
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20119 size 60
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20179 size 52
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20191 size 40
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20231 size 10
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20241 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20265 size 28
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20293 size 20
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20313 size 15
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20328 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20352 size 600
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20360 size 92
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 20452 size 500
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 20460 size 32
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 20492 size 33
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 20525 size 427
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'vmhd' at offset 20533 size 20
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 20553 size 36
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 20561 size 28
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 20589 size 363
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 20597 size 244
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CRAW' at offset 20613 size 228
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CMP1' at offset 20703 size 60
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CDI1' at offset 20763 size 68
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'IAD1' at offset 20775 size 56
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20831 size 10
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 20841 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 20865 size 28
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 20893 size 20
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 20913 size 15
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 20928 size 24
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'trak' at offset 20952 size 440
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'tkhd' at offset 20960 size 92
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdia' at offset 21052 size 340
+05:21:48.286 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdhd' at offset 21060 size 32
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'hdlr' at offset 21092 size 33
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'minf' at offset 21125 size 267
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'nmhd' at offset 21133 size 12
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dinf' at offset 21145 size 36
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'dref' at offset 21153 size 28
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stbl' at offset 21181 size 211
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsd' at offset 21189 size 92
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'CTMD' at offset 21205 size 76
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stts' at offset 21281 size 24
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsc' at offset 21305 size 28
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'stsz' at offset 21333 size 20
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'free' at offset 21353 size 15
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'co64' at offset 21368 size 24
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 21392 size 65560
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 21392 identified as XMP uuid, skipping child box parsing
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'uuid' at offset 86952 size 173001
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- uuid at 86952 identified as Canon PRVW uuid, childStart=86984
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'PRVW' at offset 86984 size 172969
+05:21:48.287 [main] DEBUG com.photographer.focusstack.cr3.bmff.IsoBmffReader -- Box 'mdat' at offset 259953 size 39983712
+05:21:48.289 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- Found CMT1 (EXIF IFD0) at offset 288, size 392
+05:21:48.290 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- EXIF orientation: 1
+05:21:48.290 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- Found CMT2 (EXIF ExifIFD) at offset 680, size 1128
+05:21:48.299 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- Found CMT3 (Canon MakerNote) at offset 1808, size 9176
+05:21:48.300 [main] DEBUG com.photographer.focusstack.cr3.metadata.CanonMakerNoteParser -- Parsed 27 Canon MakerNote tags
+05:21:48.301 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- Found CMT4 (GPS IFD) at offset 10984, size 1816
+05:21:48.301 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- Parsed 3 GPS tags from CMT4
+05:21:48.301 [main] DEBUG com.photographer.focusstack.cr3.metadata.Cr3MetadataReader -- Extracted metadata: Cr3Metadata[model=Canon EOS R, sensor=6888x4546, active=[144,46,6887,4545], ISO=12800, 1/250 f/4.0 24mm, orient=1]
+05:21:48.301 [main] INFO com.photographer.focusstack.cr3.decode.Cr3Decoder -- CR3 input set (file=/home/runner/work/Photographer/Photographer/canon-cr3-imageio/src/test/resources/samples/eosr-iso-high.cr3): Cr3Container[brand=crx , tracks=4, boxes=5]
+05:21:48.302 [main] INFO com.photographer.focusstack.cr3.decode.Cr3Decoder -- Using CMP1 metadata: 6888x4546, bitDepth=14, tiles=3444x4546, planes=4, waveletLevels=0, encodingType=0, multipleHTiles=false, mdatHeaderSize=216
+05:21:48.302 [main] INFO com.photographer.focusstack.cr3.decode.Cr3Decoder -- Reading CRX RAW track: 6888x4546, 35900528 bytes at offset 4301457
+05:21:48.332 [main] INFO com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- CRX lossless decode: 6888x4546, 14-bit, 35900528 bytes compressed, codec V1
+05:21:48.332 [main] DEBUG com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- Parsed CRX header: 2 tiles, header size=220
+05:21:48.700 [main] DEBUG com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder -- Subband 0 in plane 3 tile 0 extends 4 bytes past CRX payload; clamping to available data
 [ERROR] java.lang.OutOfMemoryError: Java heap space
 [INFO] 
 [INFO] Results:
@@ -175,19 +175,19 @@
 [INFO] ------------------------------------------------------------------------
 [INFO] Reactor Summary for Photographer - Parent 0.1.5-SNAPSHOT:
 [INFO] 
-[INFO] Photographer - Parent .............................. SUCCESS [  0.004 s]
-[INFO] Canon CR3 - Container .............................. SUCCESS [  3.231 s]
-[INFO] Canon CR3 - Metadata ............................... SUCCESS [  0.762 s]
-[INFO] Canon CR3 - Codec .................................. SUCCESS [  0.859 s]
-[INFO] Canon CR3 - Processing ............................. SUCCESS [  0.532 s]
-[INFO] Canon CR3 - Core ................................... SUCCESS [  0.392 s]
-[INFO] Canon CR3 - Reference Testkit ...................... SUCCESS [  0.463 s]
-[INFO] Canon CR3 - Research ............................... FAILURE [  8.537 s]
+[INFO] Photographer - Parent .............................. SUCCESS [  0.003 s]
+[INFO] Canon CR3 - Container .............................. SUCCESS [  3.066 s]
+[INFO] Canon CR3 - Metadata ............................... SUCCESS [  0.470 s]
+[INFO] Canon CR3 - Codec .................................. SUCCESS [  0.582 s]
+[INFO] Canon CR3 - Processing ............................. SUCCESS [  0.462 s]
+[INFO] Canon CR3 - Core ................................... SUCCESS [  0.220 s]
+[INFO] Canon CR3 - Reference Testkit ...................... SUCCESS [  0.406 s]
+[INFO] Canon CR3 - Research ............................... FAILURE [  7.528 s]
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD FAILURE
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  15.278 s
-[INFO] Finished at: 2026-07-23T05:18:03Z
+[INFO] Total time:  13.214 s
+[INFO] Finished at: 2026-07-23T05:21:48Z
 [INFO] ------------------------------------------------------------------------
 [ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.6:test (default-test) on project canon-cr3-research: 
 [ERROR] 
