@@ -4,9 +4,9 @@ This map classifies the complete Markdown inventory recorded in [`repository-inv
 
 ## Classification
 
-- **canonical** — authoritative maintained documentation for a cross-module topic.
+- **canonical** — intended maintained documentation for a cross-module topic after it has been audited against current code, tests and POMs.
 - **merge** — useful content that should be consolidated into a named canonical destination before the source is retired or reduced to a redirect.
-- **obsolete** — no longer a valid source of truth; retain only until useful content is cross-referenced.
+- **obsolete** — no longer a valid source of truth; retain only until useful, code-backed content is cross-referenced.
 - **generated** — reproducible evidence or inventory; preserve it, but change the generator rather than manually editing the output.
 - **local** — module-, fixture- or experiment-local documentation that should remain near its code or data and be linked from canonical documentation.
 
@@ -74,10 +74,10 @@ These files remain close to their modules. Their role is module ownership, publi
 | File | Class | Destination or action |
 |---|---|---|
 | `docs/api.md` | canonical | Keep until moved or redirected to `docs/developer/api.md`; do not duplicate generated OpenAPI output. |
-| `docs/architecture.md` | canonical | Consolidate cross-module architecture here, then move/redirect to `docs/developer/architecture.md`. |
+| `docs/architecture.md` | canonical | Use as a migration source, but re-audit it against the current root/module POMs and post-inventory CR3 module split before publishing `docs/developer/architecture.md`. |
 | `docs/camera-setup.md` | canonical | Keep as the user/developer hardware and connection setup guide. Hardware claims must name evidence. |
 | `docs/development.md` | merge | Merge maintained checkout, build, configuration and local-run guidance into `docs/developer/contributing.md`. |
-| `docs/generic-camera-architecture.md` | merge | Merge cross-backend concepts into canonical developer architecture; retain transport-specific details by link. |
+| `docs/generic-camera-architecture.md` | obsolete | Historical 2026-05-10 design proposal. Its named generic types and packages are not present in the current codebase. Extract only principles independently verified against current code; do not merge its type/package claims as implementation architecture. |
 | `docs/quickstart.md` | canonical | Keep as a concise user/operator quickstart; do not turn it into the Developer Manual. |
 | `docs/reference-pipeline.md` | canonical | Keep as the maintained reference-export pipeline contract; link from CR3 research documentation. |
 | `docs/test-strategy.md` | merge | Merge into `docs/developer/testing.md`, preserving local/Testcontainers commands and hardware-test boundaries. |
