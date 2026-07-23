@@ -12,7 +12,12 @@ import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.reference.ReferenceDifferenceImage;
 import com.photographer.focusstack.cr3.reference.ReferenceFixtureResolver;
+import com.photographer.focusstack.cr3.reference.ReferenceImage;
+import com.photographer.focusstack.cr3.reference.ReferenceImageLoader;
+import com.photographer.focusstack.cr3.reference.ReferenceMetrics;
+import com.photographer.focusstack.cr3.reference.SpatialReferenceMetrics;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -22,21 +27,16 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferUShort;
-import java.awt.image.Raster;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -96,7 +96,7 @@ class PedestalHypothesisValidationIT {
     }
 
     private static FixtureResult analyseFixture(Path fixture, boolean includeExampleImages) throws Exception {
-        ReferenceImage reference = loadReference(
+        ReferenceImage reference = ReferenceImageLoader.load(
                 FIXTURES.resolve(fixture).requiredTiff());
         DecodedFixture decoded = decodeFixture(fixture);
         assertThat(decoded.raw().width()).as("width for %s", fixture.getFileName()).isEqualTo(reference.width());
@@ -112,12 +112,14 @@ class PedestalHypothesisValidationIT {
 
         int[] actual = decoded.raw().data();
         int[] referenceSamples = reference.samples();
-        MetricTriple baselineMetrics = metricTriple(referenceSamples, actual, 0);
+        ReferenceMetrics.Metrics baselineMetrics = ReferenceMetrics.compare(
+                referenceSamples, actual);
         ObMetrics baselineObMetrics = computeOpticalBlackMetrics(referenceSamples, actual,
                 decoded.raw().width(), decoded.raw().height(), decoded.iad1(), 0);
 
-        int optimalDelta = optimalDeltaByMedian(referenceSamples, actual);
-        MetricTriple experimentalMetrics = metricTriple(referenceSamples, actual, optimalDelta);
+        int optimalDelta = ReferenceMetrics.optimalConstantDelta(referenceSamples, actual);
+        ReferenceMetrics.Metrics experimentalMetrics = ReferenceMetrics.compare(
+                referenceSamples, actual, optimalDelta);
         ObMetrics experimentalObMetrics = computeOpticalBlackMetrics(referenceSamples, actual,
                 decoded.raw().width(), decoded.raw().height(), decoded.iad1(), optimalDelta);
 
@@ -313,117 +315,32 @@ class PedestalHypothesisValidationIT {
         return count == 0 ? 0.0 : sum / count;
     }
 
-    private static int optimalDeltaByMedian(int[] reference, int[] actual) {
-        assertThat(actual.length).isEqualTo(reference.length);
-        int min = Integer.MAX_VALUE;
-        int max = Integer.MIN_VALUE;
-        for (int i = 0; i < reference.length; i++) {
-            int diff = reference[i] - actual[i];
-            if (diff < min) min = diff;
-            if (diff > max) max = diff;
-        }
-
-        int range = max - min + 1;
-        if (range > 200_000) {
-            return approximateMedian(reference, actual);
-        }
-
-        long[] histogram = new long[range];
-        for (int i = 0; i < reference.length; i++) {
-            histogram[reference[i] - actual[i] - min]++;
-        }
-
-        long half = (reference.length + 1L) / 2L;
-        long cumulative = 0;
-        for (int i = 0; i < histogram.length; i++) {
-            cumulative += histogram[i];
-            if (cumulative >= half) {
-                return i + min;
-            }
-        }
-        return 0;
-    }
-
-    private static int approximateMedian(int[] reference, int[] actual) {
-        int sampleSize = Math.min(reference.length, 1_000_000);
-        int[] diffs = new int[sampleSize];
-        int step = Math.max(1, reference.length / sampleSize);
-        int idx = 0;
-        for (int i = 0; i < reference.length && idx < sampleSize; i += step) {
-            diffs[idx++] = reference[i] - actual[i];
-        }
-        Arrays.sort(diffs, 0, idx);
-        return idx == 0 ? 0 : diffs[idx / 2];
-    }
-
-    private static MetricTriple metricTriple(int[] reference, int[] actual, int delta) {
-        assertThat(actual.length).isEqualTo(reference.length);
-        double absSum = 0;
-        double sqSum = 0;
-        double sumRef = 0;
-        double sumActual = 0;
-        double sumRefSq = 0;
-        double sumActualSq = 0;
-        double sumCross = 0;
-        for (int i = 0; i < reference.length; i++) {
-            double ref = reference[i];
-            double act = actual[i] + (double) delta;
-            double diff = act - ref;
-            absSum += Math.abs(diff);
-            sqSum += diff * diff;
-            sumRef += ref;
-            sumActual += act;
-            sumRefSq += ref * ref;
-            sumActualSq += act * act;
-            sumCross += ref * act;
-        }
-        double count = reference.length;
-        double meanRef = sumRef / count;
-        double meanActual = sumActual / count;
-        double covariance = sumCross / count - meanRef * meanActual;
-        double varianceRef = sumRefSq / count - meanRef * meanRef;
-        double varianceActual = sumActualSq / count - meanActual * meanActual;
-        double denom = Math.sqrt(Math.max(varianceRef, 0.0) * Math.max(varianceActual, 0.0));
-        double pearson = denom == 0.0 ? 1.0 : covariance / denom;
-        return new MetricTriple(absSum / count, Math.sqrt(sqSum / count), pearson);
-    }
-
     private static ObMetrics computeOpticalBlackMetrics(int[] reference, int[] actual, int width, int height,
-                                                        Iad1Box iad1, int delta) {
+                                                         Iad1Box iad1, int delta) {
         if (iad1 == null) {
             return new ObMetrics(Double.NaN, Double.NaN);
         }
-        List<VisibleRect> rects = new ArrayList<>(2);
-        VisibleRect left = toRect(iad1.leftObLeft(), iad1.leftObTop(), iad1.leftObRight(), iad1.leftObBottom(), width, height);
-        VisibleRect top = toRect(iad1.topObLeft(), iad1.topObTop(), iad1.topObRight(), iad1.topObBottom(), width, height);
-        if (left.width() > 0 && left.height() > 0) rects.add(left);
-        if (top.width() > 0 && top.height() > 0) rects.add(top);
-        if (rects.isEmpty()) {
+        List<SpatialReferenceMetrics.Rect> regions = new ArrayList<>(2);
+        addNonEmpty(regions, SpatialReferenceMetrics.Rect.clip(
+                iad1.leftObLeft(), iad1.leftObTop(), iad1.leftObRight(), iad1.leftObBottom(),
+                width, height));
+        addNonEmpty(regions, SpatialReferenceMetrics.Rect.clip(
+                iad1.topObLeft(), iad1.topObTop(), iad1.topObRight(), iad1.topObBottom(),
+                width, height));
+        if (regions.isEmpty()) {
             return new ObMetrics(Double.NaN, Double.NaN);
         }
+        SpatialReferenceMetrics.DifferenceStats stats = SpatialReferenceMetrics.compareRegions(
+                reference, actual, width, height, regions, delta);
+        return new ObMetrics(stats.mae(), stats.errorStdDev());
+    }
 
-        double absSum = 0;
-        double diffSum = 0;
-        double diffSqSum = 0;
-        long count = 0;
-        for (VisibleRect rect : rects) {
-            for (int y = rect.y(); y < rect.y() + rect.height(); y++) {
-                int rowBase = y * width;
-                for (int x = rect.x(); x < rect.x() + rect.width(); x++) {
-                    int diff = actual[rowBase + x] + delta - reference[rowBase + x];
-                    absSum += Math.abs(diff);
-                    diffSum += diff;
-                    diffSqSum += (double) diff * diff;
-                    count++;
-                }
-            }
+    private static void addNonEmpty(
+            List<SpatialReferenceMetrics.Rect> regions,
+            SpatialReferenceMetrics.Rect region) {
+        if (!region.isEmpty()) {
+            regions.add(region);
         }
-        if (count == 0) {
-            return new ObMetrics(Double.NaN, Double.NaN);
-        }
-        double mean = diffSum / count;
-        double variance = Math.max(0.0, diffSqSum / count - mean * mean);
-        return new ObMetrics(absSum / count, Math.sqrt(variance));
     }
 
     private static ExampleImages writeExampleImages(Path fixture,
@@ -437,8 +354,10 @@ class PedestalHypothesisValidationIT {
         VisualScale scale = computeScale(reference, width, visible);
 
         BufferedImage referenceImg = buildRawVisual(reference, width, visible, scale, 1200, 800);
-        BufferedImage baselineDiff = buildDifferenceVisual(reference, actual, width, visible, 0, 1200, 800);
-        BufferedImage experimentalDiff = buildDifferenceVisual(reference, actual, width, visible, optimalDelta, 1200, 800);
+        BufferedImage baselineDiff = buildDifferenceVisual(
+                reference, actual, width, height, visible, 0, 1200, 800);
+        BufferedImage experimentalDiff = buildDifferenceVisual(
+                reference, actual, width, height, visible, optimalDelta, 1200, 800);
 
         String stem = fixture.getFileName().toString().replaceAll("\\.cr3$", "");
         Path referencePath = writeImage(stem + "-reference", referenceImg);
@@ -544,19 +463,24 @@ class PedestalHypothesisValidationIT {
         return scaleImage(raw, outWidth, outHeight);
     }
 
-    private static BufferedImage buildDifferenceVisual(int[] reference, int[] actual, int width, VisibleRect rect,
-                                                       int delta, int outWidth, int outHeight) {
-        BufferedImage diff = new BufferedImage(rect.width(), rect.height(), BufferedImage.TYPE_INT_RGB);
-        for (int y = 0; y < rect.height(); y++) {
-            int rowBase = (rect.y() + y) * width;
-            for (int x = 0; x < rect.width(); x++) {
-                int d = Math.abs(actual[rowBase + rect.x() + x] + delta - reference[rowBase + rect.x() + x]);
-                int intensity = Math.min(255, d / 8);
-                int rgb = (intensity << 16) | (Math.min(255, intensity / 2) << 8);
-                diff.setRGB(x, y, 0xFF000000 | rgb);
-            }
-        }
-        return scaleImage(diff, outWidth, outHeight);
+    private static BufferedImage buildDifferenceVisual(
+            int[] reference,
+            int[] actual,
+            int width,
+            int height,
+            VisibleRect rect,
+            int delta,
+            int outWidth,
+            int outHeight) {
+        BufferedImage diff = ReferenceDifferenceImage.absoluteHeatmap(
+                reference,
+                actual,
+                width,
+                height,
+                new SpatialReferenceMetrics.Rect(rect.x(), rect.y(), rect.width(), rect.height()),
+                delta,
+                ReferenceDifferenceImage.DEFAULT_DISPLAY_DIVISOR);
+        return ReferenceDifferenceImage.scale(diff, outWidth, outHeight);
     }
 
     private static BufferedImage scaleImage(BufferedImage source, int width, int height) {
@@ -674,31 +598,6 @@ class PedestalHypothesisValidationIT {
         }
     }
 
-    private static ReferenceImage loadReference(Path tiffPath) throws IOException {
-        BufferedImage image = ImageIO.read(tiffPath.toFile());
-        if (image == null) {
-            throw new IOException("Could not decode TIFF reference " + tiffPath);
-        }
-        Raster raster = image.getRaster();
-        int width = image.getWidth();
-        int height = image.getHeight();
-        int[] samples = readSamples(raster, width, height);
-        return new ReferenceImage(width, height, samples);
-    }
-
-    private static int[] readSamples(Raster raster, int width, int height) {
-        DataBuffer buffer = raster.getDataBuffer();
-        if (buffer instanceof DataBufferUShort ushort && ushort.getNumBanks() == 1) {
-            short[] bank = ushort.getData();
-            int[] out = new int[bank.length];
-            for (int i = 0; i < bank.length; i++) {
-                out[i] = Short.toUnsignedInt(bank[i]);
-            }
-            return out;
-        }
-        return raster.getSamples(0, 0, width, height, 0, (int[]) null);
-    }
-
     private static String escapePipes(String s) {
         return s == null ? "" : s.replace("|", "\\|");
     }
@@ -707,11 +606,7 @@ class PedestalHypothesisValidationIT {
         return Double.isFinite(value) ? String.format(Locale.ROOT, "%.4f", value) : "n/a";
     }
 
-    private record ReferenceImage(int width, int height, int[] samples) { }
-
     private record DecodedFixture(Cr3RawImage raw, Iad1Box iad1) { }
-
-    private record MetricTriple(double mae, double rmse, double pearson) { }
 
     private record ObMetrics(double mae, double stddev) { }
 
@@ -726,8 +621,8 @@ class PedestalHypothesisValidationIT {
             double resolvedBlackLevelScalar,
             double optimalDelta,
             double deltaMetadata,
-            MetricTriple baselineMetrics,
-            MetricTriple experimentalMetrics,
+            ReferenceMetrics.Metrics baselineMetrics,
+            ReferenceMetrics.Metrics experimentalMetrics,
             ObMetrics baselineObMetrics,
             ObMetrics experimentalObMetrics,
             String referenceImage,
