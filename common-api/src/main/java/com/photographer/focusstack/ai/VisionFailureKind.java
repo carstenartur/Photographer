@@ -8,6 +8,9 @@ public enum VisionFailureKind {
     /** Required provider configuration such as credentials is absent. */
     NOT_CONFIGURED,
 
+    /** A local privacy or permission policy blocked transmission before provider contact. */
+    POLICY_DENIED,
+
     /** Credentials were rejected or permission is insufficient. */
     AUTHENTICATION,
 
