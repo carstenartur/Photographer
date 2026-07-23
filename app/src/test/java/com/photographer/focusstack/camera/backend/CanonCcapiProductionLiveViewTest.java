@@ -12,12 +12,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.ADVERTISED_NOT_IMPLEMENTED;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,12 +35,13 @@ class CanonCcapiProductionLiveViewTest {
     private static final String BASE = "http://camera.example";
     private static final String CONTROL = BASE + "/ccapi/ver100/shooting/liveview";
     private static final String FLIP = CONTROL + "/flip";
+    private static final String SCROLL = CONTROL + "/scroll";
 
     @Test
     void productionBackendUsesCapabilityDrivenLifecycleAndStableBodies() {
         RestTemplate restTemplate = mock(RestTemplate.class);
         when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
-                .thenReturn(catalog(true));
+                .thenReturn(catalog(true, true));
         when(restTemplate.exchange(
                 eq(CONTROL),
                 eq(HttpMethod.POST),
@@ -72,10 +74,10 @@ class CanonCcapiProductionLiveViewTest {
     }
 
     @Test
-    void productionSnapshotExposesAdvertisedButUnimplementedScrollMode() {
+    void productionSnapshotExposesImplementedScrollMode() {
         RestTemplate restTemplate = mock(RestTemplate.class);
         when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
-                .thenReturn(catalog(true));
+                .thenReturn(catalog(true, true));
         CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(
                 PROFILE, BASE, restTemplate);
 
@@ -86,19 +88,51 @@ class CanonCcapiProductionLiveViewTest {
                 .orElseThrow();
 
         assertThat(scroll.advertised()).isTrue();
-        assertThat(scroll.implemented()).isFalse();
-        assertThat(scroll.availability()).isEqualTo(ADVERTISED_NOT_IMPLEMENTED);
+        assertThat(scroll.implemented()).isTrue();
+        assertThat(scroll.availability()).isEqualTo(AVAILABLE);
         assertThat(scroll.requiredMethods()).containsExactlyInAnyOrder("GET", "DELETE");
         assertThat(scroll.advertisedMethods()).containsExactlyInAnyOrder("GET", "DELETE");
         assertThat(scroll.methodMetadataKnown()).isTrue();
-        assertThat(scroll.condition()).isEqualTo("APPLICATION_NOT_IMPLEMENTED");
+        assertThat(scroll.condition()).isNull();
     }
 
     @Test
-    void productionBackendRejectsKnownIncompatibleFlipWithoutCallingIt() {
+    void productionBackendFallsBackToCompatibleScrollWhenFlipIsUnavailable() {
         RestTemplate restTemplate = mock(RestTemplate.class);
         when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
-                .thenReturn(catalog(false));
+                .thenReturn(catalog(false, true));
+        when(restTemplate.exchange(
+                eq(CONTROL),
+                eq(HttpMethod.POST),
+                any(HttpEntity.class),
+                eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{}"));
+        CanonCcapiScrollLiveViewReader scrollReader = mock(
+                CanonCcapiScrollLiveViewReader.class);
+        LiveViewFrame expected = new LiveViewFrame(
+                new byte[]{(byte) 0xff, (byte) 0xd8, 9, (byte) 0xff, (byte) 0xd9},
+                640,
+                480,
+                Instant.EPOCH,
+                "image/jpeg");
+        when(scrollReader.nextFrame(SCROLL)).thenReturn(expected);
+        CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(
+                PROFILE, BASE, restTemplate, scrollReader);
+
+        assertThat(backend.supports(Operation.LIVE_VIEW)).isTrue();
+        assertThat(backend.getLiveView()).isSameAs(expected);
+        backend.stopLiveView();
+
+        verify(scrollReader).nextFrame(SCROLL);
+        verify(scrollReader).stop();
+        verify(restTemplate, never()).getForObject(FLIP, byte[].class);
+    }
+
+    @Test
+    void productionBackendRejectsKnownIncompatibleFlipWithoutScrollFallback() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
+                .thenReturn(catalog(false, false));
         CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(
                 PROFILE, BASE, restTemplate);
 
@@ -114,13 +148,21 @@ class CanonCcapiProductionLiveViewTest {
                 eq(String.class));
     }
 
-    private static Map<String, Object> catalog(boolean flipGet) {
-        return Map.of("ver100", List.of(
-                descriptor("/ccapi/ver100/shooting/liveview", false, true, false),
-                descriptor("/ccapi/ver100/shooting/liveview/flip", flipGet, !flipGet, false),
-                descriptor("/ccapi/ver100/shooting/liveview/scroll", true, false, true),
-                descriptor("/ccapi/ver100/shooting/liveview/multipart", true, false, true),
-                descriptor("/ccapi/ver100/shooting/liveview/rtp", false, true, false)));
+    private static Map<String, Object> catalog(boolean flipGet, boolean scroll) {
+        List<Map<String, Object>> descriptors = new ArrayList<>();
+        descriptors.add(descriptor(
+                "/ccapi/ver100/shooting/liveview", false, true, false));
+        descriptors.add(descriptor(
+                "/ccapi/ver100/shooting/liveview/flip", flipGet, !flipGet, false));
+        if (scroll) {
+            descriptors.add(descriptor(
+                    "/ccapi/ver100/shooting/liveview/scroll", true, false, true));
+        }
+        descriptors.add(descriptor(
+                "/ccapi/ver100/shooting/liveview/multipart", true, false, true));
+        descriptors.add(descriptor(
+                "/ccapi/ver100/shooting/liveview/rtp", false, true, false));
+        return Map.of("ver100", List.copyOf(descriptors));
     }
 
     private static Map<String, Object> descriptor(
