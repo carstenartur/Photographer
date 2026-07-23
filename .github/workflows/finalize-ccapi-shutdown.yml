@@ -83,6 +83,7 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           def replace_once(path_name: str, old: str, new: str) -> None:
               path = Path(path_name)
@@ -125,6 +126,42 @@ jobs:
               '      duration -> Thread.sleep(duration.toMillis()));',
               '      Thread::sleep);'
           )
+
+          test_path = Path(
+              'app/src/test/java/com/photographer/focusstack/camera/session/'
+              'CameraSessionShutdownCoordinatorTest.java'
+          )
+          test_text = test_path.read_text(encoding='utf-8')
+          import_anchor = 'import com.photographer.focusstack.astro.service.AstroModeService;\n'
+          if 'CameraServiceUnavailableException;' not in test_text:
+              if test_text.count(import_anchor) != 1:
+                  raise SystemExit('Coordinator test import anchor is not unique')
+              test_text = test_text.replace(
+                  import_anchor,
+                  import_anchor
+                  + 'import com.photographer.focusstack.camera.exception.'
+                  + 'CameraServiceUnavailableException;\n',
+              )
+          assertion_pattern = re.compile(
+              r'(assertThatThrownBy\(\(\) -> manager\.acquire\(new CameraLeaseRequest\([\s\S]*?\)\)\)\n)'
+              r'(\s*)\.isInstanceOf\(IllegalStateException\.class\)\n'
+              r'(\s*)\.hasMessageContaining\("shutting down"\);',
+              re.MULTILINE,
+          )
+          test_text, count = assertion_pattern.subn(
+              lambda match: (
+                  match.group(1)
+                  + match.group(2)
+                  + '.isInstanceOf(CameraServiceUnavailableException.class)\n'
+                  + match.group(3)
+                  + '.hasMessage("Camera services are shutting down");'
+              ),
+              test_text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one coordinator shutdown assertion, found {count}')
+          test_path.write_text(test_text, encoding='utf-8')
           PY
 
       - name: Run focused lifecycle tests
