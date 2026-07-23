@@ -82,14 +82,17 @@ docs/
 
 ### 2.1 Architecture
 
-Merge cross-module material from:
+Build the canonical architecture from current evidence in this order:
 
-- `docs/architecture.md`;
-- `docs/generic-camera-architecture.md`;
-- cross-module sections currently duplicated in the root README;
-- only the cross-module parts of module `ARCHITECTURE.md` files.
+1. current root and module POMs;
+2. production package/module boundaries and executable architecture tests;
+3. module-local README/ARCHITECTURE files where they agree with code;
+4. `docs/architecture.md` as a migration source that must be re-audited after the post-inventory CR3 module split;
+5. cross-module sections currently duplicated in the root README.
 
-Create `docs/developer/architecture.md`. Module architecture files retain module internals and link to it. Do not copy the complete dependency graph into every module.
+`docs/generic-camera-architecture.md` is a historical 2026-05-10 design proposal, not a current implementation source. Repository code search does not find its named `GenericCameraBackend`, `CapabilitySet`, `MediaIngestService` or package structure. Extract only transport-independence or safety principles that can be independently tied to current code/tests, then retire or archive the obsolete proposal with link preservation.
+
+Create `docs/developer/architecture.md`. Module architecture files retain module internals and link to it. Do not copy the complete dependency graph into every module, and do not reproduce a desired target as if it were the current graph.
 
 ### 2.2 Modules and public surfaces
 
