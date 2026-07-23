@@ -65,7 +65,7 @@ jobs:
           git worktree add /tmp/photographer-testkit origin/testkit/cr3-active-consumer-migration
           mkdir -p target/open-points-maintenance
 
-      - name: Harden and verify Digest challenge handling
+      - name: Harden, verify and publish Digest challenge handling
         shell: bash
         working-directory: /tmp/photographer-digest
         run: |
@@ -87,9 +87,10 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'fix(ccapi): select any compatible Digest challenge'
             fi
+            git push origin HEAD:hardening/ccapi-digest-edge-cases
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/digest.log"
 
-      - name: Harden and verify coordinated shutdown
+      - name: Harden, verify and publish coordinated shutdown
         shell: bash
         working-directory: /tmp/photographer-shutdown
         run: |
@@ -123,9 +124,10 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
             fi
+            git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/shutdown.log"
 
-      - name: Migrate and verify active CR3 testkit consumers
+      - name: Migrate, verify and publish active CR3 testkit consumers
         shell: bash
         working-directory: /tmp/photographer-testkit
         run: |
@@ -148,15 +150,8 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
             fi
+            git push origin HEAD:testkit/cr3-active-consumer-migration
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/testkit.log"
-
-      - name: Publish all verified product branches
-        shell: bash
-        run: |
-          set -euo pipefail
-          git -C /tmp/photographer-digest push origin HEAD:hardening/ccapi-digest-edge-cases
-          git -C /tmp/photographer-shutdown push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
-          git -C /tmp/photographer-testkit push origin HEAD:testkit/cr3-active-consumer-migration
 
       - name: Upload maintenance diagnostics
         if: always()
