@@ -1,0 +1,103 @@
+name: Finalize canonical CCAPI live-view body
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-ccapi-liveview-body.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finalize-ccapi-liveview-body-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  patch-verify-publish:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'hardening/ccapi-liveview-mode-selection'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout product branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Apply Canon-specified stop body
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('app/src/main/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClient.java'): [
+                  (
+                      '"{\\"liveviewsize\\":\\"off\\"}".getBytes(StandardCharsets.UTF_8);',
+                      '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"\n'
+                      '                    .getBytes(StandardCharsets.UTF_8);',
+                  ),
+              ],
+              Path('app/src/test/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClientTest.java'): [
+                  (
+                      '"{\\"liveviewsize\\":\\"off\\"}"',
+                      '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"',
+                  ),
+              ],
+          }
+          for path, rules in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in rules:
+                  count = text.count(old)
+                  if path.name == 'CcapiLiveViewClientTest.java':
+                      if count != 2:
+                          raise SystemExit(f'{path}: expected two old stop-body assertions, found {count}')
+                      text = text.replace(old, new)
+                  else:
+                      if count != 1:
+                          raise SystemExit(f'{path}: expected one old stop body, found {count}')
+                      text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Run focused live-view tests
+        run: |
+          mvn -B --no-transfer-progress test \
+            -pl app -am \
+            -Dtest=CcapiLiveViewClientTest,CanonCcapiProductionLiveViewTest \
+            -Dsurefire.failIfNoSpecifiedTests=false \
+            -Djava.awt.headless=true
+
+      - name: Run complete application verification
+        run: |
+          mvn -B --no-transfer-progress clean verify \
+            -pl common-api,app -am \
+            -Djava.awt.headless=true
+
+      - name: Publish verified product branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/finalize-ccapi-liveview-body.yml
+          git add -A
+          git commit -m 'fix(ccapi): send complete Canon live-view stop body'
+          git push origin HEAD:hardening/ccapi-liveview-mode-selection
