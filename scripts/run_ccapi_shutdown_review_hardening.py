@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import runpy
 import sys
 
@@ -16,9 +17,11 @@ COORDINATOR = Path(
     "CameraSessionShutdownCoordinator.java"
 )
 
-IRREGULAR_ASSERTION = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-       .isInstanceOf(IllegalStateException.class)
-       .hasMessageContaining("shutting down");'''
+ASSERTION_PATTERN = re.compile(
+    r'''(?m)^        assertThatThrownBy\(\(\) -> manager\.acquire\(request\(key, "owner"\)\)\)\n'''
+    r'''\s+\.isInstanceOf\(IllegalStateException\.class\)\n'''
+    r'''\s+\.hasMessageContaining\("shutting down"\);'''
+)
 CANONICAL_ASSERTION = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("shutting down");'''
@@ -60,12 +63,11 @@ def replace_once(path: Path, old: str, new: str) -> None:
 
 def normalize_lease_test() -> None:
     text = LEASE_TEST.read_text(encoding="utf-8")
-    if IRREGULAR_ASSERTION in text:
-        LEASE_TEST.write_text(
-            text.replace(IRREGULAR_ASSERTION, CANONICAL_ASSERTION),
-            encoding="utf-8")
-    elif CANONICAL_ASSERTION not in text:
-        raise SystemExit("shutdown lease test assertion anchor not found")
+    normalized, count = ASSERTION_PATTERN.subn(CANONICAL_ASSERTION, text)
+    if count != 1:
+        raise SystemExit(
+            f"shutdown lease test assertion anchor count was {count}, expected 1")
+    LEASE_TEST.write_text(normalized, encoding="utf-8")
 
 
 def main() -> None:
