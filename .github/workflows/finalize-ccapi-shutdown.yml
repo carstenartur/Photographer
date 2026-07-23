@@ -44,6 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p target/finalize-ccapi-shutdown
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin \
@@ -127,18 +128,36 @@ jobs:
           PY
 
       - name: Run focused lifecycle tests
+        shell: bash
         run: |
+          set -o pipefail
           mvn -B --no-transfer-progress test \
             -pl app -am \
             -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
             -Dsurefire.failIfNoSpecifiedTests=false \
-            -Djava.awt.headless=true
+            -Djava.awt.headless=true \
+            2>&1 | tee target/finalize-ccapi-shutdown/focused.log
 
       - name: Run complete app verification
+        shell: bash
         run: |
+          set -o pipefail
           mvn -B --no-transfer-progress clean verify \
             -pl common-api,app -am \
-            -Djava.awt.headless=true
+            -Djava.awt.headless=true \
+            2>&1 | tee target/finalize-ccapi-shutdown/verify.log
+
+      - name: Upload finalization diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: finalize-ccapi-shutdown-diagnostics
+          path: |
+            target/finalize-ccapi-shutdown
+            **/target/surefire-reports
+            **/target/failsafe-reports
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Publish verified product branch
         shell: bash
