@@ -49,15 +49,11 @@ jobs:
           python3 scripts/test_validate_ccapi_transport_boundary.py
           python3 scripts/validate_ccapi_transport_boundary.py .
 
-      - name: Build and verify (unit + Testcontainers integration tests)
+      - name: Build and verify product modules
         shell: bash
         run: |
           set -o pipefail
-          mvn -B --no-transfer-progress clean verify \
-            -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
-            -am \
-            -Djava.awt.headless=true \
-            2>&1 | tee maven-verify.log
+          bash scripts/verify-product.sh 2>&1 | tee maven-verify.log
 
       - name: Publish test results
         uses: dorny/test-reporter@v3
@@ -95,7 +91,7 @@ jobs:
           retention-days: 2
 
   frontend-build:
-    name: Frontend Build & Lint
+    name: Frontend Test, Lint & Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -116,6 +112,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Test
+        run: npm test
 
       - name: Lint
         run: npm run lint

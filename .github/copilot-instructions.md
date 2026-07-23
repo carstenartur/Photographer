@@ -1,86 +1,137 @@
 # Copilot Instructions for Photographer (Focus Stack)
 
-## Build & Test Commands
+Use the [Developer Manual](../docs/developer/index.md) as the canonical cross-module documentation. Production code, executable tests and current POMs take precedence over planning documents and dated inventories.
 
-### Full build (unit + integration tests) — **must pass before finishing work**
+## Build and test commands
 
-```bash
-mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true
-```
-
-> **Note:** Requires Java 25. If `JAVA_HOME` is not set, configure it for your environment (e.g., `export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64` on Ubuntu with Temurin).
-
-This runs:
-- **Unit tests** via `maven-surefire-plugin` (`*Test.java`)
-- **Integration tests** via `maven-failsafe-plugin` (`*IT.java`) — these use Testcontainers (PostgreSQL) and require Docker
-
-### Unit tests only (quick feedback)
+### Canonical product verification — must pass before finishing product work
 
 ```bash
-mvn -B test -pl common-api,app -am -DskipITs=true -Djava.awt.headless=true
+bash scripts/verify-product.sh
 ```
 
-## Critical: Always Run Integration Tests
+This repository-owned command is also called by the Java CI job. It runs `clean verify` for the supported product modules and their Maven prerequisites, including unit and Failsafe/Testcontainers integration tests. It intentionally excludes research-only, Maven-smoke and benchmark modules from the requested module list.
 
-Before completing any task, **you must run the full `mvn verify` command** (not just `mvn test`) and ensure **all tests pass, including integration tests** (`*IT.java` classes).
+Requirements:
 
-The CI pipeline runs `mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true` which includes integration tests. If you only run unit tests, you will miss failures that break the CI build.
+- JDK 25;
+- Maven 3.9+ installed as `mvn` — there is no committed Maven Wrapper;
+- Docker for Testcontainers integration tests;
+- sufficient memory for the 4 GB Failsafe fork heap.
 
-Integration tests (`*IT.java`) test the full Spring Boot application with a real PostgreSQL database (via Testcontainers) and exercise REST endpoints, JPA repositories, and Hibernate Search. These tests catch issues that unit tests cannot.
-
-## Mandatory: CI Validation Before Finishing Work
-
-**You MUST run the full build and confirm it passes before marking any task as done or closing a PR.**
-
-- Run `mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true` and verify the output shows `BUILD SUCCESS`.
-- Do **not** check off tasks as completed until the build has actually been executed and passed.
-- Do **not** write "locally verified" in a PR description unless the build command was actually run and succeeded.
-- If you change any file under `.github/workflows/`, simulate the workflow steps locally as closely as possible (e.g. run the same `mvn` commands the workflow uses).
-
-## Mandatory: Never Break the Maven Reactor
-
-The Maven multi-module reactor resolves dependencies between modules automatically. Breaking it creates cascading failures that cannot be fixed with workarounds.
-
-**Rules:**
-- **Never** run separate `mvn install`, `mvn site`, or `mvn surefire-report:report` commands with `-pl <module-name>` **without** `-am`.
-  - Without `-am`, Maven does not build upstream dependencies, so the local repository is incomplete and subsequent steps fail.
-- **Always** use `-pl common-api,app -am` (or the full reactor) when running any Maven goal across modules.
-- **Never** build a chain where one `mvn install` is needed so a later `mvn` call can find artifacts. That is a sign the reactor is being broken.
-- Correct pattern for multi-module goals: `mvn <goals> --no-transfer-progress -DskipTests -pl common-api,app -am -Djava.awt.headless=true`
-
-**Examples:**
+### Faster feedback while developing
 
 ```bash
-# WRONG — breaks the reactor, site cannot resolve common-api:
-mvn install --no-transfer-progress -DskipTests -pl common-api
-mvn site --no-transfer-progress -DskipTests -pl app
-
-# CORRECT — single call, reactor handles dependency order:
-mvn site surefire-report:report --no-transfer-progress -DskipTests -DgenerateReports=false -pl common-api,app -am -Djava.awt.headless=true
+bash scripts/verify-product.sh -DskipITs=true
 ```
 
-## Project Structure
+This is not the completion gate. Before marking product work complete, run the unqualified canonical verification and confirm `BUILD SUCCESS`.
 
-- **Root `pom.xml`**: Parent POM with modules `common-api`, `frontend-web`, `app`
-- **`common-api/`**: Shared model records (e.g., `CameraProfile`, `StackingJob`)
-- **`app/`**: Main Spring Boot application (merged camera + analysis services)
-- **`frontend-web/`**: Vite/React frontend
+### Focused tests
 
-## Key Conventions
+```bash
+mvn -B test -pl <owning-module> -am
 
-- **Spring Boot 4.0** with Jakarta EE, Jackson 3 (`tools.jackson.databind`), relocated test annotations
-- **Test annotations**: `@MockitoBean` (not `@MockBean`), `@WebMvcTest` from `org.springframework.boot.webmvc.test.autoconfigure`
-- **Integration tests**: Extend `AbstractPostgresIntegrationTest` for Testcontainers setup; use `*IT.java` naming
-- **Unit tests**: Use `*Test.java` naming
-- **Security**: `@WebMvcTest` needs `@WithMockUser` + `@MockitoBean UserRepository`; `@SpringBootTest` needs `restTemplate.withBasicAuth("admin","focusstack")`
+mvn -B test -pl app -am \
+  -Dtest=<TestClass> \
+  -Dsurefire.failIfNoSpecifiedTests=false \
+  -Djava.awt.headless=true
+```
+
+A focused test supplements but does not replace product verification for cross-module changes.
+
+## Mandatory CI-aligned validation
+
+Before completing a task or closing a PR:
+
+- run the smallest relevant tests while developing;
+- run `bash scripts/verify-product.sh` for product changes;
+- run frontend tests, lint and build for frontend changes;
+- inspect generated files, workflow permissions and changed-file scope;
+- do not claim local verification unless the command was actually run and succeeded;
+- distinguish a cancelled/step-less runner from a real compiler or test failure.
+
+If workflow semantics change, put the behavior in a repository-owned script or Maven/npm test first and make the workflow call it. GitHub Actions is orchestration, not the only executable definition of a test.
+
+## Maven reactor rules
+
+The root `pom.xml` is the authoritative module list. The default reactor includes the application/domain/camera modules, the split CR3 runtime modules, CR3 test/research infrastructure, frontend and app. The `benchmarks` profile adds the two JMH modules.
+
+Rules:
+
+- always use `-am` with `-pl` when upstream project modules are required;
+- do not build a chain where one manual `mvn install` is needed for a later Maven call;
+- do not copy a static module list into new workflows when `scripts/verify-product.sh` already owns the product gate;
+- keep research/testkit/benchmark artifacts out of normal supported runtime dependency graphs;
+- use the smallest owning module for focused development.
+
+Examples:
+
+```bash
+# Product gate
+bash scripts/verify-product.sh
+
+# One module and its upstream dependencies
+mvn -B verify -pl canon-cr3-imageio -am -Djava.awt.headless=true
+
+# Benchmark profile
+mvn -B -P benchmarks -pl canon-cr3-benchmark -am package -DskipTests
+```
+
+## Project structure and ownership
+
+- `common-api`: shared framework-light contracts, including legacy and generic camera abstractions;
+- `plugin-api`: ServiceLoader extension contracts;
+- `capture-core`, `session-core`, `observer-core`, `astro-core`, `hdr-core`, `video-core`, face modules: focused domain/workflow libraries;
+- `camera-ptp`: clean-room PTP/USB stack;
+- split `canon-cr3-*` runtime modules: container, metadata, codec, processing, core facade and ImageIO/CLI adapters;
+- `canon-cr3-reference-testkit`, `canon-cr3-research`, `canon-cr3-maven-smoke`: internal test/research infrastructure, not supported runtime libraries;
+- `frontend-web`: React/Vite product UI;
+- `app`: Spring Boot composition, REST/security/JPA/Hibernate Search and production CCAPI transport.
+
+Do not add Spring dependencies to framework-light modules merely to avoid composition code in `app`.
+
+## Test conventions
+
+- JUnit 5 + AssertJ; Mockito where isolation is appropriate;
+- unit tests use `*Test.java` and Surefire;
+- integration tests use `*IT.java` and Failsafe;
+- PostgreSQL integration tests use Testcontainers and must run from a normal checkout;
+- `docker` and `real-camera` groups are excluded by default;
+- real-camera tests require explicit model/firmware/connection evidence and must not run in normal CI;
+- long-running CR3 research tests state fixed inputs, metrics, runtime and promotion criteria;
+- generated scientific evidence uses explicit verify/update modes and is never silently committed by CI.
+
+## Camera and CCAPI changes
+
+- use exact camera-advertised endpoint paths and HTTP methods;
+- never infer model support from another camera or construct an unadvertised modern endpoint;
+- retain typed, sanitized Canon error categories rather than parsing user-facing strings in callers;
+- state-changing workflows require session ownership and bounded shutdown;
+- long-running GET/stream operations require explicit cancellation and one owner;
+- do not commit or reproduce private Canon manuals, credentials, authorization headers, serial numbers or MAC addresses;
+- support claims name camera model, firmware and connection mode.
+
+## CR3 clean-room changes
+
+Changes to container, entropy, predictor, wavelet, dequantisation or image assembly follow `docs/cleanroom/README.md`:
+
+- register permissible sources or project-owned observations;
+- state hypotheses before execution;
+- use fixed inputs and quantitative reference metrics;
+- preserve rejected results;
+- add executable regression coverage;
+- keep experimental CRX reconstruction distinct from stable container/metadata/preview APIs;
+- include the required contributor attestation for semantic changes.
 
 ## Frontend
 
 ```bash
 cd frontend-web
 npm ci
+npm test
 npm run lint
 npm run build
 ```
 
-Requires Node.js ^20.19.0 or >=22.12.0.
+Prefer accessible roles and user-observable behavior in tests. Control volatile timestamps, IDs and polling rather than broadly ignoring them.
