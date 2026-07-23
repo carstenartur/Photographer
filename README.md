@@ -249,11 +249,9 @@ Published to GitHub Pages after each push to `main`:
 
 ## Documentation
 
+- [Developer Manual](docs/developer/index.md) — architecture, modules, testing, contributing and documentation authority
 - [Quickstart](docs/quickstart.md)
-- [Development Guide](docs/development.md)
-- [Architecture](docs/architecture.md)
 - [REST API Reference](docs/api.md)
-- [Test Strategy](docs/test-strategy.md)
 - [Camera Setup](docs/camera-setup.md)
 - [CR3 / CRX clean-room engineering record](docs/cleanroom/README.md)
 
