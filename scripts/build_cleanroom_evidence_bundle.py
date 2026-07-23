@@ -9,6 +9,7 @@ import sys
 import zipfile
 from pathlib import Path
 
+import manage_cr3_generated_evidence
 import validate_cleanroom_evidence
 
 FIXED_PATHS = (
@@ -23,6 +24,9 @@ GLOBS = (
     "docs/cleanroom/*.md",
     "docs/cleanroom/*.json",
     "docs/cr3-results/*.md",
+    "docs/cr3-results/*.tsv",
+    "docs/cr3-results/*.json",
+    "docs/cr3-results/*.csv",
 )
 MEDIA_SUFFIXES = {".cr3", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bin"}
 ZIP_TIME = (1980, 1, 1, 0, 0, 0)
@@ -73,6 +77,8 @@ def write_entry(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
 
 def build(root: Path, output: Path) -> str:
     errors = validate_cleanroom_evidence.validate_repository(root)
+    generated_errors = manage_cr3_generated_evidence.validate_repository(root)
+    errors.extend(generated_errors)
     if errors:
         raise ValueError("invalid clean-room evidence:\n" + "\n".join(errors))
     paths = collect(root)
