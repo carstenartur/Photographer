@@ -1,6 +1,7 @@
 package com.photographer.focusstack.camera.backend;
 
 import com.photographer.focusstack.camera.exception.CameraOperationException;
+import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.Operation;
 import org.junit.jupiter.api.Test;
@@ -13,8 +14,10 @@ import org.springframework.web.client.RestTemplate;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.ADVERTISED_NOT_IMPLEMENTED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -69,6 +72,29 @@ class CanonCcapiProductionLiveViewTest {
     }
 
     @Test
+    void productionSnapshotExposesAdvertisedButUnimplementedScrollMode() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
+                .thenReturn(catalog(true));
+        CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(
+                PROFILE, BASE, restTemplate);
+
+        CameraCapabilitySnapshot.Capability scroll = backend.getCapabilitySnapshot()
+                .capabilities().stream()
+                .filter(capability -> "live-view-scroll".equals(capability.id()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(scroll.advertised()).isTrue();
+        assertThat(scroll.implemented()).isFalse();
+        assertThat(scroll.availability()).isEqualTo(ADVERTISED_NOT_IMPLEMENTED);
+        assertThat(scroll.requiredMethods()).containsExactlyInAnyOrder("GET", "DELETE");
+        assertThat(scroll.advertisedMethods()).containsExactlyInAnyOrder("GET", "DELETE");
+        assertThat(scroll.methodMetadataKnown()).isTrue();
+        assertThat(scroll.condition()).isEqualTo("APPLICATION_NOT_IMPLEMENTED");
+    }
+
+    @Test
     void productionBackendRejectsKnownIncompatibleFlipWithoutCallingIt() {
         RestTemplate restTemplate = mock(RestTemplate.class);
         when(restTemplate.getForObject(BASE + "/ccapi", Map.class))
@@ -93,7 +119,7 @@ class CanonCcapiProductionLiveViewTest {
                 descriptor("/ccapi/ver100/shooting/liveview", false, true, false),
                 descriptor("/ccapi/ver100/shooting/liveview/flip", flipGet, !flipGet, false),
                 descriptor("/ccapi/ver100/shooting/liveview/scroll", true, false, true),
-                descriptor("/ccapi/ver100/shooting/liveview/multipart", true, false, false),
+                descriptor("/ccapi/ver100/shooting/liveview/multipart", true, false, true),
                 descriptor("/ccapi/ver100/shooting/liveview/rtp", false, true, false)));
     }
 
