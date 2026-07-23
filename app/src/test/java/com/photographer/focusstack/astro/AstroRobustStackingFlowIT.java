@@ -87,7 +87,8 @@ class AstroRobustStackingFlowIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    void omittedStackingConfigurationPreservesHistoricalMean() {
+    void omittedStackingConfigurationPreservesHistoricalMean()
+            throws InterruptedException {
         String body = """
                 {
                     "captureConfig": {
@@ -109,9 +110,17 @@ class AstroRobustStackingFlowIT extends AbstractPostgresIntegrationTest {
                 AstroSession.class);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
-        assertNotNull(response.getBody());
+        AstroSession created = response.getBody();
+        assertNotNull(created);
         assertEquals(AstroStackingMode.MEAN,
-                response.getBody().captureConfig().stackingConfig().mode());
+                created.captureConfig().stackingConfig().mode());
+
+        AstroSession terminal = waitForTerminal(created.id());
+        assertTrue(terminal.status() == AstroSessionStatus.COMPLETED
+                        || terminal.status() == AstroSessionStatus.FAILED,
+                () -> "Legacy Mean session unexpectedly ended as " + terminal.status());
+        assertEquals(AstroStackingMode.MEAN,
+                terminal.captureConfig().stackingConfig().mode());
     }
 
     private AstroSession waitForTerminal(String sessionId) throws InterruptedException {
