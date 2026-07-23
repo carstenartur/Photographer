@@ -117,6 +117,7 @@ jobs:
               session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
               app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
               app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
+              app/src/test/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinatorTest.java \
               app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
               app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
             if ! git diff --cached --quiet; then
