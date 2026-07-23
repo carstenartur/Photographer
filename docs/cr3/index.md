@@ -22,7 +22,7 @@ Do not treat all CR3 functionality as one maturity level. Container inspection, 
 
 ## Module map
 
-### Supported runtime libraries
+### Runtime and user modules
 
 | Artifact | Purpose | Maturity |
 |---|---|---|
@@ -32,7 +32,7 @@ Do not treat all CR3 functionality as one maturity level. Container inspection, 
 | `io.github.carstenartur:canon-cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
 | `io.github.carstenartur:canon-cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; full RAW experimental |
 | `io.github.carstenartur:canon-cr3-imageio` | Java ImageIO SPI, reader, thumbnails and metadata | Stable standard integration; RAW-specific parameters experimental |
-| `canon-cr3-cli` | Inspection, extraction and experimental decode commands | User-facing CLI; Java implementation is not library API |
+| `com.photographer.focusstack:canon-cr3-cli` | Inspection, extraction and experimental decode commands | Repository CLI; excluded from the public Maven Central library bundle |
 
 ### Internal evidence and development modules
 
@@ -43,7 +43,7 @@ Do not treat all CR3 functionality as one maturity level. Container inspection, 
 | `canon-cr3-maven-smoke` | Empty-repository consumer and dependency-boundary validation | Build/test only |
 | `canon-cr3-benchmark` | JMH performance measurements | Benchmark profile only |
 
-No production module may depend on the reference testkit or research module at runtime.
+No production module may depend on the reference testkit or research module at runtime. The public Maven bundle and release rules are defined in [Maven Central release contract](../cr3-maven-central.md).
 
 ## Maturity boundary
 
