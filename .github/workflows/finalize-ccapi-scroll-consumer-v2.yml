@@ -46,7 +46,6 @@ jobs:
           set -euo pipefail
           mkdir -p .ci/ccapi-scroll
           python3 .github/scripts/finalize_ccapi_scroll_consumer.py
-          python3 .github/scripts/fix_ccapi_scroll_production_test.py
           git diff --check
           git diff --stat | tee .ci/ccapi-scroll/source-stat.txt
 
