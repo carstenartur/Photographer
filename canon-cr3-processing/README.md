@@ -36,3 +36,7 @@ values, demosaicing, color conversion, crop geometry or orientation results.
 ```bash
 mvn -B verify -pl canon-cr3-processing -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module CR3 processing maturity and supported output claims are maintained in the [CR3 / CRX Manual](../docs/cr3/index.md).
