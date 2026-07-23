@@ -1,0 +1,32 @@
+name: One-shot Actions execution probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-actions-probe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout technical status branch
+        uses: actions/checkout@v7
+        with:
+          ref: automation/implement-ccapi-shutdown-final
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Record successful Actions execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          printf 'Actions probe succeeded for main commit %s\n' '${{ github.sha }}' > one-shot-actions-probe.status
+          git add one-shot-actions-probe.status
+          git commit -m 'ci: record one-shot Actions probe'
+          git push origin HEAD:automation/implement-ccapi-shutdown-final
