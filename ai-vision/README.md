@@ -73,3 +73,7 @@ python3 scripts/validate_vision_module_boundaries.py .
 ```bash
 mvn -B clean verify -pl ai-vision -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module provider/SPI/domain ownership is maintained in [Modules and public surfaces](../docs/developer/modules.md). Provider-local configuration and implementation details remain in this README.
