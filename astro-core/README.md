@@ -17,7 +17,7 @@ Domain module for astrophotography workflows: star detection, frame registration
 
 The current public image contract is packed 8-bit RGB `BufferedImage` input and output. Non-int-packed inputs are converted once by the existing pixel helper; robust modes do not add another color-space or bit-depth conversion.
 
-`AstroStackingMode` is explicit session provenance:
+`AstroStackingMode` makes the algorithm choice explicit:
 
 - `MEAN` preserves the historical per-channel arithmetic mean and integer-floor behavior;
 - `MEDIAN` selects the per-channel middle sample; even counts use the floor of the two middle values;
@@ -32,7 +32,7 @@ Median and sigma-clipped modes process one output row at a time and reuse tempor
 - **Plain Java** — no Spring dependency; wired into the app through the `app` module.
 - **Depends on** `common-api` only.
 - **Test data** is generated in memory through `SyntheticStarImageGenerator`.
-- **No hidden quality choice** — callers select and persist an algorithm explicitly.
+- **No hidden quality choice** — callers pass an explicit `AstroStackingConfig`; the compatibility overload always uses Mean.
 
 ## Verification
 
@@ -48,7 +48,7 @@ Benchmark results are environment-sensitive and must record runner/JVM metadata 
 
 ## Current integration boundary
 
-`AstroCaptureConfig` and persisted session entities carry `AstroStackingConfig`. The core pipeline accepts that configuration, but the current application execution path still invokes the backward-compatible Mean overload. Service/API/frontend selection and visible progress remain the next #286 slice after this core is accepted.
+The core service and pipeline accept explicit `AstroStackingConfig`; existing overloads remain Mean-based. The current application session model, persistence, REST API and frontend do not yet expose or persist robust-mode selection. Those layers must be added together in the next #286 slice so persisted provenance always describes the algorithm actually executed.
 
 ## Build
 
