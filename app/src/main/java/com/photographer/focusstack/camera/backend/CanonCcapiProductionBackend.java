@@ -144,8 +144,11 @@ final class CanonCcapiProductionBackend implements
     public CaptureResult capture() {
         // A scroll GET owns a separate long-running camera operation and must be
         // cancelled before the inherited capture path stops the control endpoint.
-        scrollLiveViewReader.stop();
-        liveViewClient.markStopped();
+        try {
+            scrollLiveViewReader.stop();
+        } finally {
+            liveViewClient.markStopped();
+        }
         return delegate.capture();
     }
 
@@ -237,7 +240,9 @@ final class CanonCcapiProductionBackend implements
                     Set<HttpMethod> advertised = methods.get(entry.getKey());
                     return advertised != null && advertised.containsAll(SCROLL_METHODS);
                 })
-                .max(Comparator.comparingInt(entry -> versionNumber(endpointPath(entry.getValue())))
+                .max(Comparator.comparingInt(
+                                (Map.Entry<String, String> entry) ->
+                                        versionNumber(endpointPath(entry.getValue())))
                         .thenComparing(entry -> endpointPath(entry.getValue())))
                 .map(Map.Entry::getValue);
     }
