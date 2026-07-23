@@ -44,7 +44,7 @@ The application integration additionally verifies that:
 - selected mode and parameters round-trip through persistence;
 - the exact persisted configuration is supplied to `AstroCapturePipeline`;
 - user abort reaches `StackingControl`;
-- row progress is exposed as bounded `0..100` polling data without per-row database writes;
+- active polling receives fine row progress while durable checkpoints advance in 5-percentage-point increments rather than per-row writes;
 - terminal summaries identify the executed mode.
 
 The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke remain open before performance thresholds can be promoted.
@@ -55,7 +55,7 @@ The existing optional JMH module still measures the historical Mean path. A robu
 
 New sessions persist mode, sigma threshold, maximum iterations and minimum samples. Historical rows without those columns normalize to Mean. The service executes exactly the resolved persisted configuration; the REST response and Astro Sessions UI expose the same provenance.
 
-During `STACKING`, progress is held by the active execution and returned by normal session polling. It is not written to the database for every image row. Completed sessions report 100%; aborted or failed sessions retain their terminal state without fabricating completion.
+During `STACKING`, active polling receives the latest in-memory percentage. The application stores durable checkpoints every 5 percentage points and exact terminal progress, avoiding a write per image row while preserving useful recovery/status data after restart. Completed sessions report 100%; aborted or failed sessions retain their last exact terminal progress without fabricating completion.
 
 ## Build
 
