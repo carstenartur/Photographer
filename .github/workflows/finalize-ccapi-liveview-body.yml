@@ -48,30 +48,38 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          replacements = {
-              Path('app/src/main/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClient.java'): [
-                  (
-                      '"{\\"liveviewsize\\":\\"off\\"}".getBytes(StandardCharsets.UTF_8);',
-                      '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"\n'
-                      '                    .getBytes(StandardCharsets.UTF_8);',
-                  ),
-              ],
-              Path('app/src/test/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClientTest.java'): [
-                  (
-                      '"{\\"liveviewsize\\":\\"off\\"}"',
-                      '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"',
-                  ),
-              ],
-          }
-          for path, rules in replacements.items():
+          old = '"{\\"liveviewsize\\":\\"off\\"}"'
+          new = '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"'
+
+          production = Path(
+              'app/src/main/java/com/photographer/focusstack/camera/backend/'
+              'CcapiLiveViewClient.java'
+          )
+          text = production.read_text(encoding='utf-8')
+          production_old = old + '.getBytes(StandardCharsets.UTF_8);'
+          production_new = new + '\n                    .getBytes(StandardCharsets.UTF_8);'
+          if text.count(production_old) != 1:
+              raise SystemExit('Expected one production stop-body constant')
+          production.write_text(text.replace(production_old, production_new), encoding='utf-8')
+
+          for path_name, expected in [
+              (
+                  'app/src/test/java/com/photographer/focusstack/camera/backend/'
+                  'CcapiLiveViewClientTest.java',
+                  2,
+              ),
+              (
+                  'app/src/test/java/com/photographer/focusstack/camera/backend/'
+                  'CanonCcapiProductionLiveViewTest.java',
+                  1,
+              ),
+          ]:
+              path = Path(path_name)
               text = path.read_text(encoding='utf-8')
-              for old, new in rules:
-                  count = text.count(old)
-                  expected = 2 if path.name == 'CcapiLiveViewClientTest.java' else 1
-                  if count != expected:
-                      raise SystemExit(f'{path}: expected {expected} old stop-body matches, found {count}')
-                  text = text.replace(old, new)
-              path.write_text(text, encoding='utf-8')
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{path}: expected {expected} old assertions, found {count}')
+              path.write_text(text.replace(old, new), encoding='utf-8')
           PY
 
       - name: Run focused live-view tests
