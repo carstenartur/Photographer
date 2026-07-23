@@ -15,17 +15,12 @@
     <version>0.1.5-SNAPSHOT</version>
 
     <name>Focus Stack - AI Vision</name>
-    <description>AI vision abstraction layer: VisionProvider interface with Gemini and mock implementations. Pure Java library with no Spring dependency.</description>
+    <description>AI vision provider implementations using contracts owned by common-api; no Spring or observer-domain dependency</description>
 
     <dependencies>
         <dependency>
             <groupId>com.photographer.focusstack</groupId>
             <artifactId>common-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.photographer.focusstack</groupId>
-            <artifactId>observer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
