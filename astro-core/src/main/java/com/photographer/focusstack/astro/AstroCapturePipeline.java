@@ -1,17 +1,21 @@
 package com.photographer.focusstack.astro;
 
-import com.photographer.focusstack.common.model.*;
+import com.photographer.focusstack.common.model.AstroFrame;
+import com.photographer.focusstack.common.model.AstroStackingConfig;
+import com.photographer.focusstack.common.model.FrameTransform;
+import com.photographer.focusstack.common.model.StarPoint;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Orchestrates the core astro processing pipeline:
  * star detection → reference frame selection → registration → stacking.
  *
- * This is a pure-logic class with no I/O dependencies.
- * The caller provides captured frames as BufferedImages.
+ * <p>This is a pure-logic class with no I/O dependencies. The caller provides
+ * captured frames as {@link BufferedImage} values.</p>
  */
 public class AstroCapturePipeline {
 
@@ -21,35 +25,48 @@ public class AstroCapturePipeline {
     private final StarTrailDeblurService deblurService;
     private final double maxRegistrationError;
 
-    public AstroCapturePipeline(StarDetectionService starDetectionService,
-                                FrameRegistrationService registrationService,
-                                AstroStackingService stackingService,
-                                StarTrailDeblurService deblurService) {
-        this.starDetectionService = starDetectionService;
-        this.registrationService = registrationService;
-        this.stackingService = stackingService;
-        this.deblurService = deblurService;
+    public AstroCapturePipeline(
+            StarDetectionService starDetectionService,
+            FrameRegistrationService registrationService,
+            AstroStackingService stackingService,
+            StarTrailDeblurService deblurService) {
+        this.starDetectionService = Objects.requireNonNull(
+                starDetectionService, "starDetectionService");
+        this.registrationService = Objects.requireNonNull(
+                registrationService, "registrationService");
+        this.stackingService = Objects.requireNonNull(
+                stackingService, "stackingService");
+        this.deblurService = Objects.requireNonNull(
+                deblurService, "deblurService");
         this.maxRegistrationError = registrationService.getMaxRegistrationError();
     }
 
-    /**
-     * Result of processing all frames.
-     */
+    /** Result of processing all frames. */
     public record PipelineResult(
             List<AstroFrame> frames,
             BufferedImage stackedImage,
             int referenceFrameIndex,
             int framesUsedInStack,
+            AstroStackingConfig stackingConfig,
             String summary
     ) {}
 
-    /**
-     * Processes a list of captured frame images through the full pipeline.
-     *
-     * @param images list of captured images (ordered by capture index)
-     * @return pipeline result with frame metadata and stacked image
-     */
+    /** Processes using the historical mean stacking configuration. */
     public PipelineResult process(List<BufferedImage> images) {
+        return process(
+                images,
+                AstroStackingConfig.defaults(),
+                AstroStackingService.StackingControl.none());
+    }
+
+    /** Processes with explicit stacking provenance and cooperative cancellation. */
+    public PipelineResult process(
+            List<BufferedImage> images,
+            AstroStackingConfig stackingConfig,
+            AstroStackingService.StackingControl stackingControl) {
+        Objects.requireNonNull(images, "images");
+        Objects.requireNonNull(stackingConfig, "stackingConfig");
+        Objects.requireNonNull(stackingControl, "stackingControl");
         if (images.isEmpty()) {
             throw new IllegalArgumentException("No images to process");
         }
@@ -60,55 +77,65 @@ public class AstroCapturePipeline {
         // 1. Detect stars in each frame
         List<List<StarPoint>> allStars = new ArrayList<>();
         List<Double> focusScores = new ArrayList<>();
-        for (BufferedImage img : images) {
-            List<StarPoint> stars = starDetectionService.detectStars(img);
+        for (BufferedImage image : images) {
+            List<StarPoint> stars = starDetectionService.detectStars(image);
             allStars.add(stars);
             focusScores.add(starDetectionService.computeFocusScore(stars));
         }
 
         // 2. Choose reference frame (highest focus score)
-        int refIndex = 0;
+        int referenceIndex = 0;
         double bestScore = focusScores.getFirst();
-        for (int i = 1; i < focusScores.size(); i++) {
-            if (focusScores.get(i) > bestScore) {
-                bestScore = focusScores.get(i);
-                refIndex = i;
+        for (int index = 1; index < focusScores.size(); index++) {
+            if (focusScores.get(index) > bestScore) {
+                bestScore = focusScores.get(index);
+                referenceIndex = index;
             }
         }
-        List<StarPoint> refStars = allStars.get(refIndex);
+        List<StarPoint> referenceStars = allStars.get(referenceIndex);
 
         // 3. Register each frame to reference
-        List<FrameRegistrationService.RegistrationResult> registrations = new ArrayList<>();
-        for (int i = 0; i < images.size(); i++) {
-            if (i == refIndex) {
+        List<FrameRegistrationService.RegistrationResult> registrations =
+                new ArrayList<>();
+        for (int index = 0; index < images.size(); index++) {
+            if (index == referenceIndex) {
                 registrations.add(new FrameRegistrationService.RegistrationResult(
-                        FrameTransform.identity(), 0.0, refStars.size(), true));
+                        FrameTransform.identity(), 0.0, referenceStars.size(), true));
             } else {
-                registrations.add(registrationService.register(refStars, allStars.get(i)));
+                registrations.add(registrationService.register(
+                        referenceStars,
+                        allStars.get(index)));
             }
         }
 
-        // 4. Build AstroFrame metadata
+        // 4. Build frame metadata and stack inputs
         List<AstroFrame> frames = new ArrayList<>();
         List<AstroStackingService.FrameInput> stackInputs = new ArrayList<>();
         int usedInStack = 0;
 
-        for (int i = 0; i < images.size(); i++) {
-            var reg = registrations.get(i);
-            boolean used = reg.accepted();
+        for (int index = 0; index < images.size(); index++) {
+            var registration = registrations.get(index);
+            boolean used = registration.accepted();
             frames.add(new AstroFrame(
-                    i,
+                    index,
                     java.time.Instant.now(),
-                    null, // filePath set by caller
-                    null, // previewPath
-                    allStars.get(i),
-                    reg.transform(),
-                    reg.accepted() ? Math.max(0.0, Math.min(1.0, 1.0 - reg.error() / maxRegistrationError)) : 0.0,
-                    focusScores.get(i),
-                    used
-            ));
+                    null,
+                    null,
+                    allStars.get(index),
+                    registration.transform(),
+                    registration.accepted()
+                            ? Math.max(
+                                    0.0,
+                                    Math.min(
+                                            1.0,
+                                            1.0 - registration.error()
+                                                    / maxRegistrationError))
+                            : 0.0,
+                    focusScores.get(index),
+                    used));
             if (used) {
-                stackInputs.add(new AstroStackingService.FrameInput(images.get(i), reg.transform()));
+                stackInputs.add(new AstroStackingService.FrameInput(
+                        images.get(index), registration.transform()));
                 usedInStack++;
             }
         }
@@ -116,20 +143,43 @@ public class AstroCapturePipeline {
         // 5. Stack accepted frames
         BufferedImage stacked;
         if (stackInputs.isEmpty()) {
-            // Fallback: use reference frame if no frames registered
-            stacked = images.get(refIndex);
+            stacked = images.get(referenceIndex);
             usedInStack = 1;
         } else {
-            stacked = stackingService.stack(stackInputs, width, height);
+            stacked = stackingService.stack(
+                    stackInputs,
+                    width,
+                    height,
+                    stackingConfig,
+                    stackingControl);
         }
 
         // 6. Apply deblur (no-op for now)
         stacked = deblurService.deblur(stacked);
 
         String summary = String.format(
-                "Processed %d frames, reference=#%d, %d used in stack, %d rejected",
-                images.size(), refIndex, usedInStack, images.size() - usedInStack);
-
-        return new PipelineResult(frames, stacked, refIndex, usedInStack, summary);
+                "Processed %d frames, reference=#%d, %d used in stack, "
+                        + "%d rejected, stacking=%s%s",
+                images.size(),
+                referenceIndex,
+                usedInStack,
+                images.size() - usedInStack,
+                stackingConfig.mode(),
+                stackingConfig.mode()
+                                == com.photographer.focusstack.common.model.AstroStackingMode
+                                        .SIGMA_CLIPPED_MEAN
+                        ? String.format(
+                                "(sigma=%.3f,iterations=%d,minSamples=%d)",
+                                stackingConfig.sigmaThreshold(),
+                                stackingConfig.maxIterations(),
+                                stackingConfig.minimumSamples())
+                        : "");
+        return new PipelineResult(
+                List.copyOf(frames),
+                stacked,
+                referenceIndex,
+                usedInStack,
+                stackingConfig,
+                summary);
     }
 }
