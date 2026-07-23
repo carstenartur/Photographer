@@ -54,3 +54,7 @@ Forbidden dependencies are enforced by `scripts/validate_vision_module_boundarie
 python3 scripts/validate_vision_module_boundaries.py .
 mvn -B clean verify -pl plugin-api -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+Cross-module ownership and the public extension-surface classification are maintained in [Modules and public surfaces](../docs/developer/modules.md). This README documents the SPI-specific contract only.
