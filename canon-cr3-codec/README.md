@@ -37,3 +37,7 @@ does not claim that CRX decoding is complete.
 ```bash
 mvn -B verify -pl canon-cr3-codec -am -Djava.awt.headless=true
 ```
+
+## Canonical documentation
+
+The [CR3 / CRX Manual](../docs/cr3/index.md) owns cross-module maturity claims. Clean-room experiment, evidence and promotion rules are maintained in [CR3 research](../docs/cr3/research.md).
