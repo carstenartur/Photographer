@@ -1,6 +1,12 @@
 name: Migrate active CR3 reference consumers
 
 on:
+  push:
+    branches:
+      - automation/migrate-cr3-active-consumers
+    paths:
+      - '.github/workflows/migrate-cr3-active-consumers.yml'
+      - 'scripts/migrate_cr3_active_consumers.py'
   pull_request:
     branches: [main]
     paths:
@@ -8,7 +14,7 @@ on:
       - 'scripts/migrate_cr3_active_consumers.py'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: migrate-cr3-active-consumers
@@ -16,6 +22,9 @@ concurrency:
 
 jobs:
   migrate-test-publish:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -24,7 +33,7 @@ jobs:
       - name: Checkout technical head
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
           show-progress: false
           persist-credentials: true
@@ -54,7 +63,7 @@ jobs:
             -Dtest=Cr3ReferenceComparisonIT,PedestalHypothesisValidationIT,DcComponentIsolationIT \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -Djava.awt.headless=true
-          mvn -B --no-transfer-progress test \
+          mvn -B --no-transfer-progress clean verify \
             -pl canon-cr3-reference-testkit,canon-cr3-research -am \
             -Djava.awt.headless=true
 
