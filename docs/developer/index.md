@@ -6,32 +6,32 @@ Photographer is a multi-module Java 25 / Spring Boot 4 application with a React 
 
 ## Start here
 
-| Need | Authoritative source |
+| Need | Current source |
 |---|---|
 | Build or run the repository | [Development guide](../development.md) |
-| Understand the system architecture | [Architecture](../architecture.md) |
+| Understand the current module graph | Root [`pom.xml`](../../pom.xml), module POMs and the [architecture migration source](../architecture.md) |
 | Find a module or public API | [Repository inventory](repository-inventory.md) and [documentation map](documentation-map.md) |
 | Run unit, integration or hardware tests | [Test strategy](../test-strategy.md) |
 | Use the REST API | [REST API reference](../api.md) |
 | Configure a camera | [Camera setup](../camera-setup.md) |
-| Understand generic camera abstractions | [Generic camera architecture](../generic-camera-architecture.md) |
 | Work on Canon CCAPI session ownership | [CCAPI session ownership](../ccapi-session-ownership.md) |
 | Work on CR3/CRX | [CR3 current state](../cr3-current-state.md) and [CR3 results index](../cr3-results-index.md) |
 | Follow clean-room rules | [Clean-room engineering record](../cleanroom/README.md) |
 | Understand the documentation migration | [Migration plan](migration-plan.md) |
 
-The links above point to existing maintained sources. They will be consolidated in phases; this index remains stable while individual files move.
+The links above point to existing sources. Several predate later module splits or implementation changes and are migration inputs rather than unquestioned truth. Until Phase 2 completes, production code, tests and current POMs take precedence. This index remains stable while individual files move or are retired.
 
 ## Documentation authority
 
 When sources disagree, use this order:
 
 1. **Production code and executable tests** define implemented behaviour.
-2. **Public API contracts and module-local README/ARCHITECTURE files** define one module's supported surface, provided they agree with code and tests.
-3. **Canonical maintained documents** describe cross-module architecture, development, testing and current support boundaries.
-4. **Current-state and hypothesis documents** describe the explicitly dated research state.
-5. **Generated reports and inventories** are reproducible evidence snapshots, not current normative truth.
-6. **Historical/local research notes** preserve experimental provenance and must not be generalized into product claims.
+2. **Current Maven POMs and public API contracts** define the reactor, dependencies and supported public surfaces.
+3. **Module-local README/ARCHITECTURE files** define one module's supported surface, provided they agree with code, tests and POMs.
+4. **Canonical maintained documents** describe cross-module architecture, development, testing and current support boundaries after they have been audited against the current revision.
+5. **Current-state and hypothesis documents** describe the explicitly dated research state.
+6. **Generated reports and inventories** are reproducible evidence snapshots, not current normative truth.
+7. **Historical/local research notes and design proposals** preserve provenance but must not be generalized into implementation claims.
 
 A generated report must never silently override a maintained current-state document. A planning document must never be cited as proof that a feature exists.
 
