@@ -2,9 +2,11 @@
 
 ## Status
 
-This plan is the required decision step before documentation moves begin. The planning PR adds the Developer Manual entry point and classification map only; it does not move or delete existing documentation.
+- **Phase 1 is complete on `main`**: the Developer Manual entry point, authority rules, documentation map and migration plan exist.
+- **Phase 2 is implemented in the Developer Manual core change**: canonical architecture, module, contribution, testing and operations chapters replace contradictory cross-module documents while preserving old paths as redirects.
+- **Phases 3–6 remain open**: CR3 consolidation, generated-report boundaries, stale roadmap retirement and final documentation validation.
 
-The prerequisite correctness audit in issue #90 is complete. The source inventory is [`repository-inventory.md`](repository-inventory.md), generated on 2026-06-17. Because the repository has changed since that snapshot, every migration phase must re-check affected paths against current code and tests.
+The prerequisite correctness audit in issue #90 is complete. The dated source inventory is [`repository-inventory.md`](repository-inventory.md), generated on 2026-06-17. It is evidence of that revision, not an automatically current catalogue.
 
 ## Goals
 
@@ -18,16 +20,15 @@ The prerequisite correctness audit in issue #90 is complete. The source inventor
 
 ## Non-goals
 
-- no production or decoder behaviour changes;
+- no production or decoder behavior changes solely to fit documentation structure;
 - no rewrite of all documentation from scratch;
-- no new architecture or research framework invented for the documentation project;
 - no loss of dated research evidence;
 - no manual cosmetic rewrite of generated reports;
 - no relocation merely to match a proposed directory tree when the existing location is clearer.
 
 ## Target structure
 
-The target is intentionally small. Module-local files remain in module directories.
+Module-local files remain in module directories. The cross-module target is:
 
 ```text
 docs/
@@ -57,92 +58,73 @@ docs/
     ...                            # process, source registry, attestations
 ```
 
-`docs/api.md`, `docs/camera-setup.md`, `docs/quickstart.md` and transport-specific CCAPI documents may remain at their current paths when moving them would add link churn without removing duplication. The Developer Manual links them as canonical external chapters.
+`docs/api.md`, `docs/camera-setup.md`, `docs/quickstart.md` and transport-specific CCAPI chapters may remain at their current paths when moving them would add link churn without removing duplication.
 
-## Phase 1 — Authority map and entry point
+## Phase 1 — Authority map and entry point — complete
 
-**Scope**
+Delivered:
 
-- add `docs/developer/index.md`;
-- classify every file from the 2026-06-17 Markdown inventory;
-- define authority and generated-document rules;
-- add this migration plan;
-- change the root README documentation section to expose one Developer Manual path.
+- `docs/developer/index.md`;
+- classification of the 2026-06-17 Markdown inventory and post-inventory rules;
+- documentation authority and generated-document rules;
+- root README path into the Developer Manual;
+- this ordered migration plan.
 
-**No moves or removals are allowed in this phase.**
+## Phase 2 — Maintained developer documentation — implemented
 
-**Acceptance**
+### Architecture and modules
 
-- every inventoried Markdown file has one classification;
-- post-inventory additions have deterministic classification rules;
-- root README has one obvious developer entry;
-- generated reports are explicitly non-normative.
-
-## Phase 2 — Consolidate maintained developer documentation
-
-### 2.1 Architecture
-
-Build the canonical architecture from current evidence in this order:
+The canonical architecture is derived from:
 
 1. current root and module POMs;
-2. production package/module boundaries and executable architecture tests;
+2. production package/module boundaries and executable tests;
 3. module-local README/ARCHITECTURE files where they agree with code;
-4. `docs/architecture.md` as a migration source that must be re-audited after the post-inventory CR3 module split;
-5. cross-module sections currently duplicated in the root README.
+4. audited material from the previous cross-module documents.
 
-`docs/generic-camera-architecture.md` is a historical 2026-05-10 design proposal, not a current implementation source. Repository code search does not find its named `GenericCameraBackend`, `CapabilitySet`, `MediaIngestService` or package structure. Extract only transport-independence or safety principles that can be independently tied to current code/tests, then retire or archive the obsolete proposal with link preservation.
+`docs/generic-camera-architecture.md` originally mixed implemented contracts with future migration steps. The code audit confirmed that `GenericCameraBackend`, `CapabilitySet`, `CcapiCameraBackend` and `UsbCameraBackend` exist, but the adapters are only partially implemented. The canonical architecture therefore records both the real contracts and their actual capability-safe limitations.
 
-Create `docs/developer/architecture.md`. Module architecture files retain module internals and link to it. Do not copy the complete dependency graph into every module, and do not reproduce a desired target as if it were the current graph.
+Delivered:
 
-### 2.2 Modules and public surfaces
+- `docs/developer/architecture.md`;
+- `docs/developer/modules.md`;
+- redirect from `docs/architecture.md`;
+- concise current-status redirect from `docs/generic-camera-architecture.md`.
 
-Create `docs/developer/modules.md` from current `pom.xml`, module READMEs and public API contracts. The file should answer:
+### Contributing and local development
 
-- which modules are in the default reactor and benchmark profile;
-- what each module owns;
-- which modules are supported libraries, application internals, test infrastructure or research-only;
-- where the authoritative module README and public API live.
+Delivered:
 
-Counts from `repository-inventory.md` must not be copied as timeless facts. Regenerate or omit volatile counts.
+- `docs/developer/contributing.md`;
+- repository-owned `scripts/verify-product.sh`;
+- correction that no Maven Wrapper is currently committed;
+- accurate local H2, Compose, frontend and focused-test commands;
+- redirect from `docs/development.md`.
 
-### 2.3 Contributing and local development
+### Testing
 
-Merge maintained content from `docs/development.md` and the detailed local-development parts of the root README into `docs/developer/contributing.md`.
+Delivered:
 
-Keep the root README quick path concise. Commands must work from a normal checkout and must not require GitHub Actions.
+- `docs/developer/testing.md`;
+- explicit unit, Failsafe/Testcontainers, Docker, real-camera, frontend, HTTP-smoke, research and JMH boundaries;
+- corrected real-camera command that overrides the default excluded groups;
+- CI invocation of the repository-owned product-verify script;
+- frontend Vitest execution in CI;
+- redirect from `docs/test-strategy.md`.
 
-### 2.4 Testing
+### Operations and recovery
 
-Merge `docs/test-strategy.md` into `docs/developer/testing.md` and verify every command against Maven profiles and test naming conventions.
+Delivered:
 
-The chapter must distinguish:
+- `docs/developer/operations.md`;
+- durable secret, private-reference, runtime-data, fixture, release-key, backup and restore rules;
+- replacement of workstation-specific untracked-file claims;
+- redirect from `BACKUP.md`.
 
-- unit tests;
-- Testcontainers integration tests runnable from a checkout;
-- opt-in real-camera tests;
-- long-running CR3 research tests;
-- JMH benchmarks;
-- deterministic screenshot/UI evidence when present.
+Phase 2 is accepted when the change passes frontend tests/lint/build, the complete product Java/Testcontainers verification and Docker build smoke.
 
-GitHub workflows should call repository-owned test commands and collect results; they must not become the only place where test semantics exist.
+## Phase 3 — Consolidate maintained CR3 documentation
 
-### 2.5 Operations and recovery
-
-Audit `BACKUP.md` against the current private repository, current tracked fixtures, `.gitignore` and reproducibility commands. Move durable recovery guidance to `docs/developer/operations.md`.
-
-Do not preserve stale statements merely because they describe an earlier local working tree. Private/non-redistributable Canon reference material remains explicitly outside the repository.
-
-**Acceptance for Phase 2**
-
-- canonical developer chapters exist and are linked from the index;
-- module docs contain only module-local detail plus links;
-- no build/test command exists only inside a workflow;
-- old paths either remain valid redirects or are updated in the same PR;
-- root README is shorter, not duplicated elsewhere verbatim.
-
-## Phase 3 — Consolidate CR3 maintained documentation
-
-### 3.1 CR3 entry point
+### CR3 entry point
 
 Create `docs/cr3/index.md` with four clear routes:
 
@@ -151,17 +133,17 @@ Create `docs/cr3/index.md` with four clear routes:
 - clean-room research process;
 - dated/generated evidence.
 
-### 3.2 Supported library documentation
+### Supported library documentation
 
 Create short maintained bridge pages:
 
 - `docs/cr3/imageio.md` links the supported ImageIO SPI, read parameter, metadata and tests;
-- `docs/cr3/decoder.md` links the supported core API and labels experimental CRX paths explicitly;
-- `docs/cr3/cli.md` links the tested CLI commands.
+- `docs/cr3/decoder.md` links the core API and labels experimental CRX paths explicitly;
+- `docs/cr3/cli.md` links tested CLI commands.
 
-These pages must not duplicate complete module READMEs. The module README remains the local usage reference; the bridge page explains maturity and relationships.
+These pages must not duplicate complete module READMEs. Module documentation remains the local usage reference; bridge pages explain relationships and maturity.
 
-### 3.3 Current state and hypotheses
+### Current state and hypotheses
 
 Move with redirects or equivalent link preservation:
 
@@ -169,107 +151,98 @@ Move with redirects or equivalent link preservation:
 - `docs/cr3-open-hypotheses.md` → `docs/cr3/open-hypotheses.md`;
 - `docs/cr3-results-index.md` → `docs/cr3/reports/index.md`.
 
-The current-state page is the maintained truth boundary. It links to generated reports as evidence and records whether each result still applies to the current implementation.
+The current-state page is the maintained truth boundary. It links to generated reports as evidence and records whether each result still applies to current implementation code.
 
-### 3.4 Research process
+### Research process
 
 Merge still-current process content from:
 
 - `docs/cr3-agent-playbook.md`;
 - `docs/cleanroom-fixture-plan.md`;
-- `docs/reference-pipeline.md` where it is CR3-specific.
+- CR3-specific parts of `docs/reference-pipeline.md`.
 
 Create `docs/cr3/research.md`, while keeping clean-room policy and contributor attestations canonical under `docs/cleanroom/`.
 
-Historical fixture ledgers, patent analyses and experiment-local READMEs remain local and linked. They are not rewritten into product documentation.
+Historical fixture ledgers, patent analyses and experiment-local READMEs remain local and linked.
 
-**Acceptance for Phase 3**
+### Acceptance
 
-- a contributor can distinguish supported, experimental, planned and generated CR3 information from the CR3 index;
+- supported, experimental, planned and generated CR3 information are distinguishable from the index;
 - no generated report is presented as current implementation truth;
 - module API docs and research evidence remain available;
-- clean-room source registration and attribution links survive all moves.
+- clean-room source registration and attribution survive all moves.
 
 ## Phase 4 — Generated report boundary
 
 Move or regenerate CR3 report outputs under `docs/cr3/reports/generated/` only after updating their generators and all links in the same change.
 
-Each generated report must contain or be accompanied by:
+Each generated report must identify:
 
 - generator class/script/test;
 - exact local regeneration command;
 - source fixture/manifest contract;
 - generation timestamp or source revision where scientifically relevant;
-- a warning that scientific conclusions use quantitative data, not rendered screenshots.
+- quantitative decision metrics;
+- warning that rendered screenshots are not the sole scientific evidence.
 
-Generation must have two explicit modes:
+Generation has two explicit modes:
 
 - **verify** — fail when committed evidence is missing or stale; never overwrite;
-- **update** — intentionally regenerate the committed evidence.
+- **update** — intentionally regenerate committed evidence.
 
-CI uses verify mode. It must never rewrite and commit generated evidence implicitly.
+CI uses verify mode. It must never rewrite and commit scientific evidence implicitly.
 
-Maven Site, Javadoc, coverage, test HTML and similar build reports stay in build artifacts or GitHub Pages and are not committed to `main`.
+Maven Site, Javadoc, coverage, test HTML and frontend build output remain build artifacts or GitHub Pages publications.
 
-**Acceptance for Phase 4**
-
-- generated files have identifiable generators;
-- verify and update behaviour are separate;
-- all local generation commands work without GitHub Actions;
-- report links and images remain valid;
-- no historical evidence is lost.
-
-## Phase 5 — Retire stale root documents
+## Phase 5 — Retire stale root roadmap documents
 
 ### `TODO.md`
 
 Audit every unchecked item:
 
-1. link it to an open issue with current scope, or create/update one broader issue when the work is still valid;
-2. mark claims already superseded by current code/research as obsolete;
+1. link it to an open issue with current scope, or create/update one broader issue when still valid;
+2. mark claims superseded by current code/research as obsolete;
 3. remove completed historical checklists that add no enduring rationale.
 
-Then replace `TODO.md` with a short pointer to GitHub issues or remove it after inbound links are updated. It must not remain a competing roadmap.
+Then replace `TODO.md` with a short pointer to GitHub issues or remove it after inbound links are updated. Planned work must not exist only in Markdown.
 
-### `BACKUP.md`
+### Redirect retirement
 
-After Phase 2.5, replace it with a short redirect to `docs/developer/operations.md` for one migration interval, then remove it when no inbound links remain.
+After one migration interval and an inbound-link audit, consider removing the redirects at:
 
-**Acceptance for Phase 5**
+- `BACKUP.md`;
+- `docs/architecture.md`;
+- `docs/development.md`;
+- `docs/test-strategy.md`.
 
-- no planned work exists only in Markdown;
-- no stale working-tree snapshot is presented as a current backup requirement;
-- all removed paths have updated inbound links or temporary redirects.
+Keep them longer when external links are likely and maintenance cost is negligible.
 
 ## Phase 6 — Validation and ownership
 
 Add repository-owned checks that are runnable locally and only orchestrated by CI:
 
 - internal Markdown link validation;
-- duplicate canonical-topic detection based on a small maintained ownership manifest, not vague text similarity;
 - generated-document verify mode;
 - check that generated HTML is not committed;
-- check that new module READMEs link to the Developer Manual for cross-module topics;
-- optional spelling/style checks that do not rewrite scientific terminology.
+- a small maintained canonical-topic ownership manifest;
+- check that module docs link to the Developer Manual for cross-module topics;
+- optional spelling/style checks that preserve scientific terminology.
 
 A documentation change is complete only when:
 
 - links pass;
 - referenced commands are executable;
 - generated evidence is verified rather than silently rewritten;
-- affected module and current-state documents agree with code/tests;
-- screenshots, when part of a user-visible workflow, are deterministic or mask volatile regions and are regenerated through an explicit update mode.
+- affected module/current-state documents agree with code and tests;
+- screenshots used as product evidence are deterministic or mask volatile regions and have an explicit update mode.
 
-## Pull-request sequence
+## Remaining pull-request sequence
 
-Keep migrations reviewable and reversible:
+1. CR3 entry point and maintained bridge pages;
+2. CR3 current-state/hypothesis/results path migration;
+3. research-process consolidation;
+4. generated report relocation and generator updates;
+5. `TODO.md` retirement;
+6. validation automation and final link audit.
 
-1. authority map and index;
-2. architecture/modules;
-3. contributing/testing/operations;
-4. CR3 index and maintained pages;
-5. generated report relocation and generator updates;
-6. stale root-document retirement;
-7. validation automation and final link audit.
-
-Do not combine production-code changes with these documentation moves unless a generator or executable documentation test must change to keep evidence reproducible.
+Do not combine unrelated production-code changes with these documentation moves unless a generator, executable documentation test or repository-owned verification command must change to keep the documentation truthful and reproducible.
