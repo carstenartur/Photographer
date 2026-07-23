@@ -1,43 +1,56 @@
 # plugin-api
 
-Stable SPI (Service Provider Interface) module for Focus Stack plugins.
-Defines the extension points that external plugin JARs implement to add
-camera backends, analysis algorithms, or AI vision providers at runtime.
+Stable SPI (Service Provider Interface) module for Focus Stack plugins. It defines extension points that external plugin JARs implement to add camera backends, analysis algorithms or AI vision providers at runtime.
 
-## Extension Points
+## Extension points
 
 | Interface | Extends | Purpose |
 |---|---|---|
-| `AnalysisPlugin` | — | Custom image analysis algorithms |
-| `CameraBackendPlugin` | `CameraBackend` | Additional camera backends (e.g. Sony, Nikon) |
-| `VisionProviderPlugin` | `VisionProvider` | Alternative AI vision providers (e.g. OpenAI) |
+| `AnalysisPlugin` | — | Custom image-analysis algorithms. |
+| `CameraBackendPlugin` | `CameraBackend` | Additional camera backends. |
+| `VisionProviderPlugin` | `VisionProvider` | Alternative AI vision providers. |
 
-## Supporting Types
+`VisionProvider` and its context/result/capability records are neutral contracts owned by `common-api`. This SPI deliberately does not depend on the concrete `ai-vision` provider module.
+
+## Supporting types
 
 | Type | Role |
 |---|---|
-| `PluginMetadata` | Record describing a plugin (id, name, version, author, license) |
-| `AnalysisContext` | Parameter map passed to analysis plugins |
-| `AnalysisPluginResult` | Result record returned by analysis plugins |
+| `PluginMetadata` | Plugin id, name, version, author and license. |
+| `AnalysisContext` | Parameter map passed to analysis plugins. |
+| `AnalysisPluginResult` | Result returned by analysis plugins. |
 
 ## Usage
 
 External plugins:
-1. Implement one or more SPI interfaces from this module.
-2. Register the implementation in `META-INF/services/<interface-fqn>`.
-3. Package as a JAR and place it in the `plugins/` directory.
-4. The `FocusStackPluginManager` discovers and loads plugins at startup.
 
-Built-in components (CCAPI, mock, Gemini) do **not** use this module —
-they are wired directly via Spring in the `app` module.
+1. implement one or more SPI interfaces from this module;
+2. register the implementation in `META-INF/services/<interface-fqn>`;
+3. package the implementation as a JAR and place it in the `plugins/` directory;
+4. let `FocusStackPluginManager` discover and load it at startup.
+
+Built-in components such as CCAPI, mock and Gemini do not need this SPI; the `app` module composes them directly.
 
 ## Dependencies
 
-- `common-api` — shared records and `CameraBackend` interface
-- `ai-vision` — `VisionProvider` interface
+- `common-api` — neutral camera, analysis and vision contracts;
+- `slf4j-api` — logging facade.
 
-## Design Principles
+Forbidden dependencies are enforced by `scripts/validate_vision_module_boundaries.py`:
 
-- **No Spring dependency** — plugins must not depend on Spring Framework.
-- **Stable contracts** — SPI interfaces change only with major version bumps.
-- **Minimal surface** — only types needed by plugin authors are exposed.
+- no `plugin-api -> ai-vision`;
+- no `plugin-api -> observer-core`.
+
+## Design principles
+
+- **No Spring dependency** — plugin contracts remain framework-neutral.
+- **No provider implementation dependency** — the SPI must be usable without Gemini/mock code.
+- **Stable contracts** — incompatible SPI changes require explicit compatibility handling.
+- **Minimal surface** — only types required by plugin authors are exposed.
+
+## Verification
+
+```bash
+python3 scripts/validate_vision_module_boundaries.py .
+mvn -B clean verify -pl plugin-api -am -Djava.awt.headless=true
+```
