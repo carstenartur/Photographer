@@ -74,3 +74,7 @@ exist for fixture/reference comparison and may change or be removed without noti
 ```bash
 mvn -B clean verify -pl canon-cr3-core -am
 ```
+
+## Canonical documentation
+
+The [CR3 / CRX Manual](../docs/cr3/index.md) owns cross-module maturity, supported behavior and navigation. This README remains the facade-local API summary.
