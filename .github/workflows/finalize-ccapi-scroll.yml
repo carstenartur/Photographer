@@ -40,38 +40,72 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Apply complete Canon stop body to inherited paths
+      - name: Apply protocol and lifecycle finalizations
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          old = 'ccapiPost(url, Map.of("liveviewsize", "off"));'
-          new = ('ccapiPost(url, Map.of(\n'
-                 '                        "liveviewsize", "off",\n'
-                 '                        "cameradisplay", "on"));')
-          paths = [
-              Path('app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiBackend.java'),
-              Path('app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiStatusBackend.java'),
-          ]
-          for path in paths:
+          stop_old = 'ccapiPost(url, Map.of("liveviewsize", "off"));'
+          stop_new = ('ccapiPost(url, Map.of(\n'
+                      '                        "liveviewsize", "off",\n'
+                      '                        "cameradisplay", "on"));')
+          for path_name in [
+              'app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiBackend.java',
+              'app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiStatusBackend.java',
+          ]:
+              path = Path(path_name)
               text = path.read_text(encoding='utf-8')
-              count = text.count(old)
+              count = text.count(stop_old)
               if count != 1:
                   raise SystemExit(f'{path}: expected one legacy stop body, found {count}')
-              path.write_text(text.replace(old, new), encoding='utf-8')
+              path.write_text(text.replace(stop_old, stop_new), encoding='utf-8')
+
+          production = Path(
+              'app/src/main/java/com/photographer/focusstack/camera/backend/'
+              'CanonCcapiProductionBackend.java'
+          )
+          text = production.read_text(encoding='utf-8')
+          capture_old = '''        scrollLiveViewReader.stop();
+                  liveViewClient.markStopped();
+                  return delegate.capture();'''
+          capture_new = '''        try {
+                      scrollLiveViewReader.stop();
+                  } finally {
+                      liveViewClient.markStopped();
+                  }
+                  return delegate.capture();'''
+          if text.count(capture_old) != 1:
+              raise SystemExit(
+                  f'{production}: expected one scroll capture lifecycle block')
+          text = text.replace(capture_old, capture_new)
+
+          comparator_old = '''.max(Comparator.comparingInt(entry -> versionNumber(endpointPath(entry.getValue())))
+                                  .thenComparing(entry -> endpointPath(entry.getValue())))'''
+          comparator_new = '''.max(Comparator.comparingInt(
+                                  (Map.Entry<String, String> entry) ->
+                                          versionNumber(endpointPath(entry.getValue())))
+                                  .thenComparing(entry -> endpointPath(entry.getValue())))'''
+          if text.count(comparator_old) != 1:
+              raise SystemExit(
+                  f'{production}: expected one scroll endpoint comparator')
+          production.write_text(
+              text.replace(comparator_old, comparator_new), encoding='utf-8')
           PY
+
           git diff --check
-          git diff -- app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiBackend.java \
-            app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiStatusBackend.java
+          git diff -- \
+            app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiBackend.java \
+            app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiStatusBackend.java \
+            app/src/main/java/com/photographer/focusstack/camera/backend/CanonCcapiProductionBackend.java
 
       - name: Run focused CCAPI live-view tests
         shell: bash
         run: |
           mvn -B --no-transfer-progress clean test \
             -pl app -am \
-            -Dtest=CanonCcapiScrollLiveViewReaderTest,CanonCcapiProductionLiveViewTest,CanonCcapiStatusBackendTest,CcapiLiveViewClientTest \
+            -Dtest=CanonCcapiScrollLiveViewReaderTest,CanonCcapiScrollCaptureLifecycleTest,CanonCcapiProductionLiveViewTest,CanonCcapiStatusBackendTest,CcapiLiveViewClientTest \
             -Dsurefire.failIfNoSpecifiedTests=false \
             -Djava.awt.headless=true
 
@@ -83,5 +117,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/finalize-ccapi-scroll.yml
           git add -A
-          git commit -m 'fix(ccapi): use complete live-view stop body on all paths'
+          git commit -m 'fix(ccapi): finalize scroll cancellation and stop bodies'
           git push origin HEAD:hardening/ccapi-liveview-scroll
