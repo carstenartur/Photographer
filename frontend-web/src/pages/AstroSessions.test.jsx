@@ -83,6 +83,8 @@ describe('AstroSessions robust stacking', () => {
     fireEvent.click(sessionCell)
 
     expect(screen.getAllByText('SIGMA_CLIPPED_MEAN').length).toBeGreaterThan(0)
-    expect(screen.getByText(/stacking progress:\s*37%/i)).toBeInTheDocument()
+    const progress = screen.getByRole('progressbar', { name: /stacking progress/i })
+    expect(progress).toHaveAttribute('value', '37')
+    expect(progress).toHaveAttribute('max', '100')
   })
 })
