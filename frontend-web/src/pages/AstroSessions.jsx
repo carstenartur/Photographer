@@ -188,6 +188,8 @@ export default function AstroSessions() {
     setPolling(!TERMINAL.has(session.status));
   }
 
+  const stackingProgress = activeSession?.stackingProgressPercent || 0;
+
   return (
     <div className="page">
       <div className="page-header">
@@ -299,7 +301,15 @@ export default function AstroSessions() {
           <p><strong>Focus:</strong> {activeSession.focusConfig?.strategy || '—'}</p>
           <p><strong>Stacking:</strong> {stackingMode(activeSession)}</p>
           {activeSession.status === 'STACKING' && (
-            <p><strong>Stacking progress:</strong> {activeSession.stackingProgressPercent || 0}%</p>
+            <p>
+              <strong>Stacking progress:</strong>{' '}
+              <progress
+                aria-label="Stacking progress"
+                max="100"
+                value={stackingProgress}
+              />{' '}
+              {stackingProgress}%
+            </p>
           )}
           {activeSession.stackingSummary && (
             <p><strong>Result:</strong> {activeSession.stackingSummary}</p>
