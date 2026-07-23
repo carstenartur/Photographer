@@ -152,12 +152,13 @@ class DocumentationValidatorTest(unittest.TestCase):
             ):
                 validate(root)
 
-    def test_ignores_links_inside_code_fences_and_comments(self) -> None:
+    def test_ignores_links_inside_fences_comments_and_inline_code(self) -> None:
         text = """# Doc
 ```
 [not a link](missing.md)
 ```
 <!-- [also ignored](missing.md) -->
+`[inline example](missing.md)`
 [real](present.md)
 """
         links = parse_links(Path("README.md"), text)
@@ -165,6 +166,12 @@ class DocumentationValidatorTest(unittest.TestCase):
 
     def test_github_style_duplicate_heading_anchors(self) -> None:
         self.assertEqual({"title", "title-1"}, anchors("# Title\n# Title\n"))
+
+    def test_github_style_inline_code_heading_anchors(self) -> None:
+        self.assertEqual(
+            {"camera-ptp", "ccapi-in-app"},
+            anchors("### `camera-ptp`\n### CCAPI in `app`\n"),
+        )
 
     @staticmethod
     def _write(root: Path, relative: str, content: str) -> None:
