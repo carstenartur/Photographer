@@ -1,126 +1,159 @@
 package com.photographer.focusstack.ai.permission;
 
 import com.photographer.focusstack.ai.VisionContext;
+import com.photographer.focusstack.ai.VisionFailureKind;
 import com.photographer.focusstack.ai.VisionResult;
 import com.photographer.focusstack.ai.mock.MockVisionProvider;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AIGatewayTest {
 
     private static final byte[] IMAGE = new byte[]{1, 2, 3};
 
-    private MockVisionProvider makeDelegate(String label) {
-        VisionResult r = new VisionResult("mock", "m", "classification",
-                label, java.util.List.of(), 0.9, null, java.util.List.of(), null, 5L, true, null);
-        return new MockVisionProvider(r);
-    }
-
-    // ---- DISABLED ----
-
-    @Test
-    void disabled_classifyImage_returnsDenied() {
-        AIGateway gw = new AIGateway(makeDelegate("Vogel"), AIPermission.DISABLED);
-        VisionResult result = gw.classifyImage(IMAGE, VisionContext.wildlife());
-        assertFalse(result.successful());
-        assertTrue(result.errorMessage().contains("Permission denied"));
+    private static MockVisionProvider delegate(String label) {
+        return new MockVisionProvider(new VisionResult(
+                "mock", "m", "classification", label,
+                List.of(), 0.9, null, List.of(), null,
+                5L, true, null));
     }
 
     @Test
-    void disabled_isAvailable_returnsFalse() {
-        AIGateway gw = new AIGateway(makeDelegate("Vogel"), AIPermission.DISABLED);
-        assertFalse(gw.isAvailable());
-    }
+    void disabledClassificationReturnsTypedPolicyDenial() {
+        MockVisionProvider delegate = delegate("Vogel");
+        AIGateway gateway = new AIGateway(delegate, AIPermission.DISABLED);
 
-    @Test
-    void disabled_delegate_neverCalled() {
-        MockVisionProvider delegate = makeDelegate("Vogel");
-        AIGateway gw = new AIGateway(delegate, AIPermission.DISABLED);
-        gw.classifyImage(IMAGE, VisionContext.wildlife());
+        VisionResult result = gateway.classifyImage(
+                IMAGE, VisionContext.wildlife());
+
+        assertPolicyDenied(result, "classification");
         assertEquals(0, delegate.getCallCount());
     }
 
-    // ---- READ_ONLY / FULL_IMAGES ----
+    @Test
+    void deniedOperationsKeepTaskSpecificShapeWithoutCallingDelegate() {
+        MockVisionProvider delegate = delegate("Vogel");
+        AIGateway gateway = new AIGateway(delegate, AIPermission.DISABLED);
+
+        assertPolicyDenied(
+                gateway.describeImage(IMAGE, VisionContext.wildlife()),
+                "description");
+        assertPolicyDenied(
+                gateway.detectObjects(IMAGE, VisionContext.wildlife()),
+                "object_detection");
+        assertPolicyDenied(
+                gateway.rankBestImage(List.of(IMAGE), VisionContext.wildlife()),
+                "ranking");
+        assertEquals(0, delegate.getCallCount());
+    }
 
     @Test
-    void readOnlyFull_classifyImage_delegateIsCalled() {
-        MockVisionProvider delegate = makeDelegate("Kohlmeise");
-        AIGateway gw = new AIGateway(delegate, AIPermission.READ_ONLY_FULL);
-        VisionResult result = gw.classifyImage(IMAGE, VisionContext.wildlife());
+    void disabledIsUnavailable() {
+        AIGateway gateway = new AIGateway(
+                delegate("Vogel"), AIPermission.DISABLED);
+
+        assertFalse(gateway.isAvailable());
+    }
+
+    @Test
+    void readOnlyFullDelegatesClassification() {
+        MockVisionProvider delegate = delegate("Kohlmeise");
+        AIGateway gateway = new AIGateway(
+                delegate, AIPermission.READ_ONLY_FULL);
+
+        VisionResult result = gateway.classifyImage(
+                IMAGE, VisionContext.wildlife());
+
         assertTrue(result.successful());
+        assertEquals(VisionFailureKind.NONE, result.failureKind());
         assertEquals("Kohlmeise", result.primaryLabel());
         assertEquals(1, delegate.getCallCount());
     }
 
     @Test
-    void readOnlyFull_isAvailable_trueWhenDelegateAvailable() {
-        AIGateway gw = new AIGateway(makeDelegate("x"), AIPermission.READ_ONLY_FULL);
-        assertTrue(gw.isAvailable());
+    void readOnlyFullIsAvailableWhenDelegateIsAvailable() {
+        AIGateway gateway = new AIGateway(
+                delegate("x"), AIPermission.READ_ONLY_FULL);
+
+        assertTrue(gateway.isAvailable());
     }
 
-    // ---- Privacy scope blocks full images ----
-
     @Test
-    void metadataOnlyScope_classifyImage_returnsDenied() {
-        AIPermission metadataOnly = new AIPermission(AIAccessLevel.READ_ONLY, AIPrivacyScope.METADATA_ONLY);
-        MockVisionProvider delegate = makeDelegate("Vogel");
-        AIGateway gw = new AIGateway(delegate, metadataOnly);
-        VisionResult result = gw.classifyImage(IMAGE, VisionContext.wildlife());
-        assertFalse(result.successful());
+    void metadataOnlyScopeReturnsPolicyDenial() {
+        AIPermission metadataOnly = new AIPermission(
+                AIAccessLevel.READ_ONLY,
+                AIPrivacyScope.METADATA_ONLY);
+        MockVisionProvider delegate = delegate("Vogel");
+        AIGateway gateway = new AIGateway(delegate, metadataOnly);
+
+        VisionResult result = gateway.classifyImage(
+                IMAGE, VisionContext.wildlife());
+
+        assertPolicyDenied(result, "classification");
         assertEquals(0, delegate.getCallCount());
     }
 
-    // ---- setPermission updates at runtime ----
-
     @Test
-    void setPermission_updatesEnforcedPolicy() {
-        MockVisionProvider delegate = makeDelegate("Vogel");
-        AIGateway gw = new AIGateway(delegate, AIPermission.DISABLED);
+    void setPermissionUpdatesEnforcedPolicy() {
+        MockVisionProvider delegate = delegate("Vogel");
+        AIGateway gateway = new AIGateway(delegate, AIPermission.DISABLED);
 
-        // Initially blocked
-        gw.classifyImage(IMAGE, VisionContext.wildlife());
+        gateway.classifyImage(IMAGE, VisionContext.wildlife());
         assertEquals(0, delegate.getCallCount());
 
-        // Elevate permission
-        gw.setPermission(AIPermission.READ_ONLY_FULL);
-        gw.classifyImage(IMAGE, VisionContext.wildlife());
+        gateway.setPermission(AIPermission.READ_ONLY_FULL);
+        gateway.classifyImage(IMAGE, VisionContext.wildlife());
         assertEquals(1, delegate.getCallCount());
     }
 
     @Test
-    void getPermission_returnsCurrentPermission() {
-        AIGateway gw = new AIGateway(makeDelegate("x"), AIPermission.DISABLED);
-        assertEquals(AIPermission.DISABLED, gw.getPermission());
-        gw.setPermission(AIPermission.READ_ONLY_FULL);
-        assertEquals(AIPermission.READ_ONLY_FULL, gw.getPermission());
+    void getPermissionReturnsCurrentPermission() {
+        AIGateway gateway = new AIGateway(
+                delegate("x"), AIPermission.DISABLED);
+        assertEquals(AIPermission.DISABLED, gateway.getPermission());
+
+        gateway.setPermission(AIPermission.READ_ONLY_FULL);
+        assertEquals(AIPermission.READ_ONLY_FULL, gateway.getPermission());
     }
 
-    // ---- name ----
-
     @Test
-    void name_wrapsDelegate() {
-        AIGateway gw = new AIGateway(makeDelegate("x"), AIPermission.DISABLED);
-        assertTrue(gw.name().contains("mock"));
+    void nameWrapsDelegate() {
+        AIGateway gateway = new AIGateway(
+                delegate("x"), AIPermission.DISABLED);
+
+        assertTrue(gateway.name().contains("mock"));
     }
 
-    // ---- null safety ----
-
     @Test
-    void constructor_nullDelegate_throws() {
+    void constructorAndSetterRejectNulls() {
         assertThrows(NullPointerException.class,
                 () -> new AIGateway(null, AIPermission.DISABLED));
-    }
-
-    @Test
-    void constructor_nullPermission_throws() {
         assertThrows(NullPointerException.class,
-                () -> new AIGateway(makeDelegate("x"), null));
+                () -> new AIGateway(delegate("x"), null));
+
+        AIGateway gateway = new AIGateway(
+                delegate("x"), AIPermission.DISABLED);
+        assertThrows(NullPointerException.class,
+                () -> gateway.setPermission(null));
     }
 
-    @Test
-    void setPermission_null_throws() {
-        AIGateway gw = new AIGateway(makeDelegate("x"), AIPermission.DISABLED);
-        assertThrows(NullPointerException.class, () -> gw.setPermission(null));
+    private static void assertPolicyDenied(
+            VisionResult result,
+            String taskType) {
+        assertFalse(result.successful());
+        assertEquals(taskType, result.taskType());
+        assertEquals("unclassified", result.primaryLabel());
+        assertEquals(VisionFailureKind.POLICY_DENIED, result.failureKind());
+        assertFalse(result.retryable());
+        assertNull(result.retryAfterSeconds());
+        assertNull(result.rawResponse());
+        assertTrue(result.errorMessage().contains("policy denied"));
     }
 }
