@@ -21,7 +21,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       MAVEN_OPTS: -Xmx2g
     steps:
@@ -40,7 +40,7 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Apply Canon-specified stop body
+      - name: Apply and verify Canon-specified stop body
         shell: bash
         run: |
           set -euo pipefail
@@ -48,45 +48,71 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          old = '"{\\"liveviewsize\\":\\"off\\"}"'
-          new = '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"'
+          java_old = '"{\\"liveviewsize\\":\\"off\\"}"'
+          java_new = '"{\\"liveviewsize\\":\\"off\\",\\"cameradisplay\\":\\"on\\"}"'
 
-          production = Path(
-              'app/src/main/java/com/photographer/focusstack/camera/backend/'
-              'CcapiLiveViewClient.java'
-          )
-          text = production.read_text(encoding='utf-8')
-          production_old = old + '.getBytes(StandardCharsets.UTF_8);'
-          production_new = new + '\n                    .getBytes(StandardCharsets.UTF_8);'
-          if text.count(production_old) != 1:
-              raise SystemExit('Expected one production stop-body constant')
-          production.write_text(text.replace(production_old, production_new), encoding='utf-8')
-
-          for path_name, expected in [
-              (
-                  'app/src/test/java/com/photographer/focusstack/camera/backend/'
-                  'CcapiLiveViewClientTest.java',
-                  2,
-              ),
-              (
-                  'app/src/test/java/com/photographer/focusstack/camera/backend/'
-                  'CanonCcapiProductionLiveViewTest.java',
-                  1,
-              ),
-          ]:
+          def replace_exact(path_name: str, old: str, new: str, expected: int) -> None:
               path = Path(path_name)
               text = path.read_text(encoding='utf-8')
               count = text.count(old)
               if count != expected:
-                  raise SystemExit(f'{path}: expected {expected} old assertions, found {count}')
+                  raise SystemExit(
+                      f'{path}: expected {expected} canonicalization anchor(s), found {count}')
               path.write_text(text.replace(old, new), encoding='utf-8')
+
+          production = (
+              'app/src/main/java/com/photographer/focusstack/camera/backend/'
+              'CcapiLiveViewClient.java'
+          )
+          replace_exact(
+              production,
+              java_old + '.getBytes(StandardCharsets.UTF_8);',
+              java_new + '\n                    .getBytes(StandardCharsets.UTF_8);',
+              1,
+          )
+          replace_exact(
+              'app/src/test/java/com/photographer/focusstack/camera/backend/'
+              'CcapiLiveViewClientTest.java',
+              java_old,
+              java_new,
+              2,
+          )
+          replace_exact(
+              'app/src/test/java/com/photographer/focusstack/camera/backend/'
+              'CanonCcapiProductionLiveViewTest.java',
+              java_old,
+              java_new,
+              1,
+          )
+          replace_exact(
+              'docs/ccapi-live-view.md',
+              '{"liveviewsize":"off"}',
+              '{"liveviewsize":"off","cameradisplay":"on"}',
+              1,
+          )
           PY
 
-      - name: Run focused live-view tests
+          git diff --check
+          git diff -- \
+            app/src/main/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClient.java \
+            app/src/test/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClientTest.java \
+            app/src/test/java/com/photographer/focusstack/camera/backend/CanonCcapiProductionLiveViewTest.java \
+            docs/ccapi-live-view.md | tee target/liveview-body-gate/source.patch
+
+          test "$(grep -Fxc '            "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}"' \
+            app/src/main/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClient.java)" -eq 1
+          test "$(grep -Foc '{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}' \
+            app/src/test/java/com/photographer/focusstack/camera/backend/CcapiLiveViewClientTest.java)" -eq 2
+          test "$(grep -Foc '{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}' \
+            app/src/test/java/com/photographer/focusstack/camera/backend/CanonCcapiProductionLiveViewTest.java)" -eq 1
+          grep -Fx '{"liveviewsize":"off","cameradisplay":"on"}' \
+            docs/ccapi-live-view.md >/dev/null
+
+      - name: Run focused live-view tests from a clean reactor
         shell: bash
         run: |
           set -o pipefail
-          mvn -B --no-transfer-progress test \
+          mvn -B --no-transfer-progress clean test \
             -pl app -am \
             -Dtest=CcapiLiveViewClientTest,CanonCcapiProductionLiveViewTest \
             -Dsurefire.failIfNoSpecifiedTests=false \
@@ -106,10 +132,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ccapi-liveview-body-gate
+          name: ccapi-liveview-body-gate-${{ github.run_attempt }}
           path: |
             target/liveview-body-gate
             **/target/surefire-reports
+            **/target/failsafe-reports
           if-no-files-found: warn
           retention-days: 14
 
