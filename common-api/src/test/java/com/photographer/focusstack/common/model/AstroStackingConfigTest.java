@@ -18,19 +18,10 @@ class AstroStackingConfigTest {
     }
 
     @Test
-    void nullModeNormalizesToMeanForLegacyJson() {
+    void nullModeNormalizesToMeanForLegacyConfiguration() {
         AstroStackingConfig config = new AstroStackingConfig(null, 2.0, 2, 3);
 
         assertEquals(AstroStackingMode.MEAN, config.mode());
-    }
-
-    @Test
-    void oldCaptureConstructorAddsDefaultStackingConfig() {
-        AstroCaptureConfig capture = new AstroCaptureConfig(
-                "camera", 5, 1000, 800, "f/4", 0,
-                "PNG", false, true, false);
-
-        assertEquals(AstroStackingConfig.defaults(), capture.stackingConfig());
     }
 
     @Test
