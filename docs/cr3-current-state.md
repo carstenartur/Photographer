@@ -21,6 +21,7 @@
 - D11 established the exact public-primary-source base bracket: minimise `L(S,K)=(S>>K)+1+K` over a finite K domain and move K by at most one toward the optimum range.
 - D12 showed that the exact range is not sufficient when driven by the currently decoded symbol.
 - D13 found no source-supported and causally representable `Sd`/`Kd` mapping in the current evidence.
+- RG1 showed that a scalar first-sample DC/pedestal is not the sole missing semantic: after oracle-seeding the first sample, every stream still fails at its first required non-zero reference residual.
 
 ## D12 result
 
@@ -54,13 +55,31 @@ The fixed panel therefore proves a stable lossless two-tile/four-plane/single-su
 
 The durable report is [D13 context and topology](cr3-results/2026-07-20-D13-context-topology.md). No D14 semantic experiment is authorized.
 
+## RG1 result
+
+Final verdict: **PEDESTAL_ONLY_INSUFFICIENT_AND_EARLIEST_NONZERO_SYMBOL_UNEXPLAINED**.
+
+RG1 compared the unchanged test-scope decoder trace with the manifest-bound LibRaw sensor mosaics. With the configured seed `0`, all 88 tile/plane streams fail at symbol `0`. An explicitly diagnostic oracle run replaced only that seed with each stream's first correct reference sample.
+
+The oracle seed removed the initial mismatch but produced only a one-to-six-sample correct prefix:
+
+- 71 streams failed at symbol 1;
+- 9 at symbol 2;
+- 4 at symbol 3;
+- 2 at symbol 4;
+- 2 at symbol 6.
+
+At every first oracle-seeded divergence, predictor context agreed, while the candidate decoded unsigned symbol and residual `0`; the reference required a non-zero signed residual between `-131` and `+119`. The result rejects a scalar pedestal as a complete explanation but does not choose among initialization, framing/alignment, mapping, sample-domain transform or residual-representation causes.
+
+The durable report is [RG1 LibRaw-guided first divergence](cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md). Production remains unchanged.
+
 ## Current priority
 
 RAW work is blocked on genuinely new evidence, not on another fitted formula. Useful next inputs would be one of:
 
 - a legally usable multi-subband CRX corpus with independently established per-subband geometry and ordering;
 - a public primary source that fully specifies `Sd`, `Kd`, initialization, rounding, clamps and boundaries;
-- new first-party structural observations that identify causal context without selecting by image quality.
+- new first-party structural observations that identify causal context without selecting by image quality, including the controlled JPEG/CR3 closed-loop capture corpus.
 
 Do not repeat current-symbol K rules, neighbour-coordinate searches, subband permutations, broad predictor sweeps, CFA/alignment sweeps or combined `Sd`/`Kd`/reset experiments.
 
@@ -75,3 +94,4 @@ Do not repeat current-symbol K rules, neighbour-coordinate searches, subband per
 - [D11 Canon K source audit](cr3-results/2026-07-20-D11-canon-k-source-audit.md)
 - [D12 exact K bracket](cr3-results/2026-07-20-D12-exact-k-bracket.md)
 - [D13 context and topology](cr3-results/2026-07-20-D13-context-topology.md)
+- [RG1 LibRaw-guided first divergence](cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md)
