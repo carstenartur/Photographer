@@ -51,7 +51,7 @@ public final class CcapiRestTemplateFactory {
     private static final String AUTH_CHALLENGED_ATTRIBUTE =
             CcapiRestTemplateFactory.class.getName() + ".authChallenged";
     private static final Pattern CHALLENGE_PARAMETER = Pattern.compile(
-            "(?i)(?:^|,)\\s*([a-zA-Z0-9_-]+)\\s*=\\s*(?:\\\"([^\\\"]*)\\\"|([^,\\s]+))");
+            "(?i)(?:^|,)\\s*([a-zA-Z0-9_-]+)\\s*=\\s*(?:\"([^\"]*)\"|([^,\\s]+))");
 
     private final CameraConfig cameraConfig;
     private final CcapiAuthenticationProperties authenticationProperties;
@@ -209,9 +209,22 @@ public final class CcapiRestTemplateFactory {
     }
 
     private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
+        if (hasCompatibleCanonDigestChallenge(challenges)) {
+            return;
+        }
+        if (containsDigestChallenge(challenges)) {
+            outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
+            throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
+        }
+        // A Basic-only or otherwise non-Digest challenge is not answered because
+        // RequestConfig permits Digest only. The bounded final 401 is translated by
+        // CcapiResponseErrorHandler without exposing challenge material.
+    }
+
+    static boolean hasCompatibleCanonDigestChallenge(Header[] challenges) {
         for (Header challenge : challenges) {
             String value = challenge.getValue();
-            if (value == null || !value.regionMatches(true, 0, "Digest ", 0, 7)) {
+            if (!isDigestChallenge(value)) {
                 continue;
             }
             String parameters = value.substring(7);
@@ -220,15 +233,21 @@ public final class CcapiRestTemplateFactory {
             boolean supportsAuth = Arrays.stream(qop.split(","))
                     .map(String::trim)
                     .anyMatch("auth"::equalsIgnoreCase);
-            if (!"MD5".equalsIgnoreCase(algorithm) || !supportsAuth) {
-                outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
-                throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
+            if ("MD5".equalsIgnoreCase(algorithm) && supportsAuth) {
+                return true;
             }
-            return;
         }
-        // A Basic-only or otherwise non-Digest challenge is not answered because
-        // RequestConfig permits Digest only. The bounded final 401 is translated by
-        // CcapiResponseErrorHandler without exposing challenge material.
+        return false;
+    }
+
+    private static boolean containsDigestChallenge(Header[] challenges) {
+        return Arrays.stream(challenges)
+                .map(Header::getValue)
+                .anyMatch(CcapiRestTemplateFactory::isDigestChallenge);
+    }
+
+    private static boolean isDigestChallenge(String value) {
+        return value != null && value.regionMatches(true, 0, "Digest ", 0, 7);
     }
 
     private static Optional<String> parameter(String challenge, String name) {
