@@ -17,6 +17,18 @@ For each symbol, the project independently derives the reference W, N and NW sam
 
 See [`cleanroom/README.md`](cleanroom/README.md) for the complete evidence policy.
 
+## Initialization modes
+
+Every tile/plane stream is analysed twice.
+
+`CONFIGURED_BASELINE`
+: Preserves the historical research decoder configuration, including its configured first-pixel seed. This records whether the current candidate already disagrees at stream initialization.
+
+`REFERENCE_FIRST_SAMPLE_ORACLE`
+: Uses the first correct reference sample as the seed for that stream. This deliberately neutralizes the already-known DC/pedestal discrepancy and asks where the same unchanged bitstream, sign mapping, K adaptation and predictor next contradict the reference. It is a diagnostic isolation technique, not a proposed way to decode unknown files and not eligible for direct production promotion.
+
+The report keeps the two modes separate and records the effective seed and the number of samples that matched before the first divergence.
+
 ## Execution
 
 The integration test is disabled by default. It requires both the research Failsafe profile and an explicit opt-in property:
@@ -48,8 +60,10 @@ canon-cr3-research/target/libraw-guided-first-divergence/
 
 Output ordering is deterministic and no runtime timestamps are included.
 
-For every lossless tile/plane stream the report records:
+For every lossless tile/plane stream and initialization mode the report records:
 
+- initialization mode and effective first-pixel seed;
+- matched-prefix length before the first contradiction;
 - bounded result classification;
 - symbol ordinal and local plane coordinate;
 - corresponding full-sensor Bayer coordinate;
@@ -65,7 +79,7 @@ For every lossless tile/plane stream the report records:
 ## Classification
 
 `PREDICTOR_CONTEXT`
-: The decoder predictor already differs from the predictor calculated from correct reference neighbours. Later residual differences are therefore not treated as the first causal stage.
+: At the first mismatching sample, the decoder predictor differs from the predictor calculated from correct reference neighbours. Because all earlier samples in the reported prefix matched, this points to an edge/reset, coordinate or predictor-rule discrepancy rather than accumulated image error.
 
 `SYMBOL_OR_RESIDUAL_INTERPRETATION`
 : Predictor context agrees, but the decoded unsigned symbol or signed residual does not match the reference-derived residual.
@@ -85,7 +99,7 @@ A first mismatch narrows the failure location but does not by itself prove a rep
 
 - LibRaw does not expose its internal CRX state;
 - the reference cannot directly identify Canon's `Sd` or `Kd` lifecycle;
-- a predictor-context mismatch may itself be downstream of an earlier incorrectly reconstructed neighbour;
+- the oracle-seeded run intentionally uses expected output to isolate initialization and therefore cannot serve as a standalone decoder algorithm;
 - a production change still requires a separately pre-registered semantic candidate and the existing completion/reference gates.
 
 The machine-readable report is intended as input for a subsequent bounded hypothesis or for an AI-assisted experiment loop. It is not an automatic decoder patch generator.
