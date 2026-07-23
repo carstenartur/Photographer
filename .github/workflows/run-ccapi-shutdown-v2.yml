@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   harden-test-publish:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
@@ -60,31 +61,75 @@ jobs:
           from pathlib import Path
 
           path = Path('app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java')
-          text = path.read_text()
+          text = path.read_text(encoding='utf-8')
           irregular = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-       .isInstanceOf(IllegalStateException.class)
-       .hasMessageContaining("shutting down");'''
+                 .isInstanceOf(IllegalStateException.class)
+                 .hasMessageContaining("shutting down");'''
           canonical = '''        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("shutting down");'''
+                  .isInstanceOf(IllegalStateException.class)
+                  .hasMessageContaining("shutting down");'''
           if irregular in text:
-              path.write_text(text.replace(irregular, canonical))
+              path.write_text(text.replace(irregular, canonical), encoding='utf-8')
           elif canonical not in text:
               raise SystemExit('shutdown lease test assertion anchor not found')
           PY
             python /tmp/harden_ccapi_shutdown_v2.py
+            python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_name: str, old: str, new: str) -> None:
+              path = Path(path_name)
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(
+                      f'{path_name}: expected one anchor, found {count}: {old[:100]!r}')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java',
+              '''    @PreDestroy
+              public void close() {
+                  beginShutdown();
+                  int active = leases.size();
+                  if (active != 0) {
+            throw new IllegalStateException(
+                    "Camera session lease manager closed with " + active + " active lease(s)");
+                  }
+              }''',
+              '''    @PreDestroy
+              public void close() {
+                  synchronized (lifecycleMonitor) {
+                      beginShutdown();
+                      int active = leases.size();
+                      if (active != 0) {
+                          throw new IllegalStateException(
+                                  "Camera session lease manager closed with " + active
+                                          + " active lease(s)");
+                      }
+                  }
+              }''')
+
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java',
+              '      duration -> Thread.sleep(duration.toMillis()));',
+              '      Thread::sleep);')
+          PY
 
             mvn -B --no-transfer-progress test \
               -pl app -am \
               -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
               -Dsurefire.failIfNoSpecifiedTests=false \
               -Djava.awt.headless=true
-            mvn -B --no-transfer-progress test -pl app -am -Djava.awt.headless=true
+            mvn -B --no-transfer-progress clean verify \
+              -pl common-api,app -am \
+              -Djava.awt.headless=true
 
             git add app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
                     session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
                     app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
                     app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
+                    app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java \
                     app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
                     session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
                     session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
@@ -92,7 +137,7 @@ jobs:
                     app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
                     app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
                     app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
-            git commit -m 'fix(ccapi): persist queued shutdown and expose fixed 503'
+            git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
             git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
           } 2>&1 | tee target/shutdown-hardening-diagnostics/full.log
 
