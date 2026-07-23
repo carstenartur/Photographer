@@ -66,3 +66,7 @@ mvn -B clean verify \
 
 `.github/workflows/cr3-research.yml` invokes exactly this command manually and
 on a weekly schedule, publishes JUnit reports, and uploads generated artifacts.
+
+## Canonical documentation
+
+The mandatory clean-room process, current evidence boundary and production-promotion rules are maintained in [CR3 research](../docs/cr3/research.md). This README owns only research-module execution and dependency details.
