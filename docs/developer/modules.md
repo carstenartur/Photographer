@@ -6,8 +6,8 @@ The root Maven reactor is the authoritative module list. This chapter classifies
 
 | Module | Role | Support boundary |
 |---|---|---|
-| `common-api` | Shared records, camera contracts, capabilities, media, policy, events and transport-neutral interfaces | Foundation library; keep framework dependencies minimal. |
-| `plugin-api` | ServiceLoader SPI for analysis, camera and vision-provider plugins | Public extension surface; currently depends on `ai-vision` for vision contracts. |
+| `common-api` | Shared camera, analysis and neutral vision contracts, capabilities, media, policy, events and transport-independent value types | Foundation library; framework and implementation dependencies are prohibited. |
+| `plugin-api` | ServiceLoader SPI for analysis, camera and vision-provider plugins | Public extension surface; depends only on neutral contracts from `common-api`. |
 | `capture-core` | Bracket and sequence capture abstractions | Framework-light domain library. |
 | `storage` | Session storage abstraction and file implementation | Framework-light library; not the relational JPA layer. |
 | `camera-ptp` | Clean-room PTP/USB protocol, Canon extensions, session/backend adapters | Reusable camera transport library; hardware compatibility remains model-dependent. |
@@ -16,8 +16,8 @@ The root Maven reactor is the authoritative module list. This chapter classifies
 | `face-analysis-core` | Face-analysis contract and implementations | Domain library. |
 | `face-profile-core` | Multi-view face-profile generation | Domain library composed with face analysis. |
 | `session-core` | HDR timelapse and face-orbit orchestration | Framework-light workflow library. |
-| `observer-core` | Wildlife-observer state machine, rules and capture orchestration | Framework-light workflow library. |
-| `ai-vision` | Vision-provider abstraction, Gemini/mock implementations and AI permission/privacy gates | Provider library; live Gemini use requires explicit configuration and credentials. |
+| `observer-core` | Wildlife-observer state machine, rules, domain vision port and capture orchestration | Framework-light workflow library; no concrete AI provider dependency. |
+| `ai-vision` | Gemini/mock provider implementations, prompts, parsing and AI permission/privacy gates | Provider implementation library using neutral `common-api` contracts; no `observer-core` dependency. |
 | `astro-core` | Star detection, registration, stacking and focus-related astro logic | Domain library. |
 | `canon-cr3-container` | CR3 ISO BMFF parsing and embedded JPEG access | Candidate public runtime library under `io.github.carstenartur`. |
 | `canon-cr3-metadata` | EXIF, MakerNote, CTMD and sensor/active-area metadata | Candidate public runtime library. |
@@ -53,15 +53,30 @@ Benchmark results are environment-sensitive. PR comparisons run base and head se
 
 ### Foundation
 
-`common-api` is the lowest shared project module. It contains both the compact `CameraBackend` contract and the richer connection-scoped `GenericCameraBackend` model.
+`common-api` is the lowest shared project module. It contains the camera contracts, neutral vision-provider contract family and shared value records required by plugin, observer and provider modules.
 
-No module should move Spring application wiring into `common-api` merely to avoid writing an adapter.
+The Java package of `BoundingBox` remains `com.photographer.focusstack.observer.events` as a compatibility seam even though its source owner is `common-api`. Package cleanup requires a separate versioned API decision.
+
+No module should move Spring application wiring or concrete provider/domain behavior into `common-api` merely to avoid writing an adapter.
 
 ### Extension and domain libraries
 
-`plugin-api`, `capture-core`, `storage`, `camera-ptp`, `hdr-core`, `video-core`, `face-analysis-core`, `face-profile-core`, `observer-core`, `ai-vision` and `astro-core` provide contracts and focused implementations.
+`plugin-api`, `capture-core`, `storage`, `camera-ptp`, `hdr-core`, `video-core`, `face-analysis-core`, `face-profile-core`, `observer-core`, `ai-vision` and `astro-core` provide focused SPIs, domain logic and implementations.
 
-`session-core` is an orchestration layer over several of these modules. It should coordinate work but not become a second application container.
+The vision-specific direction is enforced as:
+
+```text
+common-api neutral contracts
+        ↓
+plugin-api SPI   observer-core domain   ai-vision providers
+        └──────────────────┬────────────────────┘
+                           ↓
+                      app composition
+```
+
+Forbidden edges are `plugin-api -> ai-vision`, `plugin-api -> observer-core` and `ai-vision -> observer-core`. `scripts/validate_vision_module_boundaries.py` runs from a normal checkout and through `scripts/verify-product.sh`.
+
+`session-core` is an orchestration layer over several domain modules. It should coordinate work but not become a second application container.
 
 ### Application
 
@@ -147,9 +162,11 @@ Cross-module architecture belongs in this Developer Manual. Module files should 
 
 ## How to verify the graph
 
-Use Maven from a normal checkout:
+Use Maven and the repository-owned architecture check from a normal checkout:
 
 ```bash
+python3 scripts/test_validate_vision_module_boundaries.py
+python3 scripts/validate_vision_module_boundaries.py .
 mvn -B help:effective-pom -pl app
 mvn -B dependency:tree -pl app
 mvn -B dependency:tree -pl canon-cr3-imageio
