@@ -48,6 +48,22 @@ class GeminiVisionProviderResilienceTest {
     }
 
     @Test
+    void invalidClientRequestIsPermanentAndNotRetried() {
+        ScriptedTransport transport = new ScriptedTransport(
+                response(400, "private validation details"));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        GeminiVisionProvider provider = provider(99, transport, sleeper);
+
+        VisionResult result = provider.classifyImage(
+                new byte[]{1}, VisionContext.wildlife());
+
+        assertFailure(result, VisionFailureKind.INVALID_REQUEST, false);
+        assertEquals(1, transport.calls);
+        assertTrue(sleeper.delays.isEmpty());
+        assertFalse(result.errorMessage().contains("private validation details"));
+    }
+
+    @Test
     void rateLimitHonorsBoundedRetryHintAndRecovers() {
         ScriptedTransport transport = new ScriptedTransport(
                 response(429, "private quota response", "Retry-After", "2"),
@@ -96,6 +112,44 @@ class GeminiVisionProviderResilienceTest {
         assertEquals(List.of(
                 Duration.ofMillis(100), Duration.ofMillis(200)),
                 sleeper.delays);
+    }
+
+    @Test
+    void configuredRetryCountHasAProviderHardMaximum() {
+        ScriptedTransport transport = new ScriptedTransport(
+                response(503, "one"),
+                response(503, "two"),
+                response(503, "three"),
+                response(503, "four"),
+                response(503, "five"),
+                response(503, "six"));
+        RecordingSleeper sleeper = new RecordingSleeper();
+        GeminiVisionProvider provider = provider(1000, transport, sleeper);
+
+        VisionResult result = provider.classifyImage(
+                new byte[]{1}, VisionContext.wildlife());
+
+        assertFailure(result, VisionFailureKind.TEMPORARY_UNAVAILABLE, true);
+        assertEquals(6, transport.calls, "initial attempt plus at most five retries");
+        assertEquals(5, sleeper.delays.size());
+    }
+
+    @Test
+    void everyAttemptUsesTheConfiguredBoundedRequestTimeout() {
+        ScriptedTransport transport = new ScriptedTransport(
+                response(503, "temporary"),
+                response(200, successBody("bird")));
+        GeminiVisionProvider provider = provider(
+                1, transport, new RecordingSleeper());
+
+        VisionResult result = provider.classifyImage(
+                new byte[]{1}, VisionContext.wildlife());
+
+        assertTrue(result.successful());
+        assertEquals(2, transport.requests.size());
+        for (HttpRequest request : transport.requests) {
+            assertEquals(Duration.ofSeconds(1), request.timeout().orElseThrow());
+        }
     }
 
     @Test
@@ -252,6 +306,7 @@ class GeminiVisionProviderResilienceTest {
 
     private static final class ScriptedTransport implements GeminiTransport {
         private final Deque<Object> steps = new ArrayDeque<>();
+        private final List<HttpRequest> requests = new ArrayList<>();
         private int calls;
 
         private ScriptedTransport(Object... steps) {
@@ -262,6 +317,7 @@ class GeminiVisionProviderResilienceTest {
         public Response send(HttpRequest request)
                 throws IOException, InterruptedException {
             calls++;
+            requests.add(request);
             if (steps.isEmpty()) {
                 throw new AssertionError("Unexpected Gemini transport call");
             }
