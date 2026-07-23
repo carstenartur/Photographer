@@ -26,8 +26,18 @@ This module owns contracts that must be usable without Spring, provider implemen
 |---|---|
 | `VisionProvider` | Provider-neutral image classification, description, detection and ranking port. |
 | `VisionContext` | Provider-neutral analysis context. |
-| `VisionResult` | Unified provider result. |
+| `VisionResult` | Unified success or typed-failure result. |
+| `VisionFailureKind` | Stable provider-neutral failure categories. |
 | `ProviderCapabilities` | Advertised provider features and input limits. |
+
+A successful negative image classification is distinct from a failed provider call:
+
+```text
+successful negative: successful=true, primaryLabel=none, failureKind=NONE
+provider/policy failure: successful=false, primaryLabel=unclassified
+```
+
+Unsuccessful results have zero confidence, no detections and no raw provider response. They may carry a stable failure category, retryability and an optional bounded retry hint. The compatibility constructor remains available for existing provider code; older unsuccessful results are classified as `UNKNOWN` rather than silently becoming successful negatives.
 
 `com.photographer.focusstack.observer.events.BoundingBox` is also owned here as a compatibility-preserving shared value type used by both `VisionResult` and observer event data. Its package remains unchanged so the ownership move does not break existing imports. A package rename would require a separately reviewed compatibility change.
 
