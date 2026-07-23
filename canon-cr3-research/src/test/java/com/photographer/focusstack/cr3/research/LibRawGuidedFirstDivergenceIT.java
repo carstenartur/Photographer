@@ -68,6 +68,17 @@ class LibRawGuidedFirstDivergenceIT {
             assertThat(fixture.streams()).isNotEmpty();
             assertThat(fixture.streams()).allSatisfy(stream ->
                     assertThat(stream.classification()).isNotNull());
+            long configured = fixture.streams().stream()
+                    .filter(stream -> stream.initializationMode()
+                            == ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode
+                            .CONFIGURED_BASELINE)
+                    .count();
+            long oracle = fixture.streams().stream()
+                    .filter(stream -> stream.initializationMode()
+                            == ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode
+                            .REFERENCE_FIRST_SAMPLE_ORACLE)
+                    .count();
+            assertThat(configured).isPositive().isEqualTo(oracle);
         });
         assertThat(OUTPUT.resolve("results.md")).isRegularFile();
         assertThat(OUTPUT.resolve("results.tsv")).isRegularFile();
@@ -108,7 +119,7 @@ class LibRawGuidedFirstDivergenceIT {
         int tileXOffset = 0;
         int tileOrdinal = 0;
         List<ReferenceGuidedFirstDivergenceAnalyzer.AnalysisResult> streams =
-                new ArrayList<>(refs.size());
+                new ArrayList<>(refs.size() * 2);
 
         for (List<SubbandExtractor.SubbandRef> sourceTile : byTile.values()) {
             List<SubbandExtractor.SubbandRef> tile = new ArrayList<>(sourceTile);
@@ -137,12 +148,16 @@ class LibRawGuidedFirstDivergenceIT {
                         planeWidth,
                         planeHeight);
                 byte[] payload = SubbandExtractor.read(fixture.toFile(), ref);
-                streams.add(ReferenceGuidedFirstDivergenceAnalyzer.analyzePlane(
-                        payload,
-                        mapping,
-                        ref.bitDepth(),
-                        reference.samples(),
-                        baselineOptions(ref.bitDepth())));
+                CrxNormativeLosslessCandidate.Options baseline = baselineOptions(ref.bitDepth());
+                for (var mode : ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode.values()) {
+                    streams.add(ReferenceGuidedFirstDivergenceAnalyzer.analyzePlane(
+                            payload,
+                            mapping,
+                            ref.bitDepth(),
+                            reference.samples(),
+                            mode,
+                            baseline));
+                }
             }
             tileXOffset += planeWidth;
             tileOrdinal++;
