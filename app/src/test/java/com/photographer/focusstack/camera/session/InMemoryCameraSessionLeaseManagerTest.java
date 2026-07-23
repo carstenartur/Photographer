@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.session;
 
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -167,6 +168,26 @@ class InMemoryCameraSessionLeaseManagerTest {
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("handle limit");
         }
+    }
+
+    @Test
+    void shutdownRejectsNewHandlesAndCloseRequiresExistingHandlesToRelease() {
+        InMemoryCameraSessionLeaseManager manager = manager(new MutableClock());
+        CameraLeaseKey key = CameraLeaseKey.fromCcapiLocation("camera.example");
+        CameraSessionLease active = manager.acquire(request(key, "owner"));
+
+        manager.beginShutdown();
+
+        assertThatThrownBy(() -> manager.acquire(request(key, "owner")))
+                .isInstanceOf(CameraServiceUnavailableException.class)
+                .hasMessage("Camera services are shutting down");
+        assertThatThrownBy(manager::close)
+      .isInstanceOf(IllegalStateException.class)
+      .hasMessageContaining("1 active lease");
+
+        active.close();
+        manager.close();
+        assertThat(manager.metrics().activeLeases()).isZero();
     }
 
     private static InMemoryCameraSessionLeaseManager manager(Clock clock) {

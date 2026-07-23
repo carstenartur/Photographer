@@ -22,6 +22,7 @@ import com.photographer.focusstack.session.CameraBackendProvider;
 import com.photographer.focusstack.session.CameraBackendSession;
 import com.photographer.focusstack.session.CameraSessionPurpose;
 import com.photographer.focusstack.session.SessionException;
+import com.photographer.focusstack.session.SessionUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,7 @@ public class AstroModeService {
     private final String dataDir;
     private final ConcurrentMap<String, PreparedExecution> activeExecutions =
             new ConcurrentHashMap<>();
+    private final AtomicBoolean shutdownRequested = new AtomicBoolean();
     private final Object[] sessionLocks = createSessionLocks();
 
     @Autowired
@@ -180,6 +182,7 @@ public class AstroModeService {
      */
     public PreparedExecution prepareExecution(String sessionId) {
         synchronized (sessionLock(sessionId)) {
+            ensureCameraServiceOpen();
             AstroSessionEntity entity = requireEntity(sessionId);
             if (entity.getStatus() != AstroSessionStatus.CREATED) {
                 throw new IllegalStateException(
@@ -231,6 +234,23 @@ public class AstroModeService {
                 1, 1000, 0.0);
         return CameraBackendSession.unmanaged(
                 cameraBackendFactory.getBackend(mockProfile));
+    }
+
+    public void requestCameraShutdown() {
+        if (!shutdownRequested.compareAndSet(false, true)) {
+  return;
+        }
+        List.copyOf(activeExecutions.keySet()).forEach(this::requestAbort);
+    }
+
+    public int activeCameraExecutions() {
+        return activeExecutions.size();
+    }
+
+    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+            throw new SessionUnavailableException();
+        }
     }
 
     public void requestAbort(String sessionId) {

@@ -6,6 +6,7 @@ import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.config.PlainWebSocketBridge;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.camera.session.CameraLeaseKey;
 import com.photographer.focusstack.camera.session.CameraLeaseRequest;
@@ -244,6 +245,40 @@ class StackingJobLeaseIntegrationTest {
         assertThat(worker.isAlive()).isFalse();
         assertThat(manager.metrics().activeLeases()).isZero();
         assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.PAUSED);
+    }
+
+    @Test
+    void shutdownCancelsQueuedAttemptPersistentlyWithoutCameraContact() {
+        InMemoryCameraSessionLeaseManager manager = manager();
+        AtomicReference<Runnable> scheduled = new AtomicReference<>();
+        StackingJobService service = service(manager, scheduled::set);
+
+        service.startJob("job-1");
+        service.requestCameraShutdown();
+
+        assertThat(manager.metrics().activeLeases()).isZero();
+        assertThat(service.activeCameraExecutions()).isZero();
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.CANCELLED);
+        assertThat(persistedJob.get().getStopReason())
+                .isEqualTo("Cancelled during application shutdown");
+        scheduled.get().run();
+        verify(backendFactory, never()).getBackend(any());
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.CANCELLED);
+    }
+
+    @Test
+    void shutdownRejectsLaterStartBeforeLeaseOrBackendContact() {
+        InMemoryCameraSessionLeaseManager manager = manager();
+        StackingJobService service = service(manager, Runnable::run);
+        service.requestCameraShutdown();
+
+        assertThatThrownBy(() -> service.startJob("job-1"))
+                .isInstanceOf(CameraServiceUnavailableException.class)
+                .hasMessage("Camera services are shutting down");
+
+        assertThat(manager.metrics().activeLeases()).isZero();
+        assertThat(persistedJob.get().getStatus()).isEqualTo(JobStatus.CREATED);
+        verify(backendFactory, never()).getBackend(any());
     }
 
     private StackingJobService service(

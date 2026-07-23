@@ -50,6 +50,7 @@ public class FaceOrbitService {
             new ConcurrentHashMap<>();
     private final ConcurrentMap<String, PreparedAutoExecution> autoExecutions =
             new ConcurrentHashMap<>();
+    private final AtomicBoolean shutdownRequested = new AtomicBoolean();
     private final Object[] sessionLocks = createSessionLocks();
 
     public FaceOrbitService(CameraBackendProvider backendProvider,
@@ -139,6 +140,7 @@ public class FaceOrbitService {
      */
     public QualityCheck captureNextStep(String sessionId) {
         synchronized (sessionLock(sessionId)) {
+            ensureCameraServiceOpen();
             CaptureSession session = getSession(sessionId);
             if (session.status() != SessionStatus.CREATED
                     && session.status() != SessionStatus.RUNNING) {
@@ -217,6 +219,7 @@ public class FaceOrbitService {
 
     public void validateAutoModeStartable(String sessionId) {
         synchronized (sessionLock(sessionId)) {
+            ensureCameraServiceOpen();
             CaptureSession session = getSession(sessionId);
             requireAutoStartable(sessionId, session);
         }
@@ -235,6 +238,7 @@ public class FaceOrbitService {
     /** Opens ownership before the controller is allowed to enqueue auto mode. */
     public PreparedAutoExecution prepareAutoExecution(String sessionId) {
         synchronized (sessionLock(sessionId)) {
+            ensureCameraServiceOpen();
             CaptureSession session = getSession(sessionId);
             requireAutoStartable(sessionId, session);
             FaceOrbitSettings settings = requireSettings(sessionId);
@@ -360,6 +364,24 @@ public class FaceOrbitService {
             }
         }
         execution.closeCapture();
+    }
+
+    public void requestCameraShutdown() {
+        if (!shutdownRequested.compareAndSet(false, true)) {
+  return;
+        }
+        List.copyOf(autoExecutions.keySet()).forEach(this::stopSession);
+        List.copyOf(manualOwnerships.keySet()).forEach(this::stopSession);
+    }
+
+    public int activeCameraExecutions() {
+        return autoExecutions.size() + manualOwnerships.size();
+    }
+
+    private void ensureCameraServiceOpen() {
+        if (shutdownRequested.get()) {
+            throw new SessionUnavailableException();
+        }
     }
 
     public void stopSession(String sessionId) {
