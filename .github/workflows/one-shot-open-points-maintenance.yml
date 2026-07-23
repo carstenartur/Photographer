@@ -1,0 +1,163 @@
+name: One-shot open-points maintenance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-open-points-maintenance.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/maintenance/open-points-maintenance.trigger'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: one-shot-open-points-maintenance
+  cancel-in-progress: true
+
+jobs:
+  harden-verify-publish:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+          show-progress: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Prepare isolated product worktrees
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin \
+            +refs/heads/hardening/ccapi-digest-edge-cases:refs/remotes/origin/hardening/ccapi-digest-edge-cases \
+            +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2 \
+            +refs/heads/testkit/cr3-active-consumer-migration:refs/remotes/origin/testkit/cr3-active-consumer-migration \
+            +refs/heads/automation/implement-ccapi-shutdown-final:refs/remotes/origin/automation/implement-ccapi-shutdown-final \
+            +refs/heads/automation/migrate-cr3-active-consumers:refs/remotes/origin/automation/migrate-cr3-active-consumers
+          git show origin/automation/implement-ccapi-shutdown-final:scripts/harden_ccapi_digest_review.py \
+            > /tmp/harden_ccapi_digest_review.py
+          git show origin/automation/implement-ccapi-shutdown-final:scripts/harden_ccapi_shutdown_v2.py \
+            > /tmp/harden_ccapi_shutdown_v2.py
+          git show origin/automation/implement-ccapi-shutdown-final:scripts/run_ccapi_shutdown_review_hardening.py \
+            > /tmp/run_ccapi_shutdown_review_hardening.py
+          git show origin/automation/migrate-cr3-active-consumers:scripts/migrate_cr3_active_consumers.py \
+            > /tmp/migrate_cr3_active_consumers.py
+          git worktree add /tmp/photographer-digest origin/hardening/ccapi-digest-edge-cases
+          git worktree add /tmp/photographer-shutdown origin/hardening/ccapi-coordinated-shutdown-v2
+          git worktree add /tmp/photographer-testkit origin/testkit/cr3-active-consumer-migration
+          mkdir -p target/open-points-maintenance
+
+      - name: Harden, verify and publish Digest challenge handling
+        shell: bash
+        working-directory: /tmp/photographer-digest
+        run: |
+          set -o pipefail
+          {
+            set -e
+            python /tmp/harden_ccapi_digest_review.py
+            mvn -B --no-transfer-progress test \
+              -pl app -am \
+              -Dtest=CcapiDigestEdgeCaseTest,CcapiDigestChallengeSelectionTest \
+              -Dsurefire.failIfNoSpecifiedTests=false \
+              -Djava.awt.headless=true
+            mvn -B --no-transfer-progress clean verify \
+              -pl common-api,app -am \
+              -Djava.awt.headless=true
+            git add \
+              app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java \
+              app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java
+            if ! git diff --cached --quiet; then
+              git commit -m 'fix(ccapi): select any compatible Digest challenge'
+            fi
+            git push origin HEAD:hardening/ccapi-digest-edge-cases
+          } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/digest.log"
+
+      - name: Harden, verify and publish coordinated shutdown
+        shell: bash
+        working-directory: /tmp/photographer-shutdown
+        run: |
+          set -o pipefail
+          {
+            set -e
+            python /tmp/run_ccapi_shutdown_review_hardening.py \
+              /tmp/harden_ccapi_shutdown_v2.py
+            mvn -B --no-transfer-progress test \
+              -pl app -am \
+              -Dtest=InMemoryCameraSessionLeaseManagerTest,CameraSessionShutdownCoordinatorTest,StackingJobLeaseIntegrationTest,GlobalExceptionHandlerShutdownTest,HdrTimelapseLeaseLifecycleTest,FaceOrbitLeaseLifecycleTest,AstroModeServiceLeaseLifecycleTest \
+              -Dsurefire.failIfNoSpecifiedTests=false \
+              -Djava.awt.headless=true
+            mvn -B --no-transfer-progress clean verify \
+              -pl common-api,app -am \
+              -Djava.awt.headless=true
+            git add \
+              app/src/main/java/com/photographer/focusstack/camera/exception/CameraServiceUnavailableException.java \
+              session-core/src/main/java/com/photographer/focusstack/session/SessionUnavailableException.java \
+              app/src/main/java/com/photographer/focusstack/camera/service/StackingJobService.java \
+              app/src/main/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManager.java \
+              app/src/main/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinator.java \
+              app/src/main/java/com/photographer/focusstack/astro/service/AstroModeService.java \
+              session-core/src/main/java/com/photographer/focusstack/session/HdrTimelapseService.java \
+              session-core/src/main/java/com/photographer/focusstack/session/FaceOrbitService.java \
+              app/src/main/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandler.java \
+              app/src/test/java/com/photographer/focusstack/camera/session/InMemoryCameraSessionLeaseManagerTest.java \
+              app/src/test/java/com/photographer/focusstack/camera/session/CameraSessionShutdownCoordinatorTest.java \
+              app/src/test/java/com/photographer/focusstack/camera/service/StackingJobLeaseIntegrationTest.java \
+              app/src/test/java/com/photographer/focusstack/app/web/exception/GlobalExceptionHandlerShutdownTest.java
+            if ! git diff --cached --quiet; then
+              git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
+            fi
+            git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
+          } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/shutdown.log"
+
+      - name: Migrate, verify and publish active CR3 testkit consumers
+        shell: bash
+        working-directory: /tmp/photographer-testkit
+        run: |
+          set -o pipefail
+          {
+            set -e
+            python /tmp/migrate_cr3_active_consumers.py
+            mvn -B --no-transfer-progress test \
+              -pl canon-cr3-research -am \
+              -Dtest=Cr3ReferenceComparisonIT,PedestalHypothesisValidationIT,DcComponentIsolationIT \
+              -Dsurefire.failIfNoSpecifiedTests=false \
+              -Djava.awt.headless=true
+            mvn -B --no-transfer-progress clean verify \
+              -pl canon-cr3-reference-testkit,canon-cr3-research -am \
+              -Djava.awt.headless=true
+            git add \
+              canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/Cr3ReferenceComparisonIT.java \
+              canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PedestalHypothesisValidationIT.java \
+              canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/DcComponentIsolationIT.java
+            if ! git diff --cached --quiet; then
+              git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
+            fi
+            git push origin HEAD:testkit/cr3-active-consumer-migration
+          } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/testkit.log"
+
+      - name: Upload maintenance diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: open-points-maintenance-diagnostics
+          path: target/open-points-maintenance
+          if-no-files-found: warn
+          retention-days: 14
