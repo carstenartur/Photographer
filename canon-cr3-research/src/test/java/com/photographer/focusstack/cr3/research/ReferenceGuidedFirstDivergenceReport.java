@@ -46,9 +46,14 @@ final class ReferenceGuidedFirstDivergenceReport {
                 .append("The RAW-linear TIFF values are registered black-box reference output. ")
                 .append("They are used only to identify the first disagreement with the unchanged ")
                 .append("test-scope decoder and to derive reference MED context.\n\n")
+                .append("Two initialization modes are reported: `CONFIGURED_BASELINE` preserves ")
+                .append("the historical test decoder seed, while `REFERENCE_FIRST_SAMPLE_ORACLE` ")
+                .append("uses the first correct sample only to neutralize the already-known ")
+                .append("DC/pedestal mismatch and locate the next contradiction. The oracle mode ")
+                .append("is diagnostic evidence, not a decoder proposal.\n\n")
                 .append("## Stream summary\n\n")
-                .append("| Fixture | Tile | Plane | Classification | Symbol | Full coordinate | Bit range | Completion |\n")
-                .append("|---|---:|---:|---|---:|---|---|---:|\n");
+                .append("| Fixture | Tile | Plane | Mode | Seed | Classification | Matched prefix | Symbol | Full coordinate | Bit range | Completion |\n")
+                .append("|---|---:|---:|---|---:|---|---:|---:|---|---|---:|\n");
 
         for (FixtureResult fixture : fixtures) {
             for (var stream : sortedStreams(fixture.streams())) {
@@ -56,7 +61,10 @@ final class ReferenceGuidedFirstDivergenceReport {
                 out.append("| `").append(fixture.fixture()).append("` | ")
                         .append(stream.mapping().tileSequence()).append(" | ")
                         .append(stream.mapping().planeIndex()).append(" | ")
+                        .append(stream.initializationMode()).append(" | ")
+                        .append(stream.firstPixelSeed()).append(" | ")
                         .append(stream.classification()).append(" | ")
+                        .append(stream.matchedPrefixSymbols()).append(" | ")
                         .append(divergence == null ? "—" : divergence.trace().ordinal()).append(" | ")
                         .append(divergence == null ? "—"
                                 : divergence.fullSensorX() + "," + divergence.fullSensorY())
@@ -76,14 +84,19 @@ final class ReferenceGuidedFirstDivergenceReport {
                     .append(fixture.referenceSha256()).append("`\n\n");
             for (var stream : sortedStreams(fixture.streams())) {
                 out.append("#### Tile ").append(stream.mapping().tileSequence())
-                        .append(", plane ").append(stream.mapping().planeIndex()).append("\n\n");
+                        .append(", plane ").append(stream.mapping().planeIndex())
+                        .append(", mode ").append(stream.initializationMode()).append("\n\n")
+                        .append("Seed: ").append(stream.firstPixelSeed()).append(". ");
                 if (stream.firstDivergence().isEmpty()) {
                     out.append("Result: **").append(stream.classification()).append("**; decoded ")
                             .append(stream.symbolsDecoded()).append("/").append(stream.capacity())
-                            .append(" symbols, consumed ").append(stream.consumedBytes())
+                            .append(" symbols, matched prefix ")
+                            .append(stream.matchedPrefixSymbols())
+                            .append(", consumed ").append(stream.consumedBytes())
                             .append(" bytes.\n\n");
                     continue;
                 }
+                out.append("Matched prefix: ").append(stream.matchedPrefixSymbols()).append(" symbols.\n\n");
                 var d = stream.firstDivergence().orElseThrow();
                 var t = d.trace();
                 var r = d.reference();
@@ -115,7 +128,8 @@ final class ReferenceGuidedFirstDivergenceReport {
     static String tsv(List<FixtureResult> input) {
         StringBuilder out = new StringBuilder();
         out.append("fixture\treferenceTool\treferenceVersion\treferenceSha256\twidth\theight")
-                .append("\ttile\tplane\tclassification\tcapacity\tsymbolsDecoded\tcompletion")
+                .append("\ttile\tplane\tinitializationMode\tfirstPixelSeed\tclassification")
+                .append("\tmatchedPrefixSymbols\tcapacity\tsymbolsDecoded\tcompletion")
                 .append("\tstreamExhausted\tconsumedBytes\tsymbol\tlocalX\tlocalY\tfullX\tfullY")
                 .append("\tbitStart\tbitEnd\tkBefore\tkAfter\tquotient\tremainder")
                 .append("\tdecodedUnsigned\texpectedUnsigned\tdecodedResidual\texpectedResidual")
@@ -130,7 +144,8 @@ final class ReferenceGuidedFirstDivergenceReport {
                         fixture.fixture(), fixture.referenceTool(), fixture.referenceVersion(),
                         fixture.referenceSha256(), fixture.width(), fixture.height(),
                         stream.mapping().tileSequence(), stream.mapping().planeIndex(),
-                        stream.classification(), stream.capacity(), stream.symbolsDecoded(),
+                        stream.initializationMode(), stream.firstPixelSeed(), stream.classification(),
+                        stream.matchedPrefixSymbols(), stream.capacity(), stream.symbolsDecoded(),
                         format(stream.completion()), stream.streamExhausted(), stream.consumedBytes(),
                         t == null ? null : t.ordinal(), d == null ? null : d.localX(),
                         d == null ? null : d.localY(), d == null ? null : d.fullSensorX(),
@@ -183,7 +198,10 @@ final class ReferenceGuidedFirstDivergenceReport {
         out.append("        {\n")
                 .append("          \"tile\": ").append(stream.mapping().tileSequence()).append(",\n")
                 .append("          \"plane\": ").append(stream.mapping().planeIndex()).append(",\n")
+                .append("          \"initializationMode\": \"").append(stream.initializationMode()).append("\",\n")
+                .append("          \"firstPixelSeed\": ").append(stream.firstPixelSeed()).append(",\n")
                 .append("          \"classification\": \"").append(stream.classification()).append("\",\n")
+                .append("          \"matchedPrefixSymbols\": ").append(stream.matchedPrefixSymbols()).append(",\n")
                 .append("          \"capacity\": ").append(stream.capacity()).append(",\n")
                 .append("          \"symbolsDecoded\": ").append(stream.symbolsDecoded()).append(",\n")
                 .append("          \"completion\": ").append(format(stream.completion())).append(",\n")
@@ -237,7 +255,9 @@ final class ReferenceGuidedFirstDivergenceReport {
                 .sorted(Comparator.comparingInt(
                                 (ReferenceGuidedFirstDivergenceAnalyzer.AnalysisResult r) ->
                                         r.mapping().tileSequence())
-                        .thenComparingInt(r -> r.mapping().planeIndex()))
+                        .thenComparingInt(r -> r.mapping().planeIndex())
+                        .thenComparing(ReferenceGuidedFirstDivergenceAnalyzer.AnalysisResult
+                                ::initializationMode))
                 .toList();
     }
 
