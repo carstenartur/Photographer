@@ -7,7 +7,7 @@
 - **Phase 3 complete** — canonical CR3 entry point, stable/experimental API chapters, RG1-aware current research process, migrated state/hypothesis/results paths and retirement of obsolete D5/Phase-A defaults.
 - **Phase 4 open** — generated-report ownership and verify/update contracts, tracked by #279.
 - **Phase 5 complete** — stale roadmap audit and `TODO.md` retirement.
-- **Phase 6 open** — link and canonical-ownership validation, tracked by #281.
+- **Phase 6 complete** — mandatory link, redirect, canonical-ownership, module-manual and generated-output validation.
 
 The dated [`repository-inventory.md`](repository-inventory.md) was generated on 2026-06-17. It remains evidence of that revision, not an automatically current catalogue.
 
@@ -33,8 +33,9 @@ docs/
     contributing.md
     operations.md
     documentation-map.md
+    documentation-ownership.json    # machine-readable ownership contract
     migration-plan.md
-    repository-inventory.md        # dated/generated baseline
+    repository-inventory.md         # dated/generated baseline
   cr3/
     index.md
     imageio.md
@@ -47,7 +48,7 @@ docs/
       index.md
   cleanroom/
     README.md
-    ...                            # process, source registry, attestations
+    ...                             # process, source registry, attestations
 ```
 
 Module-local READMEs and architecture files remain in their modules. Maintained API, camera, quickstart, reference-pipeline, CR3-boundary and CCAPI chapters remain at stable existing paths because moving them would add link churn without removing duplication.
@@ -123,27 +124,36 @@ The previous root `TODO.md` mixed completed work, speculative product ideas and 
 
 Git history preserves the original checklist and rationale. No planned engineering work remains exclusively in `TODO.md`.
 
-## Phase 6 — Validation and ownership — open (#281)
+## Phase 6 — Validation and ownership — complete
 
-Add checkout-runnable repository checks for:
+Delivered a checkout-runnable repository gate:
 
-- internal Markdown links;
-- generated-document ownership and verify mode;
-- prohibition on committed generated HTML/build output;
-- canonical-topic ownership;
-- module links to canonical manuals;
-- optional spelling/style rules that preserve scientific terminology.
+```bash
+python3 scripts/test_validate_documentation.py
+python3 scripts/validate_documentation.py .
+```
 
-A documentation change is complete only when links pass, commands execute, generated evidence is verified, affected documentation agrees with code/tests and screenshots used as evidence have deterministic update rules.
+The same commands run through `scripts/verify-product.sh` before Maven, so normal CI and local verification use one implementation.
 
-Issue #281 owns implementation and CI enforcement.
+The validator now enforces:
+
+- every tracked repository-relative Markdown file and heading-anchor link;
+- GitHub-style heading anchors, including inline-code text and duplicate headings;
+- unique canonical topic ownership through `documentation-ownership.json`;
+- exclusion of generated evidence from current canonical-topic ownership;
+- retained redirect links to every declared canonical destination;
+- selected module README links to Developer or CR3 Manual chapters;
+- rejection of tracked Maven/frontend/generated site, test-report and coverage output.
+
+External URL schemes are not fetched. Fenced code, HTML comments and link-like inline-code examples are excluded from link discovery. Failures identify the source file, line and unresolved target or anchor.
+
+The first repository audit found and corrected stale links to nonexistent CCAPI shutdown/security documents. It also corrected the Developer architecture chapter after the completed vision-contract dependency refactor. Copilot review findings around inline-code anchors, inline-code link masking and Markdown list formatting were covered by focused regression tests and resolved.
 
 ## Remaining pull-request sequence
 
 1. #279 generated-report inventory and ownership manifest;
 2. #279 verify/update tooling for committed CR3 evidence;
 3. optional atomic report-path migration after ownership is complete;
-4. #281 Markdown link and canonical-ownership automation;
-5. final redirect audit after the mandatory validators are green.
+4. final generated-evidence audit under the mandatory Phase 6 validator.
 
-Do not combine unrelated production-code changes with these documentation phases unless generator or verification code must change to keep documentation truthful and reproducible.
+Do not combine unrelated production-code changes with Phase 4 unless generator or verification code must change to keep documentation truthful and reproducible.
