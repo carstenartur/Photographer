@@ -74,6 +74,20 @@ class GeneratedEvidenceContractTest(unittest.TestCase):
                 for error in validate_repository(root)
             ))
 
+    def test_rejects_missing_owner_module(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._base_files(root)
+            output = self._write(root, "docs/cr3-results/managed.tsv", "a\tb\n")
+            managed = self._managed(output)
+            managed["ownerModule"] = "missing-module"
+            self._manifest(root, [managed])
+
+            self.assertTrue(any(
+                "ownerModule does not exist" in error
+                for error in validate_repository(root)
+            ))
+
     def test_rejects_stale_git_blob_lock(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -85,6 +99,20 @@ class GeneratedEvidenceContractTest(unittest.TestCase):
 
             self.assertTrue(any(
                 "stale Git blob lock" in error
+                for error in validate_repository(root)
+            ))
+
+    def test_rejects_lock_without_generated_mapping(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self._base_files(root)
+            output = self._write(root, "docs/cr3-results/managed.tsv", "a\tb\n")
+            managed = self._managed(output)
+            managed["gitBlobLocks"]["docs/cr3-results/obsolete.tsv"] = "0" * 40
+            self._manifest(root, [managed])
+
+            self.assertTrue(any(
+                "locks without generated mappings" in error
                 for error in validate_repository(root)
             ))
 
@@ -136,6 +164,8 @@ class GeneratedEvidenceContractTest(unittest.TestCase):
             self.assertTrue(any("requires generatedMappings" in error for error in errors))
 
     def _base_files(self, root: Path) -> None:
+        (root / "module").mkdir(parents=True)
+        (root / "docs").mkdir(parents=True, exist_ok=True)
         self._write(root, "generator.java", "class Generator {}\n")
         self._write(root, "inputs/manifest.json", "{}\n")
         self._write(root, "docs/cleanroom/experiment-ledger.json", json.dumps({
