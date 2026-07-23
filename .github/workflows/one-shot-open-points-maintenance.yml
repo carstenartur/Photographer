@@ -21,7 +21,7 @@ jobs:
   harden-verify-publish:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 75
     env:
       MAVEN_OPTS: -Xmx2g
     steps:
@@ -47,48 +47,19 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin \
-            +refs/heads/hardening/ccapi-digest-edge-cases:refs/remotes/origin/hardening/ccapi-digest-edge-cases \
             +refs/heads/hardening/ccapi-coordinated-shutdown-v2:refs/remotes/origin/hardening/ccapi-coordinated-shutdown-v2 \
             +refs/heads/testkit/cr3-active-consumer-migration:refs/remotes/origin/testkit/cr3-active-consumer-migration \
             +refs/heads/automation/implement-ccapi-shutdown-final:refs/remotes/origin/automation/implement-ccapi-shutdown-final \
             +refs/heads/automation/migrate-cr3-active-consumers:refs/remotes/origin/automation/migrate-cr3-active-consumers
-          git show origin/automation/implement-ccapi-shutdown-final:scripts/harden_ccapi_digest_review.py \
-            > /tmp/harden_ccapi_digest_review.py
           git show origin/automation/implement-ccapi-shutdown-final:scripts/harden_ccapi_shutdown_v2.py \
             > /tmp/harden_ccapi_shutdown_v2.py
           git show origin/automation/implement-ccapi-shutdown-final:scripts/run_ccapi_shutdown_review_hardening.py \
             > /tmp/run_ccapi_shutdown_review_hardening.py
           git show origin/automation/migrate-cr3-active-consumers:scripts/migrate_cr3_active_consumers.py \
             > /tmp/migrate_cr3_active_consumers.py
-          git worktree add /tmp/photographer-digest origin/hardening/ccapi-digest-edge-cases
           git worktree add /tmp/photographer-shutdown origin/hardening/ccapi-coordinated-shutdown-v2
           git worktree add /tmp/photographer-testkit origin/testkit/cr3-active-consumer-migration
           mkdir -p target/open-points-maintenance
-
-      - name: Harden, verify and publish Digest challenge handling
-        shell: bash
-        working-directory: /tmp/photographer-digest
-        run: |
-          set -o pipefail
-          {
-            set -e
-            python /tmp/harden_ccapi_digest_review.py
-            mvn -B --no-transfer-progress test \
-              -pl app -am \
-              -Dtest=CcapiDigestEdgeCaseTest,CcapiDigestChallengeSelectionTest \
-              -Dsurefire.failIfNoSpecifiedTests=false \
-              -Djava.awt.headless=true
-            mvn -B --no-transfer-progress clean verify \
-              -pl common-api,app -am \
-              -Djava.awt.headless=true
-            git add \
-              app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java \
-              app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java
-            if ! git diff --cached --quiet; then
-              git commit -m 'fix(ccapi): select any compatible Digest challenge'
-            fi
-            git push origin HEAD:hardening/ccapi-digest-edge-cases
-          } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/digest.log"
 
       - name: Harden, verify and publish coordinated shutdown
         shell: bash
@@ -124,7 +95,7 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'fix(ccapi): finish coordinated shutdown hardening'
             fi
-            git push origin HEAD:hardening/ccapi-coordinated-shutdown-v2
+            git push origin HEAD:refs/heads/hardening/ccapi-coordinated-shutdown-v2
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/shutdown.log"
 
       - name: Migrate, verify and publish active CR3 testkit consumers
@@ -150,7 +121,7 @@ jobs:
             if ! git diff --cached --quiet; then
               git commit -m 'refactor(testkit): migrate active CR3 reference consumers'
             fi
-            git push origin HEAD:testkit/cr3-active-consumer-migration
+            git push origin HEAD:refs/heads/testkit/cr3-active-consumer-migration
           } 2>&1 | tee "$GITHUB_WORKSPACE/target/open-points-maintenance/testkit.log"
 
       - name: Upload maintenance diagnostics
