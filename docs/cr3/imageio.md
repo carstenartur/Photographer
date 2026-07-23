@@ -18,15 +18,17 @@ The default path intentionally does not require a complete CRX sensor-RAW decode
 
 ## Dependency
 
+The release contract currently uses version `0.1.5` for the first public bundle:
+
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>canon-cr3-imageio</artifactId>
-  <version>${photographer.cr3.version}</version>
+  <version>0.1.5</version>
 </dependency>
 ```
 
-Use a real released version only after it is available from the documented remote repository. For a repository checkout, build/install the relevant reactor modules locally.
+Remote availability must still be verified before relying on that coordinate. Repository-side release preparation does not prove publication. See [Maven Central release contract](../cr3-maven-central.md). For a repository checkout, build/install the relevant reactor modules locally.
 
 ## Basic preview
 
@@ -165,3 +167,4 @@ This includes SPI packaging/discovery and reference-backed integration tests whe
 - [Decoder and processing](decoder.md)
 - [Module README](../../canon-cr3-imageio/README.md)
 - [Reference pipeline](../reference-pipeline.md)
+- [Maven Central release contract](../cr3-maven-central.md)
