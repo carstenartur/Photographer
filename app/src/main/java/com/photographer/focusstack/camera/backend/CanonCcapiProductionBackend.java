@@ -45,6 +45,7 @@ final class CanonCcapiProductionBackend implements
     private static final Set<String> EVENT_METHODS = Set.of("GET", "DELETE");
 
     private final CanonCcapiNativeFocusBracketingBackend delegate;
+    private final CcapiLiveViewClient liveViewClient;
     private final CanonCcapiMediaClient mediaClient;
     private final CanonCcapiMonitoringClient monitoringClient;
 
@@ -56,6 +57,12 @@ final class CanonCcapiProductionBackend implements
         Objects.requireNonNull(baseUrl, "baseUrl");
         Objects.requireNonNull(restTemplate, "restTemplate");
         this.delegate = new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);
+        this.liveViewClient = new CcapiLiveViewClient(
+                profileId,
+                restTemplate,
+                delegate::getDiscoveredEndpoints,
+                delegate::getDiscoveredEndpointMethods,
+                delegate::ccapiPost);
         this.mediaClient = new CanonCcapiMediaClient(
                 profileId,
                 baseUrl,
@@ -77,16 +84,20 @@ final class CanonCcapiProductionBackend implements
 
     @Override
     public LiveViewFrame getLiveView() {
-        return delegate.getLiveView();
+        return liveViewClient.getFrame();
     }
 
     @Override
     public void stopLiveView() {
-        delegate.stopLiveView();
+        liveViewClient.stop();
     }
 
     @Override
     public CaptureResult capture() {
+        // The inherited capture sequence starts by stopping live view through the
+        // delegate. Reset the production lifecycle first so a later frame request
+        // performs one capability-driven restart rather than trusting stale state.
+        liveViewClient.markStopped();
         return delegate.capture();
     }
 
@@ -102,7 +113,9 @@ final class CanonCcapiProductionBackend implements
 
     @Override
     public boolean supports(Operation operation) {
-        return delegate.supports(operation);
+        return operation == Operation.LIVE_VIEW
+                ? liveViewClient.supportsFrameRetrieval()
+                : delegate.supports(operation);
     }
 
     @Override
@@ -153,6 +166,10 @@ final class CanonCcapiProductionBackend implements
         }
         capabilities.add(eventCapability(
                 base, "event-polling-continuation", "/event/polling"));
+        if (capabilities.stream().noneMatch(
+                capability -> "live-view-scroll".equals(capability.id()))) {
+            capabilities.add(CcapiLiveViewCapabilities.scroll(base));
+        }
 
         return new CameraCapabilitySnapshot(
                 base.model(),
