@@ -17,7 +17,6 @@ import com.photographer.focusstack.common.model.AstroFocusConfig;
 import com.photographer.focusstack.common.model.AstroFocusStrategy;
 import com.photographer.focusstack.common.model.AstroSession;
 import com.photographer.focusstack.common.model.AstroSessionStatus;
-import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.session.CameraBackendProvider;
 import com.photographer.focusstack.session.CameraBackendSession;
 import com.photographer.focusstack.session.CameraSessionPurpose;
@@ -44,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Service
@@ -103,18 +103,18 @@ public class AstroModeService {
         entity.setOutputDirectory(Path.of(dataDir, entity.getId()).toString());
         entity = repository.save(entity);
         log.info("Created astro session {}", entity.getId());
-        return entity.toRecord();
+        return toRecord(entity);
     }
 
     @Transactional(readOnly = true)
     public Optional<AstroSession> getSession(String id) {
-        return repository.findById(id).map(AstroSessionEntity::toRecord);
+        return repository.findById(id).map(this::toRecord);
     }
 
     @Transactional(readOnly = true)
     public List<AstroSession> listSessions() {
         return repository.findAllByOrderByCreatedAtDesc().stream()
-                .map(AstroSessionEntity::toRecord)
+                .map(this::toRecord)
                 .toList();
     }
 
@@ -126,8 +126,16 @@ public class AstroModeService {
                 AstroSessionStatus.ABORTED);
         return repository.findByStatusInAndFinishedAtBefore(terminalStatuses, cutoff)
                 .stream()
-                .map(AstroSessionEntity::toRecord)
+                .map(this::toRecord)
                 .toList();
+    }
+
+    private AstroSession toRecord(AstroSessionEntity entity) {
+        PreparedExecution execution = activeExecutions.get(entity.getId());
+        int progress = execution != null
+                ? execution.stackingProgressPercent()
+                : entity.getStatus() == AstroSessionStatus.COMPLETED ? 100 : 0;
+        return entity.toRecord(progress);
     }
 
     @Transactional
@@ -229,16 +237,17 @@ public class AstroModeService {
                     entity.getId());
         }
 
-        CameraProfile mockProfile = new CameraProfile(
-                "astro-default", "Astro Camera", "mock", "localhost",
-                1, 1000, 0.0);
+        com.photographer.focusstack.common.model.CameraProfile mockProfile =
+                new com.photographer.focusstack.common.model.CameraProfile(
+                        "astro-default", "Astro Camera", "mock", "localhost",
+                        1, 1000, 0.0);
         return CameraBackendSession.unmanaged(
                 cameraBackendFactory.getBackend(mockProfile));
     }
 
     public void requestCameraShutdown() {
         if (!shutdownRequested.compareAndSet(false, true)) {
-  return;
+            return;
         }
         List.copyOf(activeExecutions.keySet()).forEach(this::requestAbort);
     }
@@ -326,8 +335,21 @@ public class AstroModeService {
                     new NoOpStarTrailDeblurService());
 
             setStatus(entity, AstroSessionStatus.STACKING, false);
-            AstroCapturePipeline.PipelineResult pipelineResult =
-                    pipeline.process(capturedImages);
+            execution.resetStackingProgress();
+            AstroCapturePipeline.PipelineResult pipelineResult = pipeline.process(
+                    capturedImages,
+                    entity.resolvedStackingConfig(),
+                    new AstroStackingService.StackingControl() {
+                        @Override
+                        public boolean isCancelled() {
+                            return execution.abortRequested();
+                        }
+
+                        @Override
+                        public void onProgress(int completedRows, int totalRows) {
+                            execution.updateStackingProgress(completedRows, totalRows);
+                        }
+                    });
             Path resultPath = Path.of(entity.getOutputDirectory())
                     .resolve("result")
                     .resolve("stacked_result.png");
@@ -536,6 +558,8 @@ public class AstroModeService {
         private final AtomicReference<ExecutionState> state =
                 new AtomicReference<>(ExecutionState.QUEUED);
         private final AtomicBoolean abortRequested = new AtomicBoolean();
+        private final AtomicInteger stackingRowsCompleted = new AtomicInteger();
+        private final AtomicInteger stackingRowsTotal = new AtomicInteger();
 
         private PreparedExecution(
                 AstroModeService owner,
@@ -582,6 +606,29 @@ public class AstroModeService {
 
         private boolean abortRequested() {
             return abortRequested.get();
+        }
+
+        private void resetStackingProgress() {
+            stackingRowsCompleted.set(0);
+            stackingRowsTotal.set(0);
+        }
+
+        private void updateStackingProgress(int completedRows, int totalRows) {
+            if (totalRows <= 0) {
+                return;
+            }
+            int boundedCompleted = Math.max(0, Math.min(completedRows, totalRows));
+            stackingRowsTotal.set(totalRows);
+            stackingRowsCompleted.accumulateAndGet(boundedCompleted, Math::max);
+        }
+
+        private int stackingProgressPercent() {
+            int total = stackingRowsTotal.get();
+            if (total <= 0) {
+                return 0;
+            }
+            return (int) Math.min(100L,
+                    (stackingRowsCompleted.get() * 100L) / total);
         }
 
         private void closeCamera() {
