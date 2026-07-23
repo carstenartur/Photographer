@@ -1,0 +1,199 @@
+name: Run CCAPI Digest review hardening
+
+on:
+  push:
+    branches:
+      - automation/implement-ccapi-shutdown-final
+    paths:
+      - '.github/workflows/run-ccapi-digest-edge-hardening.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: run-ccapi-digest-edge-hardening
+  cancel-in-progress: true
+
+jobs:
+  harden-test-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      MAVEN_OPTS: -Xmx2g
+    steps:
+      - name: Checkout technical head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          show-progress: false
+          persist-credentials: true
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Apply Digest challenge selection fix
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p target/digest-hardening-diagnostics
+          {
+            set -e
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git fetch origin \
+              +refs/heads/hardening/ccapi-digest-edge-cases:refs/remotes/origin/hardening/ccapi-digest-edge-cases
+            git switch -C digest-product origin/hardening/ccapi-digest-edge-cases
+            python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java')
+          text = path.read_text(encoding='utf-8')
+          old = '''    private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
+              for (Header challenge : challenges) {
+                  String value = challenge.getValue();
+                  if (value == null || !value.regionMatches(true, 0, "Digest ", 0, 7)) {
+                      continue;
+                  }
+                  String parameters = value.substring(7);
+                  String algorithm = parameter(parameters, "algorithm").orElse("MD5");
+                  String qop = parameter(parameters, "qop").orElse("");
+                  boolean supportsAuth = Arrays.stream(qop.split(","))
+                          .map(String::trim)
+                          .anyMatch("auth"::equalsIgnoreCase);
+                  if (!"MD5".equalsIgnoreCase(algorithm) || !supportsAuth) {
+                      outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
+                      throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
+                  }
+                  return;
+              }
+              // A Basic-only or otherwise non-Digest challenge is not answered because
+              // RequestConfig permits Digest only. The bounded final 401 is translated by
+              // CcapiResponseErrorHandler without exposing challenge material.
+          }'''
+          new = '''    private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
+              if (hasCompatibleCanonDigestChallenge(challenges)) {
+                  return;
+              }
+              if (containsDigestChallenge(challenges)) {
+                  outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);
+                  throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);
+              }
+              // A Basic-only or otherwise non-Digest challenge is not answered because
+              // RequestConfig permits Digest only. The bounded final 401 is translated by
+              // CcapiResponseErrorHandler without exposing challenge material.
+          }
+
+          static boolean hasCompatibleCanonDigestChallenge(Header[] challenges) {
+              for (Header challenge : challenges) {
+                  String value = challenge.getValue();
+                  if (!isDigestChallenge(value)) {
+                      continue;
+                  }
+                  String parameters = value.substring(7);
+                  String algorithm = parameter(parameters, "algorithm").orElse("MD5");
+                  String qop = parameter(parameters, "qop").orElse("");
+                  boolean supportsAuth = Arrays.stream(qop.split(","))
+                          .map(String::trim)
+                          .anyMatch("auth"::equalsIgnoreCase);
+                  if ("MD5".equalsIgnoreCase(algorithm) && supportsAuth) {
+                      return true;
+                  }
+              }
+              return false;
+          }
+
+          private static boolean containsDigestChallenge(Header[] challenges) {
+              return Arrays.stream(challenges)
+                      .map(Header::getValue)
+                      .anyMatch(CcapiRestTemplateFactory::isDigestChallenge);
+          }
+
+          private static boolean isDigestChallenge(String value) {
+              return value != null && value.regionMatches(true, 0, "Digest ", 0, 7);
+          }'''
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected one Digest validator anchor, found {count}')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+
+          test = Path('app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java')
+          test.write_text('''package com.photographer.focusstack.camera.backend;
+
+          import org.apache.hc.core5.http.Header;
+          import org.apache.hc.core5.http.message.BasicHeader;
+          import org.junit.jupiter.api.Test;
+
+          import static org.assertj.core.api.Assertions.assertThat;
+
+          class CcapiDigestChallengeSelectionTest {
+
+              @Test
+              void acceptsCompatibleDigestChallengeAfterUnsupportedAlternative() {
+                  Header[] challenges = {
+                          challenge("Digest realm=\\"camera\\", algorithm=\\"SHA-256\\", qop=\\"auth\\""),
+                          challenge("Digest realm=\\"camera\\", algorithm=\\"MD5\\", qop=\\"auth,auth-int\\"")
+                  };
+
+                  assertThat(CcapiRestTemplateFactory
+                          .hasCompatibleCanonDigestChallenge(challenges)).isTrue();
+              }
+
+              @Test
+              void acceptsOmittedAlgorithmAsMd5Default() {
+                  Header[] challenges = {
+                          challenge("Digest realm=\\"camera\\", qop=\\"auth\\"")
+                  };
+
+                  assertThat(CcapiRestTemplateFactory
+                          .hasCompatibleCanonDigestChallenge(challenges)).isTrue();
+              }
+
+              @Test
+              void rejectsDigestSetWithoutCompatibleCanonContract() {
+                  Header[] challenges = {
+                          challenge("Basic realm=\\"camera\\""),
+                          challenge("Digest realm=\\"camera\\", algorithm=\\"SHA-256\\", qop=\\"auth\\""),
+                          challenge("Digest realm=\\"camera\\", algorithm=\\"MD5\\", qop=\\"auth-int\\"")
+                  };
+
+                  assertThat(CcapiRestTemplateFactory
+                          .hasCompatibleCanonDigestChallenge(challenges)).isFalse();
+              }
+
+              private static Header challenge(String value) {
+                  return new BasicHeader("WWW-Authenticate", value);
+              }
+          }
+          ''', encoding='utf-8')
+          PY
+
+            mvn -B --no-transfer-progress test \
+              -pl app -am \
+              -Dtest=CcapiDigestEdgeCaseTest,CcapiDigestChallengeSelectionTest \
+              -Dsurefire.failIfNoSpecifiedTests=false \
+              -Djava.awt.headless=true
+            mvn -B --no-transfer-progress clean verify \
+              -pl common-api,app -am \
+              -Djava.awt.headless=true
+
+            git add \
+              app/src/main/java/com/photographer/focusstack/camera/backend/CcapiRestTemplateFactory.java \
+              app/src/test/java/com/photographer/focusstack/camera/backend/CcapiDigestChallengeSelectionTest.java
+            git commit -m 'fix(ccapi): select any compatible Digest challenge'
+            git push origin HEAD:hardening/ccapi-digest-edge-cases
+          } 2>&1 | tee target/digest-hardening-diagnostics/full.log
+
+      - name: Upload Digest hardening diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccapi-digest-hardening-diagnostics
+          path: target/digest-hardening-diagnostics
+          if-no-files-found: error
+          retention-days: 14
