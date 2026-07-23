@@ -6,10 +6,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.ADVERTISED_NOT_IMPLEMENTED;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
 import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
 
-/** Adds vendor-neutral live-view diagnostics not yet represented by the base snapshot. */
+/** Adds vendor-neutral live-view diagnostics not represented by the base snapshot. */
 final class CcapiLiveViewCapabilities {
 
     private static final String SCROLL_SUFFIX = "/shooting/liveview/scroll";
@@ -27,7 +28,7 @@ final class CcapiLiveViewCapabilities {
             return new CameraCapabilitySnapshot.Capability(
                     "live-view-scroll",
                     false,
-                    false,
+                    true,
                     UNSUPPORTED,
                     SCROLL_METHODS,
                     Set.of(),
@@ -35,19 +36,48 @@ final class CcapiLiveViewCapabilities {
                     "ENDPOINT_NOT_ADVERTISED");
         }
 
+        CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()
+                .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)
+                .filter(endpoint -> endpoint.methods().containsAll(SCROLL_METHODS))
+                .max(Comparator.comparingInt(CcapiLiveViewCapabilities::versionNumber)
+                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
+                .orElse(null);
+        if (compatible != null) {
+            return new CameraCapabilitySnapshot.Capability(
+                    "live-view-scroll",
+                    true,
+                    true,
+                    AVAILABLE,
+                    SCROLL_METHODS,
+                    compatible.methods(),
+                    true,
+                    null);
+        }
+
         CameraCapabilitySnapshot.Endpoint highest = advertised.stream()
                 .max(Comparator.comparingInt(CcapiLiveViewCapabilities::versionNumber)
                         .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
                 .orElseThrow();
+        if (!highest.methodMetadataKnown()) {
+            return new CameraCapabilitySnapshot.Capability(
+                    "live-view-scroll",
+                    true,
+                    true,
+                    METHOD_METADATA_UNKNOWN,
+                    SCROLL_METHODS,
+                    Set.of(),
+                    false,
+                    "METHOD_METADATA_NOT_ADVERTISED");
+        }
         return new CameraCapabilitySnapshot.Capability(
                 "live-view-scroll",
                 true,
-                false,
-                ADVERTISED_NOT_IMPLEMENTED,
+                true,
+                UNSUPPORTED,
                 SCROLL_METHODS,
                 highest.methods(),
-                highest.methodMetadataKnown(),
-                "APPLICATION_NOT_IMPLEMENTED");
+                true,
+                "METHOD_NOT_ADVERTISED");
     }
 
     private static int versionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
