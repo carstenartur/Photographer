@@ -1,4 +1,4 @@
-import { request } from './auth';
+import { API_BASE_URL, request } from './auth';
 
 /**
  * Create a new astro session and start it.
@@ -56,8 +56,7 @@ export function getAstroResult(id) {
  * @returns {Promise<Blob>} image blob
  */
 export async function downloadAstroResultImage(id) {
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(`${BASE_URL}/astro/sessions/${encodeURIComponent(id)}/result`, {
+  const res = await fetch(`${API_BASE_URL}/astro/sessions/${encodeURIComponent(id)}/result`, {
     credentials: 'include',
   });
   if (!res.ok) {
