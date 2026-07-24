@@ -1,4 +1,4 @@
-import { request } from './auth';
+import { API_BASE_URL, request } from './auth';
 
 export function getAllJobs() {
   return request('/jobs');
@@ -37,8 +37,7 @@ export function deleteJob(id) {
  * @returns {Promise<Blob>} ZIP file blob
  */
 export async function exportJobFrames(id) {
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(`${BASE_URL}/jobs/${encodeURIComponent(id)}/export`, {
+  const res = await fetch(`${API_BASE_URL}/jobs/${encodeURIComponent(id)}/export`, {
     credentials: 'include',
   });
   if (!res.ok) {
