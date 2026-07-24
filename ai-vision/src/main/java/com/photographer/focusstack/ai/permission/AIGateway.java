@@ -129,8 +129,8 @@ public class AIGateway implements VisionProvider {
 
     private VisionResult denied(String taskType) {
         return VisionResult.failure(
-                delegate.name(),
-                "gateway",
+                name(),
+                "local-policy",
                 taskType,
                 VisionFailureKind.POLICY_DENIED,
                 false,
