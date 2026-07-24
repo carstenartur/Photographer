@@ -31,6 +31,17 @@ class VisionResultFailureTest {
     }
 
     @Test
+    void terminalFailureDropsRetryHint() {
+        VisionResult result = VisionResult.failure(
+                "provider", "model", "classification",
+                VisionFailureKind.AUTHENTICATION, false, 12,
+                "Authentication failed", 25L);
+
+        assertFalse(result.retryable());
+        assertNull(result.retryAfterSeconds());
+    }
+
+    @Test
     void unsuccessfulLegacyConstructorNormalizesToUnknownAndDropsRawPayload() {
         VisionResult result = new VisionResult(
                 "provider", "model", "error", "none", List.of(), 0.7,
