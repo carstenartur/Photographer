@@ -25,6 +25,38 @@ class AstroStackingConfigTest {
     }
 
     @Test
+    void oldCaptureConstructorsPreserveMeanMode() {
+        AstroCaptureConfig withProfile = new AstroCaptureConfig(
+                "camera", 5, 1000, 800, "f/4", 0,
+                "PNG", false, true, false);
+        AstroCaptureConfig defaultProfile = new AstroCaptureConfig(
+                5, 1000, 800, "f/4", 0,
+                "PNG", false, true, false);
+
+        assertEquals(AstroStackingConfig.defaults(), withProfile.stackingConfig());
+        assertEquals(AstroStackingConfig.defaults(), defaultProfile.stackingConfig());
+    }
+
+    @Test
+    void nullCaptureStackingConfigNormalizesToMean() {
+        AstroCaptureConfig capture = new AstroCaptureConfig(
+                "camera", 5, 1000, 800, "f/4", 0,
+                "PNG", false, true, false, null);
+
+        assertEquals(AstroStackingConfig.defaults(), capture.stackingConfig());
+    }
+
+    @Test
+    void explicitCaptureStackingConfigIsRetained() {
+        AstroStackingConfig expected = AstroStackingConfig.sigmaClipped(1.8, 4, 5);
+        AstroCaptureConfig capture = new AstroCaptureConfig(
+                "camera", 5, 1000, 800, "f/4", 0,
+                "PNG", false, true, false, expected);
+
+        assertEquals(expected, capture.stackingConfig());
+    }
+
+    @Test
     void rejectsInvalidSigmaThreshold() {
         assertThrows(IllegalArgumentException.class,
                 () -> new AstroStackingConfig(AstroStackingMode.SIGMA_CLIPPED_MEAN,

@@ -38,11 +38,24 @@ Median and sigma-clipped modes process one output row at a time and reuse tempor
 
 Exact unit fixtures cover unchanged mean output, odd/even median, saturated values, isolated and multi-stage outlier rejection, insufficient-sample fallback, invalid configuration and cancellation/progress.
 
-The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke belong to the next #286 slice together with performance thresholds; this core PR does not make unverified performance claims.
+The application integration additionally verifies that:
 
-## Current integration boundary
+- missing JSON/session configuration retains historical `MEAN`;
+- selected mode and parameters round-trip through persistence;
+- the exact persisted configuration is supplied to `AstroCapturePipeline`;
+- user abort reaches `StackingControl`;
+- active polling receives fine row progress while durable checkpoints advance in 5-percentage-point increments rather than per-row writes;
+- terminal summaries identify the executed mode.
 
-The core service and pipeline accept explicit `AstroStackingConfig`; existing overloads remain Mean-based. The current application session model, persistence, REST API and frontend do not yet expose or persist robust-mode selection. Those layers must be added together in the next #286 slice so persisted provenance always describes the algorithm actually executed.
+The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke remain open before performance thresholds can be promoted.
+
+## Application integration
+
+`AstroCaptureConfig.stackingConfig` is optional for backward compatibility and normalizes to `AstroStackingConfig.defaults()`.
+
+New sessions persist mode, sigma threshold, maximum iterations and minimum samples. Historical rows without those columns normalize to Mean. The service executes exactly the resolved persisted configuration; the REST response and Astro Sessions UI expose the same provenance.
+
+During `STACKING`, active polling receives the latest in-memory percentage. The application stores durable checkpoints every 5 percentage points and exact terminal progress, avoiding a write per image row while preserving useful recovery/status data after restart. Completed sessions report 100%; aborted or failed sessions retain their last exact terminal progress without fabricating completion.
 
 ## Build
 
