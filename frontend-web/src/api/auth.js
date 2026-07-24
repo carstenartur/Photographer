@@ -28,12 +28,13 @@ function authHeader() {
   return 'Basic ' + btoa(`${_credentials.username}:${_credentials.password}`);
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+/** Canonical v1 REST base. Deployments can override the complete prefix. */
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 /**
  * Authenticated fetch wrapper used by all API modules.
  *
- * @param {string} path  – relative to /api, e.g. '/cameras'
+ * @param {string} path  – relative to /api/v1, e.g. '/cameras'
  * @param {RequestInit} options – standard fetch options
  */
 export async function request(path, options = {}) {
@@ -45,7 +46,7 @@ export async function request(path, options = {}) {
   if (auth) {
     headers['Authorization'] = auth;
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     credentials: 'include',
     ...options,
     headers,
