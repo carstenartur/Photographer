@@ -34,6 +34,8 @@ class AIGatewayTest {
                 IMAGE, VisionContext.wildlife());
 
         assertPolicyDenied(result, "classification");
+        assertEquals(gateway.name(), result.provider());
+        assertEquals("local-policy", result.model());
         assertEquals(0, delegate.getCallCount());
     }
 
