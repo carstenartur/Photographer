@@ -1,5 +1,6 @@
 package com.photographer.focusstack.ai;
 
+import com.photographer.focusstack.observer.events.BoundingBox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,7 +109,7 @@ public class TwoStageVisionProvider implements VisionProvider {
             VisionResult source,
             String taskType,
             String summary,
-            List<com.photographer.focusstack.observer.events.BoundingBox> boxes) {
+            List<BoundingBox> boxes) {
         return new VisionResult(
                 source.provider(),
                 source.model(),
