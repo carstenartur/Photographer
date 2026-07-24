@@ -155,7 +155,7 @@ public class GeminiVisionProvider implements VisionProvider {
                 return last;
             }
             Duration delay = retryDelay(last, attempt);
-            log.info("Retrying Gemini {} after typed {} failure (attempt {}/{})",
+            log.debug("Retrying Gemini {} after typed {} failure (attempt {}/{})",
                     taskType, last.failureKind(), attempt + 1, maximumAttempts);
             try {
                 sleeper.sleep(delay);
