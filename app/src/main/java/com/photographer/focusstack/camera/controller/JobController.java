@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
 import com.photographer.focusstack.camera.entity.StackingJobEntity;
@@ -32,7 +33,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 @RestController
-@RequestMapping("/api/jobs")
+@RequestMapping({ApiPaths.V1 + "/jobs", ApiPaths.LEGACY + "/jobs"})
 @Tag(name = "Jobs", description = "Focus stacking job lifecycle and frame export endpoints.")
 public class JobController {
 

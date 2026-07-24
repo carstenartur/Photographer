@@ -34,6 +34,22 @@ class PluginManagementControllerTest {
     private UserRepository userRepository;
 
     @Test
+    void canonicalV1RouteUsesTheSameAdminController() throws Exception {
+        when(pluginService.listPlugins()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/admin/plugins"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void canonicalV1AdminRouteRejectsNonAdminUser() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/plugins"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void listPlugins_returnsEmptyList() throws Exception {
         when(pluginService.listPlugins()).thenReturn(List.of());
 

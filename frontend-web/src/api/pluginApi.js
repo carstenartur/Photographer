@@ -1,4 +1,4 @@
-import { request } from './auth';
+import { authenticatedFetch, request } from './auth';
 
 /**
  * List all installed plugins.
@@ -22,10 +22,8 @@ export function getPlugin(id) {
 export async function installPlugin(file) {
   const formData = new FormData();
   formData.append('file', file);
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(`${BASE_URL}/admin/plugins/install`, {
+  const res = await authenticatedFetch('/admin/plugins/install', {
     method: 'POST',
-    credentials: 'include',
     body: formData,
   });
   if (!res.ok) {

@@ -1,5 +1,6 @@
 package com.photographer.focusstack.app.plugin;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
@@ -35,7 +36,7 @@ import java.util.Map;
  * </ul>
  */
 @RestController
-@RequestMapping("/api/admin/plugins")
+@RequestMapping({ApiPaths.V1 + "/admin/plugins", ApiPaths.LEGACY + "/admin/plugins"})
 @Tag(name = "Plugin Management", description = "Administrative plugin lifecycle endpoints.")
 public class PluginManagementController {
 

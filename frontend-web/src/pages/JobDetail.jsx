@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getJob, startJob, pauseJob, cancelJob, deleteJob, exportJobFrames } from '../api/jobApi';
+import { API_BASE_URL, webSocketUrl } from '../api/auth';
 import { getCameraStatus } from '../api/cameraApi';
 import PreviewPanel from '../components/PreviewPanel';
 
@@ -61,12 +62,8 @@ export default function JobDetail() {
   useEffect(() => {
     let ws;
     try {
-      const wsBase = import.meta.env.VITE_API_URL
-        ? import.meta.env.VITE_API_URL.replace(/^http/, 'ws').replace(/\/api$/, '')
-        : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
-      const wsUrl = wsBase + '/ws/plain';
-      // Plain WebSocket — matches the /ws/plain handler on the server
-      ws = new WebSocket(wsUrl);
+      // Plain WebSocket — matches the independently versioned /ws/plain contract.
+      ws = new WebSocket(webSocketUrl());
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
@@ -302,7 +299,7 @@ export default function JobDetail() {
         ) : (
           <div className="frame-thumb-grid">
             {frames.map((frameId, i) => {
-              const imgUrl = `${import.meta.env.VITE_API_URL || '/api'}/jobs/${id}/frames/${frameId}/image`;
+              const imgUrl = `${API_BASE_URL}/jobs/${id}/frames/${frameId}/image`;
               return (
                 <div key={frameId} className="frame-thumb-card">
                   <img

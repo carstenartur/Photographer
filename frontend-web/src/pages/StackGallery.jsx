@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAllJobs } from '../api/jobApi';
+import { API_BASE_URL, authenticatedFetch, requestBlob } from '../api/auth';
 
-const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || '/api';
-const CAMERA_BASE   = import.meta.env.VITE_API_URL       || '/api';
+const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || API_BASE_URL;
+const CAMERA_BASE = API_BASE_URL;
 
 export default function StackGallery() {
   const [completedJobs, setCompletedJobs] = useState([]);
@@ -49,10 +50,9 @@ export default function StackGallery() {
     setMerging(true);
     try {
       // Try to retrieve a cached merge result first
-      const cachedRes = await fetch(
-        `${ANALYSIS_BASE}/analysis/merge-result/${job.id}`,
-        { credentials: 'include' },
-      );
+      const cachedRes = import.meta.env.VITE_ANALYSIS_URL
+        ? await fetch(`${ANALYSIS_BASE}/analysis/merge-result/${job.id}`, { credentials: 'include' })
+        : await authenticatedFetch(`/analysis/merge-result/${job.id}`);
       if (cachedRes.ok) {
         const blob = await cachedRes.blob();
         setMergedImageUrl(blob);
@@ -61,9 +61,7 @@ export default function StackGallery() {
       }
 
       // No cache — fetch the export ZIP and unpack it with JSZip
-      const exportRes = await fetch(`${CAMERA_BASE}/jobs/${job.id}/export`, {
-        credentials: 'include',
-      });
+      const exportRes = await authenticatedFetch(`/jobs/${job.id}/export`);
       if (!exportRes.ok) {
         throw new Error(`Export failed: ${exportRes.statusText}`);
       }
@@ -93,11 +91,16 @@ export default function StackGallery() {
         formData.append('frames', bytes, entry.name);
       }
 
-      const mergeRes = await fetch(`${ANALYSIS_BASE}/analysis/merge-stack?jobId=${job.id}`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
+      const mergeRes = import.meta.env.VITE_ANALYSIS_URL
+        ? await fetch(`${ANALYSIS_BASE}/analysis/merge-stack?jobId=${job.id}`, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          })
+        : await authenticatedFetch(`/analysis/merge-stack?jobId=${job.id}`, {
+            method: 'POST',
+            body: formData,
+          });
       if (!mergeRes.ok) {
         const body = await mergeRes.text().catch(() => '');
         throw new Error(`Merge failed: ${mergeRes.status} ${body}`);
@@ -126,11 +129,7 @@ export default function StackGallery() {
   // ── Download frames as ZIP ───────────────────────────────────────────────────
   async function handleDownloadZip(jobId) {
     try {
-      const res = await fetch(`${CAMERA_BASE}/jobs/${jobId}/export`, {
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error(res.statusText);
-      const blob     = await res.blob();
+      const blob = await requestBlob(`/jobs/${jobId}/export`);
       const url      = URL.createObjectURL(blob);
       const a        = document.createElement('a');
       a.href         = url;

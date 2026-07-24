@@ -96,6 +96,20 @@ class CameraControllerTest {
     }
 
     @Test
+    void canonicalAndLegacyListRoutesReturnEquivalentPayloads() throws Exception {
+        when(profileService.getAllProfiles()).thenReturn(List.of(PROFILE));
+
+        String canonical = mockMvc.perform(get("/api/v1/cameras"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String legacy = mockMvc.perform(get("/api/cameras"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        org.junit.jupiter.api.Assertions.assertEquals(canonical, legacy);
+    }
+
+    @Test
     void listProfiles_returnsOk() throws Exception {
         when(profileService.getAllProfiles()).thenReturn(List.of());
         mockMvc.perform(get("/api/cameras"))

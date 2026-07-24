@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.FaceOrbitSettings;
 import com.photographer.focusstack.common.model.FaceProfileJob;
@@ -23,7 +24,7 @@ import java.util.List;
 
 /** REST API for Face Orbit Capture sessions. */
 @RestController
-@RequestMapping("/api/face-orbit")
+@RequestMapping({ApiPaths.V1 + "/face-orbit", ApiPaths.LEGACY + "/face-orbit"})
 @Tag(name = "Face Orbit", description = "Face-orbit capture sessions and profile generation endpoints.")
 public class FaceOrbitController {
 

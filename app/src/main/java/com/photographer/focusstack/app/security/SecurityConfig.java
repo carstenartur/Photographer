@@ -1,5 +1,6 @@
 package com.photographer.focusstack.app.security;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -39,10 +40,16 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers(HttpMethod.GET, "/", "/index.html", "/assets/**", "/favicon.svg",
                         "/favicon.ico").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/analysis/health").permitAll()
+                .requestMatchers(HttpMethod.GET,
+                        ApiPaths.V1 + "/analysis/health",
+                        ApiPaths.LEGACY + "/analysis/health").permitAll()
                 // Admin-only management endpoints
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/jobs/reindex").hasRole("ADMIN")
+                .requestMatchers(
+                        ApiPaths.V1 + "/admin/**",
+                        ApiPaths.LEGACY + "/admin/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST,
+                        ApiPaths.V1 + "/jobs/reindex",
+                        ApiPaths.LEGACY + "/jobs/reindex").hasRole("ADMIN")
                 // All other requests (API, WebSocket) require authentication
                 .anyRequest().authenticated()
             )

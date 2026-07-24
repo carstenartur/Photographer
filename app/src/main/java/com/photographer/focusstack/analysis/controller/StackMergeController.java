@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.analysis.service.StackMerger;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,7 +30,7 @@ import java.util.Map;
  * can later be retrieved via {@code GET /api/analysis/merge-result/{jobId}}.
  */
 @RestController
-@RequestMapping("/api/analysis")
+@RequestMapping({ApiPaths.V1 + "/analysis", ApiPaths.LEGACY + "/analysis"})
 @Tag(name = "Stack Merge", description = "Focus-stack merge and merge-result retrieval endpoints.")
 public class StackMergeController {
 

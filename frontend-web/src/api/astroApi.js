@@ -1,4 +1,4 @@
-import { API_BASE_URL, request } from './auth';
+import { request, requestBlob } from './auth';
 
 /**
  * Create a new astro session and start it.
@@ -55,13 +55,6 @@ export function getAstroResult(id) {
  * @param {string} id
  * @returns {Promise<Blob>} image blob
  */
-export async function downloadAstroResultImage(id) {
-  const res = await fetch(`${API_BASE_URL}/astro/sessions/${encodeURIComponent(id)}/result`, {
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
-  }
-  return res.blob();
+export function downloadAstroResultImage(id) {
+  return requestBlob(`/astro/sessions/${encodeURIComponent(id)}/result`);
 }
