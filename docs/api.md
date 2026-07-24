@@ -51,14 +51,40 @@ The raw OpenAPI spec (JSON) is available at `/v3/api-docs`.
 | `DELETE` | `/api/astro/sessions/{id}` | Delete one terminal session and its output files |
 | `GET` | `/api/astro/sessions/{id}/result` | Get a completed session record with result path and summary |
 
-`captureConfig.stackingConfig` is optional. Omitting it preserves the historical Mean behavior:
+`captureConfig.stackingConfig` is optional. A create request that omits it preserves the historical Mean behavior:
 
 ```json
 {
-  "mode": "MEAN",
-  "sigmaThreshold": 2.5,
-  "maxIterations": 3,
-  "minimumSamples": 4
+  "captureConfig": {
+    "frameCount": 8,
+    "exposureTimeMs": 5000,
+    "iso": 1600,
+    "delayBetweenFramesMs": 1000,
+    "imageFormat": "PNG",
+    "saveRaw": false,
+    "saveJpeg": true,
+    "captureDarkFrame": false
+  },
+  "focusConfig": {
+    "strategy": "MANUAL_FIXED",
+    "scanSteps": 5,
+    "scanStepSize": 10
+  }
+}
+```
+
+The persisted session response always contains the resolved configuration under `captureConfig.stackingConfig`; for an omitted request value it is normalized to:
+
+```json
+{
+  "captureConfig": {
+    "stackingConfig": {
+      "mode": "MEAN",
+      "sigmaThreshold": 2.5,
+      "maxIterations": 3,
+      "minimumSamples": 4
+    }
+  }
 }
 ```
 
