@@ -1,0 +1,23 @@
+name: Source snapshot diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create source snapshot
+        run: tar --exclude=.git --exclude='**/target' --exclude='frontend-web/node_modules' -czf /tmp/photographer-source.tgz .
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v7
+        with:
+          name: photographer-source
+          path: /tmp/photographer-source.tgz
+          retention-days: 1
