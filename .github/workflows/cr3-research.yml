@@ -12,6 +12,9 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/src/test/resources/**'
       - 'docs/cr3-results/**'
+      - 'docs/cleanroom/generated-evidence.json'
+      - 'scripts/manage_cr3_generated_evidence.py'
+      - 'scripts/test_manage_cr3_generated_evidence.py'
       - '.github/workflows/cr3-research.yml'
       - 'pom.xml'
   workflow_dispatch:
@@ -58,6 +61,13 @@ jobs:
           -am
           -Dit.test=ExactBracketKDiscriminatorIT
           -Djava.awt.headless=true
+      - name: Verify committed D12 metrics are current
+        if: ${{ github.event_name == 'pull_request' }}
+        run: >-
+          python3 scripts/manage_cr3_generated_evidence.py
+          --root .
+          compare D12-metrics
+          --source-root canon-cr3-research/target/exact-code-length-k-discriminator
       - name: Run complete research integration profile
         if: ${{ github.event_name != 'pull_request' }}
         run: >-
