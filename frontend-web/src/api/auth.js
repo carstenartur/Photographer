@@ -87,7 +87,31 @@ export async function authenticatedFetch(path, options = {}) {
 
 async function responseError(res) {
   const body = await res.text().catch(() => '');
-  return new Error(`${res.status} ${res.statusText}: ${body}`);
+  let problem = null;
+  if (body) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        problem = parsed;
+      }
+    } catch {
+      // Non-JSON responses keep the bounded plain-text fallback below.
+    }
+  }
+
+  const title = typeof problem?.title === 'string' && problem.title.trim()
+    ? problem.title.trim()
+    : (res.statusText || 'Request failed');
+  const detail = typeof problem?.detail === 'string' && problem.detail.trim()
+    ? problem.detail.trim()
+    : (!problem && body.trim() ? body.trim() : '');
+  const message = detail
+    ? `${res.status} ${title}: ${detail}`
+    : `${res.status} ${title}`;
+  const error = new Error(message);
+  error.status = res.status;
+  if (problem) error.problem = problem;
+  return error;
 }
 
 /** Execute a JSON API request and decode its response. */
