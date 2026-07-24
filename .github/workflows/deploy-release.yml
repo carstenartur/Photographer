@@ -95,15 +95,12 @@ jobs:
           set -euo pipefail
           VERSION='${{ steps.versions.outputs.release }}'
 
-          mvn -B versions:set \
+          mvn -B versions:set versions:set-property \
             -DnewVersion="$VERSION" \
-            -DgenerateBackupPoms=false
-          mvn -B versions:set-property \
             -Dproperty=revision \
-            -DnewVersion="$VERSION" \
             -DgenerateBackupPoms=false
 
-      - name: Verify effective release versions
+      - name: Verify resolved release versions
         shell: bash
         run: |
           set -euo pipefail
@@ -178,6 +175,10 @@ jobs:
             -f object="$COMMIT_SHA" \
             -f type=commit \
             --jq .sha)
+          if [[ -z "$TAG_SHA" || "$TAG_SHA" == 'null' ]]; then
+            echo "::error::GitHub did not return a tag object SHA for v${VERSION}"
+            exit 1
+          fi
           gh api "repos/${{ github.repository }}/git/refs" \
             --method POST \
             -f ref="refs/tags/v${VERSION}" \
@@ -248,18 +249,21 @@ jobs:
         run: |
           set -euo pipefail
           NEXT='${{ steps.versions.outputs.next }}'
-          mvn -B versions:set \
+          mvn -B versions:set versions:set-property \
             -DnewVersion="$NEXT" \
-            -DgenerateBackupPoms=false
-          mvn -B versions:set-property \
             -Dproperty=revision \
-            -DnewVersion="$NEXT" \
             -DgenerateBackupPoms=false
 
           PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           REVISION=$(mvn help:evaluate -Dexpression=revision -q -DforceStdout)
-          [[ "$PROJECT_VERSION" == "$NEXT" ]]
-          [[ "$REVISION" == "$NEXT" ]]
+          if [[ "$PROJECT_VERSION" != "$NEXT" ]]; then
+            echo "::error::project.version is '$PROJECT_VERSION', expected next development version '$NEXT'"
+            exit 1
+          fi
+          if [[ "$REVISION" != "$NEXT" ]]; then
+            echo "::error::revision is '$REVISION', expected next development version '$NEXT'"
+            exit 1
+          fi
 
       - name: Create next-development pull request
         if: ${{ !inputs.dry_run }}
