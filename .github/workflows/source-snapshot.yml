@@ -14,7 +14,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Create source snapshot
-        run: tar --exclude=.git --exclude='**/target' --exclude='frontend-web/node_modules' -czf /tmp/photographer-source.tgz .
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude='**/target' \
+            --exclude='frontend-web/node_modules' \
+            --exclude='**/src/test/resources' \
+            --exclude='docs/cr3-results/images' \
+            --exclude='*.CR3' \
+            --exclude='*.cr3' \
+            --exclude='*.jpg' \
+            --exclude='*.jpeg' \
+            --exclude='*.png' \
+            --exclude='*.tif' \
+            --exclude='*.tiff' \
+            -czf /tmp/photographer-source.tgz .
       - name: Upload source snapshot
         uses: actions/upload-artifact@v7
         with:
