@@ -5,7 +5,7 @@
 - **Phase 1 complete** — Developer Manual entry point, authority rules, documentation map and migration plan.
 - **Phase 2 complete** — canonical architecture, modules, contribution, testing and operations chapters, checkout-runnable verification and stale cross-module redirects.
 - **Phase 3 complete** — canonical CR3 entry point, stable/experimental API chapters, RG1-aware current research process, migrated state/hypothesis/results paths and retirement of obsolete D5/Phase-A defaults.
-- **Phase 4 open** — generated-report ownership and verify/update contracts, tracked by #279.
+- **Phase 4 complete** — generated-evidence ownership, complete inventory, read-only verification and explicit compare/update contracts delivered by #291.
 - **Phase 5 complete** — stale roadmap audit and `TODO.md` retirement.
 - **Phase 6 complete** — mandatory link, redirect, canonical-ownership, module-manual and generated-output validation.
 
@@ -84,27 +84,22 @@ Old paths remain redirects:
 
 The final two explicitly retire D5 and unconditional Phase-A capture lists as default tasks. They point to the current RG1-aware process, where issue #249 is an open causal evidence program rather than an already authorized entropy rule.
 
-## Phase 4 — Generated report boundary — open (#279)
+## Phase 4 — Generated report boundary — complete (#279)
 
-Generated CR3 reports remain under `docs/cr3-results/` until each owning generator, every inbound link and verification behavior can move atomically.
+Generated CR3 evidence remains under `docs/cr3-results/`; relocation is optional and must still move each generator, all inbound links and its verification contract atomically.
 
-Each committed generated report must identify or be associated with:
+Delivered by #291:
 
-- generator class/script/test;
-- exact local regeneration command;
-- source fixture/manifest contract;
-- source revision and timestamp where scientifically relevant;
-- quantitative decision metrics;
-- warning that rendered screenshots are not sole scientific evidence.
+- `docs/cleanroom/generated-evidence.json` registers every committed result family and generated image/table under exactly one owner;
+- each entry records its owning module or documentation area, generator where available, fixed inputs, narrow output paths, timestamp policy, clean-room ledger binding and historical rationale where isolated generation does not yet exist;
+- `scripts/manage_cr3_generated_evidence.py verify` validates schema, ownership, paths, generators, inputs, ledger references, unique complete output coverage and managed Git-blob locks without modifying the checkout;
+- `compare` byte-compares isolated generated output with committed evidence;
+- `update` is the only operation allowed to copy isolated output into committed paths and refresh managed locks;
+- D12 metrics are the first managed-generated evidence and are verified from the generator's isolated `target` output;
+- CI tests and runs the verifier before building the provenance bundle and never rewrites scientific evidence;
+- historical reports remain byte-preserved and explicitly classified rather than silently normalized.
 
-Generation needs two explicit modes:
-
-- **verify** — fail when committed evidence is missing or stale; never overwrite;
-- **update** — intentionally regenerate reviewed evidence.
-
-CI uses verify mode and never commits scientific output. Maven Site, Javadoc, coverage, test HTML and frontend output remain artifacts/Pages content.
-
-Issue #279 owns the generated-document manifest, inventory and verifier.
+Maven Site, Javadoc, coverage, test HTML and frontend output remain uncommitted build artifacts or Pages content. Rendered screenshots are supporting evidence only; registered machine-readable metrics and source bindings remain authoritative.
 
 ## Phase 5 — Retire stale roadmap documents — complete
 
@@ -149,11 +144,8 @@ External URL schemes are not fetched. Fenced code, HTML comments and link-like i
 
 The first repository audit found and corrected stale links to nonexistent CCAPI shutdown/security documents. It also corrected the Developer architecture chapter after the completed vision-contract dependency refactor. Copilot review findings around inline-code anchors, inline-code link masking and Markdown list formatting were covered by focused regression tests and resolved.
 
-## Remaining pull-request sequence
+## Remaining optional migration work
 
-1. #279 generated-report inventory and ownership manifest;
-2. #279 verify/update tooling for committed CR3 evidence;
-3. optional atomic report-path migration after ownership is complete;
-4. final generated-evidence audit under the mandatory Phase 6 validator.
+Generated evidence may move from legacy result paths only when the owning generator, manifest entry, all inbound links and verification/update mapping move in one reviewed change. This is maintenance work, not an incomplete documentation phase.
 
-Do not combine unrelated production-code changes with Phase 4 unless generator or verification code must change to keep documentation truthful and reproducible.
+Do not combine unrelated production-code changes with evidence-path migration unless generator or verification code must change to keep documentation truthful and reproducible.
