@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createAstroSession,
   listAstroSessions,
@@ -31,6 +31,10 @@ const SESSION = {
   focusConfig: { strategy: 'MANUAL_FIXED' },
   stackingProgressPercent: 37,
 }
+
+afterEach(() => {
+  cleanup()
+})
 
 describe('AstroSessions robust stacking', () => {
   beforeEach(() => {
