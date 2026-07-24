@@ -167,22 +167,33 @@ public final class GeminiResponseParser {
         }
         List<BoundingBox> boxes = new ArrayList<>();
         for (JsonNode object : objects) {
-            String label = object.path("label").asText("unknown");
-            double confidence = object.path("confidence").asDouble(0.0);
-            double x = object.path("x").asDouble(0.0);
-            double y = object.path("y").asDouble(0.0);
-            double width = object.path("width").asDouble(0.0);
-            double height = object.path("height").asDouble(0.0);
-            if (!Double.isFinite(confidence)
-                    || !Double.isFinite(x)
-                    || !Double.isFinite(y)
-                    || !Double.isFinite(width)
-                    || !Double.isFinite(height)) {
+            String label = object.path("label").asText("").trim();
+            double confidence = object.path("confidence").asDouble(Double.NaN);
+            double x = object.path("x").asDouble(Double.NaN);
+            double y = object.path("y").asDouble(Double.NaN);
+            double width = object.path("width").asDouble(Double.NaN);
+            double height = object.path("height").asDouble(Double.NaN);
+            if (label.isBlank()
+                    || !isUnitInterval(confidence)
+                    || !isUnitInterval(x)
+                    || !isUnitInterval(y)
+                    || !isPositiveUnitInterval(width)
+                    || !isPositiveUnitInterval(height)
+                    || x + width > 1.0
+                    || y + height > 1.0) {
                 continue;
             }
             boxes.add(new BoundingBox(
                     x, y, width, height, label, confidence));
         }
         return List.copyOf(boxes);
+    }
+
+    private static boolean isUnitInterval(double value) {
+        return Double.isFinite(value) && value >= 0.0 && value <= 1.0;
+    }
+
+    private static boolean isPositiveUnitInterval(double value) {
+        return Double.isFinite(value) && value > 0.0 && value <= 1.0;
     }
 }
