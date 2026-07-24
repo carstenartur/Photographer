@@ -71,6 +71,28 @@ class GeminiResponseParserTest {
     }
 
     @Test
+    void omitsObjectBoxesOutsideNormalizedContract() {
+        VisionResult result = GeminiResponseParser.parse(
+                outer("{\"primaryLabel\":\"bird\",\"confidence\":0.9,"
+                        + "\"objects\":["
+                        + "{\"label\":\"bird\",\"confidence\":0.8,"
+                        + "\"x\":0.1,\"y\":0.2,\"width\":0.3,\"height\":0.4},"
+                        + "{\"label\":\"bad-confidence\",\"confidence\":1.1,"
+                        + "\"x\":0.1,\"y\":0.2,\"width\":0.3,\"height\":0.4},"
+                        + "{\"label\":\"overflow\",\"confidence\":0.8,"
+                        + "\"x\":0.8,\"y\":0.2,\"width\":0.3,\"height\":0.4},"
+                        + "{\"label\":\"zero-width\",\"confidence\":0.8,"
+                        + "\"x\":0.1,\"y\":0.2,\"width\":0.0,\"height\":0.4},"
+                        + "{\"confidence\":0.8,\"x\":0.1,\"y\":0.2,"
+                        + "\"width\":0.3,\"height\":0.4}]}"),
+                "gemini", "model", "object_detection", 0L);
+
+        assertTrue(result.successful());
+        assertEquals(1, result.boundingBoxes().size());
+        assertEquals("bird", result.boundingBoxes().get(0).label());
+    }
+
+    @Test
     void returnsErrorWhenNoCandidates() {
         VisionResult result = GeminiResponseParser.parse(
                 "{\"candidates\":[]}",
