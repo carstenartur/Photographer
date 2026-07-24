@@ -46,6 +46,9 @@ public record VisionResult(
                     || failureKind == VisionFailureKind.NONE
                     ? VisionFailureKind.UNKNOWN
                     : failureKind;
+            if (!retryable) {
+                retryAfterSeconds = null;
+            }
             primaryLabel = "unclassified";
             confidence = 0.0;
             boundingBoxes = List.of();
