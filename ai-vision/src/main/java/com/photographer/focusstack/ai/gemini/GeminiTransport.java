@@ -14,7 +14,7 @@ interface GeminiTransport {
     Response send(HttpRequest request) throws IOException, InterruptedException;
 
     record Response(int statusCode, String body, HttpHeaders headers) {
-        Response {
+        public Response {
             body = body == null ? "" : body;
             headers = headers == null ? HttpHeaders.of(java.util.Map.of(), (a, b) -> true)
                     : headers;
