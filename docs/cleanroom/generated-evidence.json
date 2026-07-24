@@ -12,7 +12,8 @@
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
       ],
       "outputs": [
-        "docs/cr3-results/2026-06-14-B1-predictor-state-isolation.md"
+        "docs/cr3-results/2026-06-14-B1-predictor-state-isolation.md",
+        "docs/cr3-results/images/predictor-state-isolation/**"
       ],
       "timestampPolicy": "historical-embedded",
       "rationale": "This snapshot predates the generated-evidence contract and is retained byte-for-byte until its generator is migrated to explicit compare/update mode. The legacy command is documented for archaeology, not authorized as a CI update operation."
@@ -139,7 +140,8 @@
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
       ],
       "outputs": [
-        "docs/cr3-results/2026-07-20-D8-zero-contracted-k.md"
+        "docs/cr3-results/2026-07-20-D8-zero-contracted-k.md",
+        "docs/cr3-results/2026-07-20-D8-zero-contracted-k-outcomes.tsv"
       ],
       "ledgerExperiment": "D8",
       "timestampPolicy": "not-applicable",
