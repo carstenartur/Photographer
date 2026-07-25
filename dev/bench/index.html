@@ -106,6 +106,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.2/dist/Chart.min.js"></script>
     <script src="data.js"></script>
+    <script src="labels.js"></script>
     <script id="main-script">
       'use strict';
       (function() {
@@ -180,7 +181,9 @@
               labels: dataset.map(d => d.commit.id.slice(0, 7)),
               datasets: [
                 {
-                  label: name,
+                  label: window.CR3_BENCHMARK_LABELS
+                    ? window.CR3_BENCHMARK_LABELS.format(name)
+                    : name,
                   data: dataset.map(d => d.bench.value),
                   borderColor: color,
                   backgroundColor: color + '60', // Add alpha for #rrggbbaa
