@@ -78,6 +78,10 @@ public class Cr3ImageImportBenchmark {
             }
             ImageReader reader = readers.next();
             try {
+                // Reader-provider probes are expected to restore the stream, but
+                // seeking explicitly makes the end-to-end benchmark independent
+                // of other installed ImageIO providers and their probe order.
+                input.seek(0);
                 reader.setInput(input, false, false);
                 return reader.read(0, param);
             } finally {
