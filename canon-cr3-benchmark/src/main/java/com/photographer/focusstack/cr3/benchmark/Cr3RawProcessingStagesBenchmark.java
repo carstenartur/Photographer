@@ -28,8 +28,8 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
 import javax.imageio.stream.MemoryCacheImageInputStream;
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -39,9 +39,9 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Each benchmark has its own state class. Real decoded Bayer data is
  * prepared once per trial and only the input needed by that particular stage
- * is restored in invocation setup, outside the timed region. This prevents
- * unrelated large RAW/RGB copies from distorting memory pressure and cache
- * state for another stage.</p>
+ * is restored in invocation setup, outside the timed region. Reusable RAW and
+ * RGB buffers avoid per-invocation allocation and reduce GC-induced movement
+ * in the longitudinal series.</p>
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -95,11 +95,12 @@ public class Cr3RawProcessingStagesBenchmark {
         @Setup(Level.Trial)
         public void setupTrial() throws Exception {
             baseline = decodeRawFixture(sample);
+            input = allocateRawLike(baseline);
         }
 
         @Setup(Level.Invocation)
         public void setupInvocation() {
-            input = copyRaw(baseline);
+            restoreRaw(baseline, input);
         }
     }
 
@@ -115,11 +116,12 @@ public class Cr3RawProcessingStagesBenchmark {
         public void setupTrial() throws Exception {
             baseline = decodeRawFixture(sample);
             BlackLevelProcessor.process(baseline, BlackLevel.defaultLevel());
+            input = allocateRawLike(baseline);
         }
 
         @Setup(Level.Invocation)
         public void setupInvocation() {
-            input = copyRaw(baseline);
+            restoreRaw(baseline, input);
         }
     }
 
@@ -128,24 +130,18 @@ public class Cr3RawProcessingStagesBenchmark {
         @Param({"sample.cr3", "eosr-iso-low.cr3"})
         public String sample;
 
-        private Cr3RawImage baseline;
         private Cr3RawImage input;
         private int effectiveWhiteLevel;
 
         @Setup(Level.Trial)
         public void setupTrial() throws Exception {
-            baseline = decodeRawFixture(sample);
+            input = decodeRawFixture(sample);
             BlackLevel blackLevel = BlackLevel.defaultLevel();
-            effectiveWhiteLevel = Math.max(1, baseline.maxValue() - blackLevel.globalLevel());
-            BlackLevelProcessor.process(baseline, blackLevel);
+            effectiveWhiteLevel = Math.max(1, input.maxValue() - blackLevel.globalLevel());
+            BlackLevelProcessor.process(input, blackLevel);
             WhiteBalanceProcessor.process(
-                    baseline,
+                    input,
                     WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS);
-        }
-
-        @Setup(Level.Invocation)
-        public void setupInvocation() {
-            input = copyRaw(baseline);
         }
     }
 
@@ -154,17 +150,24 @@ public class Cr3RawProcessingStagesBenchmark {
         @Param({"sample.cr3", "eosr-iso-low.cr3"})
         public String sample;
 
-        private BufferedImage baseline;
+        private int[] baselinePixels;
         private BufferedImage input;
+        private int[] inputPixels;
 
         @Setup(Level.Trial)
         public void setupTrial() throws Exception {
-            baseline = createDemosaicedFixture(sample);
+            BufferedImage baseline = createDemosaicedFixture(sample);
+            baselinePixels = pixelsOf(baseline).clone();
+            input = new BufferedImage(
+                    baseline.getWidth(),
+                    baseline.getHeight(),
+                    BufferedImage.TYPE_INT_RGB);
+            inputPixels = pixelsOf(input);
         }
 
         @Setup(Level.Invocation)
         public void setupInvocation() {
-            input = copyImage(baseline);
+            System.arraycopy(baselinePixels, 0, inputPixels, 0, baselinePixels.length);
         }
     }
 
@@ -173,20 +176,27 @@ public class Cr3RawProcessingStagesBenchmark {
         @Param({"sample.cr3", "eosr-iso-low.cr3"})
         public String sample;
 
-        private BufferedImage baseline;
+        private int[] baselinePixels;
         private BufferedImage input;
+        private int[] inputPixels;
 
         @Setup(Level.Trial)
         public void setupTrial() throws Exception {
-            baseline = createDemosaicedFixture(sample);
+            BufferedImage baseline = createDemosaicedFixture(sample);
             ColorMatrixProcessor.process(
                     baseline,
                     ColorMatrixProcessor.DEFAULT_COLOR_MATRIX);
+            baselinePixels = pixelsOf(baseline).clone();
+            input = new BufferedImage(
+                    baseline.getWidth(),
+                    baseline.getHeight(),
+                    BufferedImage.TYPE_INT_RGB);
+            inputPixels = pixelsOf(input);
         }
 
         @Setup(Level.Invocation)
         public void setupInvocation() {
-            input = copyImage(baseline);
+            System.arraycopy(baselinePixels, 0, inputPixels, 0, baselinePixels.length);
         }
     }
 
@@ -242,27 +252,21 @@ public class Cr3RawProcessingStagesBenchmark {
                 cmp1);
     }
 
-    private static Cr3RawImage copyRaw(Cr3RawImage source) {
+    private static Cr3RawImage allocateRawLike(Cr3RawImage source) {
         return new Cr3RawImage(
                 source.width(),
                 source.height(),
-                Arrays.copyOf(source.data(), source.data().length),
+                new int[source.data().length],
                 source.bitDepth(),
                 source.bayerPattern());
     }
 
-    private static BufferedImage copyImage(BufferedImage source) {
-        BufferedImage copy = new BufferedImage(
-                source.getWidth(),
-                source.getHeight(),
-                BufferedImage.TYPE_INT_RGB);
-        Graphics2D graphics = copy.createGraphics();
-        try {
-            graphics.drawImage(source, 0, 0, null);
-        } finally {
-            graphics.dispose();
-        }
-        return copy;
+    private static void restoreRaw(Cr3RawImage source, Cr3RawImage destination) {
+        System.arraycopy(source.data(), 0, destination.data(), 0, source.data().length);
+    }
+
+    private static int[] pixelsOf(BufferedImage image) {
+        return ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
     }
 
     private static int lastRawValue(Cr3RawImage image) {
