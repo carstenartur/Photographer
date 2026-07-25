@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
 import json
+import sys
 import unittest
+from pathlib import Path
 
-import prepare_jmh_history as history
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import prepare_jmh_history as history  # noqa: E402
 
 
 class PrepareJmhHistoryTest(unittest.TestCase):
@@ -56,6 +60,23 @@ class PrepareJmhHistoryTest(unittest.TestCase):
 
         self.assertEqual(
             "CRX inner loop · Decode Rice symbol — Strict: yes · Variant: ones-until-zero",
+            result[0]["benchmark"],
+        )
+        self.assertNotIn("params", result[0])
+
+    def test_non_string_sample_parameter_is_not_dropped(self):
+        result = history.transform_results([
+            {
+                "benchmark": (
+                    "com.photographer.focusstack.cr3.benchmark."
+                    "Cr3BoxParseBenchmark.parse"
+                ),
+                "params": {"sample": 42},
+            }
+        ])
+
+        self.assertEqual(
+            "Container · Parse ISO-BMFF boxes — Sample: 42",
             result[0]["benchmark"],
         )
         self.assertNotIn("params", result[0])
