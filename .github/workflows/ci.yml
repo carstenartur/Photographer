@@ -46,6 +46,7 @@ jobs:
         run: |
           python3 scripts/test_compare_jmh.py
           python3 scripts/test_run_jmh_compare_refs.py
+          python3 scripts/test_prepare_jmh_history.py
           python3 scripts/test_validate_ccapi_transport_boundary.py
           python3 scripts/validate_ccapi_transport_boundary.py .
 

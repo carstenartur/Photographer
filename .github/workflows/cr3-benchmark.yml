@@ -1,4 +1,4 @@
-name: Benchmark
+name: CR3 Benchmark History
 
 on:
   push:
@@ -16,7 +16,9 @@ on:
       - 'scripts/test_compare_jmh.py'
       - 'scripts/run_jmh_compare_refs.py'
       - 'scripts/test_run_jmh_compare_refs.py'
-      - '.github/workflows/benchmark.yml'
+      - 'scripts/prepare_jmh_history.py'
+      - 'scripts/test_prepare_jmh_history.py'
+      - '.github/workflows/cr3-benchmark.yml'
   pull_request:
     branches: [main]
     paths:
@@ -32,7 +34,9 @@ on:
       - 'scripts/test_compare_jmh.py'
       - 'scripts/run_jmh_compare_refs.py'
       - 'scripts/test_run_jmh_compare_refs.py'
-      - '.github/workflows/benchmark.yml'
+      - 'scripts/prepare_jmh_history.py'
+      - 'scripts/test_prepare_jmh_history.py'
+      - '.github/workflows/cr3-benchmark.yml'
   schedule:
     # Longitudinal full-suite history; PRs use the short same-runner sentinel below.
     - cron: '0 5 * * 0'
@@ -70,10 +74,11 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
-      - name: Test benchmark comparison tools
+      - name: Test benchmark tooling
         run: |
           python3 scripts/test_compare_jmh.py
           python3 scripts/test_run_jmh_compare_refs.py
+          python3 scripts/test_prepare_jmh_history.py
 
       - name: Record scheduled benchmark environment
         if: github.event_name != 'pull_request'
@@ -147,12 +152,21 @@ jobs:
           -rf json
           -rff jmh-result.json
 
-      - name: Upload raw full-suite JMH JSON
+      - name: Prepare readable chart labels
+        if: github.event_name != 'pull_request'
+        run: >-
+          python3 scripts/prepare_jmh_history.py jmh
+          jmh-result.json
+          jmh-history.json
+
+      - name: Upload raw and chart-ready full-suite JMH JSON
         if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: jmh-result
-          path: jmh-result.json
+          path: |
+            jmh-result.json
+            jmh-history.json
           if-no-files-found: error
           retention-days: 30
 
@@ -165,13 +179,47 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Checkout existing benchmark history
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: benchmark-history
+          fetch-depth: 1
+
+      - name: Migrate existing history to readable series identities
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          history_file='benchmark-history/dev/bench/data.js'
+          if [[ ! -f "$history_file" ]]; then
+            echo 'No existing benchmark history to migrate.'
+            exit 0
+          fi
+
+          python3 scripts/prepare_jmh_history.py history \
+            "$history_file" \
+            "$history_file"
+
+          if git -C benchmark-history diff --quiet -- dev/bench/data.js; then
+            echo 'Benchmark history already uses readable series identities.'
+            exit 0
+          fi
+
+          git -C benchmark-history config user.name 'github-actions[bot]'
+          git -C benchmark-history config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C benchmark-history add dev/bench/data.js
+          git -C benchmark-history commit -m 'Migrate benchmark history labels'
+          git -C benchmark-history push origin HEAD:gh-pages
+
       - name: Publish main history to gh-pages
         if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Canon CR3 JMH Benchmarks
           tool: jmh
-          output-file-path: jmh-result.json
+          output-file-path: jmh-history.json
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
           github-token: ${{ secrets.GITHUB_TOKEN }}
