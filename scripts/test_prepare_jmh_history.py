@@ -21,11 +21,24 @@ class PrepareJmhHistoryTest(unittest.TestCase):
         ])
 
         self.assertEqual(
-            "RAW processing · Demosaic Bayer data — EOS R · low ISO",
+            "RAW processing · Demosaic Bayer data — EOS R · ISO 12800 · frame 1",
             result[0]["benchmark"],
         )
         self.assertNotIn("params", result[0])
         self.assertEqual(12.5, result[0]["primaryMetric"]["score"])
+
+    def test_fixture_labels_do_not_repeat_misleading_file_names(self):
+        cases = {
+            "sample-tele.cr3": "G5 X Mark II · ISO 125 · frame 2",
+            "sample-wide.cr3": "G5 X Mark II · ISO 125 · frame 3",
+            "eosr-iso-low.cr3": "EOS R · ISO 12800 · frame 1",
+            "eosr-iso-mid.cr3": "EOS R · ISO 12800 · frame 2",
+            "eosr-iso-high.cr3": "EOS R · ISO 12800 · frame 3",
+        }
+
+        for fixture, expected in cases.items():
+            with self.subTest(fixture=fixture):
+                self.assertEqual(expected, history.SAMPLE_LABELS[fixture])
 
     def test_non_sample_parameters_are_rendered_without_raw_json(self):
         result = history.transform_results([
@@ -75,6 +88,10 @@ class PrepareJmhHistoryTest(unittest.TestCase):
         self.assertTrue(source[0]["benchmark"].endswith(".parse"))
 
     def test_existing_data_js_is_migrated_without_losing_history(self):
+        readable_name = (
+            "Container · Parse ISO-BMFF boxes — "
+            "G5 X Mark II · ISO 125 · frame 1"
+        )
         original = {
             "lastUpdate": 123,
             "repoUrl": "https://example.invalid/repo",
@@ -102,10 +119,7 @@ class PrepareJmhHistoryTest(unittest.TestCase):
                         "tool": "jmh",
                         "benches": [
                             {
-                                "name": (
-                                    "Container · Parse ISO-BMFF boxes — "
-                                    "PowerShot · baseline"
-                                ),
+                                "name": readable_name,
                                 "value": 2.1,
                                 "unit": "ms/op",
                             }
@@ -127,6 +141,7 @@ class PrepareJmhHistoryTest(unittest.TestCase):
         self.assertEqual(transformed, transformed_twice)
         self.assertEqual("old-commit", benches[0]["commit"]["id"])
         self.assertEqual(2.5, benches[0]["benches"][0]["value"])
+        self.assertEqual(readable_name, benches[0]["benches"][0]["name"])
         self.assertEqual(
             benches[0]["benches"][0]["name"],
             benches[1]["benches"][0]["name"],
