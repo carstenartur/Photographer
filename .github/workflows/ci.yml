@@ -46,6 +46,7 @@ jobs:
         run: |
           python3 scripts/test_compare_jmh.py
           python3 scripts/test_run_jmh_compare_refs.py
+          python3 scripts/test_prepare_jmh_history.py
           python3 scripts/test_validate_ccapi_transport_boundary.py
           python3 scripts/validate_ccapi_transport_boundary.py .
 
@@ -133,13 +134,10 @@ jobs:
       - name: Build
         run: npm run build
 
-  docker-build:
-    name: Docker Build Smoke Test
+  docker-smoke:
+    name: Docker Smoke Test
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: [java-verify, frontend-build]
-    permissions:
-      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -151,154 +149,30 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: Dockerfile
-          push: false
           load: true
-          tags: focusstack:test
+          tags: photographer:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  report-site:
-    name: Scheduled Maven Site & Badges
-    runs-on: ubuntu-latest
-    timeout-minutes: 75
-    needs: java-verify
-    if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.java-verify.result != 'cancelled' }}
-    permissions:
-      contents: write
-    env:
-      MAVEN_OPTS: '-Xmx2g'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
-        with:
-          java-version: '25'
-          distribution: temurin
-          cache: maven
-          cache-dependency-path: pom.xml
-
-      - name: Download test and coverage data
-        uses: actions/download-artifact@v8
-        continue-on-error: true
-        with:
-          name: java-test-data
-          path: .
-
-      - name: Generate Maven site and Surefire HTML report
+      - name: Start container
         run: |
-          mvn -B --no-transfer-progress site surefire-report:report \
-            -DskipTests \
-            -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
-            -am \
-            -Djava.awt.headless=true
+          docker run -d --name photographer-test \
+            -p 8080:8080 \
+            -e PHOTOGRAPHER_ADMIN_PASSWORD=test-admin-password \
+            -e PHOTOGRAPHER_JWT_SECRET=test-secret-key-at-least-32-characters-long \
+            photographer:test
 
-          report_source=''
-          for candidate in \
-            app/target/site/surefire-report.html \
-            app/target/reports/surefire.html \
-            app/target/site/surefire.html
-          do
-            if [ -f "$candidate" ]; then
-              report_source="$candidate"
-              break
+      - name: Wait for health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/actuator/health; then
+              exit 0
             fi
+            sleep 2
           done
-          if [ -n "$report_source" ] && [ "$report_source" != 'app/target/site/surefire-report.html' ]; then
-            cp "$report_source" app/target/site/surefire-report.html
-          fi
-          if [ -f app/target/site/surefire-report.html ]; then
-            sed -i "s|</body>|<!-- Build: ${{ github.sha }} $(date -u +%Y-%m-%dT%H:%M:%SZ) --></body>|" \
-              app/target/site/surefire-report.html
-          fi
+          docker logs photographer-test
+          exit 1
 
-      - name: Generate badge JSON files
+      - name: Stop container
         if: always()
-        run: |
-          python3 - <<'PY'
-          import glob
-          import json
-          import os
-          import xml.etree.ElementTree as ET
-
-          covered = missed = 0
-          for jacoco_file in glob.glob('**/target/site/jacoco/jacoco.xml', recursive=True):
-              root = ET.parse(jacoco_file).getroot()
-              counter = next(
-                  (item for item in root.findall('counter')
-                   if item.get('type') == 'INSTRUCTION'),
-                  None,
-              )
-              if counter is not None:
-                  covered += int(counter.get('covered', 0))
-                  missed += int(counter.get('missed', 0))
-          total = covered + missed
-          percentage = round(covered / total * 100) if total else 0
-          coverage_color = 'brightgreen' if percentage >= 80 else 'yellow' if percentage >= 60 else 'red'
-          coverage_badge = {
-              'schemaVersion': 1,
-              'label': 'coverage',
-              'message': f'{percentage}%',
-              'color': coverage_color,
-          }
-
-          test_files = (
-              glob.glob('**/target/surefire-reports/TEST-*.xml', recursive=True)
-              + glob.glob('**/target/failsafe-reports/TEST-*.xml', recursive=True)
-          )
-          tests = failures = errors = 0
-          for path in test_files:
-              root = ET.parse(path).getroot()
-              tests += int(root.get('tests', 0))
-              failures += int(root.get('failures', 0))
-              errors += int(root.get('errors', 0))
-          failed = failures + errors
-          test_badge = {
-              'schemaVersion': 1,
-              'label': 'tests',
-              'message': f'{failed}/{tests} failed' if failed else f'{tests} passed',
-              'color': 'red' if failed else 'brightgreen',
-          }
-
-          os.makedirs('app/target/site/jacoco', exist_ok=True)
-          with open('app/target/site/jacoco/badge.json', 'w', encoding='utf-8') as handle:
-              json.dump(coverage_badge, handle)
-          os.makedirs('app/target/site', exist_ok=True)
-          with open('app/target/site/badge.json', 'w', encoding='utf-8') as handle:
-              json.dump(test_badge, handle)
-          PY
-
-      - name: Upload site artifact
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: site-reports
-          path: app/target/site/
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Deploy test report to GitHub Pages
-        if: ${{ needs.java-verify.result == 'success' && github.ref == 'refs/heads/main' }}
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: app/target/site
-          destination_dir: tests
-          keep_files: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy Surefire test report ${{ github.sha }}'
-
-      - name: Deploy coverage report to GitHub Pages
-        if: ${{ needs.java-verify.result == 'success' && github.ref == 'refs/heads/main' }}
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: app/target/site/jacoco
-          destination_dir: coverage
-          keep_files: true
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy JaCoCo coverage report ${{ github.sha }}'
+        run: docker rm -f photographer-test || true
