@@ -27,18 +27,16 @@ performance change originated.
 
 ### CRX decoder components
 
-`CrxDecoderStagesBenchmark` exposes separate time series for:
+| Class | Measured path |
+|---|---|
+| `CrxDecoderStagesBenchmark` | real-payload CRX header parsing, first-plane decoding, MED prediction, tile-plane copying and positional-plane interleaving |
+| `CrxDecoderMicroStagesBenchmark` | deterministic per-symbol Rice decoding, residual-sign mapping and Rice adaptation |
 
-- CRX header parsing;
-- first-plane decoding (Rice symbols, residual mapping, prediction and adaptation);
-- MED prediction over a real decoded plane;
-- tile-plane copying;
-- positional-plane interleaving into the Bayer grid;
-- individual Rice-symbol decoding, residual-sign mapping and Rice adaptation.
-
-The per-symbol operations use deterministic encoded data and report
-nanoseconds per symbol. Structural stages use real CRX fixture payloads and
-report milliseconds per stage.
+The per-symbol operations report nanoseconds per symbol. Reader and adaptation
+state are reconstructed in dedicated `@Setup(Level.Invocation)` methods outside
+the timed region. Structural stages use real CRX fixture payloads and report
+milliseconds per stage; they do not share invocation setup with the synthetic
+microbenchmarks.
 
 ### RAW processing and complete image import
 
@@ -53,16 +51,17 @@ whether a change comes from the codec/processing pipeline or from integration
 and import overhead.
 
 The broad parser/metadata/decoder benchmarks retain all eight committed sample
-CR3 files. The more expensive component and full-import benchmarks use one
-PowerShot and one EOS sample (`sample.cr3` and `eosr-iso-low.cr3`) to preserve
-both camera families without making the longitudinal job unbounded.
+CR3 files. The more expensive fixture-backed component and full-import
+benchmarks use one PowerShot and one EOS sample (`sample.cr3` and
+`eosr-iso-low.cr3`) to preserve both camera families without making the
+longitudinal job unbounded. Synthetic micro-stage series are intentionally not
+duplicated by camera fixture.
 
 Common annotation policy:
 
 ```text
 @BenchmarkMode(AverageTime)
 @Fork(1)
-@State(Scope.Benchmark or Scope.Thread)
 ```
 
 Warmup and measurement duration are longer for complete pipelines and shorter
@@ -96,8 +95,11 @@ From the repository root:
 # Run the complete suite
 java -jar canon-cr3-benchmark/target/benchmarks.jar
 
-# Decoder components only
+# Fixture-backed decoder components
 java -jar canon-cr3-benchmark/target/benchmarks.jar CrxDecoderStagesBenchmark
+
+# Synthetic per-symbol decoder components
+java -jar canon-cr3-benchmark/target/benchmarks.jar CrxDecoderMicroStagesBenchmark
 
 # RAW processing stages only
 java -jar canon-cr3-benchmark/target/benchmarks.jar Cr3RawProcessingStagesBenchmark
