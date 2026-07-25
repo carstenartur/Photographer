@@ -9,10 +9,8 @@ import com.photographer.focusstack.cr3.container.Cr3Track;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
@@ -28,12 +26,12 @@ import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Measures the explicit stages that make up the CRX lossless RAW decoder.
+ * Measures the structural stages that make up the CRX lossless RAW decoder.
  *
  * <p>The benchmarks use real CRX payloads for header parsing, plane decoding,
- * prediction and plane assembly. Very small per-symbol operations use a fixed,
- * deterministic synthetic sequence so JMH can report stable nanoseconds per
- * symbol without file-I/O or fixture-content noise.</p>
+ * prediction and plane assembly. Per-symbol entropy and adaptation operations
+ * are isolated in {@link CrxDecoderMicroStagesBenchmark} so their invocation
+ * setup cannot affect the fixture-backed series.</p>
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -42,10 +40,6 @@ import java.util.concurrent.TimeUnit;
 @Fork(1)
 @State(Scope.Thread)
 public class CrxDecoderStagesBenchmark {
-
-    private static final int COMPONENT_OPERATIONS = 16_384;
-    private static final int SYNTHETIC_RICE_K = 2;
-    private static final int SYNTHETIC_ROW_WIDTH = 256;
 
     /**
      * One PowerShot and one EOS fixture provide different image geometries while
@@ -72,13 +66,7 @@ public class CrxDecoderStagesBenchmark {
     private int planeWidth;
     private int planeHeight;
 
-    private byte[] syntheticRiceData;
-    private int[] encodedResiduals;
-    private int[] signedResiduals;
-    private BitReader riceReader;
-    private CrxRiceAdaptationState adaptationState;
-
-    @Setup(Level.Trial)
+    @Setup
     public void setup() throws Exception {
         byte[] fileBytes = SampleFiles.readAllBytes(sample);
         Cr3Container container;
@@ -161,22 +149,6 @@ public class CrxDecoderStagesBenchmark {
             }
         }
         interleavedBayer = new int[Math.multiplyExact(bayerWidth, bayerHeight)];
-
-        encodedResiduals = new int[COMPONENT_OPERATIONS];
-        signedResiduals = new int[COMPONENT_OPERATIONS];
-        for (int i = 0; i < COMPONENT_OPERATIONS; i++) {
-            int magnitude = i & 15;
-            encodedResiduals[i] = (magnitude << 1) | (i & 1);
-            signedResiduals[i] = (i & 1) == 0 ? magnitude : -magnitude;
-        }
-        syntheticRiceData = encodeRiceSymbols(encodedResiduals, SYNTHETIC_RICE_K);
-    }
-
-    @Setup(Level.Invocation)
-    public void resetInvocationState() {
-        riceReader = new BitReader(syntheticRiceData);
-        adaptationState = new CrxRiceAdaptationState(
-                CrxLosslessRawDecoder.DEFAULT_K_UPDATE_RULE, bitDepth);
     }
 
     @Benchmark
@@ -232,48 +204,6 @@ public class CrxDecoderStagesBenchmark {
         return checksum;
     }
 
-    @Benchmark
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @OperationsPerInvocation(COMPONENT_OPERATIONS)
-    public long decodeRiceSymbols() throws IOException {
-        long checksum = 0;
-        for (int i = 0; i < COMPONENT_OPERATIONS; i++) {
-            checksum += CrxRiceSymbolDecoder.decode(
-                    riceReader,
-                    SYNTHETIC_RICE_K,
-                    CrxRiceSymbolDecoder.UnaryDirection.ONES_UNTIL_ZERO);
-        }
-        return checksum;
-    }
-
-    @Benchmark
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @OperationsPerInvocation(COMPONENT_OPERATIONS)
-    public long mapResidualSigns() {
-        long checksum = 0;
-        for (int encodedResidual : encodedResiduals) {
-            checksum += CrxResidualSignMapper.decode(
-                    encodedResidual,
-                    CrxResidualSignMapper.Mapping.BIT0_SIGN_MAGNITUDE);
-        }
-        return checksum;
-    }
-
-    @Benchmark
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @OperationsPerInvocation(COMPONENT_OPERATIONS)
-    public long updateRiceAdaptation() {
-        long checksum = 0;
-        for (int i = 0; i < signedResiduals.length; i++) {
-            if (i % SYNTHETIC_ROW_WIDTH == 0) {
-                adaptationState.startRow();
-            }
-            adaptationState.update(signedResiduals[i]);
-            checksum += adaptationState.k();
-        }
-        return checksum;
-    }
-
     private static ParsedCrx parseCrxData(
             byte[] data,
             CrxHeader.CodecVersion version,
@@ -316,35 +246,6 @@ public class CrxDecoderStagesBenchmark {
             return Math.min(Math.max(1, (cmp1.tileHeight() + 1) / 2), fullPlaneHeight);
         }
         return fullPlaneHeight;
-    }
-
-    private static byte[] encodeRiceSymbols(int[] symbols, int k) {
-        int bitCount = 0;
-        for (int symbol : symbols) {
-            bitCount = Math.addExact(bitCount, (symbol >>> k) + 1 + k);
-        }
-        byte[] encoded = new byte[(bitCount + 7) / 8];
-        int bitIndex = 0;
-        for (int symbol : symbols) {
-            int quotient = symbol >>> k;
-            for (int i = 0; i < quotient; i++) {
-                bitIndex = writeBit(encoded, bitIndex, 1);
-            }
-            bitIndex = writeBit(encoded, bitIndex, 0);
-            for (int shift = k - 1; shift >= 0; shift--) {
-                bitIndex = writeBit(encoded, bitIndex, (symbol >>> shift) & 1);
-            }
-        }
-        return encoded;
-    }
-
-    private static int writeBit(byte[] destination, int bitIndex, int value) {
-        if (value != 0) {
-            int byteIndex = bitIndex >>> 3;
-            int shift = 7 - (bitIndex & 7);
-            destination[byteIndex] |= (byte) (1 << shift);
-        }
-        return bitIndex + 1;
     }
 
     private record ParsedCrx(byte[] data, CrxHeader header) {
