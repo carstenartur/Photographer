@@ -9,6 +9,7 @@ import com.photographer.focusstack.cr3.container.Cr3Track;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OperationsPerInvocation;
@@ -39,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 2, time = 1)
 @Measurement(iterations = 4, time = 1)
 @Fork(1)
-@State(Scope.Benchmark)
+@State(Scope.Thread)
 public class CrxDecoderStagesBenchmark {
 
     private static final int COMPONENT_OPERATIONS = 16_384;
@@ -53,7 +54,7 @@ public class CrxDecoderStagesBenchmark {
     @Param({"sample.cr3", "eosr-iso-low.cr3"})
     public String sample;
 
-    private byte[] headerData;
+    private byte[] crxPayload;
     private CrxHeader.CodecVersion codecVersion;
     private int bitDepth;
 
@@ -74,8 +75,9 @@ public class CrxDecoderStagesBenchmark {
     private byte[] syntheticRiceData;
     private int[] encodedResiduals;
     private int[] signedResiduals;
+    private CrxRiceAdaptationState adaptationState;
 
-    @Setup
+    @Setup(Level.Trial)
     public void setup() throws Exception {
         byte[] fileBytes = SampleFiles.readAllBytes(sample);
         Cr3Container container;
@@ -111,7 +113,7 @@ public class CrxDecoderStagesBenchmark {
                 fileBytes, (int) rawOffset, Math.toIntExact(rawOffset + rawSize));
 
         ParsedCrx parsed = parseCrxData(crxData, codecVersion, cmp1);
-        headerData = parsed.data();
+        crxPayload = parsed.data();
         CrxHeader header = parsed.header();
         if (header.tiles().isEmpty()) {
             throw new IllegalStateException("No CRX tiles in " + sample);
@@ -134,14 +136,14 @@ public class CrxDecoderStagesBenchmark {
         tilePlaneHeight = resolveTilePlaneHeight(cmp1, planeHeight);
 
         subbandOffset = Math.toIntExact(firstSubband.dataOffset());
-        subbandEnd = Math.min(headerData.length,
+        subbandEnd = Math.min(crxPayload.length,
                 Math.toIntExact(firstSubband.dataOffset() + firstSubband.dataSize()));
         if (subbandEnd <= subbandOffset) {
             throw new IllegalStateException("Invalid first subband range in " + sample);
         }
 
         decodedTile = CrxLosslessPlaneDecoder.decode(
-                headerData,
+                crxPayload,
                 subbandOffset,
                 subbandEnd,
                 tilePlaneWidth,
@@ -169,15 +171,21 @@ public class CrxDecoderStagesBenchmark {
         syntheticRiceData = encodeRiceSymbols(encodedResiduals, SYNTHETIC_RICE_K);
     }
 
+    @Setup(Level.Invocation)
+    public void resetInvocationState() {
+        adaptationState = new CrxRiceAdaptationState(
+                CrxLosslessRawDecoder.DEFAULT_K_UPDATE_RULE, bitDepth);
+    }
+
     @Benchmark
     public CrxHeader parseHeader() throws IOException {
-        return CrxHeader.parse(headerData, codecVersion);
+        return CrxHeader.parse(crxPayload, codecVersion);
     }
 
     @Benchmark
     public int[] decodeFirstPlane() throws IOException {
         return CrxLosslessPlaneDecoder.decode(
-                headerData,
+                crxPayload,
                 subbandOffset,
                 subbandEnd,
                 tilePlaneWidth,
@@ -195,7 +203,8 @@ public class CrxDecoderStagesBenchmark {
                 tilePlaneHeight,
                 planeWidth,
                 0);
-        return copiedPlane[copiedPlane.length - 1];
+        int writtenIndex = (tilePlaneHeight - 1) * planeWidth + tilePlaneWidth - 1;
+        return copiedPlane[writtenIndex];
     }
 
     @Benchmark
@@ -253,15 +262,13 @@ public class CrxDecoderStagesBenchmark {
     @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(COMPONENT_OPERATIONS)
     public long updateRiceAdaptation() {
-        CrxRiceAdaptationState state = new CrxRiceAdaptationState(
-                CrxLosslessRawDecoder.DEFAULT_K_UPDATE_RULE, bitDepth);
         long checksum = 0;
         for (int i = 0; i < signedResiduals.length; i++) {
             if (i % SYNTHETIC_ROW_WIDTH == 0) {
-                state.startRow();
+                adaptationState.startRow();
             }
-            state.update(signedResiduals[i]);
-            checksum += state.k();
+            adaptationState.update(signedResiduals[i]);
+            checksum += adaptationState.k();
         }
         return checksum;
     }
