@@ -155,7 +155,7 @@ jobs:
       - name: Prepare readable chart labels
         if: github.event_name != 'pull_request'
         run: >-
-          python3 scripts/prepare_jmh_history.py
+          python3 scripts/prepare_jmh_history.py jmh
           jmh-result.json
           jmh-history.json
 
@@ -178,6 +178,40 @@ jobs:
           path: ${{ runner.temp }}/cr3-jmh/environment.txt
           if-no-files-found: error
           retention-days: 30
+
+      - name: Checkout existing benchmark history
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: benchmark-history
+          fetch-depth: 1
+
+      - name: Migrate existing history to readable series identities
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          history_file='benchmark-history/dev/bench/data.js'
+          if [[ ! -f "$history_file" ]]; then
+            echo 'No existing benchmark history to migrate.'
+            exit 0
+          fi
+
+          python3 scripts/prepare_jmh_history.py history \
+            "$history_file" \
+            "$history_file"
+
+          if git -C benchmark-history diff --quiet -- dev/bench/data.js; then
+            echo 'Benchmark history already uses readable series identities.'
+            exit 0
+          fi
+
+          git -C benchmark-history config user.name 'github-actions[bot]'
+          git -C benchmark-history config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C benchmark-history add dev/bench/data.js
+          git -C benchmark-history commit -m 'Migrate benchmark history labels'
+          git -C benchmark-history push origin HEAD:gh-pages
 
       - name: Publish main history to gh-pages
         if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
