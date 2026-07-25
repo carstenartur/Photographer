@@ -62,15 +62,18 @@ BENCHMARK_LABELS = {
         "Complete import · Open embedded preview",
 }
 
+# These labels intentionally reflect extracted EXIF rather than the fixture file
+# names. The three EOS R files all report ISO 12800, and the G5 X II files named
+# "wide" and "tele" both report the same 8.8 mm focal length.
 SAMPLE_LABELS = {
-    "sample.cr3": "PowerShot · baseline",
-    "sample-iso-high.cr3": "PowerShot · high ISO",
-    "sample-wb-tungsten.cr3": "PowerShot · tungsten white balance",
-    "sample-wide.cr3": "PowerShot · wide angle",
-    "sample-tele.cr3": "PowerShot · telephoto",
-    "eosr-iso-low.cr3": "EOS R · low ISO",
-    "eosr-iso-mid.cr3": "EOS R · medium ISO",
-    "eosr-iso-high.cr3": "EOS R · high ISO",
+    "sample.cr3": "G5 X Mark II · ISO 125 · frame 1",
+    "sample-tele.cr3": "G5 X Mark II · ISO 125 · frame 2",
+    "sample-wide.cr3": "G5 X Mark II · ISO 125 · frame 3",
+    "sample-iso-high.cr3": "G5 X Mark II · ISO 1600",
+    "sample-wb-tungsten.cr3": "G5 X Mark II · ISO 1600 · tungsten WB",
+    "eosr-iso-low.cr3": "EOS R · ISO 12800 · frame 1",
+    "eosr-iso-mid.cr3": "EOS R · ISO 12800 · frame 2",
+    "eosr-iso-high.cr3": "EOS R · ISO 12800 · frame 3",
 }
 
 PUBLISHED_SERIES = re.compile(
