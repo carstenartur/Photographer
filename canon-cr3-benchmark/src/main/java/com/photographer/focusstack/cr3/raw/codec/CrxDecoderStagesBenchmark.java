@@ -75,6 +75,7 @@ public class CrxDecoderStagesBenchmark {
     private byte[] syntheticRiceData;
     private int[] encodedResiduals;
     private int[] signedResiduals;
+    private BitReader riceReader;
     private CrxRiceAdaptationState adaptationState;
 
     @Setup(Level.Trial)
@@ -173,6 +174,7 @@ public class CrxDecoderStagesBenchmark {
 
     @Setup(Level.Invocation)
     public void resetInvocationState() {
+        riceReader = new BitReader(syntheticRiceData);
         adaptationState = new CrxRiceAdaptationState(
                 CrxLosslessRawDecoder.DEFAULT_K_UPDATE_RULE, bitDepth);
     }
@@ -234,11 +236,10 @@ public class CrxDecoderStagesBenchmark {
     @OutputTimeUnit(TimeUnit.NANOSECONDS)
     @OperationsPerInvocation(COMPONENT_OPERATIONS)
     public long decodeRiceSymbols() throws IOException {
-        BitReader reader = new BitReader(syntheticRiceData);
         long checksum = 0;
         for (int i = 0; i < COMPONENT_OPERATIONS; i++) {
             checksum += CrxRiceSymbolDecoder.decode(
-                    reader,
+                    riceReader,
                     SYNTHETIC_RICE_K,
                     CrxRiceSymbolDecoder.UnaryDirection.ONES_UNTIL_ZERO);
         }
