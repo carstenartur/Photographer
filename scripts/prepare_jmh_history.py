@@ -115,11 +115,12 @@ def friendly_benchmark_name(raw_name: str) -> str:
 def _format_parameters(params: dict[str, Any]) -> str | None:
     details: list[str] = []
     sample = params.get("sample")
-    if isinstance(sample, str):
+    sample_was_consumed = isinstance(sample, str)
+    if sample_was_consumed:
         details.append(SAMPLE_LABELS.get(sample, sample))
 
     for key in sorted(params):
-        if key == "sample":
+        if key == "sample" and sample_was_consumed:
             continue
         value = params[key]
         if isinstance(value, bool):
