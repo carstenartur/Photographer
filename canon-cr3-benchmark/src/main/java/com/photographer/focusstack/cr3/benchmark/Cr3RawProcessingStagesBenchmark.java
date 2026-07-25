@@ -37,101 +37,166 @@ import java.util.concurrent.TimeUnit;
 /**
  * Isolates the major post-entropy stages of the RAW-to-display pipeline.
  *
- * <p>Real decoded Bayer data is prepared once per trial. Mutable stage inputs
- * are restored in invocation setup, outside the timed region, so each score
- * represents the named algorithm rather than array/image cloning or the
- * preceding pipeline stages.</p>
+ * <p>Each benchmark has its own state class. Real decoded Bayer data is
+ * prepared once per trial and only the input needed by that particular stage
+ * is restored in invocation setup, outside the timed region. This prevents
+ * unrelated large RAW/RGB copies from distorting memory pressure and cache
+ * state for another stage.</p>
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 2, time = 1)
 @Measurement(iterations = 4, time = 1)
 @Fork(1)
-@State(Scope.Thread)
 public class Cr3RawProcessingStagesBenchmark {
 
-    @Param({"sample.cr3", "eosr-iso-low.cr3"})
-    public String sample;
+    @Benchmark
+    public int subtractBlackLevel(BlackLevelState state) {
+        BlackLevelProcessor.process(state.input, state.blackLevel);
+        return lastRawValue(state.input);
+    }
 
-    private BlackLevel blackLevel;
-    private int effectiveWhiteLevel;
-
-    private Cr3RawImage rawBaseline;
-    private Cr3RawImage blackAdjustedBaseline;
-    private Cr3RawImage whiteBalancedBaseline;
-    private BufferedImage demosaicedBaseline;
-    private BufferedImage colorCorrectedBaseline;
-
-    private Cr3RawImage blackLevelInput;
-    private Cr3RawImage whiteBalanceInput;
-    private Cr3RawImage demosaicInput;
-    private BufferedImage colorMatrixInput;
-    private BufferedImage srgbInput;
-
-    @Setup(Level.Trial)
-    public void setupTrial() throws Exception {
-        rawBaseline = decodeRawFixture(sample);
-        blackLevel = BlackLevel.defaultLevel();
-        effectiveWhiteLevel = Math.max(1, rawBaseline.maxValue() - blackLevel.globalLevel());
-
-        blackAdjustedBaseline = copyRaw(rawBaseline);
-        BlackLevelProcessor.process(blackAdjustedBaseline, blackLevel);
-
-        whiteBalancedBaseline = copyRaw(blackAdjustedBaseline);
+    @Benchmark
+    public int applyWhiteBalance(WhiteBalanceState state) {
         WhiteBalanceProcessor.process(
-                whiteBalancedBaseline,
+                state.input,
                 WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS);
+        return lastRawValue(state.input);
+    }
 
-        demosaicedBaseline = BayerDemosaicer.demosaic(
-                whiteBalancedBaseline,
-                effectiveWhiteLevel);
+    @Benchmark
+    public BufferedImage demosaicBayer(DemosaicState state) {
+        return BayerDemosaicer.demosaic(state.input, state.effectiveWhiteLevel);
+    }
 
-        colorCorrectedBaseline = copyImage(demosaicedBaseline);
+    @Benchmark
+    public int applyColorMatrix(ColorMatrixState state) {
         ColorMatrixProcessor.process(
-                colorCorrectedBaseline,
+                state.input,
                 ColorMatrixProcessor.DEFAULT_COLOR_MATRIX);
-    }
-
-    @Setup(Level.Invocation)
-    public void setupInvocation() {
-        blackLevelInput = copyRaw(rawBaseline);
-        whiteBalanceInput = copyRaw(blackAdjustedBaseline);
-        demosaicInput = copyRaw(whiteBalancedBaseline);
-        colorMatrixInput = copyImage(demosaicedBaseline);
-        srgbInput = copyImage(colorCorrectedBaseline);
+        return lastRgbValue(state.input);
     }
 
     @Benchmark
-    public int subtractBlackLevel() {
-        BlackLevelProcessor.process(blackLevelInput, blackLevel);
-        return blackLevelInput.data()[blackLevelInput.data().length - 1];
+    public int convertToSrgb(SrgbState state) {
+        SrgbConverter.process(state.input);
+        return lastRgbValue(state.input);
     }
 
-    @Benchmark
-    public int applyWhiteBalance() {
-        WhiteBalanceProcessor.process(
-                whiteBalanceInput,
-                WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS);
-        return whiteBalanceInput.data()[whiteBalanceInput.data().length - 1];
+    @State(Scope.Thread)
+    public static class BlackLevelState {
+        @Param({"sample.cr3", "eosr-iso-low.cr3"})
+        public String sample;
+
+        private final BlackLevel blackLevel = BlackLevel.defaultLevel();
+        private Cr3RawImage baseline;
+        private Cr3RawImage input;
+
+        @Setup(Level.Trial)
+        public void setupTrial() throws Exception {
+            baseline = decodeRawFixture(sample);
+        }
+
+        @Setup(Level.Invocation)
+        public void setupInvocation() {
+            input = copyRaw(baseline);
+        }
     }
 
-    @Benchmark
-    public BufferedImage demosaicBayer() {
-        return BayerDemosaicer.demosaic(demosaicInput, effectiveWhiteLevel);
+    @State(Scope.Thread)
+    public static class WhiteBalanceState {
+        @Param({"sample.cr3", "eosr-iso-low.cr3"})
+        public String sample;
+
+        private Cr3RawImage baseline;
+        private Cr3RawImage input;
+
+        @Setup(Level.Trial)
+        public void setupTrial() throws Exception {
+            baseline = decodeRawFixture(sample);
+            BlackLevelProcessor.process(baseline, BlackLevel.defaultLevel());
+        }
+
+        @Setup(Level.Invocation)
+        public void setupInvocation() {
+            input = copyRaw(baseline);
+        }
     }
 
-    @Benchmark
-    public int applyColorMatrix() {
-        ColorMatrixProcessor.process(
-                colorMatrixInput,
-                ColorMatrixProcessor.DEFAULT_COLOR_MATRIX);
-        return colorMatrixInput.getRGB(colorMatrixInput.getWidth() - 1, colorMatrixInput.getHeight() - 1);
+    @State(Scope.Thread)
+    public static class DemosaicState {
+        @Param({"sample.cr3", "eosr-iso-low.cr3"})
+        public String sample;
+
+        private Cr3RawImage baseline;
+        private Cr3RawImage input;
+        private int effectiveWhiteLevel;
+
+        @Setup(Level.Trial)
+        public void setupTrial() throws Exception {
+            baseline = decodeRawFixture(sample);
+            BlackLevel blackLevel = BlackLevel.defaultLevel();
+            effectiveWhiteLevel = Math.max(1, baseline.maxValue() - blackLevel.globalLevel());
+            BlackLevelProcessor.process(baseline, blackLevel);
+            WhiteBalanceProcessor.process(
+                    baseline,
+                    WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS);
+        }
+
+        @Setup(Level.Invocation)
+        public void setupInvocation() {
+            input = copyRaw(baseline);
+        }
     }
 
-    @Benchmark
-    public int convertToSrgb() {
-        SrgbConverter.process(srgbInput);
-        return srgbInput.getRGB(srgbInput.getWidth() - 1, srgbInput.getHeight() - 1);
+    @State(Scope.Thread)
+    public static class ColorMatrixState {
+        @Param({"sample.cr3", "eosr-iso-low.cr3"})
+        public String sample;
+
+        private BufferedImage baseline;
+        private BufferedImage input;
+
+        @Setup(Level.Trial)
+        public void setupTrial() throws Exception {
+            baseline = createDemosaicedFixture(sample);
+        }
+
+        @Setup(Level.Invocation)
+        public void setupInvocation() {
+            input = copyImage(baseline);
+        }
+    }
+
+    @State(Scope.Thread)
+    public static class SrgbState {
+        @Param({"sample.cr3", "eosr-iso-low.cr3"})
+        public String sample;
+
+        private BufferedImage baseline;
+        private BufferedImage input;
+
+        @Setup(Level.Trial)
+        public void setupTrial() throws Exception {
+            baseline = createDemosaicedFixture(sample);
+            ColorMatrixProcessor.process(
+                    baseline,
+                    ColorMatrixProcessor.DEFAULT_COLOR_MATRIX);
+        }
+
+        @Setup(Level.Invocation)
+        public void setupInvocation() {
+            input = copyImage(baseline);
+        }
+    }
+
+    private static BufferedImage createDemosaicedFixture(String sampleName) throws Exception {
+        Cr3RawImage raw = decodeRawFixture(sampleName);
+        BlackLevel blackLevel = BlackLevel.defaultLevel();
+        int whiteLevel = Math.max(1, raw.maxValue() - blackLevel.globalLevel());
+        BlackLevelProcessor.process(raw, blackLevel);
+        WhiteBalanceProcessor.process(raw, WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS);
+        return BayerDemosaicer.demosaic(raw, whiteLevel);
     }
 
     private static Cr3RawImage decodeRawFixture(String sampleName) throws Exception {
@@ -198,5 +263,13 @@ public class Cr3RawProcessingStagesBenchmark {
             graphics.dispose();
         }
         return copy;
+    }
+
+    private static int lastRawValue(Cr3RawImage image) {
+        return image.data()[image.data().length - 1];
+    }
+
+    private static int lastRgbValue(BufferedImage image) {
+        return image.getRGB(image.getWidth() - 1, image.getHeight() - 1);
     }
 }
