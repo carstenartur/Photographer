@@ -1,9 +1,26 @@
 name: Benchmark
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'pom.xml'
+      - 'canon-cr3-container/**'
+      - 'canon-cr3-metadata/**'
+      - 'canon-cr3-codec/**'
+      - 'canon-cr3-processing/**'
+      - 'canon-cr3-core/**'
+      - 'canon-cr3-imageio/**'
+      - 'canon-cr3-benchmark/**'
+      - 'scripts/compare_jmh.py'
+      - 'scripts/test_compare_jmh.py'
+      - 'scripts/run_jmh_compare_refs.py'
+      - 'scripts/test_run_jmh_compare_refs.py'
+      - '.github/workflows/benchmark.yml'
   pull_request:
     branches: [main]
     paths:
+      - 'pom.xml'
       - 'canon-cr3-container/**'
       - 'canon-cr3-metadata/**'
       - 'canon-cr3-codec/**'
@@ -137,7 +154,7 @@ jobs:
           name: jmh-result
           path: jmh-result.json
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
       - name: Upload benchmark environment
         if: always()
@@ -146,9 +163,9 @@ jobs:
           name: cr3-jmh-environment
           path: ${{ runner.temp }}/cr3-jmh/environment.txt
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
-      - name: Publish scheduled/manual main history to gh-pages
+      - name: Publish main history to gh-pages
         if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         uses: benchmark-action/github-action-benchmark@v1
         with:

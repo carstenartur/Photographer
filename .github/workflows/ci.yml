@@ -55,6 +55,16 @@ jobs:
           set -o pipefail
           bash scripts/verify-product.sh 2>&1 | tee maven-verify.log
 
+      - name: Compile CR3 JMH benchmark module
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B --no-transfer-progress -DskipTests \
+            -P benchmarks \
+            -pl canon-cr3-benchmark -am \
+            package \
+            -Djava.awt.headless=true 2>&1 | tee maven-benchmark.log
+
       - name: Publish test results
         uses: dorny/test-reporter@v3
         if: always()
@@ -73,6 +83,7 @@ jobs:
           name: java-verify-failure-${{ github.run_attempt }}
           path: |
             maven-verify.log
+            maven-benchmark.log
             **/target/surefire-reports/
             **/target/failsafe-reports/
           if-no-files-found: warn
