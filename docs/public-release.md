@@ -4,19 +4,21 @@ This document defines the repository-owned gate for changing the project from pr
 
 ## Required repository checks
 
-Run from a complete Git checkout:
+Run from a complete Git checkout containing every branch and tag:
 
 ```bash
 bash scripts/verify-product.sh
 python3 scripts/audit_public_release.py --history --media-metadata
+python3 scripts/audit_historical_media.py
 ```
 
-The first command is the normal checkout-runnable product verification. The second command adds two publication-specific checks:
+The commands provide three distinct guarantees:
 
-- every reachable text blob in Git history is scanned for high-confidence credential formats;
-- tracked CR3 and image files are inspected with ExifTool for GPS, owner/creator, copyright and device/lens serial metadata.
+- normal product verification and the current-tree high-confidence credential scan;
+- every reachable **text** blob in Git history is scanned for high-confidence credential formats, while currently tracked CR3 and image files are inspected for identifying metadata;
+- every unique historical CR3/image blob reachable from a branch or tag is materialized and inspected with ExifTool.
 
-`--media-metadata` requires ExifTool (`exiftool` or the Debian/Ubuntu package `libimage-exiftool-perl`). Findings display paths and field names but deliberately redact values.
+The media checks require ExifTool (`exiftool` or the Debian/Ubuntu package `libimage-exiftool-perl`). Findings display blob/path and field names but deliberately redact values. The historical media audit may require substantial temporary disk space because it inspects each unique binary version.
 
 A passing automated scan is not permission to publish third-party material. Review unusual binaries, generated reports, screenshots and archives for provenance and privacy before changing visibility.
 
@@ -32,6 +34,27 @@ Public fixtures and generated evidence must not contain:
 - unrelated personal images or identifiable private environments.
 
 Capture dates and technical exposure data may be retained when they are relevant to reproducible evidence and do not expose a material privacy risk. If sensitive metadata is required for a test, replace it with a synthetic fixture rather than allowlisting real personal data.
+
+Use `scripts/sanitize_cr3_fixtures.py --write` only on controlled fixture copies or a dedicated maintenance branch. It neutralizes known identifying TIFF/MakerNote entries and XMP creator content without changing file length or BMFF/TIFF offsets. ExifTool and the complete test suite must verify the result before it is committed.
+
+## Sensitive binary history
+
+Replacing a fixture in the current tree does **not** remove its earlier bytes from Git history. If `scripts/audit_historical_media.py` reports a reachable historical blob, repository visibility must remain private until one of these reviewed strategies is completed:
+
+1. rewrite every public branch and tag so the sensitive blob is no longer reachable, then force-push during a declared maintenance window; or
+2. publish a new repository from a verified sanitized snapshot and retain the original repository privately.
+
+A history rewrite is intentionally not automated by normal CI. It changes commit IDs, invalidates open branch ancestry and requires all collaborators to re-clone or carefully rebase. Before rewriting:
+
+- create and verify an offline mirror backup;
+- record open pull-request heads and release tags;
+- suspend writes and merge activity;
+- test the rewrite on a disposable mirror;
+- rerun both historical audits against all rewritten refs;
+- coordinate deletion or rebasing of stale remote branches;
+- request server-side removal of cached sensitive objects where the hosting provider requires it.
+
+Changing visibility before that process is complete would expose the historical bytes even when the current files are clean.
 
 ## Public contracts
 
@@ -72,8 +95,8 @@ For a release, add the exact version and release date to the release metadata or
 
 Changing repository visibility should happen only after:
 
-- the full-history and media-metadata audit passes;
-- any finding has been removed from the current tree and, where necessary, purged from history and the credential rotated;
+- the current-tree, text-history and historical-media audits all pass;
+- any finding has been removed from the current tree and purged from every reachable public ref;
 - redistribution rights for committed binaries and documentation have been checked;
 - the README still describes experimental and hardware support boundaries accurately;
 - the security reporting channel is ready.
