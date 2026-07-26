@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   API_BASE_URL,
+  apiUrl,
   clearCredentials,
   request,
   setCredentials,
@@ -10,7 +11,9 @@ import {
 afterEach(() => {
   clearCredentials();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
+  vi.resetModules();
 });
 
 describe('versioned API transport', () => {
@@ -24,7 +27,20 @@ describe('versioned API transport', () => {
     await request('/cameras');
 
     expect(API_BASE_URL).toBe('/api/v1');
+    expect(apiUrl('cameras')).toBe('/api/v1/cameras');
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/cameras', expect.any(Object));
+  });
+
+  it('normalizes a trailing slash in an explicit REST base', async () => {
+    vi.stubEnv('VITE_API_URL', 'https://camera.example/api/v1/');
+    vi.resetModules();
+
+    const configuredTransport = await import('./auth');
+
+    expect(configuredTransport.API_BASE_URL).toBe('https://camera.example/api/v1/');
+    expect(configuredTransport.apiUrl('/cameras')).toBe(
+      'https://camera.example/api/v1/cameras',
+    );
   });
 
   it('keeps authentication on canonical requests', async () => {
