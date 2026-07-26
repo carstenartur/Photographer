@@ -182,6 +182,27 @@ def _discard_exact(stream: BinaryIO, size: int) -> None:
         remaining -= len(chunk)
 
 
+def _parse_batch_header(header: bytes) -> tuple[str, int]:
+    """Parse one ``git cat-file --batch`` header with controlled diagnostics."""
+    header_parts = header.rstrip(b"\n").split()
+    if len(header_parts) < 3:
+        raise RuntimeError(
+            "unexpected git cat-file response: "
+            + header.decode("utf-8", errors="replace")
+        )
+    object_type = header_parts[1].decode("ascii", errors="replace")
+    try:
+        size = int(header_parts[2])
+    except ValueError as exc:
+        rendered = header.decode("utf-8", errors="replace").rstrip()
+        raise RuntimeError(
+            f"invalid git cat-file object size in response: {rendered}"
+        ) from exc
+    if size < 0:
+        raise RuntimeError(f"invalid negative git cat-file object size: {size}")
+    return object_type, size
+
+
 def iter_history_blobs(root: Path) -> Iterator[tuple[str, str, bytes]]:
     objects: dict[str, str] = {}
     for raw_line in run_git(root, "rev-list", "--objects", "--all").splitlines():
@@ -209,14 +230,7 @@ def iter_history_blobs(root: Path) -> Iterator[tuple[str, str, bytes]]:
             header = process.stdout.readline()
             if not header:
                 raise RuntimeError("git cat-file terminated unexpectedly")
-            header_parts = header.rstrip(b"\n").split()
-            if len(header_parts) < 3:
-                raise RuntimeError(
-                    "unexpected git cat-file response: "
-                    + header.decode("utf-8", errors="replace")
-                )
-            object_type = header_parts[1].decode("ascii", errors="replace")
-            size = int(header_parts[2])
+            object_type, size = _parse_batch_header(header)
             is_candidate = object_type == "blob" and size <= MAX_TEXT_BLOB_BYTES
             if is_candidate:
                 data = _read_exact(process.stdout, size)
