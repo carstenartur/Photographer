@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.common.model.BracketSet;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.HdrSettings;
@@ -25,7 +26,7 @@ import java.util.List;
 
 /** REST API for HDR Timelapse sessions. */
 @RestController
-@RequestMapping("/api/hdr-timelapse")
+@RequestMapping({ApiPaths.V1 + "/hdr-timelapse", ApiPaths.LEGACY + "/hdr-timelapse"})
 @Tag(name = "HDR Timelapse", description = "HDR timelapse capture, bracket retrieval and video generation endpoints.")
 public class HdrTimelapseController {
 

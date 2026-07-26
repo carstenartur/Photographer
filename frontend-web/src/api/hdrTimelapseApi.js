@@ -1,4 +1,4 @@
-import { request } from './auth';
+import { request, requestBlob } from './auth';
 
 export function createHdrSession(settings) {
   return request('/hdr-timelapse', {
@@ -23,19 +23,9 @@ export function getHdrBrackets(sessionId) {
   return request(`/hdr-timelapse/${sessionId}/brackets`);
 }
 
-export async function generateHdrVideo(sessionId, fps = 24, width = 1920, height = 1080) {
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(
-    `${BASE_URL}/hdr-timelapse/${sessionId}/video?fps=${fps}&width=${width}&height=${height}`,
-    {
-      method: 'POST',
-      credentials: 'include',
-    }
-  );
-  if (res.status === 204) return null;
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
-  }
-  return res.blob();
+export function generateHdrVideo(sessionId, fps = 24, width = 1920, height = 1080) {
+  const query = new URLSearchParams({ fps, width, height });
+  return requestBlob(`/hdr-timelapse/${sessionId}/video?${query}`, {
+    method: 'POST',
+  });
 }

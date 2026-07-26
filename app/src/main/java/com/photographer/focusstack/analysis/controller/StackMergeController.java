@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.analysis.service.StackMerger;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,10 +27,11 @@ import java.util.Map;
  * or delegates to the configured {@link StackMerger} strategy.
  *
  * <p>When a {@code jobId} is supplied the merge result is cached in memory so it
- * can later be retrieved via {@code GET /api/analysis/merge-result/{jobId}}.
+ * can later be retrieved via {@code GET /api/v1/analysis/merge-result/{jobId}}. The legacy
+     * {@code /api/**} route remains a temporary compatibility alias.
  */
 @RestController
-@RequestMapping("/api/analysis")
+@RequestMapping({ApiPaths.V1 + "/analysis", ApiPaths.LEGACY + "/analysis"})
 @Tag(name = "Stack Merge", description = "Focus-stack merge and merge-result retrieval endpoints.")
 public class StackMergeController {
 

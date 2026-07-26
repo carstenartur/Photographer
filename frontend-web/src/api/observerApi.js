@@ -1,4 +1,4 @@
-import { request } from './auth';
+import { request, requestBlob } from './auth';
 
 /**
  * Fetch recent observation events.
@@ -159,13 +159,8 @@ export function testAiProvider(testRequest) {
  * @param {string} format - 'csv' or 'json'
  * @returns {Promise<Blob>} file content
  */
-export async function exportEvents(format = 'json') {
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(`${BASE_URL}/observer/export/events?format=${encodeURIComponent(format)}`, {
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.blob();
+export function exportEvents(format = 'json') {
+  return requestBlob(`/observer/export/events?format=${encodeURIComponent(format)}`);
 }
 
 /**
@@ -173,11 +168,6 @@ export async function exportEvents(format = 'json') {
  * @param {string} format - 'csv' or 'json'
  * @returns {Promise<Blob>} file content
  */
-export async function exportSpecies(format = 'json') {
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(`${BASE_URL}/observer/export/species?format=${encodeURIComponent(format)}`, {
-    credentials: 'include',
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.blob();
+export function exportSpecies(format = 'json') {
+  return requestBlob(`/observer/export/species?format=${encodeURIComponent(format)}`);
 }

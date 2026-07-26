@@ -1,5 +1,6 @@
 package com.photographer.focusstack.astro.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.astro.service.AstroModeService;
 import com.photographer.focusstack.common.model.AstroCaptureConfig;
 import com.photographer.focusstack.common.model.AstroFocusConfig;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/astro")
+@RequestMapping({ApiPaths.V1 + "/astro", ApiPaths.LEGACY + "/astro"})
 @Tag(name = "Astro", description = "Astro capture session lifecycle endpoints.")
 public class AstroController {
 
@@ -66,7 +67,7 @@ public class AstroController {
         AstroSession preparing = astroModeService.getSession(created.id())
                 .orElseThrow(() -> new IllegalStateException("Created astro session is unavailable"));
         return ResponseEntity.created(
-                        URI.create("/api/astro/sessions/" + created.id()))
+                        URI.create(ApiPaths.V1 + "/astro/sessions/" + created.id()))
                 .body(preparing);
     }
 

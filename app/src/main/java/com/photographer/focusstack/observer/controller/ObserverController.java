@@ -1,5 +1,6 @@
 package com.photographer.focusstack.observer.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.observer.config.ObserverProperties;
 import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
@@ -37,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * AI provider status, and runtime configuration.</p>
  */
 @RestController
-@RequestMapping("/api/observer")
+@RequestMapping({ApiPaths.V1 + "/observer", ApiPaths.LEGACY + "/observer"})
 @Tag(name = "Observer", description = "Wildlife observer events, stats, profiles, replay and runtime configuration endpoints.")
 public class ObserverController {
 

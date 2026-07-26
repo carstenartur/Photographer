@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.camera.discovery.CcapiDiscoveryResult;
 import com.photographer.focusstack.camera.discovery.CcapiDiscoveryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +18,7 @@ import java.time.Duration;
 
 /** Authenticated, read-only access to the portable Canon CCAPI discovery core. */
 @RestController
-@RequestMapping("/api/cameras/discovery")
+@RequestMapping({ApiPaths.V1 + "/cameras/discovery", ApiPaths.LEGACY + "/cameras/discovery"})
 @Validated
 @Tag(name = "Camera discovery", description = "Bounded local-network discovery without profile mutation.")
 public class CameraDiscoveryController {

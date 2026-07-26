@@ -1,5 +1,5 @@
 /**
- * Centralised auth store and authenticated fetch helper.
+ * Centralised auth store and authenticated transport helpers.
  *
  * Credentials are kept in memory (cleared on page reload) and sent as
  * HTTP Basic Authorization headers on every API request.
@@ -28,39 +28,108 @@ function authHeader() {
   return 'Basic ' + btoa(`${_credentials.username}:${_credentials.password}`);
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+/** Canonical v1 REST base. Deployments can override the complete prefix. */
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+
+/** Build a URL below the canonical REST base without duplicating separators. */
+export function apiUrl(path) {
+  const base = API_BASE_URL.replace(/\/$/, '');
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${suffix}`;
+}
 
 /**
- * Authenticated fetch wrapper used by all API modules.
+ * Build a WebSocket URL for the independently versioned v1 event transport.
+ * REST path segments are deliberately not copied into the WebSocket endpoint.
+ */
+export function webSocketUrl(path = '/ws/plain') {
+  const explicitBase = import.meta.env.VITE_WS_URL;
+  if (explicitBase) {
+    return `${explicitBase.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+  }
+
+  const apiLocation = new URL(
+    import.meta.env.VITE_API_URL || window.location.origin,
+    window.location.origin,
+  );
+  apiLocation.protocol = apiLocation.protocol === 'https:' ? 'wss:' : 'ws:';
+  apiLocation.pathname = path.startsWith('/') ? path : `/${path}`;
+  apiLocation.search = '';
+  apiLocation.hash = '';
+  return apiLocation.toString();
+}
+
+/**
+ * Authenticated fetch wrapper for JSON, multipart and binary requests.
  *
- * @param {string} path  – relative to /api, e.g. '/cameras'
+ * @param {string} path – relative to /api/v1, e.g. '/cameras'
  * @param {RequestInit} options – standard fetch options
  */
-export async function request(path, options = {}) {
+export async function authenticatedFetch(path, options = {}) {
+  const headers = new Headers(options.headers || {});
   const auth = authHeader();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  if (auth) {
-    headers['Authorization'] = auth;
+  if (auth && !headers.has('Authorization')) {
+    headers.set('Authorization', auth);
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
+
+  const res = await fetch(apiUrl(path), {
     credentials: 'include',
     ...options,
     headers,
   });
   if (res.status === 401) {
-    // Clear stale credentials so the login page is shown again
     clearCredentials();
-    // Dispatch a custom event so the AuthContext can react
     window.dispatchEvent(new Event('auth:unauthorized'));
     throw new Error('Authentication required');
   }
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+  return res;
+}
+
+async function responseError(res) {
+  const body = await res.text().catch(() => '');
+  let problem = null;
+  if (body) {
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        problem = parsed;
+      }
+    } catch {
+      // Non-JSON responses keep the bounded plain-text fallback below.
+    }
   }
+
+  const title = typeof problem?.title === 'string' && problem.title.trim()
+    ? problem.title.trim()
+    : (res.statusText || 'Request failed');
+  const detail = typeof problem?.detail === 'string' && problem.detail.trim()
+    ? problem.detail.trim()
+    : (!problem && body.trim() ? body.trim() : '');
+  const message = detail
+    ? `${res.status} ${title}: ${detail}`
+    : `${res.status} ${title}`;
+  const error = new Error(message);
+  error.status = res.status;
+  if (problem) error.problem = problem;
+  return error;
+}
+
+/** Execute a JSON API request and decode its response. */
+export async function request(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const res = await authenticatedFetch(path, { ...options, headers });
+  if (!res.ok) throw await responseError(res);
   if (res.status === 204) return null;
   return res.json();
+}
+
+/** Execute an API request whose successful response is binary. */
+export async function requestBlob(path, options = {}) {
+  const res = await authenticatedFetch(path, options);
+  if (!res.ok) throw await responseError(res);
+  if (res.status === 204) return null;
+  return res.blob();
 }

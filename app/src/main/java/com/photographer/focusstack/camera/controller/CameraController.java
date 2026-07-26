@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.entity.CameraProfileEntity;
 import com.photographer.focusstack.camera.search.SearchService;
@@ -32,7 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/cameras")
+@RequestMapping({ApiPaths.V1 + "/cameras", ApiPaths.LEGACY + "/cameras"})
 @Tag(name = "Cameras", description = "Camera profile management and live camera control endpoints.")
 public class CameraController {
 

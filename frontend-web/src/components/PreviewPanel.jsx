@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { apiUrl, webSocketUrl } from '../api/auth';
 
 /**
  * Live preview panel that shows the latest camera frame and/or the
@@ -20,11 +21,7 @@ export default function PreviewPanel({ jobId, isRunning, frames = [] }) {
 
     let ws;
     try {
-      const wsBase = import.meta.env.VITE_API_URL
-        ? import.meta.env.VITE_API_URL.replace(/^http/, 'ws').replace(/\/api$/, '')
-        : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
-      const wsUrl = wsBase + '/ws/plain';
-      ws = new WebSocket(wsUrl);
+      ws = new WebSocket(webSocketUrl());
       wsRef.current = ws;
 
       ws.onmessage = (event) => {
@@ -51,7 +48,6 @@ export default function PreviewPanel({ jobId, isRunning, frames = [] }) {
   if (!isRunning && !cameraFrame && !stackFrame) {
     // For completed/non-running jobs with captured frames, show the last frame as a static preview
     if (frames.length > 0) {
-      const apiBase = import.meta.env.VITE_API_URL || '/api';
       const lastFrameId = frames[frames.length - 1];
       const firstFrameId = frames[0];
       return (
@@ -61,7 +57,7 @@ export default function PreviewPanel({ jobId, isRunning, frames = [] }) {
             <div className="preview-pane">
               <h3>First Frame</h3>
               <img
-                src={`${apiBase}/jobs/${jobId}/frames/${firstFrameId}/image`}
+                src={apiUrl(`/jobs/${jobId}/frames/${firstFrameId}/image`)}
                 alt="First captured frame"
                 className="preview-image"
                 onError={(e) => { e.target.style.display = 'none'; }}
@@ -71,7 +67,7 @@ export default function PreviewPanel({ jobId, isRunning, frames = [] }) {
               <div className="preview-pane">
                 <h3>Last Frame <span className="preview-meta">— #{frames.length}</span></h3>
                 <img
-                  src={`${apiBase}/jobs/${jobId}/frames/${lastFrameId}/image`}
+                  src={apiUrl(`/jobs/${jobId}/frames/${lastFrameId}/image`)}
                   alt="Last captured frame"
                   className="preview-image"
                   onError={(e) => { e.target.style.display = 'none'; }}

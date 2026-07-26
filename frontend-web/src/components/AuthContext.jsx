@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { setCredentials, clearCredentials, isAuthenticated as checkAuth } from '../api/auth';
+import { apiUrl, setCredentials, clearCredentials, isAuthenticated as checkAuth } from '../api/auth';
 import { AuthContext } from './authContextDef';
 
 export default function AuthProvider({ children }) {
@@ -8,7 +8,7 @@ export default function AuthProvider({ children }) {
   const login = useCallback(async (username, password) => {
     // Validate credentials by making a test request
     const auth = 'Basic ' + btoa(`${username}:${password}`);
-    const res = await fetch('/api/cameras', {
+    const res = await fetch(apiUrl('/cameras'), {
       headers: { Authorization: auth },
     });
     if (res.status === 401 || res.status === 403) {

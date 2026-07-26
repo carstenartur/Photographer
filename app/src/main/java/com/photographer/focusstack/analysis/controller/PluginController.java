@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.analysis.plugin.AnalysisPluginRegistry;
 import com.photographer.focusstack.plugin.AnalysisContext;
 import com.photographer.focusstack.plugin.AnalysisPlugin;
@@ -25,12 +26,14 @@ import java.util.Map;
  * REST endpoints for the analysis plugin system.
  *
  * <ul>
- *   <li>{@code GET  /api/analysis/plugins}                   — list registered plugins</li>
- *   <li>{@code POST /api/analysis/plugins/{name}/analyze}    — run a specific plugin</li>
+ *   <li>{@code GET  /api/v1/analysis/plugins}                   — list registered plugins</li>
+ *   <li>{@code POST /api/v1/analysis/plugins/{name}/analyze}    — run a specific plugin</li>
  * </ul>
+ *
+ * <p>The corresponding {@code /api/**} paths remain temporary compatibility aliases.
  */
 @RestController
-@RequestMapping("/api/analysis/plugins")
+@RequestMapping({ApiPaths.V1 + "/analysis/plugins", ApiPaths.LEGACY + "/analysis/plugins"})
 @Tag(name = "Analysis Plugins", description = "Analysis plugin discovery and execution endpoints.")
 public class PluginController {
 
