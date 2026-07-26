@@ -51,6 +51,10 @@ class PublicReleaseAuditTest(unittest.TestCase):
         self.assertEqual("private-key", findings[0].category)
         self.assertEqual(1, findings[0].line)
 
+    def test_rejects_non_numeric_git_batch_object_size(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "invalid git cat-file object size"):
+            AUDIT._parse_batch_header(b"0123456789abcdef blob not-a-size\n")
+
     def test_skips_binary_payload(self) -> None:
         token = b"ghp_" + (b"A" * 36)
         self.assertEqual([], AUDIT.scan_bytes("fixture.cr3", b"\x00" + token))
