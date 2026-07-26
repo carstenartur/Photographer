@@ -45,7 +45,7 @@ class PublicReleaseAuditTest(unittest.TestCase):
         self.assertNotIn(token, findings[0].describe())
 
     def test_detects_armored_pgp_private_key_block(self) -> None:
-        header = b"-----BEGIN PGP PRIVATE KEY BLOCK-----"
+        header = b"-----BEGIN PGP " + b"PRIVATE KEY BLOCK-----"
         findings = AUDIT.scan_bytes("private.asc", header + b"\nredacted\n")
         self.assertEqual(1, len(findings))
         self.assertEqual("private-key", findings[0].category)
