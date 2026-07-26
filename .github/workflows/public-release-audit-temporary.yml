@@ -27,4 +27,25 @@ jobs:
         run: python3 scripts/test_audit_public_release.py
 
       - name: Scan history and tracked media metadata
-        run: python3 scripts/audit_public_release.py --history --media-metadata
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/audit_public_release.py --history --media-metadata \
+            > public-release-audit.txt 2>&1
+          status=$?
+          cat public-release-audit.txt
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload redacted audit result
+        uses: actions/upload-artifact@v7
+        with:
+          name: public-release-audit-result
+          path: public-release-audit.txt
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Enforce audit result
+        if: steps.audit.outputs.status != '0'
+        run: exit 1
