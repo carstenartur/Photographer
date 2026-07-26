@@ -12,6 +12,10 @@ python3 scripts/test_validate_vision_module_boundaries.py
 python3 scripts/validate_vision_module_boundaries.py .
 python3 scripts/test_validate_documentation.py
 python3 scripts/validate_documentation.py .
+python3 scripts/test_audit_public_release.py
+python3 scripts/test_sanitize_cr3_fixtures.py
+python3 scripts/test_audit_historical_media.py
+python3 scripts/audit_public_release.py
 
 exec mvn -B --no-transfer-progress clean verify \
   -pl "${PRODUCT_MODULES}" \
