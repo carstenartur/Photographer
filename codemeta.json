@@ -1,0 +1,40 @@
+{
+  "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+  "@type": "SoftwareSourceCode",
+  "name": "Focus Stack (Photographer)",
+  "description": "A modular Java and Spring Boot photography platform for automated focus stacking, timelapse, astrophotography workflows, Canon camera control, CR3 processing and AI-assisted image analysis.",
+  "codeRepository": "https://github.com/carstenartur/Photographer",
+  "issueTracker": "https://github.com/carstenartur/Photographer/issues",
+  "license": "https://spdx.org/licenses/MIT",
+  "programmingLanguage": [
+    "Java",
+    "TypeScript",
+    "JavaScript"
+  ],
+  "runtimePlatform": [
+    "Java 25",
+    "Spring Boot 4",
+    "Node.js"
+  ],
+  "author": [
+    {
+      "@type": "Person",
+      "givenName": "Carsten",
+      "familyName": "Hammer",
+      "id": "https://orcid.org/0009-0005-1047-6381"
+    }
+  ],
+  "keywords": [
+    "photography",
+    "focus stacking",
+    "camera control",
+    "Canon CCAPI",
+    "PTP",
+    "CR3",
+    "RAW image processing",
+    "astrophotography",
+    "computer vision"
+  ],
+  "developmentStatus": "active",
+  "isAccessibleForFree": true
+}

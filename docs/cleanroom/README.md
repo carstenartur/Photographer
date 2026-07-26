@@ -61,8 +61,9 @@ A contributor who has consulted a prohibited source for the same algorithmic are
 4. **Use fixed references.** Bind the experiment to explicit fixture and reference paths. Later corpus growth must not silently change the verdict.
 5. **Generate deterministic evidence.** Produce stable Markdown plus machine-readable TSV/JSON without runtime timestamps or nondeterministic ordering.
 6. **Record the run.** Add commit SHA, workflow run, artifact digest, verdict and durable report to `experiment-ledger.json`.
-7. **Promote separately.** A production change requires a new PR that cites a `SUPPORTED` experiment and reruns production and reference-backed tests.
-8. **Preserve rejection.** Rejected and partial experiments remain in the ledger and results index.
+7. **Register committed output.** Assign every file under `docs/cr3-results/` to exactly one entry in `generated-evidence.json` and use the documented compare/update contract where available.
+8. **Promote separately.** A production change requires a new PR that cites a `SUPPORTED` experiment and reruns production and reference-backed tests.
+9. **Preserve rejection.** Rejected and partial experiments remain in the ledger and results index.
 
 ## Source-register classes
 
@@ -76,6 +77,16 @@ Only the following values are valid for the `class` field in `source-register.js
 | `project-analysis` | Analysis derived inside this project from registered sources and project evidence | pipeline audit or clean-room synthesis document |
 
 Experiments and production decisions are **not** source classes. They are records in `experiment-ledger.json`, where the experiment references its permitted source IDs and states the resulting production decision.
+
+## Committed generated evidence
+
+The ownership and lifecycle of committed research outputs is defined in:
+
+- [`generated-evidence.json`](generated-evidence.json) — machine-readable complete inventory;
+- [`generated-evidence.md`](generated-evidence.md) — classifications, commands and correction workflow;
+- `scripts/manage_cr3_generated_evidence.py` — read-only validation/comparison and explicit update implementation.
+
+Normal CI uses only `verify` and `compare`. It never calls `update` or writes committed evidence.
 
 ## Contamination handling
 
@@ -92,9 +103,11 @@ When a source of uncertain origin is discovered:
 
 - `source-register.json` — machine-readable permitted-source inventory;
 - `experiment-ledger.json` — hypothesis, run, artifact and production-decision history;
+- `generated-evidence.json` — complete committed CR3-result ownership inventory;
+- `generated-evidence.md` — generated-evidence verify/update contract;
 - `contributor-attestation.md` — template for decoder-semantic contributions;
 - `publication-checklist.md` — checks before making the repository public;
 - `schema-notes.md` — field definitions and update rules;
 - `evidence-retention.md` — deterministic bundle and long-term retention process.
 
-Validation is performed by `scripts/validate_cleanroom_evidence.py` and must work from a plain checkout. The deterministic media-free archive is built by `scripts/build_cleanroom_evidence_bundle.py`.
+Validation is performed by `scripts/validate_cleanroom_evidence.py` and `scripts/manage_cr3_generated_evidence.py` and must work from a plain checkout. The deterministic media-free archive is built by `scripts/build_cleanroom_evidence_bundle.py`.

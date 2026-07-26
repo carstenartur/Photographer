@@ -1,7 +1,7 @@
 # Focus Stack (Photographer)
 
 [![CI](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
-[![Benchmark](https://github.com/carstenartur/Photographer/actions/workflows/benchmark.yml/badge.svg?branch=main)](https://carstenartur.github.io/Photographer/dev/bench/)
+[![Benchmark](https://github.com/carstenartur/Photographer/actions/workflows/cr3-benchmark.yml/badge.svg?branch=main)](https://carstenartur.github.io/Photographer/dev/bench/)
 [![Tests](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/tests/badge.json)](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
 [![Coverage](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/coverage/badge.json)](https://carstenartur.github.io/Photographer/coverage/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)

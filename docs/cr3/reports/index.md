@@ -50,6 +50,16 @@ These are updated when interpretation changes:
 
 Reports under `docs/cr3-results/` preserve inputs, metrics and verdict at a specific revision. They are not manually rewritten to match later conclusions.
 
+Every committed result file has exactly one owner in the [generated-evidence manifest](../../cleanroom/generated-evidence.json). The [generated-evidence contract](../../cleanroom/generated-evidence.md) distinguishes currently managed deterministic outputs from historical generated or manual evidence without claiming false reproducibility.
+
+Validate the complete inventory from a normal checkout:
+
+```bash
+python3 scripts/manage_cr3_generated_evidence.py --root . verify
+```
+
+Normal CI runs only read-only `verify` and `compare` operations. An intentional update requires an explicit entry, an isolated generator output directory and review of the resulting diff.
+
 ### Local fixture and diagnostic records
 
 Module-local ledgers and fixture READMEs preserve detailed provenance. They remain local and are linked when needed rather than copied into the curated index.
@@ -64,6 +74,7 @@ A new result is accepted into this index only when it has:
 4. a deterministic human-readable report;
 5. an explicit verdict;
 6. updated current-state/hypothesis entries when durable interpretation changes;
-7. a local regeneration or verify command.
+7. a local regeneration or verify command;
+8. exactly one ownership entry in `docs/cleanroom/generated-evidence.json`.
 
-See [Research process](../research.md) and the [clean-room record](../../cleanroom/README.md).
+See [Research process](../research.md), the [clean-room record](../../cleanroom/README.md) and the [generated-evidence contract](../../cleanroom/generated-evidence.md).

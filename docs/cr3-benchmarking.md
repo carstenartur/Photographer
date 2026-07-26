@@ -1,6 +1,6 @@
 # CR3 benchmark methodology
 
-CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends, but it is not used as the causal pull-request baseline.
+CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
 ## Local two-ref comparison
 
@@ -46,7 +46,7 @@ Each benchmark/parameter pair is classified independently. Results are never ave
 
 ## Sentinel scope
 
-Pull requests run the shorter parser, metadata, preview extraction and lossless-decoder sentinels. Scheduled/manual `main` jobs retain the complete benchmark suite and publish longitudinal history.
+Pull requests run the shorter parser, metadata, preview extraction and complete lossless-decoder sentinels. They compile the complete benchmark module, but do not execute every expensive component and import benchmark for both revisions.
 
 The default pull-request command currently uses one fork to control hosted-runner cost. The raw JSON and environment artifacts are retained so suspicious changes can be repeated locally with additional JMH arguments, for example:
 
@@ -58,3 +58,17 @@ python3 scripts/run_jmh_compare_refs.py \
 ```
 
 When extra JMH arguments repeat an earlier option, JMH's last-option behavior applies. Record the exact command and both execution orders when promoting a noisy signal to an engineering conclusion.
+
+## Longitudinal full-suite scope
+
+Relevant pushes to `main`, the weekly schedule and manual workflow runs execute the complete suite and publish one historical series for every benchmark/parameter pair. The full suite includes:
+
+- container parsing, metadata and preview extraction;
+- complete lossless CRX decoding and RAW-linear/RAW-processed pipelines;
+- CRX header, plane decoding, MED prediction, tile copying, plane interleaving and per-symbol entropy/adaptation stages;
+- black-level, white-balance, demosaic, colour-matrix and sRGB stages;
+- end-to-end ImageIO preview and processed-RAW imports.
+
+Use the hierarchy to localise a change. For example, a slower ImageIO import with stable direct decoder and processing-stage series points toward import/integration overhead. A slower processed-RAW total accompanied by a stable entropy decoder but slower demosaic series points toward the processing layer.
+
+The GitHub Pages history is an observational time series. Hosted-runner hardware, image, kernel or JVM changes can move all series at once. Every full-suite run therefore stores environment metadata alongside raw JMH JSON; broad simultaneous shifts should be checked against that metadata before attributing them to source changes.
