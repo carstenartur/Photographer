@@ -1,6 +1,9 @@
 {
   "schemaVersion": 1,
   "topics": [
+    {"id": "project.security", "owner": "SECURITY.md"},
+    {"id": "project.conduct", "owner": "CODE_OF_CONDUCT.md"},
+    {"id": "release.publication", "owner": "docs/public-release.md"},
     {"id": "developer.entry", "owner": "docs/developer/index.md"},
     {"id": "developer.architecture", "owner": "docs/developer/architecture.md"},
     {"id": "developer.modules", "owner": "docs/developer/modules.md"},
@@ -29,6 +32,7 @@
     {"id": "cleanroom.policy", "owner": "docs/cleanroom/README.md"}
   ],
   "redirects": [
+    {"source": "CONTRIBUTING.md", "targets": ["docs/developer/contributing.md"]},
     {"source": "BACKUP.md", "targets": ["docs/developer/operations.md"]},
     {"source": "docs/architecture.md", "targets": ["developer/architecture.md"]},
     {"source": "docs/development.md", "targets": ["developer/contributing.md", "developer/testing.md"]},

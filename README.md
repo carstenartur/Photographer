@@ -7,6 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
 [![GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?style=flat-square)](https://github.com/carstenartur/Photographer/releases)
+[![ORCID](https://img.shields.io/badge/ORCID-0009--0005--1047--6381-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-1047-6381)
 
 Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automated focus stacking, timelapse, and AI-assisted image analysis. It connects to Canon cameras via CCAPI and USB/PTP, provides a React/Vite frontend, and is extensible through a ServiceLoader-based plugin architecture.
 
@@ -250,6 +251,9 @@ Published to GitHub Pages after each push to `main`:
 ## Documentation
 
 - [Developer Manual](docs/developer/index.md) — architecture, modules, testing, contributing and documentation authority
+- [Contributing](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Public Release Checklist](docs/public-release.md)
 - [Quickstart](docs/quickstart.md)
 - [REST API Reference](docs/api.md)
 - [Camera Setup](docs/camera-setup.md)
@@ -257,9 +261,17 @@ Published to GitHub Pages after each push to `main`:
 
 ## Contributing
 
-Contributions are welcome. Please open an issue or pull request on GitHub. There is no formal CLA; by submitting a PR you agree to license your contribution under the MIT License.
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the canonical [developer contribution guide](docs/developer/contributing.md). There is no formal CLA; by submitting a pull request you agree to license your contribution under the MIT License.
 
 Changes to CR3/CRX container, entropy, predictor, wavelet, dequantisation or assembly semantics must also include the [clean-room contributor attestation](docs/cleanroom/contributor-attestation.md) and cite registered sources plus project-owned evidence.
+
+Security vulnerabilities must be reported privately according to [SECURITY.md](SECURITY.md).
+
+## Citation and authorship
+
+The primary author is [Carsten Hammer](https://orcid.org/0009-0005-1047-6381), ORCID [`0009-0005-1047-6381`](https://orcid.org/0009-0005-1047-6381).
+
+Use GitHub's **Cite this repository** function or the metadata in [`CITATION.cff`](CITATION.cff). Machine-readable metadata is also available in [`codemeta.json`](codemeta.json) and [`.zenodo.json`](.zenodo.json). A DOI will only be stated after a public release has actually been archived.
 
 ## License
 

@@ -1,0 +1,24 @@
+{
+  "title": "Focus Stack (Photographer)",
+  "upload_type": "software",
+  "description": "A modular Java and Spring Boot photography platform for automated focus stacking, timelapse, astrophotography workflows, Canon camera control, CR3 processing and AI-assisted image analysis.",
+  "creators": [
+    {
+      "name": "Hammer, Carsten",
+      "orcid": "0009-0005-1047-6381"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "keywords": [
+    "photography",
+    "focus stacking",
+    "camera control",
+    "Canon CCAPI",
+    "PTP",
+    "CR3",
+    "RAW image processing",
+    "astrophotography",
+    "computer vision"
+  ]
+}
