@@ -1,0 +1,154 @@
+name: Resolve API review findings (temporary)
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-reviewed-fixes:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'feature/api-v1-compatibility'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/api-v1-compatibility
+          fetch-depth: 0
+
+      - name: Apply exact reviewed replacements
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}: {old!r}')
+              file.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'frontend-web/src/components/AuthContext.jsx',
+              "import { API_BASE_URL, setCredentials, clearCredentials, isAuthenticated as checkAuth } from '../api/auth';",
+              "import { apiUrl, setCredentials, clearCredentials, isAuthenticated as checkAuth } from '../api/auth';",
+          )
+          replace_once(
+              'frontend-web/src/components/AuthContext.jsx',
+              "const res = await fetch(`${API_BASE_URL}/cameras`, {",
+              "const res = await fetch(apiUrl('/cameras'), {",
+          )
+
+          replace_once(
+              'frontend-web/src/pages/JobDetail.jsx',
+              "import { API_BASE_URL, webSocketUrl } from '../api/auth';",
+              "import { apiUrl, webSocketUrl } from '../api/auth';",
+          )
+          replace_once(
+              'frontend-web/src/pages/JobDetail.jsx',
+              "const imgUrl = `${API_BASE_URL}/jobs/${id}/frames/${frameId}/image`;",
+              "const imgUrl = apiUrl(`/jobs/${id}/frames/${frameId}/image`);",
+          )
+
+          replace_once(
+              'frontend-web/src/components/PreviewPanel.jsx',
+              "import { API_BASE_URL, webSocketUrl } from '../api/auth';",
+              "import { apiUrl, webSocketUrl } from '../api/auth';",
+          )
+          replace_once(
+              'frontend-web/src/components/PreviewPanel.jsx',
+              "      const apiBase = API_BASE_URL;\n",
+              "",
+          )
+          replace_once(
+              'frontend-web/src/components/PreviewPanel.jsx',
+              "src={`${apiBase}/jobs/${jobId}/frames/${firstFrameId}/image`}",
+              "src={apiUrl(`/jobs/${jobId}/frames/${firstFrameId}/image`)}",
+          )
+          replace_once(
+              'frontend-web/src/components/PreviewPanel.jsx',
+              "src={`${apiBase}/jobs/${jobId}/frames/${lastFrameId}/image`}",
+              "src={apiUrl(`/jobs/${jobId}/frames/${lastFrameId}/image`)}",
+          )
+
+          replace_once(
+              'frontend-web/src/pages/StackGallery.jsx',
+              "import { API_BASE_URL, authenticatedFetch, requestBlob } from '../api/auth';",
+              "import { apiUrl, authenticatedFetch, requestBlob } from '../api/auth';",
+          )
+          replace_once(
+              'frontend-web/src/pages/StackGallery.jsx',
+              "const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || API_BASE_URL;\nconst CAMERA_BASE = API_BASE_URL;",
+              "const ANALYSIS_BASE = (import.meta.env.VITE_ANALYSIS_URL || '').replace(/\\\/$/, '');",
+          )
+          replace_once(
+              'frontend-web/src/pages/StackGallery.jsx',
+              "backgroundImage: `url(${CAMERA_BASE}/jobs/${selectedJob.id}/frames/${firstFrameId}/image)`,",
+              "backgroundImage: `url(${apiUrl(`/jobs/${selectedJob.id}/frames/${firstFrameId}/image`)})`,",
+          )
+
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/analysis/controller/StackMergeController.java',
+              'can later be retrieved via {@code GET /api/analysis/merge-result/{jobId}}.',
+              'can later be retrieved via {@code GET /api/v1/analysis/merge-result/{jobId}}. The legacy\n     * {@code /api/**} route remains a temporary compatibility alias.',
+          )
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/analysis/controller/PluginController.java',
+              ' *   <li>{@code GET  /api/analysis/plugins}                   — list registered plugins</li>\n *   <li>{@code POST /api/analysis/plugins/{name}/analyze}    — run a specific plugin</li>',
+              ' *   <li>{@code GET  /api/v1/analysis/plugins}                   — list registered plugins</li>\n *   <li>{@code POST /api/v1/analysis/plugins/{name}/analyze}    — run a specific plugin</li>',
+          )
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/analysis/controller/PluginController.java',
+              ' * </ul>\n */',
+              ' * </ul>\n *\n * <p>The corresponding {@code /api/**} paths remain temporary compatibility aliases.\n */',
+          )
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/app/plugin/PluginManagementController.java',
+              ' * <p>All endpoints are under {@code /api/admin/plugins} and require the {@code ADMIN} role\n * (enforced by the security filter chain matching {@code /api/admin/**}).',
+              ' * <p>The canonical endpoints are under {@code /api/v1/admin/plugins}; temporary\n * {@code /api/admin/plugins} compatibility aliases use the same handlers. Both prefixes require\n * the {@code ADMIN} role through the security filter chain.',
+          )
+          replace_once(
+              'app/src/main/java/com/photographer/focusstack/app/plugin/PluginManagementController.java',
+              ' *   <li>{@code GET    /api/admin/plugins}                — list all installed plugins</li>\n *   <li>{@code GET    /api/admin/plugins/{id}}            — get details of a plugin</li>\n *   <li>{@code POST   /api/admin/plugins/install}         — upload and install a plugin JAR</li>\n *   <li>{@code POST   /api/admin/plugins/{id}/enable}     — enable (start) a plugin</li>\n *   <li>{@code POST   /api/admin/plugins/{id}/disable}    — disable (stop) a plugin</li>\n *   <li>{@code DELETE  /api/admin/plugins/{id}}            — uninstall a plugin</li>',
+              ' *   <li>{@code GET    /api/v1/admin/plugins}                — list all installed plugins</li>\n *   <li>{@code GET    /api/v1/admin/plugins/{id}}            — get details of a plugin</li>\n *   <li>{@code POST   /api/v1/admin/plugins/install}         — upload and install a plugin JAR</li>\n *   <li>{@code POST   /api/v1/admin/plugins/{id}/enable}     — enable (start) a plugin</li>\n *   <li>{@code POST   /api/v1/admin/plugins/{id}/disable}    — disable (stop) a plugin</li>\n *   <li>{@code DELETE  /api/v1/admin/plugins/{id}}            — uninstall a plugin</li>',
+          )
+          PY
+
+      - name: Verify focused backend contract
+        run: >-
+          mvn -B --no-transfer-progress test -pl app -am
+          -Dtest=PluginManagementControllerTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -Djava.awt.headless=true
+
+      - name: Verify frontend
+        working-directory: frontend-web
+        run: |
+          npm ci
+          npm test -- --run
+          npm run lint
+          npm run build
+
+      - name: Commit reviewed fixes and remove temporary workflow
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/resolve-api-review-temporary.yml
+          git add \
+            frontend-web/src/components/AuthContext.jsx \
+            frontend-web/src/components/PreviewPanel.jsx \
+            frontend-web/src/pages/JobDetail.jsx \
+            frontend-web/src/pages/StackGallery.jsx \
+            app/src/main/java/com/photographer/focusstack/analysis/controller/StackMergeController.java \
+            app/src/main/java/com/photographer/focusstack/analysis/controller/PluginController.java \
+            app/src/main/java/com/photographer/focusstack/app/plugin/PluginManagementController.java
+          git commit -m "fix(api): normalize client URLs and canonical route docs"
+          git push origin HEAD:feature/api-v1-compatibility
