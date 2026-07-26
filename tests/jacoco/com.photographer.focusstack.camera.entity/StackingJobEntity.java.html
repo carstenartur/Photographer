@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackingJobEntity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.entity</a> &gt; <span class="el_source">StackingJobEntity.java</span></div><h1>StackingJobEntity.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.entity;
 
+import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionResult;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.QualityMode;
+import com.photographer.focusstack.common.model.StackingCaptureStrategy;
+import com.photographer.focusstack.common.model.StackingExecutionMetadata;
 import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
 import jakarta.persistence.CollectionTable;
@@ -73,102 +77,201 @@ public class StackingJobEntity {
     @KeywordField
     private QualityMode paramQualityMode;
 
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private StackingCaptureStrategy paramCaptureStrategy;
+
+    private Integer paramNativeNumberOfShots;
+    private Integer paramNativeFocusIncrement;
+    private Boolean paramNativeExposureSmoothing;
+    private Boolean paramNativeDepthComposition;
+    private Boolean paramNativeCropDepthComposition;
+
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private StackingCaptureStrategy requestedStrategy;
+
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private StackingCaptureStrategy selectedStrategy;
+
+    private Integer effectiveFrameCount;
+    private Integer effectiveFocusIncrement;
+    private Boolean effectiveExposureSmoothing;
+    private Boolean effectiveDepthComposition;
+    private Boolean effectiveCropDepthComposition;
+
+    @Enumerated(EnumType.STRING)
+    @KeywordField
+    private NativeFocusBracketingExecutionResult.CompletionState nativeCompletionState;
+
+    private Integer observedMediaCount;
+    private Integer ingestedFrameCount;
+    private Boolean restorationComplete;
+
+    @Column(length = 2048)
+    private String executionDetail;
+
+    @Column(length = 2048)
     private String stopReason;
 
-<span class="fc" id="L78">    @ElementCollection(fetch = FetchType.EAGER)</span>
+<span class="fc" id="L118">    @ElementCollection(fetch = FetchType.EAGER)</span>
     @CollectionTable(name = &quot;stacking_job_frames&quot;, joinColumns = @JoinColumn(name = &quot;job_id&quot;))
     @OrderColumn(name = &quot;frame_order&quot;)
     @Column(name = &quot;frame_id&quot;, nullable = false)
     private List&lt;String&gt; capturedFrameIds = new ArrayList&lt;&gt;();
 
-<span class="fc" id="L84">    public StackingJobEntity() {</span>
-<span class="fc" id="L85">    }</span>
+<span class="fc" id="L124">    public StackingJobEntity() {</span>
+<span class="fc" id="L125">    }</span>
 
     public static StackingJobEntity fromRecord(StackingJob job) {
-<span class="fc" id="L88">        StackingJobEntity entity = new StackingJobEntity();</span>
-<span class="fc" id="L89">        entity.id = job.id();</span>
-<span class="fc" id="L90">        entity.cameraProfileId = job.cameraProfileId();</span>
-<span class="fc" id="L91">        entity.status = job.status();</span>
-<span class="fc" id="L92">        entity.startedAt = job.startedAt();</span>
-<span class="fc" id="L93">        entity.completedAt = job.completedAt();</span>
-<span class="fc" id="L94">        entity.stopReason = job.stopReason();</span>
-<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (job.parameters() != null) {</span>
-<span class="fc" id="L96">            entity.paramStartPosition = job.parameters().startPosition();</span>
-<span class="fc" id="L97">            entity.paramStepSize = job.parameters().stepSize();</span>
-<span class="fc" id="L98">            entity.paramMaxFrames = job.parameters().maxFrames();</span>
-<span class="fc" id="L99">            entity.paramAbortThreshold = job.parameters().abortThreshold();</span>
-<span class="fc" id="L100">            entity.paramMotionDetectionEnabled = job.parameters().motionDetectionEnabled();</span>
-<span class="fc" id="L101">            entity.paramQualityMode = job.parameters().qualityMode();</span>
+<span class="fc" id="L128">        StackingJobEntity entity = new StackingJobEntity();</span>
+<span class="fc" id="L129">        entity.id = job.id();</span>
+<span class="fc" id="L130">        entity.cameraProfileId = job.cameraProfileId();</span>
+<span class="fc" id="L131">        entity.status = job.status();</span>
+<span class="fc" id="L132">        entity.startedAt = job.startedAt();</span>
+<span class="fc" id="L133">        entity.completedAt = job.completedAt();</span>
+<span class="fc" id="L134">        entity.stopReason = job.stopReason();</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (job.parameters() != null) {</span>
+<span class="fc" id="L136">            StackingParameters parameters = job.parameters();</span>
+<span class="fc" id="L137">            entity.paramStartPosition = parameters.startPosition();</span>
+<span class="fc" id="L138">            entity.paramStepSize = parameters.stepSize();</span>
+<span class="fc" id="L139">            entity.paramMaxFrames = parameters.maxFrames();</span>
+<span class="fc" id="L140">            entity.paramAbortThreshold = parameters.abortThreshold();</span>
+<span class="fc" id="L141">            entity.paramMotionDetectionEnabled = parameters.motionDetectionEnabled();</span>
+<span class="fc" id="L142">            entity.paramQualityMode = parameters.qualityMode();</span>
+<span class="fc" id="L143">            entity.paramCaptureStrategy = parameters.captureStrategy();</span>
+<span class="fc" id="L144">            NativeFocusBracketingRequest nativeRequest = parameters.nativeFocusBracketing();</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">            if (nativeRequest != null) {</span>
+<span class="fc" id="L146">                entity.paramNativeNumberOfShots = nativeRequest.numberOfShots();</span>
+<span class="fc" id="L147">                entity.paramNativeFocusIncrement = nativeRequest.focusIncrement();</span>
+<span class="fc" id="L148">                entity.paramNativeExposureSmoothing = nativeRequest.exposureSmoothing();</span>
+<span class="fc" id="L149">                entity.paramNativeDepthComposition = nativeRequest.depthComposition();</span>
+<span class="fc" id="L150">                entity.paramNativeCropDepthComposition = nativeRequest.cropDepthComposition();</span>
+            }
         }
-<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (job.frames() != null) {</span>
-<span class="fc" id="L104">            entity.capturedFrameIds = new ArrayList&lt;&gt;(job.frames());</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (job.frames() != null) {</span>
+<span class="fc" id="L154">            entity.capturedFrameIds = new ArrayList&lt;&gt;(job.frames());</span>
         }
-<span class="fc" id="L106">        return entity;</span>
+<span class="fc" id="L156">        entity.storeExecutionMetadata(job.executionMetadata());</span>
+<span class="fc" id="L157">        return entity;</span>
     }
 
+    private void storeExecutionMetadata(StackingExecutionMetadata metadata) {
+<span class="fc bfc" id="L161" title="All 2 branches covered.">        if (metadata == null) {</span>
+<span class="fc" id="L162">            return;</span>
+        }
+<span class="fc" id="L164">        requestedStrategy = metadata.requestedStrategy();</span>
+<span class="fc" id="L165">        selectedStrategy = metadata.selectedStrategy();</span>
+<span class="fc" id="L166">        effectiveFrameCount = metadata.effectiveFrameCount();</span>
+<span class="fc" id="L167">        effectiveFocusIncrement = metadata.effectiveFocusIncrement();</span>
+<span class="fc" id="L168">        effectiveExposureSmoothing = metadata.exposureSmoothing();</span>
+<span class="fc" id="L169">        effectiveDepthComposition = metadata.depthComposition();</span>
+<span class="fc" id="L170">        effectiveCropDepthComposition = metadata.cropDepthComposition();</span>
+<span class="fc" id="L171">        nativeCompletionState = metadata.nativeCompletionState();</span>
+<span class="fc" id="L172">        observedMediaCount = metadata.observedMediaCount();</span>
+<span class="fc" id="L173">        ingestedFrameCount = metadata.ingestedFrameCount();</span>
+<span class="fc" id="L174">        restorationComplete = metadata.restorationComplete();</span>
+<span class="fc" id="L175">        executionDetail = metadata.detail();</span>
+<span class="fc" id="L176">    }</span>
+
     public StackingJob toRecord() {
-<span class="fc" id="L110">        StackingParameters params = new StackingParameters(</span>
+<span class="pc bpc" id="L179" title="1 of 2 branches missed.">        StackingCaptureStrategy strategy = paramCaptureStrategy == null</span>
+<span class="pc" id="L180">                ? StackingCaptureStrategy.MANUAL : paramCaptureStrategy;</span>
+<span class="fc" id="L181">        NativeFocusBracketingRequest nativeRequest = null;</span>
+<span class="pc bpc" id="L182" title="2 of 6 branches missed.">        if (strategy != StackingCaptureStrategy.MANUAL</span>
+                &amp;&amp; paramNativeNumberOfShots != null
+                &amp;&amp; paramNativeFocusIncrement != null) {
+<span class="fc" id="L185">            nativeRequest = new NativeFocusBracketingRequest(</span>
+<span class="fc" id="L186">                    paramNativeNumberOfShots,</span>
+<span class="fc" id="L187">                    paramNativeFocusIncrement,</span>
+<span class="fc" id="L188">                    Boolean.TRUE.equals(paramNativeExposureSmoothing),</span>
+<span class="fc" id="L189">                    Boolean.TRUE.equals(paramNativeDepthComposition),</span>
+<span class="fc" id="L190">                    Boolean.TRUE.equals(paramNativeCropDepthComposition));</span>
+        }
+<span class="fc" id="L192">        StackingParameters params = new StackingParameters(</span>
                 paramStartPosition, paramStepSize, paramMaxFrames,
-                paramAbortThreshold, paramMotionDetectionEnabled, paramQualityMode
-        );
-<span class="fc" id="L114">        return new StackingJob(id, cameraProfileId, status, startedAt, completedAt, params,</span>
-                new ArrayList&lt;&gt;(capturedFrameIds), stopReason);
+                paramAbortThreshold, paramMotionDetectionEnabled, paramQualityMode,
+                strategy, nativeRequest);
+<span class="fc" id="L196">        return new StackingJob(</span>
+                id, cameraProfileId, status, startedAt, completedAt, params,
+<span class="fc" id="L198">                new ArrayList&lt;&gt;(capturedFrameIds), stopReason, executionMetadata());</span>
+    }
+
+    private StackingExecutionMetadata executionMetadata() {
+<span class="pc bpc" id="L202" title="3 of 8 branches missed.">        if (requestedStrategy == null || selectedStrategy == null</span>
+                || effectiveFrameCount == null || effectiveFocusIncrement == null) {
+<span class="fc" id="L204">            return null;</span>
+        }
+<span class="fc" id="L206">        return new StackingExecutionMetadata(</span>
+                requestedStrategy,
+                selectedStrategy,
+<span class="fc" id="L209">                effectiveFrameCount,</span>
+<span class="fc" id="L210">                effectiveFocusIncrement,</span>
+<span class="fc" id="L211">                Boolean.TRUE.equals(effectiveExposureSmoothing),</span>
+<span class="fc" id="L212">                Boolean.TRUE.equals(effectiveDepthComposition),</span>
+<span class="fc" id="L213">                Boolean.TRUE.equals(effectiveCropDepthComposition),</span>
+                nativeCompletionState,
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">                observedMediaCount == null ? 0 : observedMediaCount,</span>
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">                ingestedFrameCount == null ? 0 : ingestedFrameCount,</span>
+                restorationComplete,
+                executionDetail);
     }
 
     public String getId() {
-<span class="nc" id="L119">        return id;</span>
+<span class="nc" id="L222">        return id;</span>
     }
 
     public void setId(String id) {
-<span class="nc" id="L123">        this.id = id;</span>
-<span class="nc" id="L124">    }</span>
+<span class="nc" id="L226">        this.id = id;</span>
+<span class="nc" id="L227">    }</span>
 
     public String getCameraProfileId() {
-<span class="nc" id="L127">        return cameraProfileId;</span>
+<span class="nc" id="L230">        return cameraProfileId;</span>
     }
 
     public void setCameraProfileId(String cameraProfileId) {
-<span class="nc" id="L131">        this.cameraProfileId = cameraProfileId;</span>
-<span class="nc" id="L132">    }</span>
+<span class="nc" id="L234">        this.cameraProfileId = cameraProfileId;</span>
+<span class="nc" id="L235">    }</span>
 
     public JobStatus getStatus() {
-<span class="fc" id="L135">        return status;</span>
+<span class="fc" id="L238">        return status;</span>
     }
 
     public void setStatus(JobStatus status) {
-<span class="nc" id="L139">        this.status = status;</span>
-<span class="nc" id="L140">    }</span>
+<span class="nc" id="L242">        this.status = status;</span>
+<span class="nc" id="L243">    }</span>
 
     public Instant getStartedAt() {
-<span class="nc" id="L143">        return startedAt;</span>
+<span class="nc" id="L246">        return startedAt;</span>
     }
 
     public void setStartedAt(Instant startedAt) {
-<span class="nc" id="L147">        this.startedAt = startedAt;</span>
-<span class="nc" id="L148">    }</span>
+<span class="nc" id="L250">        this.startedAt = startedAt;</span>
+<span class="nc" id="L251">    }</span>
 
     public Instant getCompletedAt() {
-<span class="nc" id="L151">        return completedAt;</span>
+<span class="nc" id="L254">        return completedAt;</span>
     }
 
     public void setCompletedAt(Instant completedAt) {
-<span class="nc" id="L155">        this.completedAt = completedAt;</span>
-<span class="nc" id="L156">    }</span>
+<span class="nc" id="L258">        this.completedAt = completedAt;</span>
+<span class="nc" id="L259">    }</span>
 
     public List&lt;String&gt; getCapturedFrameIds() {
-<span class="nc" id="L159">        return capturedFrameIds;</span>
+<span class="nc" id="L262">        return capturedFrameIds;</span>
     }
 
     public void setCapturedFrameIds(List&lt;String&gt; capturedFrameIds) {
-<span class="nc bnc" id="L163" title="All 2 branches missed.">        this.capturedFrameIds = capturedFrameIds != null ? capturedFrameIds : new ArrayList&lt;&gt;();</span>
-<span class="nc" id="L164">    }</span>
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        this.capturedFrameIds = capturedFrameIds != null ? capturedFrameIds : new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L267">    }</span>
 
     public String getStopReason() {
-<span class="nc" id="L167">        return stopReason;</span>
+<span class="fc" id="L270">        return stopReason;</span>
     }
 
     public void setStopReason(String stopReason) {
-<span class="nc" id="L171">        this.stopReason = stopReason;</span>
-<span class="nc" id="L172">    }</span>
+<span class="nc" id="L274">        this.stopReason = stopReason;</span>
+<span class="nc" id="L275">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

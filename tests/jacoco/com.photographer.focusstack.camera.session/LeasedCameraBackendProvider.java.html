@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LeasedCameraBackendProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.session</a> &gt; <span class="el_source">LeasedCameraBackendProvider.java</span></div><h1>LeasedCameraBackendProvider.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.session;
+
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.session.CameraBackendProvider;
+import com.photographer.focusstack.session.CameraBackendSession;
+import com.photographer.focusstack.session.CameraSessionPurpose;
+import com.photographer.focusstack.session.SessionException;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Application adapter that acquires logical camera ownership before backend resolution.
+ *
+ * &lt;p&gt;The backend cache remains owned by {@link CameraBackendFactory}; closing a
+ * {@link CameraBackendSession} releases only logical workflow ownership.&lt;/p&gt;
+ */
+public final class LeasedCameraBackendProvider implements CameraBackendProvider {
+<span class="fc" id="L28">    private static final HexFormat HEX = HexFormat.of();</span>
+
+    private final CameraBackendFactory backendFactory;
+    private final CameraProfileService profileService;
+    private final CameraSessionLeaseManager leaseManager;
+    private final CameraLeaseIdentityProvider identityProvider;
+    private final Map&lt;CameraSessionPurpose, Duration&gt; lifetimes;
+
+    public LeasedCameraBackendProvider(
+            CameraBackendFactory backendFactory,
+            CameraProfileService profileService,
+            CameraSessionLeaseManager leaseManager,
+            CameraLeaseIdentityProvider identityProvider,
+<span class="fc" id="L41">            Map&lt;CameraSessionPurpose, Duration&gt; lifetimes) {</span>
+<span class="fc" id="L42">        this.backendFactory = Objects.requireNonNull(backendFactory, &quot;backendFactory&quot;);</span>
+<span class="fc" id="L43">        this.profileService = Objects.requireNonNull(profileService, &quot;profileService&quot;);</span>
+<span class="fc" id="L44">        this.leaseManager = Objects.requireNonNull(leaseManager, &quot;leaseManager&quot;);</span>
+<span class="fc" id="L45">        this.identityProvider = Objects.requireNonNull(identityProvider, &quot;identityProvider&quot;);</span>
+<span class="fc" id="L46">        this.lifetimes = Map.copyOf(Objects.requireNonNull(lifetimes, &quot;lifetimes&quot;));</span>
+<span class="fc bfc" id="L47" title="All 2 branches covered.">        for (CameraSessionPurpose purpose : CameraSessionPurpose.values()) {</span>
+<span class="fc" id="L48">            Duration duration = this.lifetimes.get(purpose);</span>
+<span class="pc bpc" id="L49" title="3 of 6 branches missed.">            if (duration == null || duration.isZero() || duration.isNegative()) {</span>
+<span class="nc" id="L50">                throw new IllegalArgumentException(</span>
+                        &quot;A positive camera session lifetime is required for &quot; + purpose);
+            }
+        }
+<span class="fc" id="L54">    }</span>
+
+    @Override
+    public CameraBackend getBackend(String cameraProfileId) {
+<span class="nc" id="L58">        CameraProfile profile = resolveProfile(cameraProfileId);</span>
+        try {
+<span class="nc" id="L60">            return backendFactory.getBackend(profile);</span>
+<span class="nc" id="L61">        } catch (RuntimeException failure) {</span>
+<span class="nc" id="L62">            throw new SessionException(&quot;Cannot resolve camera backend&quot;);</span>
+        }
+    }
+
+    @Override
+    public CameraBackendSession openSession(
+            String cameraProfileId,
+            CameraSessionPurpose purpose,
+            String workflowId) {
+<span class="fc" id="L71">        Objects.requireNonNull(purpose, &quot;purpose&quot;);</span>
+<span class="fc" id="L72">        String validatedWorkflowId = requireText(workflowId, &quot;workflowId&quot;);</span>
+<span class="fc" id="L73">        CameraProfile profile = resolveProfile(cameraProfileId);</span>
+<span class="fc" id="L74">        Optional&lt;CameraLeaseKey&gt; key = identityProvider.resolve(profile);</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (key.isEmpty()) {</span>
+<span class="fc" id="L76">            return CameraBackendSession.unmanaged(resolveBackend(profile));</span>
+        }
+
+<span class="fc" id="L79">        CameraSessionLease lease = leaseManager.acquire(new CameraLeaseRequest(</span>
+<span class="fc" id="L80">                key.get(),</span>
+<span class="fc" id="L81">                workflowType(purpose),</span>
+                validatedWorkflowId,
+<span class="fc" id="L83">                stableOwnerToken(purpose, validatedWorkflowId),</span>
+<span class="fc" id="L84">                lifetimes.get(purpose)));</span>
+        try {
+<span class="fc" id="L86">            CameraBackend backend = resolveBackend(profile);</span>
+<span class="fc" id="L87">            return CameraBackendSession.managed(backend, lease::close);</span>
+<span class="fc" id="L88">        } catch (RuntimeException failure) {</span>
+<span class="fc" id="L89">            lease.close();</span>
+<span class="fc" id="L90">            throw failure;</span>
+        }
+    }
+
+    private CameraProfile resolveProfile(String cameraProfileId) {
+<span class="fc" id="L95">        requireText(cameraProfileId, &quot;cameraProfileId&quot;);</span>
+        try {
+<span class="fc" id="L97">            return profileService.getProfile(cameraProfileId);</span>
+<span class="nc" id="L98">        } catch (RuntimeException failure) {</span>
+<span class="nc" id="L99">            throw new SessionException(&quot;Cannot resolve camera profile&quot;);</span>
+        }
+    }
+
+    private CameraBackend resolveBackend(CameraProfile profile) {
+        try {
+<span class="fc" id="L105">            return backendFactory.getBackend(profile);</span>
+<span class="fc" id="L106">        } catch (RuntimeException failure) {</span>
+<span class="fc" id="L107">            throw new SessionException(&quot;Cannot resolve camera backend&quot;);</span>
+        }
+    }
+
+    private static CameraWorkflowType workflowType(CameraSessionPurpose purpose) {
+<span class="pc bpc" id="L112" title="1 of 3 branches missed.">        return switch (purpose) {</span>
+<span class="fc" id="L113">            case HDR_TIMELAPSE -&gt; CameraWorkflowType.HDR_TIMELAPSE;</span>
+<span class="fc" id="L114">            case FACE_ORBIT -&gt; CameraWorkflowType.FACE_ORBIT;</span>
+<span class="nc" id="L115">            case ASTRO -&gt; CameraWorkflowType.ASTRO;</span>
+        };
+    }
+
+    private static String stableOwnerToken(
+            CameraSessionPurpose purpose,
+            String workflowId) {
+        try {
+<span class="fc" id="L123">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;).digest(</span>
+<span class="fc" id="L124">                    (purpose.name() + '\0' + workflowId)</span>
+<span class="fc" id="L125">                            .getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L126">            return &quot;session-&quot; + HEX.formatHex(digest);</span>
+<span class="nc" id="L127">        } catch (NoSuchAlgorithmException impossible) {</span>
+<span class="nc" id="L128">            throw new IllegalStateException(&quot;SHA-256 is unavailable&quot;, impossible);</span>
+        }
+    }
+
+    private static String requireText(String value, String name) {
+<span class="pc bpc" id="L133" title="2 of 4 branches missed.">        if (value == null || value.isBlank()) {</span>
+<span class="nc" id="L134">            throw new IllegalArgumentException(name + &quot; is required&quot;);</span>
+        }
+<span class="fc" id="L136">        return value.trim();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

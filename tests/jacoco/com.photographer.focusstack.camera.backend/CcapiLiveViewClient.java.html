@@ -1,0 +1,553 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiLiveViewClient.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiLiveViewClient.java</span></div><h1>CcapiLiveViewClient.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.camera.exception.CameraOperationException;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ALREADY_STARTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.DEVICE_BUSY;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.DURING_SHOOTING_OR_RECORDING;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ENDPOINT_NOT_FOUND;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.LIVE_VIEW_NOT_STARTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.MODE_NOT_SUPPORTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.NOT_STARTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.SERVICE_UNAVAILABLE;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.TAKEN_IN_PREPARATION;
+
+/**
+ * Capability-driven Canon CCAPI live-view lifecycle for the production backend.
+ *
+ * &lt;p&gt;The client maps every exact advertised Canon transport to a vendor-neutral mode,
+ * but currently implements frame retrieval only for {@link Mode#SINGLE_FRAME}. An
+ * advertised endpoint with incompatible method metadata is never called, and an
+ * unimplemented stream mode is never reported as a usable frame source.&lt;/p&gt;
+ */
+final class CcapiLiveViewClient {
+
+    private static final String CONTROL_SUFFIX = &quot;/shooting/liveview&quot;;
+<span class="fc" id="L51">    private static final Pattern VERSION = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
+<span class="fc" id="L52">    private static final Duration DEFAULT_START_DELAY = Duration.ofMillis(500);</span>
+<span class="fc" id="L53">    private static final byte[] STOP_BODY =</span>
+            &quot;{\&quot;liveviewsize\&quot;:\&quot;off\&quot;,\&quot;cameradisplay\&quot;:\&quot;on\&quot;}&quot;
+<span class="fc" id="L55">                    .getBytes(StandardCharsets.UTF_8);</span>
+
+<span class="fc" id="L57">    enum Mode {</span>
+<span class="fc" id="L58">        SINGLE_FRAME(</span>
+                &quot;single-frame&quot;,
+                &quot;/shooting/liveview/flip&quot;,
+<span class="fc" id="L61">                Set.of(HttpMethod.GET),</span>
+                true),
+<span class="fc" id="L63">        CURSOR_STREAM(</span>
+                &quot;cursor-stream&quot;,
+                &quot;/shooting/liveview/scroll&quot;,
+<span class="fc" id="L66">                Set.of(HttpMethod.GET, HttpMethod.DELETE),</span>
+                false),
+<span class="fc" id="L68">        MULTIPART_STREAM(</span>
+                &quot;multipart-stream&quot;,
+                &quot;/shooting/liveview/multipart&quot;,
+<span class="fc" id="L71">                Set.of(HttpMethod.GET, HttpMethod.DELETE),</span>
+                false),
+<span class="fc" id="L73">        RTP_STREAM(</span>
+                &quot;rtp-stream&quot;,
+                &quot;/shooting/liveview/rtp&quot;,
+<span class="fc" id="L76">                Set.of(HttpMethod.POST),</span>
+                false);
+
+        private final String id;
+        private final String suffix;
+        private final Set&lt;HttpMethod&gt; requiredMethods;
+        private final boolean frameRetrievalImplemented;
+
+        Mode(
+                String id,
+                String suffix,
+                Set&lt;HttpMethod&gt; requiredMethods,
+<span class="fc" id="L88">                boolean frameRetrievalImplemented) {</span>
+<span class="fc" id="L89">            this.id = id;</span>
+<span class="fc" id="L90">            this.suffix = suffix;</span>
+<span class="fc" id="L91">            this.requiredMethods = Set.copyOf(requiredMethods);</span>
+<span class="fc" id="L92">            this.frameRetrievalImplemented = frameRetrievalImplemented;</span>
+<span class="fc" id="L93">        }</span>
+
+        String id() {
+<span class="fc" id="L96">            return id;</span>
+        }
+
+        String suffix() {
+<span class="fc" id="L100">            return suffix;</span>
+        }
+
+        Set&lt;HttpMethod&gt; requiredMethods() {
+<span class="fc" id="L104">            return requiredMethods;</span>
+        }
+
+        boolean frameRetrievalImplemented() {
+<span class="fc" id="L108">            return frameRetrievalImplemented;</span>
+        }
+    }
+
+<span class="fc" id="L112">    enum State {</span>
+<span class="fc" id="L113">        STOPPED,</span>
+<span class="fc" id="L114">        STARTING,</span>
+<span class="fc" id="L115">        STARTED,</span>
+<span class="fc" id="L116">        STOPPING</span>
+    }
+
+    record AdvertisedMode(
+            Mode mode,
+            String path,
+            Set&lt;HttpMethod&gt; advertisedMethods,
+            boolean methodMetadataKnown,
+            boolean methodCompatible,
+            boolean frameRetrievalImplemented) {
+
+<span class="fc" id="L127">        AdvertisedMode {</span>
+<span class="fc" id="L128">            Objects.requireNonNull(mode, &quot;mode&quot;);</span>
+<span class="fc" id="L129">            Objects.requireNonNull(path, &quot;path&quot;);</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            advertisedMethods = advertisedMethods == null</span>
+<span class="nc" id="L131">                    ? Set.of()</span>
+<span class="fc" id="L132">                    : Set.copyOf(advertisedMethods);</span>
+<span class="fc" id="L133">        }</span>
+    }
+
+    @FunctionalInterface
+    interface Poster {
+        void post(String url, Object body);
+    }
+
+    @FunctionalInterface
+    interface Waiter {
+        void await(Duration duration) throws InterruptedException;
+    }
+
+    private record Endpoint(
+            String advertisedValue,
+            String path,
+            String url,
+            Set&lt;HttpMethod&gt; methods,
+            boolean methodMetadataKnown,
+            int versionNumber) {
+
+<span class="fc" id="L154">        private Endpoint {</span>
+<span class="fc" id="L155">            Objects.requireNonNull(advertisedValue, &quot;advertisedValue&quot;);</span>
+<span class="fc" id="L156">            Objects.requireNonNull(path, &quot;path&quot;);</span>
+<span class="fc" id="L157">            Objects.requireNonNull(url, &quot;url&quot;);</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">            methods = methods == null ? Set.of() : Set.copyOf(methods);</span>
+<span class="fc" id="L159">        }</span>
+
+        boolean supports(Set&lt;HttpMethod&gt; required) {
+<span class="fc bfc" id="L162" title="All 4 branches covered.">            return !methodMetadataKnown || methods.containsAll(required);</span>
+        }
+    }
+
+    private final String profileId;
+    private final RestTemplate restTemplate;
+    private final Supplier&lt;Map&lt;String, String&gt;&gt; endpointSupplier;
+    private final Supplier&lt;Map&lt;String, Set&lt;HttpMethod&gt;&gt;&gt; methodSupplier;
+    private final Poster poster;
+    private final Duration startDelay;
+    private final Waiter waiter;
+<span class="fc" id="L173">    private final Object lifecycleMonitor = new Object();</span>
+
+<span class="fc" id="L175">    private State state = State.STOPPED;</span>
+    private String activeSize;
+
+    CcapiLiveViewClient(
+            String profileId,
+            RestTemplate restTemplate,
+            Supplier&lt;Map&lt;String, String&gt;&gt; endpointSupplier,
+            Supplier&lt;Map&lt;String, Set&lt;HttpMethod&gt;&gt;&gt; methodSupplier,
+            Poster poster) {
+<span class="fc" id="L184">        this(</span>
+                profileId,
+                restTemplate,
+                endpointSupplier,
+                methodSupplier,
+                poster,
+                DEFAULT_START_DELAY,
+                Thread::sleep);
+<span class="fc" id="L192">    }</span>
+
+    CcapiLiveViewClient(
+            String profileId,
+            RestTemplate restTemplate,
+            Supplier&lt;Map&lt;String, String&gt;&gt; endpointSupplier,
+            Supplier&lt;Map&lt;String, Set&lt;HttpMethod&gt;&gt;&gt; methodSupplier,
+            Poster poster,
+            Duration startDelay,
+<span class="fc" id="L201">            Waiter waiter) {</span>
+<span class="fc" id="L202">        this.profileId = requireProfileId(profileId);</span>
+<span class="fc" id="L203">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L204">        this.endpointSupplier = Objects.requireNonNull(endpointSupplier, &quot;endpointSupplier&quot;);</span>
+<span class="fc" id="L205">        this.methodSupplier = Objects.requireNonNull(methodSupplier, &quot;methodSupplier&quot;);</span>
+<span class="fc" id="L206">        this.poster = Objects.requireNonNull(poster, &quot;poster&quot;);</span>
+<span class="fc" id="L207">        this.startDelay = requireNonNegative(startDelay, &quot;startDelay&quot;);</span>
+<span class="fc" id="L208">        this.waiter = Objects.requireNonNull(waiter, &quot;waiter&quot;);</span>
+<span class="fc" id="L209">    }</span>
+
+    LiveViewFrame getFrame() {
+<span class="fc" id="L212">        Endpoint frameEndpoint = requireFrameEndpoint();</span>
+<span class="fc" id="L213">        start(&quot;medium&quot;);</span>
+        try {
+<span class="fc" id="L215">            return readFrame(frameEndpoint);</span>
+<span class="fc" id="L216">        } catch (RuntimeException failure) {</span>
+<span class="fc bfc" id="L217" title="All 2 branches covered.">            if (reason(failure) != LIVE_VIEW_NOT_STARTED) {</span>
+<span class="fc" id="L218">                throw liveViewFailure(&quot;Could not read a live-view frame&quot;, failure);</span>
+            }
+
+<span class="fc" id="L221">            markStopped();</span>
+<span class="fc" id="L222">            start(&quot;medium&quot;);</span>
+            try {
+<span class="fc" id="L224">                return readFrame(frameEndpoint);</span>
+<span class="nc" id="L225">            } catch (RuntimeException retryFailure) {</span>
+<span class="nc" id="L226">                throw liveViewFailure(</span>
+                        &quot;Could not read a live-view frame after one corrective restart&quot;,
+                        retryFailure);
+            }
+        }
+    }
+
+    void start(String requestedSize) {
+<span class="fc" id="L234">        String size = normalizeSize(requestedSize);</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (&quot;off&quot;.equals(size)) {</span>
+<span class="nc" id="L236">            stop();</span>
+<span class="nc" id="L237">            return;</span>
+        }
+
+<span class="fc" id="L240">        synchronized (lifecycleMonitor) {</span>
+<span class="pc bpc" id="L241" title="1 of 4 branches missed.">            if (state == State.STARTED &amp;&amp; size.equals(activeSize)) {</span>
+<span class="fc" id="L242">                return;</span>
+            }
+
+<span class="fc" id="L245">            Endpoint control = requireEndpoint(CONTROL_SUFFIX, Set.of(HttpMethod.POST));</span>
+<span class="fc" id="L246">            State previousState = state;</span>
+<span class="fc" id="L247">            String previousSize = activeSize;</span>
+<span class="fc" id="L248">            state = State.STARTING;</span>
+            try {
+<span class="fc" id="L250">                poster.post(control.url(), startBody(size));</span>
+<span class="fc" id="L251">                awaitStartDelay();</span>
+<span class="fc" id="L252">                state = State.STARTED;</span>
+<span class="fc" id="L253">                activeSize = size;</span>
+<span class="fc" id="L254">            } catch (RuntimeException failure) {</span>
+<span class="pc bpc" id="L255" title="1 of 2 branches missed.">                if (reason(failure) == ALREADY_STARTED) {</span>
+<span class="fc" id="L256">                    state = State.STARTED;</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">                    activeSize = previousState == State.STARTED ? previousSize : size;</span>
+<span class="fc" id="L258">                    return;</span>
+                }
+<span class="nc bnc" id="L260" title="All 2 branches missed.">                state = previousState == State.STARTED ? State.STARTED : State.STOPPED;</span>
+<span class="nc" id="L261">                activeSize = previousSize;</span>
+<span class="nc" id="L262">                throw liveViewFailure(&quot;Could not start live view&quot;, failure);</span>
+<span class="fc" id="L263">            }</span>
+<span class="fc" id="L264">        }</span>
+<span class="fc" id="L265">    }</span>
+
+    void stop() {
+<span class="fc" id="L268">        synchronized (lifecycleMonitor) {</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">            if (state == State.STOPPED) {</span>
+<span class="fc" id="L270">                return;</span>
+            }
+
+<span class="fc" id="L273">            Endpoint control = requireEndpoint(CONTROL_SUFFIX, Set.of(HttpMethod.POST));</span>
+<span class="fc" id="L274">            State previousState = state;</span>
+<span class="fc" id="L275">            String previousSize = activeSize;</span>
+<span class="fc" id="L276">            state = State.STOPPING;</span>
+            try {
+<span class="fc" id="L278">                poster.post(control.url(), STOP_BODY.clone());</span>
+<span class="fc" id="L279">                state = State.STOPPED;</span>
+<span class="fc" id="L280">                activeSize = null;</span>
+<span class="fc" id="L281">            } catch (RuntimeException failure) {</span>
+<span class="pc bpc" id="L282" title="1 of 2 branches missed.">                if (reason(failure) == NOT_STARTED) {</span>
+<span class="fc" id="L283">                    state = State.STOPPED;</span>
+<span class="fc" id="L284">                    activeSize = null;</span>
+<span class="fc" id="L285">                    return;</span>
+                }
+<span class="nc bnc" id="L287" title="All 2 branches missed.">                state = previousState == State.STARTED ? State.STARTED : State.STOPPED;</span>
+<span class="nc" id="L288">                activeSize = previousSize;</span>
+<span class="nc" id="L289">                throw liveViewFailure(&quot;Could not stop live view&quot;, failure);</span>
+<span class="fc" id="L290">            }</span>
+<span class="fc" id="L291">        }</span>
+<span class="fc" id="L292">    }</span>
+
+    void markStopped() {
+<span class="fc" id="L295">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L296">            state = State.STOPPED;</span>
+<span class="fc" id="L297">            activeSize = null;</span>
+<span class="fc" id="L298">        }</span>
+<span class="fc" id="L299">    }</span>
+
+    boolean supportsFrameRetrieval() {
+<span class="fc" id="L302">        return selectFrameEndpoint().isPresent();</span>
+    }
+
+    List&lt;AdvertisedMode&gt; advertisedModes() {
+<span class="fc" id="L306">        Map&lt;Mode, AdvertisedMode&gt; modes = new EnumMap&lt;&gt;(Mode.class);</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">        for (Mode mode : Mode.values()) {</span>
+<span class="fc" id="L308">            Optional&lt;Endpoint&gt; compatible = highestCompatible(</span>
+<span class="fc" id="L309">                    mode.suffix(), mode.requiredMethods());</span>
+<span class="fc bfc" id="L310" title="All 2 branches covered.">            Optional&lt;Endpoint&gt; selected = compatible.isPresent()</span>
+<span class="fc" id="L311">                    ? compatible</span>
+<span class="fc" id="L312">                    : highestExact(mode.suffix());</span>
+<span class="fc" id="L313">            selected.ifPresent(endpoint -&gt; modes.put(mode, new AdvertisedMode(</span>
+                    mode,
+<span class="fc" id="L315">                    endpoint.path(),</span>
+<span class="fc" id="L316">                    endpoint.methods(),</span>
+<span class="fc" id="L317">                    endpoint.methodMetadataKnown(),</span>
+<span class="fc" id="L318">                    compatible.isPresent(),</span>
+<span class="fc" id="L319">                    mode.frameRetrievalImplemented())));</span>
+        }
+<span class="fc" id="L321">        return List.copyOf(modes.values());</span>
+    }
+
+    State state() {
+<span class="fc" id="L325">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L326">            return state;</span>
+        }
+    }
+
+    private Optional&lt;Endpoint&gt; selectFrameEndpoint() {
+<span class="fc bfc" id="L331" title="All 2 branches covered.">        for (Mode mode : Mode.values()) {</span>
+<span class="fc bfc" id="L332" title="All 2 branches covered.">            if (!mode.frameRetrievalImplemented()) {</span>
+<span class="fc" id="L333">                continue;</span>
+            }
+<span class="fc" id="L335">            Optional&lt;Endpoint&gt; selected = highestCompatible(mode.suffix(), mode.requiredMethods());</span>
+<span class="fc bfc" id="L336" title="All 2 branches covered.">            if (selected.isPresent()) {</span>
+<span class="fc" id="L337">                return selected;</span>
+            }
+        }
+<span class="fc" id="L340">        return Optional.empty();</span>
+    }
+
+    private Endpoint requireFrameEndpoint() {
+<span class="fc" id="L344">        Optional&lt;Endpoint&gt; selected = selectFrameEndpoint();</span>
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        if (selected.isPresent()) {</span>
+<span class="fc" id="L346">            return selected.orElseThrow();</span>
+        }
+
+<span class="fc" id="L349">        Optional&lt;Endpoint&gt; advertisedSingleFrame = highestExact(Mode.SINGLE_FRAME.suffix());</span>
+<span class="fc bfc" id="L350" title="All 2 branches covered.">        if (advertisedSingleFrame.isPresent()</span>
+<span class="pc bpc" id="L351" title="1 of 2 branches missed.">                &amp;&amp; advertisedSingleFrame.orElseThrow().methodMetadataKnown()) {</span>
+<span class="fc" id="L352">            throw operation(METHOD_NOT_ALLOWED);</span>
+        }
+<span class="fc" id="L354">        throw operation(ENDPOINT_NOT_FOUND);</span>
+    }
+
+    private Endpoint requireEndpoint(String suffix, Set&lt;HttpMethod&gt; requiredMethods) {
+<span class="fc" id="L358">        Optional&lt;Endpoint&gt; selected = highestCompatible(suffix, requiredMethods);</span>
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        if (selected.isPresent()) {</span>
+<span class="fc" id="L360">            return selected.orElseThrow();</span>
+        }
+
+<span class="nc" id="L363">        Optional&lt;Endpoint&gt; advertised = highestExact(suffix);</span>
+<span class="nc bnc" id="L364" title="All 4 branches missed.">        if (advertised.isPresent() &amp;&amp; advertised.orElseThrow().methodMetadataKnown()) {</span>
+<span class="nc" id="L365">            throw operation(METHOD_NOT_ALLOWED);</span>
+        }
+<span class="nc" id="L367">        throw operation(ENDPOINT_NOT_FOUND);</span>
+    }
+
+    private Optional&lt;Endpoint&gt; highestCompatible(
+            String suffix,
+            Set&lt;HttpMethod&gt; requiredMethods) {
+<span class="fc" id="L373">        return endpoints().stream()</span>
+<span class="fc" id="L374">                .filter(endpoint -&gt; endpoint.path().endsWith(normalizeSuffix(suffix)))</span>
+<span class="fc" id="L375">                .filter(endpoint -&gt; endpoint.supports(requiredMethods))</span>
+<span class="fc" id="L376">                .max(endpointOrder());</span>
+    }
+
+    private Optional&lt;Endpoint&gt; highestExact(String suffix) {
+<span class="fc" id="L380">        return endpoints().stream()</span>
+<span class="fc" id="L381">                .filter(endpoint -&gt; endpoint.path().endsWith(normalizeSuffix(suffix)))</span>
+<span class="fc" id="L382">                .max(endpointOrder());</span>
+    }
+
+    private List&lt;Endpoint&gt; endpoints() {
+<span class="fc" id="L386">        Map&lt;String, String&gt; advertised = Optional.ofNullable(endpointSupplier.get())</span>
+<span class="fc" id="L387">                .orElse(Map.of());</span>
+<span class="fc" id="L388">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; methods = Optional.ofNullable(methodSupplier.get())</span>
+<span class="fc" id="L389">                .orElse(Map.of());</span>
+<span class="fc" id="L390">        List&lt;Endpoint&gt; result = new ArrayList&lt;&gt;(advertised.size());</span>
+<span class="fc" id="L391">        advertised.forEach((advertisedValue, url) -&gt; {</span>
+<span class="pc bpc" id="L392" title="2 of 4 branches missed.">            if (advertisedValue == null || url == null) {</span>
+<span class="nc" id="L393">                return;</span>
+            }
+<span class="fc" id="L395">            Set&lt;HttpMethod&gt; advertisedMethods = methods.get(advertisedValue);</span>
+<span class="fc" id="L396">            String path = endpointPath(url, advertisedValue);</span>
+<span class="fc bfc" id="L397" title="All 2 branches covered.">            result.add(new Endpoint(</span>
+                    advertisedValue,
+                    path,
+                    url,
+                    advertisedMethods,
+                    advertisedMethods != null,
+<span class="fc" id="L403">                    versionNumber(path)));</span>
+<span class="fc" id="L404">        });</span>
+<span class="fc" id="L405">        return List.copyOf(result);</span>
+    }
+
+    private LiveViewFrame readFrame(Endpoint endpoint) {
+<span class="fc" id="L409">        byte[] data = restTemplate.getForObject(endpoint.url(), byte[].class);</span>
+<span class="fc" id="L410">        return new LiveViewFrame(</span>
+<span class="pc bpc" id="L411" title="1 of 2 branches missed.">                data == null ? new byte[0] : data,</span>
+                960,
+                640,
+<span class="fc" id="L414">                Instant.now(),</span>
+                MediaType.IMAGE_JPEG_VALUE);
+    }
+
+    private void awaitStartDelay() {
+<span class="fc bfc" id="L419" title="All 2 branches covered.">        if (startDelay.isZero()) {</span>
+<span class="fc" id="L420">            return;</span>
+        }
+        try {
+<span class="fc" id="L423">            waiter.await(startDelay);</span>
+<span class="nc" id="L424">        } catch (InterruptedException interrupted) {</span>
+<span class="nc" id="L425">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L426">            throw new CameraOperationException(profileId, CANCELLED, null, interrupted);</span>
+<span class="fc" id="L427">        }</span>
+<span class="fc" id="L428">    }</span>
+
+    private CameraException liveViewFailure(String safeMessage, RuntimeException failure) {
+<span class="fc" id="L431">        CameraOperationException typed = operationFailure(failure);</span>
+<span class="pc bpc" id="L432" title="1 of 2 branches missed.">        return typed != null ? typed : new CameraException(safeMessage, failure);</span>
+    }
+
+    private CameraOperationException operation(CameraOperationException.Reason reason) {
+<span class="fc" id="L436">        return new CameraOperationException(profileId, reason, null);</span>
+    }
+
+    private static CameraOperationException operationFailure(Throwable failure) {
+<span class="fc" id="L440">        Throwable current = failure;</span>
+<span class="pc bpc" id="L441" title="1 of 2 branches missed.">        while (current != null) {</span>
+<span class="fc bfc" id="L442" title="All 2 branches covered.">            if (current instanceof CameraOperationException operation) {</span>
+<span class="fc" id="L443">                return operation;</span>
+            }
+<span class="fc" id="L445">            current = current.getCause();</span>
+        }
+<span class="nc" id="L447">        return null;</span>
+    }
+
+    private static CameraOperationException.Reason reason(RuntimeException failure) {
+<span class="fc" id="L451">        CameraOperationException typed = operationFailure(failure);</span>
+<span class="pc bpc" id="L452" title="1 of 2 branches missed.">        if (typed != null) {</span>
+<span class="fc" id="L453">            return typed.reason();</span>
+        }
+<span class="nc bnc" id="L455" title="All 2 branches missed.">        if (failure instanceof HttpServerErrorException.ServiceUnavailable unavailable) {</span>
+<span class="nc" id="L456">            String body = unavailable.getResponseBodyAsString();</span>
+<span class="nc bnc" id="L457" title="All 2 branches missed.">            String normalized = body == null ? &quot;&quot; : body.toLowerCase(Locale.ROOT);</span>
+<span class="nc bnc" id="L458" title="All 2 branches missed.">            if (normalized.contains(&quot;live view not started&quot;)) {</span>
+<span class="nc" id="L459">                return LIVE_VIEW_NOT_STARTED;</span>
+            }
+<span class="nc bnc" id="L461" title="All 2 branches missed.">            if (normalized.contains(&quot;already started&quot;)) {</span>
+<span class="nc" id="L462">                return ALREADY_STARTED;</span>
+            }
+<span class="nc bnc" id="L464" title="All 2 branches missed.">            if (normalized.contains(&quot;not started&quot;)) {</span>
+<span class="nc" id="L465">                return NOT_STARTED;</span>
+            }
+<span class="nc bnc" id="L467" title="All 2 branches missed.">            if (normalized.contains(&quot;during shooting or recording&quot;)) {</span>
+<span class="nc" id="L468">                return DURING_SHOOTING_OR_RECORDING;</span>
+            }
+<span class="nc bnc" id="L470" title="All 2 branches missed.">            if (normalized.contains(&quot;taken in preparation&quot;)) {</span>
+<span class="nc" id="L471">                return TAKEN_IN_PREPARATION;</span>
+            }
+<span class="nc bnc" id="L473" title="All 2 branches missed.">            if (normalized.contains(&quot;mode not supported&quot;)) {</span>
+<span class="nc" id="L474">                return MODE_NOT_SUPPORTED;</span>
+            }
+<span class="nc bnc" id="L476" title="All 2 branches missed.">            if (normalized.contains(&quot;device busy&quot;)) {</span>
+<span class="nc" id="L477">                return DEVICE_BUSY;</span>
+            }
+<span class="nc" id="L479">            return SERVICE_UNAVAILABLE;</span>
+        }
+<span class="nc" id="L481">        return null;</span>
+    }
+
+    private static byte[] startBody(String size) {
+<span class="fc" id="L485">        return (&quot;{\&quot;liveviewsize\&quot;:\&quot;&quot; + size</span>
+                + &quot;\&quot;,\&quot;cameradisplay\&quot;:\&quot;on\&quot;}&quot;)
+<span class="fc" id="L487">                .getBytes(StandardCharsets.UTF_8);</span>
+    }
+
+    private static String normalizeSize(String requestedSize) {
+<span class="fc" id="L491">        Objects.requireNonNull(requestedSize, &quot;requestedSize&quot;);</span>
+<span class="fc" id="L492">        String normalized = requestedSize.trim().toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L493" title="1 of 2 branches missed.">        if (!Set.of(&quot;small&quot;, &quot;medium&quot;, &quot;off&quot;).contains(normalized)) {</span>
+<span class="nc" id="L494">            throw new IllegalArgumentException(</span>
+                    &quot;live-view size must be small, medium or off&quot;);
+        }
+<span class="fc" id="L497">        return normalized;</span>
+    }
+
+    private static Comparator&lt;Endpoint&gt; endpointOrder() {
+<span class="fc" id="L501">        return Comparator.comparingInt(Endpoint::versionNumber)</span>
+<span class="fc" id="L502">                .thenComparing(Endpoint::path);</span>
+    }
+
+    private static String endpointPath(String url, String advertisedValue) {
+<span class="pc bpc" id="L506" title="1 of 2 branches missed.">        for (String candidate : List.of(url, advertisedValue)) {</span>
+            try {
+<span class="fc" id="L508">                String path = URI.create(candidate).getPath();</span>
+<span class="pc bpc" id="L509" title="2 of 4 branches missed.">                if (path != null &amp;&amp; !path.isBlank()) {</span>
+<span class="fc" id="L510">                    return path;</span>
+                }
+<span class="nc" id="L512">            } catch (IllegalArgumentException ignored) {</span>
+                // Try the next representation.
+<span class="nc" id="L514">            }</span>
+<span class="nc" id="L515">        }</span>
+<span class="nc" id="L516">        return advertisedValue;</span>
+    }
+
+    private static int versionNumber(String path) {
+<span class="fc" id="L520">        Matcher matcher = VERSION.matcher(path);</span>
+<span class="pc bpc" id="L521" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
+<span class="nc" id="L522">            return -1;</span>
+        }
+        try {
+<span class="fc" id="L525">            return Integer.parseInt(matcher.group(1));</span>
+<span class="nc" id="L526">        } catch (NumberFormatException ignored) {</span>
+<span class="nc" id="L527">            return -1;</span>
+        }
+    }
+
+    private static String normalizeSuffix(String suffix) {
+<span class="fc" id="L532">        Objects.requireNonNull(suffix, &quot;suffix&quot;);</span>
+<span class="fc" id="L533">        String normalized = suffix.trim();</span>
+<span class="pc bpc" id="L534" title="1 of 2 branches missed.">        return normalized.startsWith(&quot;/&quot;) ? normalized : &quot;/&quot; + normalized;</span>
+    }
+
+    private static String requireProfileId(String profileId) {
+<span class="fc" id="L538">        Objects.requireNonNull(profileId, &quot;profileId&quot;);</span>
+<span class="pc bpc" id="L539" title="1 of 2 branches missed.">        if (profileId.isBlank()) {</span>
+<span class="nc" id="L540">            throw new IllegalArgumentException(&quot;profileId must not be blank&quot;);</span>
+        }
+<span class="fc" id="L542">        return profileId;</span>
+    }
+
+    private static Duration requireNonNegative(Duration duration, String name) {
+<span class="fc" id="L546">        Objects.requireNonNull(duration, name);</span>
+<span class="pc bpc" id="L547" title="1 of 2 branches missed.">        if (duration.isNegative()) {</span>
+<span class="nc" id="L548">            throw new IllegalArgumentException(name + &quot; must not be negative&quot;);</span>
+        }
+<span class="fc" id="L550">        return duration;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -2,6 +2,9 @@
 
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.session.CameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.CameraSessionLeaseManager;
+import com.photographer.focusstack.camera.session.LeasedCameraBackendProvider;
 import com.photographer.focusstack.face.analysis.FaceAnalysisEngine;
 import com.photographer.focusstack.face.analysis.MockFaceAnalysisEngine;
 import com.photographer.focusstack.face.profile.FaceProfileEngine;
@@ -11,15 +14,13 @@ import com.photographer.focusstack.hdr.MockHdrProcessor;
 import com.photographer.focusstack.hdr.MockTonemapper;
 import com.photographer.focusstack.hdr.Tonemapper;
 import com.photographer.focusstack.session.CameraBackendProvider;
+import com.photographer.focusstack.session.CameraSessionPurpose;
 import com.photographer.focusstack.session.FaceOrbitService;
 import com.photographer.focusstack.session.HdrTimelapseService;
-import com.photographer.focusstack.session.SessionException;
 import com.photographer.focusstack.storage.FileSessionStorage;
 import com.photographer.focusstack.storage.SessionStorage;
 import com.photographer.focusstack.video.MockVideoEncoder;
 import com.photographer.focusstack.video.VideoEncoder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,17 +28,16 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.Map;
 
 /**
  * Spring configuration for HDR Timelapse and Face Orbit session services.
- * Wires the core modules together.  Camera backends are resolved at
- * session-start time via {@link CameraBackendFactory} using the camera profile
- * ID stored in the session settings.
+ * Camera-owning executions open a backend session whose logical ownership is
+ * independent of the backend cache.
  */
 @Configuration
-<span class="fc" id="L38">public class SessionConfig {</span>
-
-<span class="fc" id="L40">    private static final Logger log = LoggerFactory.getLogger(SessionConfig.class);</span>
+<span class="fc" id="L40">public class SessionConfig {</span>
 
     @Bean
     public SessionStorage sessionStorage(
@@ -70,22 +70,27 @@ import java.nio.file.Path;
 <span class="fc" id="L70">        return new MockFaceProfileEngine();</span>
     }
 
-    /**
-     * {@link CameraBackendProvider} that resolves camera backends at session-start
-     * time via {@link CameraBackendFactory}, just as {@code StackingJobService} does.
-     */
     @Bean
-    public CameraBackendProvider cameraBackendProvider(CameraBackendFactory backendFactory,
-                                                        CameraProfileService profileService) {
-<span class="fc" id="L80">        return cameraProfileId -&gt; {</span>
-            try {
-<span class="fc" id="L82">                return backendFactory.getBackend(profileService.getProfile(cameraProfileId));</span>
-<span class="nc" id="L83">            } catch (Exception ex) {</span>
-<span class="nc" id="L84">                log.warn(&quot;Cannot resolve camera backend for profile '{}': {}&quot;, cameraProfileId, ex.getMessage());</span>
-<span class="nc" id="L85">                throw new SessionException(</span>
-                        &quot;Cannot resolve camera backend for profile '&quot; + cameraProfileId + &quot;'&quot;);
-            }
-        };
+    public CameraBackendProvider cameraBackendProvider(
+            CameraBackendFactory backendFactory,
+            CameraProfileService profileService,
+            CameraSessionLeaseManager leaseManager,
+            CameraLeaseIdentityProvider identityProvider,
+            @Value(&quot;${camera.session-lease.hdr-timelapse-lifetime:PT6H}&quot;)
+            Duration hdrTimelapseLifetime,
+            @Value(&quot;${camera.session-lease.face-orbit-lifetime:PT2H}&quot;)
+            Duration faceOrbitLifetime,
+            @Value(&quot;${camera.session-lease.astro-lifetime:PT6H}&quot;)
+            Duration astroLifetime) {
+<span class="fc" id="L85">        return new LeasedCameraBackendProvider(</span>
+                backendFactory,
+                profileService,
+                leaseManager,
+                identityProvider,
+<span class="fc" id="L90">                Map.of(</span>
+                        CameraSessionPurpose.HDR_TIMELAPSE, hdrTimelapseLifetime,
+                        CameraSessionPurpose.FACE_ORBIT, faceOrbitLifetime,
+                        CameraSessionPurpose.ASTRO, astroLifetime));
     }
 
     @Bean
@@ -95,7 +100,7 @@ import java.nio.file.Path;
             HdrProcessor hdrProcessor,
             Tonemapper tonemapper,
             VideoEncoder videoEncoder) {
-<span class="fc" id="L98">        return new HdrTimelapseService(cameraBackendProvider, sessionStorage,</span>
+<span class="fc" id="L103">        return new HdrTimelapseService(cameraBackendProvider, sessionStorage,</span>
                 hdrProcessor, tonemapper, videoEncoder);
     }
 
@@ -105,22 +110,19 @@ import java.nio.file.Path;
             SessionStorage sessionStorage,
             FaceAnalysisEngine faceAnalysisEngine,
             FaceProfileEngine faceProfileEngine) {
-<span class="fc" id="L108">        return new FaceOrbitService(cameraBackendProvider, sessionStorage,</span>
+<span class="fc" id="L113">        return new FaceOrbitService(cameraBackendProvider, sessionStorage,</span>
                 faceAnalysisEngine, faceProfileEngine);
     }
 
-    /**
-     * Dedicated thread pool for session tasks (HDR timelapse, face orbit auto mode).
-     */
     @Bean(&quot;sessionTaskExecutor&quot;)
     public TaskExecutor sessionTaskExecutor() {
-<span class="fc" id="L117">        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();</span>
-<span class="fc" id="L118">        executor.setCorePoolSize(2);</span>
-<span class="fc" id="L119">        executor.setMaxPoolSize(4);</span>
-<span class="fc" id="L120">        executor.setQueueCapacity(10);</span>
-<span class="fc" id="L121">        executor.setThreadNamePrefix(&quot;session-task-&quot;);</span>
-<span class="fc" id="L122">        executor.initialize();</span>
-<span class="fc" id="L123">        return executor;</span>
+<span class="fc" id="L119">        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();</span>
+<span class="fc" id="L120">        executor.setCorePoolSize(2);</span>
+<span class="fc" id="L121">        executor.setMaxPoolSize(4);</span>
+<span class="fc" id="L122">        executor.setQueueCapacity(10);</span>
+<span class="fc" id="L123">        executor.setThreadNamePrefix(&quot;session-task-&quot;);</span>
+<span class="fc" id="L124">        executor.initialize();</span>
+<span class="fc" id="L125">        return executor;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -117,7 +117,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * (e.g. in unit tests that only verify the shutter trigger).
      */
     CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
-                      long capturePollIntervalMs, long captureTimeoutMs) {
+                       long capturePollIntervalMs, long captureTimeoutMs) {
 <span class="fc" id="L121">        this(baseUrl, restTemplate, capturePollIntervalMs, captureTimeoutMs,</span>
                 DEFAULT_SHUTTER_HALF_PRESS_DELAY_MS, DEFAULT_SHUTTER_FULL_PRESS_DELAY_MS,
                 DEFAULT_SHUTTER_RELEASE_DELAY_MS);
@@ -128,9 +128,9 @@ public class CanonCcapiBackend implements CameraBackend {
      * Use all-zero delays for unit tests to avoid actual waits.
      */
     CanonCcapiBackend(String baseUrl, RestTemplate restTemplate,
-                      long capturePollIntervalMs, long captureTimeoutMs,
-                      long shutterHalfPressDelayMs, long shutterFullPressDelayMs,
-<span class="fc" id="L133">                      long shutterReleaseDelayMs) {</span>
+                       long capturePollIntervalMs, long captureTimeoutMs,
+                       long shutterHalfPressDelayMs, long shutterFullPressDelayMs,
+<span class="fc" id="L133">                       long shutterReleaseDelayMs) {</span>
 <span class="fc" id="L134">        this.baseUrl = baseUrl;</span>
 <span class="fc" id="L135">        this.restTemplate = restTemplate;</span>
 <span class="fc" id="L136">        this.capturePollIntervalMs = capturePollIntervalMs;</span>
@@ -1077,13 +1077,13 @@ public class CanonCcapiBackend implements CameraBackend {
      * {@link RestTemplate} needs it to serialise the body correctly, and the
      * camera accepts it.  The {@code Accept} header is intentionally omitted.
      */
-    private static HttpEntity&lt;byte[]&gt; ccapiEntity(Object body) {
+    protected static HttpEntity&lt;byte[]&gt; ccapiEntity(Object body) {
         // Serialize to JSON bytes manually — this prevents Spring's
         // MappingJackson2HttpMessageConverter from being involved and adding
         // &quot;charset=UTF-8&quot; to the Content-Type, which the Canon camera rejects.
         byte[] jsonBytes;
-<span class="pc bpc" id="L1085" title="1 of 2 branches missed.">        if (body instanceof byte[]) {</span>
-<span class="nc" id="L1086">            jsonBytes = (byte[]) body;</span>
+<span class="fc bfc" id="L1085" title="All 2 branches covered.">        if (body instanceof byte[]) {</span>
+<span class="fc" id="L1086">            jsonBytes = (byte[]) body;</span>
         } else {
             try {
 <span class="fc" id="L1089">                jsonBytes = JSON_MAPPER.writeValueAsBytes(body);</span>
@@ -1121,22 +1121,25 @@ public class CanonCcapiBackend implements CameraBackend {
      * {@code &quot;Device busy&quot;} message, the request is retried up to
      * {@value #DEVICE_BUSY_MAX_RETRIES} times with exponential backoff
      * starting at {@value #DEVICE_BUSY_INITIAL_BACKOFF_MS}&amp;nbsp;ms.
+     *
+     * &lt;p&gt;The method is protected so endpoint-catalog specializations can reuse
+     * the exact same wire and retry contract instead of maintaining a second copy.
      */
-    private void ccapiPost(String url, Object body) {
-<span class="fc" id="L1126">        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;</span>
-<span class="fc" id="L1127">        for (int attempt = 0; ; attempt++) {</span>
+    protected final void ccapiPost(String url, Object body) {
+<span class="fc" id="L1129">        long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;</span>
+<span class="fc" id="L1130">        for (int attempt = 0; ; attempt++) {</span>
             try {
-<span class="fc" id="L1129">                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);</span>
-<span class="fc" id="L1130">                return;</span>
-<span class="fc" id="L1131">            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {</span>
-<span class="fc" id="L1132">                boolean deviceBusy = e.getResponseBodyAsString().contains(&quot;Device busy&quot;);</span>
-<span class="fc bfc" id="L1133" title="All 4 branches covered.">                if (!deviceBusy || attempt &gt;= DEVICE_BUSY_MAX_RETRIES) {</span>
-<span class="fc" id="L1134">                    throw e;</span>
+<span class="fc" id="L1132">                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);</span>
+<span class="fc" id="L1133">                return;</span>
+<span class="fc" id="L1134">            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {</span>
+<span class="fc" id="L1135">                boolean deviceBusy = e.getResponseBodyAsString().contains(&quot;Device busy&quot;);</span>
+<span class="fc bfc" id="L1136" title="All 4 branches covered.">                if (!deviceBusy || attempt &gt;= DEVICE_BUSY_MAX_RETRIES) {</span>
+<span class="fc" id="L1137">                    throw e;</span>
                 }
-<span class="fc" id="L1136">                log.warn(&quot;Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})&quot;,</span>
-<span class="fc" id="L1137">                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);</span>
-<span class="fc" id="L1138">                sleepMs(backoffMs);</span>
-<span class="fc" id="L1139">                backoffMs = Math.min(backoffMs * 2, 5_000);</span>
+<span class="fc" id="L1139">                log.warn(&quot;Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})&quot;,</span>
+<span class="fc" id="L1140">                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);</span>
+<span class="fc" id="L1141">                sleepMs(backoffMs);</span>
+<span class="fc" id="L1142">                backoffMs = Math.min(backoffMs * 2, 5_000);</span>
             }
         }
     }
@@ -1147,9 +1150,9 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns &quot;1&quot; (small), &quot;2&quot; (medium), or &quot;3&quot; (large).
      */
     static String toDriveFocusMagnitude(int steps) {
-<span class="fc bfc" id="L1150" title="All 2 branches covered.">        if (steps &lt;= 1) return &quot;1&quot;;</span>
-<span class="fc bfc" id="L1151" title="All 2 branches covered.">        if (steps &lt;= 5) return &quot;2&quot;;</span>
-<span class="fc" id="L1152">        return &quot;3&quot;;</span>
+<span class="fc bfc" id="L1153" title="All 2 branches covered.">        if (steps &lt;= 1) return &quot;1&quot;;</span>
+<span class="fc bfc" id="L1154" title="All 2 branches covered.">        if (steps &lt;= 5) return &quot;2&quot;;</span>
+<span class="fc" id="L1155">        return &quot;3&quot;;</span>
     }
 
     /**
@@ -1158,19 +1161,19 @@ public class CanonCcapiBackend implements CameraBackend {
      * Returns 100 for null or unrecognised input. Trims whitespace before parsing.
      */
     static int parseBatteryLevel(String level) {
-<span class="fc bfc" id="L1161" title="All 2 branches covered.">        if (level == null) {</span>
-<span class="fc" id="L1162">            return 100;</span>
+<span class="fc bfc" id="L1164" title="All 2 branches covered.">        if (level == null) {</span>
+<span class="fc" id="L1165">            return 100;</span>
         }
-<span class="fc" id="L1164">        String normalized = level.trim().toLowerCase();</span>
-<span class="fc bfc" id="L1165" title="All 6 branches covered.">        return switch (normalized) {</span>
-<span class="fc" id="L1166">            case &quot;full&quot;   -&gt; 100;</span>
-<span class="fc" id="L1167">            case &quot;high&quot;   -&gt; 80;</span>
-<span class="fc" id="L1168">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
-<span class="fc" id="L1169">            case &quot;low&quot;    -&gt; 20;</span>
-<span class="fc" id="L1170">            case &quot;empty&quot;  -&gt; 0;</span>
+<span class="fc" id="L1167">        String normalized = level.trim().toLowerCase();</span>
+<span class="fc bfc" id="L1168" title="All 6 branches covered.">        return switch (normalized) {</span>
+<span class="fc" id="L1169">            case &quot;full&quot;   -&gt; 100;</span>
+<span class="fc" id="L1170">            case &quot;high&quot;   -&gt; 80;</span>
+<span class="fc" id="L1171">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
+<span class="fc" id="L1172">            case &quot;low&quot;    -&gt; 20;</span>
+<span class="fc" id="L1173">            case &quot;empty&quot;  -&gt; 0;</span>
             default -&gt; {
-<span class="fc" id="L1172">                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }</span>
-<span class="fc" id="L1173">                catch (NumberFormatException e) { yield 100; }</span>
+<span class="fc" id="L1175">                try { yield Math.max(0, Math.min(100, Integer.parseInt(normalized))); }</span>
+<span class="fc" id="L1176">                catch (NumberFormatException e) { yield 100; }</span>
             }
         };
     }
@@ -1186,20 +1189,20 @@ public class CanonCcapiBackend implements CameraBackend {
      * shutdowns mid-session.&lt;/p&gt;
      */
     static Integer worstBatteryLevel(BatteryListStatus list) {
-<span class="fc bfc" id="L1189" title="All 6 branches covered.">        if (list == null || list.batterylist() == null || list.batterylist().isEmpty()) {</span>
-<span class="fc" id="L1190">            return null;</span>
+<span class="fc bfc" id="L1192" title="All 6 branches covered.">        if (list == null || list.batterylist() == null || list.batterylist().isEmpty()) {</span>
+<span class="fc" id="L1193">            return null;</span>
         }
-<span class="fc" id="L1192">        return list.batterylist().stream()</span>
-<span class="pc bpc" id="L1193" title="1 of 4 branches missed.">                .filter(b -&gt; b != null &amp;&amp; b.level() != null)</span>
-<span class="fc" id="L1194">                .map(b -&gt; parseBatteryLevel(b.level()))</span>
-<span class="fc" id="L1195">                .min(Integer::compareTo)</span>
-<span class="fc" id="L1196">                .orElse(null);</span>
+<span class="fc" id="L1195">        return list.batterylist().stream()</span>
+<span class="pc bpc" id="L1196" title="1 of 4 branches missed.">                .filter(b -&gt; b != null &amp;&amp; b.level() != null)</span>
+<span class="fc" id="L1197">                .map(b -&gt; parseBatteryLevel(b.level()))</span>
+<span class="fc" id="L1198">                .min(Integer::compareTo)</span>
+<span class="fc" id="L1199">                .orElse(null);</span>
     }
 
     // ── CCAPI response DTOs ────────────────────────────────────────────────
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1202">    record DeviceInformation(</span>
+<span class="fc" id="L1205">    record DeviceInformation(</span>
             @JsonProperty(&quot;productname&quot;)    String productname,
             @JsonProperty(&quot;serialnumber&quot;)   String serialnumber,
             @JsonProperty(&quot;firmwareversion&quot;) String firmwareversion,
@@ -1207,7 +1210,7 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1210">    record BatteryStatus(</span>
+<span class="fc" id="L1213">    record BatteryStatus(</span>
             @JsonProperty(&quot;name&quot;)    String name,
             @JsonProperty(&quot;kind&quot;)    String kind,
             @JsonProperty(&quot;level&quot;)   String level,
@@ -1221,19 +1224,19 @@ public class CanonCcapiBackend implements CameraBackend {
      * collapses the list to the worst (lowest) reported level.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1224">    record BatteryListStatus(</span>
+<span class="fc" id="L1227">    record BatteryListStatus(</span>
             @JsonProperty(&quot;batterylist&quot;) List&lt;BatteryStatus&gt; batterylist
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1229">    record StorageStatus(</span>
+<span class="fc" id="L1232">    record StorageStatus(</span>
             @JsonProperty(&quot;name&quot;)     String name,
             @JsonProperty(&quot;maxsize&quot;)  Long maxBytes,
             @JsonProperty(&quot;spacesize&quot;) Long spaceBytes
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1236">    record ContentEntry(</span>
+<span class="fc" id="L1239">    record ContentEntry(</span>
             @JsonProperty(&quot;name&quot;)     String name,
             @JsonProperty(&quot;size&quot;)     Long size,
             @JsonProperty(&quot;datetime&quot;) String datetime,
@@ -1241,7 +1244,7 @@ public class CanonCcapiBackend implements CameraBackend {
     ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L1244">    record ContentListing(</span>
+<span class="fc" id="L1247">    record ContentListing(</span>
             @JsonProperty(&quot;dir&quot;) List&lt;ContentEntry&gt; dir
     ) {}
 }

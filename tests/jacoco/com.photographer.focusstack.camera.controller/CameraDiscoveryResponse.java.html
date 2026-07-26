@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraDiscoveryResponse.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.controller</a> &gt; <span class="el_source">CameraDiscoveryResponse.java</span></div><h1>CameraDiscoveryResponse.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.controller;
+
+import com.photographer.focusstack.camera.discovery.CcapiDiscoveredCamera;
+import com.photographer.focusstack.camera.discovery.CcapiDiscoveryResult;
+import com.photographer.focusstack.camera.discovery.CcapiDiscoveryWarning;
+
+import java.util.List;
+
+/** Stable HTTP representation of one bounded, read-only CCAPI discovery pass. */
+public record CameraDiscoveryResponse(
+        List&lt;DiscoveredCamera&gt; cameras,
+        List&lt;Warning&gt; warnings
+) {
+
+<span class="fc" id="L15">    public CameraDiscoveryResponse {</span>
+<span class="pc bpc" id="L16" title="1 of 2 branches missed.">        cameras = cameras == null ? List.of() : List.copyOf(cameras);</span>
+<span class="pc bpc" id="L17" title="1 of 2 branches missed.">        warnings = warnings == null ? List.of() : List.copyOf(warnings);</span>
+<span class="fc" id="L18">    }</span>
+
+    static CameraDiscoveryResponse from(CcapiDiscoveryResult result) {
+<span class="fc" id="L21">        return new CameraDiscoveryResponse(</span>
+<span class="fc" id="L22">                result.cameras().stream().map(DiscoveredCamera::from).toList(),</span>
+<span class="fc" id="L23">                result.warnings().stream().map(Warning::from).toList());</span>
+    }
+
+<span class="fc" id="L26">    public record DiscoveredCamera(</span>
+            String accessUrl,
+            String udn,
+            String friendlyName,
+            String modelName,
+            String serialNumber,
+            String nickname,
+            boolean serviceConnected
+    ) {
+        private static DiscoveredCamera from(CcapiDiscoveredCamera camera) {
+<span class="fc" id="L36">            return new DiscoveredCamera(</span>
+<span class="fc" id="L37">                    camera.accessUrl().toASCIIString(),</span>
+<span class="fc" id="L38">                    camera.udn(),</span>
+<span class="fc" id="L39">                    camera.friendlyName(),</span>
+<span class="fc" id="L40">                    camera.modelName(),</span>
+<span class="fc" id="L41">                    camera.serialNumber(),</span>
+<span class="fc" id="L42">                    camera.nickname(),</span>
+<span class="fc" id="L43">                    camera.serviceConnected());</span>
+        }
+    }
+
+<span class="fc" id="L47">    public record Warning(String stage, String source, String message) {</span>
+        private static Warning from(CcapiDiscoveryWarning warning) {
+<span class="fc" id="L49">            return new Warning(warning.stage(), warning.source(), warning.message());</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraSessionConflictException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.session</a> &gt; <span class="el_source">CameraSessionConflictException.java</span></div><h1>CameraSessionConflictException.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.session;
+
+import com.photographer.focusstack.camera.exception.CameraException;
+
+import java.time.Duration;
+import java.util.Objects;
+
+/** Conflict response containing only redacted, bounded diagnostic fields. */
+public final class CameraSessionConflictException extends CameraException {
+    public static final String CODE = &quot;CAMERA_SESSION_CONFLICT&quot;;
+<span class="fc" id="L11">    private static final Duration MAXIMUM_RETRY_AFTER = Duration.ofSeconds(30);</span>
+
+    private final String ownerCorrelationId;
+    private final CameraWorkflowType workflowType;
+    private final Duration retryAfter;
+
+    CameraSessionConflictException(
+            String ownerCorrelationId,
+            CameraWorkflowType workflowType,
+            Duration retryAfter) {
+<span class="fc" id="L21">        super(&quot;Camera is already controlled by another workflow&quot;);</span>
+<span class="pc bpc" id="L22" title="1 of 2 branches missed.">        if (ownerCorrelationId == null</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">                || !ownerCorrelationId.matches(&quot;[A-Za-z0-9_-]{8,64}&quot;)) {</span>
+<span class="fc" id="L24">            throw new IllegalArgumentException(&quot;ownerCorrelationId is invalid&quot;);</span>
+        }
+<span class="fc" id="L26">        this.ownerCorrelationId = ownerCorrelationId;</span>
+<span class="fc" id="L27">        this.workflowType = Objects.requireNonNull(workflowType, &quot;workflowType&quot;);</span>
+<span class="fc" id="L28">        this.retryAfter = Objects.requireNonNull(retryAfter, &quot;retryAfter&quot;);</span>
+<span class="fc bfc" id="L29" title="All 4 branches covered.">        if (retryAfter.isNegative() || retryAfter.compareTo(MAXIMUM_RETRY_AFTER) &gt; 0) {</span>
+<span class="fc" id="L30">            throw new IllegalArgumentException(&quot;retryAfter must be between zero and 30 seconds&quot;);</span>
+        }
+<span class="fc" id="L32">    }</span>
+
+    public String code() {
+<span class="fc" id="L35">        return CODE;</span>
+    }
+
+    public String ownerCorrelationId() {
+<span class="fc" id="L39">        return ownerCorrelationId;</span>
+    }
+
+    public CameraWorkflowType workflowType() {
+<span class="fc" id="L43">        return workflowType;</span>
+    }
+
+    public boolean retryable() {
+<span class="fc" id="L47">        return true;</span>
+    }
+
+    public Duration retryAfter() {
+<span class="fc" id="L51">        return retryAfter;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

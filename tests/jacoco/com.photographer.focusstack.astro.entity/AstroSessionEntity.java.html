@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AstroSessionEntity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.astro.entity</a> &gt; <span class="el_source">AstroSessionEntity.java</span></div><h1>AstroSessionEntity.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.astro.entity;
 
-import com.photographer.focusstack.common.model.*;
-import jakarta.persistence.*;
+import com.photographer.focusstack.common.model.AstroCaptureConfig;
+import com.photographer.focusstack.common.model.AstroFocusConfig;
+import com.photographer.focusstack.common.model.AstroFocusStrategy;
+import com.photographer.focusstack.common.model.AstroSession;
+import com.photographer.focusstack.common.model.AstroSessionStatus;
+import com.photographer.focusstack.common.model.AstroStackingConfig;
+import com.photographer.focusstack.common.model.AstroStackingMode;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +36,7 @@ public class AstroSessionEntity {
     private Instant finishedAt;
 
     // Capture config stored as individual columns
+    private String cameraProfileId;
     private int frameCount;
     private long exposureTimeMs;
     private int iso;
@@ -33,6 +46,14 @@ public class AstroSessionEntity {
     private boolean saveRaw;
     private boolean saveJpeg;
     private boolean captureDarkFrame;
+
+    // Stacking config and scientific provenance
+    @Enumerated(EnumType.STRING)
+    private AstroStackingMode stackingMode;
+    private double stackingSigmaThreshold;
+    private int stackingMaxIterations;
+    private int stackingMinimumSamples;
+    private int stackingProgressPercent;
 
     // Focus config
     @Enumerated(EnumType.STRING)
@@ -51,65 +72,139 @@ public class AstroSessionEntity {
     @Column(length = 2000)
     private String errorMessage;
 
-<span class="fc" id="L54">    protected AstroSessionEntity() {}</span>
+<span class="fc" id="L75">    protected AstroSessionEntity() {}</span>
 
-    public static AstroSessionEntity create(AstroCaptureConfig captureConfig, AstroFocusConfig focusConfig) {
-<span class="fc" id="L57">        AstroSessionEntity e = new AstroSessionEntity();</span>
-<span class="fc" id="L58">        e.id = UUID.randomUUID().toString();</span>
-<span class="fc" id="L59">        e.status = AstroSessionStatus.CREATED;</span>
-<span class="fc" id="L60">        e.createdAt = Instant.now();</span>
-<span class="fc" id="L61">        e.frameCount = captureConfig.frameCount();</span>
-<span class="fc" id="L62">        e.exposureTimeMs = captureConfig.exposureTimeMs();</span>
-<span class="fc" id="L63">        e.iso = captureConfig.iso();</span>
-<span class="fc" id="L64">        e.aperture = captureConfig.aperture();</span>
-<span class="fc" id="L65">        e.delayBetweenFramesMs = captureConfig.delayBetweenFramesMs();</span>
-<span class="fc" id="L66">        e.imageFormat = captureConfig.imageFormat();</span>
-<span class="fc" id="L67">        e.saveRaw = captureConfig.saveRaw();</span>
-<span class="fc" id="L68">        e.saveJpeg = captureConfig.saveJpeg();</span>
-<span class="fc" id="L69">        e.captureDarkFrame = captureConfig.captureDarkFrame();</span>
-<span class="fc" id="L70">        e.focusStrategy = focusConfig.strategy();</span>
-<span class="fc" id="L71">        e.scanSteps = focusConfig.scanSteps();</span>
-<span class="fc" id="L72">        e.scanStepSize = focusConfig.scanStepSize();</span>
-<span class="fc" id="L73">        e.initialFocusPosition = focusConfig.initialFocusPosition();</span>
-<span class="fc" id="L74">        e.bestFocusPosition = focusConfig.bestFocusPosition();</span>
-<span class="fc" id="L75">        return e;</span>
+    public static AstroSessionEntity create(
+            AstroCaptureConfig captureConfig,
+            AstroFocusConfig focusConfig) {
+<span class="fc" id="L80">        AstroSessionEntity entity = new AstroSessionEntity();</span>
+<span class="fc" id="L81">        entity.id = UUID.randomUUID().toString();</span>
+<span class="fc" id="L82">        entity.status = AstroSessionStatus.CREATED;</span>
+<span class="fc" id="L83">        entity.createdAt = Instant.now();</span>
+<span class="fc" id="L84">        entity.cameraProfileId = captureConfig.cameraProfileId();</span>
+<span class="fc" id="L85">        entity.frameCount = captureConfig.frameCount();</span>
+<span class="fc" id="L86">        entity.exposureTimeMs = captureConfig.exposureTimeMs();</span>
+<span class="fc" id="L87">        entity.iso = captureConfig.iso();</span>
+<span class="fc" id="L88">        entity.aperture = captureConfig.aperture();</span>
+<span class="fc" id="L89">        entity.delayBetweenFramesMs = captureConfig.delayBetweenFramesMs();</span>
+<span class="fc" id="L90">        entity.imageFormat = captureConfig.imageFormat();</span>
+<span class="fc" id="L91">        entity.saveRaw = captureConfig.saveRaw();</span>
+<span class="fc" id="L92">        entity.saveJpeg = captureConfig.saveJpeg();</span>
+<span class="fc" id="L93">        entity.captureDarkFrame = captureConfig.captureDarkFrame();</span>
+<span class="fc" id="L94">        AstroStackingConfig stacking = captureConfig.stackingConfig();</span>
+<span class="fc" id="L95">        entity.stackingMode = stacking.mode();</span>
+<span class="fc" id="L96">        entity.stackingSigmaThreshold = stacking.sigmaThreshold();</span>
+<span class="fc" id="L97">        entity.stackingMaxIterations = stacking.maxIterations();</span>
+<span class="fc" id="L98">        entity.stackingMinimumSamples = stacking.minimumSamples();</span>
+<span class="fc" id="L99">        entity.stackingProgressPercent = 0;</span>
+<span class="fc" id="L100">        entity.focusStrategy = focusConfig.strategy();</span>
+<span class="fc" id="L101">        entity.scanSteps = focusConfig.scanSteps();</span>
+<span class="fc" id="L102">        entity.scanStepSize = focusConfig.scanStepSize();</span>
+<span class="fc" id="L103">        entity.initialFocusPosition = focusConfig.initialFocusPosition();</span>
+<span class="fc" id="L104">        entity.bestFocusPosition = focusConfig.bestFocusPosition();</span>
+<span class="fc" id="L105">        return entity;</span>
     }
 
     public AstroSession toRecord() {
-<span class="fc" id="L79">        return new AstroSession(</span>
-                id, status, createdAt, startedAt, finishedAt,
-                new AstroCaptureConfig(frameCount, exposureTimeMs, iso, aperture,
-                        delayBetweenFramesMs, imageFormat, saveRaw, saveJpeg, captureDarkFrame),
-                new AstroFocusConfig(focusStrategy, scanSteps, scanStepSize, initialFocusPosition, bestFocusPosition),
-<span class="fc" id="L84">                outputDirectory, List.of(), resultImagePath, stackingSummary, errorMessage</span>
-        );
+<span class="fc" id="L109">        return toRecord(stackingProgressPercent);</span>
     }
 
-    // Getters and setters needed for JPA
-<span class="fc" id="L89">    public String getId() { return id; }</span>
-<span class="fc" id="L90">    public AstroSessionStatus getStatus() { return status; }</span>
-<span class="fc" id="L91">    public void setStatus(AstroSessionStatus status) { this.status = status; }</span>
-<span class="nc" id="L92">    public Instant getCreatedAt() { return createdAt; }</span>
-<span class="nc" id="L93">    public Instant getStartedAt() { return startedAt; }</span>
-<span class="fc" id="L94">    public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }</span>
-<span class="nc" id="L95">    public Instant getFinishedAt() { return finishedAt; }</span>
-<span class="fc" id="L96">    public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }</span>
-<span class="fc" id="L97">    public String getOutputDirectory() { return outputDirectory; }</span>
-<span class="fc" id="L98">    public void setOutputDirectory(String outputDirectory) { this.outputDirectory = outputDirectory; }</span>
-<span class="nc" id="L99">    public String getResultImagePath() { return resultImagePath; }</span>
-<span class="fc" id="L100">    public void setResultImagePath(String resultImagePath) { this.resultImagePath = resultImagePath; }</span>
-<span class="nc" id="L101">    public String getStackingSummary() { return stackingSummary; }</span>
-<span class="fc" id="L102">    public void setStackingSummary(String stackingSummary) { this.stackingSummary = stackingSummary; }</span>
-<span class="nc" id="L103">    public String getErrorMessage() { return errorMessage; }</span>
-<span class="fc" id="L104">    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }</span>
-<span class="nc" id="L105">    public Integer getBestFocusPosition() { return bestFocusPosition; }</span>
-<span class="nc" id="L106">    public void setBestFocusPosition(Integer bestFocusPosition) { this.bestFocusPosition = bestFocusPosition; }</span>
-<span class="fc" id="L107">    public int getFrameCount() { return frameCount; }</span>
-<span class="nc" id="L108">    public long getExposureTimeMs() { return exposureTimeMs; }</span>
-<span class="nc" id="L109">    public int getIso() { return iso; }</span>
-<span class="fc" id="L110">    public long getDelayBetweenFramesMs() { return delayBetweenFramesMs; }</span>
-<span class="fc" id="L111">    public AstroFocusStrategy getFocusStrategy() { return focusStrategy; }</span>
-<span class="nc" id="L112">    public int getScanSteps() { return scanSteps; }</span>
-<span class="nc" id="L113">    public int getScanStepSize() { return scanStepSize; }</span>
+    public AstroSession toRecord(int activeProgressPercent) {
+<span class="fc" id="L113">        AstroStackingConfig resolved = resolvedStackingConfig();</span>
+<span class="fc" id="L114">        int persistedProgress = boundedProgress(stackingProgressPercent);</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        int effectiveProgress = status == AstroSessionStatus.COMPLETED</span>
+<span class="fc" id="L116">                ? 100</span>
+<span class="fc" id="L117">                : Math.max(persistedProgress, boundedProgress(activeProgressPercent));</span>
+<span class="fc" id="L118">        return new AstroSession(</span>
+                id,
+                status,
+                createdAt,
+                startedAt,
+                finishedAt,
+                new AstroCaptureConfig(
+                        cameraProfileId,
+                        frameCount,
+                        exposureTimeMs,
+                        iso,
+                        aperture,
+                        delayBetweenFramesMs,
+                        imageFormat,
+                        saveRaw,
+                        saveJpeg,
+                        captureDarkFrame,
+                        resolved),
+                new AstroFocusConfig(
+                        focusStrategy,
+                        scanSteps,
+                        scanStepSize,
+                        initialFocusPosition,
+                        bestFocusPosition),
+                outputDirectory,
+<span class="fc" id="L143">                List.of(),</span>
+                resultImagePath,
+                stackingSummary,
+                effectiveProgress,
+                errorMessage);
+    }
+
+    public AstroStackingConfig resolvedStackingConfig() {
+<span class="fc" id="L151">        return new AstroStackingConfig(</span>
+<span class="fc" id="L152">                getStackingMode(),</span>
+<span class="fc" id="L153">                getStackingSigmaThreshold(),</span>
+<span class="fc" id="L154">                getStackingMaxIterations(),</span>
+<span class="fc" id="L155">                getStackingMinimumSamples());</span>
+    }
+
+    private static int boundedProgress(int value) {
+<span class="fc" id="L159">        return Math.max(0, Math.min(100, value));</span>
+    }
+
+<span class="fc" id="L162">    public String getId() { return id; }</span>
+<span class="fc" id="L163">    public AstroSessionStatus getStatus() { return status; }</span>
+<span class="fc" id="L164">    public void setStatus(AstroSessionStatus status) { this.status = status; }</span>
+<span class="nc" id="L165">    public Instant getCreatedAt() { return createdAt; }</span>
+<span class="nc" id="L166">    public Instant getStartedAt() { return startedAt; }</span>
+<span class="fc" id="L167">    public void setStartedAt(Instant startedAt) { this.startedAt = startedAt; }</span>
+<span class="nc" id="L168">    public Instant getFinishedAt() { return finishedAt; }</span>
+<span class="fc" id="L169">    public void setFinishedAt(Instant finishedAt) { this.finishedAt = finishedAt; }</span>
+<span class="fc" id="L170">    public String getCameraProfileId() { return cameraProfileId; }</span>
+<span class="fc" id="L171">    public String getOutputDirectory() { return outputDirectory; }</span>
+<span class="fc" id="L172">    public void setOutputDirectory(String outputDirectory) { this.outputDirectory = outputDirectory; }</span>
+<span class="nc" id="L173">    public String getResultImagePath() { return resultImagePath; }</span>
+<span class="fc" id="L174">    public void setResultImagePath(String resultImagePath) { this.resultImagePath = resultImagePath; }</span>
+<span class="nc" id="L175">    public String getStackingSummary() { return stackingSummary; }</span>
+<span class="fc" id="L176">    public void setStackingSummary(String stackingSummary) { this.stackingSummary = stackingSummary; }</span>
+<span class="fc" id="L177">    public int getStackingProgressPercent() { return boundedProgress(stackingProgressPercent); }</span>
+<span class="fc" id="L178">    public void setStackingProgressPercent(int value) { this.stackingProgressPercent = boundedProgress(value); }</span>
+<span class="nc" id="L179">    public String getErrorMessage() { return errorMessage; }</span>
+<span class="fc" id="L180">    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }</span>
+<span class="nc" id="L181">    public Integer getBestFocusPosition() { return bestFocusPosition; }</span>
+<span class="nc" id="L182">    public void setBestFocusPosition(Integer bestFocusPosition) { this.bestFocusPosition = bestFocusPosition; }</span>
+<span class="fc" id="L183">    public int getFrameCount() { return frameCount; }</span>
+<span class="nc" id="L184">    public long getExposureTimeMs() { return exposureTimeMs; }</span>
+<span class="nc" id="L185">    public int getIso() { return iso; }</span>
+<span class="fc" id="L186">    public long getDelayBetweenFramesMs() { return delayBetweenFramesMs; }</span>
+<span class="fc" id="L187">    public AstroFocusStrategy getFocusStrategy() { return focusStrategy; }</span>
+<span class="nc" id="L188">    public int getScanSteps() { return scanSteps; }</span>
+<span class="nc" id="L189">    public int getScanStepSize() { return scanStepSize; }</span>
+    public AstroStackingMode getStackingMode() {
+<span class="fc bfc" id="L191" title="All 2 branches covered.">        return stackingMode == null ? AstroStackingMode.MEAN : stackingMode;</span>
+    }
+    public double getStackingSigmaThreshold() {
+<span class="pc bpc" id="L194" title="1 of 4 branches missed.">        return Double.isFinite(stackingSigmaThreshold)</span>
+<span class="fc" id="L195">                &amp;&amp; stackingSigmaThreshold &gt;= 0.1</span>
+<span class="fc" id="L196">                ? stackingSigmaThreshold</span>
+<span class="fc" id="L197">                : AstroStackingConfig.DEFAULT_SIGMA_THRESHOLD;</span>
+    }
+    public int getStackingMaxIterations() {
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        return stackingMaxIterations &gt;= 1</span>
+<span class="fc" id="L201">                ? stackingMaxIterations</span>
+<span class="fc" id="L202">                : AstroStackingConfig.DEFAULT_MAX_ITERATIONS;</span>
+    }
+    public int getStackingMinimumSamples() {
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        return stackingMinimumSamples &gt;= 3</span>
+<span class="fc" id="L206">                ? stackingMinimumSamples</span>
+<span class="fc" id="L207">                : AstroStackingConfig.DEFAULT_MINIMUM_SAMPLES;</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

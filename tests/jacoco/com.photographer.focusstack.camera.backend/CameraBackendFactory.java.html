@@ -1,50 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraBackendFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CameraBackendFactory.java</span></div><h1>CameraBackendFactory.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
 
-import com.photographer.focusstack.camera.backend.FolderCameraBackend;
+import com.photographer.focusstack.app.config.CcapiAuthenticationProperties;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.plugin.CameraBackendPlugin;
-import com.photographer.focusstack.app.config.CameraConfig;
 import com.photographer.ptp.backend.PtpCameraBackendFactory;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Resolves the correct {@link CameraBackend} for a given {@link CameraProfile}.
  *
  * &lt;ul&gt;
  *   &lt;li&gt;{@code mock} profiles → {@link MockCameraBackend}&lt;/li&gt;
- *   &lt;li&gt;{@code canon-ccapi} profiles → {@link CanonCcapiBackend} pointed at the profile's host&lt;/li&gt;
+ *   &lt;li&gt;{@code canon-ccapi} profiles → {@link CanonCcapiProductionBackend}
+ *       with an isolated profile-scoped HTTP transport&lt;/li&gt;
  *   &lt;li&gt;Unknown types → checks {@link CameraBackendRegistry} for external plugin backends&lt;/li&gt;
  * &lt;/ul&gt;
  *
- * Backends are cached per profile id so that focus-position state is preserved
- * across requests for the same camera.
+ * Backends are cached per profile id so focus-position and CCAPI authentication state
+ * remain associated with one camera identity only. A secret-free transport fingerprint
+ * replaces stale cache entries atomically when the effective backend type, location or
+ * credential configuration changes. Managed transports are closed after replacement,
+ * explicit eviction and application shutdown.
  */
 @Component
 public class CameraBackendFactory {
 
-<span class="fc" id="L36">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
+<span class="fc" id="L42">    private static final Logger log = LoggerFactory.getLogger(CameraBackendFactory.class);</span>
 
     private final long mockDelayMs;
     private final int simulateTimeoutAfterFrames;
     private final int simulateDisconnectAfterFrames;
     private final int simulateEmptyFrameAt;
     private final int simulateMovementAt;
-    private final RestTemplate restTemplate;
     private final CameraBackendRegistry cameraBackendRegistry;
+    private final CcapiRestTemplateFactory ccapiRestTemplateFactory;
 
-    /** Cache backends per profile-id so focus position state is preserved. */
-<span class="fc" id="L47">    private final Map&lt;String, CameraBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
+    /** Cache backends together with their transport identity and owned cleanup action. */
+<span class="fc" id="L53">    private final Map&lt;String, CachedBackend&gt; cache = new ConcurrentHashMap&lt;&gt;();</span>
 
     public CameraBackendFactory(
             @Value(&quot;${camera.mock.delay-ms:50}&quot;) long mockDelayMs,
@@ -53,83 +59,217 @@ public class CameraBackendFactory {
             @Value(&quot;${camera.mock.simulate-empty-frame-at:0}&quot;) int simulateEmptyFrameAt,
             @Value(&quot;${camera.mock.simulate-movement-at:0}&quot;) int simulateMovementAt,
             CameraBackendRegistry cameraBackendRegistry,
-<span class="fc" id="L56">            CameraConfig cameraConfig) {</span>
-<span class="fc" id="L57">        this.mockDelayMs = mockDelayMs;</span>
-<span class="fc" id="L58">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
-<span class="fc" id="L59">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
-<span class="fc" id="L60">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
-<span class="fc" id="L61">        this.simulateMovementAt = simulateMovementAt;</span>
-<span class="fc" id="L62">        this.cameraBackendRegistry = cameraBackendRegistry;</span>
-        // Configure timeouts from CameraConfig (connection timeout) and fixed read timeout.
-<span class="fc" id="L64">        int connectTimeoutMs = (int) cameraConfig.connectionTimeout().toMillis();</span>
-<span class="fc" id="L65">        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();</span>
-<span class="fc" id="L66">        factory.setConnectTimeout(connectTimeoutMs);</span>
-<span class="fc" id="L67">        factory.setReadTimeout(30_000);</span>
-<span class="fc" id="L68">        this.restTemplate = new RestTemplate(factory);</span>
-<span class="fc" id="L69">    }</span>
+<span class="fc" id="L62">            CcapiRestTemplateFactory ccapiRestTemplateFactory) {</span>
+<span class="fc" id="L63">        this.mockDelayMs = mockDelayMs;</span>
+<span class="fc" id="L64">        this.simulateTimeoutAfterFrames = simulateTimeoutAfterFrames;</span>
+<span class="fc" id="L65">        this.simulateDisconnectAfterFrames = simulateDisconnectAfterFrames;</span>
+<span class="fc" id="L66">        this.simulateEmptyFrameAt = simulateEmptyFrameAt;</span>
+<span class="fc" id="L67">        this.simulateMovementAt = simulateMovementAt;</span>
+<span class="fc" id="L68">        this.cameraBackendRegistry = cameraBackendRegistry;</span>
+<span class="fc" id="L69">        this.ccapiRestTemplateFactory = ccapiRestTemplateFactory;</span>
+<span class="fc" id="L70">    }</span>
 
     /**
-     * Returns a {@link CameraBackend} appropriate for the given profile.
-     * The backend is created on first access and then cached by profile id.
-     * If the profile's host or backendType changes, call {@link #evict(String)}
-     * to force re-creation.
+     * Returns a backend matching the profile's current transport configuration.
+     *
+     * &lt;p&gt;Creation happens inside the per-key {@link ConcurrentHashMap#compute}
+     * operation. If replacement fails, the previous mapping remains installed and
+     * its transport is not closed.&lt;/p&gt;
      */
     public CameraBackend getBackend(CameraProfile profile) {
-<span class="fc" id="L78">        return cache.computeIfAbsent(profile.id(), id -&gt; createBackend(profile));</span>
+<span class="fc" id="L80">        Objects.requireNonNull(profile, &quot;profile&quot;);</span>
+<span class="fc" id="L81">        BackendFingerprint desiredFingerprint = fingerprint(profile);</span>
+<span class="fc" id="L82">        AtomicReference&lt;CachedBackend&gt; retired = new AtomicReference&lt;&gt;();</span>
+
+<span class="fc" id="L84">        CachedBackend selected = cache.compute(profile.id(), (profileId, existing) -&gt; {</span>
+<span class="fc bfc" id="L85" title="All 4 branches covered.">            if (existing != null &amp;&amp; existing.fingerprint().equals(desiredFingerprint)) {</span>
+<span class="fc" id="L86">                return existing;</span>
+            }
+<span class="fc" id="L88">            CachedBackend replacement = createBackend(profile, desiredFingerprint);</span>
+<span class="fc" id="L89">            retired.set(existing);</span>
+<span class="fc" id="L90">            return replacement;</span>
+        });
+
+<span class="fc" id="L93">        CachedBackend previous = retired.get();</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        if (previous != null) {</span>
+<span class="fc" id="L95">            log.info(&quot;Replacing cached camera backend for profile '{}' after configuration change&quot;,</span>
+<span class="fc" id="L96">                    profile.id());</span>
+<span class="fc" id="L97">            closeSafely(profile.id(), previous);</span>
+        }
+<span class="fc" id="L99">        return selected.backend();</span>
     }
 
-    /** Removes a cached backend (e.g. when a profile is updated or deleted). */
+    /** Removes and closes a cached backend so later access creates a fresh transport. */
     public void evict(String profileId) {
-<span class="fc" id="L83">        cache.remove(profileId);</span>
-<span class="fc" id="L84">    }</span>
-
-    private CameraBackend createBackend(CameraProfile profile) {
-<span class="fc" id="L87">        String type = profile.backendType();</span>
-<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (&quot;mock&quot;.equalsIgnoreCase(type)) {</span>
-<span class="fc" id="L89">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
-<span class="fc" id="L90">            return new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,</span>
-                    simulateDisconnectAfterFrames, simulateEmptyFrameAt, simulateMovementAt);
+<span class="fc" id="L104">        CachedBackend removed = cache.remove(profileId);</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">        if (removed != null) {</span>
+<span class="fc" id="L106">            closeSafely(profileId, removed);</span>
         }
-<span class="pc bpc" id="L93" title="1 of 2 branches missed.">        if (&quot;folder&quot;.equalsIgnoreCase(type)) {</span>
-<span class="nc" id="L94">            String path = profile.host(); // host field reused as folder path</span>
-<span class="nc bnc" id="L95" title="All 4 branches missed.">            if (path == null || path.isBlank()) {</span>
-<span class="nc" id="L96">                throw new IllegalArgumentException(</span>
-<span class="nc" id="L97">                        &quot;Profile '&quot; + profile.name() + &quot;': host field must contain a valid folder path for folder backend&quot;);</span>
+<span class="fc" id="L108">    }</span>
+
+    /** Releases all per-profile HTTP clients and credential copies during shutdown. */
+    @PreDestroy
+    public void close() {
+<span class="fc" id="L113">        cache.forEach(this::closeSafely);</span>
+<span class="fc" id="L114">        cache.clear();</span>
+<span class="fc" id="L115">    }</span>
+
+    private BackendFingerprint fingerprint(CameraProfile profile) {
+<span class="fc" id="L118">        String type = normalizedType(profile.backendType());</span>
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">        if (&quot;mock&quot;.equals(type) || &quot;canon-usb&quot;.equals(type)) {</span>
+<span class="fc" id="L120">            return BackendFingerprint.unmanaged(type, &quot;&quot;);</span>
+        }
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (&quot;folder&quot;.equals(type)) {</span>
+<span class="nc" id="L123">            return BackendFingerprint.unmanaged(type, normalizedFolder(profile).toString());</span>
+        }
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (cameraBackendRegistry.findByType(type).isPresent()) {</span>
+<span class="nc" id="L126">            return BackendFingerprint.unmanaged(type, &quot;plugin&quot;);</span>
+        }
+
+<span class="fc" id="L129">        URI baseUri = ccapiBaseUri(profile);</span>
+<span class="fc" id="L130">        CcapiTransportFingerprint ccapiFingerprint =</span>
+<span class="fc" id="L131">                ccapiRestTemplateFactory.fingerprint(profile, baseUri);</span>
+<span class="fc" id="L132">        return BackendFingerprint.ccapi(type, ccapiFingerprint);</span>
+    }
+
+    private CachedBackend createBackend(
+            CameraProfile profile,
+            BackendFingerprint plannedFingerprint) {
+<span class="fc" id="L138">        String type = normalizedType(profile.backendType());</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        if (&quot;mock&quot;.equals(type)) {</span>
+<span class="fc" id="L140">            log.info(&quot;Creating MockCameraBackend for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
+<span class="fc" id="L141">            return CachedBackend.unmanaged(</span>
+                    new MockCameraBackend(mockDelayMs, simulateTimeoutAfterFrames,
+                            simulateDisconnectAfterFrames, simulateEmptyFrameAt,
+                            simulateMovementAt),
+                    plannedFingerprint);
+        }
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (&quot;folder&quot;.equals(type)) {</span>
+<span class="nc" id="L148">            Path folderPath = normalizedFolder(profile);</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">            if (!folderPath.toFile().isDirectory()) {</span>
+<span class="nc" id="L150">                log.warn(&quot;FolderCameraBackend: path does not exist or is not a directory: {}&quot;, folderPath);</span>
             }
-<span class="nc" id="L99">            java.nio.file.Path folderPath = java.nio.file.Path.of(path);</span>
-<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (!folderPath.isAbsolute()) {</span>
-<span class="nc" id="L101">                folderPath = folderPath.toAbsolutePath();</span>
-            }
-<span class="nc bnc" id="L103" title="All 2 branches missed.">            if (!folderPath.toFile().isDirectory()) {</span>
-                // Log a warning but allow creation; the directory may be created at runtime
-                // (e.g., replay session starts before images are written). Actual failures
-                // will be surfaced when getLiveView() is called on the backend.
-<span class="nc" id="L107">                log.warn(&quot;FolderCameraBackend: path does not exist or is not a directory: {}&quot;, folderPath);</span>
-            }
-<span class="nc" id="L109">            log.info(&quot;Creating FolderCameraBackend for profile '{}' ({}) → {}&quot;,</span>
-<span class="nc" id="L110">                    profile.name(), profile.id(), folderPath);</span>
-<span class="nc" id="L111">            return new FolderCameraBackend(folderPath);</span>
+<span class="nc" id="L152">            log.info(&quot;Creating FolderCameraBackend for profile '{}' ({}) → {}&quot;,</span>
+<span class="nc" id="L153">                    profile.name(), profile.id(), folderPath);</span>
+<span class="nc" id="L154">            return CachedBackend.unmanaged(</span>
+                    new FolderCameraBackend(folderPath), plannedFingerprint);
         }
 
-<span class="pc bpc" id="L114" title="1 of 2 branches missed.">        if (&quot;canon-usb&quot;.equalsIgnoreCase(type)) {</span>
-<span class="nc" id="L115">            log.info(&quot;Creating PtpCameraBackend (USB) for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
-<span class="nc" id="L116">            return PtpCameraBackendFactory.createUsbBackend();</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (&quot;canon-usb&quot;.equals(type)) {</span>
+<span class="nc" id="L159">            log.info(&quot;Creating PtpCameraBackend (USB) for profile '{}' ({})&quot;, profile.name(), profile.id());</span>
+<span class="nc" id="L160">            return CachedBackend.unmanaged(</span>
+<span class="nc" id="L161">                    PtpCameraBackendFactory.createUsbBackend(), plannedFingerprint);</span>
         }
 
-        // Check external plugin backends before falling back to CCAPI
-<span class="fc" id="L120">        Optional&lt;CameraBackendPlugin&gt; pluginBackend = cameraBackendRegistry.findByType(type);</span>
-<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (pluginBackend.isPresent()) {</span>
-<span class="nc" id="L122">            log.info(&quot;Using external CameraBackendPlugin '{}' for profile '{}' ({})&quot;,</span>
-<span class="nc" id="L123">                    type, profile.name(), profile.id());</span>
-<span class="nc" id="L124">            return pluginBackend.get();</span>
+<span class="fc" id="L164">        Optional&lt;CameraBackendPlugin&gt; pluginBackend = cameraBackendRegistry.findByType(type);</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        if (pluginBackend.isPresent()) {</span>
+<span class="nc" id="L166">            log.info(&quot;Using external CameraBackendPlugin '{}' for profile '{}' ({})&quot;,</span>
+<span class="nc" id="L167">                    type, profile.name(), profile.id());</span>
+<span class="nc" id="L168">            return CachedBackend.unmanaged(pluginBackend.get(), plannedFingerprint);</span>
         }
 
-        // Default: canon-ccapi
-<span class="fc" id="L128">        String host = profile.host();</span>
-<span class="pc bpc" id="L129" title="1 of 2 branches missed.">        String baseUrl = host.startsWith(&quot;http&quot;) ? host : &quot;http://&quot; + host + &quot;:8080&quot;;</span>
-<span class="fc" id="L130">        log.info(&quot;Creating CanonCcapiBackend for profile '{}' ({}) → {}&quot;,</span>
-<span class="fc" id="L131">                profile.name(), profile.id(), baseUrl);</span>
-<span class="fc" id="L132">        return new CanonCcapiBackend(baseUrl, restTemplate);</span>
+<span class="fc" id="L171">        CcapiTransportCreation creation =</span>
+<span class="fc" id="L172">                ccapiRestTemplateFactory.createWithFingerprint(profile, ccapiBaseUri(profile));</span>
+<span class="fc" id="L173">        CcapiTransport transport = creation.transport();</span>
+        try {
+<span class="fc" id="L175">            log.info(&quot;Creating CanonCcapiProductionBackend for profile '{}' ({})&quot;,</span>
+<span class="fc" id="L176">                    profile.name(), profile.id());</span>
+<span class="fc" id="L177">            CameraBackend backend = new CanonCcapiProductionBackend(</span>
+<span class="fc" id="L178">                    profile.id(),</span>
+<span class="fc" id="L179">                    creation.fingerprint().baseUri().toString(),</span>
+<span class="fc" id="L180">                    transport.restTemplate());</span>
+<span class="fc" id="L181">            BackendFingerprint actualFingerprint =</span>
+<span class="fc" id="L182">                    BackendFingerprint.ccapi(type, creation.fingerprint());</span>
+<span class="fc" id="L183">            return new CachedBackend(backend, transport::close, actualFingerprint);</span>
+<span class="nc" id="L184">        } catch (RuntimeException exception) {</span>
+<span class="nc" id="L185">            transport.close();</span>
+<span class="nc" id="L186">            throw exception;</span>
+        }
+    }
+
+    private static String normalizedType(String backendType) {
+<span class="pc bpc" id="L191" title="2 of 4 branches missed.">        if (backendType == null || backendType.isBlank()) {</span>
+<span class="nc" id="L192">            throw new IllegalArgumentException(&quot;Camera backend type is required&quot;);</span>
+        }
+<span class="fc" id="L194">        return backendType.trim().toLowerCase(Locale.ROOT);</span>
+    }
+
+    private static Path normalizedFolder(CameraProfile profile) {
+<span class="nc" id="L198">        String path = profile.host();</span>
+<span class="nc bnc" id="L199" title="All 4 branches missed.">        if (path == null || path.isBlank()) {</span>
+<span class="nc" id="L200">            throw new IllegalArgumentException(</span>
+<span class="nc" id="L201">                    &quot;Profile '&quot; + profile.name()</span>
+                            + &quot;': host field must contain a valid folder path for folder backend&quot;);
+        }
+<span class="nc" id="L204">        return Path.of(path).toAbsolutePath().normalize();</span>
+    }
+
+    private static URI ccapiBaseUri(CameraProfile profile) {
+<span class="fc" id="L208">        String host = profile.host();</span>
+<span class="pc bpc" id="L209" title="2 of 4 branches missed.">        if (host == null || host.isBlank()) {</span>
+<span class="nc" id="L210">            throw new IllegalArgumentException(</span>
+<span class="nc" id="L211">                    &quot;Profile '&quot; + profile.name() + &quot;': host is required for canon-ccapi&quot;);</span>
+        }
+<span class="fc" id="L213">        String trimmed = host.trim();</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">        String value = trimmed.regionMatches(true, 0, &quot;http://&quot;, 0, 7)</span>
+<span class="pc bnc" id="L215" title="All 2 branches missed.">                || trimmed.regionMatches(true, 0, &quot;https://&quot;, 0, 8)</span>
+<span class="fc" id="L216">                ? trimmed</span>
+<span class="pc" id="L217">                : &quot;http://&quot; + trimmed + &quot;:8080&quot;;</span>
+<span class="fc" id="L218">        return CcapiRestTemplateFactory.normalizeBaseUri(URI.create(value));</span>
+    }
+
+    private void closeSafely(String profileId, CachedBackend cachedBackend) {
+        try {
+<span class="fc" id="L223">            cachedBackend.close();</span>
+<span class="nc" id="L224">        } catch (RuntimeException exception) {</span>
+<span class="nc" id="L225">            log.warn(&quot;Failed to close camera transport for profile '{}'&quot;, profileId, exception);</span>
+<span class="fc" id="L226">        }</span>
+<span class="fc" id="L227">    }</span>
+
+    private record BackendFingerprint(
+            String backendType,
+            String location,
+            CcapiAuthenticationProperties.CredentialState credentialState) {
+
+<span class="fc" id="L234">        private BackendFingerprint {</span>
+<span class="fc" id="L235">            Objects.requireNonNull(backendType, &quot;backendType&quot;);</span>
+<span class="fc" id="L236">            Objects.requireNonNull(location, &quot;location&quot;);</span>
+<span class="fc" id="L237">        }</span>
+
+        private static BackendFingerprint unmanaged(String type, String location) {
+<span class="fc" id="L240">            return new BackendFingerprint(type, location, null);</span>
+        }
+
+        private static BackendFingerprint ccapi(
+                String type,
+                CcapiTransportFingerprint fingerprint) {
+<span class="fc" id="L246">            return new BackendFingerprint(</span>
+                    type,
+<span class="fc" id="L248">                    fingerprint.baseUri().toString(),</span>
+<span class="fc" id="L249">                    fingerprint.credentialState());</span>
+        }
+    }
+
+    private record CachedBackend(
+            CameraBackend backend,
+            Runnable closeAction,
+            BackendFingerprint fingerprint) {
+
+<span class="fc" id="L258">        private CachedBackend {</span>
+<span class="fc" id="L259">            Objects.requireNonNull(backend, &quot;backend&quot;);</span>
+<span class="fc" id="L260">            Objects.requireNonNull(closeAction, &quot;closeAction&quot;);</span>
+<span class="fc" id="L261">            Objects.requireNonNull(fingerprint, &quot;fingerprint&quot;);</span>
+<span class="fc" id="L262">        }</span>
+
+        private static CachedBackend unmanaged(
+                CameraBackend backend,
+                BackendFingerprint fingerprint) {
+<span class="pc" id="L267">            return new CachedBackend(backend, () -&gt; { }, fingerprint);</span>
+        }
+
+        private void close() {
+<span class="fc" id="L271">            closeAction.run();</span>
+<span class="fc" id="L272">        }</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FocusBracketingSettingsTransaction.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">FocusBracketingSettingsTransaction.java</span></div><h1>FocusBracketingSettingsTransaction.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.common.camera.NativeFocusBracketingCapabilities;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Reversible setting transaction used by native focus-bracketing backends.
+ *
+ * &lt;p&gt;The camera-owned sequence is enabled only after every subordinate setting has
+ * been applied. Restoration disables the sequence first, restores subordinate
+ * values in reverse order and restores the original enabled state last.&lt;/p&gt;
+ */
+final class FocusBracketingSettingsTransaction implements NativeFocusBracketingSession {
+
+<span class="fc" id="L23">    enum Setting {</span>
+<span class="fc" id="L24">        ENABLED(Boolean.class),</span>
+<span class="fc" id="L25">        NUMBER_OF_SHOTS(Integer.class),</span>
+<span class="fc" id="L26">        FOCUS_INCREMENT(Integer.class),</span>
+<span class="fc" id="L27">        EXPOSURE_SMOOTHING(Boolean.class),</span>
+<span class="fc" id="L28">        DEPTH_COMPOSITION(Boolean.class),</span>
+<span class="fc" id="L29">        CROP_DEPTH_COMPOSITION(Boolean.class);</span>
+
+        private final Class&lt;?&gt; valueType;
+
+<span class="fc" id="L33">        Setting(Class&lt;?&gt; valueType) {</span>
+<span class="fc" id="L34">            this.valueType = valueType;</span>
+<span class="fc" id="L35">        }</span>
+
+        void requireType(Object value) {
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">            if (!valueType.isInstance(value)) {</span>
+<span class="nc" id="L39">                throw new IllegalArgumentException(</span>
+<span class="nc" id="L40">                        name() + &quot; requires &quot; + valueType.getSimpleName()</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">                                + &quot; but got &quot; + (value == null ? &quot;null&quot; : value.getClass().getSimpleName()));</span>
+            }
+<span class="fc" id="L43">        }</span>
+    }
+
+    interface SettingAccess {
+        boolean supports(Setting setting);
+
+        Object read(Setting setting);
+
+        void write(Setting setting, Object value);
+    }
+
+<span class="fc" id="L54">    private static final List&lt;Setting&gt; RESTORE_ORDER = List.of(</span>
+            Setting.CROP_DEPTH_COMPOSITION,
+            Setting.DEPTH_COMPOSITION,
+            Setting.EXPOSURE_SMOOTHING,
+            Setting.FOCUS_INCREMENT,
+            Setting.NUMBER_OF_SHOTS
+    );
+
+    private final SettingAccess access;
+    private final NativeFocusBracketingRequest request;
+    private final Map&lt;Setting, Object&gt; originalValues;
+<span class="fc" id="L65">    private final AtomicBoolean closed = new AtomicBoolean();</span>
+
+    private FocusBracketingSettingsTransaction(
+            SettingAccess access,
+            NativeFocusBracketingRequest request,
+<span class="fc" id="L70">            Map&lt;Setting, Object&gt; originalValues) {</span>
+<span class="fc" id="L71">        this.access = access;</span>
+<span class="fc" id="L72">        this.request = request;</span>
+<span class="fc" id="L73">        this.originalValues = Map.copyOf(originalValues);</span>
+<span class="fc" id="L74">    }</span>
+
+    static FocusBracketingSettingsTransaction prepare(
+            SettingAccess access,
+            NativeFocusBracketingCapabilities capabilities,
+            NativeFocusBracketingRequest request) {
+<span class="fc" id="L80">        Objects.requireNonNull(access, &quot;access&quot;);</span>
+<span class="fc" id="L81">        Objects.requireNonNull(capabilities, &quot;capabilities&quot;);</span>
+<span class="fc" id="L82">        Objects.requireNonNull(request, &quot;request&quot;);</span>
+<span class="fc" id="L83">        capabilities.requireExecutable(request);</span>
+
+<span class="fc" id="L85">        List&lt;Setting&gt; requiredSettings = requiredSettings(capabilities);</span>
+<span class="fc" id="L86">        EnumMap&lt;Setting, Object&gt; snapshot = new EnumMap&lt;&gt;(Setting.class);</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">        for (Setting setting : requiredSettings) {</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            if (!access.supports(setting)) {</span>
+<span class="fc" id="L89">                throw new IllegalStateException(</span>
+                        &quot;Setting access does not implement advertised &quot; + setting);
+            }
+<span class="fc" id="L92">            Object value = access.read(setting);</span>
+<span class="fc" id="L93">            setting.requireType(value);</span>
+<span class="fc" id="L94">            snapshot.put(setting, value);</span>
+<span class="fc" id="L95">        }</span>
+
+<span class="fc" id="L97">        FocusBracketingSettingsTransaction transaction =</span>
+                new FocusBracketingSettingsTransaction(access, request, snapshot);
+        try {
+<span class="fc" id="L100">            transaction.apply(capabilities);</span>
+<span class="fc" id="L101">            return transaction;</span>
+<span class="fc" id="L102">        } catch (RuntimeException failure) {</span>
+            try {
+<span class="fc" id="L104">                transaction.restore();</span>
+<span class="nc" id="L105">            } catch (RuntimeException rollbackFailure) {</span>
+<span class="nc" id="L106">                failure.addSuppressed(rollbackFailure);</span>
+<span class="fc" id="L107">            }</span>
+<span class="fc" id="L108">            transaction.closed.set(true);</span>
+<span class="fc" id="L109">            throw failure;</span>
+        }
+    }
+
+    @Override
+    public NativeFocusBracketingRequest request() {
+<span class="fc" id="L115">        return request;</span>
+    }
+
+    /**
+     * Attempts the complete snapshot restoration. A successful call makes later
+     * calls no-ops. If restoration fails, the close guard is reset so the caller
+     * can retry the complete restore after a transient camera error.
+     */
+    @Override
+    public void close() {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        if (!closed.compareAndSet(false, true)) {</span>
+<span class="fc" id="L126">            return;</span>
+        }
+        try {
+<span class="fc" id="L129">            restore();</span>
+<span class="fc" id="L130">        } catch (RuntimeException failure) {</span>
+<span class="fc" id="L131">            closed.set(false);</span>
+<span class="fc" id="L132">            throw failure;</span>
+<span class="fc" id="L133">        }</span>
+<span class="fc" id="L134">    }</span>
+
+    private void apply(NativeFocusBracketingCapabilities capabilities) {
+<span class="fc" id="L137">        writeIfDifferent(Setting.ENABLED, false);</span>
+<span class="fc" id="L138">        writeIfDifferent(Setting.NUMBER_OF_SHOTS, request.numberOfShots());</span>
+<span class="fc" id="L139">        writeIfDifferent(Setting.FOCUS_INCREMENT, request.focusIncrement());</span>
+<span class="fc bfc" id="L140" title="All 2 branches covered.">        if (capabilities.exposureSmoothingSupported()) {</span>
+<span class="fc" id="L141">            writeIfDifferent(Setting.EXPOSURE_SMOOTHING, request.exposureSmoothing());</span>
+        }
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if (capabilities.depthCompositionSupported()) {</span>
+<span class="fc" id="L144">            writeIfDifferent(Setting.DEPTH_COMPOSITION, request.depthComposition());</span>
+        }
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        if (capabilities.cropDepthCompositionSupported()) {</span>
+<span class="fc" id="L147">            writeIfDifferent(Setting.CROP_DEPTH_COMPOSITION, request.cropDepthComposition());</span>
+        }
+<span class="fc" id="L149">        access.write(Setting.ENABLED, true);</span>
+<span class="fc" id="L150">    }</span>
+
+    private void writeIfDifferent(Setting setting, Object desired) {
+<span class="fc" id="L153">        setting.requireType(desired);</span>
+<span class="fc" id="L154">        Object original = originalValues.get(setting);</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">        if (!Objects.equals(original, desired)) {</span>
+<span class="fc" id="L156">            access.write(setting, desired);</span>
+        }
+<span class="fc" id="L158">    }</span>
+
+    private void restore() {
+<span class="fc" id="L161">        List&lt;RuntimeException&gt; failures = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L162">        writeForRestore(Setting.ENABLED, false, failures);</span>
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        for (Setting setting : RESTORE_ORDER) {</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">            if (originalValues.containsKey(setting)) {</span>
+<span class="fc" id="L165">                writeForRestore(setting, originalValues.get(setting), failures);</span>
+            }
+<span class="fc" id="L167">        }</span>
+<span class="fc" id="L168">        writeForRestore(Setting.ENABLED, originalValues.get(Setting.ENABLED), failures);</span>
+
+<span class="fc bfc" id="L170" title="All 2 branches covered.">        if (!failures.isEmpty()) {</span>
+<span class="fc" id="L171">            RuntimeException first = failures.getFirst();</span>
+<span class="fc" id="L172">            failures.stream().skip(1).forEach(first::addSuppressed);</span>
+<span class="fc" id="L173">            throw first;</span>
+        }
+<span class="fc" id="L175">    }</span>
+
+    private void writeForRestore(
+            Setting setting,
+            Object value,
+            List&lt;RuntimeException&gt; failures) {
+        try {
+<span class="fc" id="L182">            setting.requireType(value);</span>
+<span class="fc" id="L183">            access.write(setting, value);</span>
+<span class="fc" id="L184">        } catch (RuntimeException failure) {</span>
+<span class="fc" id="L185">            failures.add(failure);</span>
+<span class="fc" id="L186">        }</span>
+<span class="fc" id="L187">    }</span>
+
+    private static List&lt;Setting&gt; requiredSettings(
+            NativeFocusBracketingCapabilities capabilities) {
+<span class="fc" id="L191">        List&lt;Setting&gt; settings = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L192">        settings.add(Setting.ENABLED);</span>
+<span class="fc" id="L193">        settings.add(Setting.NUMBER_OF_SHOTS);</span>
+<span class="fc" id="L194">        settings.add(Setting.FOCUS_INCREMENT);</span>
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        if (capabilities.exposureSmoothingSupported()) {</span>
+<span class="fc" id="L196">            settings.add(Setting.EXPOSURE_SMOOTHING);</span>
+        }
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        if (capabilities.depthCompositionSupported()) {</span>
+<span class="fc" id="L199">            settings.add(Setting.DEPTH_COMPOSITION);</span>
+        }
+<span class="fc bfc" id="L201" title="All 2 branches covered.">        if (capabilities.cropDepthCompositionSupported()) {</span>
+<span class="fc" id="L202">            settings.add(Setting.CROP_DEPTH_COMPOSITION);</span>
+        }
+<span class="fc" id="L204">        return List.copyOf(settings);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraLeaseRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.session</a> &gt; <span class="el_source">CameraLeaseRequest.java</span></div><h1>CameraLeaseRequest.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.session;
+
+import java.time.Duration;
+import java.util.Objects;
+
+/** Logical ownership request for one camera. */
+public record CameraLeaseRequest(
+        CameraLeaseKey cameraKey,
+        CameraWorkflowType workflowType,
+        String workflowId,
+        String ownerToken,
+        Duration requestedLifetime) {
+
+<span class="fc" id="L14">    public CameraLeaseRequest {</span>
+<span class="fc" id="L15">        Objects.requireNonNull(cameraKey, &quot;cameraKey&quot;);</span>
+<span class="fc" id="L16">        Objects.requireNonNull(workflowType, &quot;workflowType&quot;);</span>
+<span class="fc" id="L17">        workflowId = requirePrivateText(workflowId, &quot;workflowId&quot;);</span>
+<span class="fc" id="L18">        ownerToken = requirePrivateText(ownerToken, &quot;ownerToken&quot;);</span>
+<span class="fc" id="L19">        Objects.requireNonNull(requestedLifetime, &quot;requestedLifetime&quot;);</span>
+<span class="pc bpc" id="L20" title="2 of 4 branches missed.">        if (requestedLifetime.isZero() || requestedLifetime.isNegative()) {</span>
+<span class="nc" id="L21">            throw new IllegalArgumentException(&quot;requestedLifetime must be positive&quot;);</span>
+        }
+<span class="fc" id="L23">    }</span>
+
+    private static String requirePrivateText(String value, String name) {
+<span class="pc bpc" id="L26" title="2 of 4 branches missed.">        if (value == null || value.isBlank()) {</span>
+<span class="nc" id="L27">            throw new IllegalArgumentException(name + &quot; is required&quot;);</span>
+        }
+<span class="fc" id="L29">        String normalized = value.trim();</span>
+<span class="pc bpc" id="L30" title="1 of 2 branches missed.">        if (normalized.length() &gt; 160) {</span>
+<span class="nc" id="L31">            throw new IllegalArgumentException(name + &quot; is too long&quot;);</span>
+        }
+<span class="fc" id="L33">        return normalized;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

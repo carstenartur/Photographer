@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiTransport.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiTransport.java</span></div><h1>CcapiTransport.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Internal owner of one profile-scoped CCAPI HTTP client and its credential copy.
+ *
+ * &lt;p&gt;The transport is deliberately package-private: camera operations continue to
+ * depend only on {@link RestTemplate}, while the backend factory owns cleanup.&lt;/p&gt;
+ */
+final class CcapiTransport implements AutoCloseable {
+
+    private final RestTemplate restTemplate;
+    private final CloseableHttpClient httpClient;
+    private final char[] password;
+<span class="fc" id="L22">    private final AtomicBoolean closed = new AtomicBoolean();</span>
+
+    CcapiTransport(
+            RestTemplate restTemplate,
+            CloseableHttpClient httpClient,
+<span class="fc" id="L27">            char[] password) {</span>
+<span class="fc" id="L28">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L29">        this.httpClient = Objects.requireNonNull(httpClient, &quot;httpClient&quot;);</span>
+<span class="fc" id="L30">        this.password = password;</span>
+<span class="fc" id="L31">    }</span>
+
+    RestTemplate restTemplate() {
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        if (closed.get()) {</span>
+<span class="fc" id="L35">            throw new IllegalStateException(&quot;CCAPI transport is closed&quot;);</span>
+        }
+<span class="fc" id="L37">        return restTemplate;</span>
+    }
+
+    boolean isClosed() {
+<span class="fc" id="L41">        return closed.get();</span>
+    }
+
+    boolean passwordCleared() {
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (password == null) {</span>
+<span class="fc" id="L46">            return true;</span>
+        }
+<span class="fc bfc" id="L48" title="All 2 branches covered.">        for (char value : password) {</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">            if (value != '\0') {</span>
+<span class="fc" id="L50">                return false;</span>
+            }
+        }
+<span class="fc" id="L53">        return true;</span>
+    }
+
+    @Override
+    public void close() {
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        if (!closed.compareAndSet(false, true)) {</span>
+<span class="fc" id="L59">            return;</span>
+        }
+        try {
+<span class="fc" id="L62">            httpClient.close();</span>
+<span class="nc" id="L63">        } catch (IOException exception) {</span>
+<span class="nc" id="L64">            throw new IllegalStateException(&quot;Failed to close CCAPI transport&quot;, exception);</span>
+        } finally {
+<span class="fc bfc" id="L66" title="All 2 branches covered.">            if (password != null) {</span>
+<span class="fc" id="L67">                Arrays.fill(password, '\0');</span>
+            }
+        }
+<span class="fc" id="L70">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

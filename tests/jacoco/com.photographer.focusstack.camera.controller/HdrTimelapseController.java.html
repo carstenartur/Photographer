@@ -23,10 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * REST API for HDR Timelapse sessions.
- * Delegates all business logic to {@link HdrTimelapseService}.
- */
+/** REST API for HDR Timelapse sessions. */
 @RestController
 @RequestMapping(&quot;/api/hdr-timelapse&quot;)
 @Tag(name = &quot;HDR Timelapse&quot;, description = &quot;HDR timelapse capture, bracket retrieval and video generation endpoints.&quot;)
@@ -36,26 +33,29 @@ public class HdrTimelapseController {
     private final TaskExecutor taskExecutor;
 
     public HdrTimelapseController(HdrTimelapseService service,
-<span class="fc" id="L39">                                   @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
-<span class="fc" id="L40">        this.service = service;</span>
-<span class="fc" id="L41">        this.taskExecutor = taskExecutor;</span>
-<span class="fc" id="L42">    }</span>
+<span class="fc" id="L36">                                   @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
+<span class="fc" id="L37">        this.service = service;</span>
+<span class="fc" id="L38">        this.taskExecutor = taskExecutor;</span>
+<span class="fc" id="L39">    }</span>
 
     @PostMapping
     @Operation(summary = &quot;Create HDR timelapse session&quot;)
     public ResponseEntity&lt;CaptureSession&gt; createSession(@Valid @RequestBody HdrSettings settings) {
-<span class="fc" id="L47">        CaptureSession session = service.createSession(settings);</span>
-<span class="fc" id="L48">        return ResponseEntity.status(HttpStatus.CREATED).body(session);</span>
+<span class="fc" id="L44">        CaptureSession session = service.createSession(settings);</span>
+<span class="fc" id="L45">        return ResponseEntity.status(HttpStatus.CREATED).body(session);</span>
     }
 
     @PostMapping(&quot;/{sessionId}/start&quot;)
     @Operation(summary = &quot;Start HDR timelapse session&quot;)
     public ResponseEntity&lt;CaptureSession&gt; startSession(@PathVariable String sessionId) {
-        // Validate state synchronously before scheduling async execution
-<span class="fc" id="L55">        service.validateStartable(sessionId);</span>
-<span class="pc" id="L56">        taskExecutor.execute(() -&gt; service.executeSession(sessionId));</span>
-<span class="fc" id="L57">        CaptureSession session = service.getSession(sessionId);</span>
-<span class="fc" id="L58">        return ResponseEntity.accepted().body(session);</span>
+<span class="fc" id="L51">        HdrTimelapseService.PreparedExecution execution = service.prepareExecution(sessionId);</span>
+        try {
+<span class="fc" id="L53">            taskExecutor.execute(execution);</span>
+<span class="fc" id="L54">        } catch (RuntimeException schedulingFailure) {</span>
+<span class="fc" id="L55">            execution.reject(schedulingFailure);</span>
+<span class="fc" id="L56">            throw schedulingFailure;</span>
+<span class="fc" id="L57">        }</span>
+<span class="fc" id="L58">        return ResponseEntity.accepted().body(service.getSession(sessionId));</span>
     }
 
     @PostMapping(&quot;/{sessionId}/stop&quot;)
@@ -96,8 +96,10 @@ public class HdrTimelapseController {
 <span class="nc" id="L96">        return ResponseEntity.ok()</span>
 <span class="nc" id="L97">                .contentType(MediaType.APPLICATION_OCTET_STREAM)</span>
 <span class="nc" id="L98">                .header(HttpHeaders.CONTENT_DISPOSITION,</span>
-<span class="nc" id="L99">                        &quot;attachment; filename=\&quot;timelapse-&quot; + sessionId.replaceAll(&quot;[^a-zA-Z0-9\\-]&quot;, &quot;_&quot;) + &quot;.&quot; + safeFormat + &quot;\&quot;&quot;)</span>
-<span class="nc" id="L100">                .body(video);</span>
+                        &quot;attachment; filename=\&quot;timelapse-&quot;
+<span class="nc" id="L100">                                + sessionId.replaceAll(&quot;[^a-zA-Z0-9\\-]&quot;, &quot;_&quot;)</span>
+                                + &quot;.&quot; + safeFormat + &quot;\&quot;&quot;)
+<span class="nc" id="L102">                .body(video);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

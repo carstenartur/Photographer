@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NativeFrameFileIngestor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.service</a> &gt; <span class="el_source">NativeFrameFileIngestor.java</span></div><h1>NativeFrameFileIngestor.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.service;
+
+import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.common.camera.CameraMediaProvider;
+import com.photographer.focusstack.common.camera.CameraMediaReference;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.UUID;
+
+/** Streams bounded native camera media to disk without materializing a full frame in heap. */
+final class NativeFrameFileIngestor {
+
+    private static final int DOWNLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
+    private static final int MAX_CHUNKS = 128;
+    private static final long MAX_FRAME_BYTES = 1024L * 1024L * 1024L;
+
+    private NativeFrameFileIngestor() {
+    }
+
+    static String ingest(
+            FrameDataStore frameDataStore,
+            CameraMediaProvider mediaProvider,
+            CameraMediaReference reference) {
+<span class="fc" id="L31">        Objects.requireNonNull(frameDataStore, &quot;frameDataStore&quot;);</span>
+<span class="fc" id="L32">        Objects.requireNonNull(mediaProvider, &quot;mediaProvider&quot;);</span>
+<span class="fc" id="L33">        Objects.requireNonNull(reference, &quot;reference&quot;);</span>
+
+<span class="fc" id="L35">        Path temporary = null;</span>
+<span class="fc" id="L36">        boolean committed = false;</span>
+        try {
+<span class="fc" id="L38">            temporary = Files.createTempFile(&quot;focusstack-native-&quot;, &quot;.part&quot;);</span>
+<span class="fc" id="L39">            long offset = 0L;</span>
+<span class="fc" id="L40">            int chunks = 0;</span>
+<span class="fc" id="L41">            try (OutputStream output = Files.newOutputStream(</span>
+                    temporary,
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
+                while (true) {
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">                    if (++chunks &gt; MAX_CHUNKS) {</span>
+<span class="nc" id="L47">                        throw new CameraException(</span>
+                                &quot;Native media exceeded the bounded chunk count&quot;);
+                    }
+<span class="fc" id="L50">                    CameraMediaProvider.MediaChunk chunk = mediaProvider.downloadMedia(</span>
+                            reference, offset, DOWNLOAD_CHUNK_BYTES);
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">                    if (chunk.offset() != offset) {</span>
+<span class="nc" id="L53">                        throw new CameraException(</span>
+                                &quot;Native media returned a non-contiguous chunk&quot;);
+                    }
+<span class="fc" id="L56">                    byte[] data = chunk.data();</span>
+<span class="pc bpc" id="L57" title="3 of 4 branches missed.">                    if (data.length == 0 &amp;&amp; !chunk.complete()) {</span>
+<span class="nc" id="L58">                        throw new CameraException(</span>
+                                &quot;Native media transfer made no progress&quot;);
+                    }
+                    long nextOffset;
+                    try {
+<span class="fc" id="L63">                        nextOffset = Math.addExact(offset, data.length);</span>
+<span class="nc" id="L64">                    } catch (ArithmeticException exception) {</span>
+<span class="nc" id="L65">                        throw new CameraException(</span>
+                                &quot;Native media size exceeds the supported range&quot;, exception);
+<span class="fc" id="L67">                    }</span>
+<span class="pc bpc" id="L68" title="1 of 2 branches missed.">                    if (nextOffset &gt; MAX_FRAME_BYTES</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">                            || chunk.totalSize() != null</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">                            &amp;&amp; chunk.totalSize() &gt; MAX_FRAME_BYTES) {</span>
+<span class="nc" id="L71">                        throw new CameraException(</span>
+                                &quot;Native media exceeds the 1 GiB safety limit&quot;);
+                    }
+<span class="fc" id="L74">                    output.write(data);</span>
+<span class="fc" id="L75">                    offset = nextOffset;</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">                    if (chunk.complete()) {</span>
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">                        if (chunk.totalSize() != null</span>
+<span class="pc bpc" id="L78" title="1 of 2 branches missed.">                                &amp;&amp; chunk.totalSize() != offset) {</span>
+<span class="nc" id="L79">                            throw new CameraException(</span>
+                                    &quot;Native media completed with an inconsistent total size&quot;);
+                        }
+                        break;
+                    }
+<span class="fc" id="L84">                }</span>
+            }
+
+<span class="fc" id="L87">            String frameId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L88">            frameDataStore.putFile(frameId, reference.fileName(), temporary);</span>
+<span class="fc" id="L89">            committed = true;</span>
+<span class="fc" id="L90">            return frameId;</span>
+<span class="nc" id="L91">        } catch (IOException exception) {</span>
+<span class="nc" id="L92">            throw new UncheckedIOException(</span>
+                    &quot;Failed to stream native camera media&quot;, exception);
+        } finally {
+<span class="pc bpc" id="L95" title="3 of 4 branches missed.">            if (!committed &amp;&amp; temporary != null) {</span>
+                try {
+<span class="nc" id="L97">                    Files.deleteIfExists(temporary);</span>
+<span class="nc" id="L98">                } catch (IOException ignored) {</span>
+                    // The primary failure remains authoritative.
+<span class="nc" id="L100">                }</span>
+            }
+        }
+    }
+
+    static boolean isPreviewable(String fileName) {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (fileName == null) {</span>
+<span class="nc" id="L107">            return false;</span>
+        }
+<span class="fc" id="L109">        String normalized = fileName.toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">        return normalized.endsWith(&quot;.jpg&quot;)</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;.jpeg&quot;)</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">                || normalized.endsWith(&quot;.png&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

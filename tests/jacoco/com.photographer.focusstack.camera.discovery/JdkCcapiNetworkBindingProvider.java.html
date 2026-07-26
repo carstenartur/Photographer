@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>JdkCcapiNetworkBindingProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.discovery</a> &gt; <span class="el_source">JdkCcapiNetworkBindingProvider.java</span></div><h1>JdkCcapiNetworkBindingProvider.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.discovery;
+
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+
+/** Enumerates every up, non-loopback, multicast-capable interface at runtime. */
+<span class="fc" id="L12">final class JdkCcapiNetworkBindingProvider implements CcapiNetworkBindingProvider {</span>
+
+    @Override
+    public List&lt;CcapiNetworkBinding&gt; bindings() throws SocketException {
+<span class="nc" id="L16">        Enumeration&lt;NetworkInterface&gt; interfaces = NetworkInterface.getNetworkInterfaces();</span>
+<span class="nc bnc" id="L17" title="All 2 branches missed.">        if (interfaces == null) {</span>
+<span class="nc" id="L18">            return List.of();</span>
+        }
+
+<span class="nc" id="L21">        List&lt;CcapiNetworkBinding&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L22" title="All 2 branches missed.">        for (NetworkInterface networkInterface : Collections.list(interfaces)) {</span>
+<span class="nc bnc" id="L23" title="All 2 branches missed.">            if (!isEligible(networkInterface)) {</span>
+<span class="nc" id="L24">                continue;</span>
+            }
+<span class="nc bnc" id="L26" title="All 2 branches missed.">            for (InetAddress address : Collections.list(networkInterface.getInetAddresses())) {</span>
+<span class="nc bnc" id="L27" title="All 4 branches missed.">                if (address.isAnyLocalAddress() || address.isLoopbackAddress()</span>
+<span class="nc bnc" id="L28" title="All 2 branches missed.">                        || address.isMulticastAddress()) {</span>
+<span class="nc" id="L29">                    continue;</span>
+                }
+<span class="nc" id="L31">                result.add(new CcapiNetworkBinding(</span>
+<span class="nc" id="L32">                        networkInterface, address, CcapiAddressFamily.of(address)));</span>
+<span class="nc" id="L33">            }</span>
+<span class="nc" id="L34">        }</span>
+<span class="nc" id="L35">        return List.copyOf(result);</span>
+    }
+
+    private static boolean isEligible(NetworkInterface networkInterface) throws SocketException {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        return networkInterface.isUp()</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">                &amp;&amp; !networkInterface.isLoopback()</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">                &amp;&amp; networkInterface.supportsMulticast();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

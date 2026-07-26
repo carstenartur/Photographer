@@ -3,6 +3,8 @@
 import com.photographer.focusstack.camera.backend.CanonCcapiBackend;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
+import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CameraStatusProvider;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.Operation;
@@ -13,7 +15,6 @@ import com.photographer.focusstack.common.device.DeviceInfo;
 import com.photographer.focusstack.common.device.LensInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import com.photographer.focusstack.common.media.MediaItem;
-import com.photographer.focusstack.common.media.MediaType;
 import com.photographer.focusstack.common.media.TransferResult;
 import com.photographer.focusstack.common.media.TransferState;
 import com.photographer.focusstack.common.transport.CameraConnection;
@@ -23,149 +24,307 @@ import org.slf4j.LoggerFactory;
 
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Adapts the existing {@link CanonCcapiBackend} (and any other legacy
- * {@link CameraBackend}) to the new transport-independent
+ * {@link CameraBackend}) to the transport-independent
  * {@link GenericCameraBackend} surface.
  *
- * &lt;p&gt;This is the seam that lets us migrate workflows over to the generic
- * interface incrementally: today only {@code captureStill} and live-view
- * actually delegate; the richer endpoints (storage / battery / lens / media
- * list / download / delete) are wired up to safe defaults and marked
- * &lt;strong&gt;missing&lt;/strong&gt; in the {@link CapabilitySet}, so UI code that
- * binds to capabilities will simply not show those buttons until the real
- * implementation lands.
+ * &lt;p&gt;This is the seam that lets workflows migrate to the generic interface
+ * incrementally. Capture, live view, battery and storage status are delegated
+ * today. Lens details and media list/download/delete remain absent from the
+ * generic adapter and are therefore not advertised as capabilities.&lt;/p&gt;
  *
- * &lt;p&gt;TODO: when the CCAPI media-list / storage / battery probes are added
- * to {@link CanonCcapiBackend}, drop the {@code unsupported} returns below
- * and add the corresponding entries to {@link #getCapabilities}.
+ * &lt;p&gt;Backends implementing {@link CameraStatusProvider} supply authoritative
+ * rich battery and multi-volume storage snapshots. Older backends retain the
+ * compatibility mapping from one {@link CameraState} read to percentage and a
+ * synthetic primary volume. The adapter never issues Canon-specific HTTP
+ * requests itself and never replaces an authoritative unknown/empty rich value
+ * with a misleading legacy default.&lt;/p&gt;
  */
 public class CcapiCameraBackend implements GenericCameraBackend {
 
-<span class="nc" id="L46">    private static final Logger log = LoggerFactory.getLogger(CcapiCameraBackend.class);</span>
+<span class="fc" id="L48">    private static final Logger log = LoggerFactory.getLogger(CcapiCameraBackend.class);</span>
 
     private final CameraBackend legacy;
     private final String cameraId;
 
-<span class="nc" id="L51">    public CcapiCameraBackend(String cameraId, CameraBackend legacy) {</span>
-<span class="nc" id="L52">        this.cameraId = cameraId;</span>
-<span class="nc" id="L53">        this.legacy = legacy;</span>
-<span class="nc" id="L54">    }</span>
+<span class="fc" id="L53">    public CcapiCameraBackend(String cameraId, CameraBackend legacy) {</span>
+<span class="fc" id="L54">        this.cameraId = Objects.requireNonNull(cameraId, &quot;cameraId&quot;);</span>
+<span class="fc" id="L55">        this.legacy = Objects.requireNonNull(legacy, &quot;legacy&quot;);</span>
+<span class="fc" id="L56">    }</span>
 
     @Override
     public CameraConnection connect() {
-<span class="nc" id="L58">        log.debug(&quot;Opening CCAPI connection to {}&quot;, cameraId);</span>
-<span class="nc" id="L59">        return new SimpleConnection(cameraId, &quot;canon-ccapi&quot;);</span>
+<span class="nc" id="L60">        log.debug(&quot;Opening CCAPI connection to {}&quot;, cameraId);</span>
+<span class="nc" id="L61">        return new SimpleConnection(cameraId, &quot;canon-ccapi&quot;);</span>
     }
 
     @Override
     public DeviceInfo getDeviceInfo(CameraConnection connection) {
-<span class="nc" id="L64">        CameraInfo info = legacy.getInfo();</span>
-<span class="nc" id="L65">        return new DeviceInfo(</span>
+<span class="nc" id="L66">        CameraInfo info = legacy.getInfo();</span>
+<span class="nc" id="L67">        return new DeviceInfo(</span>
                 cameraId,
-<span class="nc" id="L67">                info.model(),</span>
+<span class="nc" id="L69">                info.model(),</span>
                 /* serialNumber */ null,
-<span class="nc" id="L69">                info.firmwareVersion(),</span>
+<span class="nc" id="L71">                info.firmwareVersion(),</span>
                 &quot;Canon&quot;,
-<span class="nc" id="L71">                info.name(),</span>
+<span class="nc" id="L73">                info.name(),</span>
                 &quot;canon-ccapi&quot;,
-<span class="nc" id="L73">                info.host()</span>
+<span class="nc" id="L75">                info.host()</span>
         );
     }
 
     @Override
     public CapabilitySet getCapabilities(CameraConnection connection) {
-<span class="nc" id="L79">        CapabilitySet.Builder b = CapabilitySet.builder()</span>
-<span class="nc" id="L80">                .add(Capability.DEVICE_INFO);</span>
-<span class="nc bnc" id="L81" title="All 2 branches missed.">        if (legacy.supports(Operation.LIVE_VIEW))      b.add(Capability.LIVE_VIEW);</span>
-<span class="nc bnc" id="L82" title="All 2 branches missed.">        if (legacy.supports(Operation.CAPTURE))        b.add(Capability.CAPTURE_STILL);</span>
-<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (legacy.supports(Operation.FOCUS_CONTROL))  b.add(Capability.FOCUS_DRIVE);</span>
-<span class="nc bnc" id="L84" title="All 2 branches missed.">        if (legacy.supports(Operation.ZOOM_CONTROL))   b.add(Capability.ZOOM_CONTROL);</span>
-<span class="nc bnc" id="L85" title="All 2 branches missed.">        if (legacy.supports(Operation.SETTINGS_READ))  b.add(Capability.EXPOSURE_READ);</span>
-<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (legacy.supports(Operation.SETTINGS_WRITE)) b.addRw(Capability.EXPOSURE_WRITE);</span>
-        // TODO: list storage/battery/lens/media capabilities once the legacy
-        //       backend exposes them. The adapter is the single switch-on
-        //       point — UI code will pick them up automatically.
-<span class="nc" id="L90">        return b.build();</span>
+<span class="fc" id="L81">        CapabilitySet.Builder capabilities = CapabilitySet.builder()</span>
+<span class="fc" id="L82">                .add(Capability.DEVICE_INFO);</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (legacy.supports(Operation.LIVE_VIEW)) {</span>
+<span class="nc" id="L84">            capabilities.add(Capability.LIVE_VIEW);</span>
+        }
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">        if (legacy.supports(Operation.CAPTURE)) {</span>
+<span class="nc" id="L87">            capabilities.add(Capability.CAPTURE_STILL);</span>
+        }
+<span class="pc bpc" id="L89" title="1 of 2 branches missed.">        if (legacy.supports(Operation.FOCUS_CONTROL)) {</span>
+<span class="nc" id="L90">            capabilities.add(Capability.FOCUS_DRIVE);</span>
+        }
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        if (legacy.supports(Operation.ZOOM_CONTROL)) {</span>
+<span class="nc" id="L93">            capabilities.add(Capability.ZOOM_CONTROL);</span>
+        }
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (legacy.supports(Operation.SETTINGS_READ)) {</span>
+<span class="nc" id="L96">            capabilities.add(Capability.EXPOSURE_READ);</span>
+        }
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        if (legacy.supports(Operation.SETTINGS_WRITE)) {</span>
+<span class="nc" id="L99">            capabilities.addRw(Capability.EXPOSURE_WRITE);</span>
+        }
+
+<span class="fc" id="L102">        StatusSnapshot status = readStatusSnapshot();</span>
+<span class="pc bpc" id="L103" title="1 of 2 branches missed.">        if (hasKnownBattery(status.battery())) {</span>
+<span class="fc" id="L104">            capabilities.add(Capability.BATTERY_INFO);</span>
+        }
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (hasKnownStorage(status.storage())) {</span>
+<span class="fc" id="L107">            capabilities.add(Capability.STORAGE_INFO);</span>
+        }
+<span class="fc" id="L109">        return capabilities.build();</span>
     }
 
     @Override
     public StorageInfo getStorageInfo(CameraConnection connection) {
-        // TODO: wire to CanonCcapiBackend's /devicestatus/storage probe.
-<span class="nc" id="L96">        return StorageInfo.empty();</span>
+<span class="fc" id="L114">        CameraStatusProvider provider = statusProvider();</span>
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        if (provider != null) {</span>
+<span class="fc" id="L116">            return readRichStorageSafely(provider);</span>
+        }
+<span class="fc" id="L118">        return toStorageInfo(readStateSafely());</span>
     }
 
     @Override
     public BatteryInfo getBatteryInfo(CameraConnection connection) {
-        // TODO: wire to CanonCcapiBackend's /devicestatus/battery probe.
-<span class="nc" id="L102">        return BatteryInfo.unknown();</span>
+<span class="fc" id="L123">        CameraStatusProvider provider = statusProvider();</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">        if (provider != null) {</span>
+<span class="fc" id="L125">            return readRichBatterySafely(provider);</span>
+        }
+<span class="fc" id="L127">        return toBatteryInfo(readStateSafely());</span>
     }
 
     @Override
     public LensInfo getLensInfo(CameraConnection connection) {
-        // TODO: wire to CanonCcapiBackend's /devicestatus/lens probe.
-<span class="nc" id="L108">        return LensInfo.none();</span>
+        // The legacy CameraState does not expose a lens identity or mount state.
+<span class="nc" id="L133">        return LensInfo.none();</span>
     }
 
     @Override
     public List&lt;MediaItem&gt; listMedia(CameraConnection connection) {
-        // TODO: implement /contents listing through the legacy backend.
-<span class="nc" id="L114">        return List.of();</span>
+        // TODO: implement the version-aware /contents hierarchy through the legacy backend.
+<span class="nc" id="L139">        return List.of();</span>
     }
 
     @Override
     public TransferResult downloadMedia(CameraConnection connection, MediaItem item, OutputStream sink) {
-        // TODO: wire to CanonCcapiBackend's contents download.
-<span class="nc" id="L120">        return TransferResult.failed(item, &quot;downloadMedia not yet implemented for CCAPI adapter&quot;);</span>
+        // TODO: expose version-aware contents download through the legacy backend.
+<span class="nc" id="L145">        return TransferResult.failed(item, &quot;downloadMedia not yet implemented for CCAPI adapter&quot;);</span>
     }
 
     @Override
     public boolean deleteMedia(CameraConnection connection, MediaItem item) {
-        // TODO: wire to CanonCcapiBackend modify-contents (DELETE).
-<span class="nc" id="L126">        log.warn(&quot;deleteMedia: refusing — not yet implemented for CCAPI adapter, item={}&quot;, item.id());</span>
-<span class="nc" id="L127">        return false;</span>
+        // TODO: expose CCAPI contents DELETE after capability and protection checks.
+<span class="nc" id="L151">        log.warn(&quot;deleteMedia: refusing — not yet implemented for CCAPI adapter, item={}&quot;, item.id());</span>
+<span class="nc" id="L152">        return false;</span>
     }
 
     @Override
     public MediaItem captureStill(CameraConnection connection) {
-<span class="nc" id="L132">        legacy.stopLiveView();</span>
-<span class="nc" id="L133">        CaptureResult r = legacy.capture();</span>
-<span class="nc bnc" id="L134" title="All 4 branches missed.">        String id       = r != null &amp;&amp; r.imageId() != null ? r.imageId() : java.util.UUID.randomUUID().toString();</span>
-<span class="nc bnc" id="L135" title="All 4 branches missed.">        String filename = r != null &amp;&amp; r.fileName() != null ? r.fileName() : id;</span>
-<span class="nc bnc" id="L136" title="All 2 branches missed.">        String path     = r != null ? r.filePath() : null;</span>
-<span class="nc bnc" id="L137" title="All 2 branches missed.">        long size       = r != null ? r.fileSize() : -1L;</span>
-<span class="nc" id="L138">        return MediaItem.newDiscovered(id, cameraId, &quot;primary&quot;, &quot;DCIM&quot;,</span>
-                filename, path, /* sourceUrl */ null, size)
-<span class="nc" id="L140">                .withTransferState(TransferState.DISCOVERED);</span>
+<span class="nc" id="L157">        legacy.stopLiveView();</span>
+<span class="nc" id="L158">        CaptureResult result = legacy.capture();</span>
+<span class="nc bnc" id="L159" title="All 4 branches missed.">        String id = result != null &amp;&amp; result.imageId() != null</span>
+<span class="nc" id="L160">                ? result.imageId() : java.util.UUID.randomUUID().toString();</span>
+<span class="nc bnc" id="L161" title="All 4 branches missed.">        String filename = result != null &amp;&amp; result.fileName() != null ? result.fileName() : id;</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        String path = result != null ? result.filePath() : null;</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">        long size = result != null ? result.fileSize() : -1L;</span>
+<span class="nc" id="L164">        return MediaItem.newDiscovered(id, cameraId, &quot;primary&quot;, &quot;DCIM&quot;,</span>
+                        filename, path, /* sourceUrl */ null, size)
+<span class="nc" id="L166">                .withTransferState(TransferState.DISCOVERED);</span>
     }
 
     @Override
     public void startLiveView(CameraConnection connection) {
-        // The legacy interface starts live-view implicitly on first frame request.
-<span class="nc" id="L146">        legacy.getLiveView();</span>
-<span class="nc" id="L147">    }</span>
+        // The legacy interface starts live view implicitly on first frame request.
+<span class="nc" id="L172">        legacy.getLiveView();</span>
+<span class="nc" id="L173">    }</span>
 
     @Override
     public void stopLiveView(CameraConnection connection) {
-<span class="nc" id="L151">        legacy.stopLiveView();</span>
-<span class="nc" id="L152">    }</span>
+<span class="nc" id="L177">        legacy.stopLiveView();</span>
+<span class="nc" id="L178">    }</span>
 
     @Override
     public LiveViewFrame nextLiveViewFrame(CameraConnection connection) {
-<span class="nc" id="L156">        return legacy.getLiveView();</span>
+<span class="nc" id="L182">        return legacy.getLiveView();</span>
     }
 
-    /** Lightweight connection holder; CCAPI keeps its own HTTP state inside the legacy backend. */
+    private StatusSnapshot readStatusSnapshot() {
+<span class="fc" id="L186">        CameraStatusProvider provider = statusProvider();</span>
+<span class="fc bfc" id="L187" title="All 2 branches covered.">        if (provider != null) {</span>
+<span class="fc" id="L188">            return new StatusSnapshot(</span>
+<span class="fc" id="L189">                    readRichBatterySafely(provider),</span>
+<span class="fc" id="L190">                    readRichStorageSafely(provider)</span>
+            );
+        }
+
+<span class="fc" id="L194">        CameraState state = readStateSafely();</span>
+<span class="fc" id="L195">        return new StatusSnapshot(toBatteryInfo(state), toStorageInfo(state));</span>
+    }
+
+    private CameraStatusProvider statusProvider() {
+<span class="fc bfc" id="L199" title="All 2 branches covered.">        return legacy instanceof CameraStatusProvider provider ? provider : null;</span>
+    }
+
+    private BatteryInfo readRichBatterySafely(CameraStatusProvider provider) {
+        try {
+<span class="fc" id="L204">            BatteryInfo result = provider.getBatteryInfo();</span>
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">            return result == null ? BatteryInfo.unknown() : result;</span>
+<span class="nc" id="L206">        } catch (RuntimeException exception) {</span>
+<span class="nc" id="L207">            log.warn(&quot;Could not read rich CCAPI battery status for {}: {}&quot;,</span>
+<span class="nc" id="L208">                    cameraId, exception.getMessage());</span>
+<span class="nc" id="L209">            return BatteryInfo.unknown();</span>
+        }
+    }
+
+    private StorageInfo readRichStorageSafely(CameraStatusProvider provider) {
+        try {
+<span class="fc" id="L215">            StorageInfo result = provider.getStorageInfo();</span>
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">            return result == null ? StorageInfo.empty() : result;</span>
+<span class="nc" id="L217">        } catch (RuntimeException exception) {</span>
+<span class="nc" id="L218">            log.warn(&quot;Could not read rich CCAPI storage status for {}: {}&quot;,</span>
+<span class="nc" id="L219">                    cameraId, exception.getMessage());</span>
+<span class="nc" id="L220">            return StorageInfo.empty();</span>
+        }
+    }
+
+    private CameraState readStateSafely() {
+        try {
+<span class="fc" id="L226">            return legacy.getState();</span>
+<span class="fc" id="L227">        } catch (RuntimeException exception) {</span>
+<span class="fc" id="L228">            log.warn(&quot;Could not read CCAPI status for {}: {}&quot;, cameraId, exception.getMessage());</span>
+<span class="fc" id="L229">            return null;</span>
+        }
+    }
+
+    private static boolean hasKnownBattery(CameraState state) {
+<span class="fc bfc" id="L234" title="All 4 branches covered.">        return state != null &amp;&amp; state.connected()</span>
+<span class="pc bpc" id="L235" title="1 of 4 branches missed.">                &amp;&amp; state.batteryLevel() &gt;= 0 &amp;&amp; state.batteryLevel() &lt;= 100;</span>
+    }
+
+    private static boolean hasKnownStorage(CameraState state) {
+<span class="fc bfc" id="L239" title="All 6 branches covered.">        return state != null &amp;&amp; state.connected() &amp;&amp; state.storageAvailable() &gt;= 0L;</span>
+    }
+
+    private static boolean hasKnownBattery(BatteryInfo battery) {
+<span class="pc bpc" id="L243" title="1 of 2 branches missed.">        if (battery == null) {</span>
+<span class="nc" id="L244">            return false;</span>
+        }
+<span class="pc bpc" id="L246" title="2 of 4 branches missed.">        return battery.percent() &gt;= 0 &amp;&amp; battery.percent() &lt;= 100</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">                || isKnownText(battery.level())</span>
+<span class="nc bnc" id="L248" title="All 2 branches missed.">                || isKnownText(battery.kind())</span>
+<span class="pc bnc" id="L249" title="All 2 branches missed.">                || isKnownText(battery.quality());</span>
+    }
+
+    private static boolean hasKnownStorage(StorageInfo storage) {
+<span class="pc bpc" id="L253" title="2 of 4 branches missed.">        return storage != null &amp;&amp; !storage.volumes().isEmpty();</span>
+    }
+
+    private static boolean isKnownText(String value) {
+<span class="nc bnc" id="L257" title="All 6 branches missed.">        return value != null &amp;&amp; !value.isBlank() &amp;&amp; !&quot;unknown&quot;.equalsIgnoreCase(value);</span>
+    }
+
+    static BatteryInfo toBatteryInfo(CameraState state) {
+<span class="fc bfc" id="L261" title="All 2 branches covered.">        if (!hasKnownBattery(state)) {</span>
+<span class="fc" id="L262">            return BatteryInfo.unknown();</span>
+        }
+<span class="fc" id="L264">        int percent = state.batteryLevel();</span>
+        String level;
+<span class="fc bfc" id="L266" title="All 2 branches covered.">        if (percent == 0) {</span>
+<span class="fc" id="L267">            level = &quot;empty&quot;;</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">        } else if (percent &lt;= 25) {</span>
+<span class="nc" id="L269">            level = &quot;low&quot;;</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">        } else if (percent &lt; 75) {</span>
+<span class="fc" id="L271">            level = &quot;half&quot;;</span>
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">        } else if (percent &lt; 100) {</span>
+<span class="fc" id="L273">            level = &quot;high&quot;;</span>
+        } else {
+<span class="nc" id="L275">            level = &quot;full&quot;;</span>
+        }
+<span class="fc" id="L277">        return new BatteryInfo(level, &quot;unknown&quot;, &quot;unknown&quot;, percent);</span>
+    }
+
+    static StorageInfo toStorageInfo(CameraState state) {
+<span class="fc bfc" id="L281" title="All 2 branches covered.">        if (!hasKnownStorage(state)) {</span>
+<span class="fc" id="L282">            return StorageInfo.empty();</span>
+        }
+<span class="fc" id="L284">        StorageInfo.Volume primary = new StorageInfo.Volume(</span>
+                &quot;primary&quot;,
+                null,
+                -1L,
+<span class="fc" id="L288">                state.storageAvailable(),</span>
+                -1,
+                &quot;unknown&quot;
+        );
+<span class="fc" id="L292">        return new StorageInfo(List.of(primary));</span>
+    }
+
+<span class="fc" id="L295">    private record StatusSnapshot(BatteryInfo battery, StorageInfo storage) {</span>
+    }
+
+    /** Lightweight connection holder; CCAPI keeps its HTTP state inside the legacy backend. */
     private static final class SimpleConnection implements CameraConnection {
         private final String cameraId;
         private final String transport;
-<span class="nc" id="L163">        private volatile boolean open = true;</span>
-<span class="nc" id="L164">        SimpleConnection(String cameraId, String transport) { this.cameraId = cameraId; this.transport = transport; }</span>
-<span class="nc" id="L165">        @Override public String cameraId() { return cameraId; }</span>
-<span class="nc" id="L166">        @Override public String transport() { return transport; }</span>
-<span class="nc" id="L167">        @Override public boolean isOpen() { return open; }</span>
-<span class="nc" id="L168">        @Override public void close() { open = false; }</span>
+<span class="nc" id="L302">        private volatile boolean open = true;</span>
+
+<span class="nc" id="L304">        private SimpleConnection(String cameraId, String transport) {</span>
+<span class="nc" id="L305">            this.cameraId = cameraId;</span>
+<span class="nc" id="L306">            this.transport = transport;</span>
+<span class="nc" id="L307">        }</span>
+
+        @Override
+        public String cameraId() {
+<span class="nc" id="L311">            return cameraId;</span>
+        }
+
+        @Override
+        public String transport() {
+<span class="nc" id="L316">            return transport;</span>
+        }
+
+        @Override
+        public boolean isOpen() {
+<span class="nc" id="L321">            return open;</span>
+        }
+
+        @Override
+        public void close() {
+<span class="nc" id="L326">            open = false;</span>
+<span class="nc" id="L327">        }</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
