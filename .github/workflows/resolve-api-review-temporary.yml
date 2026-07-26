@@ -92,7 +92,7 @@ jobs:
           replace_once(
               'frontend-web/src/pages/StackGallery.jsx',
               "const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || API_BASE_URL;\nconst CAMERA_BASE = API_BASE_URL;",
-              "const ANALYSIS_BASE = (import.meta.env.VITE_ANALYSIS_URL || '').replace(/\\\/$/, '');",
+              r"const ANALYSIS_BASE = (import.meta.env.VITE_ANALYSIS_URL || '').replace(/\/$/, '');",
           )
           replace_once(
               'frontend-web/src/pages/StackGallery.jsx',
