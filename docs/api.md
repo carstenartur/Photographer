@@ -49,6 +49,10 @@ is running, use:
 | Legacy compatibility JSON | `/v3/api-docs/legacy-compat` | Deprecated aliases during migration |
 | Combined JSON | `/v3/api-docs` | Framework-generated aggregate view |
 
+Executable contract tests maintain an explicit inventory of every REST controller and
+require identical canonical and compatibility mappings. Adding a controller without a
+versioning decision therefore fails normal repository verification.
+
 ## Errors, downloads and streams
 
 The global RFC 9457-style `ProblemDetail` payload produced by the application is part of
