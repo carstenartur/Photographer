@@ -20,6 +20,13 @@ jobs:
           ref: feature/api-v1-compatibility
           fetch-depth: 0
 
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
       - name: Apply exact reviewed replacements
         shell: bash
         run: |
