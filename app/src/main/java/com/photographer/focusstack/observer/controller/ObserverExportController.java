@@ -1,5 +1,6 @@
 package com.photographer.focusstack.observer.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
 import com.photographer.focusstack.observer.repository.ObservationEventRepository;
@@ -30,7 +31,7 @@ import java.util.List;
  * within a configurable date range.</p>
  */
 @RestController
-@RequestMapping("/api/observer/export")
+@RequestMapping({ApiPaths.V1 + "/observer/export", ApiPaths.LEGACY + "/observer/export"})
 @Tag(name = "Observer Export", description = "Observer event and species export endpoints.")
 public class ObserverExportController {
 

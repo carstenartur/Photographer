@@ -1,5 +1,6 @@
 package com.photographer.focusstack.app.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.photographer.focusstack.common.camera.CameraBackend;
@@ -21,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/system")
+@RequestMapping({ApiPaths.V1 + "/system", ApiPaths.LEGACY + "/system"})
 @Tag(name = "System", description = "System diagnostics and environment overview endpoints.")
 public class SystemInfoController {
 

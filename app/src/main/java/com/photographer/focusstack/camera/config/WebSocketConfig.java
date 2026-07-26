@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.config;
 
+import com.photographer.focusstack.app.api.RealtimeApiPaths;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -22,13 +23,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer, WebSoc
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic");
-        config.setApplicationDestinationPrefixes("/app");
+        config.enableSimpleBroker(RealtimeApiPaths.BROKER_PREFIX);
+        config.setApplicationDestinationPrefixes(RealtimeApiPaths.APPLICATION_PREFIX);
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
+        registry.addEndpoint(RealtimeApiPaths.STOMP_ENDPOINT)
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
     }
@@ -39,7 +40,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer, WebSoc
      */
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(plainWebSocketBridge, "/ws/plain")
+        registry.addHandler(plainWebSocketBridge, RealtimeApiPaths.PLAIN_ENDPOINT)
                 .setAllowedOriginPatterns("*");
     }
 }

@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.analysis.dto.AnalyzeRequest;
 import com.photographer.focusstack.analysis.dto.MotionResponse;
 import com.photographer.focusstack.analysis.dto.SharpnessResponse;
@@ -24,7 +25,7 @@ import java.util.Collections;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/analysis")
+@RequestMapping({ApiPaths.V1 + "/analysis", ApiPaths.LEGACY + "/analysis"})
 @Tag(name = "Analysis", description = "Image analysis, sharpness and motion endpoints.")
 public class AnalysisController {
 

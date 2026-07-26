@@ -1,4 +1,4 @@
-import { request } from './auth';
+import { request, requestBlob } from './auth';
 
 export function getAllJobs() {
   return request('/jobs');
@@ -36,14 +36,6 @@ export function deleteJob(id) {
  * @param {string} id - Job ID
  * @returns {Promise<Blob>} ZIP file blob
  */
-export async function exportJobFrames(id) {
-  const BASE_URL = import.meta.env.VITE_API_URL || '/api';
-  const res = await fetch(`${BASE_URL}/jobs/${encodeURIComponent(id)}/export`, {
-    credentials: 'include',
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
-  }
-  return res.blob();
+export function exportJobFrames(id) {
+  return requestBlob(`/jobs/${encodeURIComponent(id)}/export`);
 }
