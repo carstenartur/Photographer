@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "Focus Stack (Photographer)"
+type: software
+authors:
+  - family-names: Hammer
+    given-names: Carsten
+    alias: carstenartur
+    orcid: "https://orcid.org/0009-0005-1047-6381"
+repository-code: "https://github.com/carstenartur/Photographer"
+url: "https://github.com/carstenartur/Photographer"
+license: MIT
+abstract: >-
+  Focus Stack is a modular Java and Spring Boot photography platform for
+  automated focus stacking, timelapse, astrophotography workflows,
+  camera control, CR3 processing and AI-assisted image analysis.
+keywords:
+  - photography
+  - focus-stacking
+  - camera-control
+  - canon-ccapi
+  - ptp
+  - raw-image-processing
+  - cr3
+  - astrophotography
+  - computer-vision
