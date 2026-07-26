@@ -11,14 +11,17 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, Sequence
+from typing import BinaryIO, Iterable, Iterator, Sequence
 
 MAX_TEXT_BLOB_BYTES = 2_000_000
+STREAM_CHUNK_BYTES = 64 * 1024
 
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[bytes]], ...] = (
     (
         "private-key",
-        re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----"),
+        re.compile(
+            rb"-----BEGIN (?:PGP PRIVATE KEY BLOCK|(?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY)-----"
+        ),
     ),
     (
         "github-token",
@@ -147,11 +150,57 @@ def audit_current_tree(root: Path) -> list[Finding]:
         if not path.is_file():
             continue
         try:
+            if path.stat().st_size > MAX_TEXT_BLOB_BYTES:
+                continue
             data = path.read_bytes()
         except OSError as exc:
             raise RuntimeError(f"cannot read tracked file {relative_path}: {exc}") from exc
         findings.extend(scan_bytes(str(relative_path), data))
     return findings
+
+
+def _read_exact(stream: BinaryIO, size: int) -> bytes:
+    """Read exactly ``size`` bytes or fail instead of accepting truncated Git output."""
+    chunks: list[bytes] = []
+    remaining = size
+    while remaining:
+        chunk = stream.read(min(STREAM_CHUNK_BYTES, remaining))
+        if not chunk:
+            raise RuntimeError("git cat-file terminated inside an object payload")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _discard_exact(stream: BinaryIO, size: int) -> None:
+    """Drain an object without allocating memory proportional to its size."""
+    remaining = size
+    while remaining:
+        chunk = stream.read(min(STREAM_CHUNK_BYTES, remaining))
+        if not chunk:
+            raise RuntimeError("git cat-file terminated inside an object payload")
+        remaining -= len(chunk)
+
+
+def _parse_batch_header(header: bytes) -> tuple[str, int]:
+    """Parse one ``git cat-file --batch`` header with controlled diagnostics."""
+    header_parts = header.rstrip(b"\n").split()
+    if len(header_parts) < 3:
+        raise RuntimeError(
+            "unexpected git cat-file response: "
+            + header.decode("utf-8", errors="replace")
+        )
+    object_type = header_parts[1].decode("ascii", errors="replace")
+    try:
+        size = int(header_parts[2])
+    except ValueError as exc:
+        rendered = header.decode("utf-8", errors="replace").rstrip()
+        raise RuntimeError(
+            f"invalid git cat-file object size in response: {rendered}"
+        ) from exc
+    if size < 0:
+        raise RuntimeError(f"invalid negative git cat-file object size: {size}")
+    return object_type, size
 
 
 def iter_history_blobs(root: Path) -> Iterator[tuple[str, str, bytes]]:
@@ -181,20 +230,18 @@ def iter_history_blobs(root: Path) -> Iterator[tuple[str, str, bytes]]:
             header = process.stdout.readline()
             if not header:
                 raise RuntimeError("git cat-file terminated unexpectedly")
-            header_parts = header.rstrip(b"\n").split()
-            if len(header_parts) < 3:
-                raise RuntimeError(
-                    "unexpected git cat-file response: "
-                    + header.decode("utf-8", errors="replace")
-                )
-            object_type = header_parts[1].decode("ascii", errors="replace")
-            size = int(header_parts[2])
-            data = process.stdout.read(size)
+            object_type, size = _parse_batch_header(header)
+            is_candidate = object_type == "blob" and size <= MAX_TEXT_BLOB_BYTES
+            if is_candidate:
+                data = _read_exact(process.stdout, size)
+            else:
+                _discard_exact(process.stdout, size)
+                data = b""
             terminator = process.stdout.read(1)
             if terminator != b"\n":
                 raise RuntimeError("git cat-file returned a malformed batch payload")
 
-            if object_type == "blob" and size <= MAX_TEXT_BLOB_BYTES:
+            if is_candidate:
                 yield object_id, path, data
     finally:
         process.stdin.close()
@@ -280,7 +327,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "--root",
         type=Path,
         default=Path(__file__).resolve().parents[1],
-        help="Repository root (default: parent of scripts/).",
+        help="Repository root or any directory inside it (default: parent of scripts/).",
     )
     parser.add_argument(
         "--history",
@@ -297,10 +344,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
-    root = args.root.resolve()
+    requested_root = args.root.resolve()
 
     try:
-        run_git(root, "rev-parse", "--show-toplevel")
+        top_level = run_git(requested_root, "rev-parse", "--show-toplevel")
+        root = Path(top_level.decode("utf-8", errors="surrogateescape").strip()).resolve()
         findings = audit_current_tree(root)
         if args.history:
             findings.extend(audit_history(root))
