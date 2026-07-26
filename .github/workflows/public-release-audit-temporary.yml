@@ -5,47 +5,59 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   public-release-audit:
-    name: Full history and media privacy audit
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'docs/public-release-readiness'
+    name: Sanitize and verify CR3 fixtures
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
-      - name: Checkout complete repository history
+      - name: Checkout complete source branch history
         uses: actions/checkout@v7
         with:
+          ref: docs/public-release-readiness
           fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
 
       - name: Install ExifTool
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends libimage-exiftool-perl
 
-      - name: Test public-release audit
-        run: python3 scripts/test_audit_public_release.py
+      - name: Test privacy tooling
+        run: |
+          python3 scripts/test_audit_public_release.py
+          python3 scripts/test_sanitize_cr3_fixtures.py
 
-      - name: Scan history and tracked media metadata
-        id: audit
+      - name: Sanitize tracked CR3 fixtures in place
+        run: python3 scripts/sanitize_cr3_fixtures.py --write
+
+      - name: Audit source history and current media metadata
+        run: python3 scripts/audit_public_release.py --history --media-metadata
+
+      - name: Verify product with sanitized fixtures
+        run: bash scripts/verify-product.sh
+
+      - name: Commit sanitized fixtures
         shell: bash
         run: |
-          set +e
-          python3 scripts/audit_public_release.py --history --media-metadata \
-            > public-release-audit.txt 2>&1
-          status=$?
-          cat public-release-audit.txt
-          echo "status=${status}" >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Upload redacted audit result
-        uses: actions/upload-artifact@v7
-        with:
-          name: public-release-audit-result
-          path: public-release-audit.txt
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Enforce audit result
-        if: steps.audit.outputs.status != '0'
-        run: exit 1
+          if git diff --quiet -- canon-cr3-imageio/src/test/resources/samples; then
+            echo "Tracked CR3 fixtures are already sanitized."
+            exit 0
+          fi
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add canon-cr3-imageio/src/test/resources/samples
+          git commit -m "testdata: sanitize identifying CR3 metadata"
+          git push origin HEAD:docs/public-release-readiness
