@@ -105,7 +105,7 @@ temporary compatibility alias.
 | `GET` | `/api/v1/astro/sessions/{id}` | Get current status, stacking mode and bounded stacking progress |
 | `POST` | `/api/v1/astro/sessions/{id}/abort` | Cooperatively abort capture, focus scan or stacking |
 | `DELETE` | `/api/v1/astro/sessions/{id}` | Delete one terminal session and its output files |
-| `GET` | `/api/v1/astro/sessions/{id}/result` | Download/get the completed session result |
+| `GET` | `/api/v1/astro/sessions/{id}/result` | Get a completed session record with result path and summary |
 
 `captureConfig.stackingConfig` is optional. A create request that omits it preserves the
 historical Mean behavior:
@@ -153,8 +153,10 @@ without hidden defaults. The service executes exactly the persisted configuratio
 While status is `STACKING`, `stackingProgressPercent` reports cooperative row progress in
 the range `0..100`. Active-process polling receives the latest in-memory percentage.
 Durable checkpoints are stored in 5-percentage-point increments, with exact progress
-written on failure/abort and 100 on successful completion. Historical rows and clients
-that omit the configuration continue to resolve to `MEAN`.
+written on failure/abort and 100 on successful completion. This avoids a database write
+per image row while preserving useful last-known progress after process loss or restart.
+Historical database rows and clients that omit the new configuration continue to resolve
+to `MEAN`.
 
 ### Analysis
 
