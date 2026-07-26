@@ -12,10 +12,10 @@ public record CameraConfig(
         Duration connectionTimeout
 ) {
 <span class="fc" id="L14">    public CameraConfig {</span>
-<span class="pc bpc" id="L15" title="1 of 2 branches missed.">        if (ccapiBaseUrl == null) {</span>
+<span class="fc bfc" id="L15" title="All 2 branches covered.">        if (ccapiBaseUrl == null) {</span>
 <span class="fc" id="L16">            ccapiBaseUrl = URI.create(&quot;http://192.168.1.2:8080&quot;);</span>
         }
-<span class="pc bpc" id="L18" title="1 of 2 branches missed.">        if (connectionTimeout == null) {</span>
+<span class="fc bfc" id="L18" title="All 2 branches covered.">        if (connectionTimeout == null) {</span>
 <span class="fc" id="L19">            connectionTimeout = Duration.ofSeconds(10);</span>
         }
 <span class="fc" id="L21">    }</span>

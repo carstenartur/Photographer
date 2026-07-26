@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CanonCcapiNativeFocusBracketingBackend.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CanonCcapiNativeFocusBracketingBackend.java</span></div><h1>CanonCcapiNativeFocusBracketingBackend.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.photographer.focusstack.camera.exception.CameraException;
+import com.photographer.focusstack.common.camera.IntegerSettingRange;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingCapabilities;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingProvider;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
+import org.springframework.http.HttpMethod;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Canon CCAPI backend extension for camera-owned focus-bracketing settings.
+ *
+ * &lt;p&gt;This adapter deliberately prepares and restores settings only. It neither
+ * triggers the shutter nor assumes how many media events one native sequence
+ * produces. Capture observation and ingestion remain a separate strategy layer.&lt;/p&gt;
+ *
+ * &lt;p&gt;A setting is usable only when one exact advertised endpoint declares both
+ * {@code GET} and {@code PUT}. Methodless legacy endpoint lists are therefore not
+ * sufficient for native bracketing writes.&lt;/p&gt;
+ */
+public final class CanonCcapiNativeFocusBracketingBackend
+        extends CanonCcapiStatusBackend
+        implements NativeFocusBracketingProvider {
+
+<span class="fc" id="L42">    private static final Pattern VERSION_PATTERN = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
+    private static final int DEFAULT_DEVICE_BUSY_MAX_RETRIES = 5;
+    private static final long DEFAULT_DEVICE_BUSY_INITIAL_BACKOFF_MS = 500L;
+
+    private final RestTemplate restTemplate;
+    private final int deviceBusyMaxRetries;
+    private final long deviceBusyInitialBackoffMs;
+
+    public CanonCcapiNativeFocusBracketingBackend(String baseUrl, RestTemplate restTemplate) {
+<span class="fc" id="L51">        this(baseUrl, restTemplate,</span>
+                DEFAULT_DEVICE_BUSY_MAX_RETRIES,
+                DEFAULT_DEVICE_BUSY_INITIAL_BACKOFF_MS);
+<span class="fc" id="L54">    }</span>
+
+    CanonCcapiNativeFocusBracketingBackend(
+            String baseUrl,
+            RestTemplate restTemplate,
+            int deviceBusyMaxRetries,
+            long deviceBusyInitialBackoffMs) {
+<span class="fc" id="L61">        super(baseUrl, restTemplate);</span>
+<span class="fc" id="L62">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">        if (deviceBusyMaxRetries &lt; 0) {</span>
+<span class="nc" id="L64">            throw new IllegalArgumentException(&quot;deviceBusyMaxRetries must not be negative&quot;);</span>
+        }
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (deviceBusyInitialBackoffMs &lt; 0L) {</span>
+<span class="nc" id="L67">            throw new IllegalArgumentException(&quot;deviceBusyInitialBackoffMs must not be negative&quot;);</span>
+        }
+<span class="fc" id="L69">        this.deviceBusyMaxRetries = deviceBusyMaxRetries;</span>
+<span class="fc" id="L70">        this.deviceBusyInitialBackoffMs = deviceBusyInitialBackoffMs;</span>
+<span class="fc" id="L71">    }</span>
+
+    @Override
+    public NativeFocusBracketingCapabilities getNativeFocusBracketingCapabilities() {
+<span class="fc" id="L75">        return readCapabilitySnapshot().capabilities();</span>
+    }
+
+    @Override
+    public NativeFocusBracketingSession prepareNativeFocusBracketing(
+            NativeFocusBracketingRequest request) {
+<span class="fc" id="L81">        CapabilitySnapshot snapshot = readCapabilitySnapshot();</span>
+<span class="fc" id="L82">        return FocusBracketingSettingsTransaction.prepare(</span>
+<span class="fc" id="L83">                new CcapiSettingAccess(snapshot.endpoints()),</span>
+<span class="fc" id="L84">                snapshot.capabilities(),</span>
+                request);
+    }
+
+    private CapabilitySnapshot readCapabilitySnapshot() {
+<span class="fc" id="L89">        Map&lt;FocusBracketingSettingsTransaction.Setting, SettingEndpoint&gt; endpoints =</span>
+<span class="fc" id="L90">                resolveSettingEndpoints();</span>
+
+<span class="fc" id="L92">        BooleanSettingResponse enabled = readBooleanCapability(</span>
+<span class="fc" id="L93">                endpoints.get(FocusBracketingSettingsTransaction.Setting.ENABLED));</span>
+<span class="fc" id="L94">        IntegerSettingResponse numberOfShots = readIntegerCapability(</span>
+<span class="fc" id="L95">                endpoints.get(FocusBracketingSettingsTransaction.Setting.NUMBER_OF_SHOTS));</span>
+<span class="fc" id="L96">        IntegerSettingResponse focusIncrement = readIntegerCapability(</span>
+<span class="fc" id="L97">                endpoints.get(FocusBracketingSettingsTransaction.Setting.FOCUS_INCREMENT));</span>
+<span class="fc" id="L98">        BooleanSettingResponse exposureSmoothing = readBooleanCapability(</span>
+<span class="fc" id="L99">                endpoints.get(FocusBracketingSettingsTransaction.Setting.EXPOSURE_SMOOTHING));</span>
+<span class="fc" id="L100">        BooleanSettingResponse depthComposition = readBooleanCapability(</span>
+<span class="fc" id="L101">                endpoints.get(FocusBracketingSettingsTransaction.Setting.DEPTH_COMPOSITION));</span>
+<span class="fc" id="L102">        BooleanSettingResponse cropDepthComposition = readBooleanCapability(</span>
+<span class="fc" id="L103">                endpoints.get(FocusBracketingSettingsTransaction.Setting.CROP_DEPTH_COMPOSITION));</span>
+
+<span class="fc" id="L105">        boolean depthCompositionSupported = supportsBooleanToggle(depthComposition);</span>
+<span class="fc" id="L106">        boolean cropDepthCompositionSupported = supportsBooleanToggle(cropDepthComposition);</span>
+<span class="pc bpc" id="L107" title="3 of 4 branches missed.">        if (cropDepthCompositionSupported &amp;&amp; !depthCompositionSupported) {</span>
+<span class="nc" id="L108">            throw new CameraException(</span>
+                    &quot;CCAPI advertised crop depth composition without usable depth composition&quot;);
+        }
+
+<span class="fc" id="L112">        NativeFocusBracketingCapabilities capabilities =</span>
+                new NativeFocusBracketingCapabilities(
+<span class="fc" id="L114">                        supportsBooleanToggle(enabled),</span>
+<span class="fc" id="L115">                        integerRange(numberOfShots, &quot;number of shots&quot;),</span>
+<span class="fc" id="L116">                        integerRange(focusIncrement, &quot;focus increment&quot;),</span>
+<span class="fc" id="L117">                        supportsBooleanToggle(exposureSmoothing),</span>
+                        depthCompositionSupported,
+                        cropDepthCompositionSupported);
+<span class="fc" id="L120">        return new CapabilitySnapshot(capabilities, endpoints);</span>
+    }
+
+    private Map&lt;FocusBracketingSettingsTransaction.Setting, SettingEndpoint&gt;
+    resolveSettingEndpoints() {
+<span class="fc" id="L125">        Map&lt;String, String&gt; advertisedEndpoints = getDiscoveredEndpoints();</span>
+<span class="fc" id="L126">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; advertisedMethods = getDiscoveredEndpointMethods();</span>
+<span class="fc" id="L127">        EnumMap&lt;FocusBracketingSettingsTransaction.Setting, SettingEndpoint&gt; resolved =</span>
+                new EnumMap&lt;&gt;(FocusBracketingSettingsTransaction.Setting.class);
+
+<span class="fc bfc" id="L130" title="All 2 branches covered.">        for (Map.Entry&lt;String, String&gt; advertised : advertisedEndpoints.entrySet()) {</span>
+<span class="fc" id="L131">            Set&lt;HttpMethod&gt; methods = advertisedMethods.get(advertised.getKey());</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">            if (methods == null</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                    || !methods.contains(HttpMethod.GET)</span>
+<span class="fc bfc" id="L134" title="All 2 branches covered.">                    || !methods.contains(HttpMethod.PUT)) {</span>
+<span class="fc" id="L135">                continue;</span>
+            }
+<span class="fc" id="L137">            String path = endpointPath(advertised.getValue());</span>
+<span class="fc" id="L138">            String operationPath = operationPath(path);</span>
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">            if (operationPath == null) {</span>
+<span class="nc" id="L140">                continue;</span>
+            }
+            for (FocusBracketingSettingsTransaction.Setting setting
+<span class="fc bfc" id="L143" title="All 2 branches covered.">                    : FocusBracketingSettingsTransaction.Setting.values()) {</span>
+<span class="fc" id="L144">                String suffix = suffix(setting);</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">                if (!operationPath.equals(suffix)) {</span>
+<span class="fc" id="L146">                    continue;</span>
+                }
+<span class="fc" id="L148">                SettingEndpoint candidate = new SettingEndpoint(</span>
+                        setting,
+                        suffix,
+<span class="fc" id="L151">                        advertised.getValue(),</span>
+<span class="fc" id="L152">                        versionNumber(path));</span>
+<span class="fc" id="L153">                SettingEndpoint current = resolved.get(setting);</span>
+<span class="pc bpc" id="L154" title="3 of 4 branches missed.">                if (current == null || candidate.versionNumber() &gt; current.versionNumber()) {</span>
+<span class="fc" id="L155">                    resolved.put(setting, candidate);</span>
+                }
+            }
+<span class="fc" id="L158">        }</span>
+<span class="fc" id="L159">        return Map.copyOf(resolved);</span>
+    }
+
+    private BooleanSettingResponse readBooleanCapability(SettingEndpoint endpoint) {
+<span class="fc bfc" id="L163" title="All 2 branches covered.">        return endpoint == null ? null : get(endpoint, BooleanSettingResponse.class);</span>
+    }
+
+    private IntegerSettingResponse readIntegerCapability(SettingEndpoint endpoint) {
+<span class="fc bfc" id="L167" title="All 2 branches covered.">        return endpoint == null ? null : get(endpoint, IntegerSettingResponse.class);</span>
+    }
+
+    private &lt;T&gt; T get(SettingEndpoint endpoint, Class&lt;T&gt; responseType) {
+        try {
+<span class="fc" id="L172">            T response = restTemplate.getForObject(endpoint.url(), responseType);</span>
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">            if (response == null) {</span>
+<span class="nc" id="L174">                throw new CameraException(&quot;CCAPI returned an empty response for &quot; + endpoint.suffix());</span>
+            }
+<span class="fc" id="L176">            return response;</span>
+<span class="nc" id="L177">        } catch (CameraException exception) {</span>
+<span class="nc" id="L178">            throw exception;</span>
+<span class="nc" id="L179">        } catch (RestClientException exception) {</span>
+<span class="nc" id="L180">            throw new CameraException(</span>
+<span class="nc" id="L181">                    &quot;Could not read native focus-bracketing setting &quot; + endpoint.suffix(),</span>
+                    exception);
+        }
+    }
+
+    private static boolean supportsBooleanToggle(BooleanSettingResponse response) {
+<span class="pc bpc" id="L187" title="1 of 4 branches missed.">        if (response == null || response.ability() == null) {</span>
+<span class="fc" id="L188">            return false;</span>
+        }
+<span class="fc" id="L190">        Set&lt;String&gt; ability = response.ability().stream()</span>
+<span class="fc" id="L191">                .filter(Objects::nonNull)</span>
+<span class="fc" id="L192">                .map(CanonCcapiNativeFocusBracketingBackend::normalizeToken)</span>
+<span class="fc" id="L193">                .collect(java.util.stream.Collectors.toUnmodifiableSet());</span>
+<span class="pc bpc" id="L194" title="2 of 4 branches missed.">        return ability.contains(&quot;enable&quot;) &amp;&amp; ability.contains(&quot;disable&quot;);</span>
+    }
+
+    private static Optional&lt;IntegerSettingRange&gt; integerRange(
+            IntegerSettingResponse response,
+            String settingName) {
+<span class="fc bfc" id="L200" title="All 2 branches covered.">        if (response == null) {</span>
+<span class="fc" id="L201">            return Optional.empty();</span>
+        }
+<span class="fc" id="L203">        RangeAbility ability = response.ability();</span>
+<span class="pc bpc" id="L204" title="2 of 4 branches missed.">        if (ability == null || ability.min() == null</span>
+<span class="pc bpc" id="L205" title="2 of 4 branches missed.">                || ability.max() == null || ability.step() == null) {</span>
+<span class="nc" id="L206">            throw new CameraException(</span>
+                    &quot;CCAPI returned an incomplete ability range for &quot; + settingName);
+        }
+        try {
+<span class="fc" id="L210">            return Optional.of(new IntegerSettingRange(</span>
+<span class="fc" id="L211">                    ability.min(), ability.max(), ability.step()));</span>
+<span class="nc" id="L212">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L213">            throw new CameraException(</span>
+                    &quot;CCAPI returned an invalid ability range for &quot; + settingName,
+                    exception);
+        }
+    }
+
+    private final class CcapiSettingAccess
+            implements FocusBracketingSettingsTransaction.SettingAccess {
+
+        private final Map&lt;FocusBracketingSettingsTransaction.Setting, SettingEndpoint&gt; endpoints;
+
+        private CcapiSettingAccess(
+<span class="fc" id="L225">                Map&lt;FocusBracketingSettingsTransaction.Setting, SettingEndpoint&gt; endpoints) {</span>
+<span class="fc" id="L226">            this.endpoints = Map.copyOf(endpoints);</span>
+<span class="fc" id="L227">        }</span>
+
+        @Override
+        public boolean supports(FocusBracketingSettingsTransaction.Setting setting) {
+<span class="fc" id="L231">            return endpoints.containsKey(setting);</span>
+        }
+
+        @Override
+        public Object read(FocusBracketingSettingsTransaction.Setting setting) {
+<span class="fc" id="L236">            SettingEndpoint endpoint = requireEndpoint(setting);</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">            return switch (setting) {</span>
+                case ENABLED, EXPOSURE_SMOOTHING, DEPTH_COMPOSITION,
+<span class="fc" id="L239">                        CROP_DEPTH_COMPOSITION -&gt; readBooleanValue(endpoint);</span>
+<span class="fc" id="L240">                case NUMBER_OF_SHOTS, FOCUS_INCREMENT -&gt; readIntegerValue(endpoint);</span>
+            };
+        }
+
+        @Override
+        public void write(FocusBracketingSettingsTransaction.Setting setting, Object value) {
+<span class="fc" id="L246">            SettingEndpoint endpoint = requireEndpoint(setting);</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">            Object wireValue = switch (setting) {</span>
+                case ENABLED, EXPOSURE_SMOOTHING, DEPTH_COMPOSITION,
+<span class="fc bfc" id="L249" title="All 2 branches covered.">                        CROP_DEPTH_COMPOSITION -&gt; ((Boolean) value) ? &quot;enable&quot; : &quot;disable&quot;;</span>
+<span class="fc" id="L250">                case NUMBER_OF_SHOTS, FOCUS_INCREMENT -&gt; (Integer) value;</span>
+            };
+<span class="fc" id="L252">            putWithDeviceBusyRetry(endpoint, wireValue);</span>
+<span class="fc" id="L253">        }</span>
+
+        private SettingEndpoint requireEndpoint(
+                FocusBracketingSettingsTransaction.Setting setting) {
+<span class="fc" id="L257">            SettingEndpoint endpoint = endpoints.get(setting);</span>
+<span class="pc bpc" id="L258" title="1 of 2 branches missed.">            if (endpoint == null) {</span>
+<span class="nc" id="L259">                throw new IllegalStateException(</span>
+                        &quot;No exact readable/writable CCAPI endpoint for &quot; + setting);
+            }
+<span class="fc" id="L262">            return endpoint;</span>
+        }
+    }
+
+    private boolean readBooleanValue(SettingEndpoint endpoint) {
+<span class="fc" id="L267">        BooleanSettingResponse response = get(endpoint, BooleanSettingResponse.class);</span>
+<span class="fc" id="L268">        String normalized = normalizeToken(response.value());</span>
+<span class="pc bpc" id="L269" title="2 of 3 branches missed.">        return switch (normalized) {</span>
+<span class="nc" id="L270">            case &quot;enable&quot; -&gt; true;</span>
+<span class="fc" id="L271">            case &quot;disable&quot; -&gt; false;</span>
+<span class="nc" id="L272">            default -&gt; throw new CameraException(</span>
+                    &quot;CCAPI returned invalid boolean setting value '&quot;
+<span class="nc" id="L274">                            + response.value() + &quot;' for &quot; + endpoint.suffix());</span>
+        };
+    }
+
+    private int readIntegerValue(SettingEndpoint endpoint) {
+<span class="fc" id="L279">        IntegerSettingResponse response = get(endpoint, IntegerSettingResponse.class);</span>
+<span class="pc bpc" id="L280" title="1 of 2 branches missed.">        if (response.value() == null) {</span>
+<span class="nc" id="L281">            throw new CameraException(</span>
+<span class="nc" id="L282">                    &quot;CCAPI returned no integer setting value for &quot; + endpoint.suffix());</span>
+        }
+<span class="fc" id="L284">        return response.value();</span>
+    }
+
+    private void putWithDeviceBusyRetry(SettingEndpoint endpoint, Object value) {
+<span class="fc" id="L288">        long backoffMs = deviceBusyInitialBackoffMs;</span>
+<span class="fc" id="L289">        for (int attempt = 0; ; attempt++) {</span>
+            try {
+<span class="fc" id="L291">                restTemplate.exchange(</span>
+<span class="fc" id="L292">                        endpoint.url(),</span>
+                        HttpMethod.PUT,
+<span class="fc" id="L294">                        ccapiEntity(Map.of(&quot;value&quot;, value)),</span>
+                        String.class);
+<span class="fc" id="L296">                return;</span>
+<span class="fc" id="L297">            } catch (HttpServerErrorException.ServiceUnavailable exception) {</span>
+<span class="fc" id="L298">                String body = exception.getResponseBodyAsString();</span>
+<span class="pc bpc" id="L299" title="2 of 4 branches missed.">                boolean deviceBusy = body != null &amp;&amp; body.contains(&quot;Device busy&quot;);</span>
+<span class="pc bpc" id="L300" title="2 of 4 branches missed.">                if (!deviceBusy || attempt &gt;= deviceBusyMaxRetries) {</span>
+<span class="nc" id="L301">                    throw unavailableSetting(endpoint, body, exception);</span>
+                }
+<span class="fc" id="L303">                sleepBeforeRetry(endpoint, backoffMs, attempt + 1);</span>
+<span class="fc" id="L304">                backoffMs = Math.min(backoffMs * 2L, 5_000L);</span>
+<span class="nc" id="L305">            } catch (RestClientException exception) {</span>
+<span class="nc" id="L306">                throw new CameraException(</span>
+                        &quot;Could not update native focus-bracketing setting &quot;
+<span class="nc" id="L308">                                + endpoint.suffix(),</span>
+                        exception);
+<span class="fc" id="L310">            }</span>
+        }
+    }
+
+    private static CameraException unavailableSetting(
+            SettingEndpoint endpoint,
+            String responseBody,
+            RestClientException cause) {
+        String reason;
+<span class="nc bnc" id="L319" title="All 4 branches missed.">        if (responseBody != null &amp;&amp; responseBody.contains(&quot;During shooting or recording&quot;)) {</span>
+<span class="nc" id="L320">            reason = &quot;during shooting or recording&quot;;</span>
+<span class="nc bnc" id="L321" title="All 4 branches missed.">        } else if (responseBody != null &amp;&amp; responseBody.contains(&quot;Mode not supported&quot;)) {</span>
+<span class="nc" id="L322">            reason = &quot;mode not supported&quot;;</span>
+<span class="nc bnc" id="L323" title="All 4 branches missed.">        } else if (responseBody != null &amp;&amp; responseBody.contains(&quot;Device busy&quot;)) {</span>
+<span class="nc" id="L324">            reason = &quot;device busy after bounded retries&quot;;</span>
+        } else {
+<span class="nc" id="L326">            reason = &quot;temporarily unavailable&quot;;</span>
+        }
+<span class="nc" id="L328">        return new CameraException(</span>
+<span class="nc" id="L329">                &quot;Native focus-bracketing setting &quot; + endpoint.suffix() + &quot; is &quot; + reason,</span>
+                cause);
+    }
+
+    private static void sleepBeforeRetry(
+            SettingEndpoint endpoint,
+            long backoffMs,
+            int attempt) {
+<span class="pc bpc" id="L337" title="1 of 2 branches missed.">        if (backoffMs &lt;= 0L) {</span>
+<span class="fc" id="L338">            return;</span>
+        }
+        try {
+<span class="nc" id="L341">            Thread.sleep(backoffMs);</span>
+<span class="nc" id="L342">        } catch (InterruptedException exception) {</span>
+<span class="nc" id="L343">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L344">            throw new CameraException(</span>
+                    &quot;Interrupted while retrying native focus-bracketing setting &quot;
+<span class="nc" id="L346">                            + endpoint.suffix() + &quot; (attempt &quot; + attempt + &quot;)&quot;,</span>
+                    exception);
+<span class="nc" id="L348">        }</span>
+<span class="nc" id="L349">    }</span>
+
+    private static String suffix(FocusBracketingSettingsTransaction.Setting setting) {
+<span class="fc bfc" id="L352" title="All 6 branches covered.">        return switch (setting) {</span>
+<span class="fc" id="L353">            case ENABLED -&gt; &quot;/shooting/settings/focusbracketing&quot;;</span>
+<span class="fc" id="L354">            case NUMBER_OF_SHOTS -&gt; &quot;/shooting/settings/focusbracketing/numberofshots&quot;;</span>
+<span class="fc" id="L355">            case FOCUS_INCREMENT -&gt; &quot;/shooting/settings/focusbracketing/focusincrement&quot;;</span>
+<span class="fc" id="L356">            case EXPOSURE_SMOOTHING -&gt; &quot;/shooting/settings/focusbracketing/exposuresmoothing&quot;;</span>
+<span class="fc" id="L357">            case DEPTH_COMPOSITION -&gt; &quot;/shooting/settings/focusbracketing/depthcomposite&quot;;</span>
+<span class="fc" id="L358">            case CROP_DEPTH_COMPOSITION -&gt; &quot;/shooting/settings/focusbracketing/cropdepthcomp&quot;;</span>
+        };
+    }
+
+    private static String endpointPath(String endpoint) {
+        try {
+<span class="fc" id="L364">            return URI.create(endpoint).getPath();</span>
+<span class="nc" id="L365">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L366">            return null;</span>
+        }
+    }
+
+    private static String operationPath(String path) {
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">        if (path == null) {</span>
+<span class="nc" id="L372">            return null;</span>
+        }
+<span class="fc" id="L374">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
+<span class="pc bpc" id="L375" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
+<span class="nc" id="L376">            return null;</span>
+        }
+<span class="fc" id="L378">        String operation = path.substring(matcher.end());</span>
+<span class="pc bpc" id="L379" title="1 of 2 branches missed.">        return operation.isEmpty() ? &quot;/&quot; : &quot;/&quot; + operation;</span>
+    }
+
+    private static int versionNumber(String path) {
+<span class="fc" id="L383">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
+<span class="pc bpc" id="L384" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
+<span class="nc" id="L385">            return -1;</span>
+        }
+        try {
+<span class="fc" id="L388">            return Integer.parseInt(matcher.group(1));</span>
+<span class="nc" id="L389">        } catch (NumberFormatException exception) {</span>
+<span class="nc" id="L390">            return -1;</span>
+        }
+    }
+
+    private static String normalizeToken(String value) {
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">        return value == null ? &quot;&quot; : value.trim().toLowerCase(Locale.ROOT);</span>
+    }
+
+<span class="fc" id="L398">    private record CapabilitySnapshot(</span>
+            NativeFocusBracketingCapabilities capabilities,
+            Map&lt;FocusBracketingSettingsTransaction.Setting, SettingEndpoint&gt; endpoints) {
+    }
+
+<span class="fc" id="L403">    private record SettingEndpoint(</span>
+            FocusBracketingSettingsTransaction.Setting setting,
+            String suffix,
+            String url,
+            int versionNumber) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+<span class="fc" id="L411">    record BooleanSettingResponse(</span>
+            @JsonProperty(&quot;value&quot;) String value,
+            @JsonProperty(&quot;ability&quot;) List&lt;String&gt; ability) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+<span class="fc" id="L417">    record IntegerSettingResponse(</span>
+            @JsonProperty(&quot;value&quot;) Integer value,
+            @JsonProperty(&quot;ability&quot;) RangeAbility ability) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+<span class="fc" id="L423">    record RangeAbility(</span>
+            @JsonProperty(&quot;min&quot;) Integer min,
+            @JsonProperty(&quot;max&quot;) Integer max,
+            @JsonProperty(&quot;step&quot;) Integer step) {
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

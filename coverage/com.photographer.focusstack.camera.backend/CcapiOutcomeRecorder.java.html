@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiOutcomeRecorder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiOutcomeRecorder.java</span></div><h1>CcapiOutcomeRecorder.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.camera.exception.CameraOperationException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.stereotype.Component;
+
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Objects;
+
+/** Records CCAPI outcomes using one bounded, secret-free outcome tag. */
+@Component
+final class CcapiOutcomeRecorder {
+
+    static final String METER_NAME = &quot;camera.ccapi.outcomes&quot;;
+
+<span class="fc" id="L18">    enum Outcome {</span>
+<span class="fc" id="L19">        AUTH_CHALLENGE,</span>
+<span class="fc" id="L20">        AUTH_SUCCESS_AFTER_CHALLENGE,</span>
+<span class="fc" id="L21">        AUTH_FINAL_FAILURE,</span>
+<span class="fc" id="L22">        ENDPOINT_NOT_FOUND,</span>
+<span class="fc" id="L23">        METHOD_NOT_ALLOWED,</span>
+<span class="fc" id="L24">        DEVICE_BUSY,</span>
+<span class="fc" id="L25">        DURING_SHOOTING_OR_RECORDING,</span>
+<span class="fc" id="L26">        TAKEN_IN_PREPARATION,</span>
+<span class="fc" id="L27">        MODE_NOT_SUPPORTED,</span>
+<span class="fc" id="L28">        LIVE_VIEW_NOT_STARTED,</span>
+<span class="fc" id="L29">        ALREADY_STARTED,</span>
+<span class="fc" id="L30">        OUT_OF_FOCUS,</span>
+<span class="fc" id="L31">        CANNOT_WRITE_TO_CARD,</span>
+<span class="fc" id="L32">        NOT_STARTED,</span>
+<span class="fc" id="L33">        SERVICE_UNAVAILABLE,</span>
+<span class="fc" id="L34">        CAMERA_REJECTED,</span>
+<span class="fc" id="L35">        CANCELLED,</span>
+<span class="fc" id="L36">        TIMEOUT,</span>
+<span class="fc" id="L37">        CONNECTION_FAILED</span>
+    }
+
+    private final Map&lt;Outcome, Counter&gt; counters;
+
+<span class="fc" id="L42">    CcapiOutcomeRecorder(MeterRegistry registry) {</span>
+<span class="fc" id="L43">        Objects.requireNonNull(registry, &quot;registry&quot;);</span>
+<span class="fc" id="L44">        EnumMap&lt;Outcome, Counter&gt; created = new EnumMap&lt;&gt;(Outcome.class);</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        for (Outcome outcome : Outcome.values()) {</span>
+<span class="fc" id="L46">            created.put(outcome, Counter.builder(METER_NAME)</span>
+<span class="fc" id="L47">                    .description(&quot;Sanitized Canon CCAPI transport outcomes&quot;)</span>
+<span class="fc" id="L48">                    .tag(&quot;outcome&quot;, outcome.name().toLowerCase(java.util.Locale.ROOT))</span>
+<span class="fc" id="L49">                    .register(registry));</span>
+        }
+<span class="fc" id="L51">        counters = Map.copyOf(created);</span>
+<span class="fc" id="L52">    }</span>
+
+    void record(Outcome outcome) {
+<span class="fc" id="L55">        counters.get(Objects.requireNonNull(outcome, &quot;outcome&quot;)).increment();</span>
+<span class="fc" id="L56">    }</span>
+
+    void record(CameraOperationException.Reason reason) {
+<span class="pc bpc" id="L59" title="1 of 16 branches missed.">        record(switch (Objects.requireNonNull(reason, &quot;reason&quot;)) {</span>
+<span class="fc" id="L60">            case ENDPOINT_NOT_FOUND -&gt; Outcome.ENDPOINT_NOT_FOUND;</span>
+<span class="fc" id="L61">            case METHOD_NOT_ALLOWED -&gt; Outcome.METHOD_NOT_ALLOWED;</span>
+<span class="fc" id="L62">            case DEVICE_BUSY -&gt; Outcome.DEVICE_BUSY;</span>
+<span class="fc" id="L63">            case DURING_SHOOTING_OR_RECORDING -&gt; Outcome.DURING_SHOOTING_OR_RECORDING;</span>
+<span class="fc" id="L64">            case TAKEN_IN_PREPARATION -&gt; Outcome.TAKEN_IN_PREPARATION;</span>
+<span class="fc" id="L65">            case MODE_NOT_SUPPORTED -&gt; Outcome.MODE_NOT_SUPPORTED;</span>
+<span class="fc" id="L66">            case LIVE_VIEW_NOT_STARTED -&gt; Outcome.LIVE_VIEW_NOT_STARTED;</span>
+<span class="fc" id="L67">            case ALREADY_STARTED -&gt; Outcome.ALREADY_STARTED;</span>
+<span class="fc" id="L68">            case OUT_OF_FOCUS -&gt; Outcome.OUT_OF_FOCUS;</span>
+<span class="fc" id="L69">            case CANNOT_WRITE_TO_CARD -&gt; Outcome.CANNOT_WRITE_TO_CARD;</span>
+<span class="fc" id="L70">            case NOT_STARTED -&gt; Outcome.NOT_STARTED;</span>
+<span class="fc" id="L71">            case SERVICE_UNAVAILABLE -&gt; Outcome.SERVICE_UNAVAILABLE;</span>
+<span class="nc" id="L72">            case CAMERA_REJECTED -&gt; Outcome.CAMERA_REJECTED;</span>
+<span class="fc" id="L73">            case CANCELLED -&gt; Outcome.CANCELLED;</span>
+<span class="fc" id="L74">            case TIMEOUT -&gt; Outcome.TIMEOUT;</span>
+<span class="fc" id="L75">            case CONNECTION_FAILED -&gt; Outcome.CONNECTION_FAILED;</span>
+        });
+<span class="fc" id="L77">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

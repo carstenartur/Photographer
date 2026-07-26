@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiSsdpCodec.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.discovery</a> &gt; <span class="el_source">CcapiSsdpCodec.java</span></div><h1>CcapiSsdpCodec.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.discovery;
+
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+
+/** Builds and parses the SSDP messages used by Canon CCAPI discovery. */
+public final class CcapiSsdpCodec {
+
+    public static final String SERVICE_TYPE =
+            &quot;urn:schemas-canon-com:service:ICPO-CameraControlAPIService:1&quot;;
+    private static final String SERVICE_TOKEN = &quot;icpo-cameracontrolapiservice:1&quot;;
+
+    private CcapiSsdpCodec() {
+    }
+
+    public static byte[] mSearchRequest(CcapiAddressFamily family) {
+<span class="fc" id="L20">        String request = &quot;M-SEARCH * HTTP/1.1\r\n&quot;</span>
+<span class="fc" id="L21">                + &quot;HOST: &quot; + family.hostHeader() + &quot;\r\n&quot;</span>
+                + &quot;MAN: \&quot;ssdp:discover\&quot;\r\n&quot;
+                + &quot;MX: 1\r\n&quot;
+                + &quot;ST: &quot; + SERVICE_TYPE + &quot;\r\n&quot;
+                + &quot;\r\n&quot;;
+<span class="fc" id="L26">        return request.getBytes(StandardCharsets.US_ASCII);</span>
+    }
+
+    public static Optional&lt;CcapiSsdpMessage&gt; parse(byte[] packet, int length) {
+<span class="pc bpc" id="L30" title="2 of 6 branches missed.">        if (packet == null || length &lt;= 0 || length &gt; packet.length) {</span>
+<span class="fc" id="L31">            return Optional.empty();</span>
+        }
+<span class="fc" id="L33">        return parse(new String(packet, 0, length, StandardCharsets.ISO_8859_1));</span>
+    }
+
+    public static Optional&lt;CcapiSsdpMessage&gt; parse(String packet) {
+<span class="pc bpc" id="L37" title="2 of 4 branches missed.">        if (packet == null || packet.isBlank()) {</span>
+<span class="nc" id="L38">            return Optional.empty();</span>
+        }
+<span class="fc" id="L40">        String[] lines = packet.replace(&quot;\r\n&quot;, &quot;\n&quot;).split(&quot;\n&quot;);</span>
+<span class="pc bpc" id="L41" title="2 of 4 branches missed.">        if (lines.length == 0 || lines[0].isBlank()) {</span>
+<span class="nc" id="L42">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L45">        String startLine = lines[0].trim();</span>
+<span class="fc" id="L46">        boolean response = startLine.regionMatches(true, 0, &quot;HTTP/1.1 200&quot;, 0, 12);</span>
+<span class="fc" id="L47">        boolean advertisement = startLine.regionMatches(true, 0, &quot;NOTIFY * HTTP/1.1&quot;, 0, 17);</span>
+<span class="fc bfc" id="L48" title="All 4 branches covered.">        if (!response &amp;&amp; !advertisement) {</span>
+<span class="fc" id="L49">            return Optional.empty();</span>
+        }
+
+<span class="fc" id="L52">        Map&lt;String, String&gt; headers = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L53" title="All 2 branches covered.">        for (int index = 1; index &lt; lines.length; index++) {</span>
+<span class="fc" id="L54">            String line = lines[index];</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">            if (line.isBlank()) {</span>
+<span class="nc" id="L56">                break;</span>
+            }
+<span class="fc" id="L58">            int separator = line.indexOf(':');</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">            if (separator &lt;= 0) {</span>
+<span class="nc" id="L60">                continue;</span>
+            }
+<span class="fc" id="L62">            String name = line.substring(0, separator).trim();</span>
+<span class="fc" id="L63">            String value = line.substring(separator + 1).trim();</span>
+<span class="pc" id="L64">            headers.merge(name, value, (first, second) -&gt; first + &quot;,&quot; + second);</span>
+        }
+<span class="fc" id="L66">        return Optional.of(new CcapiSsdpMessage(startLine, headers));</span>
+    }
+
+    static boolean isCanonCcapiService(String value) {
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">        return value != null</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">                &amp;&amp; value.toLowerCase(Locale.ROOT).contains(SERVICE_TOKEN);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

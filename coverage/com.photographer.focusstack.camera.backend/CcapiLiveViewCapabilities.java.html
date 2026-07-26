@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiLiveViewCapabilities.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiLiveViewCapabilities.java</span></div><h1>CcapiLiveViewCapabilities.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
+import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
+
+/** Adds vendor-neutral live-view diagnostics not represented by the base snapshot. */
+final class CcapiLiveViewCapabilities {
+
+    private static final String SCROLL_SUFFIX = &quot;/shooting/liveview/scroll&quot;;
+<span class="fc" id="L17">    private static final Set&lt;String&gt; SCROLL_METHODS = Set.of(&quot;GET&quot;, &quot;DELETE&quot;);</span>
+
+    private CcapiLiveViewCapabilities() {
+    }
+
+    static CameraCapabilitySnapshot.Capability scroll(
+            CameraCapabilitySnapshot snapshot) {
+<span class="fc" id="L24">        List&lt;CameraCapabilitySnapshot.Endpoint&gt; advertised = snapshot.advertisedEndpoints().stream()</span>
+<span class="fc" id="L25">                .filter(endpoint -&gt; endpoint.path().endsWith(SCROLL_SUFFIX))</span>
+<span class="fc" id="L26">                .toList();</span>
+<span class="fc bfc" id="L27" title="All 2 branches covered.">        if (advertised.isEmpty()) {</span>
+<span class="fc" id="L28">            return new CameraCapabilitySnapshot.Capability(</span>
+                    &quot;live-view-scroll&quot;,
+                    false,
+                    true,
+                    UNSUPPORTED,
+                    SCROLL_METHODS,
+<span class="fc" id="L34">                    Set.of(),</span>
+                    false,
+                    &quot;ENDPOINT_NOT_ADVERTISED&quot;);
+        }
+
+<span class="fc" id="L39">        CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()</span>
+<span class="fc" id="L40">                .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)</span>
+<span class="fc" id="L41">                .filter(endpoint -&gt; endpoint.methods().containsAll(SCROLL_METHODS))</span>
+<span class="fc" id="L42">                .max(Comparator.comparingInt(CcapiLiveViewCapabilities::versionNumber)</span>
+<span class="fc" id="L43">                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))</span>
+<span class="fc" id="L44">                .orElse(null);</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if (compatible != null) {</span>
+<span class="fc" id="L46">            return new CameraCapabilitySnapshot.Capability(</span>
+                    &quot;live-view-scroll&quot;,
+                    true,
+                    true,
+                    AVAILABLE,
+                    SCROLL_METHODS,
+<span class="fc" id="L52">                    compatible.methods(),</span>
+                    true,
+                    null);
+        }
+
+<span class="nc" id="L57">        CameraCapabilitySnapshot.Endpoint highest = advertised.stream()</span>
+<span class="nc" id="L58">                .max(Comparator.comparingInt(CcapiLiveViewCapabilities::versionNumber)</span>
+<span class="nc" id="L59">                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))</span>
+<span class="nc" id="L60">                .orElseThrow();</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (!highest.methodMetadataKnown()) {</span>
+<span class="nc" id="L62">            return new CameraCapabilitySnapshot.Capability(</span>
+                    &quot;live-view-scroll&quot;,
+                    true,
+                    true,
+                    METHOD_METADATA_UNKNOWN,
+                    SCROLL_METHODS,
+<span class="nc" id="L68">                    Set.of(),</span>
+                    false,
+                    &quot;METHOD_METADATA_NOT_ADVERTISED&quot;);
+        }
+<span class="nc" id="L72">        return new CameraCapabilitySnapshot.Capability(</span>
+                &quot;live-view-scroll&quot;,
+                true,
+                true,
+                UNSUPPORTED,
+                SCROLL_METHODS,
+<span class="nc" id="L78">                highest.methods(),</span>
+                true,
+                &quot;METHOD_NOT_ADVERTISED&quot;);
+    }
+
+    private static int versionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
+<span class="nc" id="L84">        String version = endpoint.version();</span>
+<span class="nc bnc" id="L85" title="All 4 branches missed.">        if (version == null || !version.startsWith(&quot;ver&quot;)) {</span>
+<span class="nc" id="L86">            return -1;</span>
+        }
+        try {
+<span class="nc" id="L89">            return Integer.parseInt(version.substring(3));</span>
+<span class="nc" id="L90">        } catch (NumberFormatException ignored) {</span>
+<span class="nc" id="L91">            return -1;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

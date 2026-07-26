@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DirectCameraControlExecutor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.service</a> &gt; <span class="el_source">DirectCameraControlExecutor.java</span></div><h1>DirectCameraControlExecutor.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.service;
+
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.session.CameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.CameraLeaseRequest;
+import com.photographer.focusstack.camera.session.CameraSessionLease;
+import com.photographer.focusstack.camera.session.CameraSessionLeaseManager;
+import com.photographer.focusstack.camera.session.CameraWorkflowType;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.model.CameraProfile;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+/**
+ * Executes one synchronous camera-control or profile-maintenance operation while
+ * holding exclusive logical ownership of the selected CCAPI origin.
+ *
+ * &lt;p&gt;The lease is acquired from the existing profile before backend resolution,
+ * cache eviction or profile mutation. A conflicting workflow therefore prevents
+ * the request from contacting or closing the camera transport.&lt;/p&gt;
+ */
+@Service
+public final class DirectCameraControlExecutor {
+
+    private final CameraProfileService profileService;
+    private final CameraBackendFactory backendFactory;
+    private final CameraSessionLeaseManager leaseManager;
+    private final CameraLeaseIdentityProvider identityProvider;
+    private final Duration operationLifetime;
+
+    public DirectCameraControlExecutor(
+            CameraProfileService profileService,
+            CameraBackendFactory backendFactory,
+            CameraSessionLeaseManager leaseManager,
+            CameraLeaseIdentityProvider identityProvider,
+            @Value(&quot;${camera.session-lease.direct-control-lifetime:PT5M}&quot;)
+<span class="fc" id="L44">            Duration operationLifetime) {</span>
+<span class="fc" id="L45">        this.profileService = Objects.requireNonNull(profileService, &quot;profileService&quot;);</span>
+<span class="fc" id="L46">        this.backendFactory = Objects.requireNonNull(backendFactory, &quot;backendFactory&quot;);</span>
+<span class="fc" id="L47">        this.leaseManager = Objects.requireNonNull(leaseManager, &quot;leaseManager&quot;);</span>
+<span class="fc" id="L48">        this.identityProvider = Objects.requireNonNull(identityProvider, &quot;identityProvider&quot;);</span>
+<span class="pc bpc" id="L49" title="1 of 2 branches missed.">        if (operationLifetime == null</span>
+<span class="pc bpc" id="L50" title="1 of 2 branches missed.">                || operationLifetime.isZero()</span>
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">                || operationLifetime.isNegative()) {</span>
+<span class="nc" id="L52">            throw new IllegalArgumentException(&quot;operationLifetime must be positive&quot;);</span>
+        }
+<span class="fc" id="L54">        this.operationLifetime = operationLifetime;</span>
+<span class="fc" id="L55">    }</span>
+
+    public &lt;T&gt; T withBackend(
+            String profileId,
+            Function&lt;CameraBackend, T&gt; operation) {
+<span class="fc" id="L60">        Objects.requireNonNull(operation, &quot;operation&quot;);</span>
+<span class="fc" id="L61">        CameraProfile profile = profileService.getProfile(profileId);</span>
+<span class="fc" id="L62">        try (CameraSessionLease ignored = acquire(profile)) {</span>
+<span class="fc" id="L63">            return operation.apply(backendFactory.getBackend(profile));</span>
+        }
+    }
+
+    public void withBackendVoid(
+            String profileId,
+            Consumer&lt;CameraBackend&gt; operation) {
+<span class="nc" id="L70">        Objects.requireNonNull(operation, &quot;operation&quot;);</span>
+<span class="nc" id="L71">        withBackend(profileId, backend -&gt; {</span>
+<span class="nc" id="L72">            operation.accept(backend);</span>
+<span class="nc" id="L73">            return null;</span>
+        });
+<span class="nc" id="L75">    }</span>
+
+    /**
+     * Runs profile/cache maintenance under the existing camera identity without
+     * resolving a new backend or contacting the camera.
+     */
+    public &lt;T&gt; T withProfileLease(
+            String profileId,
+            Supplier&lt;T&gt; operation) {
+<span class="fc" id="L84">        Objects.requireNonNull(operation, &quot;operation&quot;);</span>
+<span class="fc" id="L85">        CameraProfile profile = profileService.getProfile(profileId);</span>
+<span class="fc" id="L86">        try (CameraSessionLease ignored = acquire(profile)) {</span>
+<span class="fc" id="L87">            return operation.get();</span>
+        }
+    }
+
+    public void withProfileLeaseVoid(String profileId, Runnable operation) {
+<span class="fc" id="L92">        Objects.requireNonNull(operation, &quot;operation&quot;);</span>
+<span class="fc" id="L93">        withProfileLease(profileId, () -&gt; {</span>
+<span class="fc" id="L94">            operation.run();</span>
+<span class="fc" id="L95">            return null;</span>
+        });
+<span class="fc" id="L97">    }</span>
+
+    private CameraSessionLease acquire(CameraProfile profile) {
+<span class="fc" id="L100">        return identityProvider.resolve(profile)</span>
+<span class="fc" id="L101">                .map(key -&gt; {</span>
+<span class="fc" id="L102">                    String requestId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L103">                    return leaseManager.acquire(new CameraLeaseRequest(</span>
+                            key,
+                            CameraWorkflowType.DIRECT_CONTROL,
+                            requestId,
+                            &quot;direct-control:&quot; + requestId,
+                            operationLifetime));
+                })
+<span class="fc" id="L110">                .orElseGet(CameraSessionLease::noop);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

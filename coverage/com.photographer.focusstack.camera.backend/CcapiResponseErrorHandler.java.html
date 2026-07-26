@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiResponseErrorHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiResponseErrorHandler.java</span></div><h1>CcapiResponseErrorHandler.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.photographer.focusstack.camera.exception.CameraAuthenticationException;
+import com.photographer.focusstack.camera.exception.CameraOperationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.web.client.DefaultResponseErrorHandler;
+import org.springframework.web.client.HttpServerErrorException;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.Objects;
+
+import static com.photographer.focusstack.camera.exception.CameraAuthenticationException.Reason.CREDENTIALS_REJECTED;
+import static com.photographer.focusstack.camera.exception.CameraAuthenticationException.Reason.CREDENTIALS_REQUIRED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ALREADY_STARTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CAMERA_REJECTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANNOT_WRITE_TO_CARD;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.DEVICE_BUSY;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.DURING_SHOOTING_OR_RECORDING;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ENDPOINT_NOT_FOUND;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.LIVE_VIEW_NOT_STARTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.MODE_NOT_SUPPORTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.NOT_STARTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.OUT_OF_FOCUS;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.SERVICE_UNAVAILABLE;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.TAKEN_IN_PREPARATION;
+
+/** Converts downstream CCAPI failures into typed messages without copying response data. */
+final class CcapiResponseErrorHandler extends DefaultResponseErrorHandler {
+
+    private static final int MAX_ERROR_BODY_BYTES = 4_096;
+<span class="fc" id="L41">    private static final ObjectMapper JSON = new ObjectMapper();</span>
+
+    private final String profileId;
+    private final boolean credentialsConfigured;
+    private final CcapiOutcomeRecorder outcomes;
+
+    CcapiResponseErrorHandler(
+            String profileId,
+            boolean credentialsConfigured,
+<span class="fc" id="L50">            CcapiOutcomeRecorder outcomes) {</span>
+<span class="fc" id="L51">        this.profileId = Objects.requireNonNull(profileId, &quot;profileId&quot;);</span>
+<span class="fc" id="L52">        this.credentialsConfigured = credentialsConfigured;</span>
+<span class="fc" id="L53">        this.outcomes = Objects.requireNonNull(outcomes, &quot;outcomes&quot;);</span>
+<span class="fc" id="L54">    }</span>
+
+    @Override
+    protected void handleError(
+            ClientHttpResponse response,
+            HttpStatusCode statusCode,
+            URI url,
+            HttpMethod method) throws IOException {
+<span class="fc" id="L62">        int status = statusCode.value();</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">        if (status == HttpStatus.UNAUTHORIZED.value()) {</span>
+<span class="fc" id="L64">            outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);</span>
+<span class="fc" id="L65">            throw new CameraAuthenticationException(</span>
+                    profileId,
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                    credentialsConfigured ? CREDENTIALS_REJECTED : CREDENTIALS_REQUIRED);</span>
+        }
+<span class="fc bfc" id="L69" title="All 2 branches covered.">        if (status == HttpStatus.NOT_FOUND.value()) {</span>
+<span class="fc" id="L70">            throw operation(ENDPOINT_NOT_FOUND, status);</span>
+        }
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (status == HttpStatus.METHOD_NOT_ALLOWED.value()) {</span>
+<span class="fc" id="L73">            throw operation(METHOD_NOT_ALLOWED, status);</span>
+        }
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">        if (status == HttpStatus.SERVICE_UNAVAILABLE.value()) {</span>
+<span class="fc" id="L76">            CameraOperationException.Reason reason = classifyUnavailable(readMessage(response));</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">            if (reason.retryable()) {</span>
+<span class="fc" id="L78">                throw retryableUnavailable(reason);</span>
+            }
+<span class="fc bfc" id="L80" title="All 2 branches covered.">            if (reason == LIVE_VIEW_NOT_STARTED) {</span>
+<span class="fc" id="L81">                throw correctiveUnavailable(reason, &quot;Live view not started&quot;);</span>
+            }
+<span class="fc" id="L83">            throw operation(reason, status);</span>
+        }
+<span class="nc" id="L85">        throw operation(CAMERA_REJECTED, status);</span>
+    }
+
+    private CameraOperationException operation(
+            CameraOperationException.Reason reason,
+            int status) {
+<span class="fc" id="L91">        outcomes.record(reason);</span>
+<span class="fc" id="L92">        return new CameraOperationException(profileId, reason, status);</span>
+    }
+
+    private HttpServerErrorException retryableUnavailable(
+            CameraOperationException.Reason reason) {
+        // Existing operation code performs bounded retry only for the documented
+        // Device-busy wire phrase. Keep that retry seam, but replace the camera body
+        // and headers with fixed safe values and retain the exact typed reason as cause.
+<span class="fc" id="L100">        return bridgedUnavailable(reason, &quot;Device busy&quot;);</span>
+    }
+
+    private HttpServerErrorException correctiveUnavailable(
+            CameraOperationException.Reason reason,
+            String safeMessage) {
+        // Live-view orchestration already has one explicit start-and-retry recovery.
+<span class="fc" id="L107">        return bridgedUnavailable(reason, safeMessage);</span>
+    }
+
+    private HttpServerErrorException bridgedUnavailable(
+            CameraOperationException.Reason reason,
+            String safeMessage) {
+<span class="fc" id="L113">        outcomes.record(reason);</span>
+<span class="fc" id="L114">        CameraOperationException typed = new CameraOperationException(</span>
+<span class="fc" id="L115">                profileId, reason, HttpStatus.SERVICE_UNAVAILABLE.value());</span>
+<span class="fc" id="L116">        HttpServerErrorException bridged = HttpServerErrorException.create(</span>
+                HttpStatus.SERVICE_UNAVAILABLE,
+<span class="fc" id="L118">                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),</span>
+                HttpHeaders.EMPTY,
+<span class="fc" id="L120">                safeMessage.getBytes(StandardCharsets.UTF_8),</span>
+                StandardCharsets.UTF_8);
+<span class="fc" id="L122">        bridged.initCause(typed);</span>
+<span class="fc" id="L123">        return bridged;</span>
+    }
+
+    private static CameraOperationException.Reason classifyUnavailable(String message) {
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        String normalized = message == null</span>
+<span class="fc" id="L128">                ? &quot;&quot;</span>
+<span class="fc" id="L129">                : message.trim().toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L130" title="All 10 branches covered.">        return switch (normalized) {</span>
+<span class="fc" id="L131">            case &quot;device busy&quot; -&gt; DEVICE_BUSY;</span>
+<span class="fc" id="L132">            case &quot;during shooting or recording&quot; -&gt; DURING_SHOOTING_OR_RECORDING;</span>
+<span class="fc" id="L133">            case &quot;mode not supported&quot; -&gt; MODE_NOT_SUPPORTED;</span>
+<span class="fc" id="L134">            case &quot;taken in preparation&quot; -&gt; TAKEN_IN_PREPARATION;</span>
+<span class="fc" id="L135">            case &quot;live view not started&quot; -&gt; LIVE_VIEW_NOT_STARTED;</span>
+<span class="fc" id="L136">            case &quot;already started&quot; -&gt; ALREADY_STARTED;</span>
+<span class="fc" id="L137">            case &quot;out of focus&quot; -&gt; OUT_OF_FOCUS;</span>
+<span class="fc" id="L138">            case &quot;can not write to card&quot;, &quot;cannot write to card&quot; -&gt; CANNOT_WRITE_TO_CARD;</span>
+<span class="fc" id="L139">            case &quot;not started&quot; -&gt; NOT_STARTED;</span>
+<span class="fc" id="L140">            default -&gt; SERVICE_UNAVAILABLE;</span>
+        };
+    }
+
+    private static String readMessage(ClientHttpResponse response) {
+        try {
+<span class="fc" id="L146">            byte[] bytes = response.getBody().readNBytes(MAX_ERROR_BODY_BYTES + 1);</span>
+<span class="fc bfc" id="L147" title="All 2 branches covered.">            if (bytes.length &gt; MAX_ERROR_BODY_BYTES) {</span>
+<span class="fc" id="L148">                return null;</span>
+            }
+<span class="fc" id="L150">            JsonNode root = JSON.readTree(new String(bytes, StandardCharsets.UTF_8));</span>
+<span class="pc bpc" id="L151" title="1 of 2 branches missed.">            JsonNode message = root == null ? null : root.get(&quot;message&quot;);</span>
+<span class="pc bpc" id="L152" title="2 of 4 branches missed.">            return message != null &amp;&amp; message.isTextual() ? message.textValue() : null;</span>
+<span class="nc" id="L153">        } catch (IOException | RuntimeException ignored) {</span>
+<span class="nc" id="L154">            return null;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

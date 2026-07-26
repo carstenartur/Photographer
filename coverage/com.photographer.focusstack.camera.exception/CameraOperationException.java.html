@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraOperationException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.exception</a> &gt; <span class="el_source">CameraOperationException.java</span></div><h1>CameraOperationException.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.exception;
+
+import java.util.Objects;
+
+/**
+ * Sanitized camera-operation failure with stable machine-readable semantics.
+ *
+ * &lt;p&gt;The exception deliberately contains no camera URL, downstream response body,
+ * authentication challenge, user name, password, nonce or opaque value.&lt;/p&gt;
+ */
+public final class CameraOperationException extends CameraException {
+
+    /** Broad failure class used by API clients without depending on a camera vendor. */
+<span class="fc" id="L14">    public enum Category {</span>
+<span class="fc" id="L15">        CONTRACT,</span>
+<span class="fc" id="L16">        TEMPORARY_STATE,</span>
+<span class="fc" id="L17">        CANCELLATION,</span>
+<span class="fc" id="L18">        TRANSPORT,</span>
+<span class="fc" id="L19">        REJECTION</span>
+    }
+
+    /**
+     * Stable operation reasons. Retryability is intentionally explicit and
+     * conservative; corrective-action and transport failures are not treated
+     * as blind retries.
+     */
+<span class="fc" id="L27">    public enum Reason {</span>
+<span class="fc" id="L28">        ENDPOINT_NOT_FOUND(Category.CONTRACT, false, &quot;The camera endpoint is unavailable&quot;),</span>
+<span class="fc" id="L29">        METHOD_NOT_ALLOWED(Category.CONTRACT, false, &quot;The camera rejected the HTTP method&quot;),</span>
+
+<span class="fc" id="L31">        DEVICE_BUSY(Category.TEMPORARY_STATE, true, &quot;The camera is temporarily busy&quot;),</span>
+<span class="fc" id="L32">        DURING_SHOOTING_OR_RECORDING(</span>
+                Category.TEMPORARY_STATE, true, &quot;The camera is shooting or recording&quot;),
+<span class="fc" id="L34">        TAKEN_IN_PREPARATION(</span>
+                Category.TEMPORARY_STATE, true, &quot;The camera is preparing the requested service&quot;),
+<span class="fc" id="L36">        MODE_NOT_SUPPORTED(</span>
+                Category.TEMPORARY_STATE, false, &quot;The operation is unavailable in the current camera mode&quot;),
+<span class="fc" id="L38">        LIVE_VIEW_NOT_STARTED(</span>
+                Category.TEMPORARY_STATE, false, &quot;Live view must be started before this operation&quot;),
+<span class="fc" id="L40">        ALREADY_STARTED(</span>
+                Category.TEMPORARY_STATE, false, &quot;The requested camera operation is already active&quot;),
+<span class="fc" id="L42">        OUT_OF_FOCUS(</span>
+                Category.TEMPORARY_STATE, false, &quot;The camera could not acquire focus&quot;),
+<span class="fc" id="L44">        CANNOT_WRITE_TO_CARD(</span>
+                Category.TEMPORARY_STATE, false, &quot;The camera cannot write to the recording media&quot;),
+<span class="fc" id="L46">        NOT_STARTED(</span>
+                Category.TEMPORARY_STATE, false, &quot;The requested camera operation has not been started&quot;),
+<span class="fc" id="L48">        SERVICE_UNAVAILABLE(</span>
+                Category.TEMPORARY_STATE, false, &quot;The camera service is unavailable&quot;),
+
+<span class="fc" id="L51">        CANCELLED(Category.CANCELLATION, false, &quot;The camera operation was cancelled&quot;),</span>
+<span class="fc" id="L52">        TIMEOUT(Category.TRANSPORT, false, &quot;The camera operation timed out&quot;),</span>
+<span class="fc" id="L53">        CONNECTION_FAILED(Category.TRANSPORT, false, &quot;The camera connection failed&quot;),</span>
+<span class="fc" id="L54">        CAMERA_REJECTED(Category.REJECTION, false, &quot;The camera rejected the operation&quot;);</span>
+
+        private final Category category;
+        private final boolean retryable;
+        private final String detail;
+
+<span class="fc" id="L60">        Reason(Category category, boolean retryable, String detail) {</span>
+<span class="fc" id="L61">            this.category = category;</span>
+<span class="fc" id="L62">            this.retryable = retryable;</span>
+<span class="fc" id="L63">            this.detail = detail;</span>
+<span class="fc" id="L64">        }</span>
+
+        public Category category() {
+<span class="fc" id="L67">            return category;</span>
+        }
+
+        public boolean retryable() {
+<span class="fc" id="L71">            return retryable;</span>
+        }
+
+        String detail() {
+<span class="fc" id="L75">            return detail;</span>
+        }
+    }
+
+    private final String profileId;
+    private final Reason reason;
+    private final Integer downstreamStatus;
+
+    public CameraOperationException(String profileId, Reason reason, Integer downstreamStatus) {
+<span class="fc" id="L84">        this(profileId, reason, downstreamStatus, null);</span>
+<span class="fc" id="L85">    }</span>
+
+    public CameraOperationException(
+            String profileId,
+            Reason reason,
+            Integer downstreamStatus,
+            Throwable cause) {
+<span class="fc" id="L92">        super(message(profileId, reason), cause);</span>
+<span class="fc" id="L93">        this.profileId = requireProfileId(profileId);</span>
+<span class="fc" id="L94">        this.reason = Objects.requireNonNull(reason, &quot;reason&quot;);</span>
+<span class="fc" id="L95">        this.downstreamStatus = downstreamStatus;</span>
+<span class="fc" id="L96">    }</span>
+
+    public String profileId() {
+<span class="fc" id="L99">        return profileId;</span>
+    }
+
+    public Reason reason() {
+<span class="fc" id="L103">        return reason;</span>
+    }
+
+    public Category category() {
+<span class="fc" id="L107">        return reason.category();</span>
+    }
+
+    public boolean retryable() {
+<span class="fc" id="L111">        return reason.retryable();</span>
+    }
+
+    public Integer downstreamStatus() {
+<span class="fc" id="L115">        return downstreamStatus;</span>
+    }
+
+    private static String message(String profileId, Reason reason) {
+<span class="fc" id="L119">        return Objects.requireNonNull(reason, &quot;reason&quot;).detail()</span>
+<span class="fc" id="L120">                + &quot; for camera profile '&quot; + requireProfileId(profileId) + &quot;'&quot;;</span>
+    }
+
+    private static String requireProfileId(String profileId) {
+<span class="fc" id="L124">        Objects.requireNonNull(profileId, &quot;profileId&quot;);</span>
+<span class="pc bpc" id="L125" title="1 of 2 branches missed.">        if (profileId.isBlank()) {</span>
+<span class="nc" id="L126">            throw new IllegalArgumentException(&quot;profileId must not be blank&quot;);</span>
+        }
+<span class="fc" id="L128">        return profileId;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

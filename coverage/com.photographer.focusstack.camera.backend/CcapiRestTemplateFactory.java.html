@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiRestTemplateFactory.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiRestTemplateFactory.java</span></div><h1>CcapiRestTemplateFactory.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.app.config.CameraConfig;
+import com.photographer.focusstack.app.config.CcapiAuthenticationProperties;
+import com.photographer.focusstack.camera.exception.CameraAuthenticationException;
+import com.photographer.focusstack.camera.exception.CameraOperationException;
+import com.photographer.focusstack.common.model.CameraProfile;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.StandardAuthScheme;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.SocketTimeoutException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.photographer.focusstack.camera.exception.CameraAuthenticationException.Reason.CREDENTIALS_REJECTED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CONNECTION_FAILED;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.TIMEOUT;
+
+/** Creates one host-scoped, Digest-only transport per Canon backend. */
+@Component
+public final class CcapiRestTemplateFactory {
+
+<span class="fc" id="L50">    private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(30);</span>
+<span class="fc" id="L51">    private static final String AUTH_CHALLENGED_ATTRIBUTE =</span>
+<span class="fc" id="L52">            CcapiRestTemplateFactory.class.getName() + &quot;.authChallenged&quot;;</span>
+<span class="fc" id="L53">    private static final Pattern CHALLENGE_PARAMETER = Pattern.compile(</span>
+            &quot;(?i)(?:^|,)\\s*([a-zA-Z0-9_-]+)\\s*=\\s*(?:\&quot;([^\&quot;]*)\&quot;|([^,\\s]+))&quot;);
+
+    private final CameraConfig cameraConfig;
+    private final CcapiAuthenticationProperties authenticationProperties;
+    private final CcapiOutcomeRecorder outcomes;
+    private final Duration readTimeout;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CcapiRestTemplateFactory(
+            CameraConfig cameraConfig,
+            CcapiAuthenticationProperties authenticationProperties,
+            CcapiOutcomeRecorder outcomes) {
+<span class="fc" id="L66">        this(cameraConfig, authenticationProperties, outcomes, DEFAULT_READ_TIMEOUT);</span>
+<span class="fc" id="L67">    }</span>
+
+    CcapiRestTemplateFactory(
+            CameraConfig cameraConfig,
+            CcapiAuthenticationProperties authenticationProperties,
+            CcapiOutcomeRecorder outcomes,
+<span class="fc" id="L73">            Duration readTimeout) {</span>
+<span class="fc" id="L74">        this.cameraConfig = Objects.requireNonNull(cameraConfig, &quot;cameraConfig&quot;);</span>
+<span class="fc" id="L75">        this.authenticationProperties = Objects.requireNonNull(</span>
+                authenticationProperties, &quot;authenticationProperties&quot;);
+<span class="fc" id="L77">        this.outcomes = Objects.requireNonNull(outcomes, &quot;outcomes&quot;);</span>
+<span class="fc" id="L78">        this.readTimeout = requirePositive(readTimeout, &quot;readTimeout&quot;);</span>
+<span class="fc" id="L79">    }</span>
+
+    /** Returns a secret-free view of the transport configuration for cache matching. */
+    CcapiTransportFingerprint fingerprint(CameraProfile profile, URI baseUri) {
+<span class="fc" id="L83">        Objects.requireNonNull(profile, &quot;profile&quot;);</span>
+<span class="fc" id="L84">        URI normalizedBaseUri = normalizeBaseUri(baseUri);</span>
+<span class="fc" id="L85">        return new CcapiTransportFingerprint(</span>
+                normalizedBaseUri,
+<span class="fc" id="L87">                authenticationProperties.state(profile.id()));</span>
+    }
+
+    /** Creates a transport for callers that do not need its cache fingerprint. */
+    CcapiTransport create(CameraProfile profile, URI baseUri) {
+<span class="fc" id="L92">        return createWithFingerprint(profile, baseUri).transport();</span>
+    }
+
+    /** Creates a transport and returns the exact configuration snapshot it consumed. */
+    CcapiTransportCreation createWithFingerprint(CameraProfile profile, URI baseUri) {
+<span class="fc" id="L97">        Objects.requireNonNull(profile, &quot;profile&quot;);</span>
+<span class="fc" id="L98">        URI normalizedBaseUri = normalizeBaseUri(baseUri);</span>
+
+<span class="fc" id="L100">        try (CcapiAuthenticationProperties.CredentialSnapshot snapshot =</span>
+<span class="fc" id="L101">                     authenticationProperties.snapshot(profile.id())) {</span>
+<span class="fc" id="L102">            Optional&lt;CcapiAuthenticationProperties.ResolvedCredentials&gt; credentials =</span>
+<span class="fc" id="L103">                    snapshot.credentials();</span>
+<span class="fc" id="L104">            char[] password = null;</span>
+
+<span class="fc" id="L106">            ConnectionConfig connectionConfig = ConnectionConfig.custom()</span>
+<span class="fc" id="L107">                    .setConnectTimeout(Timeout.ofMilliseconds(</span>
+<span class="fc" id="L108">                            cameraConfig.connectionTimeout().toMillis()))</span>
+<span class="fc" id="L109">                    .setSocketTimeout(Timeout.ofMilliseconds(readTimeout.toMillis()))</span>
+<span class="fc" id="L110">                    .build();</span>
+<span class="fc" id="L111">            RequestConfig requestConfig = RequestConfig.custom()</span>
+<span class="fc" id="L112">                    .setTargetPreferredAuthSchemes(List.of(StandardAuthScheme.DIGEST))</span>
+<span class="fc" id="L113">                    .setConnectionRequestTimeout(Timeout.ofMilliseconds(</span>
+<span class="fc" id="L114">                            cameraConfig.connectionTimeout().toMillis()))</span>
+<span class="fc" id="L115">                    .setResponseTimeout(Timeout.ofMilliseconds(readTimeout.toMillis()))</span>
+<span class="fc" id="L116">                    .build();</span>
+            PoolingHttpClientConnectionManager connectionManager =
+<span class="fc" id="L118">                    PoolingHttpClientConnectionManagerBuilder.create()</span>
+<span class="fc" id="L119">                            .setDefaultConnectionConfig(connectionConfig)</span>
+<span class="fc" id="L120">                            .setMaxConnPerRoute(4)</span>
+<span class="fc" id="L121">                            .setMaxConnTotal(4)</span>
+<span class="fc" id="L122">                            .build();</span>
+<span class="fc" id="L123">            CloseableHttpClient httpClient = null;</span>
+
+            try {
+<span class="fc" id="L126">                boolean credentialsConfigured = credentials.isPresent();</span>
+                org.apache.hc.client5.http.impl.classic.HttpClientBuilder clientBuilder =
+<span class="fc" id="L128">                        HttpClients.custom()</span>
+<span class="fc" id="L129">                                .setConnectionManager(connectionManager)</span>
+<span class="fc" id="L130">                                .setDefaultRequestConfig(requestConfig)</span>
+<span class="fc" id="L131">                                .disableRedirectHandling()</span>
+<span class="fc" id="L132">                                .addResponseInterceptorLast((response, entity, context) -&gt; {</span>
+<span class="fc" id="L133">                                    int status = response.getCode();</span>
+<span class="fc bfc" id="L134" title="All 4 branches covered.">                                    if (status == 401 &amp;&amp; credentialsConfigured) {</span>
+<span class="fc" id="L135">                                        validateCanonDigestChallenge(profile.id(), response.getHeaders(</span>
+                                                &quot;WWW-Authenticate&quot;));
+                                    }
+<span class="fc bfc" id="L138" title="All 2 branches covered.">                                    if (status == 401</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">                                            &amp;&amp; !Boolean.TRUE.equals(context.getAttribute(</span>
+                                            AUTH_CHALLENGED_ATTRIBUTE))) {
+<span class="fc" id="L141">                                        context.setAttribute(AUTH_CHALLENGED_ATTRIBUTE, Boolean.TRUE);</span>
+<span class="fc" id="L142">                                        outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_CHALLENGE);</span>
+<span class="pc bpc" id="L143" title="1 of 4 branches missed.">                                    } else if (status &gt;= 200 &amp;&amp; status &lt; 300</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">                                            &amp;&amp; Boolean.TRUE.equals(context.getAttribute(</span>
+                                            AUTH_CHALLENGED_ATTRIBUTE))) {
+<span class="fc" id="L146">                                        context.removeAttribute(AUTH_CHALLENGED_ATTRIBUTE);</span>
+<span class="fc" id="L147">                                        outcomes.record(</span>
+                                                CcapiOutcomeRecorder.Outcome.AUTH_SUCCESS_AFTER_CHALLENGE);
+                                    }
+<span class="fc" id="L150">                                });</span>
+
+<span class="fc bfc" id="L152" title="All 2 branches covered.">                if (credentialsConfigured) {</span>
+<span class="fc" id="L153">                    CcapiAuthenticationProperties.ResolvedCredentials value =</span>
+<span class="fc" id="L154">                            credentials.orElseThrow();</span>
+<span class="fc" id="L155">                    password = value.passwordCopy();</span>
+<span class="fc" id="L156">                    BasicCredentialsProvider provider = new BasicCredentialsProvider();</span>
+                    // UsernamePasswordCredentials retains this character array and needs it when a
+                    // later 401 challenge is answered. The CcapiTransport owns and clears the array
+                    // only after its HttpClient has been closed.
+<span class="fc" id="L160">                    provider.setCredentials(</span>
+                            new AuthScope(
+<span class="fc" id="L162">                                    normalizedBaseUri.getHost(),</span>
+<span class="fc" id="L163">                                    effectivePort(normalizedBaseUri)),</span>
+<span class="fc" id="L164">                            new UsernamePasswordCredentials(value.username(), password));</span>
+<span class="fc" id="L165">                    clientBuilder.setDefaultCredentialsProvider(provider);</span>
+                }
+
+<span class="fc" id="L168">                httpClient = clientBuilder.build();</span>
+<span class="fc" id="L169">                HttpComponentsClientHttpRequestFactory requestFactory =</span>
+                        new HttpComponentsClientHttpRequestFactory(httpClient);
+<span class="fc" id="L171">                requestFactory.setConnectionRequestTimeout(cameraConfig.connectionTimeout());</span>
+<span class="fc" id="L172">                requestFactory.setReadTimeout(readTimeout);</span>
+
+<span class="fc" id="L174">                RestTemplate restTemplate = new RestTemplate(requestFactory);</span>
+<span class="fc" id="L175">                restTemplate.getInterceptors().add((request, body, execution) -&gt; {</span>
+                    try {
+<span class="fc" id="L177">                        return execution.execute(request, body);</span>
+<span class="fc" id="L178">                    } catch (SocketTimeoutException exception) {</span>
+<span class="fc" id="L179">                        throw transportFailure(profile.id(), TIMEOUT, exception);</span>
+<span class="fc" id="L180">                    } catch (ConnectException | NoRouteToHostException | UnknownHostException exception) {</span>
+<span class="fc" id="L181">                        throw transportFailure(profile.id(), CONNECTION_FAILED, exception);</span>
+<span class="fc" id="L182">                    } catch (InterruptedIOException exception) {</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">                        CameraOperationException.Reason reason = Thread.currentThread().isInterrupted()</span>
+<span class="fc" id="L184">                                ? CANCELLED</span>
+<span class="fc" id="L185">                                : TIMEOUT;</span>
+<span class="fc" id="L186">                        throw transportFailure(profile.id(), reason, exception);</span>
+<span class="nc" id="L187">                    } catch (IOException exception) {</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">                        CameraOperationException.Reason reason = Thread.currentThread().isInterrupted()</span>
+<span class="nc" id="L189">                                ? CANCELLED</span>
+<span class="nc" id="L190">                                : CONNECTION_FAILED;</span>
+<span class="nc" id="L191">                        throw transportFailure(profile.id(), reason, exception);</span>
+                    }
+                });
+<span class="fc" id="L194">                restTemplate.setErrorHandler(new CcapiResponseErrorHandler(</span>
+<span class="fc" id="L195">                        profile.id(), snapshot.state().credentialsConfigured(), outcomes));</span>
+<span class="fc" id="L196">                CcapiTransport transport = new CcapiTransport(</span>
+                        restTemplate, httpClient, password);
+<span class="fc" id="L198">                CcapiTransportFingerprint fingerprint = new CcapiTransportFingerprint(</span>
+<span class="fc" id="L199">                        normalizedBaseUri, snapshot.state());</span>
+<span class="fc" id="L200">                return new CcapiTransportCreation(transport, fingerprint);</span>
+<span class="nc" id="L201">            } catch (RuntimeException exception) {</span>
+<span class="nc" id="L202">                closeFailedConstruction(httpClient, connectionManager, exception);</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">                if (password != null) {</span>
+<span class="nc" id="L204">                    Arrays.fill(password, '\0');</span>
+                }
+<span class="nc" id="L206">                throw exception;</span>
+            }
+        }
+    }
+
+    private void validateCanonDigestChallenge(String profileId, Header[] challenges) {
+<span class="fc bfc" id="L212" title="All 2 branches covered.">        if (hasCompatibleCanonDigestChallenge(challenges)) {</span>
+<span class="fc" id="L213">            return;</span>
+        }
+<span class="fc bfc" id="L215" title="All 2 branches covered.">        if (containsDigestChallenge(challenges)) {</span>
+<span class="fc" id="L216">            outcomes.record(CcapiOutcomeRecorder.Outcome.AUTH_FINAL_FAILURE);</span>
+<span class="fc" id="L217">            throw new CameraAuthenticationException(profileId, CREDENTIALS_REJECTED);</span>
+        }
+        // A Basic-only or otherwise non-Digest challenge is not answered because
+        // RequestConfig permits Digest only. The bounded final 401 is translated by
+        // CcapiResponseErrorHandler without exposing challenge material.
+<span class="fc" id="L222">    }</span>
+
+    static boolean hasCompatibleCanonDigestChallenge(Header[] challenges) {
+<span class="fc bfc" id="L225" title="All 2 branches covered.">        for (Header challenge : challenges) {</span>
+<span class="fc" id="L226">            String value = challenge.getValue();</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">            if (!isDigestChallenge(value)) {</span>
+<span class="fc" id="L228">                continue;</span>
+            }
+<span class="fc" id="L230">            String parameters = value.substring(7);</span>
+<span class="fc" id="L231">            String algorithm = parameter(parameters, &quot;algorithm&quot;).orElse(&quot;MD5&quot;);</span>
+<span class="fc" id="L232">            String qop = parameter(parameters, &quot;qop&quot;).orElse(&quot;&quot;);</span>
+<span class="fc" id="L233">            boolean supportsAuth = Arrays.stream(qop.split(&quot;,&quot;))</span>
+<span class="fc" id="L234">                    .map(String::trim)</span>
+<span class="fc" id="L235">                    .anyMatch(&quot;auth&quot;::equalsIgnoreCase);</span>
+<span class="fc bfc" id="L236" title="All 4 branches covered.">            if (&quot;MD5&quot;.equalsIgnoreCase(algorithm) &amp;&amp; supportsAuth) {</span>
+<span class="fc" id="L237">                return true;</span>
+            }
+        }
+<span class="fc" id="L240">        return false;</span>
+    }
+
+    private static boolean containsDigestChallenge(Header[] challenges) {
+<span class="fc" id="L244">        return Arrays.stream(challenges)</span>
+<span class="fc" id="L245">                .map(Header::getValue)</span>
+<span class="fc" id="L246">                .anyMatch(CcapiRestTemplateFactory::isDigestChallenge);</span>
+    }
+
+    private static boolean isDigestChallenge(String value) {
+<span class="pc bpc" id="L250" title="1 of 4 branches missed.">        return value != null &amp;&amp; value.regionMatches(true, 0, &quot;Digest &quot;, 0, 7);</span>
+    }
+
+    private static Optional&lt;String&gt; parameter(String challenge, String name) {
+<span class="fc" id="L254">        Matcher matcher = CHALLENGE_PARAMETER.matcher(challenge);</span>
+<span class="fc bfc" id="L255" title="All 2 branches covered.">        while (matcher.find()) {</span>
+<span class="fc bfc" id="L256" title="All 2 branches covered.">            if (name.equalsIgnoreCase(matcher.group(1))) {</span>
+<span class="fc bfc" id="L257" title="All 2 branches covered.">                return Optional.ofNullable(matcher.group(2) != null</span>
+<span class="fc" id="L258">                        ? matcher.group(2)</span>
+<span class="fc" id="L259">                        : matcher.group(3));</span>
+            }
+        }
+<span class="fc" id="L262">        return Optional.empty();</span>
+    }
+
+    private CameraOperationException transportFailure(
+            String profileId,
+            CameraOperationException.Reason reason,
+            IOException cause) {
+<span class="fc" id="L269">        outcomes.record(reason);</span>
+<span class="fc" id="L270">        return new CameraOperationException(profileId, reason, null, cause);</span>
+    }
+
+    private static void closeFailedConstruction(
+            CloseableHttpClient httpClient,
+            PoolingHttpClientConnectionManager connectionManager,
+            RuntimeException originalFailure) {
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        if (httpClient == null) {</span>
+<span class="nc" id="L278">            connectionManager.close();</span>
+<span class="nc" id="L279">            return;</span>
+        }
+        try {
+<span class="nc" id="L282">            httpClient.close();</span>
+<span class="nc" id="L283">        } catch (IOException closeFailure) {</span>
+<span class="nc" id="L284">            originalFailure.addSuppressed(closeFailure);</span>
+<span class="nc" id="L285">        }</span>
+<span class="nc" id="L286">    }</span>
+
+    static URI normalizeBaseUri(URI baseUri) {
+<span class="fc" id="L289">        Objects.requireNonNull(baseUri, &quot;baseUri&quot;);</span>
+<span class="fc" id="L290">        String scheme = baseUri.getScheme();</span>
+<span class="fc" id="L291">        String host = baseUri.getHost();</span>
+<span class="pc bpc" id="L292" title="2 of 4 branches missed.">        if (scheme == null || host == null) {</span>
+<span class="nc" id="L293">            throw new IllegalArgumentException(&quot;CCAPI base URL must contain a scheme and host&quot;);</span>
+        }
+<span class="fc" id="L295">        scheme = scheme.toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L296" title="1 of 4 branches missed.">        if (!&quot;http&quot;.equals(scheme) &amp;&amp; !&quot;https&quot;.equals(scheme)) {</span>
+<span class="fc" id="L297">            throw new IllegalArgumentException(&quot;CCAPI base URL must use HTTP or HTTPS&quot;);</span>
+        }
+<span class="fc bfc" id="L299" title="All 2 branches covered.">        if (baseUri.getUserInfo() != null</span>
+<span class="fc bfc" id="L300" title="All 2 branches covered.">                || baseUri.getQuery() != null</span>
+<span class="pc bpc" id="L301" title="1 of 2 branches missed.">                || baseUri.getFragment() != null) {</span>
+<span class="fc" id="L302">            throw new IllegalArgumentException(</span>
+                    &quot;CCAPI base URL must not contain user info, a query or a fragment&quot;);
+        }
+
+<span class="fc" id="L306">        String path = baseUri.normalize().getPath();</span>
+<span class="pc bpc" id="L307" title="2 of 6 branches missed.">        if (path == null || path.isBlank() || &quot;/&quot;.equals(path)) {</span>
+<span class="fc" id="L308">            path = &quot;&quot;;</span>
+        } else {
+<span class="nc bnc" id="L310" title="All 4 branches missed.">            while (path.endsWith(&quot;/&quot;) &amp;&amp; path.length() &gt; 1) {</span>
+<span class="nc" id="L311">                path = path.substring(0, path.length() - 1);</span>
+            }
+        }
+
+        try {
+<span class="fc" id="L316">            return new URI(</span>
+                    scheme,
+                    null,
+<span class="fc" id="L319">                    host.toLowerCase(Locale.ROOT),</span>
+<span class="fc" id="L320">                    effectivePort(baseUri),</span>
+                    path,
+                    null,
+                    null);
+<span class="nc" id="L324">        } catch (URISyntaxException exception) {</span>
+<span class="nc" id="L325">            throw new IllegalArgumentException(&quot;Invalid CCAPI base URL&quot;, exception);</span>
+        }
+    }
+
+    private static int effectivePort(URI uri) {
+<span class="fc bfc" id="L330" title="All 2 branches covered.">        if (uri.getPort() &gt;= 0) {</span>
+<span class="fc" id="L331">            return uri.getPort();</span>
+        }
+<span class="pc bpc" id="L333" title="1 of 2 branches missed.">        return &quot;https&quot;.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;</span>
+    }
+
+    private static Duration requirePositive(Duration value, String name) {
+<span class="fc" id="L337">        Objects.requireNonNull(value, name);</span>
+<span class="pc bpc" id="L338" title="2 of 4 branches missed.">        if (value.isZero() || value.isNegative()) {</span>
+<span class="nc" id="L339">            throw new IllegalArgumentException(name + &quot; must be positive&quot;);</span>
+        }
+<span class="fc" id="L341">        return value;</span>
+    }
+}
+
+record CcapiTransportFingerprint(
+        URI baseUri,
+        CcapiAuthenticationProperties.CredentialState credentialState) {
+
+<span class="fc" id="L349">    CcapiTransportFingerprint {</span>
+<span class="fc" id="L350">        Objects.requireNonNull(baseUri, &quot;baseUri&quot;);</span>
+<span class="fc" id="L351">        Objects.requireNonNull(credentialState, &quot;credentialState&quot;);</span>
+<span class="fc" id="L352">    }</span>
+}
+
+record CcapiTransportCreation(
+        CcapiTransport transport,
+        CcapiTransportFingerprint fingerprint) {
+
+<span class="fc" id="L359">    CcapiTransportCreation {</span>
+<span class="fc" id="L360">        Objects.requireNonNull(transport, &quot;transport&quot;);</span>
+<span class="fc" id="L361">        Objects.requireNonNull(fingerprint, &quot;fingerprint&quot;);</span>
+<span class="fc" id="L362">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

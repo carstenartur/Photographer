@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>InMemoryCameraSessionLeaseManager.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.session</a> &gt; <span class="el_source">InMemoryCameraSessionLeaseManager.java</span></div><h1>InMemoryCameraSessionLeaseManager.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.session;
+
+import com.photographer.focusstack.camera.exception.CameraServiceUnavailableException;
+
+import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
+
+/**
+ * Process-local lease manager for Canon's one-opposing-device constraint.
+ *
+ * &lt;p&gt;Lease ownership is independent of backend caching. A live lease is never
+ * stolen because its hard deadline elapsed; every active handle must close.&lt;/p&gt;
+ */
+@Component
+public final class InMemoryCameraSessionLeaseManager implements CameraSessionLeaseManager {
+<span class="fc" id="L34">    private static final HexFormat HEX = HexFormat.of();</span>
+<span class="fc" id="L35">    private static final Duration MAX_PUBLIC_RETRY_AFTER = Duration.ofSeconds(30);</span>
+
+<span class="fc" id="L37">    private final ConcurrentMap&lt;CameraLeaseKey, LeaseState&gt; leases = new ConcurrentHashMap&lt;&gt;();</span>
+    private final Clock clock;
+    private final Supplier&lt;String&gt; correlationIdSupplier;
+    private final Duration maximumLifetime;
+    private final int maximumReentrantHandles;
+<span class="fc" id="L42">    private final AtomicLong conflicts = new AtomicLong();</span>
+<span class="fc" id="L43">    private final AtomicLong staleRecoveries = new AtomicLong();</span>
+<span class="fc" id="L44">    private final AtomicBoolean acceptingNewLeases = new AtomicBoolean(true);</span>
+<span class="fc" id="L45">    private final Object lifecycleMonitor = new Object();</span>
+
+    @Autowired
+    public InMemoryCameraSessionLeaseManager(
+            @Value(&quot;${camera.session-lease.maximum-lifetime:PT6H}&quot;) Duration maximumLifetime,
+            @Value(&quot;${camera.session-lease.maximum-reentrant-handles:1024}&quot;) int maximumReentrantHandles) {
+<span class="fc" id="L51">        this(Clock.systemUTC(), InMemoryCameraSessionLeaseManager::newCorrelationId,</span>
+                maximumLifetime, maximumReentrantHandles);
+<span class="fc" id="L53">    }</span>
+
+    InMemoryCameraSessionLeaseManager(
+            Clock clock,
+            Supplier&lt;String&gt; correlationIdSupplier,
+            Duration maximumLifetime,
+<span class="fc" id="L59">            int maximumReentrantHandles) {</span>
+<span class="fc" id="L60">        this.clock = Objects.requireNonNull(clock, &quot;clock&quot;);</span>
+<span class="fc" id="L61">        this.correlationIdSupplier = Objects.requireNonNull(</span>
+                correlationIdSupplier, &quot;correlationIdSupplier&quot;);
+<span class="fc" id="L63">        this.maximumLifetime = requirePositive(maximumLifetime, &quot;maximumLifetime&quot;);</span>
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        if (maximumReentrantHandles &lt; 1) {</span>
+<span class="nc" id="L65">            throw new IllegalArgumentException(&quot;maximumReentrantHandles must be positive&quot;);</span>
+        }
+<span class="fc" id="L67">        this.maximumReentrantHandles = maximumReentrantHandles;</span>
+<span class="fc" id="L68">    }</span>
+
+    @Override
+    public CameraSessionLease acquire(CameraLeaseRequest request) {
+<span class="fc" id="L72">        Objects.requireNonNull(request, &quot;request&quot;);</span>
+<span class="fc" id="L73">        synchronized (lifecycleMonitor) {</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">  if (!acceptingNewLeases.get()) {</span>
+<span class="fc" id="L75">      throw new CameraServiceUnavailableException();</span>
+  }
+<span class="fc bfc" id="L77" title="All 2 branches covered.">  if (request.requestedLifetime().compareTo(maximumLifetime) &gt; 0) {</span>
+<span class="fc" id="L78">      throw new IllegalArgumentException(</span>
+              &quot;Requested camera lease lifetime exceeds the configured maximum&quot;);
+  }
+
+<span class="fc" id="L82">  Instant now = clock.instant();</span>
+<span class="fc" id="L83">  AtomicReference&lt;LeaseState&gt; acquired = new AtomicReference&lt;&gt;();</span>
+<span class="fc" id="L84">  leases.compute(request.cameraKey(), (key, current) -&gt; {</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">      if (current == null) {</span>
+<span class="fc" id="L86">          LeaseState created = new LeaseState(</span>
+<span class="fc" id="L87">                  request.ownerToken(),</span>
+<span class="fc" id="L88">                  validatedCorrelationId(correlationIdSupplier.get()),</span>
+<span class="fc" id="L89">                  request.workflowType(),</span>
+<span class="fc" id="L90">                  now.plus(request.requestedLifetime()),</span>
+                  1);
+<span class="fc" id="L92">          acquired.set(created);</span>
+<span class="fc" id="L93">          return created;</span>
+      }
+<span class="fc bfc" id="L95" title="All 2 branches covered.">      if (!current.ownerToken().equals(request.ownerToken())) {</span>
+<span class="fc" id="L96">          conflicts.incrementAndGet();</span>
+<span class="fc" id="L97">          throw new CameraSessionConflictException(</span>
+<span class="fc" id="L98">                  current.correlationId(),</span>
+<span class="fc" id="L99">                  current.workflowType(),</span>
+<span class="fc" id="L100">                  retryAfter(now, current.hardDeadline()));</span>
+      }
+<span class="fc bfc" id="L102" title="All 2 branches covered.">      if (current.handleCount() &gt;= maximumReentrantHandles) {</span>
+<span class="fc" id="L103">          throw new IllegalStateException(&quot;Camera lease reentrant handle limit exceeded&quot;);</span>
+      }
+<span class="fc" id="L105">      LeaseState reentrant = current.withHandleCount(current.handleCount() + 1);</span>
+<span class="fc" id="L106">      acquired.set(reentrant);</span>
+<span class="fc" id="L107">      return reentrant;</span>
+  });
+
+<span class="fc" id="L110">  LeaseState state = acquired.get();</span>
+<span class="pc bpc" id="L111" title="1 of 2 branches missed.">  if (state == null) {</span>
+<span class="nc" id="L112">      throw new IllegalStateException(&quot;Camera lease acquisition did not produce a handle&quot;);</span>
+  }
+<span class="fc" id="L114">  return new Handle(this, request.cameraKey(), request.ownerToken(), state.correlationId());</span>
+        }
+    }
+
+    @Override
+    public void beginShutdown() {
+<span class="fc" id="L120">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L121">  acceptingNewLeases.set(false);</span>
+<span class="fc" id="L122">        }</span>
+<span class="fc" id="L123">    }</span>
+
+    @Override
+    public CameraSessionLeaseMetrics metrics() {
+<span class="fc" id="L127">        return new CameraSessionLeaseMetrics(</span>
+<span class="fc" id="L128">                leases.size(), conflicts.get(), staleRecoveries.get());</span>
+    }
+
+    /**
+     * Defensive cleanup for an impossible zero-reference residue. Active leases,
+     * including expired ones, are never removed.
+     */
+    int reapStaleLeases() {
+<span class="fc" id="L136">        Instant now = clock.instant();</span>
+<span class="fc" id="L137">        AtomicLong recovered = new AtomicLong();</span>
+<span class="fc" id="L138">        leases.forEach((key, ignored) -&gt; leases.computeIfPresent(key, (cameraKey, current) -&gt; {</span>
+<span class="pc bpc" id="L139" title="3 of 4 branches missed.">            if (current.handleCount() == 0 &amp;&amp; !current.hardDeadline().isAfter(now)) {</span>
+<span class="nc" id="L140">                recovered.incrementAndGet();</span>
+<span class="nc" id="L141">                return null;</span>
+            }
+<span class="fc" id="L143">            return current;</span>
+        }));
+<span class="fc" id="L145">        staleRecoveries.addAndGet(recovered.get());</span>
+<span class="fc" id="L146">        return Math.toIntExact(recovered.get());</span>
+    }
+
+    @PreDestroy
+    public void close() {
+<span class="fc" id="L151">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L152">            beginShutdown();</span>
+<span class="fc" id="L153">            int active = leases.size();</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">            if (active != 0) {</span>
+<span class="fc" id="L155">                throw new IllegalStateException(</span>
+                        &quot;Camera session lease manager closed with &quot; + active
+                                + &quot; active lease(s)&quot;);
+            }
+<span class="fc" id="L159">        }</span>
+<span class="fc" id="L160">    }</span>
+
+    private void release(CameraLeaseKey key, String ownerToken, String correlationId) {
+<span class="fc" id="L163">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L164">  leases.computeIfPresent(key, (cameraKey, current) -&gt; {</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">      if (!current.ownerToken().equals(ownerToken)</span>
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">              || !current.correlationId().equals(correlationId)) {</span>
+<span class="nc" id="L167">          return current;</span>
+      }
+<span class="fc" id="L169">      int remaining = current.handleCount() - 1;</span>
+<span class="fc bfc" id="L170" title="All 2 branches covered.">      return remaining == 0 ? null : current.withHandleCount(remaining);</span>
+  });
+<span class="fc" id="L172">        }</span>
+<span class="fc" id="L173">    }</span>
+
+    private static Duration retryAfter(Instant now, Instant hardDeadline) {
+<span class="fc" id="L176">        Duration remaining = Duration.between(now, hardDeadline);</span>
+<span class="pc bpc" id="L177" title="1 of 4 branches missed.">        if (remaining.isNegative() || remaining.isZero()) {</span>
+<span class="fc" id="L178">            return Duration.ZERO;</span>
+        }
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">        return remaining.compareTo(MAX_PUBLIC_RETRY_AFTER) &gt; 0</span>
+<span class="fc" id="L181">                ? MAX_PUBLIC_RETRY_AFTER</span>
+<span class="nc" id="L182">                : remaining;</span>
+    }
+
+    private static Duration requirePositive(Duration value, String name) {
+<span class="fc" id="L186">        Objects.requireNonNull(value, name);</span>
+<span class="pc bpc" id="L187" title="2 of 4 branches missed.">        if (value.isZero() || value.isNegative()) {</span>
+<span class="nc" id="L188">            throw new IllegalArgumentException(name + &quot; must be positive&quot;);</span>
+        }
+<span class="fc" id="L190">        return value;</span>
+    }
+
+    private static String validatedCorrelationId(String value) {
+<span class="pc bpc" id="L194" title="2 of 4 branches missed.">        if (value == null || !value.matches(&quot;[A-Za-z0-9_-]{8,64}&quot;)) {</span>
+<span class="nc" id="L195">            throw new IllegalStateException(&quot;Correlation ID provider returned an invalid value&quot;);</span>
+        }
+<span class="fc" id="L197">        return value;</span>
+    }
+
+    private static String newCorrelationId() {
+        try {
+<span class="fc" id="L202">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
+<span class="fc" id="L203">                    .digest(UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L204">            return HEX.formatHex(digest, 0, 8);</span>
+<span class="nc" id="L205">        } catch (NoSuchAlgorithmException impossible) {</span>
+<span class="nc" id="L206">            throw new IllegalStateException(&quot;SHA-256 is unavailable&quot;, impossible);</span>
+        }
+    }
+
+    private record LeaseState(
+            String ownerToken,
+            String correlationId,
+            CameraWorkflowType workflowType,
+            Instant hardDeadline,
+            int handleCount) {
+
+<span class="fc" id="L217">        private LeaseState {</span>
+<span class="fc" id="L218">            Objects.requireNonNull(ownerToken, &quot;ownerToken&quot;);</span>
+<span class="fc" id="L219">            Objects.requireNonNull(correlationId, &quot;correlationId&quot;);</span>
+<span class="fc" id="L220">            Objects.requireNonNull(workflowType, &quot;workflowType&quot;);</span>
+<span class="fc" id="L221">            Objects.requireNonNull(hardDeadline, &quot;hardDeadline&quot;);</span>
+<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            if (handleCount &lt; 0) {</span>
+<span class="nc" id="L223">                throw new IllegalArgumentException(&quot;handleCount must not be negative&quot;);</span>
+            }
+<span class="fc" id="L225">        }</span>
+
+        LeaseState withHandleCount(int value) {
+<span class="fc" id="L228">            return new LeaseState(ownerToken, correlationId, workflowType, hardDeadline, value);</span>
+        }
+    }
+
+    private static final class Handle implements CameraSessionLease {
+        private final InMemoryCameraSessionLeaseManager manager;
+        private final CameraLeaseKey key;
+        private final String ownerToken;
+        private final String correlationId;
+<span class="fc" id="L237">        private final AtomicBoolean closed = new AtomicBoolean();</span>
+
+        private Handle(
+                InMemoryCameraSessionLeaseManager manager,
+                CameraLeaseKey key,
+                String ownerToken,
+<span class="fc" id="L243">                String correlationId) {</span>
+<span class="fc" id="L244">            this.manager = manager;</span>
+<span class="fc" id="L245">            this.key = key;</span>
+<span class="fc" id="L246">            this.ownerToken = ownerToken;</span>
+<span class="fc" id="L247">            this.correlationId = correlationId;</span>
+<span class="fc" id="L248">        }</span>
+
+        @Override
+        public String ownerCorrelationId() {
+<span class="fc" id="L252">            return correlationId;</span>
+        }
+
+        @Override
+        public void close() {
+<span class="fc bfc" id="L257" title="All 2 branches covered.">            if (closed.compareAndSet(false, true)) {</span>
+<span class="fc" id="L258">                manager.release(key, ownerToken, correlationId);</span>
+            }
+<span class="fc" id="L260">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

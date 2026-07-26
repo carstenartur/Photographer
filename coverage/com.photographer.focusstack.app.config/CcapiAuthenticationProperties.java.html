@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiAuthenticationProperties.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.config</a> &gt; <span class="el_source">CcapiAuthenticationProperties.java</span></div><h1>CcapiAuthenticationProperties.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.config;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * External-only Canon CCAPI account configuration.
+ *
+ * &lt;p&gt;Entries are keyed by the exact camera profile id. They are deliberately not
+ * part of {@code CameraProfile}, persistence entities or public REST models.&lt;/p&gt;
+ */
+@ConfigurationProperties(prefix = &quot;focusstack.camera.ccapi&quot;)
+<span class="fc" id="L19">public final class CcapiAuthenticationProperties {</span>
+
+<span class="fc" id="L21">    private Map&lt;String, Credential&gt; credentials = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L22">    private final AtomicLong configurationRevision = new AtomicLong();</span>
+
+    public synchronized Map&lt;String, Credential&gt; getCredentials() {
+<span class="fc" id="L25">        return credentials;</span>
+    }
+
+    public synchronized void setCredentials(Map&lt;String, Credential&gt; credentials) {
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">        this.credentials = credentials == null</span>
+<span class="nc" id="L30">                ? new LinkedHashMap&lt;&gt;()</span>
+<span class="fc" id="L31">                : new LinkedHashMap&lt;&gt;(credentials);</span>
+<span class="fc" id="L32">        configurationRevision.incrementAndGet();</span>
+<span class="fc" id="L33">    }</span>
+
+    /**
+     * Returns a secret-free state suitable for cache identity decisions.
+     *
+     * &lt;p&gt;The revisions are in-memory change counters, not password hashes. A map
+     * replacement increments the configuration revision; mutating an existing
+     * credential through its binding setters increments the entry revision.&lt;/p&gt;
+     *
+     * @param profileId exact camera profile id
+     * @return the current secret-free credential state
+     */
+    public CredentialState state(String profileId) {
+<span class="fc" id="L46">        return inspect(profileId, false).state();</span>
+    }
+
+    /**
+     * Returns one internally consistent credential and revision snapshot.
+     *
+     * &lt;p&gt;The caller must close the returned snapshot. Closing it overwrites any
+     * temporary resolved password copy held by the snapshot.&lt;/p&gt;
+     *
+     * @param profileId exact camera profile id
+     * @return a closeable state-and-credential snapshot
+     */
+    public CredentialSnapshot snapshot(String profileId) {
+<span class="fc" id="L59">        Inspection inspection = inspect(profileId, true);</span>
+<span class="fc" id="L60">        return new CredentialSnapshot(inspection.state(), inspection.credentials());</span>
+    }
+
+    private Inspection inspect(String profileId, boolean includeCredentials) {
+<span class="fc" id="L64">        Objects.requireNonNull(profileId, &quot;profileId&quot;);</span>
+        Credential configured;
+        long mapRevision;
+<span class="fc" id="L67">        synchronized (this) {</span>
+<span class="fc" id="L68">            configured = credentials.get(profileId);</span>
+<span class="fc" id="L69">            mapRevision = configurationRevision.get();</span>
+<span class="fc" id="L70">        }</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (configured == null) {</span>
+<span class="fc" id="L72">            return new Inspection(</span>
+                    new CredentialState(false, mapRevision, 0L),
+<span class="fc" id="L74">                    Optional.empty());</span>
+        }
+<span class="fc" id="L76">        return configured.inspect(profileId, mapRevision, includeCredentials);</span>
+    }
+
+    /** Secret-free identity of the effective credential configuration. */
+<span class="fc" id="L80">    public record CredentialState(</span>
+            boolean credentialsConfigured,
+            long configurationRevision,
+            long credentialRevision) {
+    }
+
+    /** Mutable binding target. Its string representation never exposes secret values. */
+<span class="fc" id="L87">    public static final class Credential {</span>
+        private String username;
+        private String password;
+        private long revision;
+
+        public synchronized String getUsername() {
+<span class="nc" id="L93">            return username;</span>
+        }
+
+        public synchronized void setUsername(String username) {
+<span class="pc bpc" id="L97" title="1 of 2 branches missed.">            if (!Objects.equals(this.username, username)) {</span>
+<span class="fc" id="L98">                this.username = username;</span>
+<span class="fc" id="L99">                revision++;</span>
+            }
+<span class="fc" id="L101">        }</span>
+
+        public synchronized String getPassword() {
+<span class="nc" id="L104">            return password;</span>
+        }
+
+        public synchronized void setPassword(String password) {
+<span class="fc bfc" id="L108" title="All 2 branches covered.">            if (!Objects.equals(this.password, password)) {</span>
+<span class="fc" id="L109">                this.password = password;</span>
+<span class="fc" id="L110">                revision++;</span>
+            }
+<span class="fc" id="L112">        }</span>
+
+        private synchronized Inspection inspect(
+                String profileId,
+                long mapRevision,
+                boolean includeCredentials) {
+<span class="pc bpc" id="L118" title="2 of 4 branches missed.">            boolean usernamePresent = username != null &amp;&amp; !username.isBlank();</span>
+<span class="pc bpc" id="L119" title="1 of 4 branches missed.">            boolean passwordPresent = password != null &amp;&amp; !password.isBlank();</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">            if (usernamePresent != passwordPresent) {</span>
+<span class="fc" id="L121">                throw new IllegalStateException(</span>
+                        &quot;Incomplete CCAPI credentials configured for camera profile '&quot;
+                                + profileId + &quot;'&quot;);
+            }
+<span class="fc" id="L125">            boolean configured = usernamePresent;</span>
+<span class="fc" id="L126">            CredentialState state = new CredentialState(configured, mapRevision, revision);</span>
+<span class="pc bpc" id="L127" title="1 of 4 branches missed.">            Optional&lt;ResolvedCredentials&gt; resolved = includeCredentials &amp;&amp; configured</span>
+<span class="fc" id="L128">                    ? Optional.of(new ResolvedCredentials(username, password.toCharArray()))</span>
+<span class="fc" id="L129">                    : Optional.empty();</span>
+<span class="fc" id="L130">            return new Inspection(state, resolved);</span>
+        }
+
+        @Override
+        public synchronized String toString() {
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">            return &quot;Credential[usernameConfigured=&quot;</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">                    + (username != null &amp;&amp; !username.isBlank())</span>
+                    + &quot;, password=&lt;redacted&gt;]&quot;;
+        }
+    }
+
+    /** Immutable transport value with defensive password copying and redacted text output. */
+    public static final class ResolvedCredentials implements AutoCloseable {
+        private final String username;
+        private final char[] password;
+        private boolean closed;
+
+<span class="fc" id="L147">        private ResolvedCredentials(String username, char[] password) {</span>
+<span class="fc" id="L148">            this.username = Objects.requireNonNull(username, &quot;username&quot;);</span>
+<span class="fc" id="L149">            this.password = Objects.requireNonNull(password, &quot;password&quot;).clone();</span>
+<span class="fc" id="L150">        }</span>
+
+        public String username() {
+<span class="fc" id="L153">            return username;</span>
+        }
+
+        public synchronized char[] passwordCopy() {
+<span class="fc bfc" id="L157" title="All 2 branches covered.">            if (closed) {</span>
+<span class="fc" id="L158">                throw new IllegalStateException(&quot;Resolved CCAPI credentials are closed&quot;);</span>
+            }
+<span class="fc" id="L160">            return password.clone();</span>
+        }
+
+        @Override
+        public synchronized void close() {
+<span class="fc bfc" id="L165" title="All 2 branches covered.">            if (!closed) {</span>
+<span class="fc" id="L166">                Arrays.fill(password, '\0');</span>
+<span class="fc" id="L167">                closed = true;</span>
+            }
+<span class="fc" id="L169">        }</span>
+
+        @Override
+        public String toString() {
+<span class="fc" id="L173">            return &quot;ResolvedCredentials[username=&lt;redacted&gt;, password=&lt;redacted&gt;]&quot;;</span>
+        }
+    }
+
+    /** Atomic credentials/state snapshot used while constructing one transport. */
+    public static final class CredentialSnapshot implements AutoCloseable {
+        private final CredentialState state;
+        private final Optional&lt;ResolvedCredentials&gt; credentials;
+
+        private CredentialSnapshot(
+                CredentialState state,
+<span class="fc" id="L184">                Optional&lt;ResolvedCredentials&gt; credentials) {</span>
+<span class="fc" id="L185">            this.state = Objects.requireNonNull(state, &quot;state&quot;);</span>
+<span class="fc" id="L186">            this.credentials = Objects.requireNonNull(credentials, &quot;credentials&quot;);</span>
+<span class="fc" id="L187">        }</span>
+
+        public CredentialState state() {
+<span class="fc" id="L190">            return state;</span>
+        }
+
+        public Optional&lt;ResolvedCredentials&gt; credentials() {
+<span class="fc" id="L194">            return credentials;</span>
+        }
+
+        @Override
+        public void close() {
+<span class="fc" id="L199">            credentials.ifPresent(ResolvedCredentials::close);</span>
+<span class="fc" id="L200">        }</span>
+
+        @Override
+        public String toString() {
+<span class="fc" id="L204">            return &quot;CredentialSnapshot[state=&quot; + state + &quot;, credentials=&lt;redacted&gt;]&quot;;</span>
+        }
+    }
+
+<span class="fc" id="L208">    private record Inspection(</span>
+            CredentialState state,
+            Optional&lt;ResolvedCredentials&gt; credentials) {
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

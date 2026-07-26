@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiDiscoveryService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.discovery</a> &gt; <span class="el_source">CcapiDiscoveryService.java</span></div><h1>CcapiDiscoveryService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.discovery;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+/**
+ * Performs one bounded Canon CCAPI discovery pass on all eligible local interfaces.
+ *
+ * &lt;p&gt;The service has no Android dependency and never assumes names such as
+ * {@code wlan0}. SSDP packets and device-description bodies are parsed into
+ * structured data and are not logged or returned as diagnostics.&lt;/p&gt;
+ */
+public final class CcapiDiscoveryService {
+
+<span class="fc" id="L31">    private static final Duration MIN_OPERATION_SLICE = Duration.ofMillis(250);</span>
+<span class="fc" id="L32">    private static final Duration MAX_DISCOVERY_TIMEOUT = Duration.ofMinutes(5);</span>
+    private static final int MAX_WARNING_MESSAGE_LENGTH = 256;
+<span class="fc" id="L34">    private static final Pattern URL_QUERY_PATTERN = Pattern.compile(</span>
+            &quot;(?i)(https?://[^\\s?#]+)\\?[^\\s#]+&quot;);
+<span class="fc" id="L36">    private static final Pattern SENSITIVE_VALUE_PATTERN = Pattern.compile(</span>
+            &quot;(?i)(password|passwd|token|secret|authorization|api[_-]?key)=([^\\s&amp;,;]+)&quot;);
+
+    private final CcapiNetworkBindingProvider bindingProvider;
+    private final CcapiSsdpTransport ssdpTransport;
+    private final CcapiDeviceDescriptionFetcher descriptionFetcher;
+    private final CcapiDeviceDescriptionParser descriptionParser;
+
+    public CcapiDiscoveryService() {
+<span class="fc" id="L45">        this(new JdkCcapiNetworkBindingProvider(),</span>
+                new UdpCcapiSsdpTransport(),
+                new HttpCcapiDeviceDescriptionFetcher(),
+                new CcapiDeviceDescriptionParser());
+<span class="fc" id="L49">    }</span>
+
+    CcapiDiscoveryService(CcapiNetworkBindingProvider bindingProvider,
+                          CcapiSsdpTransport ssdpTransport,
+                          CcapiDeviceDescriptionFetcher descriptionFetcher,
+<span class="fc" id="L54">                          CcapiDeviceDescriptionParser descriptionParser) {</span>
+<span class="fc" id="L55">        this.bindingProvider = Objects.requireNonNull(bindingProvider, &quot;bindingProvider&quot;);</span>
+<span class="fc" id="L56">        this.ssdpTransport = Objects.requireNonNull(ssdpTransport, &quot;ssdpTransport&quot;);</span>
+<span class="fc" id="L57">        this.descriptionFetcher = Objects.requireNonNull(descriptionFetcher, &quot;descriptionFetcher&quot;);</span>
+<span class="fc" id="L58">        this.descriptionParser = Objects.requireNonNull(descriptionParser, &quot;descriptionParser&quot;);</span>
+<span class="fc" id="L59">    }</span>
+
+    public CcapiDiscoveryResult discover(Duration timeout) {
+<span class="fc" id="L62">        validateTimeout(timeout);</span>
+<span class="fc" id="L63">        long deadline = deadline(timeout);</span>
+<span class="fc" id="L64">        List&lt;CcapiDiscoveryWarning&gt; warnings = new ArrayList&lt;&gt;();</span>
+        List&lt;CcapiNetworkBinding&gt; bindings;
+        try {
+<span class="fc" id="L67">            bindings = bindingProvider.bindings();</span>
+<span class="nc" id="L68">        } catch (SocketException exception) {</span>
+<span class="nc" id="L69">            warnings.add(warning(&quot;network-interfaces&quot;, null, exception));</span>
+<span class="nc" id="L70">            return new CcapiDiscoveryResult(List.of(), warnings);</span>
+<span class="fc" id="L71">        }</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">        if (bindings.isEmpty()) {</span>
+<span class="fc" id="L73">            warnings.add(new CcapiDiscoveryWarning(</span>
+                    &quot;network-interfaces&quot;, null, &quot;No eligible multicast-capable interface found&quot;));
+<span class="fc" id="L75">            return new CcapiDiscoveryResult(List.of(), warnings);</span>
+        }
+
+<span class="fc" id="L78">        Set&lt;URI&gt; descriptionUrls = discoverDescriptionUrls(bindings, deadline, warnings);</span>
+<span class="fc" id="L79">        Map&lt;String, CcapiDiscoveredCamera&gt; cameras = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L80">        int remainingLocations = descriptionUrls.size();</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        for (URI descriptionUrl : descriptionUrls) {</span>
+<span class="fc" id="L82">            Duration remaining = remaining(deadline);</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            if (remaining.isZero()) {</span>
+<span class="nc" id="L84">                warnings.add(new CcapiDiscoveryWarning(</span>
+                        &quot;device-description&quot;, null, &quot;Discovery deadline reached&quot;));
+<span class="nc" id="L86">                break;</span>
+            }
+<span class="fc" id="L88">            Duration slice = operationSlice(remaining, remainingLocations--);</span>
+<span class="fc" id="L89">            String warningSource = redactedUriSource(descriptionUrl);</span>
+            try {
+<span class="fc" id="L91">                byte[] xml = descriptionFetcher.fetch(descriptionUrl, slice);</span>
+<span class="fc" id="L92">                CcapiDiscoveredCamera camera = descriptionParser.parse(</span>
+                        new ByteArrayInputStream(xml), descriptionUrl);
+<span class="fc" id="L94">                cameras.putIfAbsent(cameraIdentity(camera), camera);</span>
+<span class="nc" id="L95">            } catch (InterruptedException exception) {</span>
+<span class="nc" id="L96">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L97">                warnings.add(new CcapiDiscoveryWarning(</span>
+                        &quot;device-description&quot;, warningSource, &quot;Discovery interrupted&quot;));
+<span class="nc" id="L99">                break;</span>
+<span class="fc" id="L100">            } catch (IOException | RuntimeException exception) {</span>
+<span class="fc" id="L101">                warnings.add(warning(</span>
+                        &quot;device-description&quot;, warningSource, exception));
+<span class="fc" id="L103">            }</span>
+<span class="fc" id="L104">        }</span>
+<span class="fc" id="L105">        return new CcapiDiscoveryResult(List.copyOf(cameras.values()), warnings);</span>
+    }
+
+    private Set&lt;URI&gt; discoverDescriptionUrls(List&lt;CcapiNetworkBinding&gt; bindings,
+                                             long deadline,
+                                             List&lt;CcapiDiscoveryWarning&gt; warnings) {
+<span class="fc" id="L111">        Set&lt;URI&gt; result = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc" id="L112">        int remainingBindings = bindings.size();</span>
+<span class="fc bfc" id="L113" title="All 2 branches covered.">        for (CcapiNetworkBinding binding : bindings) {</span>
+<span class="fc" id="L114">            Duration remaining = remaining(deadline);</span>
+<span class="pc bpc" id="L115" title="1 of 2 branches missed.">            if (remaining.isZero()) {</span>
+<span class="nc" id="L116">                warnings.add(new CcapiDiscoveryWarning(</span>
+                        &quot;ssdp&quot;, null, &quot;Discovery deadline reached&quot;));
+<span class="nc" id="L118">                break;</span>
+            }
+<span class="fc" id="L120">            Duration slice = operationSlice(remaining, remainingBindings--);</span>
+<span class="fc" id="L121">            byte[] request = CcapiSsdpCodec.mSearchRequest(binding.family());</span>
+            try {
+<span class="fc bfc" id="L123" title="All 2 branches covered.">                for (CcapiSsdpDatagram datagram : ssdpTransport.search(binding, request, slice)) {</span>
+<span class="fc" id="L124">                    byte[] payload = datagram.payload();</span>
+<span class="fc" id="L125">                    CcapiSsdpCodec.parse(payload, payload.length)</span>
+<span class="fc" id="L126">                            .filter(CcapiSsdpMessage::isCanonCcapi)</span>
+<span class="fc" id="L127">                            .flatMap(CcapiSsdpMessage::location)</span>
+<span class="fc" id="L128">                            .ifPresent(location -&gt; addValidatedLocation(</span>
+                                    result, warnings, datagram, location));
+<span class="fc" id="L130">                }</span>
+<span class="fc" id="L131">            } catch (IOException | RuntimeException exception) {</span>
+<span class="fc" id="L132">                String source = binding.displayName() + &quot; &quot;</span>
+<span class="fc" id="L133">                        + binding.localAddress().getHostAddress();</span>
+<span class="fc" id="L134">                warnings.add(warning(&quot;ssdp&quot;, source, exception));</span>
+<span class="fc" id="L135">            }</span>
+<span class="fc" id="L136">        }</span>
+<span class="fc" id="L137">        return result;</span>
+    }
+
+    private static void addValidatedLocation(Set&lt;URI&gt; result,
+                                             List&lt;CcapiDiscoveryWarning&gt; warnings,
+                                             CcapiSsdpDatagram datagram,
+                                             URI location) {
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        if (locationMatchesSource(location, datagram.source().getAddress())) {</span>
+<span class="fc" id="L145">            result.add(location);</span>
+<span class="fc" id="L146">            return;</span>
+        }
+<span class="fc" id="L148">        warnings.add(new CcapiDiscoveryWarning(</span>
+                &quot;ssdp-location&quot;,
+<span class="fc" id="L150">                datagram.source().getAddress().getHostAddress(),</span>
+                &quot;Ignored LOCATION whose numeric host differs from the datagram source&quot;));
+<span class="fc" id="L152">    }</span>
+
+    static boolean locationMatchesSource(URI location, InetAddress source) {
+<span class="pc bpc" id="L155" title="3 of 6 branches missed.">        if (location == null || source == null || location.getHost() == null) {</span>
+<span class="nc" id="L156">            return false;</span>
+        }
+<span class="fc" id="L158">        String numericHost = normalizeNumericHost(location.getHost());</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (numericHost == null) {</span>
+<span class="fc" id="L160">            return false;</span>
+        }
+        try {
+<span class="fc" id="L163">            InetAddress locationAddress = InetAddress.getByName(numericHost);</span>
+<span class="fc" id="L164">            return Arrays.equals(locationAddress.getAddress(), source.getAddress());</span>
+<span class="nc" id="L165">        } catch (UnknownHostException exception) {</span>
+<span class="nc" id="L166">            return false;</span>
+        }
+    }
+
+    private static String normalizeNumericHost(String host) {
+<span class="fc" id="L171">        String value = host;</span>
+<span class="pc bpc" id="L172" title="1 of 4 branches missed.">        if (value.startsWith(&quot;[&quot;) &amp;&amp; value.endsWith(&quot;]&quot;)) {</span>
+<span class="fc" id="L173">            value = value.substring(1, value.length() - 1);</span>
+        }
+<span class="fc" id="L175">        int zone = value.indexOf('%');</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">        if (zone &gt;= 0) {</span>
+<span class="nc" id="L177">            value = value.substring(0, zone);</span>
+        }
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        if (value.contains(&quot;:&quot;)) {</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">            return value.matches(&quot;[0-9A-Fa-f:.]+&quot;) ? value : null;</span>
+        }
+<span class="fc" id="L182">        String[] octets = value.split(&quot;\\.&quot;, -1);</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        if (octets.length != 4) {</span>
+<span class="fc" id="L184">            return null;</span>
+        }
+<span class="fc bfc" id="L186" title="All 2 branches covered.">        for (String octet : octets) {</span>
+            try {
+<span class="fc" id="L188">                int number = Integer.parseInt(octet);</span>
+<span class="pc bpc" id="L189" title="3 of 6 branches missed.">                if (octet.isEmpty() || number &lt; 0 || number &gt; 255) {</span>
+<span class="nc" id="L190">                    return null;</span>
+                }
+<span class="nc" id="L192">            } catch (NumberFormatException exception) {</span>
+<span class="nc" id="L193">                return null;</span>
+<span class="fc" id="L194">            }</span>
+        }
+<span class="fc" id="L196">        return value;</span>
+    }
+
+    private static String cameraIdentity(CcapiDiscoveredCamera camera) {
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        if (camera.udn() != null) {</span>
+<span class="fc" id="L201">            return &quot;udn:&quot; + camera.udn().toLowerCase(Locale.ROOT);</span>
+        }
+<span class="nc" id="L203">        return &quot;url:&quot; + camera.accessUrl().normalize();</span>
+    }
+
+    static String redactedUriSource(URI uri) {
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">        if (uri == null) {</span>
+<span class="nc" id="L208">            return null;</span>
+        }
+        try {
+<span class="fc" id="L211">            return new URI(</span>
+<span class="fc" id="L212">                    uri.getScheme(), null, uri.getHost(), uri.getPort(),</span>
+<span class="fc" id="L213">                    uri.getPath(), null, null).toString();</span>
+<span class="nc" id="L214">        } catch (URISyntaxException exception) {</span>
+<span class="nc" id="L215">            return uri.getHost();</span>
+        }
+    }
+
+    static String safeWarningMessage(Exception exception) {
+<span class="fc" id="L220">        Objects.requireNonNull(exception, &quot;exception&quot;);</span>
+<span class="fc" id="L221">        String message = exception.getMessage();</span>
+<span class="pc bpc" id="L222" title="1 of 4 branches missed.">        if (message == null || message.isBlank()) {</span>
+<span class="fc" id="L223">            message = exception.getClass().getSimpleName();</span>
+        }
+<span class="fc" id="L225">        message = URL_QUERY_PATTERN.matcher(message).replaceAll(&quot;$1?&lt;redacted&gt;&quot;);</span>
+<span class="fc" id="L226">        message = SENSITIVE_VALUE_PATTERN.matcher(message).replaceAll(&quot;$1=&lt;redacted&gt;&quot;);</span>
+<span class="fc bfc" id="L227" title="All 2 branches covered.">        if (message.length() &gt; MAX_WARNING_MESSAGE_LENGTH) {</span>
+<span class="fc" id="L228">            message = message.substring(0, MAX_WARNING_MESSAGE_LENGTH - 1) + &quot;…&quot;;</span>
+        }
+<span class="fc" id="L230">        return message;</span>
+    }
+
+    private static Duration operationSlice(Duration remaining, int operationsLeft) {
+<span class="fc bfc" id="L234" title="All 2 branches covered.">        if (operationsLeft &lt;= 1) {</span>
+<span class="fc" id="L235">            return remaining;</span>
+        }
+<span class="fc" id="L237">        Duration fairShare = remaining.dividedBy(operationsLeft);</span>
+<span class="pc bpc" id="L238" title="1 of 2 branches missed.">        if (fairShare.compareTo(MIN_OPERATION_SLICE) &lt; 0) {</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">            return remaining.compareTo(MIN_OPERATION_SLICE) &lt; 0</span>
+<span class="nc" id="L240">                    ? remaining : MIN_OPERATION_SLICE;</span>
+        }
+<span class="fc" id="L242">        return fairShare;</span>
+    }
+
+    private static long deadline(Duration timeout) {
+<span class="fc" id="L246">        return Math.addExact(System.nanoTime(), timeout.toNanos());</span>
+    }
+
+    private static Duration remaining(long deadline) {
+<span class="fc" id="L250">        long nanos = deadline - System.nanoTime();</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">        return nanos &lt;= 0L ? Duration.ZERO : Duration.ofNanos(nanos);</span>
+    }
+
+    private static void validateTimeout(Duration timeout) {
+<span class="pc bpc" id="L255" title="2 of 6 branches missed.">        if (timeout == null || timeout.isZero() || timeout.isNegative()) {</span>
+<span class="fc" id="L256">            throw new IllegalArgumentException(&quot;timeout must be positive&quot;);</span>
+        }
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        if (timeout.compareTo(MAX_DISCOVERY_TIMEOUT) &gt; 0) {</span>
+<span class="fc" id="L259">            throw new IllegalArgumentException(&quot;timeout must not exceed 5 minutes&quot;);</span>
+        }
+<span class="fc" id="L261">    }</span>
+
+    private static CcapiDiscoveryWarning warning(
+            String stage, String source, Exception exception) {
+<span class="fc" id="L265">        return new CcapiDiscoveryWarning(</span>
+<span class="fc" id="L266">                stage, source, safeWarningMessage(exception));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

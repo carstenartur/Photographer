@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -20,23 +21,15 @@ import java.util.concurrent.TimeUnit;
  * &lt;p&gt;Each frame is written to disk under the configured
  * {@code focusstack.storage.images-dir} directory so that captured images
  * survive application restarts. An in-memory cache (bounded by total byte size)
- * avoids repeated disk reads for recently accessed frames.
- *
- * &lt;p&gt;This store is populated by {@link StackingJobService} as each frame is
- * captured and is read by the export / image endpoints in the job controller.
+ * avoids repeated disk reads for recently accessed frames.&lt;/p&gt;
  */
 @Service
 public class FrameDataStore {
 
-<span class="fc" id="L31">    private static final Logger log = LoggerFactory.getLogger(FrameDataStore.class);</span>
+<span class="fc" id="L29">    private static final Logger log = LoggerFactory.getLogger(FrameDataStore.class);</span>
 
-    /**
-     * Holds both the raw bytes and the original filename for a captured frame.
-     *
-     * @param fileName original filename from the camera backend (e.g. {@code IMG_0.jpg})
-     * @param data     raw image bytes
-     */
-<span class="fc" id="L39">    public record FrameEntry(String fileName, byte[] data) {}</span>
+    /** Holds both the raw bytes and the original filename for a captured frame. */
+<span class="fc" id="L32">    public record FrameEntry(String fileName, byte[] data) {}</span>
 
     /** Hot-cache: avoids disk reads for recently accessed frames. */
     private final Cache&lt;String, FrameEntry&gt; cache;
@@ -48,130 +41,211 @@ public class FrameDataStore {
     public FrameDataStore(
             @Value(&quot;${focusstack.storage.images-dir:./data/images}&quot;) String imagesDir,
             @Value(&quot;${focusstack.cache.frame-store.max-bytes:1073741824}&quot;) long maxCacheBytes) {
-<span class="fc" id="L51">        this(imagesDir, maxCacheBytes, true, true);</span>
-<span class="fc" id="L52">    }</span>
+<span class="fc" id="L44">        this(imagesDir, maxCacheBytes, true, true);</span>
+<span class="fc" id="L45">    }</span>
 
-<span class="fc" id="L54">    private FrameDataStore(String imagesDir, long maxCacheBytes, boolean logConfiguredLimit, boolean cloneOnPut) {</span>
-<span class="fc" id="L55">        long effectiveMaxBytes = Math.max(1L, maxCacheBytes);</span>
-<span class="fc" id="L56">        this.cloneOnPut = cloneOnPut;</span>
-<span class="fc" id="L57">        this.cache = Caffeine.newBuilder()</span>
-<span class="fc" id="L58">                .maximumWeight(effectiveMaxBytes)</span>
-<span class="fc" id="L59">                .weigher((String key, FrameEntry value) -&gt; value.data().length)</span>
-<span class="fc" id="L60">                .expireAfterAccess(30, TimeUnit.MINUTES)</span>
-<span class="fc" id="L61">                .build();</span>
-<span class="fc" id="L62">        this.storageDir = Path.of(imagesDir);</span>
+    private FrameDataStore(
+            String imagesDir,
+            long maxCacheBytes,
+            boolean logConfiguredLimit,
+<span class="fc" id="L51">            boolean cloneOnPut) {</span>
+<span class="fc" id="L52">        long effectiveMaxBytes = Math.max(1L, maxCacheBytes);</span>
+<span class="fc" id="L53">        this.cloneOnPut = cloneOnPut;</span>
+<span class="fc" id="L54">        this.cache = Caffeine.newBuilder()</span>
+<span class="fc" id="L55">                .maximumWeight(effectiveMaxBytes)</span>
+<span class="fc" id="L56">                .weigher((String key, FrameEntry value) -&gt; value.data().length)</span>
+<span class="fc" id="L57">                .expireAfterAccess(30, TimeUnit.MINUTES)</span>
+<span class="fc" id="L58">                .build();</span>
+<span class="fc" id="L59">        this.storageDir = Path.of(imagesDir);</span>
         try {
-<span class="fc" id="L64">            Files.createDirectories(storageDir);</span>
-<span class="nc" id="L65">        } catch (IOException e) {</span>
-<span class="nc" id="L66">            throw new UncheckedIOException(&quot;Cannot create images directory: &quot; + storageDir, e);</span>
-<span class="fc" id="L67">        }</span>
-<span class="pc bpc" id="L68" title="1 of 2 branches missed.">        if (logConfiguredLimit) {</span>
-<span class="fc" id="L69">            log.info(&quot;FrameDataStore initialized — images dir: {}, cache max bytes: {}&quot;,</span>
-<span class="fc" id="L70">                    storageDir.toAbsolutePath(), effectiveMaxBytes);</span>
+<span class="fc" id="L61">            Files.createDirectories(storageDir);</span>
+<span class="nc" id="L62">        } catch (IOException exception) {</span>
+<span class="nc" id="L63">            throw new UncheckedIOException(</span>
+                    &quot;Cannot create images directory: &quot; + storageDir, exception);
+<span class="fc" id="L65">        }</span>
+<span class="pc bpc" id="L66" title="1 of 2 branches missed.">        if (logConfiguredLimit) {</span>
+<span class="fc" id="L67">            log.info(&quot;FrameDataStore initialized — images dir: {}, cache max bytes: {}&quot;,</span>
+<span class="fc" id="L68">                    storageDir.toAbsolutePath(), effectiveMaxBytes);</span>
         } else {
-<span class="nc" id="L72">            log.info(&quot;FrameDataStore initialized — images dir: {}&quot;, storageDir.toAbsolutePath());</span>
+<span class="nc" id="L70">            log.info(&quot;FrameDataStore initialized — images dir: {}&quot;,</span>
+<span class="nc" id="L71">                    storageDir.toAbsolutePath());</span>
         }
-<span class="fc" id="L74">    }</span>
+<span class="fc" id="L73">    }</span>
 
     /** Stores the raw bytes and original filename for a frame (memory + disk). */
     public void put(String imageId, String fileName, byte[] data) {
-<span class="pc bpc" id="L78" title="2 of 4 branches missed.">        if (imageId == null || data == null) {</span>
-<span class="nc" id="L79">            return;</span>
+<span class="pc bpc" id="L77" title="2 of 4 branches missed.">        if (imageId == null || data == null) {</span>
+<span class="nc" id="L78">            return;</span>
         }
-<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        String safeName = fileName != null ? fileName : imageId + &quot;.bin&quot;;</span>
-<span class="pc bpc" id="L82" title="1 of 2 branches missed.">        cache.put(imageId, new FrameEntry(safeName, cloneOnPut ? data.clone() : data));</span>
+<span class="fc" id="L80">        String safeName = safeFileName(imageId, fileName);</span>
+<span class="fc" id="L81">        cache.put(imageId, new FrameEntry(</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">                safeName, cloneOnPut ? data.clone() : data));</span>
 
-        // Persist to disk
         try {
-<span class="fc" id="L86">            Path imageFile = storageDir.resolve(imageId);</span>
-<span class="fc" id="L87">            Files.write(imageFile, data);</span>
-            // Store the filename in a companion &quot;.meta&quot; file
-<span class="fc" id="L89">            Files.writeString(storageDir.resolve(imageId + &quot;.meta&quot;), safeName);</span>
-<span class="nc" id="L90">        } catch (IOException e) {</span>
-<span class="nc" id="L91">            log.error(&quot;Failed to persist frame {} to disk: {}&quot;, imageId, e.getMessage());</span>
-<span class="fc" id="L92">        }</span>
-<span class="fc" id="L93">    }</span>
+<span class="fc" id="L85">            Files.write(storageDir.resolve(imageId), data);</span>
+<span class="fc" id="L86">            Files.writeString(storageDir.resolve(imageId + &quot;.meta&quot;), safeName);</span>
+<span class="nc" id="L87">        } catch (IOException exception) {</span>
+<span class="nc" id="L88">            log.error(&quot;Failed to persist frame {} to disk: {}&quot;,</span>
+<span class="nc" id="L89">                    imageId, exception.getMessage());</span>
+<span class="fc" id="L90">        }</span>
+<span class="fc" id="L91">    }</span>
 
     /**
-     * Retrieves the {@link FrameEntry} for a frame, or {@code null} if not present.
-     * Checks the in-memory cache first, then falls back to disk.
+     * Commits a previously streamed temporary file without loading it into memory.
+     *
+     * &lt;p&gt;The source file is consumed by this method. Large native RAW frames remain
+     * disk-only until a later explicit read; the hot cache is invalidated rather
+     * than populated.&lt;/p&gt;
      */
+    public void putFile(String imageId, String fileName, Path sourceFile) {
+<span class="pc bpc" id="L101" title="2 of 4 branches missed.">        if (imageId == null || sourceFile == null) {</span>
+<span class="nc" id="L102">            throw new IllegalArgumentException(&quot;imageId and sourceFile are required&quot;);</span>
+        }
+<span class="fc" id="L104">        String safeName = safeFileName(imageId, fileName);</span>
+<span class="fc" id="L105">        Path target = storageDir.resolve(imageId);</span>
+<span class="fc" id="L106">        Path metadata = storageDir.resolve(imageId + &quot;.meta&quot;);</span>
+<span class="fc" id="L107">        boolean targetCommitted = false;</span>
+        try {
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">            if (!Files.isRegularFile(sourceFile)) {</span>
+<span class="nc" id="L110">                throw new IOException(&quot;streamed frame source is not a regular file&quot;);</span>
+            }
+<span class="fc" id="L112">            moveOrCopy(sourceFile, target);</span>
+<span class="fc" id="L113">            targetCommitted = true;</span>
+<span class="fc" id="L114">            Files.writeString(metadata, safeName);</span>
+<span class="fc" id="L115">            cache.invalidate(imageId);</span>
+<span class="nc" id="L116">        } catch (IOException exception) {</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">            if (targetCommitted) {</span>
+                try {
+<span class="nc" id="L119">                    Files.deleteIfExists(target);</span>
+<span class="nc" id="L120">                    Files.deleteIfExists(metadata);</span>
+<span class="nc" id="L121">                } catch (IOException rollbackFailure) {</span>
+<span class="nc" id="L122">                    exception.addSuppressed(rollbackFailure);</span>
+<span class="nc" id="L123">                }</span>
+            }
+            try {
+<span class="nc" id="L126">                Files.deleteIfExists(sourceFile);</span>
+<span class="nc" id="L127">            } catch (IOException cleanupFailure) {</span>
+<span class="nc" id="L128">                exception.addSuppressed(cleanupFailure);</span>
+<span class="nc" id="L129">            }</span>
+<span class="nc" id="L130">            throw new UncheckedIOException(&quot;Failed to commit streamed frame&quot;, exception);</span>
+<span class="fc" id="L131">        }</span>
+<span class="fc" id="L132">    }</span>
+
+    private static void moveOrCopy(Path source, Path target) throws IOException {
+        try {
+<span class="fc" id="L136">            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="nc" id="L137">        } catch (IOException moveFailure) {</span>
+            try {
+<span class="nc" id="L139">                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="nc" id="L140">                Files.delete(source);</span>
+<span class="nc" id="L141">            } catch (IOException copyFailure) {</span>
+<span class="nc" id="L142">                copyFailure.addSuppressed(moveFailure);</span>
+<span class="nc" id="L143">                throw copyFailure;</span>
+<span class="nc" id="L144">            }</span>
+<span class="fc" id="L145">        }</span>
+<span class="fc" id="L146">    }</span>
+
+    /** Returns the original filename without reading the frame payload. */
+    public String getFileName(String imageId) {
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">        if (imageId == null) {</span>
+<span class="nc" id="L151">            return null;</span>
+        }
+<span class="fc" id="L153">        FrameEntry cached = cache.getIfPresent(imageId);</span>
+<span class="pc bpc" id="L154" title="1 of 2 branches missed.">        if (cached != null) {</span>
+<span class="nc" id="L155">            return cached.fileName();</span>
+        }
+<span class="fc" id="L157">        Path metaFile = storageDir.resolve(imageId + &quot;.meta&quot;);</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (!Files.exists(metaFile)) {</span>
+<span class="nc" id="L159">            return null;</span>
+        }
+        try {
+<span class="fc" id="L162">            String value = Files.readString(metaFile).trim();</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">            return value.isEmpty() ? null : value;</span>
+<span class="nc" id="L164">        } catch (IOException exception) {</span>
+<span class="nc" id="L165">            log.warn(&quot;Failed to read frame metadata {}: {}&quot;,</span>
+<span class="nc" id="L166">                    imageId, exception.getMessage());</span>
+<span class="nc" id="L167">            return null;</span>
+        }
+    }
+
+    /** Retrieves the frame entry, checking cache first and then disk. */
     public FrameEntry getEntry(String imageId) {
-<span class="pc bpc" id="L100" title="1 of 2 branches missed.">        if (imageId == null) {</span>
-<span class="nc" id="L101">            return null;</span>
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">        if (imageId == null) {</span>
+<span class="nc" id="L174">            return null;</span>
         }
-<span class="fc" id="L103">        FrameEntry cached = cache.getIfPresent(imageId);</span>
-<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (cached != null) {</span>
-<span class="fc" id="L105">            return cached;</span>
+<span class="fc" id="L176">        FrameEntry cached = cache.getIfPresent(imageId);</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        if (cached != null) {</span>
+<span class="fc" id="L178">            return cached;</span>
         }
-        // Try loading from disk
-<span class="nc" id="L108">        return loadFromDisk(imageId);</span>
+<span class="fc" id="L180">        return loadFromDisk(imageId);</span>
     }
 
-    /**
-     * Retrieves just the raw bytes for a frame, or {@code null} if not present.
-     */
+    /** Retrieves just the raw bytes for a frame, or {@code null} if absent. */
     public byte[] get(String imageId) {
-<span class="nc" id="L115">        FrameEntry entry = getEntry(imageId);</span>
-<span class="nc bnc" id="L116" title="All 2 branches missed.">        return entry != null ? entry.data() : null;</span>
+<span class="fc" id="L185">        FrameEntry entry = getEntry(imageId);</span>
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        return entry != null ? entry.data() : null;</span>
     }
 
-    /** Returns {@code true} if the given frame is available (cache or disk). */
+    /** Returns whether the frame exists in cache or disk storage. */
     public boolean contains(String imageId) {
-<span class="nc bnc" id="L121" title="All 2 branches missed.">        if (imageId == null) {</span>
-<span class="nc" id="L122">            return false;</span>
+<span class="pc bpc" id="L191" title="1 of 2 branches missed.">        if (imageId == null) {</span>
+<span class="nc" id="L192">            return false;</span>
         }
-<span class="nc bnc" id="L124" title="All 2 branches missed.">        if (cache.asMap().containsKey(imageId)) {</span>
-<span class="nc" id="L125">            return true;</span>
-        }
-<span class="nc" id="L127">        return Files.exists(storageDir.resolve(imageId));</span>
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">        return cache.asMap().containsKey(imageId)</span>
+<span class="pc bpc" id="L195" title="1 of 2 branches missed.">                || Files.exists(storageDir.resolve(imageId));</span>
     }
 
-    /** Removes a frame from both the in-memory cache and disk storage. */
+    /** Removes a frame from cache and disk storage. */
     public void remove(String imageId) {
-<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (imageId == null) return;</span>
-<span class="fc" id="L133">        cache.invalidate(imageId);</span>
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">        if (imageId == null) {</span>
+<span class="nc" id="L201">            return;</span>
+        }
+<span class="fc" id="L203">        cache.invalidate(imageId);</span>
         try {
-<span class="fc" id="L135">            Files.deleteIfExists(storageDir.resolve(imageId));</span>
-<span class="fc" id="L136">            Files.deleteIfExists(storageDir.resolve(imageId + &quot;.meta&quot;));</span>
-<span class="nc" id="L137">        } catch (IOException e) {</span>
-<span class="nc" id="L138">            log.warn(&quot;Failed to remove frame {} from disk: {}&quot;, imageId, e.getMessage());</span>
-<span class="fc" id="L139">        }</span>
-<span class="fc" id="L140">    }</span>
-
-    // ── Internal helpers ────────────────────────────────────────────────
+<span class="fc" id="L205">            Files.deleteIfExists(storageDir.resolve(imageId));</span>
+<span class="fc" id="L206">            Files.deleteIfExists(storageDir.resolve(imageId + &quot;.meta&quot;));</span>
+<span class="nc" id="L207">        } catch (IOException exception) {</span>
+<span class="nc" id="L208">            log.warn(&quot;Failed to remove frame {} from disk: {}&quot;,</span>
+<span class="nc" id="L209">                    imageId, exception.getMessage());</span>
+<span class="fc" id="L210">        }</span>
+<span class="fc" id="L211">    }</span>
 
     private FrameEntry loadFromDisk(String imageId) {
-<span class="nc" id="L145">        Path imageFile = storageDir.resolve(imageId);</span>
-<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (!Files.exists(imageFile)) {</span>
-<span class="nc" id="L147">            return null;</span>
+<span class="fc" id="L214">        Path imageFile = storageDir.resolve(imageId);</span>
+<span class="pc bpc" id="L215" title="1 of 2 branches missed.">        if (!Files.exists(imageFile)) {</span>
+<span class="nc" id="L216">            return null;</span>
         }
         try {
-<span class="nc" id="L150">            byte[] data = Files.readAllBytes(imageFile);</span>
-<span class="nc" id="L151">            String fileName = imageId + &quot;.bin&quot;;</span>
-<span class="nc" id="L152">            Path metaFile = storageDir.resolve(imageId + &quot;.meta&quot;);</span>
-<span class="nc bnc" id="L153" title="All 2 branches missed.">            if (Files.exists(metaFile)) {</span>
-<span class="nc" id="L154">                fileName = Files.readString(metaFile).trim();</span>
+<span class="fc" id="L219">            byte[] data = Files.readAllBytes(imageFile);</span>
+<span class="fc" id="L220">            String fileName = getFileName(imageId);</span>
+<span class="pc bpc" id="L221" title="1 of 2 branches missed.">            if (fileName == null) {</span>
+<span class="nc" id="L222">                fileName = imageId + &quot;.bin&quot;;</span>
             }
-<span class="nc" id="L156">            FrameEntry entry = new FrameEntry(fileName, data);</span>
-<span class="nc" id="L157">            cache.put(imageId, entry); // warm the cache</span>
-<span class="nc" id="L158">            return entry;</span>
-<span class="nc" id="L159">        } catch (IOException e) {</span>
-<span class="nc" id="L160">            log.warn(&quot;Failed to load frame {} from disk: {}&quot;, imageId, e.getMessage());</span>
-<span class="nc" id="L161">            return null;</span>
+<span class="fc" id="L224">            FrameEntry entry = new FrameEntry(fileName, data);</span>
+<span class="fc" id="L225">            cache.put(imageId, entry);</span>
+<span class="fc" id="L226">            return entry;</span>
+<span class="nc" id="L227">        } catch (IOException exception) {</span>
+<span class="nc" id="L228">            log.warn(&quot;Failed to load frame {} from disk: {}&quot;,</span>
+<span class="nc" id="L229">                    imageId, exception.getMessage());</span>
+<span class="nc" id="L230">            return null;</span>
         }
+    }
+
+    private static String safeFileName(String imageId, String fileName) {
+<span class="pc bpc" id="L235" title="2 of 4 branches missed.">        return fileName != null &amp;&amp; !fileName.isBlank()</span>
+<span class="pc" id="L236">                ? fileName : imageId + &quot;.bin&quot;;</span>
     }
 
     boolean isCached(String imageId) {
-<span class="nc bnc" id="L166" title="All 4 branches missed.">        return imageId != null &amp;&amp; cache.getIfPresent(imageId) != null;</span>
+<span class="pc bpc" id="L240" title="1 of 4 branches missed.">        return imageId != null &amp;&amp; cache.getIfPresent(imageId) != null;</span>
     }
 
     void cleanUpCache() {
-<span class="fc" id="L170">        cache.cleanUp();</span>
-<span class="fc" id="L171">    }</span>
+<span class="fc" id="L244">        cache.cleanUp();</span>
+<span class="fc" id="L245">    }</span>
 
     int cachedEntryCount() {
-<span class="fc" id="L174">        return cache.asMap().size();</span>
+<span class="fc" id="L248">        return cache.asMap().size();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

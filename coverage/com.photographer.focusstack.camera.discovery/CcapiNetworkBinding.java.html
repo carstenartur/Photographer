@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiNetworkBinding.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.discovery</a> &gt; <span class="el_source">CcapiNetworkBinding.java</span></div><h1>CcapiNetworkBinding.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.discovery;
+
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.Objects;
+
+/** One eligible local interface/address pair for a single SSDP address family. */
+record CcapiNetworkBinding(
+        NetworkInterface networkInterface,
+        InetAddress localAddress,
+        CcapiAddressFamily family
+) {
+<span class="fc" id="L13">    CcapiNetworkBinding {</span>
+<span class="fc" id="L14">        networkInterface = Objects.requireNonNull(networkInterface, &quot;networkInterface&quot;);</span>
+<span class="fc" id="L15">        localAddress = Objects.requireNonNull(localAddress, &quot;localAddress&quot;);</span>
+<span class="fc" id="L16">        family = Objects.requireNonNull(family, &quot;family&quot;);</span>
+<span class="pc bpc" id="L17" title="1 of 2 branches missed.">        if (family != CcapiAddressFamily.of(localAddress)) {</span>
+<span class="nc" id="L18">            throw new IllegalArgumentException(&quot;Address family does not match local address&quot;);</span>
+        }
+<span class="fc" id="L20">    }</span>
+
+    String displayName() {
+<span class="fc" id="L23">        String display = networkInterface.getDisplayName();</span>
+<span class="pc bpc" id="L24" title="2 of 4 branches missed.">        return display == null || display.isBlank() ? networkInterface.getName() : display;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
