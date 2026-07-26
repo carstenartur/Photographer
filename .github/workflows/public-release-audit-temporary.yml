@@ -1,0 +1,30 @@
+name: Public Release Audit (temporary)
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  public-release-audit:
+    name: Full history and media privacy audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout complete repository history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install ExifTool
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libimage-exiftool-perl
+
+      - name: Test public-release audit
+        run: python3 scripts/test_audit_public_release.py
+
+      - name: Scan history and tracked media metadata
+        run: python3 scripts/audit_public_release.py --history --media-metadata
