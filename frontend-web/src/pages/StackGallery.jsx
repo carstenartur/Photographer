@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAllJobs } from '../api/jobApi';
-import { API_BASE_URL, authenticatedFetch, requestBlob } from '../api/auth';
+import { apiUrl, authenticatedFetch, requestBlob } from '../api/auth';
 
-const ANALYSIS_BASE = import.meta.env.VITE_ANALYSIS_URL || API_BASE_URL;
-const CAMERA_BASE = API_BASE_URL;
+const ANALYSIS_BASE = (import.meta.env.VITE_ANALYSIS_URL || '').replace(/\/$/, '');
 
 export default function StackGallery() {
   const [completedJobs, setCompletedJobs] = useState([]);
@@ -154,7 +153,7 @@ export default function StackGallery() {
   const firstFrameId = selectedJob?.frames?.[0];
   const beforeStyle  = firstFrameId
     ? {
-        backgroundImage: `url(${CAMERA_BASE}/jobs/${selectedJob.id}/frames/${firstFrameId}/image)`,
+        backgroundImage: `url(${apiUrl(`/jobs/${selectedJob.id}/frames/${firstFrameId}/image`)})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }

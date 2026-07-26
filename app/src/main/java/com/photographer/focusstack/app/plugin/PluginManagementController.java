@@ -23,16 +23,17 @@ import java.util.Map;
 /**
  * REST endpoints for managing Focus Stack plugins (install, enable, disable, uninstall).
  *
- * <p>All endpoints are under {@code /api/admin/plugins} and require the {@code ADMIN} role
- * (enforced by the security filter chain matching {@code /api/admin/**}).
+ * <p>The canonical endpoints are under {@code /api/v1/admin/plugins}; temporary
+ * {@code /api/admin/plugins} compatibility aliases use the same handlers. Both prefixes require
+ * the {@code ADMIN} role through the security filter chain.
  *
  * <ul>
- *   <li>{@code GET    /api/admin/plugins}                — list all installed plugins</li>
- *   <li>{@code GET    /api/admin/plugins/{id}}            — get details of a plugin</li>
- *   <li>{@code POST   /api/admin/plugins/install}         — upload and install a plugin JAR</li>
- *   <li>{@code POST   /api/admin/plugins/{id}/enable}     — enable (start) a plugin</li>
- *   <li>{@code POST   /api/admin/plugins/{id}/disable}    — disable (stop) a plugin</li>
- *   <li>{@code DELETE  /api/admin/plugins/{id}}            — uninstall a plugin</li>
+ *   <li>{@code GET    /api/v1/admin/plugins}                — list all installed plugins</li>
+ *   <li>{@code GET    /api/v1/admin/plugins/{id}}            — get details of a plugin</li>
+ *   <li>{@code POST   /api/v1/admin/plugins/install}         — upload and install a plugin JAR</li>
+ *   <li>{@code POST   /api/v1/admin/plugins/{id}/enable}     — enable (start) a plugin</li>
+ *   <li>{@code POST   /api/v1/admin/plugins/{id}/disable}    — disable (stop) a plugin</li>
+ *   <li>{@code DELETE  /api/v1/admin/plugins/{id}}            — uninstall a plugin</li>
  * </ul>
  */
 @RestController

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getJob, startJob, pauseJob, cancelJob, deleteJob, exportJobFrames } from '../api/jobApi';
-import { API_BASE_URL, webSocketUrl } from '../api/auth';
+import { apiUrl, webSocketUrl } from '../api/auth';
 import { getCameraStatus } from '../api/cameraApi';
 import PreviewPanel from '../components/PreviewPanel';
 
@@ -299,7 +299,7 @@ export default function JobDetail() {
         ) : (
           <div className="frame-thumb-grid">
             {frames.map((frameId, i) => {
-              const imgUrl = `${API_BASE_URL}/jobs/${id}/frames/${frameId}/image`;
+              const imgUrl = apiUrl(`/jobs/${id}/frames/${frameId}/image`);
               return (
                 <div key={frameId} className="frame-thumb-card">
                   <img
