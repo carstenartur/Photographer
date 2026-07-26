@@ -88,7 +88,7 @@ Run the same product-module boundary used by CI:
 bash scripts/verify-product.sh
 ```
 
-This runs `clean verify` for the supported product modules and their Maven prerequisites. It excludes research-only, Maven-smoke and benchmark modules from the requested module list.
+This runs repository validators, the current-tree credential audit, `clean verify` for the supported product modules and their Maven prerequisites. It excludes research-only, Maven-smoke and benchmark modules from the requested module list.
 
 Useful variants pass normal Maven properties through the script:
 
@@ -132,6 +132,14 @@ python3 scripts/test_compare_jmh.py
 python3 scripts/test_run_jmh_compare_refs.py
 python3 scripts/test_validate_ccapi_transport_boundary.py
 python3 scripts/validate_ccapi_transport_boundary.py .
+python3 scripts/test_audit_public_release.py
+python3 scripts/audit_public_release.py
+```
+
+The normal public-release audit scans the current tracked tree for high-confidence credential formats. Before changing repository visibility, use a complete checkout and run the stronger history and media-metadata gate described in [Public release and publication checklist](../public-release.md):
+
+```bash
+python3 scripts/audit_public_release.py --history --media-metadata
 ```
 
 When a workflow needs new validation semantics, implement them in a local script or Maven test first, then call that code from the workflow.
