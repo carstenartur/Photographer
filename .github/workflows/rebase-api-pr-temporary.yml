@@ -1,0 +1,45 @@
+name: Rebase API PR (temporary)
+
+on:
+  push:
+    branches: [feature/api-v1-compatibility]
+
+permissions:
+  contents: write
+
+jobs:
+  merge-main:
+    if: github.repository == 'carstenartur/Photographer'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout API branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/api-v1-compatibility
+          fetch-depth: 0
+
+      - name: Merge current main and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_status=$?
+          set -e
+          if [ "$merge_status" -ne 0 ]; then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            if [ "$conflicts" != "docs/api.md" ]; then
+              echo "Unexpected merge conflicts:" >&2
+              printf '%s\n' "$conflicts" >&2
+              exit 1
+            fi
+            # The branch version already combines the v1 contract with the latest
+            # astro-session contract from main.
+            git checkout --ours docs/api.md
+            git add docs/api.md
+          fi
+          git rm .github/workflows/rebase-api-pr-temporary.yml
+          git commit -m "Merge main into API v1 compatibility branch"
+          git push origin HEAD:feature/api-v1-compatibility
