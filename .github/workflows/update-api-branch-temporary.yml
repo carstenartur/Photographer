@@ -1,0 +1,32 @@
+name: Update API branch after public-release merge (temporary)
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  merge-main:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'feature/api-v1-compatibility'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout API branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/api-v1-compatibility
+          fetch-depth: 0
+
+      - name: Merge current main and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge --no-commit --no-ff origin/main
+          git rm .github/workflows/update-api-branch-temporary.yml
+          git commit -m "Merge current main into API v1 compatibility branch"
+          git push origin HEAD:feature/api-v1-compatibility
