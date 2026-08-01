@@ -3,10 +3,15 @@ name: Release Workflow
 on:
   workflow_dispatch:
     inputs:
-      release_version:
-        description: 'Release version (X.Y.Z)'
+      next_version_increment:
+        description: 'Select how the development version advances after this release'
         required: true
-        type: string
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
       skip_tests:
         description: 'Skip tests during the release build'
         required: false
@@ -48,17 +53,13 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Validate release request and current version state
+      - name: Derive release plan from current Maven state
         id: versions
+        env:
+          NEXT_VERSION_INCREMENT: ${{ inputs.next_version_increment }}
         shell: bash
         run: |
           set -euo pipefail
-
-          RELEASE_VERSION='${{ inputs.release_version }}'
-          if ! [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid release version '$RELEASE_VERSION'; expected X.Y.Z"
-            exit 1
-          fi
 
           PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           REVISION=$(mvn help:evaluate -Dexpression=revision -q -DforceStdout)
@@ -67,27 +68,38 @@ jobs:
             echo "::error::Maven versions are already inconsistent: project.version=$PROJECT_VERSION, revision=$REVISION"
             exit 1
           fi
-          if [[ "$PROJECT_VERSION" != *-SNAPSHOT ]]; then
-            echo "::error::Current Maven version '$PROJECT_VERSION' is not a SNAPSHOT"
+          if ! [[ "$PROJECT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::Current Maven version '$PROJECT_VERSION' must use X.Y.Z-SNAPSHOT"
             exit 1
           fi
 
-          EXPECTED_RELEASE=${PROJECT_VERSION%-SNAPSHOT}
-          if [[ "$RELEASE_VERSION" != "$EXPECTED_RELEASE" ]]; then
-            echo "::error::Requested release '$RELEASE_VERSION' does not match current development version '$PROJECT_VERSION' (expected '$EXPECTED_RELEASE')"
-            exit 1
-          fi
-
+          RELEASE_VERSION=${PROJECT_VERSION%-SNAPSHOT}
           if git ls-remote --exit-code --tags origin "refs/tags/v${RELEASE_VERSION}" >/dev/null 2>&1; then
             echo "::error::Tag v${RELEASE_VERSION} already exists"
             exit 1
           fi
 
           IFS='.' read -r major minor patch <<< "$RELEASE_VERSION"
-          NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT"
+          case "$NEXT_VERSION_INCREMENT" in
+            patch) NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT" ;;
+            minor) NEXT_VERSION="${major}.$((minor + 1)).0-SNAPSHOT" ;;
+            major) NEXT_VERSION="$((major + 1)).0.0-SNAPSHOT" ;;
+            *)
+              echo "::error::Unsupported next_version_increment '$NEXT_VERSION_INCREMENT'"
+              exit 1
+              ;;
+          esac
 
           echo "release=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "next=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Release version plan"
+            echo
+            echo "- Current Maven version: \`$PROJECT_VERSION\`"
+            echo "- Release version: \`$RELEASE_VERSION\`"
+            echo "- Next development version: \`$NEXT_VERSION\`"
+            echo "- Increment: \`$NEXT_VERSION_INCREMENT\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set release version atomically
         shell: bash
