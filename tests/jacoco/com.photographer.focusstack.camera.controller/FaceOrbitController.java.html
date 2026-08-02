@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FaceOrbitController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.controller</a> &gt; <span class="el_source">FaceOrbitController.java</span></div><h1>FaceOrbitController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.common.model.CaptureSession;
 import com.photographer.focusstack.common.model.FaceOrbitSettings;
 import com.photographer.focusstack.common.model.FaceProfileJob;
@@ -23,7 +24,7 @@ import java.util.List;
 
 /** REST API for Face Orbit Capture sessions. */
 @RestController
-@RequestMapping(&quot;/api/face-orbit&quot;)
+@RequestMapping({ApiPaths.V1 + &quot;/face-orbit&quot;, ApiPaths.LEGACY + &quot;/face-orbit&quot;})
 @Tag(name = &quot;Face Orbit&quot;, description = &quot;Face-orbit capture sessions and profile generation endpoints.&quot;)
 public class FaceOrbitController {
 
@@ -31,73 +32,73 @@ public class FaceOrbitController {
     private final TaskExecutor taskExecutor;
 
     public FaceOrbitController(FaceOrbitService service,
-<span class="fc" id="L34">                                @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
-<span class="fc" id="L35">        this.service = service;</span>
-<span class="fc" id="L36">        this.taskExecutor = taskExecutor;</span>
-<span class="fc" id="L37">    }</span>
+<span class="fc" id="L35">                                @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
+<span class="fc" id="L36">        this.service = service;</span>
+<span class="fc" id="L37">        this.taskExecutor = taskExecutor;</span>
+<span class="fc" id="L38">    }</span>
 
     @PostMapping
     @Operation(summary = &quot;Create face-orbit session&quot;)
     public ResponseEntity&lt;CaptureSession&gt; createSession(@Valid @RequestBody FaceOrbitSettings settings) {
-<span class="fc" id="L42">        CaptureSession session = service.createSession(settings);</span>
-<span class="fc" id="L43">        return ResponseEntity.status(HttpStatus.CREATED).body(session);</span>
+<span class="fc" id="L43">        CaptureSession session = service.createSession(settings);</span>
+<span class="fc" id="L44">        return ResponseEntity.status(HttpStatus.CREATED).body(session);</span>
     }
 
     @PostMapping(&quot;/{sessionId}/capture&quot;)
     @Operation(summary = &quot;Capture next face-orbit step&quot;)
     public ResponseEntity&lt;QualityCheck&gt; captureNextStep(@PathVariable String sessionId) {
-<span class="fc" id="L49">        return ResponseEntity.ok(service.captureNextStep(sessionId));</span>
+<span class="fc" id="L50">        return ResponseEntity.ok(service.captureNextStep(sessionId));</span>
     }
 
     @PostMapping(&quot;/{sessionId}/auto&quot;)
     @Operation(summary = &quot;Start automatic face-orbit mode&quot;)
     public ResponseEntity&lt;CaptureSession&gt; startAutoMode(@PathVariable String sessionId) {
-<span class="fc" id="L55">        FaceOrbitService.PreparedAutoExecution execution =</span>
-<span class="fc" id="L56">                service.prepareAutoExecution(sessionId);</span>
+<span class="fc" id="L56">        FaceOrbitService.PreparedAutoExecution execution =</span>
+<span class="fc" id="L57">                service.prepareAutoExecution(sessionId);</span>
         try {
-<span class="fc" id="L58">            taskExecutor.execute(execution);</span>
-<span class="fc" id="L59">        } catch (RuntimeException schedulingFailure) {</span>
-<span class="fc" id="L60">            execution.reject(schedulingFailure);</span>
-<span class="fc" id="L61">            throw schedulingFailure;</span>
-<span class="fc" id="L62">        }</span>
-<span class="fc" id="L63">        return ResponseEntity.accepted().body(service.getSession(sessionId));</span>
+<span class="fc" id="L59">            taskExecutor.execute(execution);</span>
+<span class="fc" id="L60">        } catch (RuntimeException schedulingFailure) {</span>
+<span class="fc" id="L61">            execution.reject(schedulingFailure);</span>
+<span class="fc" id="L62">            throw schedulingFailure;</span>
+<span class="fc" id="L63">        }</span>
+<span class="fc" id="L64">        return ResponseEntity.accepted().body(service.getSession(sessionId));</span>
     }
 
     @PostMapping(&quot;/{sessionId}/stop&quot;)
     @Operation(summary = &quot;Stop face-orbit session&quot;)
     public ResponseEntity&lt;Void&gt; stopSession(@PathVariable String sessionId) {
-<span class="fc" id="L69">        service.stopSession(sessionId);</span>
-<span class="fc" id="L70">        return ResponseEntity.ok().build();</span>
+<span class="fc" id="L70">        service.stopSession(sessionId);</span>
+<span class="fc" id="L71">        return ResponseEntity.ok().build();</span>
     }
 
     @PostMapping(&quot;/{sessionId}/complete&quot;)
     @Operation(summary = &quot;Complete face-orbit session&quot;)
     public ResponseEntity&lt;CaptureSession&gt; completeSession(@PathVariable String sessionId) {
-<span class="fc" id="L76">        return ResponseEntity.ok(service.completeSession(sessionId));</span>
+<span class="fc" id="L77">        return ResponseEntity.ok(service.completeSession(sessionId));</span>
     }
 
     @GetMapping(&quot;/{sessionId}&quot;)
     @Operation(summary = &quot;Get face-orbit session by id&quot;)
     public ResponseEntity&lt;CaptureSession&gt; getSession(@PathVariable String sessionId) {
-<span class="fc" id="L82">        return ResponseEntity.ok(service.getSession(sessionId));</span>
+<span class="fc" id="L83">        return ResponseEntity.ok(service.getSession(sessionId));</span>
     }
 
     @GetMapping(&quot;/{sessionId}/quality&quot;)
     @Operation(summary = &quot;List quality checks for a face-orbit session&quot;)
     public ResponseEntity&lt;List&lt;QualityCheck&gt;&gt; getQualityChecks(@PathVariable String sessionId) {
-<span class="fc" id="L88">        return ResponseEntity.ok(service.getQualityChecks(sessionId));</span>
+<span class="fc" id="L89">        return ResponseEntity.ok(service.getQualityChecks(sessionId));</span>
     }
 
     @PostMapping(&quot;/{sessionId}/profile&quot;)
     @Operation(summary = &quot;Generate a face profile job from a session&quot;)
     public ResponseEntity&lt;FaceProfileJob&gt; generateProfile(@PathVariable String sessionId) {
-<span class="fc" id="L94">        return ResponseEntity.ok(service.generateProfile(sessionId));</span>
+<span class="fc" id="L95">        return ResponseEntity.ok(service.generateProfile(sessionId));</span>
     }
 
     @GetMapping(&quot;/profile/{jobId}&quot;)
     @Operation(summary = &quot;Get face profile job by id&quot;)
     public ResponseEntity&lt;FaceProfileJob&gt; getProfileJob(@PathVariable String jobId) {
-<span class="nc" id="L100">        return ResponseEntity.ok(service.getProfileJob(jobId));</span>
+<span class="nc" id="L101">        return ResponseEntity.ok(service.getProfileJob(jobId));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

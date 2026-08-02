@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CameraDiscoveryController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.controller</a> &gt; <span class="el_source">CameraDiscoveryController.java</span></div><h1>CameraDiscoveryController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.camera.discovery.CcapiDiscoveryResult;
 import com.photographer.focusstack.camera.discovery.CcapiDiscoveryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,7 +18,7 @@ import java.time.Duration;
 
 /** Authenticated, read-only access to the portable Canon CCAPI discovery core. */
 @RestController
-@RequestMapping(&quot;/api/cameras/discovery&quot;)
+@RequestMapping({ApiPaths.V1 + &quot;/cameras/discovery&quot;, ApiPaths.LEGACY + &quot;/cameras/discovery&quot;})
 @Validated
 @Tag(name = &quot;Camera discovery&quot;, description = &quot;Bounded local-network discovery without profile mutation.&quot;)
 public class CameraDiscoveryController {
@@ -27,20 +28,20 @@ public class CameraDiscoveryController {
 
     private final CcapiDiscoveryService discoveryService;
 
-<span class="fc" id="L30">    public CameraDiscoveryController(CcapiDiscoveryService discoveryService) {</span>
-<span class="fc" id="L31">        this.discoveryService = discoveryService;</span>
-<span class="fc" id="L32">    }</span>
+<span class="fc" id="L31">    public CameraDiscoveryController(CcapiDiscoveryService discoveryService) {</span>
+<span class="fc" id="L32">        this.discoveryService = discoveryService;</span>
+<span class="fc" id="L33">    }</span>
 
     @PostMapping
     @Operation(summary = &quot;Discover Canon CCAPI cameras on eligible local-network interfaces&quot;)
     public ResponseEntity&lt;CameraDiscoveryResponse&gt; discover(
             @RequestParam(required = false)
             @Min(1) @Max(MAX_TIMEOUT_SECONDS) Integer timeoutSeconds) {
-<span class="fc bfc" id="L39" title="All 2 branches covered.">        int effectiveTimeout = timeoutSeconds == null</span>
-<span class="fc" id="L40">                ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;</span>
-<span class="fc" id="L41">        CcapiDiscoveryResult result = discoveryService.discover(</span>
-<span class="fc" id="L42">                Duration.ofSeconds(effectiveTimeout));</span>
-<span class="fc" id="L43">        return ResponseEntity.ok(CameraDiscoveryResponse.from(result));</span>
+<span class="fc bfc" id="L40" title="All 2 branches covered.">        int effectiveTimeout = timeoutSeconds == null</span>
+<span class="fc" id="L41">                ? DEFAULT_TIMEOUT_SECONDS : timeoutSeconds;</span>
+<span class="fc" id="L42">        CcapiDiscoveryResult result = discoveryService.discover(</span>
+<span class="fc" id="L43">                Duration.ofSeconds(effectiveTimeout));</span>
+<span class="fc" id="L44">        return ResponseEntity.ok(CameraDiscoveryResponse.from(result));</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
