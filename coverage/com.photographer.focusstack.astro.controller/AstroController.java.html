@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AstroController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.astro.controller</a> &gt; <span class="el_source">AstroController.java</span></div><h1>AstroController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.astro.controller;
 
+import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.astro.service.AstroModeService;
 import com.photographer.focusstack.common.model.AstroCaptureConfig;
 import com.photographer.focusstack.common.model.AstroFocusConfig;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping(&quot;/api/astro&quot;)
+@RequestMapping({ApiPaths.V1 + &quot;/astro&quot;, ApiPaths.LEGACY + &quot;/astro&quot;})
 @Tag(name = &quot;Astro&quot;, description = &quot;Astro capture session lifecycle endpoints.&quot;)
 public class AstroController {
 
@@ -32,12 +33,12 @@ public class AstroController {
 
     public AstroController(
             AstroModeService astroModeService,
-<span class="fc" id="L35">            @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
-<span class="fc" id="L36">        this.astroModeService = astroModeService;</span>
-<span class="fc" id="L37">        this.taskExecutor = taskExecutor;</span>
-<span class="fc" id="L38">    }</span>
+<span class="fc" id="L36">            @Qualifier(&quot;sessionTaskExecutor&quot;) TaskExecutor taskExecutor) {</span>
+<span class="fc" id="L37">        this.astroModeService = astroModeService;</span>
+<span class="fc" id="L38">        this.taskExecutor = taskExecutor;</span>
+<span class="fc" id="L39">    }</span>
 
-<span class="fc" id="L40">    public record CreateAstroSessionRequest(</span>
+<span class="fc" id="L41">    public record CreateAstroSessionRequest(</span>
             @Valid AstroCaptureConfig captureConfig,
             @Valid AstroFocusConfig focusConfig
     ) {}
@@ -46,67 +47,67 @@ public class AstroController {
     @Operation(summary = &quot;Create and start astro session&quot;)
     public ResponseEntity&lt;AstroSession&gt; createSession(
             @Valid @RequestBody(required = false) CreateAstroSessionRequest request) {
-<span class="pc bpc" id="L49" title="2 of 4 branches missed.">        AstroCaptureConfig captureConfig = request != null &amp;&amp; request.captureConfig() != null</span>
-<span class="fc" id="L50">                ? request.captureConfig()</span>
-<span class="pc" id="L51">                : AstroCaptureConfig.defaults();</span>
-<span class="pc bpc" id="L52" title="1 of 4 branches missed.">        AstroFocusConfig focusConfig = request != null &amp;&amp; request.focusConfig() != null</span>
-<span class="fc" id="L53">                ? request.focusConfig()</span>
-<span class="fc" id="L54">                : AstroFocusConfig.manualFixed();</span>
+<span class="pc bpc" id="L50" title="2 of 4 branches missed.">        AstroCaptureConfig captureConfig = request != null &amp;&amp; request.captureConfig() != null</span>
+<span class="fc" id="L51">                ? request.captureConfig()</span>
+<span class="pc" id="L52">                : AstroCaptureConfig.defaults();</span>
+<span class="pc bpc" id="L53" title="1 of 4 branches missed.">        AstroFocusConfig focusConfig = request != null &amp;&amp; request.focusConfig() != null</span>
+<span class="fc" id="L54">                ? request.focusConfig()</span>
+<span class="fc" id="L55">                : AstroFocusConfig.manualFixed();</span>
 
-<span class="fc" id="L56">        AstroSession created = astroModeService.createSession(captureConfig, focusConfig);</span>
-<span class="fc" id="L57">        AstroModeService.PreparedExecution execution =</span>
-<span class="fc" id="L58">                astroModeService.prepareExecution(created.id());</span>
+<span class="fc" id="L57">        AstroSession created = astroModeService.createSession(captureConfig, focusConfig);</span>
+<span class="fc" id="L58">        AstroModeService.PreparedExecution execution =</span>
+<span class="fc" id="L59">                astroModeService.prepareExecution(created.id());</span>
         try {
-<span class="fc" id="L60">            taskExecutor.execute(execution);</span>
-<span class="fc" id="L61">        } catch (RuntimeException schedulingFailure) {</span>
-<span class="fc" id="L62">            execution.reject(schedulingFailure);</span>
-<span class="fc" id="L63">            throw schedulingFailure;</span>
-<span class="fc" id="L64">        }</span>
+<span class="fc" id="L61">            taskExecutor.execute(execution);</span>
+<span class="fc" id="L62">        } catch (RuntimeException schedulingFailure) {</span>
+<span class="fc" id="L63">            execution.reject(schedulingFailure);</span>
+<span class="fc" id="L64">            throw schedulingFailure;</span>
+<span class="fc" id="L65">        }</span>
 
-<span class="fc" id="L66">        AstroSession preparing = astroModeService.getSession(created.id())</span>
-<span class="pc" id="L67">                .orElseThrow(() -&gt; new IllegalStateException(&quot;Created astro session is unavailable&quot;));</span>
-<span class="fc" id="L68">        return ResponseEntity.created(</span>
-<span class="fc" id="L69">                        URI.create(&quot;/api/astro/sessions/&quot; + created.id()))</span>
-<span class="fc" id="L70">                .body(preparing);</span>
+<span class="fc" id="L67">        AstroSession preparing = astroModeService.getSession(created.id())</span>
+<span class="pc" id="L68">                .orElseThrow(() -&gt; new IllegalStateException(&quot;Created astro session is unavailable&quot;));</span>
+<span class="fc" id="L69">        return ResponseEntity.created(</span>
+<span class="fc" id="L70">                        URI.create(ApiPaths.V1 + &quot;/astro/sessions/&quot; + created.id()))</span>
+<span class="fc" id="L71">                .body(preparing);</span>
     }
 
     @GetMapping(&quot;/sessions/{id}&quot;)
     @Operation(summary = &quot;Get astro session by id&quot;)
     public ResponseEntity&lt;AstroSession&gt; getSession(@PathVariable String id) {
-<span class="fc" id="L76">        return astroModeService.getSession(id)</span>
-<span class="fc" id="L77">                .map(ResponseEntity::ok)</span>
-<span class="fc" id="L78">                .orElse(ResponseEntity.notFound().build());</span>
+<span class="fc" id="L77">        return astroModeService.getSession(id)</span>
+<span class="fc" id="L78">                .map(ResponseEntity::ok)</span>
+<span class="fc" id="L79">                .orElse(ResponseEntity.notFound().build());</span>
     }
 
     @GetMapping(&quot;/sessions&quot;)
     @Operation(summary = &quot;List astro sessions&quot;)
     public ResponseEntity&lt;List&lt;AstroSession&gt;&gt; listSessions() {
-<span class="fc" id="L84">        return ResponseEntity.ok(astroModeService.listSessions());</span>
+<span class="fc" id="L85">        return ResponseEntity.ok(astroModeService.listSessions());</span>
     }
 
     @PostMapping(&quot;/sessions/{id}/abort&quot;)
     @Operation(summary = &quot;Abort running astro session&quot;)
     public ResponseEntity&lt;Map&lt;String, String&gt;&gt; abortSession(@PathVariable String id) {
-<span class="fc" id="L90">        astroModeService.requestAbort(id);</span>
-<span class="fc" id="L91">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Abort requested&quot;));</span>
+<span class="fc" id="L91">        astroModeService.requestAbort(id);</span>
+<span class="fc" id="L92">        return ResponseEntity.ok(Map.of(&quot;message&quot;, &quot;Abort requested&quot;));</span>
     }
 
     @DeleteMapping(&quot;/sessions/{id}&quot;)
     @Operation(summary = &quot;Delete terminal astro session&quot;)
     public ResponseEntity&lt;Void&gt; deleteSession(@PathVariable String id) {
-<span class="fc bfc" id="L97" title="All 2 branches covered.">        if (astroModeService.deleteSession(id)) {</span>
-<span class="fc" id="L98">            return ResponseEntity.noContent().build();</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (astroModeService.deleteSession(id)) {</span>
+<span class="fc" id="L99">            return ResponseEntity.noContent().build();</span>
         }
-<span class="fc" id="L100">        return ResponseEntity.notFound().build();</span>
+<span class="fc" id="L101">        return ResponseEntity.notFound().build();</span>
     }
 
     @GetMapping(&quot;/sessions/{id}/result&quot;)
     @Operation(summary = &quot;Get completed astro session result&quot;)
     public ResponseEntity&lt;AstroSession&gt; getResult(@PathVariable String id) {
-<span class="nc" id="L106">        return astroModeService.getSession(id)</span>
-<span class="nc bnc" id="L107" title="All 2 branches missed.">                .filter(session -&gt; session.resultImagePath() != null)</span>
-<span class="nc" id="L108">                .map(ResponseEntity::ok)</span>
-<span class="nc" id="L109">                .orElse(ResponseEntity.notFound().build());</span>
+<span class="nc" id="L107">        return astroModeService.getSession(id)</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">                .filter(session -&gt; session.resultImagePath() != null)</span>
+<span class="nc" id="L109">                .map(ResponseEntity::ok)</span>
+<span class="nc" id="L110">                .orElse(ResponseEntity.notFound().build());</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
