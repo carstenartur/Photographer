@@ -89,9 +89,9 @@ final class CanonCcapiScrollLiveViewReader {
 <span class="nc" id="L89">                return immediate;</span>
             }
 <span class="fc" id="L91">            RuntimeException terminal = session.failure;</span>
-<span class="pc bpc" id="L92" title="1 of 2 branches missed.">            if (terminal != null) {</span>
-<span class="nc" id="L93">                discard(session);</span>
-<span class="nc" id="L94">                throw terminal;</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">            if (terminal != null) {</span>
+<span class="fc" id="L93">                discard(session);</span>
+<span class="fc" id="L94">                throw terminal;</span>
             }
 
 <span class="fc bfc" id="L97" title="All 2 branches covered.">            if (!session.available.tryAcquire(</span>
@@ -101,13 +101,13 @@ final class CanonCcapiScrollLiveViewReader {
             }
 
 <span class="fc" id="L103">            LiveViewFrame frame = session.latest.poll();</span>
-<span class="fc bfc" id="L104" title="All 2 branches covered.">            if (frame != null) {</span>
+<span class="pc bpc" id="L104" title="1 of 2 branches missed.">            if (frame != null) {</span>
 <span class="fc" id="L105">                return frame;</span>
             }
-<span class="fc" id="L107">            terminal = session.failure;</span>
-<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            if (terminal != null) {</span>
-<span class="fc" id="L109">                discard(session);</span>
-<span class="fc" id="L110">                throw terminal;</span>
+<span class="nc" id="L107">            terminal = session.failure;</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">            if (terminal != null) {</span>
+<span class="nc" id="L109">                discard(session);</span>
+<span class="nc" id="L110">                throw terminal;</span>
             }
 <span class="nc" id="L112">            stopSession(session, true, false);</span>
 <span class="nc" id="L113">            throw failure(SERVICE_UNAVAILABLE, null);</span>
@@ -207,7 +207,7 @@ final class CanonCcapiScrollLiveViewReader {
 <span class="fc" id="L207">        int previous = -1;</span>
 <span class="fc" id="L208">        byte[] buffer = new byte[8192];</span>
 
-<span class="fc bfc" id="L210" title="All 2 branches covered.">        while (!session.cancelled.get()) {</span>
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">        while (!session.cancelled.get()) {</span>
 <span class="fc" id="L211">            int count = input.read(buffer);</span>
 <span class="fc bfc" id="L212" title="All 2 branches covered.">            if (count &lt; 0) {</span>
 <span class="fc bfc" id="L213" title="All 2 branches covered.">                if (jpeg != null) {</span>
@@ -247,7 +247,7 @@ final class CanonCcapiScrollLiveViewReader {
                 }
             }
 <span class="fc" id="L249">        }</span>
-<span class="fc" id="L250">    }</span>
+<span class="nc" id="L250">    }</span>
 
     private LiveViewFrame frame(byte[] jpeg) {
 <span class="fc" id="L253">        int[] dimensions = jpegDimensions(jpeg);</span>
