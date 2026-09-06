@@ -150,7 +150,7 @@ Focus Stack - App,com.photographer.focusstack.generic.backend,CcapiCameraBackend
 Focus Stack - App,com.photographer.focusstack.generic.backend,UsbCameraBackend.SimpleUsbConnection,21,0,0,0,6,0,5,0,5,0
 Focus Stack - App,com.photographer.focusstack.astro.controller,AstroController,26,104,5,7,4,32,7,8,3,6
 Focus Stack - App,com.photographer.focusstack.astro.controller,AstroController.CreateAstroSessionRequest,0,9,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiScrollLiveViewReader,236,616,67,71,73,151,56,39,2,24
+Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiScrollLiveViewReader,229,623,66,72,71,153,56,39,2,24
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiTransportFingerprint,0,17,0,0,0,4,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiCapabilitySnapshotFactory.DeviceInformation,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiTransportCreation,0,17,0,0,0,4,0,1,0,1
@@ -188,14 +188,14 @@ Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend,3
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiNativeFocusBracketingBackend.SettingEndpoint,0,15,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiCapabilitySnapshotFactory.Identity,0,16,0,0,0,2,0,2,0,2
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.EndpointDescriptor,0,9,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiLiveViewClient.State,0,27,0,0,0,5,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiCapabilitySnapshotFactory,58,928,15,37,14,152,14,32,0,20
+Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiLiveViewClient.State,0,27,0,0,0,5,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiNativeFocusBracketingBackend,160,474,42,51,45,120,35,36,1,21
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiStatusBackend.StorageEntry,0,24,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiLiveViewClient.Mode,0,79,0,0,0,19,0,6,0,6
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiEndpointCatalog.Builder,50,265,19,25,16,57,15,15,0,8
-Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiMonitoringClient.Endpoint,0,18,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiNativeSequenceTrigger.Candidate,0,15,0,0,0,1,0,1,0,1
+Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiMonitoringClient.Endpoint,0,18,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiNativeFocusBracketingBackend.CapabilitySnapshot,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiMediaClient.DirectoryQuery,0,15,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.StorageStatus,0,12,0,0,0,1,0,1,0,1
@@ -206,8 +206,8 @@ Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiNativeFoc
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiBackend.ContentListing,0,6,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiResponseErrorHandler,11,216,4,30,3,54,4,26,0,9
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiLiveViewCapabilities,57,67,7,3,15,16,5,5,1,4
-Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiLiveViewClient.AdvertisedMode,2,34,1,1,1,6,1,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiScrollLiveViewReader.Session,0,58,0,0,0,16,0,3,0,3
+Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiLiveViewClient.AdvertisedMode,2,34,1,1,1,6,1,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiOutcomeRecorder,2,97,1,17,1,29,1,18,0,3
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiNativeFocusBracketingBackend.IntegerSettingResponse,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiMediaClient.ContentRange,0,12,0,0,0,1,0,1,0,1
