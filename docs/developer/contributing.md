@@ -8,7 +8,7 @@ This is the canonical checkout-to-pull-request guide. Commands run from a normal
 |---|---|---|
 | JDK | Java build and tests | 25 (Temurin) |
 | Maven | Multi-module reactor | 3.9+ |
-| Node.js | Frontend | 20.19.0 |
+| Node.js | Frontend | 24.21.0 LTS (same version in CI and Maven) |
 | npm | Frontend dependencies/build | Version bundled with the selected Node release |
 | Docker + Compose | PostgreSQL, Testcontainers and packaged smoke tests | Current supported Docker installation |
 | Python 3 | Repository validation and benchmark helper scripts | Python 3 |

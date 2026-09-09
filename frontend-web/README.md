@@ -12,12 +12,13 @@ Built with Vite and packaged into the Spring Boot app JAR for production deploym
 
 ## Prerequisites
 
-- Node.js ^20.19.0 or ≥22.12.0
+- Node.js 24 LTS (CI and Maven use 24.21.0); see `package.json` for compatible alternatives.
+- Node compatibility is enforced during installation by `.npmrc`.
 
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run dev      # Vite dev server with HMR on http://localhost:5173
 npm run lint     # ESLint checks
 npm run build    # Production build to dist/
