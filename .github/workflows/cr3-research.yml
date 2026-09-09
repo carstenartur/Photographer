@@ -17,6 +17,8 @@ on:
       - 'scripts/test_manage_cr3_generated_evidence.py'
       - '.github/workflows/cr3-research.yml'
       - 'pom.xml'
+      - 'scripts/verify-cr3-research.sh'
+      - 'scripts/test_verify_cr3_research.py'
   workflow_dispatch:
   schedule:
     - cron: '30 3 1-7 * 0'
@@ -39,42 +41,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '25'
           distribution: temurin
           cache: maven
           cache-dependency-path: pom.xml
-      - name: Stage research dependencies without repeating upstream tests
-        run: >-
-          mvn -B --no-transfer-progress install
-          -Dmaven.test.skip=true
-          -pl canon-cr3-research
-          -am
-          -Djava.awt.headless=true
+      - name: Test research verification command
+        run: python3 scripts/test_verify_cr3_research.py
       - name: Run focused pull-request evidence
         if: ${{ github.event_name == 'pull_request' }}
-        run: >-
-          mvn -B --no-transfer-progress verify
-          -Pcr3-research-it
-          -pl canon-cr3-research
-          -am
-          -Dit.test=ExactBracketKDiscriminatorIT
-          -Djava.awt.headless=true
-      - name: Verify committed D12 metrics are current
-        if: ${{ github.event_name == 'pull_request' }}
-        run: >-
-          python3 scripts/manage_cr3_generated_evidence.py
-          --root .
-          compare D12-metrics
-          --source-root canon-cr3-research/target/exact-code-length-k-discriminator
+        run: bash scripts/verify-cr3-research.sh --focused
       - name: Run complete research integration profile
         if: ${{ github.event_name != 'pull_request' }}
-        run: >-
-          mvn -B --no-transfer-progress verify
-          -Pcr3-research-it
-          -pl canon-cr3-research
-          -Djava.awt.headless=true
+        run: bash scripts/verify-cr3-research.sh --full
       - name: Publish research test results
         uses: dorny/test-reporter@v3
         if: always()

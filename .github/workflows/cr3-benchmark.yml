@@ -58,7 +58,6 @@ jobs:
       contents: write
     env:
       MAVEN_OPTS: '-Xmx2g'
-      JMH_OUTPUT_DIR: ${{ runner.temp }}/cr3-jmh
 
     steps:
       - name: Checkout repository with base and head history
@@ -67,12 +66,16 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           java-version: '25'
           distribution: temurin
           cache: maven
           cache-dependency-path: pom.xml
+
+      - name: Prepare benchmark output directory
+        shell: bash
+        run: echo "JMH_OUTPUT_DIR=${RUNNER_TEMP}/cr3-jmh" >> "$GITHUB_ENV"
 
       - name: Test benchmark tooling
         run: |
