@@ -18,7 +18,7 @@ static resources.
 
 ## Build Pipeline
 
-1. `frontend-maven-plugin` installs Node.js (v20.19.0) and runs `npm install`
+1. `frontend-maven-plugin` installs Node.js (v24.21.0) and runs `npm ci`
 2. `npm run build` produces optimized static assets in `dist/`
 3. The `app` module's `maven-resources-plugin` copies `dist/` into
    `classes/static/` at package time
