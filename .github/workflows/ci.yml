@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   java-verify:
-    name: Java Build & Test
+    name: Maven verification
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -44,6 +44,7 @@ jobs:
 
       - name: Test repository utility scripts
         run: |
+          python3 scripts/test_verify_cr3_research.py
           python3 scripts/test_compare_jmh.py
           python3 scripts/test_run_jmh_compare_refs.py
           python3 scripts/test_prepare_jmh_history.py
