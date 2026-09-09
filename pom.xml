@@ -94,7 +94,7 @@
         <hibernate-search.version>8.4.0.Final</hibernate-search.version>
         <hibernate.version>7.4.0.Final</hibernate.version>
         <testcontainers.version>1.21.4</testcontainers.version>
-        <springdoc.version>3.0.3</springdoc.version>
+        <springdoc.version>3.1.0</springdoc.version>
         <imagej.version>1.54j</imagej.version>
         <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.15</jacoco.version>
