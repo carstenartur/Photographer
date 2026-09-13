@@ -527,4 +527,4 @@ window.BENCHMARK_DATA = {
       }
     ]
   }
-}
+};
