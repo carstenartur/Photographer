@@ -207,7 +207,7 @@ final class CanonCcapiScrollLiveViewReader {
 <span class="fc" id="L207">        int previous = -1;</span>
 <span class="fc" id="L208">        byte[] buffer = new byte[8192];</span>
 
-<span class="pc bpc" id="L210" title="1 of 2 branches missed.">        while (!session.cancelled.get()) {</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        while (!session.cancelled.get()) {</span>
 <span class="fc" id="L211">            int count = input.read(buffer);</span>
 <span class="fc bfc" id="L212" title="All 2 branches covered.">            if (count &lt; 0) {</span>
 <span class="fc bfc" id="L213" title="All 2 branches covered.">                if (jpeg != null) {</span>
@@ -247,7 +247,7 @@ final class CanonCcapiScrollLiveViewReader {
                 }
             }
 <span class="fc" id="L249">        }</span>
-<span class="nc" id="L250">    }</span>
+<span class="fc" id="L250">    }</span>
 
     private LiveViewFrame frame(byte[] jpeg) {
 <span class="fc" id="L253">        int[] dimensions = jpegDimensions(jpeg);</span>
@@ -393,8 +393,8 @@ final class CanonCcapiScrollLiveViewReader {
     }
 
     private static void closeQuietly(InputStream input) {
-<span class="pc bpc" id="L396" title="1 of 2 branches missed.">        if (input == null) {</span>
-<span class="nc" id="L397">            return;</span>
+<span class="fc bfc" id="L396" title="All 2 branches covered.">        if (input == null) {</span>
+<span class="fc" id="L397">            return;</span>
         }
         try {
 <span class="fc" id="L400">            input.close();</span>
