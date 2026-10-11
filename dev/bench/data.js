@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791098696502,
+  "lastUpdate": 1791697185037,
   "repoUrl": "https://github.com/carstenartur/Photographer",
   "entries": {
     "Canon CR3 JMH Benchmarks": [
@@ -20,504 +20,504 @@ window.BENCHMARK_DATA = {
           "timestamp": "2026-09-20T12:44:09Z",
           "url": "https://github.com/carstenartur/Photographer/commit/15baab7f347d586f56bed1275a71e368d3cb2206"
         },
-        "date": 1791098694909,
+        "date": 1791697183671,
         "tool": "jmh",
         "benches": [
           {
             "name": "Container · Parse ISO-BMFF boxes — G5 X Mark II · ISO 125 · frame 1",
-            "value": 3.788182491649048,
+            "value": 2.0491623963086196,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — G5 X Mark II · ISO 1600",
-            "value": 2.0751562570157427,
+            "value": 0.9685084351025077,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 2.035636922554821,
+            "value": 0.9558882347903479,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — G5 X Mark II · ISO 125 · frame 3",
-            "value": 4.178858322970887,
+            "value": 2.2438906975834696,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — G5 X Mark II · ISO 125 · frame 2",
-            "value": 4.149046407534763,
+            "value": 2.2500511591908103,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — EOS R · ISO 12800 · frame 1",
-            "value": 7.030336436901868,
+            "value": 3.632412822258228,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — EOS R · ISO 12800 · frame 2",
-            "value": 7.183804022142996,
+            "value": 3.7026844141952564,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Container · Parse ISO-BMFF boxes — EOS R · ISO 12800 · frame 3",
-            "value": 6.7951779894491535,
+            "value": 3.751240013562375,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Complete import · Open embedded preview — G5 X Mark II · ISO 125 · frame 1",
-            "value": 15.062923721365669,
+            "value": 17.408497324709074,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "Complete import · Open embedded preview — EOS R · ISO 12800 · frame 1",
-            "value": 16.955308512458515,
+            "value": 19.86692408370837,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "Complete import · Open CR3 as display-ready RAW — G5 X Mark II · ISO 125 · frame 1",
-            "value": 1419.5682029999998,
+            "value": 1366.834176625,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "Complete import · Open CR3 as display-ready RAW — EOS R · ISO 12800 · frame 1",
-            "value": 2183.40992475,
+            "value": 2113.5917504999998,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — G5 X Mark II · ISO 125 · frame 1",
-            "value": 0.026148625444852126,
+            "value": 0.023672450153034676,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — G5 X Mark II · ISO 1600",
-            "value": 0.02629025873732622,
+            "value": 0.023808048137327672,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 0.026494522464437325,
+            "value": 0.024359759139295927,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — G5 X Mark II · ISO 125 · frame 3",
-            "value": 0.026194063768054582,
+            "value": 0.023520773089457304,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — G5 X Mark II · ISO 125 · frame 2",
-            "value": 0.02620492059300101,
+            "value": 0.02370392781111394,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — EOS R · ISO 12800 · frame 1",
-            "value": 0.07165085115522082,
+            "value": 0.05590882196371381,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — EOS R · ISO 12800 · frame 2",
-            "value": 0.07105120298105931,
+            "value": 0.05507200420835416,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Metadata · Read EXIF and MakerNote — EOS R · ISO 12800 · frame 3",
-            "value": 0.07132099361405672,
+            "value": 0.055898676878365625,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — G5 X Mark II · ISO 125 · frame 1",
-            "value": 13.954161459358101,
+            "value": 15.753756009251969,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — G5 X Mark II · ISO 1600",
-            "value": 9.617601635988269,
+            "value": 11.026411461538462,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 9.613970475368355,
+            "value": 11.118618760079013,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — G5 X Mark II · ISO 125 · frame 3",
-            "value": 18.04520395347875,
+            "value": 20.065231123777778,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — G5 X Mark II · ISO 125 · frame 2",
-            "value": 18.04261632726834,
+            "value": 20.166233003836734,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — EOS R · ISO 12800 · frame 1",
-            "value": 15.387007267128414,
+            "value": 17.316234082548725,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — EOS R · ISO 12800 · frame 2",
-            "value": 15.294688046385346,
+            "value": 17.23554771715296,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "Preview · Extract embedded JPEG — EOS R · ISO 12800 · frame 3",
-            "value": 15.37825198194372,
+            "value": 17.24553245383539,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — G5 X Mark II · ISO 125 · frame 1",
-            "value": 543.41168784,
+            "value": 408.7904157846154,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — G5 X Mark II · ISO 1600",
-            "value": 536.5514663800001,
+            "value": 418.3231515102564,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 516.3074838,
+            "value": 413.58481283076924,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — G5 X Mark II · ISO 125 · frame 3",
-            "value": 559.897536711111,
+            "value": 426.9317290833334,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — G5 X Mark II · ISO 125 · frame 2",
-            "value": 548.4464986,
+            "value": 426.7688304333333,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — EOS R · ISO 12800 · frame 1",
-            "value": 827.4779822285715,
+            "value": 670.8422298,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — EOS R · ISO 12800 · frame 2",
-            "value": 839.5073550999999,
+            "value": 652.995726625,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode linear RAW — EOS R · ISO 12800 · frame 3",
-            "value": 846.7161852000002,
+            "value": 685.12918345,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — G5 X Mark II · ISO 125 · frame 1",
-            "value": 1364.66970325,
+            "value": 1327.2465445500002,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — G5 X Mark II · ISO 1600",
-            "value": 1345.3793244,
+            "value": 1295.1682211,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 1317.8961710999997,
+            "value": 1336.9689494999998,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — G5 X Mark II · ISO 125 · frame 3",
-            "value": 1364.5952123,
+            "value": 1338.39751895,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — G5 X Mark II · ISO 125 · frame 2",
-            "value": 1388.00746585,
+            "value": 1343.381262,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — EOS R · ISO 12800 · frame 1",
-            "value": 2093.990852266667,
+            "value": 2056.9329288666668,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — EOS R · ISO 12800 · frame 2",
-            "value": 2072.8160152666665,
+            "value": 2085.1759173333335,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (stream input) — EOS R · ISO 12800 · frame 3",
-            "value": 2068.7350992,
+            "value": 2051.4022542666667,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — G5 X Mark II · ISO 125 · frame 1",
-            "value": 1366.89941305,
+            "value": 1338.98500605,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — G5 X Mark II · ISO 1600",
-            "value": 1342.1871007500001,
+            "value": 1342.9952663,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 1344.44203395,
+            "value": 1307.9399427,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — G5 X Mark II · ISO 125 · frame 3",
-            "value": 1382.8550528,
+            "value": 1344.5252815,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — G5 X Mark II · ISO 125 · frame 2",
-            "value": 1379.0640706,
+            "value": 1329.39887385,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — EOS R · ISO 12800 · frame 1",
-            "value": 2069.0179347333333,
+            "value": 2068.952773266667,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — EOS R · ISO 12800 · frame 2",
-            "value": 2064.9403951333334,
+            "value": 2054.7902456,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW pipeline · Decode display-ready sRGB (memory-mapped input) — EOS R · ISO 12800 · frame 3",
-            "value": 2076.495717,
+            "value": 2050.7915954,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Apply camera colour matrix — G5 X Mark II · ISO 125 · frame 1",
-            "value": 360.3521231666667,
+            "value": 434.17904625000006,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Apply camera colour matrix — EOS R · ISO 12800 · frame 1",
-            "value": 542.307349875,
+            "value": 639.455627375,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Apply white balance — G5 X Mark II · ISO 125 · frame 1",
-            "value": 32.748503035714286,
+            "value": 31.324798903769842,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Apply white balance — EOS R · ISO 12800 · frame 1",
-            "value": 45.376898203125,
+            "value": 43.9017581,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Convert linear RGB to sRGB — G5 X Mark II · ISO 125 · frame 1",
-            "value": 18.9243460625,
+            "value": 21.79427279054054,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Convert linear RGB to sRGB — EOS R · ISO 12800 · frame 1",
-            "value": 28.275271443181822,
+            "value": 32.60361054,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Demosaic Bayer data — G5 X Mark II · ISO 125 · frame 1",
-            "value": 498.94116837499996,
+            "value": 473.98933116666666,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Demosaic Bayer data — EOS R · ISO 12800 · frame 1",
-            "value": 739.161913125,
+            "value": 726.880091375,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Subtract black level — G5 X Mark II · ISO 125 · frame 1",
-            "value": 5.1152181063137885,
+            "value": 3.2386697278373875,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "RAW processing · Subtract black level — EOS R · ISO 12800 · frame 1",
-            "value": 8.025437274182076,
+            "value": 5.032510759342105,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — G5 X Mark II · ISO 125 · frame 1",
-            "value": 431.38857515999996,
+            "value": 356.35291429999995,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — G5 X Mark II · ISO 1600",
-            "value": 404.18638855999995,
+            "value": 330.64746842857147,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — G5 X Mark II · ISO 1600 · tungsten WB",
-            "value": 397.0802875,
+            "value": 353.252969,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — G5 X Mark II · ISO 125 · frame 3",
-            "value": 446.12281255999994,
+            "value": 363.9308154666667,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — G5 X Mark II · ISO 125 · frame 2",
-            "value": 433.16493784000005,
+            "value": 354.5120060666667,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — EOS R · ISO 12800 · frame 1",
-            "value": 664.5855937833334,
+            "value": 578.3573247500001,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — EOS R · ISO 12800 · frame 2",
-            "value": 681.6293822666667,
+            "value": 575.60368085,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX decoder · Decode complete lossless RAW — EOS R · ISO 12800 · frame 3",
-            "value": 661.43136245,
+            "value": 575.3434954,
             "unit": "ms/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX inner loop · Decode Rice symbol",
-            "value": 8.240920111270214,
+            "value": 8.731222962515385,
             "unit": "ns/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX inner loop · Map residual sign",
-            "value": 0.6950797583648483,
+            "value": 0.7266659338175877,
             "unit": "ns/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX inner loop · Update Rice parameter",
-            "value": 1.7306569229677495,
+            "value": 1.6337070023915263,
             "unit": "ns/op",
             "extra": "iterations: 5\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Copy first tile plane — G5 X Mark II · ISO 125 · frame 1",
-            "value": 0.7682686523258637,
+            "value": 0.4273965617183851,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Copy first tile plane — EOS R · ISO 12800 · frame 1",
-            "value": 1.1454353753049684,
+            "value": 0.7536778465198137,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Decode first tile plane — G5 X Mark II · ISO 125 · frame 1",
-            "value": 68.89936951666667,
+            "value": 61.733710617647056,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Decode first tile plane — EOS R · ISO 12800 · frame 1",
-            "value": 111.13376968888889,
+            "value": 98.6527935,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Interleave Bayer planes — G5 X Mark II · ISO 125 · frame 1",
-            "value": 14.262998742404426,
+            "value": 9.62041216259434,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Interleave Bayer planes — EOS R · ISO 12800 · frame 1",
-            "value": 21.58111084643848,
+            "value": 14.270873571698305,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Parse codec header — G5 X Mark II · ISO 125 · frame 1",
-            "value": 0.0006305208604605521,
+            "value": 0.0005794549118607684,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Parse codec header — EOS R · ISO 12800 · frame 1",
-            "value": 0.0006322605438114524,
+            "value": 0.0005903792373230608,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Apply MED prediction to first plane — G5 X Mark II · ISO 125 · frame 1",
-            "value": 19.893319568627454,
+            "value": 16.568532729508195,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           },
           {
             "name": "CRX stage · Apply MED prediction to first plane — EOS R · ISO 12800 · frame 1",
-            "value": 29.784817279411765,
+            "value": 24.84345224390244,
             "unit": "ms/op",
             "extra": "iterations: 4\nforks: 1\nthreads: 1"
           }
@@ -525,4 +525,4 @@ window.BENCHMARK_DATA = {
       }
     ]
   }
-};
+}
