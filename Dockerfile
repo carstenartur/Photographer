@@ -3,7 +3,7 @@
 # BuildKit is the default builder in Docker 23.0+ and is always used by docker buildx.
 # If using an older Docker CLI, set DOCKER_BUILDKIT=1 before running docker build.
 # Stage 1: Build — Maven (frontend-maven-plugin manages its own Node for React build)
-FROM maven:3.9-eclipse-temurin-25 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 
 WORKDIR /app
 
