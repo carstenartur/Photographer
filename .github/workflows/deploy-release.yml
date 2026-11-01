@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       next_development_version:
-        description: 'Optional exact next version (X.Y.Z-SNAPSHOT); leave empty to use the increment choice'
+        description: 'Optional exact next version (X.Y.Z-SNAPSHOT); preparation only, leave empty to use the increment choice'
         required: false
         type: string
         default: ''
@@ -18,7 +18,7 @@ on:
           - minor
           - major
       skip_tests:
-        description: 'Skip tests during the release build'
+        description: 'Compatibility input; must be false for qualified preparation or resume'
         required: false
         type: boolean
         default: false
@@ -27,16 +27,28 @@ on:
         required: false
         type: boolean
         default: true
+      resume_release_pr:
+        description: 'Normally merged stable preparation PR number; empty prepares a stable PR handoff'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: write
+  actions: read
   pull-requests: write
   packages: write
+
+concurrency:
+  group: protected-release-handoff
+  cancel-in-progress: false
 
 env:
   GH_TOKEN: ${{ github.token }}
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/photographer/focusstack
+  DRY_RUN: ${{ inputs.dry_run }}
+  SKIP_TESTS: ${{ inputs.skip_tests }}
 
 jobs:
   release:
@@ -45,10 +57,10 @@ jobs:
     timeout-minutes: 120
 
     steps:
-      - name: Checkout main with full history
+      - name: Checkout exact dispatched main control commit with full history
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Set up JDK 25
@@ -58,196 +70,40 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Derive release plan from current Maven state
-        id: versions
+      # The repository helper derives consistent Maven project.version/revision,
+      # uses the existing version planner, and runs the full mvn -B clean verify.
+      # Preparation stops at R. Only an explicit verified resume may publish M.
+      - name: Prepare protected handoff or validate explicit merged release resume
+        id: handoff
         env:
           EXACT_NEXT_VERSION: ${{ inputs.next_development_version }}
           NEXT_VERSION_INCREMENT: ${{ inputs.next_version_increment }}
+          RESUME_RELEASE_PR: ${{ inputs.resume_release_pr }}
         shell: bash
         run: |
           set -euo pipefail
-
-          PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          REVISION=$(mvn help:evaluate -Dexpression=revision -q -DforceStdout)
-
-          if [[ "$PROJECT_VERSION" != "$REVISION" ]]; then
-            echo "::error::Maven versions are already inconsistent: project.version=$PROJECT_VERSION, revision=$REVISION"
-            exit 1
-          fi
-          if ! [[ "$PROJECT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-            echo "::error::Current Maven version '$PROJECT_VERSION' must use X.Y.Z-SNAPSHOT"
-            exit 1
-          fi
-
-          RELEASE_VERSION=${PROJECT_VERSION%-SNAPSHOT}
-          if git ls-remote --exit-code --tags origin "refs/tags/v${RELEASE_VERSION}" >/dev/null 2>&1; then
-            echo "::error::Tag v${RELEASE_VERSION} already exists"
-            exit 1
-          fi
-
-          EXACT_NEXT_VERSION=$(python3 - <<'PY'
-          import os
-          print(os.environ.get('EXACT_NEXT_VERSION', '').strip())
-          PY
-          )
-          if [[ -n "$EXACT_NEXT_VERSION" ]]; then
-            if ! [[ "$EXACT_NEXT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
-              echo "::error::next_development_version must use X.Y.Z-SNAPSHOT"
-              exit 1
-            fi
-            NEXT_VERSION="$EXACT_NEXT_VERSION"
-            NEXT_VERSION_SOURCE=exact
+          if [[ -z "$RESUME_RELEASE_PR" ]]; then
+            python3 scripts/release_handoff.py prepare \
+              --next-development-version "$EXACT_NEXT_VERSION" \
+              --increment "$NEXT_VERSION_INCREMENT" \
+              --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
           else
-            IFS='.' read -r major minor patch <<< "$RELEASE_VERSION"
-            case "$NEXT_VERSION_INCREMENT" in
-              patch) NEXT_VERSION="${major}.${minor}.$((patch + 1))-SNAPSHOT" ;;
-              minor) NEXT_VERSION="${major}.$((minor + 1)).0-SNAPSHOT" ;;
-              major) NEXT_VERSION="$((major + 1)).0.0-SNAPSHOT" ;;
-              *)
-                echo "::error::Unsupported next_version_increment '$NEXT_VERSION_INCREMENT'"
-                exit 1
-                ;;
-            esac
-            NEXT_VERSION_SOURCE="$NEXT_VERSION_INCREMENT"
+            python3 scripts/release_handoff.py resume \
+              --resume-release-pr "$RESUME_RELEASE_PR" \
+              --next-development-version "$EXACT_NEXT_VERSION" \
+              --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
           fi
 
-          RELEASE_VERSION="$RELEASE_VERSION" NEXT_VERSION="$NEXT_VERSION" python3 - <<'PY'
-          import os
-          release = tuple(map(int, os.environ['RELEASE_VERSION'].split('.')))
-          next_version = tuple(
-              map(int, os.environ['NEXT_VERSION'].removesuffix('-SNAPSHOT').split('.'))
-          )
-          if next_version <= release:
-              raise SystemExit(
-                  f"::error::Next development version {os.environ['NEXT_VERSION']} "
-                  f"must be newer than release {os.environ['RELEASE_VERSION']}"
-              )
-          PY
-
-          echo "release=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
-          echo "next=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
-          {
-            echo "## Release version plan"
-            echo
-            echo "- Current Maven version: \`$PROJECT_VERSION\`"
-            echo "- Release version: \`$RELEASE_VERSION\`"
-            echo "- Next development version: \`$NEXT_VERSION\`"
-            echo "- Next-version source: \`$NEXT_VERSION_SOURCE\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Set release version atomically
+      - name: Guard publication and create exact stable tag and application release
+        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION='${{ steps.versions.outputs.release }}'
-
-          mvn -B versions:set versions:set-property \
-            -DnewVersion="$VERSION" \
-            -Dproperty=revision \
-            -DgenerateBackupPoms=false
-
-      - name: Verify resolved release versions
-        shell: bash
-        run: |
-          set -euo pipefail
-          EXPECTED='${{ steps.versions.outputs.release }}'
-          PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          REVISION=$(mvn help:evaluate -Dexpression=revision -q -DforceStdout)
-
-          if [[ "$PROJECT_VERSION" != "$EXPECTED" ]]; then
-            echo "::error::project.version is '$PROJECT_VERSION', expected '$EXPECTED'"
-            exit 1
-          fi
-          if [[ "$REVISION" != "$EXPECTED" ]]; then
-            echo "::error::revision is '$REVISION', expected '$EXPECTED'"
-            exit 1
-          fi
-
-          REMAINING=$(grep -R --include='pom.xml' -n -- '-SNAPSHOT' . \
-            | grep -v '/target/' \
-            | grep -v '/.git/' \
-            || true)
-          if [[ -n "$REMAINING" ]]; then
-            echo "::error::Release POMs still contain SNAPSHOT versions:"
-            echo "$REMAINING"
-            exit 1
-          fi
-
-      - name: Build and verify release
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ '${{ inputs.skip_tests }}' == 'true' ]]; then
-            mvn -B clean verify -DskipTests
-          else
-            mvn -B clean verify
-          fi
-
-      - name: Commit release version
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add pom.xml '**/pom.xml'
-          git commit -m "Release version ${{ steps.versions.outputs.release }}"
-
-      - name: Publish release commit to main
-        if: ${{ !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          RELEASE_VERSION='${{ steps.versions.outputs.release }}'
-          COMMIT_SHA=$(git rev-parse HEAD)
-          TEMP_BRANCH="release-temp-${RELEASE_VERSION}-${GITHUB_RUN_ID}"
-
-          trap 'git push origin ":refs/heads/'"$TEMP_BRANCH"'" >/dev/null 2>&1 || true' EXIT
-          git push origin "HEAD:refs/heads/${TEMP_BRANCH}"
-          gh api "repos/${{ github.repository }}/git/refs/heads/main" \
-            --method PATCH \
-            -f sha="$COMMIT_SHA"
-
-      - name: Create release tag
-        if: ${{ !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION='${{ steps.versions.outputs.release }}'
-          COMMIT_SHA=$(git rev-parse HEAD)
-          TAG_SHA=$(gh api "repos/${{ github.repository }}/git/tags" \
-            --method POST \
-            -f tag="v${VERSION}" \
-            -f message="Release ${VERSION}" \
-            -f object="$COMMIT_SHA" \
-            -f type=commit \
-            --jq .sha)
-          if [[ -z "$TAG_SHA" || "$TAG_SHA" == 'null' ]]; then
-            echo "::error::GitHub did not return a tag object SHA for v${VERSION}"
-            exit 1
-          fi
-          gh api "repos/${{ github.repository }}/git/refs" \
-            --method POST \
-            -f ref="refs/tags/v${VERSION}" \
-            -f sha="$TAG_SHA"
-
-      - name: Create GitHub release
-        if: ${{ !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION='${{ steps.versions.outputs.release }}'
-          gh release create "v${VERSION}" \
-            --title "Release ${VERSION}" \
-            --generate-notes
-
-          if [[ -f app/target/focusstack.jar ]]; then
-            gh release upload "v${VERSION}" app/target/focusstack.jar --clobber
-          else
-            echo "::warning::app/target/focusstack.jar was not produced"
-          fi
+          python3 scripts/release_handoff.py publish \
+            --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
 
       - name: Log in to GitHub Container Registry
-        if: ${{ !inputs.dry_run }}
+        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
         uses: docker/login-action@v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -255,18 +111,26 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata
-        if: ${{ !inputs.dry_run }}
+        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
         id: meta
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=v${{ steps.versions.outputs.release }}
-            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.versions.outputs.release }}
-            type=semver,pattern={{major}},value=v${{ steps.versions.outputs.release }}
+            type=semver,pattern={{version}},value=v${{ steps.handoff.outputs.release }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.handoff.outputs.release }}
+            type=semver,pattern={{major}},value=v${{ steps.handoff.outputs.release }}
 
-      - name: Build and push Docker image
-        if: ${{ !inputs.dry_run }}
+      - name: Recheck exact stable source and publication targets before image publication
+        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_handoff.py image-guard \
+            --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+
+      - name: Build and push Docker image from merged stable checkout
+        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -275,71 +139,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Create maintenance branch
-        if: ${{ !inputs.dry_run }}
+      - name: Preserve maintenance responsibility and stage next snapshot handoff
+        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION='${{ steps.versions.outputs.release }}'
-          MAJOR_MINOR=${VERSION%.*}
-          BRANCH="maintenance/${MAJOR_MINOR}.x"
-          if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            gh api "repos/${{ github.repository }}/git/refs" \
-              --method POST \
-              -f ref="refs/heads/${BRANCH}" \
-              -f sha="$(git rev-parse HEAD)"
-          fi
-
-      - name: Prepare next development version atomically
-        shell: bash
-        run: |
-          set -euo pipefail
-          NEXT='${{ steps.versions.outputs.next }}'
-          mvn -B versions:set versions:set-property \
-            -DnewVersion="$NEXT" \
-            -Dproperty=revision \
-            -DgenerateBackupPoms=false
-
-          PROJECT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          REVISION=$(mvn help:evaluate -Dexpression=revision -q -DforceStdout)
-          if [[ "$PROJECT_VERSION" != "$NEXT" ]]; then
-            echo "::error::project.version is '$PROJECT_VERSION', expected next development version '$NEXT'"
-            exit 1
-          fi
-          if [[ "$REVISION" != "$NEXT" ]]; then
-            echo "::error::revision is '$REVISION', expected next development version '$NEXT'"
-            exit 1
-          fi
-
-      - name: Create next-development pull request
-        if: ${{ !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          NEXT='${{ steps.versions.outputs.next }}'
-          BRANCH="release/prepare-next-${NEXT}"
-
-          git checkout -b "$BRANCH"
-          git add pom.xml '**/pom.xml'
-          git commit -m "Prepare for next development iteration ${NEXT}"
-
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git push origin ":refs/heads/${BRANCH}"
-          fi
-          git push origin "$BRANCH"
-          gh pr create \
-            --title "Prepare for next development iteration ${NEXT}" \
-            --body "Automated version bump after release ${{ steps.versions.outputs.release }}. Both project.version and revision are set to ${NEXT}." \
-            --base main \
-            --head "$BRANCH"
-
-      - name: Dry-run summary
-        if: ${{ inputs.dry_run }}
-        shell: bash
-        run: |
-          echo "## Release dry run succeeded" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Release version: ${{ steps.versions.outputs.release }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Next development version: ${{ steps.versions.outputs.next }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Build and version verification: successful" >> "$GITHUB_STEP_SUMMARY"
-          echo "- No commits, tags, releases, branches, packages, or images were published" >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/release_handoff.py finish \
+            --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
