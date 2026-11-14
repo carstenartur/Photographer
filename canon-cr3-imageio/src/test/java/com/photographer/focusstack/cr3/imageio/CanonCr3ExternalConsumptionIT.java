@@ -75,14 +75,14 @@ class CanonCr3ExternalConsumptionIT {
         try (Stream<Path> stream = Files.list(targetDir)) {
             return stream
                     .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().startsWith("canon-cr3-imageio-"))
+                    .filter(path -> path.getFileName().toString().startsWith("cr3-imageio-"))
                     .filter(path -> path.getFileName().toString().endsWith(".jar"))
                     .filter(path -> !path.getFileName().toString().contains("-tests"))
                     .filter(path -> !path.getFileName().toString().contains("-sources"))
                     .filter(path -> !path.getFileName().toString().contains("-javadoc"))
                     .filter(path -> !path.getFileName().toString().startsWith("original-"))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Packaged canon-cr3-imageio JAR not found in " + targetDir));
+                    .orElseThrow(() -> new IllegalStateException("Packaged cr3-imageio JAR not found in " + targetDir));
         }
     }
 

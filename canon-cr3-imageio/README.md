@@ -1,4 +1,4 @@
-# canon-cr3-imageio
+# cr3-imageio
 
 `javax.imageio` adapter for Canon CR3 files.
 
@@ -14,8 +14,7 @@ the embedded JPEG preview by default.
 The ImageIO provider, reader discovery, embedded preview path, thumbnail access,
 and metadata access are intended as stable external APIs.
 
-CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` remain
-experimental while the CRX codec is completed. The complete symbol and package
+CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` select native decoding for supported profiles. The complete symbol and package
 classification is maintained in
 [`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
 
@@ -81,20 +80,23 @@ try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3
 }
 ```
 
-### Linear RAW / `readRaster()` — experimental
+### Bayer samples via `readRaster()`
 
 ```java
 ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
 try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
   reader.setInput(input);
   CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-  param.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
-  BufferedImage linearRaw = reader.read(0, param);
-  Raster raster = reader.readRaster(0, param);
+  param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+  param.setSourceRegion(new java.awt.Rectangle(160, 64, 64, 64));
+  Raster patch = reader.readRaster(0, param);
+  int firstSensorCode = patch.getSample(0, 0, 0);
 } finally {
   reader.dispose();
 }
 ```
+
+`rawSensor()` preserves original numeric values and sensor coordinates. `rawLinear()` scales values to 16 bits and offers active-area cropping and black-level adjustment. `readRaster(0, null)` uses linear defaults. Both modes also work through `read(0, param)`. See [ImageIO read parameters](../docs/cr3/imageio.md#standard-imageio-regions-and-destinations) for region, subsampling, band, and destination behavior.
 
 ### Thumbnail access
 
@@ -130,19 +132,17 @@ The SPI is registered through
 
 - `ImageIO.read(file)` and `reader.read(0)` default to the embedded preview because
   it is the most reliable path.
-- `Cr3DecodeOptions.rawProcessed()`, `Cr3DecodeOptions.rawLinear()`, and
-  `readRaster()` support only the CR3/CRX variants currently validated by the
-  experimental decoder.
+- Processed RGB, scaled linear Bayer, and native sensor reads support the CR3/CRX profiles validated by the decoder.
 - Unsupported RAW variants are decoder limitations, not ImageIO fallback behavior.
 - Metadata and thumbnail availability still depends on the source file.
 
 ## Dependencies
 
-- `canon-cr3-core` — compatibility decoder facade
-- `canon-cr3-container` — container and preview structures
-- `canon-cr3-metadata` — metadata model
-- `canon-cr3-codec` — internal CRX decoder
-- `canon-cr3-processing` — internal RAW processing pipeline
+- `cr3-core` — compatibility decoder facade
+- `cr3-container` — container and preview structures
+- `cr3-metadata` — metadata model
+- `cr3-codec` — internal CRX decoder
+- `cr3-processing` — internal RAW processing pipeline
 - `slf4j-api` — logging
 
 No runtime dependency on `canon-cr3-research` or

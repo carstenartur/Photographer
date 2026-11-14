@@ -5,7 +5,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/run_cr3_central_preflight.sh [release-version]
 
-Builds the exact six-module Canon CR3 Maven Central bundle without valid Central
+Builds the exact six-module CR3 Maven Central bundle without valid Central
 credentials or network upload. An ephemeral, unprotected GPG key signs every
 artifact; the keyring and isolated Maven repository are deleted after all
 bundle files, checksums and detached signatures are verified.
@@ -102,10 +102,10 @@ python3 scripts/validate_cr3_central_bundle.py \
 )
 
 cat > "$output_dir/README.txt" <<EOF
-Canon CR3 Maven Central preflight
+CR3 Maven Central preflight
 version=$version
 groupId=io.github.carstenartur
-artifacts=canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio
+artifacts=cr3-container,cr3-metadata,cr3-codec,cr3-processing,cr3-core,cr3-imageio
 uploadPerformed=false
 centralExtensionLoaded=true
 centralSkipUpload=true

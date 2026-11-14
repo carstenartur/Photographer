@@ -4,7 +4,7 @@ Command-line debug and analysis tool for Canon CR3 files.
 
 ## Purpose
 
-`canon-cr3-cli` is the thin CLI wrapper around `canon-cr3-core`. It is useful for:
+`canon-cr3-cli` is the thin CLI wrapper around `cr3-core`. It is useful for:
 
 - inspecting ISO-BMFF / CR3 container structure
 - dumping extracted CR3 metadata and crop geometry
@@ -125,7 +125,7 @@ java -jar canon-cr3-cli.jar pedestal-report photo.cr3
 
 ## Dependencies
 
-- `canon-cr3-core` — core CR3 parsing, metadata, and decoding logic
+- `cr3-core` — core CR3 parsing, metadata, and decoding logic
 - `logback-classic` — logging implementation
 
 ## Build

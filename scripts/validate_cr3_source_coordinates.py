@@ -13,14 +13,15 @@ LEGACY_GROUP_ID = "com.photographer.focusstack"
 PUBLIC_GROUP_ID = "io.github.carstenartur"
 PUBLIC_ARTIFACTS = frozenset(
     {
-        "canon-cr3-container",
-        "canon-cr3-metadata",
-        "canon-cr3-codec",
-        "canon-cr3-processing",
-        "canon-cr3-core",
-        "canon-cr3-imageio",
+        "cr3-container",
+        "cr3-metadata",
+        "cr3-codec",
+        "cr3-processing",
+        "cr3-core",
+        "cr3-imageio",
     }
 )
+RETIRED_ARTIFACTS = {f"canon-{artifact}" for artifact in PUBLIC_ARTIFACTS}
 MAVEN_NAMESPACE = "http://maven.apache.org/POM/4.0.0"
 NS = {"m": MAVEN_NAMESPACE}
 
@@ -28,6 +29,7 @@ NS = {"m": MAVEN_NAMESPACE}
 @dataclass(frozen=True)
 class LegacyDependency:
     pom: Path
+    group_id: str
     artifact_id: str
 
 
@@ -37,7 +39,7 @@ def _child_text(element: ET.Element, name: str) -> str:
 
 
 def find_legacy_dependencies(repository_root: Path) -> list[LegacyDependency]:
-    """Return public runtime dependencies that still use the retired groupId."""
+    """Find dependencies using a retired artifact ID or the wrong public group."""
     repository_root = repository_root.resolve()
     violations: list[LegacyDependency] = []
     for pom in sorted(repository_root.rglob("pom.xml")):
@@ -52,8 +54,10 @@ def find_legacy_dependencies(repository_root: Path) -> list[LegacyDependency]:
         for dependency in root.findall(".//m:dependency", NS):
             group_id = _child_text(dependency, "groupId")
             artifact_id = _child_text(dependency, "artifactId")
-            if group_id == LEGACY_GROUP_ID and artifact_id in PUBLIC_ARTIFACTS:
-                violations.append(LegacyDependency(relative, artifact_id))
+            if (artifact_id in PUBLIC_ARTIFACTS and group_id != PUBLIC_GROUP_ID) or (
+                artifact_id in RETIRED_ARTIFACTS and group_id in {PUBLIC_GROUP_ID, LEGACY_GROUP_ID}
+            ):
+                violations.append(LegacyDependency(relative, group_id, artifact_id))
     return violations
 
 
@@ -62,13 +66,13 @@ def validate(repository_root: Path) -> None:
     if not violations:
         return
     formatted = "\n".join(
-        f"- {violation.pom}: {LEGACY_GROUP_ID}:{violation.artifact_id}"
+        f"- {violation.pom}: {violation.group_id}:{violation.artifact_id}"
         for violation in violations
     )
     raise RuntimeError(
         "In-repository consumers still reference retired public Canon CR3 coordinates:\n"
         f"{formatted}\n"
-        f"Use {PUBLIC_GROUP_ID} for the six public runtime artifacts."
+        f"Use {PUBLIC_GROUP_ID} and the cr3-* names for the six public runtime artifacts."
     )
 
 

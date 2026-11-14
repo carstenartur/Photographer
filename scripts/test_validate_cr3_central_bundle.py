@@ -185,6 +185,17 @@ class ValidateCr3CentralBundleTest(unittest.TestCase):
             with self.assertRaises(BundleValidationError):
                 validate_bundle(write_bundle(entries, Path(temp)), VERSION)
 
+    def test_rejects_retired_public_dependency(self) -> None:
+        entries = valid_entries()
+        artifact = "cr3-imageio"
+        old_pom = pom(artifact, dependency="canon-cr3-core").replace(
+            b"com.photographer.focusstack", b"io.github.carstenartur"
+        ).replace(b"0.1.5-SNAPSHOT", VERSION.encode())
+        replace_pom(entries, artifact, old_pom)
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(BundleValidationError, "invalid public CR3 dependency"):
+                validate_bundle(write_bundle(entries, Path(temp)), VERSION)
+
     def test_rejects_corrupt_checksum(self) -> None:
         entries = valid_entries()
         artifact = PUBLIC_ARTIFACTS[0]

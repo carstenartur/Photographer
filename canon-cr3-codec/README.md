@@ -1,4 +1,4 @@
-# canon-cr3-codec
+# cr3-codec
 
 Experimental clean-room CRX RAW codec and linear Bayer data model.
 
@@ -7,7 +7,7 @@ Experimental clean-room CRX RAW codec and linear Bayer data model.
 - CRX header parsing
 - bitstream and Rice-Golomb primitives
 - lossless CRX decoding
-- lossy/C-RAW decoder scaffolding
+- native three-level C-RAW entropy decoding, inverse quantization and integer 5/3 synthesis
 - inverse wavelet transform
 - tile/plane reconstruction
 - `Cr3RawImage` Bayer mosaic representation
@@ -15,7 +15,7 @@ Experimental clean-room CRX RAW codec and linear Bayer data model.
 
 ## Dependency rule
 
-This module may depend on `canon-cr3-container` and `canon-cr3-metadata`.
+This module may depend on `cr3-container` and `cr3-metadata`.
 It must not depend on post-codec processing, the compatibility facade, ImageIO,
 CLI, application, or `canon-cr3-research`.
 
@@ -28,9 +28,7 @@ downstream dependencies are rewired.
 
 ## Maturity
 
-The API and decoder implementation are experimental. Moving them into a dedicated
-module isolates that instability from the stable container and metadata layers; it
-does not claim that CRX decoding is complete.
+The public decoder uses the measured 14-bit V1 lossless and three-level C-RAW paths. Codec implementation classes remain internal. [Profiles and full-image checks](../docs/cr3/decoder.md)
 
 ## Build
 

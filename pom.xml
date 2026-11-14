@@ -243,7 +243,7 @@
                             <autoPublish>${central.autoPublish}</autoPublish>
                             <waitUntil>${central.waitUntil}</waitUntil>
                             <skipPublishing>${central.skipPublishing}</skipPublishing>
-                            <deploymentName>Photographer Canon CR3 ${revision}</deploymentName>
+                            <deploymentName>Photographer CR3 ${revision}</deploymentName>
                         </configuration>
                     </plugin>
                     <plugin>

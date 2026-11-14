@@ -15,13 +15,13 @@ com.photographer.focusstack.cr3.cli
 
 ## Module dependencies
 
-- `canon-cr3-core` — end-to-end decode facade and options
-- `canon-cr3-container` — BMFF boxes, parser, tracks, crop geometry and previews
-- `canon-cr3-metadata` — metadata inspection
-- `canon-cr3-codec` — subband extraction and codec diagnostics
+- `cr3-core` — end-to-end decode facade and options
+- `cr3-container` — BMFF boxes, parser, tracks, crop geometry and previews
+- `cr3-metadata` — metadata inspection
+- `cr3-codec` — subband extraction and codec diagnostics
 
 The CLI deliberately does **not** depend on `canon-cr3-research`. The legacy
-`SubbandStatistics` FQCN is supplied by `canon-cr3-codec`; this preserves source
+`SubbandStatistics` FQCN is supplied by `cr3-codec`; this preserves source
 compatibility without creating a production-to-research dependency.
 
 ## Design Principles

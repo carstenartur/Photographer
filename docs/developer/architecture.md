@@ -32,8 +32,8 @@ graph TD
     APP --> VIDEO[video-core]
     APP --> FACE[face-analysis-core]
     APP --> PROFILE[face-profile-core]
-    APP --> CR3CORE[canon-cr3-core]
-    APP --> IMAGEIO[canon-cr3-imageio]
+    APP --> CR3CORE[cr3-core]
+    APP --> IMAGEIO[cr3-imageio]
 
     CAPTURE --> COMMON
     STORAGE --> COMMON
@@ -137,12 +137,12 @@ The CR3/CRX code is split into public runtime artifacts under `io.github.carsten
 
 ```mermaid
 graph LR
-    CONTAINER[canon-cr3-container]
-    META[canon-cr3-metadata]
-    CODEC[canon-cr3-codec\nexperimental CRX]
-    PROCESS[canon-cr3-processing]
-    CORE[canon-cr3-core\nfacade/orchestration]
-    IMAGEIO[canon-cr3-imageio]
+    CONTAINER[cr3-container]
+    META[cr3-metadata]
+    CODEC[cr3-codec\nexperimental CRX]
+    PROCESS[cr3-processing]
+    CORE[cr3-core\nfacade/orchestration]
+    IMAGEIO[cr3-imageio]
     CLI[canon-cr3-cli]
 
     CONTAINER --> META
@@ -160,12 +160,12 @@ graph LR
 
 The responsibilities are:
 
-- `canon-cr3-container`: ISO BMFF / Canon CR3 parsing and embedded JPEG access;
-- `canon-cr3-metadata`: EXIF, MakerNote, CTMD and sensor/active-area metadata;
-- `canon-cr3-codec`: experimental clean-room CRX RAW decoding and linear Bayer model;
-- `canon-cr3-processing`: pedestal, crop, demosaic, white-balance and color processing;
-- `canon-cr3-core`: compatibility facade and decode orchestration;
-- `canon-cr3-imageio`: Java ImageIO SPI and reader;
+- `cr3-container`: ISO BMFF / Canon CR3 parsing and embedded JPEG access;
+- `cr3-metadata`: EXIF, MakerNote, CTMD and sensor/active-area metadata;
+- `cr3-codec`: experimental clean-room CRX RAW decoding and linear Bayer model;
+- `cr3-processing`: pedestal, crop, demosaic, white-balance and color processing;
+- `cr3-core`: compatibility facade and decode orchestration;
+- `cr3-imageio`: Java ImageIO SPI and reader;
 - `canon-cr3-cli`: command-line inspection and experimental decode tooling.
 
 The following modules are not normal supported runtime dependencies:

@@ -1,4 +1,4 @@
-name: Canon CR3 Maven Central
+name: CR3 Maven Central
 
 on:
   workflow_dispatch:

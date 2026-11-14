@@ -29,7 +29,7 @@ final class LosslessOpeningSamples {
         return readFirst(new BitReader(payload), bitDepth);
     }
 
-    private static int readFirst(BitReader bits, int bitDepth) throws IOException {
+    static int readFirst(BitReader bits, int bitDepth) throws IOException {
         if (bitDepth != SENSOR_DEPTH) {
             throw new IOException("Unsupported sensor depth: " + bitDepth);
         }
@@ -43,22 +43,34 @@ final class LosslessOpeningSamples {
     static Opening decode(byte[] payload, int bitDepth) throws IOException {
         BitReader bits = new BitReader(payload);
         int first = readFirst(bits, bitDepth);
+        var residual = readResidual(bits, 2);
+        int second = addResidual(first, residual.unsigned());
+        return new Opening(first, second, residual.zeros(), residual.unsigned(), 32 + residual.bits());
+    }
+
+    record Residual(int unsigned, int zeros, int bits) {}
+
+    static Residual readResidual(BitReader bits, int k) throws IOException {
         int zeros = 0;
         while (bits.readBit() == 0) {
             if (++zeros > ESCAPE_QUOTIENT) {
-                throw new IOException("Unsupported second-sample quotient above " + ESCAPE_QUOTIENT);
+                throw new IOException("Unsupported quotient above " + ESCAPE_QUOTIENT);
             }
         }
-        int width = zeros == ESCAPE_QUOTIENT ? ESCAPE_LITERAL_WIDTH : 2;
+        int width = zeros == ESCAPE_QUOTIENT ? ESCAPE_LITERAL_WIDTH : k;
         int code = bits.readBits(width);
         if (zeros < ESCAPE_QUOTIENT) {
-            code += zeros << 2;
+            code += zeros << k;
         }
-        int second = first + signed(code);
-        if (second < 0 || second > MAX_SAMPLE) {
-            throw new IOException("Second sample outside 14-bit range: " + second);
+        return new Residual(code, zeros, zeros + 1 + width);
+    }
+
+    static int addResidual(int predictor, int unsigned) throws IOException {
+        int value = predictor + signed(unsigned);
+        if (value < 0 || value > MAX_SAMPLE) {
+            throw new IOException("Sample outside 14-bit range: " + value);
         }
-        return new Opening(first, second, zeros, code, 32 + zeros + 1 + width);
+        return value;
     }
 
     private static int signed(int unsigned) {

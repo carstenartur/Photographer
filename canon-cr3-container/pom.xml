@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>io.github.carstenartur</groupId>
-    <artifactId>canon-cr3-container</artifactId>
+    <artifactId>cr3-container</artifactId>
     <version>${revision}</version>
 
-    <name>Canon CR3 - Container</name>
+    <name>CR3 Container</name>
     <description>ISO BMFF / Canon CR3 container parsing and embedded JPEG payload access</description>
     <url>https://github.com/carstenartur/Photographer</url>
 

@@ -33,7 +33,7 @@ coupling; it is explicit here rather than hidden in individual tests.
 
 ## Intentional compatibility exception
 
-`SubbandStatistics` remains in `canon-cr3-codec` under its legacy
+`SubbandStatistics` remains in `cr3-codec` under its legacy
 `com.photographer.focusstack.cr3.research` package because the production CLI
 uses it as codec diagnostics. This avoids a forbidden CLI-to-research module
 dependency during the mechanical split. #102 may rename that diagnostic package

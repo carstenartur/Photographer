@@ -34,6 +34,8 @@ BENCHMARK_LABELS = {
         "CRX stage · Parse codec header",
     "com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.decodeFirstPlane":
         "CRX stage · Decode first tile plane",
+    "com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.decodeNativeFirstPlane":
+        "CRX stage · Decode native first tile plane",
     "com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.copyFirstTilePlane":
         "CRX stage · Copy first tile plane",
     "com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.interleavePositionalPlanes":
@@ -58,6 +60,8 @@ BENCHMARK_LABELS = {
         "RAW processing · Convert linear RGB to sRGB",
     "com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importProcessedRawViaImageIo":
         "Complete import · Open CR3 as display-ready RAW",
+    "com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importSensorViaImageIo":
+        "ImageIO import · Decode native Bayer samples",
     "com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importPreviewViaImageIo":
         "Complete import · Open embedded preview",
 }

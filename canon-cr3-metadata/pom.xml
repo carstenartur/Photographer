@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>io.github.carstenartur</groupId>
-    <artifactId>canon-cr3-metadata</artifactId>
+    <artifactId>cr3-metadata</artifactId>
     <version>${revision}</version>
 
-    <name>Canon CR3 - Metadata</name>
+    <name>CR3 Metadata</name>
     <description>Canon CR3 EXIF, MakerNote, CTMD, sensor and active-area metadata</description>
     <url>https://github.com/carstenartur/Photographer</url>
 
@@ -41,12 +41,12 @@
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

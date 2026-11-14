@@ -62,38 +62,38 @@ class ExternalCr3ArchitectureTest {
 
     private static final List<ModuleContract> MODULES = List.of(
             new ModuleContract(
-                    "canon-cr3-container",
+                    "cr3-container",
                     Cr3Parser.class,
                     EnumSet.of(Layer.CONTAINER),
                     EnumSet.of(Layer.CONTAINER),
                     Set.of()),
             new ModuleContract(
-                    "canon-cr3-metadata",
+                    "cr3-metadata",
                     Cr3Metadata.class,
                     EnumSet.of(Layer.METADATA),
                     EnumSet.of(Layer.CONTAINER, Layer.METADATA),
                     Set.of()),
             new ModuleContract(
-                    "canon-cr3-codec",
+                    "cr3-codec",
                     BitReader.class,
                     EnumSet.of(Layer.CODEC),
                     EnumSet.of(Layer.CONTAINER, Layer.METADATA, Layer.CODEC),
                     Set.of(COMPATIBILITY_STATISTICS)),
             new ModuleContract(
-                    "canon-cr3-processing",
+                    "cr3-processing",
                     BlackLevelProcessor.class,
                     EnumSet.of(Layer.PROCESSING),
                     EnumSet.of(Layer.METADATA, Layer.CODEC, Layer.PROCESSING),
                     Set.of()),
             new ModuleContract(
-                    "canon-cr3-core",
+                    "cr3-core",
                     Cr3Decoder.class,
                     EnumSet.of(Layer.CORE),
                     EnumSet.of(Layer.CONTAINER, Layer.METADATA, Layer.CODEC,
                             Layer.PROCESSING, Layer.CORE),
                     Set.of()),
             new ModuleContract(
-                    "canon-cr3-imageio",
+                    "cr3-imageio",
                     CanonCr3ImageReader.class,
                     EnumSet.of(Layer.IMAGEIO),
                     EnumSet.of(Layer.CONTAINER, Layer.METADATA, Layer.CODEC,
@@ -102,16 +102,16 @@ class ExternalCr3ArchitectureTest {
     );
 
     private static final Map<String, Set<String>> EXPECTED_DIRECT_CR3_DEPENDENCIES = Map.of(
-            "canon-cr3-container", Set.of(),
-            "canon-cr3-metadata", Set.of("canon-cr3-container"),
-            "canon-cr3-codec", Set.of("canon-cr3-container", "canon-cr3-metadata"),
-            "canon-cr3-processing", Set.of("canon-cr3-metadata", "canon-cr3-codec"),
-            "canon-cr3-core", Set.of(
-                    "canon-cr3-container", "canon-cr3-metadata",
-                    "canon-cr3-codec", "canon-cr3-processing"),
-            "canon-cr3-imageio", Set.of(
-                    "canon-cr3-container", "canon-cr3-metadata",
-                    "canon-cr3-codec", "canon-cr3-processing", "canon-cr3-core")
+            "cr3-container", Set.of(),
+            "cr3-metadata", Set.of("cr3-container"),
+            "cr3-codec", Set.of("cr3-container", "cr3-metadata"),
+            "cr3-processing", Set.of("cr3-metadata", "cr3-codec"),
+            "cr3-core", Set.of(
+                    "cr3-container", "cr3-metadata",
+                    "cr3-codec", "cr3-processing"),
+            "cr3-imageio", Set.of(
+                    "cr3-container", "cr3-metadata",
+                    "cr3-codec", "cr3-processing", "cr3-core")
     );
 
     @Test
@@ -272,7 +272,6 @@ class ExternalCr3ArchitectureTest {
             String optional = directChildText(dependency, "optional");
             if (!GROUP_ID.equals(groupId)
                     || artifactId == null
-                    || !artifactId.startsWith("canon-cr3-")
                     || "test".equals(scope)
                     || "provided".equals(scope)
                     || "true".equals(optional)) {

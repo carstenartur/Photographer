@@ -34,28 +34,26 @@ class SourceCoordinateValidatorTest(unittest.TestCase):
             self._write_pom(
                 root / "consumer" / "pom.xml",
                 "io.github.carstenartur",
-                "canon-cr3-processing",
+                "cr3-processing",
             )
 
             validate(root)
             self.assertEqual([], find_legacy_dependencies(root))
 
-    def test_rejects_legacy_public_cr3_dependency(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            self._write_pom(
-                root / "astro-core-benchmark" / "pom.xml",
-                "com.photographer.focusstack",
-                "canon-cr3-processing",
-            )
-
-            violations = find_legacy_dependencies(root)
-            self.assertEqual(1, len(violations))
-            self.assertEqual("canon-cr3-processing", violations[0].artifact_id)
-            with self.assertRaisesRegex(
-                RuntimeError, "retired public Canon CR3 coordinates"
-            ):
-                validate(root)
+    def test_rejects_retired_names_and_incorrect_groups(self) -> None:
+        for group_id, artifact_id in [
+            ("io.github.carstenartur", "canon-cr3-processing"),
+            ("com.photographer.focusstack", "canon-cr3-processing"),
+            ("com.photographer.focusstack", "cr3-processing"),
+            ("org.example", "cr3-processing"),
+        ]:
+            with self.subTest(group_id=group_id, artifact_id=artifact_id), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                self._write_pom(root / "consumer" / "pom.xml", group_id, artifact_id)
+                violations = find_legacy_dependencies(root)
+                self.assertEqual([artifact_id], [violation.artifact_id for violation in violations])
+                with self.assertRaisesRegex(RuntimeError, f"{group_id}:{artifact_id}"):
+                    validate(root)
 
     def test_allows_internal_cr3_artifacts_to_remain_in_monoreactor_group(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

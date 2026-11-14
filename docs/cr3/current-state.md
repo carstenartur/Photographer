@@ -7,8 +7,8 @@ This is the maintained implementation/research truth boundary. Module APIs and e
 - CR3 container parsing, CMP1/IAD1/CRX extraction and subband inventory work.
 - The fixed lossless panel has manifest-bound external TIFF/PNG references.
 - Geometry, alignment, optical-black, per-plane, boundary and tile/plane completion diagnostics exist through the shared reference testkit.
-- Pipeline stages 1–3 are verified; Stage 4 structural framing is partial; Stage 6 entropy reconstruction is the earliest verified semantic failure.
-- Inverse-wavelet reconstruction is not reached for the lossless panel because correct entropy output is still unavailable.
+- RG4 and RG5 verify the complete native Bayer reconstruction for the measured V1 profiles.
+- Lossless files have zero wavelet levels. Three-level C-RAW passes the inverse transform and full-sensor comparison.
 - Research follows the auditable process in [Clean-room engineering](../cleanroom/README.md) and [Research](research.md).
 
 ## Durable entropy findings
@@ -69,35 +69,29 @@ The durable report is [RG1 LibRaw-guided first divergence](../cr3-results/2026-0
 
 RG2 reproduced RG1 on 88 streams. Consuming the patent-derived conditional flag at offset zero shifted the residual reader by one bit and left all 88 first errors unchanged. Every payload had its first one at offset 10. Flipping bit zero made the external reference reject each of two controlled inputs. The meaning of the ten-zero prefix remains open.
 
-LightCraft and DNGLab agreed on every Bayer value of the public EOS R and PowerShot G5 X Mark II C-RAW fixtures. Photographer currently validates their headers and returns its C-RAW unsupported result. See the [RG2 experiment](../cr3-results/2026-11-14-crx/README.md).
+LightCraft and DNGLab agreed on every Bayer value of the public EOS R and PowerShot G5 X Mark II C-RAW fixtures. RG2 recorded the unsupported status of the then-current decoder. The native RG5 results below supersede that status. See the [RG2 experiment](../cr3-results/2026-11-14-crx/README.md).
 
 ## First two native lossless samples
 
 The RG3 research reader derives both values in a plane directly from the payload. It matched all 88 discovery streams and all 32 prospective streams from four cameras. Changing each of extractor-relative bits 18–31 on two cameras and swapping that range between them gave the exact predicted first values. The CMP1-declared origin in all 15 files is four bytes earlier, so the same physical bits are then 50–63. The fixed prefix conditions this result. Changes to earlier bits can also affect the first value. All four second-code remainder controls were rejected. See the [RG3 measurements](../cr3-results/2026-11-14-crx-opening/README.md).
 
-## Current priority
+## Verified native lossless import
 
-Start the next lossless experiment at RG3's recorded end-bit cursor and the third same-plane site. General entropy adaptation, complete rows and later boundaries remain open. An additional evidence-acquisition path is the controlled spatial-code corpus in issue #249:
+`Cr3Decoder` reconstructs the full uncropped native Bayer mosaic from four-plane, 14-bit, encoding-type-0 lossless V1 files. Eleven original and four independent RAW files match their external reference at all 365,774,016 sites. The decoder uses the CMP1-declared byte origin and validates tile and plane extents. [RG4 measurements](../cr3-results/2026-11-14-crx-native/README.md)
 
-- the deterministic screen/print pattern pack and manifests exist;
-- duplicate captures, camera/display state records and payload observations are still required;
-- the JPEG or embedded preview is the observable calibration channel for whether and where the camera detected the controlled stimulus;
-- CRX changes must be separated from duplicate noise and correlated with the known stimulus;
-- an adaptive closed loop may choose the next pattern or intensity, but it must preserve the same manifests, provenance and predeclared decision boundaries.
+## Verified native C-RAW import
 
-A completed capture corpus can justify a later semantic hypothesis. The pattern assets alone, ordinary additional photographs, or another passive LibRaw metric sweep cannot.
-
-Do not repeat current-symbol K rules, neighbor-coordinate searches, subband permutations, broad predictor sweeps, CFA/alignment sweeps or combined `Sd`/`Kd`/reset experiments on the same fixed panel.
+Six two-tile, 14-bit, three-level C-RAW recordings match external reconstructions at all 146,467,152 sensor sites. Two project-owned PowerShot captures exercise signed low-frequency coefficients at the start of a tile plane. Two test files were selected and identified by SHA-256 before prospective validation. [RG5 measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
 
 ## Stable product boundary
 
-The research block does not invalidate supported CR3 functionality:
+The verified product paths include the following functions.
 
 - container/track parsing and embedded JPEG extraction remain supported;
 - structured metadata remains supported;
 - standard ImageIO preview, thumbnail, discovery and metadata paths remain supported;
-- full RAW/CRX modes remain experimental;
-- production has not adopted D12, RG1 oracle initialization or another unsupported entropy variant.
+- native V1 lossless and three-level C-RAW decoding on the measured layouts;
+- RAW processing and color rendering have separate quality criteria.
 
 See [CR3 overview](index.md), [ImageIO](imageio.md) and [Decoder](decoder.md).
 

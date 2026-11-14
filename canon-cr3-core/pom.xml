@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>io.github.carstenartur</groupId>
-    <artifactId>canon-cr3-core</artifactId>
+    <artifactId>cr3-core</artifactId>
     <version>${revision}</version>
 
-    <name>Canon CR3 - Core</name>
+    <name>CR3 Core</name>
     <description>CR3 decode orchestration and compatibility facade</description>
     <url>https://github.com/carstenartur/Photographer</url>
 
@@ -41,27 +41,27 @@
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-metadata</artifactId>
+            <artifactId>cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-codec</artifactId>
+            <artifactId>cr3-codec</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-processing</artifactId>
+            <artifactId>cr3-processing</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

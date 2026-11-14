@@ -22,12 +22,15 @@ import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
 import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
+import com.photographer.focusstack.cr3.raw.codec.CrxSensorDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferUShort;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -41,7 +44,7 @@ import java.util.Arrays;
  *
  * <p>The decoder orchestrates parsing, metadata extraction, and image decoding.
  * It does not depend on {@code javax.imageio.ImageReader} — the ImageIO adapter
- * is a separate layer in the {@code canon-cr3-imageio} module.</p>
+ * is a separate layer in the {@code cr3-imageio} artifact.</p>
  *
  * <p>Usage:</p>
  * <pre>{@code
@@ -191,7 +194,7 @@ public final class Cr3Decoder implements AutoCloseable {
             case PREVIEW -> Cr3PreviewExtractor.extractPreview(input, container);
             case THUMBNAIL -> Cr3PreviewExtractor.extractThumbnail(input, container);
             case RAW_PROCESSED -> decodeRawProcessed(options);
-            case RAW_LINEAR -> decodeRawLinear(options);
+            case RAW_LINEAR, RAW_SENSOR -> decodeRawRegion(options, null, 1, 1);
         };
     }
 
@@ -226,7 +229,7 @@ public final class Cr3Decoder implements AutoCloseable {
         if (input == null || container == null) {
             throw new IllegalStateException("No input set — call setInput() first");
         }
-        Cr3RawImage rawImage = decodeRawBayerUncropped(Cr3DecodeOptions.rawLinear());
+        Cr3RawImage rawImage = decodeRawBayer();
         BlackLevelResolution resolution = resolveBlackLevelResolution(rawImage);
 
         int activeAreaLeft = metadata != null ? metadata.activeAreaLeft() : 0;
@@ -307,7 +310,7 @@ public final class Cr3Decoder implements AutoCloseable {
         boolean shouldCrop = options.cropToActiveArea();
 
         // Always decode uncropped — OB columns are needed for black level estimation
-        Cr3RawImage rawImage = decodeRawBayerUncropped(options);
+        Cr3RawImage rawImage = decodeRawBayer();
 
         // 1. Black level subtraction on the UNCROPPED image (OB columns still present).
         //    We also record the minimum subtracted level so the demosaic step can
@@ -380,38 +383,114 @@ public final class Cr3Decoder implements AutoCloseable {
         };
     }
 
-    /**
-     * Linear RAW output: CrxLosslessRawDecoder → BlackLevel → grayscale BufferedImage.
-     */
-    private BufferedImage decodeRawLinear(Cr3DecodeOptions options) throws Cr3Exception, IOException {
-        Cr3RawImage rawImage = decodeRawBayer(options);
-
-        if (options.applyBlackLevel()) {
-            BlackLevelProcessor.process(rawImage);
-        }
-
-        // Return as grayscale image (raw Bayer values)
-        int w = rawImage.width();
-        int h = rawImage.height();
-        int maxVal = rawImage.maxValue();
-        BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_USHORT_GRAY);
-        short[] outData = ((java.awt.image.DataBufferUShort) output.getRaster()
-                .getDataBuffer()).getData();
-        int[] rawData = rawImage.data();
-        for (int i = 0; i < rawData.length; i++) {
-            // Scale to 16-bit range
-            outData[i] = (short) Math.min(65535,
-                    (int) ((long) rawData[i] * 65535 / maxVal));
-        }
-
-        return output;
+    /** Returns zero-based output bounds for RAW_LINEAR or RAW_SENSOR without reading the CRX payload. */
+    public Rectangle getRawBounds(Cr3DecodeOptions options) throws Cr3Exception {
+        RawTrack track = rawTrack();
+        Rectangle area = rawArea(options, track);
+        return new Rectangle(area.width, area.height);
     }
 
     /**
-     * Reads the CRX RAW track data and decodes it into a Bayer-pattern image.
+     * Decodes a window in the selected Bayer mode's zero-based output coordinates. The top-left
+     * source site is always included. The next sites are separated by the supplied positive steps.
+     * Passing a null region selects the full output. Entropy and prediction traverse the full track,
+     * while only the requested sites occupy output storage.
+     *
+     * @throws IllegalArgumentException for a different output mode, invalid window or subsampling step
      */
-    private Cr3RawImage decodeRawBayer(Cr3DecodeOptions options) throws Cr3Exception, IOException {
-        // Find the CRX RAW track
+    public BufferedImage decodeRawRegion(Cr3DecodeOptions options, Rectangle region, int xStep, int yStep)
+            throws Cr3Exception, IOException {
+        RawTrack track = rawTrack();
+        Rectangle area = rawArea(options, track);
+        if (xStep <= 0 || yStep <= 0) {
+            throw new IllegalArgumentException("RAW subsampling steps must be positive");
+        }
+        if (region != null) {
+            if (!new Rectangle(area.width, area.height).contains(region) || region.isEmpty()) {
+                throw new IllegalArgumentException("RAW region must be within the selected image");
+            }
+            area.setBounds(area.x + region.x, area.y + region.y, region.width, region.height);
+        }
+        byte[] data = readPayload(track.source);
+        CrxSensorDecoder decoder = CrxSensorDecoder.prepare(data, track.width, track.height, track.depth,
+                track.version, track.source.cmp1());
+        boolean nativeCodes = options.outputMode() == Cr3DecodeOptions.OutputMode.RAW_SENSOR;
+        int outputWidth = Math.ceilDiv(area.width, xStep);
+        int outputHeight = Math.ceilDiv(area.height, yStep);
+        var output = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_USHORT_GRAY);
+        short[] pixels = ((DataBufferUShort) output.getRaster().getDataBuffer()).getData();
+        short[] levels = nativeCodes ? null : linearLevels(track.depth, options.applyBlackLevel());
+
+        decoder.decodeRows((x, y, row) -> writeSamples(pixels, levels, area, outputWidth, xStep, yStep, x, y, row));
+        return output;
+    }
+
+    private static void writeSamples(short[] pixels, short[] levels, Rectangle area, int outputWidth,
+                                     int xStep, int yStep, int x, int y, int[] row) {
+        int relativeY = y - area.y;
+        if (relativeY < 0 || relativeY >= area.height || relativeY % yStep != 0) {
+            return;
+        }
+        // A plane row visits alternate columns. The first sampled column must belong to this tile and phase.
+        int first = Math.max(0, Math.ceilDiv(x - area.x, xStep));
+        int end = Math.min(outputWidth, Math.ceilDiv(x + 2 * row.length - area.x, xStep));
+        if (first >= end) {
+            return;
+        }
+        long firstSite = (long) area.x + (long) first * xStep;
+        boolean oddStep = (xStep & 1) != 0;
+        if (((firstSite - x) & 1) != 0) {
+            if (!oddStep) {
+                return;
+            }
+            first++;
+            firstSite += xStep;
+        }
+        int destinationStep = oddStep ? 2 : 1;
+        int sourceStep = oddStep ? xStep : xStep / 2;
+        int source = (int) ((firstSite - x) / 2);
+        int destinationRow = (relativeY / yStep) * outputWidth;
+        for (int column = first; column < end; column += destinationStep, source += sourceStep) {
+            pixels[destinationRow + column] = levels == null ? (short) row[source] : levels[row[source]];
+        }
+    }
+
+    private Rectangle rawArea(Cr3DecodeOptions options, RawTrack track) {
+        return switch (options.outputMode()) {
+            case RAW_SENSOR -> new Rectangle(track.width, track.height);
+            case RAW_LINEAR -> options.cropToActiveArea()
+                    ? activeArea(track.width, track.height) : new Rectangle(track.width, track.height);
+            default -> throw new IllegalArgumentException("A Bayer output mode is required");
+        };
+    }
+
+    private static short[] linearLevels(int depth, boolean subtractBlack) {
+        int maximum = (1 << depth) - 1;
+        int black = subtractBlack ? BlackLevelProcessor.DEFAULT_BLACK_LEVEL : 0;
+        short[] levels = new short[maximum + 1];
+        for (int i = black; i <= maximum; i++) {
+            levels[i] = (short) ((long) (i - black) * 65535 / maximum);
+        }
+        return levels;
+    }
+
+    private record RawTrack(Cr3Track source, int width, int height, int depth, CrxHeader.CodecVersion version) {}
+
+    private Cr3RawImage decodeRawBayer() throws Cr3Exception, IOException {
+        RawTrack track = rawTrack();
+        byte[] data = readPayload(track.source);
+        if (CrxLossyDecoder.isLossy(track.source.cmp1())) {
+            return CrxLossyDecoder.decode(data, track.width, track.height, track.depth,
+                    track.version, track.source.cmp1());
+        }
+        return CrxLosslessRawDecoder.decodeNative(data, track.width, track.height, track.depth,
+                track.version, track.source.cmp1());
+    }
+
+    private RawTrack rawTrack() throws Cr3Exception {
+        if (container == null) {
+            throw new IllegalStateException("No input set — call setInput() first");
+        }
         Cr3Track rawTrack = null;
         for (var track : container.tracks()) {
             if (track.type() == Cr3Track.TrackType.CRX_BIG
@@ -450,93 +529,51 @@ public final class Cr3Decoder implements AutoCloseable {
                     cmp1.multipleHTiles(), cmp1.mdatHeaderSize());
         }
 
-        LOG.info("Reading CRX RAW track: {}x{}, {} bytes at offset {}",
-                rawWidth, rawHeight, rawTrack.dataSize(), rawTrack.dataOffset());
-
-        // Read the raw CRX data — prefer a memory-mapped read when the input
-        // is a known file (setInput(Path)). For multi-MB CRX tracks this avoids
-        // the ImageInputStream's intermediate buffering and the RandomAccessFile
-        // syscall loop that backs readFully(byte[]).
-        byte[] crxData;
-        if (sourceFile != null) {
-            crxData = readCrxTrackMmap(sourceFile, rawTrack.dataOffset(), (int) rawTrack.dataSize());
-        } else {
-            crxData = new byte[(int) rawTrack.dataSize()];
-            input.seek(rawTrack.dataOffset());
-            input.readFully(crxData);
-        }
-
-        // Determine codec version
-        CrxHeader.CodecVersion codecVersion = CrxHeader.CodecVersion.V1;
-        if (container.cncvBox() != null) {
-            codecVersion = CrxHeader.detectVersion(container.cncvBox().versionString());
-        }
-
-        // Route to lossless or lossy decoder based on CMP1
-        Cr3RawImage decoded;
-        if (CrxLossyDecoder.isLossy(cmp1)) {
-            LOG.info("Detected C-RAW (lossy) compression — attempting lossy decode");
-            decoded = CrxLossyDecoder.decode(crxData, rawWidth, rawHeight,
-                    bitDepth, codecVersion, cmp1);
-        } else {
-            decoded = CrxLosslessRawDecoder.decode(crxData, rawWidth, rawHeight,
-                    bitDepth, codecVersion, cmp1);
-        }
-
-        if (options.cropToActiveArea()) {
-            return cropToActiveArea(decoded);
-        }
-        return decoded;
+        var version = container.cncvBox() == null ? CrxHeader.CodecVersion.V1
+                : CrxHeader.detectVersion(container.cncvBox().versionString());
+        return new RawTrack(rawTrack, rawWidth, rawHeight, bitDepth, version);
     }
 
-    /**
-     * Decodes the CRX RAW track WITHOUT cropping, regardless of the options.
-     * Used by the RAW_PROCESSED pipeline which needs OB columns for black level
-     * estimation before cropping.
-     */
-    private Cr3RawImage decodeRawBayerUncropped(Cr3DecodeOptions options) throws Cr3Exception, IOException {
-        boolean savedCrop = options.cropToActiveArea();
-        try {
-            options.cropToActiveArea(false);
-            return decodeRawBayer(options);
-        } finally {
-            options.cropToActiveArea(savedCrop);
+    private byte[] readPayload(Cr3Track track) throws IOException {
+        int length = (int) track.dataSize();
+        if (sourceFile != null) {
+            return readCrxTrackMmap(sourceFile, track.dataOffset(), length);
         }
+        byte[] data = new byte[length];
+        input.seek(track.dataOffset());
+        input.readFully(data);
+        return data;
+    }
+
+    private Rectangle activeArea(int width, int height) {
+        if (metadata != null) {
+            int left = Math.clamp(metadata.activeAreaLeft(), 0, width);
+            int top = Math.clamp(metadata.activeAreaTop(), 0, height);
+            int right = Math.clamp(metadata.activeAreaRight(), 0, width);
+            int bottom = Math.clamp(metadata.activeAreaBottom(), 0, height);
+            if (right > left && bottom > top) {
+                return new Rectangle(left, top, right - left, bottom - top);
+            }
+        }
+        return new Rectangle(width, height);
     }
 
     private Cr3RawImage cropToActiveArea(Cr3RawImage image) {
-        if (metadata == null) {
-            return image;
-        }
-
-        int left = clamp(metadata.activeAreaLeft(), 0, image.width());
-        int top = clamp(metadata.activeAreaTop(), 0, image.height());
-        int right = clamp(metadata.activeAreaRight(), 0, image.width());
-        int bottom = clamp(metadata.activeAreaBottom(), 0, image.height());
-
-        if (right <= left || bottom <= top) {
-            return image;
-        }
-
-        int croppedWidth = right - left;
-        int croppedHeight = bottom - top;
+        Rectangle area = activeArea(image.width(), image.height());
+        int croppedWidth = area.width;
+        int croppedHeight = area.height;
         if (croppedWidth == image.width() && croppedHeight == image.height()) {
             return image;
         }
-
         int[] src = image.data();
         int[] cropped = new int[croppedWidth * croppedHeight];
         for (int y = 0; y < croppedHeight; y++) {
-            int srcOffset = (top + y) * image.width() + left;
+            int srcOffset = (area.y + y) * image.width() + area.x;
             int dstOffset = y * croppedWidth;
             System.arraycopy(src, srcOffset, cropped, dstOffset, croppedWidth);
         }
         return new Cr3RawImage(croppedWidth, croppedHeight, cropped,
                 image.bitDepth(), image.bayerPattern());
-    }
-
-    private static int clamp(int value, int min, int max) {
-        return Math.max(min, Math.min(value, max));
     }
 
     /**

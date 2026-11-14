@@ -1,6 +1,6 @@
-# Canon CR3 libraries: Maven Central release contract
+# CR3 libraries on Maven Central
 
-This document defines the public Maven surface and the release procedure for the clean-room Canon CR3 libraries.
+This document defines the public Maven surface and the release procedure for Photographer’s clean-room libraries for the Canon CR3 format.
 
 ## Public coordinates
 
@@ -10,16 +10,18 @@ The public group is:
 io.github.carstenartur
 ```
 
+The ImageIO library uses the project name **CR3 ImageIO**. It is an independent Java ImageIO reader for CR3 files produced by Canon cameras.
+
 The release bundle contains these six artifacts. The examples below use the candidate version `0.1.5`.
 
 | Artifact | Purpose |
 |---|---|
-| `canon-cr3-container` | ISO BMFF / CR3 box parsing and payload access |
-| `canon-cr3-metadata` | EXIF, MakerNote, CTMD and sensor metadata |
-| `canon-cr3-codec` | experimental CRX RAW decoding and linear Bayer model |
-| `canon-cr3-processing` | crop, pedestal, demosaic, white-balance and color processing |
-| `canon-cr3-core` | decode orchestration and compatibility facade |
-| `canon-cr3-imageio` | `javax.imageio` reader and service-provider integration |
+| `cr3-container` | ISO BMFF / CR3 box parsing and payload access |
+| `cr3-metadata` | EXIF, MakerNote, CTMD and sensor metadata |
+| `cr3-codec` | experimental CRX RAW decoding and linear Bayer model |
+| `cr3-processing` | crop, pedestal, demosaic, white-balance and color processing |
+| `cr3-core` | decode orchestration and compatibility facade |
+| `cr3-imageio` | `javax.imageio` reader and service-provider integration |
 
 The following repository modules are intentionally excluded from the public runtime bundle:
 
@@ -87,7 +89,7 @@ Run from the tagged release checkout with a stable version already set in its PO
 
 Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
 
-The optional **Canon CR3 Maven Central** Actions workflow runs on manual dispatch. Select the stable `vX.Y.Z` tag and either `validate` (manual Portal publication) or `publish`. The workflow checks out the exact tag commit, confirms its version and invokes the Maven release profile. Use repository secrets named `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` secret maps to the Maven GPG plugin’s fingerprint variable.
+The optional **CR3 Maven Central** Actions workflow runs on manual dispatch. Select the stable `vX.Y.Z` tag and either `validate` (manual Portal publication) or `publish`. The workflow checks out the exact tag commit, confirms its version and invokes the Maven release profile. Use repository secrets named `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` secret maps to the Maven GPG plugin’s fingerprint variable.
 
 The release profile and credential names follow the project’s [jgit-storage-hibernate release procedure](https://github.com/carstenartur/jgit-storage-hibernate/blob/540b847706f9d03ac286a21fefd432787e122671/docs/maven-central.md). See also the [Sonatype plugin documentation](https://central.sonatype.org/publish/publish-portal-maven/).
 
@@ -98,7 +100,7 @@ ImageIO integration:
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
-  <artifactId>canon-cr3-imageio</artifactId>
+  <artifactId>cr3-imageio</artifactId>
   <version>0.1.5</version>
 </dependency>
 ```
@@ -108,7 +110,7 @@ Low-level container access:
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
-  <artifactId>canon-cr3-container</artifactId>
+  <artifactId>cr3-container</artifactId>
   <version>0.1.5</version>
 </dependency>
 ```

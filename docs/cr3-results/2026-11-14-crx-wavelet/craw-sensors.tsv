@@ -1,0 +1,5 @@
+fixture	width	height	bits	planes	levels	status	compared	mismatches	first(x,y,reference,photographer)	maxAbsDifference	detail
+3506	5632	3710	14	4	3	EXACT	20894720	0	-	0	-
+4543	6888	4546	14	4	3	EXACT	31312848	0	-	0	-
+4656	6288	4056	14	4	3	EXACT	25504128	0	-	0	-
+4672	6384	4224	14	4	3	EXACT	26966016	0	-	0	-

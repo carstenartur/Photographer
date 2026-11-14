@@ -5,7 +5,11 @@
       "id": "D5",
       "title": "Residual sign-mapping discriminator",
       "issue": 111,
-      "sourceIds": ["SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "BIT0 residual mapping versus conventional zig-zag mapping",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel with external TIFF references",
       "implementationScope": "canon-cr3-research test scope only",
@@ -22,7 +26,12 @@
       "id": "D6",
       "title": "Universal symbol-bracket K adaptation",
       "issue": 175,
-      "sourceIds": ["SRC-001", "SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-001",
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "Hybrid K update versus one-step floor(log2(S+1)) plus-or-minus-one bracket",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel with external TIFF references",
       "implementationScope": "canon-cr3-research test scope only",
@@ -38,7 +47,10 @@
       "id": "D7",
       "title": "First K and bit-position divergence trace",
       "issue": 224,
-      "sourceIds": ["SRC-007", "SRC-008"],
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008"
+      ],
       "oneChangedVariable": "No decoder variable changed; bounded observation of the first difference between D6 variants",
       "fixedInputs": "eosr-iso-mid.cr3 and g5xm2-asis-iso200-ss130-ff2p5-01.cr3",
       "implementationScope": "canon-cr3-research instrumentation only",
@@ -54,7 +66,12 @@
       "id": "D8",
       "title": "Zero-contracted symbol-bracket K adaptation",
       "issue": 226,
-      "sourceIds": ["SRC-001", "SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-001",
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "For S=0 contract K by one; for non-zero S retain the D6 bracket",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel with external TIFF references",
       "implementationScope": "canon-cr3-research test scope only",
@@ -70,7 +87,11 @@
       "id": "D9",
       "title": "First non-zero K divergence after zero-run alignment",
       "issue": 230,
-      "sourceIds": ["SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "No decoder variable changed; observe HYBRID and D8 state through the first non-zero divergence",
       "fixedInputs": "eosr-iso-low.cr3, g5xm2-asis-iso200-ss130-ff2p5-01.cr3 and sample-iso-high.cr3",
       "implementationScope": "canon-cr3-research instrumentation only",
@@ -86,7 +107,11 @@
       "id": "D10",
       "title": "K-transition disagreement and decoder-outcome matrix",
       "issue": 232,
-      "sourceIds": ["SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "No decoder variable changed; correlate unchanged HYBRID/D8 transition classes with fixed D8 outcome metrics",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel and durable D8 outcome metrics",
       "implementationScope": "canon-cr3-research instrumentation and deterministic reporting only",
@@ -102,7 +127,9 @@
       "id": "D11",
       "title": "Canon K-adaptation primary-source audit",
       "issue": 234,
-      "sourceIds": ["SRC-001"],
+      "sourceIds": [
+        "SRC-001"
+      ],
       "oneChangedVariable": "No decoder semantics changed; replace guessed patent interpretation with paragraph, figure and claim level extraction",
       "fixedInputs": "US 2016/0323602 A1 public publication and committed D5-D10 evidence",
       "implementationScope": "Documentation and fixture-independent canon-cr3-research test model only",
@@ -118,7 +145,12 @@
       "id": "D12",
       "title": "Exact Golomb-Rice code-length K bracket discriminator",
       "issue": 236,
-      "sourceIds": ["SRC-001", "SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-001",
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "Replace only D8's approximate non-zero K range with the exact finite-domain argmin of L(S,K) = (S >> K) + 1 + K",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel with the same reference images and D8 decoder boundary",
       "implementationScope": "canon-cr3-research test scope only; production decoder unchanged",
@@ -134,7 +166,11 @@
       "id": "D13",
       "title": "Tentative-symbol context and lossless CRX topology audit",
       "issue": 238,
-      "sourceIds": ["SRC-001", "SRC-007", "SRC-008"],
+      "sourceIds": [
+        "SRC-001",
+        "SRC-007",
+        "SRC-008"
+      ],
       "oneChangedVariable": "No decoder semantics changed; audit source context and inventory exposed lossless topology without output-quality selection",
       "fixedInputs": "Explicit eleven-fixture reference-backed lossless CR3 panel and the completed D11 source extraction",
       "implementationScope": "canon-cr3-research observation-only integration test and clean-room documentation",
@@ -150,7 +186,11 @@
       "id": "RG1",
       "title": "LibRaw-guided first-reference divergence with isolated initialization",
       "issue": 276,
-      "sourceIds": ["SRC-007", "SRC-008", "SRC-009"],
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008",
+        "SRC-009"
+      ],
       "oneChangedVariable": "Configured first-pixel seed 0 versus a diagnostic per-stream seed equal to the first registered reference sample; all other test-decoder semantics unchanged",
       "fixedInputs": "Explicit eleven-fixture lossless CR3 panel, 88 tile/plane streams and manifest-bound RAW_LINEAR TIFF references",
       "implementationScope": "canon-cr3-research observation and diagnostic test scope only; production decoder unchanged",
@@ -207,6 +247,58 @@
       "productionDecision": "Use the verified opening and end-bit cursor to investigate the third site. A full-stream production decoder requires additional evidence.",
       "status": "complete",
       "missingRunMetadataReason": "Executed locally with JDK 25. Baseline c6cac45689bad6d7be0f0a057887a9ae9b7c8255, exact inputs, replay commands and byte-verifiable outputs are in the report."
+    },
+    {
+      "id": "RG4",
+      "title": "Exact native lossless whole-image decode through the Java product API",
+      "issue": 336,
+      "sourceIds": [
+        "SRC-001",
+        "SRC-002",
+        "SRC-007",
+        "SRC-008",
+        "SRC-009",
+        "SRC-010",
+        "SRC-011",
+        "SRC-012",
+        "SRC-013"
+      ],
+      "oneChangedVariable": "For fixed CR3 and hash-pinned sensor reference pairs, replace the historical approximate lossless reader with the frozen native entropy, prediction and run reader; the gate is exact equality at every site of every frame.",
+      "fixedInputs": "11 registered lossless discovery CR3/TIFF pairs and four registered CC0 lossless CR3/PGM pairs (3510, 4515, 4657, 4674). Two C-RAW files (4543, 3506) separately check scope.",
+      "implementationScope": "Clean-room first-row and full-image tests, a native Java lossless codec, explicit public RAW decoding and a deterministic synthetic stream-input regression.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": "sha256:94ada9738a214d19f1f7752761efcd5888cefad90a6a1b65714649f205c8fd8f",
+      "durableReport": "docs/cr3-results/2026-11-14-crx-native/README.md",
+      "verdict": "SUPPORTED for the registered layout. All 181,824 tested first-row values and all 365,774,016 full-sensor values match; no differing site on 15 lossless photos. Both C-RAW files remain explicitly unsupported at this snapshot.",
+      "productionDecision": "Use the verified native reader for the supported CRX V1, four-plane, single-subband, 14-bit lossless layout. Continue independent validation for other encodings.",
+      "status": "complete",
+      "missingRunMetadataReason": "Measured locally with JDK 25. Baseline 623487053156b0c2326bc9d8ea05448ed3814b2c and execution commands are in the report. artifactDigest identifies the committed full-sensor TSV."
+    },
+    {
+      "id": "RG5",
+      "title": "Native C-RAW entropy, inverse quantization and inverse integer wavelet reconstruction",
+      "issue": 337,
+      "sourceIds": [
+        "SRC-002",
+        "SRC-003",
+        "SRC-010",
+        "SRC-011",
+        "SRC-013",
+        "SRC-014",
+        "SRC-007"
+      ],
+      "oneChangedVariable": "For fixed C-RAW input and native PGM pairs, test the frozen coefficient and reconstruction rules in place of the previous unsupported result. Discovery controls varied individual subband payloads.",
+      "fixedInputs": "CC0 discovery C-RAW 3506 and 4543; preregistered holdouts 4656 and 4672. RG4 lossless panel rerun separately through the full public API. Supplemental regression after the frozen holdout: two first-party G5 X Mark II detail C-RAW frames and controlled opening literal checks.",
+      "implementationScope": "Java V1 three-level wavelet decoding, detail coefficient entropy, inverse quantization, inverse 5/3 synthesis and horizontal tile borders. Hash-pinned external references and opt-in whole-image regression gates.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": "sha256:abfc070e9b885cee48dd40943e3466113a06b7ad186a673eabe2ab1821691513",
+      "durableReport": "docs/cr3-results/2026-11-14-crx-wavelet/README.md",
+      "verdict": "SUPPORTED for the registered C-RAW profile. All 104,677,712 sites on four images match. The 15 lossless regression files still match at all 365,774,016 sites. After widening the approximation-band opening literal, both local detail frames match all 41,789,440 sites (512,241,168 exact across 21 distinct frames).",
+      "productionDecision": "Enable the measured native C-RAW profile through the public Java decoder, retain explicit unsupported-profile errors and restrict claims to the registered layouts.",
+      "status": "complete",
+      "missingRunMetadataReason": "Executed locally using JDK 25 and frozen discovery comparators registered on issue 337. artifactDigest identifies the four-image C-RAW report; the base revision and reproduction commands are in the report."
     }
   ]
 }

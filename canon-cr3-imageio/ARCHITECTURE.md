@@ -1,10 +1,10 @@
-# canon-cr3-imageio Architecture
+# cr3-imageio Architecture
 
 ## Overview
 
-`canon-cr3-imageio` is a thin adapter that exposes CR3 reading through the
+`cr3-imageio` is a thin adapter that exposes CR3 reading through the
 standard `javax.imageio` API. Decode orchestration remains in the
-`canon-cr3-core` compatibility facade; the adapter declares the split modules
+`cr3-core` compatibility facade; the adapter declares the split modules
 whose public types it uses instead of relying on accidental transitive
 classpath visibility.
 
@@ -20,11 +20,11 @@ com.photographer.focusstack.cr3.imageio
 
 ## Module dependencies
 
-- `canon-cr3-core` — decode facade and options
-- `canon-cr3-container` — CR3 detection, preview/thumbnail access and track data
-- `canon-cr3-metadata` — consumer metadata model
-- `canon-cr3-codec` — RAW types used by retained ImageIO diagnostics/tests
-- `canon-cr3-processing` — orientation and output geometry helpers
+- `cr3-core` — decode facade and options
+- `cr3-container` — CR3 detection, preview/thumbnail access and track data
+- `cr3-metadata` — consumer metadata model
+- `cr3-codec` — RAW types used by retained ImageIO diagnostics/tests
+- `cr3-processing` — orientation and output geometry helpers
 
 The module has no dependency on `canon-cr3-research` or
 `canon-cr3-reference-testkit`. Reference-backed research tests live in the

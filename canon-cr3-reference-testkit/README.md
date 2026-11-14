@@ -20,7 +20,7 @@ Shared test-only support for reference-backed CR3 validation.
 ## Dependency rule
 
 Production CR3 modules must not depend on this module. Consumers such as
-`canon-cr3-imageio` and `canon-cr3-research` use it only as test or research
+`cr3-imageio` and `canon-cr3-research` use it only as test or research
 infrastructure.
 
 The module is deliberately not a general-purpose research utility library. A helper

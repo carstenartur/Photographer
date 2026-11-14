@@ -16,12 +16,12 @@ from pathlib import Path, PurePosixPath
 PUBLIC_GROUP_ID = "io.github.carstenartur"
 PUBLIC_GROUP_PATH = "io/github/carstenartur"
 PUBLIC_ARTIFACTS = (
-    "canon-cr3-container",
-    "canon-cr3-metadata",
-    "canon-cr3-codec",
-    "canon-cr3-processing",
-    "canon-cr3-core",
-    "canon-cr3-imageio",
+    "cr3-container",
+    "cr3-metadata",
+    "cr3-codec",
+    "cr3-processing",
+    "cr3-core",
+    "cr3-imageio",
 )
 FORBIDDEN_ARTIFACTS = {
     "canon-focus-stack-parent",
@@ -131,6 +131,12 @@ def _validate_pom(pom_bytes: bytes, artifact_id: str, version: str) -> None:
             raise BundleValidationError(
                 f"POM {artifact_id} leaks internal dependency {dependency_group}:{dependency_artifact}"
             )
+        if dependency_group == PUBLIC_GROUP_ID and dependency_artifact.startswith(("cr3-", "canon-cr3-")):
+            if dependency_artifact not in PUBLIC_ARTIFACTS or dependency_version != version:
+                raise BundleValidationError(
+                    f"POM {artifact_id} has an invalid public CR3 dependency "
+                    f"{dependency_group}:{dependency_artifact}:{dependency_version}"
+                )
         if dependency_artifact in FORBIDDEN_ARTIFACTS:
             raise BundleValidationError(
                 f"POM {artifact_id} depends on forbidden artifact {dependency_artifact}"

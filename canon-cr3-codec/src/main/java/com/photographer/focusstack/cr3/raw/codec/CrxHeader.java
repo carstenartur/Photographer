@@ -17,7 +17,8 @@ import java.util.List;
  *       10 subbands for lossy (3-level wavelet decomposition).</li>
  * </ul>
  *
- * <p>After all headers, 4 null bytes act as a separator before the encoded pixel data.</p>
+ * <p>For native sensor tracks, CMP1 supplies the header length and the first subband starts
+ * immediately after it. The parser also accepts a directory with four terminal zero bytes.</p>
  *
  * <p>This is a cleanroom implementation based on published ISO BMFF and
  * Canon CR3 format documentation. No proprietary source code was used.</p>
@@ -49,10 +50,16 @@ public final class CrxHeader {
      * @param dataSize        size of the encoded subband data in bytes
      * @param supportsPartial whether partial decoding is flagged
      * @param quantValue      quantization value (0 for lossless)
+     * @param paddingBytes    number of terminal padding bytes declared in the subband record
      * @param dataOffset      absolute offset of the subband data within the CRX block
      */
     public record Subband(int index, long dataSize, boolean supportsPartial,
-                          int quantValue, long dataOffset) {}
+                          int quantValue, long dataOffset, int paddingBytes) {
+        /** Compatibility constructor for callers describing subbands without terminal padding. */
+        public Subband(int index, long dataSize, boolean supportsPartial, int quantValue, long dataOffset) {
+            this(index, dataSize, supportsPartial, quantValue, dataOffset, 0);
+        }
+    }
 
     /**
      * Describes a colour plane within a tile.
@@ -93,7 +100,7 @@ public final class CrxHeader {
     }
 
     /**
-     * Returns the total header size including the four-byte null separator.
+     * Returns the total header size including any terminal padding supplied with the directory.
      *
      * @return the total header size in bytes
      */
@@ -124,15 +131,31 @@ public final class CrxHeader {
      */
     public static CrxHeader parse(byte[] data, int offset, CodecVersion version)
             throws IOException {
-        if (data.length - offset < 12) {
-            throw new IOException("CRX data too short for header: " + (data.length - offset));
+        return parse(data, offset, data.length, version);
+    }
+
+    /** Parses only CMP1's directory, without copying it or reading the adjacent entropy data. */
+    static CrxHeader parseDirectory(byte[] track, int headerBytes, CodecVersion version) throws IOException {
+        if (headerBytes < 0 || headerBytes > track.length) {
+            throw new IOException("Invalid CMP1 directory length: " + headerBytes);
+        }
+        CrxHeader header = parse(track, 0, headerBytes, version);
+        if (header.headerSize() != headerBytes) {
+            throw new IOException("Incomplete CRX directory at byte " + header.headerSize());
+        }
+        return header;
+    }
+
+    private static CrxHeader parse(byte[] data, int offset, int limit, CodecVersion version) throws IOException {
+        if (offset < 0 || offset > limit - 12) {
+            throw new IOException("CRX data too short for header at offset " + offset);
         }
 
         List<Tile> tiles = new ArrayList<>();
         int pos = offset;
 
         // Parse tiles
-        while (pos + 12 <= data.length) {
+        while (pos <= limit - 12) {
             int marker = readUnsignedShort(data, pos);
 
             // Check for tile marker
@@ -140,45 +163,46 @@ public final class CrxHeader {
                 break;
             }
 
-            int headerLen = readUnsignedShort(data, pos + 2);
+            int end = recordEnd(data, pos, limit);
             long tileDataSize = readUnsignedInt(data, pos + 4);
             int tileIndex = (data[pos + 8] >> 4) & 0xF;
-            pos += 4 + headerLen; // marker(2) + headerLen(2) + headerLen bytes
+            pos = end;
 
             // Parse planes within this tile
             List<Plane> planes = new ArrayList<>();
-            while (pos + 12 <= data.length) {
+            while (pos <= limit - 12) {
                 int planeMarker = readUnsignedShort(data, pos);
                 if (planeMarker != version.planeMarker) {
                     break;
                 }
 
-                int planeHeaderLen = readUnsignedShort(data, pos + 2);
+                int planeEnd = recordEnd(data, pos, limit);
                 long planeDataSize = readUnsignedInt(data, pos + 4);
                 int packedPlane = data[pos + 8] & 0xFF;
                 int planeIndex = (packedPlane >> 4) & 0xF;
                 boolean planePartial = (packedPlane & 0x08) != 0;
                 int roundedBits = (packedPlane >> 1) & 0x3;
-                pos += 4 + planeHeaderLen;
+                pos = planeEnd;
 
                 // Parse subbands within this plane
                 List<Subband> subbands = new ArrayList<>();
-                while (pos + 12 <= data.length) {
+                while (pos <= limit - 12) {
                     int subMarker = readUnsignedShort(data, pos);
                     if (subMarker != version.subbandMarker) {
                         break;
                     }
 
-                    int subHeaderLen = readUnsignedShort(data, pos + 2);
+                    int subbandEnd = recordEnd(data, pos, limit);
                     long subDataSize = readUnsignedInt(data, pos + 4);
                     int packedSub = data[pos + 8] & 0xFF;
                     int subIndex = (packedSub >> 4) & 0xF;
                     boolean subPartial = (packedSub & 0x08) != 0;
                     // quantValue: 3 lower bits of byte 8 + 5 upper bits of byte 9
                     int quantValue = ((packedSub & 0x07) << 5) | ((data[pos + 9] & 0xFF) >> 3);
-                    pos += 4 + subHeaderLen;
+                    int paddingBytes = readUnsignedShort(data, pos + 10);
+                    pos = subbandEnd;
 
-                    subbands.add(new Subband(subIndex, subDataSize, subPartial, quantValue, 0));
+                    subbands.add(new Subband(subIndex, subDataSize, subPartial, quantValue, 0, paddingBytes));
                 }
 
                 planes.add(new Plane(planeIndex, planeDataSize, planePartial, roundedBits,
@@ -188,8 +212,8 @@ public final class CrxHeader {
             tiles.add(new Tile(tileIndex, tileDataSize, Collections.unmodifiableList(planes)));
         }
 
-        // Skip the 4-byte null separator after all headers
-        if (pos + 4 <= data.length
+        // Some callers supply a directory with four terminal zero bytes.
+        if (pos <= limit - 4
                 && data[pos] == 0 && data[pos + 1] == 0
                 && data[pos + 2] == 0 && data[pos + 3] == 0) {
             pos += 4;
@@ -229,7 +253,7 @@ public final class CrxHeader {
                 List<Subband> resolvedSubbands = new ArrayList<>();
                 for (Subband sub : plane.subbands()) {
                     resolvedSubbands.add(new Subband(sub.index(), sub.dataSize(),
-                            sub.supportsPartial(), sub.quantValue(), currentOffset));
+                            sub.supportsPartial(), sub.quantValue(), currentOffset, sub.paddingBytes()));
                     currentOffset += sub.dataSize();
                 }
                 resolvedPlanes.add(new Plane(plane.index(), plane.dataSize(),
@@ -241,6 +265,14 @@ public final class CrxHeader {
         }
 
         return resolved;
+    }
+
+    private static int recordEnd(byte[] data, int pos, int limit) throws IOException {
+        int bodyBytes = readUnsignedShort(data, pos + 2);
+        if (bodyBytes < 8 || bodyBytes > limit - pos - 4) {
+            throw new IOException("Invalid CRX record length " + bodyBytes + " at byte " + pos);
+        }
+        return pos + 4 + bodyBytes;
     }
 
     private static int readUnsignedShort(byte[] data, int offset) {

@@ -144,12 +144,12 @@ Playwright/Cypress-style browser E2E coverage remains separate work and must not
 
 CR3 tests are split with the production modules:
 
-- container parsing and preview extraction in `canon-cr3-container`;
-- metadata in `canon-cr3-metadata`;
-- experimental codec behavior in `canon-cr3-codec`;
-- image processing in `canon-cr3-processing`;
-- facade/orchestration in `canon-cr3-core`;
-- SPI, reader and reference-backed integration in `canon-cr3-imageio`.
+- container parsing and preview extraction in `cr3-container`;
+- metadata in `cr3-metadata`;
+- experimental codec behavior in `cr3-codec`;
+- image processing in `cr3-processing`;
+- facade/orchestration in `cr3-core`;
+- SPI, reader and reference-backed integration in `cr3-imageio`.
 
 The stable container/metadata/ImageIO tests and experimental decoder tests must remain distinguishable. A green preview test is not evidence of correct sensor RAW reconstruction.
 

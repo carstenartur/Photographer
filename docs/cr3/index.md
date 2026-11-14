@@ -1,8 +1,8 @@
-# Canon CR3 / CRX
+# CR3 / CRX
 
-This is the maintained entry point for Photographer's Canon CR3 libraries and clean-room CRX research.
+This is the maintained entry point for Photographer’s independent Java libraries for the Canon CR3 format and its clean-room CRX research.
 
-Do not treat all CR3 functionality as one maturity level. Container inspection, metadata, embedded JPEGs and standard ImageIO integration have supported external surfaces. Full sensor-RAW reconstruction remains experimental and requires genuinely new causal evidence before another decoder-semantic candidate is justified.
+The native Java RAW import supports the measured 14-bit, four-plane V1 configurations for the Canon EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. The full-frame acceptance panel covers 15 lossless RAW files and six three-level C-RAW files, including two project-owned PowerShot captures. [Lossless measurements](../cr3-results/2026-11-14-crx-native/README.md) · [C-RAW measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
 
 ## Choose the path you need
 
@@ -26,12 +26,12 @@ Do not treat all CR3 functionality as one maturity level. Container inspection, 
 
 | Artifact | Purpose | Maturity |
 |---|---|---|
-| `io.github.carstenartur:canon-cr3-container` | ISO BMFF/CR3 parsing, tracks, embedded JPEG preview and thumbnail extraction | Stable external surface |
-| `io.github.carstenartur:canon-cr3-metadata` | Structured EXIF, MakerNote, CTMD and sensor/active-area metadata | Stable external surface |
-| `io.github.carstenartur:canon-cr3-codec` | CRX header, entropy, predictor, tile/plane reconstruction and Bayer transfer model | Experimental/internal except explicitly classified diagnostics/models |
-| `io.github.carstenartur:canon-cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
-| `io.github.carstenartur:canon-cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; full RAW experimental |
-| `io.github.carstenartur:canon-cr3-imageio` | Java ImageIO SPI, reader, thumbnails and metadata | Stable standard integration; RAW-specific parameters experimental |
+| `io.github.carstenartur:cr3-container` | ISO BMFF/CR3 parsing, tracks, embedded JPEG preview and thumbnail extraction | Stable external surface |
+| `io.github.carstenartur:cr3-metadata` | Structured EXIF, MakerNote, CTMD and sensor/active-area metadata | Stable external surface |
+| `io.github.carstenartur:cr3-codec` | CRX header, entropy, predictor, tile/plane reconstruction and Bayer transfer model | Experimental/internal except explicitly classified diagnostics/models |
+| `io.github.carstenartur:cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
+| `io.github.carstenartur:cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; verified V1 lossless and three-level C-RAW |
+| `io.github.carstenartur:cr3-imageio` | Java ImageIO SPI, reader, thumbnails and metadata | Stable standard integration; RAW-specific parameters experimental |
 | `com.photographer.focusstack:canon-cr3-cli` | Inspection, extraction and experimental decode commands | Repository CLI; excluded from the public Maven Central library bundle |
 
 ### Internal evidence and development modules
@@ -59,26 +59,9 @@ The following do not depend on a correct sensor-RAW reconstruction:
 - default `ImageIO.read(file)` embedded-preview behavior;
 - CLI inspection and embedded-JPEG extraction commands.
 
-### Experimental
+### Native sensor decoding
 
-The following depend on the incomplete CRX reconstruction matrix:
-
-- `RAW_LINEAR` Bayer output;
-- `RAW_PROCESSED` output;
-- `readRaster()` full-RAW behavior;
-- full-RAW `decode` and `decode-compare` CLI results;
-- entropy/predictor/subband implementation classes;
-- reference-matching pedestal controls and evolving diagnostics.
-
-A visually plausible render is not proof of correct sensor values. Experimental promotion requires fixed inputs, quantitative reference evidence, clean-room provenance and a separate production decision.
-
-## Current research state
-
-Stages 1–3 of the lossless pipeline are verified. Structural framing is partial, and entropy reconstruction is the earliest verified semantic failure. D13 showed that the fixed corpus cannot expose the missing `Sd`/`Kd` lifecycle. RG1 then used the manifest-bound LibRaw mosaics to locate the first reference contradiction: even after neutralizing the known first-sample offset, most streams diverge at symbol 1 because the candidate reads a zero residual where the reference requires a non-zero residual.
-
-This excludes a scalar pedestal as the sole missing semantic, but the reference output alone still does not reveal the encoded state transition. Passive formula fitting against the same files is therefore saturated. The active next evidence path is the controlled first-party camera/JPEG/CR3 corpus in issue #249; it does not authorize a production decoder rule until duplicate-stable captures and a predeclared causal analysis exist.
-
-See [Current state](current-state.md) for the durable findings and exact resumption conditions.
+Use `Cr3Decoder` with `Cr3DecodeOptions.rawLinear()` for the Bayer image. Canon's three-level C-RAW mode uses per-subband inverse quantization and inverse 5/3 lifting. The default ImageIO read still selects the embedded JPEG. Processed color, other codec versions, RAW bursts and other sensor layouts have separate support and verification boundaries.
 
 ## Documentation authority
 

@@ -8,6 +8,7 @@ import com.photographer.focusstack.cr3.container.Cr3Track;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -193,12 +194,9 @@ class BurstFrameStabilityIT {
             byte[] bytes = new byte[(int) raw.dataSize()];
             in.seek(raw.dataOffset());
             in.readFully(bytes);
-            // Lossy CRX is not yet decoded — skip those frames cleanly.
-            if (cmp1 != null && cmp1.waveletLevels() > 0) {
-                throw new IllegalStateException("waveletLevels=" + cmp1.waveletLevels()
-                        + " (C-RAW): production decoder is not implemented yet");
-            }
-            Cr3RawImage img = CrxLosslessRawDecoder.decode(bytes, w, h, bd, ver, cmp1);
+            Cr3RawImage img = CrxLossyDecoder.isLossy(cmp1)
+                    ? CrxLossyDecoder.decode(bytes, w, h, bd, ver, cmp1)
+                    : CrxLosslessRawDecoder.decode(bytes, w, h, bd, ver, cmp1);
             return new Decoded(img.width(), img.height(), img.bitDepth(), img.data());
         }
     }

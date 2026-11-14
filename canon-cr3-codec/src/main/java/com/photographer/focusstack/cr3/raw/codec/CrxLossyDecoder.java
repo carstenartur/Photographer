@@ -3,171 +3,137 @@ package com.photographer.focusstack.cr3.raw.codec;
 import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-/**
- * Decoder for Canon CRX lossy (C-RAW) compressed data.
- *
- * <p>C-RAW uses a wavelet-based compression scheme with quantization,
- * resulting in smaller files with some quality loss compared to lossless RAW.
- * The general structure is:</p>
- * <ol>
- *   <li>Parse CRX tile/plane/subband headers (same format as lossless)</li>
- *   <li>Entropy-decode subbands (Rice-Golomb, same as lossless)</li>
- *   <li>Dequantize wavelet coefficients</li>
- *   <li>Apply inverse wavelet transform (3-level DWT)</li>
- *   <li>Reconstruct pixel values</li>
- * </ol>
- *
- * <h2>Current status</h2>
- * <p>This class provides the architectural foundation for C-RAW decoding.
- * The header parsing and compression mode detection are complete. The actual
- * wavelet inverse transform and dequantization are not yet implemented because:</p>
- * <ul>
- *   <li>The specific wavelet filter coefficients are not publicly documented</li>
- *   <li>The quantization table structure requires further analysis of test files</li>
- *   <li>A cleanroom implementation requires careful derivation from format
- *       analysis rather than porting from existing decoders</li>
- * </ul>
- *
- * <p>See {@code docs/patent-us20160323602a1-analysis.md} and
- * {@code docs/crx-cleanroom-spec.md} for the project's clean-room evaluation of
- * Canon patent US 2016/0323602 A1 against the open CRX questions, and for the
- * suspected four-stage decoder pipeline (entropy decode → symbol→coefficient →
- * dequantise → inverse wavelet) that the lossy path will need.</p>
- *
- * <h2>What is implemented</h2>
- * <ul>
- *   <li>Detection of C-RAW files via CMP1 waveletLevels &gt; 0</li>
- *   <li>Header parsing (shared with lossless path)</li>
- *   <li>Subband structure validation</li>
- *   <li>Clear error message when decoding is attempted</li>
- * </ul>
- *
- * <h2>What remains to implement</h2>
- * <ul>
- *   <li>Inverse discrete wavelet transform (3-level, 5/3 or 9/7 filter)</li>
- *   <li>Dequantization of wavelet coefficients</li>
- *   <li>Subband coefficient ordering and reconstruction</li>
- * </ul>
- *
- * <p>No proprietary code was used. Implementation will be based on general
- * wavelet theory (publicly available in signal processing literature) and
- * format analysis of test C-RAW files.</p>
- */
+import java.io.IOException;
+
+/** Native decoder for three-level, 14-bit Canon CRX V1 C-RAW sensor tracks. */
 public final class CrxLossyDecoder {
-
-    private static final Logger LOG = LoggerFactory.getLogger(CrxLossyDecoder.class);
+    // Measured with isolated signed coefficient pulses and pinned full-sensor references.
+    private static final int[] INVERSE_QUANTIZATION = {
+            0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3,
+            4, 4, 5, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 22,
+            25, 28, 32, 36, 40, 45, 51, 57, 64
+    };
 
     private CrxLossyDecoder() {}
 
-    /**
-     * Attempts to decode C-RAW (lossy) data.
-     *
-     * <p>The decoding pipeline validates the bitstream structure and attempts
-     * wavelet reconstruction where possible. If the specific wavelet filter
-     * or dequantization parameters cannot be reliably determined from the
-     * test data, a clear exception is thrown.</p>
-     *
-     * @param data         the raw CRX compressed data
-     * @param width        expected image width
-     * @param height       expected image height
-     * @param bitDepth     expected bit depth
-     * @param codecVersion the CRX codec version
-     * @param cmp1         the CMP1 box with compression parameters
-     * @return the decoded image (not yet functional for full decoding)
-     * @throws Cr3Exception if decoding cannot be completed
-     * @throws java.io.IOException if the CRX header cannot be read
-     */
-    public static Cr3RawImage decode(byte[] data, int width, int height,
-                                      int bitDepth, CrxHeader.CodecVersion codecVersion,
-                                      Cmp1Box cmp1) throws Cr3Exception, java.io.IOException {
-        // Validate that this is indeed a C-RAW file
-        if (cmp1 == null) {
-            throw new Cr3Exception("Cannot decode C-RAW: CMP1 box is missing");
-        }
-        if (cmp1.isLossless()) {
-            throw new Cr3Exception("Cannot decode C-RAW: CMP1 indicates lossless (waveletLevels=0)");
-        }
-
-        int waveletLevels = cmp1.waveletLevels();
-        int encodingType = cmp1.encodingType();
-        int numPlanes = cmp1.numPlanes();
-
-        LOG.info("C-RAW file detected: {}x{}, {} planes, {} wavelet levels, encoding type {}",
-                width, height, numPlanes, waveletLevels, encodingType);
-
-        // Parse the CRX headers to validate the subband structure
-        CrxHeader header = CrxHeader.parse(data, codecVersion);
-        validateLossyStructure(header, waveletLevels);
-
-        // The inverse wavelet transform infrastructure is ready
-        // (see InverseWaveletTransform.java for Le Gall 5/3 IDWT).
-        //
-        // The remaining algorithmic steps that block full C-RAW decoding are:
-        //
-        // 1. ENTROPY DECODING: Each subband's compressed data must be
-        //    entropy-decoded. The Rice-Golomb decoder from CrxLosslessRawDecoder
-        //    can be reused, but the coefficient ordering and context for lossy
-        //    subbands may differ from the lossless case.
-        //
-        // 2. DEQUANTIZATION: Subband coefficients must be scaled by their
-        //    quantValue (from the subband headers). The exact dequantization
-        //    formula (linear, dead-zone, etc.) is not yet confirmed from
-        //    our test data.
-        //
-        // 3. WAVELET FILTER IDENTIFICATION: While the Le Gall 5/3 filter
-        //    is most likely (matching CRX's "near-lossless" design goal),
-        //    CDF 9/7 cannot be ruled out without further analysis. The
-        //    InverseWaveletTransform class supports both filters.
-        //
-        // 4. SUBBAND ORDERING: The mapping from subband indices to
-        //    LL/LH/HL/HH at each decomposition level needs confirmation
-        //    from test data analysis.
-
-        throw new Cr3Exception(
-                "C-RAW (lossy) decoding is not yet fully implemented. "
-                + "File has %d wavelet levels, %d planes. "
-                + "Header and subband structure validated successfully. "
-                + "IDWT infrastructure is ready (Le Gall 5/3). "
-                + "Remaining: entropy decoding integration, dequantization formula, "
-                + "subband ordering confirmation. "
-                + "Use lossless RAW files, or extract the embedded JPEG preview instead."
-                        .formatted(waveletLevels, numPlanes));
-    }
-
-    /**
-     * Checks whether the given CMP1 box indicates a C-RAW (lossy) file.
-     *
-     * @param cmp1 the CMP1 compression parameters box
-     * @return {@code true} if this is a lossy C-RAW file
-     */
     public static boolean isLossy(Cmp1Box cmp1) {
         return cmp1 != null && !cmp1.isLossless();
     }
 
-    /**
-     * Validates that the CRX header structure is consistent with lossy encoding.
-     */
-    private static void validateLossyStructure(CrxHeader header, int expectedWaveletLevels) throws Cr3Exception {
-        if (header.tiles().isEmpty()) {
-            throw new Cr3Exception("C-RAW header contains no tiles");
-        }
+    /** Reconstructs the four signed transform planes and clips only after the final inverse lift. */
+    public static Cr3RawImage decode(byte[] data, int width, int height, int bitDepth,
+                                     CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
+        return CrxPlaneAssembler.decodeImage(prepare(data, width, height, bitDepth, version, cmp),
+                width, height, bitDepth, CrxLosslessRawDecoder.resolveBayerPattern(cmp));
+    }
 
-        for (CrxHeader.Tile tile : header.tiles()) {
-            for (CrxHeader.Plane plane : tile.planes()) {
-                int subbandCount = plane.subbands().size();
-                // For N-level wavelet: 3*N + 1 subbands (LL + 3 detail subbands per level)
-                int expected = 3 * expectedWaveletLevels + 1;
-                if (subbandCount != expected && subbandCount > 0) {
-                    LOG.debug("Plane {} has {} subbands (expected {} for {} wavelet levels)",
-                            plane.index(), subbandCount, expected, expectedWaveletLevels);
-                    // Not necessarily an error — some encoders use different subband counts
+    static CrxSensorDecoder prepare(byte[] data, int width, int height, int bitDepth,
+                                    CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
+        if (cmp == null) {
+            throw new Cr3Exception("Cannot decode C-RAW: CMP1 box is missing");
+        }
+        if (cmp.isLossless()) {
+            throw new Cr3Exception("Cannot decode C-RAW: CMP1 indicates lossless");
+        }
+        if (version != CrxHeader.CodecVersion.V1 || cmp.waveletLevels() != 3 || cmp.numPlanes() != 4
+                || cmp.encodingType() != 0 || bitDepth != 14 || cmp.bitsPerSample() != bitDepth
+                || cmp.cfaLayout() < 0 || cmp.cfaLayout() > 3 || cmp.hasExtendedHeader()) {
+            throw new Cr3Exception("Unsupported C-RAW profile. File has %d wavelet levels, %d planes."
+                    .formatted(cmp.waveletLevels(), cmp.numPlanes()));
+        }
+        int tileWidth = cmp.tileWidth();
+        if (width != cmp.imageWidth() || height != cmp.imageHeight() || tileWidth < 16
+                || height < 16 || (width & 1) != 0 || (height & 1) != 0 || (tileWidth & 1) != 0
+                || width != 2L * tileWidth || height != cmp.tileHeight() || (long) width * height > Integer.MAX_VALUE) {
+            throw new Cr3Exception("Unsupported C-RAW sensor or horizontal tile dimensions");
+        }
+        int headerSize = cmp.mdatHeaderSize();
+        if (data == null || headerSize < 12 || headerSize >= data.length) {
+            throw new Cr3Exception("Invalid CMP1 C-RAW header size");
+        }
+        CrxHeader header;
+        try {
+            header = CrxHeader.parseDirectory(data, headerSize, version);
+        } catch (IOException e) {
+            throw new Cr3Exception("Invalid C-RAW tile directory: " + e.getMessage(), e);
+        }
+        if (header.tiles().size() != 2) {
+            throw new Cr3Exception("C-RAW tile directory disagrees with CMP1");
+        }
+        long tileEnd = headerSize;
+        for (var tile : header.tiles()) {
+            long tileStart = tileEnd;
+            int seenPlanes = 0;
+            for (var plane : tile.planes()) {
+                if (plane.index() > 3 || (seenPlanes & (1 << plane.index())) != 0
+                        || plane.roundedBits() != 0 || plane.subbands().size() != 10) {
+                    throw new Cr3Exception("Invalid C-RAW wavelet plane directory");
+                }
+                seenPlanes |= 1 << plane.index();
+                long first = tileEnd;
+                for (int b = 0; b < 10; b++) {
+                    var band = plane.subbands().get(b);
+                    if (band.index() != b || band.dataOffset() != tileEnd || band.supportsPartial()
+                            || band.dataSize() <= band.paddingBytes() || band.dataSize() > data.length - tileEnd
+                            || band.quantValue() >= INVERSE_QUANTIZATION.length) {
+                        throw new Cr3Exception("Unsupported or inconsistent C-RAW subband " + b);
+                    }
+                    tileEnd += band.dataSize();
+                }
+                if (tileEnd - first != plane.dataSize()) {
+                    throw new Cr3Exception("C-RAW subbands disagree with the plane extent");
+                }
+            }
+            if (seenPlanes != 15 || tileEnd - tileStart != tile.dataSize()) {
+                throw new Cr3Exception("C-RAW planes disagree with the tile extent");
+            }
+        }
+        if (tileEnd != data.length) {
+            throw new Cr3Exception("C-RAW tiles disagree with the track extent");
+        }
+        return consumer -> decodeTiles(data, header, tileWidth, height, consumer);
+    }
+
+    private static void decodeTiles(byte[] data, CrxHeader header, int tileWidth, int height,
+                                    CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
+        for (int tile = 0; tile < 2; tile++) {
+            boolean left = tile > 0, right = tile == 0;
+            int cols = tileWidth / 2, rows = height / 2;
+            var shapes = CrxWaveletTile.shapes(cols, rows, left, right);
+            for (var plane : header.tiles().get(tile).planes()) {
+                var bands = new CrxWaveletTile.Band[shapes.length];
+                for (int b = 0; b < shapes.length; b++) {
+                    var band = plane.subbands().get(b);
+                    int start = Math.toIntExact(band.dataOffset());
+                    int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
+                    int bw = shapes[b].width(), bh = shapes[b].height();
+                    int factor = INVERSE_QUANTIZATION[band.quantValue()];
+                    if (b == 0) {
+                        if (factor != 1) {
+                            throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
+                        }
+                        bands[b] = CrxNativeLosslessPlane.approximation(data, start, count, bw, bh);
+                    } else {
+                        bands[b] = CrxWaveletDetail.band(data, start, count, bw, bh, factor);
+                    }
+                }
+                int x = tile * tileWidth + (plane.index() & 1);
+                int y = plane.index() / 2;
+                try {
+                    var planeRows = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
+                    int[] row = new int[cols];
+                    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+                        planeRows.rows().read(row);
+                        for (int i = 0; i < row.length; i++) {
+                            row[i] = Math.clamp(row[i], 0, 16383);
+                        }
+                        consumer.write(x, y + 2 * rowIndex, row);
+                    }
+                } catch (ArithmeticException e) {
+                    throw new Cr3Exception("C-RAW coefficient overflow during wavelet reconstruction", e);
                 }
             }
         }
-
-        LOG.debug("C-RAW structure validated: {} tiles", header.tiles().size());
     }
 }

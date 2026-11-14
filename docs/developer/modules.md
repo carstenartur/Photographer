@@ -19,14 +19,14 @@ The root Maven reactor is the authoritative module list. This chapter classifies
 | `observer-core` | Wildlife-observer state machine, rules, domain vision port and capture orchestration | Framework-light workflow library; no concrete AI provider dependency. |
 | `ai-vision` | Gemini/mock provider implementations, prompts, parsing and AI permission/privacy gates | Provider implementation library using neutral `common-api` contracts; no `observer-core` dependency. |
 | `astro-core` | Star detection, registration, stacking and focus-related astro logic | Domain library. |
-| `canon-cr3-container` | CR3 ISO BMFF parsing and embedded JPEG access | Candidate public runtime library under `io.github.carstenartur`. |
-| `canon-cr3-metadata` | EXIF, MakerNote, CTMD and sensor/active-area metadata | Candidate public runtime library. |
-| `canon-cr3-codec` | Clean-room CRX RAW codec and linear Bayer model | Publicly packaged but explicitly experimental before 1.0. |
-| `canon-cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Candidate public runtime library; maturity follows the individual APIs. |
-| `canon-cr3-core` | CR3 decode orchestration and compatibility facade | Candidate public runtime facade. |
+| `cr3-container` | CR3 ISO BMFF parsing and embedded JPEG access | Candidate public runtime library under `io.github.carstenartur`. |
+| `cr3-metadata` | EXIF, MakerNote, CTMD and sensor/active-area metadata | Candidate public runtime library. |
+| `cr3-codec` | Clean-room CRX RAW codec and linear Bayer model | Publicly packaged but explicitly experimental before 1.0. |
+| `cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Candidate public runtime library; maturity follows the individual APIs. |
+| `cr3-core` | CR3 decode orchestration and compatibility facade | Candidate public runtime facade. |
 | `canon-cr3-reference-testkit` | Shared reference loading, metrics and deterministic evidence writers | Internal test/research infrastructure; not a supported runtime dependency. |
 | `canon-cr3-research` | Research experiments and report generators | Research-only; not a product library. |
-| `canon-cr3-imageio` | Java ImageIO SPI and reader | Candidate public runtime library. |
+| `cr3-imageio` | Java ImageIO SPI and reader | Candidate public runtime library. |
 | `canon-cr3-maven-smoke` | Isolated Maven consumer and architecture-boundary validation | Build/test infrastructure only. |
 | `canon-cr3-cli` | CR3 inspection and experimental decode command line | User-facing tool/distribution; not required as an application library dependency. |
 | `frontend-web` | React/Vite frontend | Product UI; packaged into `app` for production. |
@@ -89,29 +89,29 @@ The application currently also owns relational entities/repositories and Hiberna
 The supported artifact graph is intentionally split:
 
 ```text
-canon-cr3-container
-  └─ canon-cr3-metadata
-       └─ canon-cr3-codec (experimental)
-            └─ canon-cr3-processing
+cr3-container
+  └─ cr3-metadata
+       └─ cr3-codec (experimental)
+            └─ cr3-processing
 
 container + metadata + codec + processing
-  └─ canon-cr3-core
-       ├─ canon-cr3-imageio
+  └─ cr3-core
+       ├─ cr3-imageio
        └─ canon-cr3-cli
 ```
 
-The actual POM graph has some direct dependencies in addition to this simplified path. `canon-cr3-core` is the facade over all four lower-level runtime modules, and `canon-cr3-imageio` directly declares the runtime modules it needs.
+The actual POM graph has some direct dependencies in addition to this simplified path. `cr3-core` is the facade over all four lower-level runtime modules, and `cr3-imageio` directly declares the runtime modules it needs.
 
 ### Public Maven coordinates
 
 The six supported CR3 library artifacts use `io.github.carstenartur` coordinates in the release reactor:
 
-- `canon-cr3-container`;
-- `canon-cr3-metadata`;
-- `canon-cr3-codec`;
-- `canon-cr3-processing`;
-- `canon-cr3-core`;
-- `canon-cr3-imageio`.
+- `cr3-container`;
+- `cr3-metadata`;
+- `cr3-codec`;
+- `cr3-processing`;
+- `cr3-core`;
+- `cr3-imageio`.
 
 The repository contains a credential-free Central bundle preflight, but documentation must not claim Maven Central availability until an immutable version is visibly published and resolves from an empty external repository.
 

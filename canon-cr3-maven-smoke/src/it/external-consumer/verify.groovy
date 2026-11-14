@@ -5,16 +5,16 @@ if (!dependencyTree.isFile()) {
 
 String tree = dependencyTree.getText("UTF-8")
 Set<String> expected = [
-        "canon-cr3-container",
-        "canon-cr3-metadata",
-        "canon-cr3-codec",
-        "canon-cr3-processing",
-        "canon-cr3-core",
-        "canon-cr3-imageio"
+        "cr3-container",
+        "cr3-metadata",
+        "cr3-codec",
+        "cr3-processing",
+        "cr3-core",
+        "cr3-imageio"
 ] as Set
 
 Set<String> resolved = [] as Set
-def matcher = tree =~ /io\.github\.carstenartur:(canon-cr3-[^:\s]+):/
+def matcher = tree =~ /io\.github\.carstenartur:([^:\s]+):/
 matcher.each { match -> resolved.add(match[1]) }
 
 if (resolved != expected) {

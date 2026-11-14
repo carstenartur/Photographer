@@ -1,4 +1,4 @@
-# canon-cr3-container
+# cr3-container
 
 Lowest-level CR3 production module.
 
