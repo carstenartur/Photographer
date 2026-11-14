@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -82,6 +83,42 @@ class Cr3DecoderTest {
             assertEquals(2, image.getHeight());
             assertArrayEquals(new int[] {32769, 32773, 32765, 32777},
                     image.getRaster().getSamples(0, 0, 2, 2, 0, (int[]) null));
+        }
+    }
+
+    @Test
+    void returnsUnscaledSensorCodesEvenWhenProcessingOptionsAreSet() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var options = Cr3DecodeOptions.rawSensor().cropToActiveArea(true).applyBlackLevel(true);
+            var image = decoder.decode(options);
+            assertEquals(BufferedImage.TYPE_USHORT_GRAY, image.getType());
+            assertArrayEquals(new int[] {8192, 8193, 8191, 8194},
+                    image.getRaster().getSamples(0, 0, 2, 2, 0, (int[]) null));
+            var linear = decoder.decode(Cr3DecodeOptions.rawLinear());
+            assertArrayEquals(new int[] {30721, 30725, 30717, 30729},
+                    linear.getRaster().getSamples(0, 0, 2, 2, 0, (int[]) null));
+        }
+    }
+
+    @Test
+    void placesSubsampledSensorSitesAtTheCorrectParity() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var options = Cr3DecodeOptions.rawSensor();
+            assertEquals(new Rectangle(2, 2), decoder.getRawBounds(options));
+            var right = decoder.decodeRawRegion(options, new Rectangle(1, 0, 1, 2), Integer.MAX_VALUE, 1);
+            assertArrayEquals(new int[] {8193, 8194}, right.getRaster().getSamples(0, 0, 1, 2, 0, (int[]) null));
+            var bottom = decoder.decodeRawRegion(options, new Rectangle(0, 1, 2, 1), 1, 2);
+            assertArrayEquals(new int[] {8191, 8194}, bottom.getRaster().getSamples(0, 0, 2, 1, 0, (int[]) null));
+            assertThrows(IllegalArgumentException.class,
+                    () -> decoder.decodeRawRegion(options, new Rectangle(1, 1, 2, 2), 1, 1));
+            assertThrows(IllegalArgumentException.class,
+                    () -> decoder.decodeRawRegion(options, new Rectangle(2, 2), 0, 1));
         }
     }
 

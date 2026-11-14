@@ -136,6 +136,28 @@ class CrxHeaderTest {
         assertThat(s).contains("headerSize=");
     }
 
+    @Test
+    void directoryEndsBeforeZeroPrefixedEntropyPayload() throws IOException {
+        var version = CrxHeader.CodecVersion.V1;
+        byte[] track = buildMinimalHeader(1, 1, 1, version);
+        int directorySize = track.length - 4;
+        CrxHeader header = CrxHeader.parseDirectory(track, directorySize, version);
+        assertThat(header.headerSize()).isEqualTo(directorySize);
+        assertThat(header.tiles().getFirst().planes().getFirst().subbands().getFirst().dataOffset())
+                .isEqualTo(directorySize);
+    }
+
+    @Test
+    void rejectsRecordsThatWouldConsumeSensorBytesBeyondTheDirectory() {
+        var version = CrxHeader.CodecVersion.V1;
+        for (int record : new int[] {0, 12, 24}) {
+            byte[] track = buildMinimalHeader(1, 1, 1, version);
+            ByteBuffer.wrap(track).putShort(record + 2, (short) (37 - record));
+            assertThatThrownBy(() -> CrxHeader.parseDirectory(track, 36, version))
+                    .isInstanceOf(IOException.class);
+        }
+    }
+
     // --- Helper methods ---
 
     static byte[] buildMinimalHeader(int numTiles, int numPlanes, int numSubbands,

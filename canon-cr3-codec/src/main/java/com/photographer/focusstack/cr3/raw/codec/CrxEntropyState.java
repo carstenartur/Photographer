@@ -30,12 +30,7 @@ final class CrxEntropyState {
     }
 
     int readResidual() throws IOException {
-        int quotient = 0;
-        while (bits.readBit() == 0) {
-            if (++quotient > ESCAPE_QUOTIENT) {
-                throw new IOException("Unsupported CRX Rice quotient");
-            }
-        }
+        int quotient = bits.readUnary(ESCAPE_QUOTIENT);
         return quotient == ESCAPE_QUOTIENT ? bits.readBits(LITERAL_BITS) : (quotient << k) + bits.readBits(k);
     }
 

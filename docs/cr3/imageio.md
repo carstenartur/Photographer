@@ -43,7 +43,7 @@ if (preview == null) {
 }
 ```
 
-`ImageIO.read` returns the embedded JPEG preview by default. It is not a hidden full-RAW decode.
+`ImageReader.getWidth(0)`, `getHeight(0)`, and the first `getImageTypes(0)` entry describe this default preview. The native metadata tree provides the sensor and active-area dimensions.
 
 ## Explicit reader lifecycle
 
@@ -117,28 +117,31 @@ param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
 BufferedImage rawProcessed = reader.read(0, param);
 ```
 
-### Linear RAW with explicit options — experimental
+### Scaled linear Bayer and native sensor samples
 
-Use `read(0, param)` when crop or other `Cr3DecodeOptions` must be honored:
+| Operation | Result |
+|---|---|
+| `reader.readRaster(0, null)` | One unsigned 16-bit band. Uses the linear defaults, including the active-area crop, black-level adjustment and scaling to the full 16-bit range. |
+| `Cr3DecodeOptions.rawLinear()` with `read` or `readRaster` | Configurable active-area crop and black-level adjustment. Values are scaled to 16 bits. |
+| `Cr3DecodeOptions.rawSensor()` with `read` or `readRaster` | Reconstructed Bayer codes in original sensor coordinates and integer range, including optical-black margins. Samples occupy one unsigned 16-bit band, with no processing or scaling. |
 
-```java
-CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-param.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
-BufferedImage linear = reader.read(0, param);
-Raster croppedRaster = linear.getRaster();
-```
-
-### `readRaster()` current limitation
-
-`CanonCr3ImageReader.readRaster(0, param)` currently ignores the supplied `ImageReadParam` and always decodes with default `Cr3DecodeOptions.rawLinear()` settings. In particular, `cropToActiveArea(true)` passed through `CanonCr3ImageReadParam` does not affect `readRaster()` today:
+Use `rawSensor()` for sensor measurements and stacking. This example reads a 64 × 64 patch in full-sensor coordinates. Imports are `com.photographer.focusstack.cr3.imageio.CanonCr3ImageReadParam` and `com.photographer.focusstack.cr3.decode.Cr3DecodeOptions`.
 
 ```java
-Raster fullLinearRaster = reader.readRaster(0, null);
+var param = (CanonCr3ImageReadParam) reader.getDefaultReadParam();
+param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+param.setSourceRegion(new java.awt.Rectangle(160, 64, 64, 64));
+java.awt.image.Raster patch = reader.readRaster(0, param);
+int firstSensorCode = patch.getSample(0, 0, 0);
 ```
 
-Treat this as an experimental API limitation, not as configurable raster behavior. A future implementation change must add tests before the parameter can be documented as honored.
+For scaled values across the full frame, use `Cr3DecodeOptions.rawLinear().cropToActiveArea(false).applyBlackLevel(false)`. RAW availability depends on the CRX profile. An explicit RAW read propagates a decoding error for an unsupported profile.
 
-RAW-specific modes support only the CR3/CRX variants covered by the experimental decoder and fixed regression corpus. Unsupported variants must be reported as limitations; they must not silently fall back to the embedded preview when the caller explicitly requested RAW.
+### Standard ImageIO regions and destinations
+
+`read` applies the source region and subsampling to the output selected by the decode options. A processed RGB region uses the oriented RGB image coordinates. A linear Bayer region starts at the active area when cropping is enabled. For example, `param.setSourceSubsampling(2, 2, 0, 0)` keeps every second row and column. On a Bayer mosaic this selects a single CFA phase.
+
+For `read`, a destination image receives the selected source bands at the requested physical offset. `readRaster` always returns a new single-band result and uses the destination offset as its logical origin. It ignores a supplied destination image and destination image type, as specified by Java ImageIO. For scaled linear and native sensor reads, the decoder reconstructs the compressed frame and retains the selected samples in a region-sized output. Processed RGB and preview regions are selected from the fully decoded image.
 
 ## Stability table
 
@@ -149,7 +152,7 @@ RAW-specific modes support only the CR3/CRX variants covered by the experimental
 | `Cr3ImageMetadata` native metadata contract | `PUBLIC_STABLE` |
 | `CanonCr3ImageReadParam` preview selection | Stable subset |
 | RAW-specific `CanonCr3ImageReadParam` options through `read()` | `PUBLIC_EXPERIMENTAL` |
-| `readRaster()` full-RAW result | Experimental; supplied read parameters currently ignored |
+| `readRaster()` scaled linear and native sensor results | `PUBLIC_EXPERIMENTAL` |
 
 See [API boundaries](../cr3-api-boundaries.md) for symbol-level ownership.
 

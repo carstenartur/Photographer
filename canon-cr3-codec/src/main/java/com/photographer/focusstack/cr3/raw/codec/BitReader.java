@@ -1,6 +1,9 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 
 /**
  * Bitwise reader for binary data streams.
@@ -13,11 +16,16 @@ import java.io.IOException;
  */
 public final class BitReader {
 
+    private static final VarHandle BIG_ENDIAN_INT =
+            MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+
     private final byte[] data;
     private final int startOffset;
     private final int endOffset;
-    private int bytePos;
-    private int bitPos;  // bits remaining in current byte (8..1)
+    private int nextByte;
+    // Unread bits are left-aligned, with the next bit at the sign bit.
+    private long buffer;
+    private int available;
 
     /**
      * Creates a new BitReader over the given data.
@@ -39,7 +47,7 @@ public final class BitReader {
      * @param length number of bytes to read
      */
     public BitReader(byte[] data, int offset, int length) {
-        if (offset < 0 || length < 0 || offset + length > data.length) {
+        if (offset < 0 || length < 0 || offset > data.length - length) {
             throw new IllegalArgumentException(
                     "Invalid slice: offset=%d, length=%d, array length=%d"
                             .formatted(offset, length, data.length));
@@ -47,8 +55,7 @@ public final class BitReader {
         this.data = data;
         this.startOffset = offset;
         this.endOffset = offset + length;
-        this.bytePos = offset;
-        this.bitPos = 8;
+        this.nextByte = offset;
     }
 
     /**
@@ -58,22 +65,18 @@ public final class BitReader {
      * @throws IOException if end of data is reached
      */
     public int readBit() throws IOException {
-        if (bytePos >= endOffset) {
-            throw new IOException("BitReader: end of data at byte " + (bytePos - startOffset));
+        if (available == 0) {
+            refill();
         }
-        bitPos--;
-        int bit = (data[bytePos] >> bitPos) & 1;
-        if (bitPos == 0) {
-            bytePos++;
-            bitPos = 8;
-        }
+        int bit = (int) (buffer >>> 63);
+        consume(1);
         return bit;
     }
 
     /**
      * Reads the specified number of bits as an unsigned integer.
      *
-     * @param count number of bits to read (1-32)
+     * @param count number of bits to read (0-32)
      * @return the unsigned value
      * @throws IOException if end of data is reached
      */
@@ -81,10 +84,14 @@ public final class BitReader {
         if (count < 0 || count > 32) {
             throw new IllegalArgumentException("Invalid bit count: " + count);
         }
-        int value = 0;
-        for (int i = 0; i < count; i++) {
-            value = (value << 1) | readBit();
+        if (count == 0) {
+            return 0;
         }
+        while (available < count) {
+            refill();
+        }
+        int value = (int) (buffer >>> (64 - count));
+        consume(count);
         return value;
     }
 
@@ -95,22 +102,59 @@ public final class BitReader {
      * @throws IOException if end of data is reached
      */
     public int readUnary() throws IOException {
-        int count = 0;
-        while (readBit() == 0) {
-            count++;
-        }
-        return count;
+        return readUnary(Integer.MAX_VALUE);
     }
 
-    /** Returns the current byte position relative to the start offset. */
-    public int bytePosition() { return bytePos - startOffset; }
+    /** A native Rice symbol has a bounded unary prefix, including the escape code. */
+    int readUnary(int maximum) throws IOException {
+        int count = 0;
+        while (true) {
+            if (available == 0) {
+                refill();
+            }
+            int zeros = Math.min(Long.numberOfLeadingZeros(buffer), available);
+            if (zeros > maximum - count) {
+                throw new IOException("Unsupported CRX Rice quotient");
+            }
+            count += zeros;
+            if (zeros < available) {
+                consume(zeros + 1);
+                return count;
+            }
+            consume(zeros);
+        }
+    }
 
-    /** Bytes touched relative to the slice start, including a partially consumed final byte. */
-    int consumedBytes() { return bytePos - startOffset + (bitPos == 8 ? 0 : 1); }
+    private void consume(int bits) {
+        buffer <<= bits;
+        available -= bits;
+    }
+
+    private void refill() throws IOException {
+        if (endOffset - nextByte >= Integer.BYTES) {
+            long word = Integer.toUnsignedLong((int) BIG_ENDIAN_INT.get(data, nextByte));
+            buffer |= word << (32 - available);
+            nextByte += Integer.BYTES;
+            available += Integer.SIZE;
+        } else if (nextByte < endOffset) {
+            buffer |= (data[nextByte++] & 255L) << (56 - available);
+            available += Byte.SIZE;
+        } else {
+            // Match sequential reads: a truncated multi-bit value consumes the slice through EOF.
+            consume(available);
+            throw new IOException("BitReader: end of data at byte " + length());
+        }
+    }
+
+    /** Returns the number of complete bytes consumed relative to the start offset. */
+    public int bytePosition() { return nextByte - startOffset - Math.ceilDiv(available, 8); }
+
+    /** Includes a partially consumed final byte, excluding prefetched bytes. */
+    int consumedBytes() { return nextByte - startOffset - available / 8; }
 
     /** Returns the total number of bytes in this reader's slice. */
     public int length() { return endOffset - startOffset; }
 
     /** Returns whether there is more data to read. */
-    public boolean hasMore() { return bytePos < endOffset; }
+    public boolean hasMore() { return available > 0 || nextByte < endOffset; }
 }

@@ -5,7 +5,6 @@ import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 /** Native decoder for three-level, 14-bit Canon CRX V1 C-RAW sensor tracks. */
 public final class CrxLossyDecoder {
@@ -25,6 +24,12 @@ public final class CrxLossyDecoder {
     /** Reconstructs the four signed transform planes and clips only after the final inverse lift. */
     public static Cr3RawImage decode(byte[] data, int width, int height, int bitDepth,
                                      CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
+        return CrxPlaneAssembler.decodeImage(prepare(data, width, height, bitDepth, version, cmp),
+                width, height, bitDepth, CrxLosslessRawDecoder.resolveBayerPattern(cmp));
+    }
+
+    static CrxSensorDecoder prepare(byte[] data, int width, int height, int bitDepth,
+                                    CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
         if (cmp == null) {
             throw new Cr3Exception("Cannot decode C-RAW: CMP1 box is missing");
         }
@@ -33,7 +38,7 @@ public final class CrxLossyDecoder {
         }
         if (version != CrxHeader.CodecVersion.V1 || cmp.waveletLevels() != 3 || cmp.numPlanes() != 4
                 || cmp.encodingType() != 0 || bitDepth != 14 || cmp.bitsPerSample() != bitDepth
-                || cmp.cfaLayout() > 3 || cmp.hasExtendedHeader()) {
+                || cmp.cfaLayout() < 0 || cmp.cfaLayout() > 3 || cmp.hasExtendedHeader()) {
             throw new Cr3Exception("Unsupported C-RAW profile. File has %d wavelet levels, %d planes."
                     .formatted(cmp.waveletLevels(), cmp.numPlanes()));
         }
@@ -47,8 +52,13 @@ public final class CrxLossyDecoder {
         if (data == null || headerSize < 12 || headerSize >= data.length) {
             throw new Cr3Exception("Invalid CMP1 C-RAW header size");
         }
-        CrxHeader header = CrxHeader.parse(Arrays.copyOf(data, headerSize), version);
-        if (header.headerSize() != headerSize || header.tiles().size() != 2) {
+        CrxHeader header;
+        try {
+            header = CrxHeader.parseDirectory(data, headerSize, version);
+        } catch (IOException e) {
+            throw new Cr3Exception("Invalid C-RAW tile directory: " + e.getMessage(), e);
+        }
+        if (header.tiles().size() != 2) {
             throw new Cr3Exception("C-RAW tile directory disagrees with CMP1");
         }
         long tileEnd = headerSize;
@@ -82,7 +92,11 @@ public final class CrxLossyDecoder {
         if (tileEnd != data.length) {
             throw new Cr3Exception("C-RAW tiles disagree with the track extent");
         }
-        int[] mosaic = new int[width * height];
+        return consumer -> decodeTiles(data, header, tileWidth, height, consumer);
+    }
+
+    private static void decodeTiles(byte[] data, CrxHeader header, int tileWidth, int height,
+                                    CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
         for (int tile = 0; tile < 2; tile++) {
             boolean left = tile > 0, right = tile == 0;
             int cols = tileWidth / 2, rows = height / 2;
@@ -95,32 +109,31 @@ public final class CrxLossyDecoder {
                     int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
                     int bw = shapes[b].width(), bh = shapes[b].height();
                     int factor = INVERSE_QUANTIZATION[band.quantValue()];
-                    int[] values;
                     if (b == 0) {
                         if (factor != 1) {
                             throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
                         }
-                        values = CrxNativeLosslessPlane.decodeCoefficients(data, start, count, bw, bh);
+                        bands[b] = CrxNativeLosslessPlane.approximation(data, start, count, bw, bh);
                     } else {
-                        values = CrxWaveletDetail.decode(data, start, count, bw, bh, factor);
+                        bands[b] = CrxWaveletDetail.band(data, start, count, bw, bh, factor);
                     }
-                    bands[b] = new CrxWaveletTile.Band(values, bw, bh);
                 }
-                int[] pixels;
+                int x = tile * tileWidth + (plane.index() & 1);
+                int y = plane.index() / 2;
                 try {
-                    pixels = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
+                    var planeRows = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
+                    int[] row = new int[cols];
+                    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+                        planeRows.rows().read(row);
+                        for (int i = 0; i < row.length; i++) {
+                            row[i] = Math.clamp(row[i], 0, 16383);
+                        }
+                        consumer.write(x, y + 2 * rowIndex, row);
+                    }
                 } catch (ArithmeticException e) {
                     throw new Cr3Exception("C-RAW coefficient overflow during wavelet reconstruction", e);
                 }
-                int row0 = plane.index() / 2, col0 = tile * tileWidth + (plane.index() & 1);
-                for (int y = 0; y < rows; y++) {
-                    int dest = (2 * y + row0) * width + col0;
-                    for (int x = 0; x < cols; x++) {
-                        mosaic[dest + x * 2] = Math.clamp(pixels[y * cols + x], 0, 16383);
-                    }
-                }
             }
         }
-        return new Cr3RawImage(width, height, mosaic, bitDepth, CrxLosslessRawDecoder.resolveBayerPattern(cmp));
     }
 }

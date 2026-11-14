@@ -69,26 +69,26 @@ These classes implement the current CR3 pipeline and are not a general-purpose p
 | `PREVIEW` | Stable subset | Embedded JPEG preview; default and most reliable path |
 | `THUMBNAIL` | Stable subset | Embedded JPEG thumbnail |
 | `RAW_LINEAR` | Verified for the RG4 lossless and RG5 C-RAW layouts | Linear Bayer mosaic without demosaic |
+| `RAW_SENSOR` | Verified on the same profiles | Unscaled sensor codes in one unsigned-short band, including optical-black margins |
 | `RAW_PROCESSED` | Experimental | RAW decode plus crop/demosaic/color processing |
 
-Factory shortcuts include `Cr3DecodeOptions.defaults()`, `rawLinear()` and `rawProcessed()`.
+Factory shortcuts include `Cr3DecodeOptions.defaults()`, `rawLinear()`, `rawSensor()` and `rawProcessed()`.
 
 `experimentalPedestal(int)` and `EXPERIMENTAL_REFERENCE_MATCH` are research-only controls. They must not appear in production examples or compatibility promises.
 
 ## Full-sensor verification
 
-For a reference comparison, select the 16-bit linear output and disable the active-area crop and black-level processing. The public raster scales 14-bit samples to 16-bit grayscale. The test checks that this scaling is exactly reversible at every site.
+Use `rawSensor()` to read the original sensor values. On the verified profiles a returned value of 2048 means 2048 in the camera's 14-bit range. The separate `rawLinear()` mode scales those samples to the full 16-bit output range and supports black-level correction and cropping.
 
 ```java
 try (var decoder = new Cr3Decoder()) {
     decoder.setInput(rawFile);
-    var options = Cr3DecodeOptions.rawLinear()
-            .bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
-            .cropToActiveArea(false)
-            .applyBlackLevel(false);
-    BufferedImage sensor = decoder.decode(options);
+    BufferedImage sensor = decoder.decode(Cr3DecodeOptions.rawSensor());
+    int nativeSample = sensor.getRaster().getSample(x, y, 0);
 }
 ```
+
+The whole-sensor integration tests compare `RAW_LINEAR` with the reference after reversing the scaling. Add `-Dcr3.full-sensor.native=true` to the same Maven command to compare `RAW_SENSOR` directly. Both modes use the same registered CR3 files, reference rasters and exact comparison at every sensor site.
 
 The C-RAW gate checks equality with the native reconstruction of the compressed capture, including optical black, both sides of the tile seam and saturated sites. V2 CRX, RAW bursts, additional sensor depths, and camera-specific color rendering have separate qualification criteria.
 

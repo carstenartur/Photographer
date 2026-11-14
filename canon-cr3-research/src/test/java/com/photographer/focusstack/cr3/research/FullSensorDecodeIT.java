@@ -140,6 +140,9 @@ class FullSensorDecodeIT {
     static Result inspect(Fixture fixture, Path cr3, Path reference) throws Exception {
         assertEquals(fixture.inputHash, LosslessFirstBitControlIT.sha256(cr3), cr3.toString());
         assertEquals(fixture.referenceHash, LosslessFirstBitControlIT.sha256(reference), reference.toString());
+        // Keep the historical RAW_LINEAR reference gate reproducible. The same
+        // panel can independently check the native codes exposed to ImageIO callers.
+        boolean nativeCodes = Boolean.getBoolean("cr3.full-sensor.native");
         BufferedImage sensor;
         try (Cr3Decoder decoder = new Cr3Decoder()) {
             decoder.setInput(cr3);
@@ -152,8 +155,9 @@ class FullSensorDecodeIT {
             assertEquals(14, cmp.bitsPerSample());
             assertEquals(4, cmp.numPlanes());
             assertEquals(fixture.levels, cmp.waveletLevels());
-            sensor = decoder.decode(Cr3DecodeOptions.rawLinear().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
-                    .cropToActiveArea(false).applyBlackLevel(false));
+            var options = nativeCodes ? Cr3DecodeOptions.rawSensor() : Cr3DecodeOptions.rawLinear()
+                    .cropToActiveArea(false).applyBlackLevel(false).bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN);
+            sensor = decoder.decode(options);
         } catch (Cr3Exception | IOException | RuntimeException e) {
             String message = String.valueOf(e.getMessage());
             Outcome outcome = fixture.levels > 0
@@ -175,7 +179,7 @@ class FullSensorDecodeIT {
                 int blockHeight = Math.max(1, reader.getTileHeight(0));
                 int rowsPerBlock = blockHeight * Math.max(1, 128 / blockHeight);
                 var param = reader.getDefaultReadParam();
-                return compare(fixture, sensor, new ReferenceRow() {
+                return compare(fixture, sensor, nativeCodes, new ReferenceRow() {
                     private Raster block;
 
                     @Override
@@ -198,7 +202,7 @@ class FullSensorDecodeIT {
             byte[] header = ("P5 %d %d 65535\n".formatted(fixture.width, fixture.height))
                     .getBytes(StandardCharsets.US_ASCII);
             assertArrayEquals(header, pgm.readNBytes(header.length));
-            Result result = compare(fixture, sensor, (y, row) -> {
+            Result result = compare(fixture, sensor, nativeCodes, (y, row) -> {
                 for (int x = 0; x < row.length; x++) {
                     row[x] = pgm.readUnsignedShort();
                 }
@@ -213,7 +217,7 @@ class FullSensorDecodeIT {
         void read(int y, int[] samples) throws IOException;
     }
 
-    private static Result compare(Fixture fixture, BufferedImage sensor, ReferenceRow reference) throws IOException {
+    private static Result compare(Fixture fixture, BufferedImage sensor, boolean nativeCodes, ReferenceRow reference) throws IOException {
         int mismatches = 0, maximumError = 0;
         String first = "-";
         int[] expected = new int[fixture.width], actual = new int[fixture.width];
@@ -223,11 +227,11 @@ class FullSensorDecodeIT {
             sensor.getRaster().getSamples(0, y, fixture.width, 1, 0, actual);
             for (int x = 0; x < fixture.width; x++) {
                 // RAW_LINEAR represents native values as floor(native * 65535 / nativeMax).
-                int scaled = actual[x];
-                int value = (int) Math.ceilDiv((long) scaled * nativeMax, 65535);
-                if ((long) value * 65535 / nativeMax != scaled) {
+                int sample = actual[x];
+                int value = nativeCodes ? sample : (int) Math.ceilDiv((long) sample * nativeMax, 65535);
+                if (!nativeCodes && (long) value * 65535 / nativeMax != sample) {
                     return Result.unavailable(fixture, Outcome.DECODE_ERROR,
-                            "Invalid 14-bit output representation at %d,%d: %d".formatted(x, y, scaled));
+                            "Invalid 14-bit output representation at %d,%d: %d".formatted(x, y, sample));
                 }
                 if (expected[x] != value) {
                     if (mismatches == 0) {

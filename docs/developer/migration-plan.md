@@ -66,7 +66,7 @@ Delivered code-first architecture, current module map, contribution/testing/oper
 Delivered:
 
 - `docs/cr3/index.md` — module map and maturity boundary;
-- `docs/cr3/imageio.md` — stable ImageIO behavior and explicit `readRaster()` limitation;
+- `docs/cr3/imageio.md` — stable ImageIO behavior and RAW raster parameters;
 - `docs/cr3/decoder.md` — stable container/metadata versus experimental RAW/internal processing;
 - `docs/cr3/cli.md` — stable inspection/extraction versus experimental decode commands;
 - `docs/cr3/current-state.md` — D5–D13 and RG1 durable interpretation;

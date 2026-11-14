@@ -8,6 +8,8 @@ import javax.imageio.ImageReader;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
@@ -106,12 +108,49 @@ final class ExternalConsumptionProbe {
             require(linearRaw.getWidth() > defaultPreview.getWidth(),
                     "Linear RAW width should be larger than default preview width for the sample fixture");
 
+            // Clip a negative offset and the right edge of an existing destination.
+            // Compare odd Bayer coordinates after the active-area crop and subsampling.
+            linearParam.setSourceRegion(new Rectangle(3, 5, 13, 7));
+            linearParam.setSourceSubsampling(3, 2, 1, 1);
+            linearParam.setDestinationOffset(new Point(-1, 1));
+            BufferedImage destination = new BufferedImage(2, 3, BufferedImage.TYPE_USHORT_GRAY);
+            linearParam.setDestination(destination);
+            require(reader.read(0, linearParam) == destination, "RAW destination identity mismatch");
+            for (int y = 1; y < 3; y++) {
+                for (int x = 0; x < 2; x++) {
+                    int expected = linearRaw.getRaster().getSample(7 + 3 * x, 6 + 2 * (y - 1), 0);
+                    require(destination.getRaster().getSample(x, y, 0) == expected, "Clipped RAW sample mismatch");
+                }
+            }
+            require(destination.getRaster().getSample(1, 0, 0) == 0, "RAW write exceeded destination region");
+
+            // The active-area crop and the scaled 16-bit result are the raster defaults.
+            // Disable both crop and black-level adjustment and read an unmasked optical-black site.
+            linearParam.getDecodeOptions().cropToActiveArea(false).applyBlackLevel(false);
+            linearParam.setSourceSubsampling(1, 1, 0, 0);
+            linearParam.setSourceRegion(new Rectangle(0, 0, 1, 1));
+            linearParam.setDestinationOffset(new Point());
             Raster raster = reader.readRaster(0, linearParam);
-            require(raster != null, "readRaster() returned null");
-            require(raster.getWidth() == linearRaw.getWidth(), "Raster width should match linear RAW image width");
-            require(raster.getHeight() == linearRaw.getHeight(), "Raster height should match linear RAW image height");
-            require(raster.getTransferType() == DataBuffer.TYPE_USHORT,
-                    "Linear RAW raster should expose 16-bit data");
+            require(raster.getWidth() == 1 && raster.getHeight() == 1, "Raster region was ignored");
+            require(raster.getTransferType() == DataBuffer.TYPE_USHORT, "Expected a 16-bit linear raster");
+            // LibRaw sample.reference.tiff records native value 2060 in this 14-bit file.
+            require(raster.getSample(0, 0, 0) == 2060 * 65535 / 16383, "Uncropped linear value mismatch");
+
+            CanonCr3ImageReadParam sensorParam = new CanonCr3ImageReadParam();
+            sensorParam.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+            sensorParam.setSourceRegion(new Rectangle(0, 0, 1, 1));
+            BufferedImage sensor = reader.read(0, sensorParam);
+            require(sensor.getType() == BufferedImage.TYPE_USHORT_GRAY, "Expected 16-bit sensor image");
+            require(sensor.getRaster().getSample(0, 0, 0) == 2060, "Native Bayer value mismatch");
+
+            sensorParam.setSourceRegion(null);
+            sensorParam.setSourceSubsampling(Integer.MAX_VALUE, Integer.MAX_VALUE, 0, 0);
+            BufferedImage firstSite = reader.read(0, sensorParam);
+            Raster firstSiteRaster = reader.readRaster(0, sensorParam);
+            require(firstSite.getWidth() == 1 && firstSite.getHeight() == 1
+                    && firstSite.getRaster().getSample(0, 0, 0) == 2060, "Extreme RAW subsampling mismatch");
+            require(firstSiteRaster.getBounds().equals(firstSite.getRaster().getBounds())
+                    && firstSiteRaster.getSample(0, 0, 0) == 2060, "Extreme raster subsampling mismatch");
 
             require(reader.getNumThumbnails(0) > 0, "Expected at least one thumbnail");
             BufferedImage thumbnail = reader.readThumbnail(0, 0);

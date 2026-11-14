@@ -20,7 +20,7 @@ That external project verifies:
 - `canon-cr3-codec` exposes its intended public bitstream API;
 - `canon-cr3-imageio` is discovered through `ImageReaderSpi`;
 - `ImageIO.read(File)` returns the embedded preview;
-- explicit linear RAW raster access returns unsigned 16-bit data;
+- an explicitly requested native Bayer raster returns LibRaw-verified sensor codes at subsampled coordinates and honors the logical raster origin;
 - the installed POMs contain the exact direct CR3 dependency graph documented in
   `docs/cr3-package-ownership.md`;
 - each compiled CR3 class is packaged in its owning artifact;

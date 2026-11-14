@@ -15,7 +15,7 @@ class CrxNativeLosslessPlaneTest {
         byte[] bytes = HexFormat.of().parseHex("abcd000000000020305f800933da80ff");
         int[] pixels = new int[50];
         Arrays.fill(pixels, -1);
-        CrxNativeLosslessPlane.decode(bytes, 2, bytes.length - 3, 5, 2, pixels, 12, 13);
+        decode(bytes, 2, bytes.length - 3, 5, 2, pixels, 12, 13);
         int[] expected = new int[50];
         Arrays.fill(expected, -1);
         int[][] rows = {{2000, 2000, 2009, 2004, 2003}, {2000, 2000, 2000, 2005, 2003}};
@@ -34,7 +34,7 @@ class CrxNativeLosslessPlaneTest {
         byte[] bytes = HexFormat.of().parseHex("000000000020305f97ffffffffffffffffffffffffe7e4");
         int stride = 130;
         int[] pixels = new int[24 * stride];
-        CrxNativeLosslessPlane.decode(bytes, 0, bytes.length, 65, 12, pixels, stride, 0);
+        decode(bytes, 0, bytes.length, 65, 12, pixels, stride, 0);
         int[] expected = new int[pixels.length];
         for (int y = 0; y < 12; y++) {
             for (int x = 0; x < 65; x++) {
@@ -49,9 +49,9 @@ class CrxNativeLosslessPlaneTest {
     void readsOpeningLiteralAndRejectsTruncationInsideTheSelectedSlice() throws IOException {
         byte[] bytes = HexFormat.of().parseHex("0000000000202f35000000000040020a");
         int[] pixels = new int[3];
-        CrxNativeLosslessPlane.decode(bytes, 0, bytes.length, 2, 1, pixels, 3, 0);
+        decode(bytes, 0, bytes.length, 2, 1, pixels, 3, 0);
         assertThat(pixels).containsExactly(2149, 0, 2018);
-        assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 0, bytes.length - 1, 2, 1, pixels, 3, 0))
+        assertThatThrownBy(() -> decode(bytes, 0, bytes.length - 1, 2, 1, pixels, 3, 0))
                 .isInstanceOf(IOException.class);
     }
 
@@ -61,7 +61,7 @@ class CrxNativeLosslessPlaneTest {
         for (String hex : new String[]{"0100000000200000e0", "0000000000300000e0", "0000000000203fffe0",
                 "0000000000200000000000000020"}) {
             byte[] bytes = HexFormat.of().parseHex(hex);
-            assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 0, bytes.length, 2, 1, pixels, 4, 0))
+            assertThatThrownBy(() -> decode(bytes, 0, bytes.length, 2, 1, pixels, 4, 0))
                     .isInstanceOf(IOException.class);
         }
     }
@@ -69,10 +69,10 @@ class CrxNativeLosslessPlaneTest {
     @Test
     void approximationBandPreservesSignedNeighboursAndChecksExactEntropyLength() throws IOException {
         byte[] bytes = HexFormat.of().parseHex("0000000000203fffe0");
-        assertThat(CrxNativeLosslessPlane.decodeCoefficients(bytes, 0, bytes.length, 2, 1))
+        assertThat(coefficients(bytes, 0, bytes.length, 2, 1))
                 .containsExactly(0, -2);
         byte[] padded = Arrays.copyOf(bytes, bytes.length + 1);
-        assertThatThrownBy(() -> CrxNativeLosslessPlane.decodeCoefficients(padded, 0, padded.length, 2, 1))
+        assertThatThrownBy(() -> coefficients(padded, 0, padded.length, 2, 1))
                 .isInstanceOf(IOException.class).hasMessageContaining("byte count");
     }
 
@@ -80,25 +80,35 @@ class CrxNativeLosslessPlaneTest {
     void acceptsNegativeOpeningInAnApproximationBand() throws IOException {
         // 49-bit prefix, then unsigned residual 19689: 8192 - 9845 = -1653.
         byte[] bytes = HexFormat.of().parseHex("0000000000204ce9");
-        assertThat(CrxNativeLosslessPlane.decodeCoefficients(bytes, 0, bytes.length, 1, 1))
+        assertThat(coefficients(bytes, 0, bytes.length, 1, 1))
                 .containsExactly(-1653);
         byte[] widerLiteral = HexFormat.of().parseHex("0000000000214ce9");
-        assertThat(CrxNativeLosslessPlane.decodeCoefficients(widerLiteral, 0, widerLiteral.length, 1, 1))
+        assertThat(coefficients(widerLiteral, 0, widerLiteral.length, 1, 1))
                 .containsExactly(-34421);
-        assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 0, bytes.length, 1, 1, new int[1], 1, 0))
+        assertThatThrownBy(() -> decode(bytes, 0, bytes.length, 1, 1, new int[1], 1, 0))
                 .isInstanceOf(IOException.class);
     }
 
     @Test
-    void rejectsOverflowAndSitesCrossingARowBeforeWriting() {
+    void rejectsOutOfBoundsInputSlice() {
         byte[] bytes = HexFormat.of().parseHex("0000000000200000");
         int[] pixels = new int[12];
-        assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 1, Integer.MAX_VALUE, 1, 1, pixels, 4, 0))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 0, 8, 2, 1, pixels, 4, 3))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 0, 8, 1, Integer.MAX_VALUE, pixels, 4, 0))
+        assertThatThrownBy(() -> decode(bytes, 1, Integer.MAX_VALUE, 1, 1, pixels, 4, 0))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(pixels).containsOnly(0);
+    }
+
+    private static int[] coefficients(byte[] bytes, int start, int length, int width, int height) throws IOException {
+        return WaveletTestRows.collect(CrxNativeLosslessPlane.approximation(bytes, start, length, width, height));
+    }
+
+    private static void decode(byte[] bytes, int start, int length, int width, int height,
+                               int[] output, int stride, int first) throws IOException {
+        CrxNativeLosslessPlane.decodeSensor(bytes, start, length, width, height, first % stride, first / stride,
+                (x, y, row) -> {
+                    for (int i = 0; i < row.length; i++) {
+                        output[y * stride + x + 2 * i] = row[i];
+                    }
+                });
     }
 }
