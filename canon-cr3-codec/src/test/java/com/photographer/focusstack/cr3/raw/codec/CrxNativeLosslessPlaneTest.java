@@ -67,6 +67,29 @@ class CrxNativeLosslessPlaneTest {
     }
 
     @Test
+    void approximationBandPreservesSignedNeighboursAndChecksExactEntropyLength() throws IOException {
+        byte[] bytes = HexFormat.of().parseHex("0000000000203fffe0");
+        assertThat(CrxNativeLosslessPlane.decodeCoefficients(bytes, 0, bytes.length, 2, 1))
+                .containsExactly(0, -2);
+        byte[] padded = Arrays.copyOf(bytes, bytes.length + 1);
+        assertThatThrownBy(() -> CrxNativeLosslessPlane.decodeCoefficients(padded, 0, padded.length, 2, 1))
+                .isInstanceOf(IOException.class).hasMessageContaining("byte count");
+    }
+
+    @Test
+    void acceptsNegativeOpeningInAnApproximationBand() throws IOException {
+        // 49-bit prefix, then unsigned residual 19689: 8192 - 9845 = -1653.
+        byte[] bytes = HexFormat.of().parseHex("0000000000204ce9");
+        assertThat(CrxNativeLosslessPlane.decodeCoefficients(bytes, 0, bytes.length, 1, 1))
+                .containsExactly(-1653);
+        byte[] widerLiteral = HexFormat.of().parseHex("0000000000214ce9");
+        assertThat(CrxNativeLosslessPlane.decodeCoefficients(widerLiteral, 0, widerLiteral.length, 1, 1))
+                .containsExactly(-34421);
+        assertThatThrownBy(() -> CrxNativeLosslessPlane.decode(bytes, 0, bytes.length, 1, 1, new int[1], 1, 0))
+                .isInstanceOf(IOException.class);
+    }
+
+    @Test
     void rejectsOverflowAndSitesCrossingARowBeforeWriting() {
         byte[] bytes = HexFormat.of().parseHex("0000000000200000");
         int[] pixels = new int[12];

@@ -132,9 +132,12 @@ class FullSensorDecodeIT {
         return output;
     }
 
-    private static Result inspect(Fixture fixture, Path directory) throws Exception {
-        Path cr3 = directory.resolve(fixture.name + ".cr3");
-        Path reference = directory.resolve(fixture.name + fixture.referenceSuffix);
+    static Result inspect(Fixture fixture, Path directory) throws Exception {
+        return inspect(fixture, directory.resolve(fixture.name + ".cr3"),
+                directory.resolve(fixture.name + fixture.referenceSuffix));
+    }
+
+    static Result inspect(Fixture fixture, Path cr3, Path reference) throws Exception {
         assertEquals(fixture.inputHash, LosslessFirstBitControlIT.sha256(cr3), cr3.toString());
         assertEquals(fixture.referenceHash, LosslessFirstBitControlIT.sha256(reference), reference.toString());
         BufferedImage sensor;

@@ -274,6 +274,31 @@
       "productionDecision": "Use the verified native reader for the supported CRX V1, four-plane, single-subband, 14-bit lossless layout. Continue independent validation for other encodings.",
       "status": "complete",
       "missingRunMetadataReason": "Measured locally with JDK 25. Baseline 623487053156b0c2326bc9d8ea05448ed3814b2c and execution commands are in the report. artifactDigest identifies the committed full-sensor TSV."
+    },
+    {
+      "id": "RG5",
+      "title": "Native C-RAW entropy, inverse quantization and inverse integer wavelet reconstruction",
+      "issue": 337,
+      "sourceIds": [
+        "SRC-002",
+        "SRC-003",
+        "SRC-010",
+        "SRC-011",
+        "SRC-013",
+        "SRC-014",
+        "SRC-007"
+      ],
+      "oneChangedVariable": "For fixed C-RAW input and native PGM pairs, test the frozen coefficient and reconstruction rules in place of the previous unsupported result. Discovery controls varied individual subband payloads.",
+      "fixedInputs": "CC0 discovery C-RAW 3506 and 4543; preregistered holdouts 4656 and 4672. RG4 lossless panel rerun separately through the full public API. Supplemental regression after the frozen holdout: two first-party G5 X Mark II detail C-RAW frames and controlled opening literal checks.",
+      "implementationScope": "Java V1 three-level wavelet decoding, detail coefficient entropy, inverse quantization, inverse 5/3 synthesis and horizontal tile borders. Hash-pinned external references and opt-in whole-image regression gates.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": "sha256:abfc070e9b885cee48dd40943e3466113a06b7ad186a673eabe2ab1821691513",
+      "durableReport": "docs/cr3-results/2026-11-14-crx-wavelet/README.md",
+      "verdict": "SUPPORTED for the registered C-RAW profile. All 104,677,712 sites on four images match. The 15 lossless regression files still match at all 365,774,016 sites. After widening the approximation-band opening literal, both local detail frames match all 41,789,440 sites (512,241,168 exact across 21 distinct frames).",
+      "productionDecision": "Enable the measured native C-RAW profile through the public Java decoder, retain explicit unsupported-profile errors and restrict claims to the registered layouts.",
+      "status": "complete",
+      "missingRunMetadataReason": "Executed locally using JDK 25 and frozen discovery comparators registered on issue 337. artifactDigest identifies the four-image C-RAW report; the base revision and reproduction commands are in the report."
     }
   ]
 }

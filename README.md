@@ -22,7 +22,7 @@ Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automa
 
 **Imaging & AI**
 - Adaptive focus-stacking capture with CR3 media ingestion
-- CR3 container/metadata support and an explicitly experimental clean-room CRX RAW decoder
+- CR3 inspection and native Java decoding of 14-bit Canon V1 lossless RAW and three-level C-RAW ([supported cameras and measurements](docs/cr3/decoder.md))
 - HDR timelapse capture and merging
 - Face-orbit multi-angle capture sessions
 - Astro (long-exposure) session management
@@ -109,7 +109,7 @@ graph TD
 | `observer-core` | Wildlife observer workflow. |
 | `ai-vision` | AI vision abstraction (`VisionProvider` interface, Gemini + mock implementations). |
 | `astro-core` | Astro/long-exposure session management. |
-| `canon-cr3-core` | Canon CR3 BMFF parser, metadata facade and experimental CRX codec APIs. |
+| `canon-cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
 | `canon-cr3-imageio` | Java ImageIO plugin for CR3 files. |
 | `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |

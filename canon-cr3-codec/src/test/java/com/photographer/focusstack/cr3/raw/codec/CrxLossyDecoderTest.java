@@ -36,17 +36,16 @@ class CrxLossyDecoderTest {
     }
 
     @Test
-    @DisplayName("decode throws Cr3Exception for C-RAW data (not yet implemented)")
-    void decodeThrowsNotImplemented() {
+    @DisplayName("Rejects C-RAW with an empty tile directory")
+    void rejectsMissingTileDirectory() {
         Cmp1Box cmp1 = new Cmp1Box((short) 1, 100, 100,
-                100, 100, 14, 4, 0, 0, 3, false, 0, false);
+                50, 100, 14, 4, 0, 0, 3, true, 12, false);
         byte[] data = new byte[1000];
 
         assertThatThrownBy(() -> CrxLossyDecoder.decode(
                 data, 100, 100, 14, CrxHeader.CodecVersion.V1, cmp1))
-                .isInstanceOf(Cr3Exception.class);
-        // The exception may be "no tiles" (from header validation) or "not yet implemented"
-        // (from the decoder stub). Both are correct C-RAW error paths.
+                .isInstanceOf(Cr3Exception.class)
+                .hasMessageContaining("tile directory");
     }
 
     @Test

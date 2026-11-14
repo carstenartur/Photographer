@@ -23,6 +23,7 @@ This table records durable status, including rejected and completed questions so
 | D14 acquisition | Controlled spatial stimuli can add causal payload evidence | PARTIAL / OPEN | Pattern PDFs, manifest and analysis primitives exist. Duplicate camera captures, JPEG calibration, noise baselines and independent stimulus reproduction remain open in issue #249. |
 | Opening byte origin | CMP1 declares a shorter header than Photographer’s extractor consumes | OPEN grammar, measured four-byte difference | In all 15 files the two origins number the same first-value bits 50–63 and 18–31, respectively. The significance of the intervening zeros remains open. |
 | RG4 | Native reconstruction beyond the two RG3 values | SUPPORTED for complete measured lossless rasters | [RG4 full-sensor comparison](../cr3-results/2026-11-14-crx-native/README.md) |
+| RG5 | Reconstruct entropy-coded and quantized three-level C-RAW bands through the native importer | SUPPORTED on six complete V1 C-RAW files | [Results and scope](../cr3-results/2026-11-14-crx-wavelet/README.md) |
 | Historical third-site question | The third same-plane site can be read starting at the measured RG3 end bit | COMPLETE | RG4 verifies the rest of every row and every plane. |
 
 ## Open evidence-acquisition work

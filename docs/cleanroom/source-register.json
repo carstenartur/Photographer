@@ -93,7 +93,8 @@
         "camera-ptp/src/test/java/com/photographer/ptp/integration/CleanroomCr3FixtureCaptureIT.java",
         "canon-cr3-imageio/src/test/resources/samples/research/manifest.tsv",
         "canon-cr3-imageio/src/test/resources/samples/research/README.md",
-        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv",
+        "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv"
       ],
       "integrity": {
         "algorithm": "manifest-defined",
@@ -205,6 +206,26 @@
       "integrity": {
         "algorithm": "sha256",
         "digest": "Input and expected native sample files pinned by the replay; first-row result TSVs carry per-row sample hashes. Frozen full-plane comparator: 47fcf8c6b6e644dc76809821c9448bf3913c79ec620a744547185e3267fab168."
+      }
+    },
+    {
+      "id": "SRC-014",
+      "class": "black-box-reference",
+      "title": "Four CC0 C-RAW files and their uncropped native mosaics",
+      "citation": "raw.pixls.us IDs 3506, 4543, 4656 and 4672. DNGLab release 0.8.0 for Linux x86-64, analyze --raw-pixel. LightCraft independently verified the two discovery mosaics in RG2. The same DNGLab binary also generated fresh PGMs for two local G5 X Mark II ISO 1600 detail captures and controlled approximation literal variants.",
+      "verifiedDate": "2026-11-14",
+      "permittedUse": "Check exact held-out sensor predictions against externally decoded PGMs; use controlled discovery subband interventions and expected pixels for clean-room experiments.",
+      "prohibitedUse": "Reading or translating third-party CRX implementations, extrapolating the tested profile to other layouts.",
+      "repositoryEvidence": [
+        "scripts/research/public-crx/craw-sensors.tsv",
+        "scripts/research/public-crx/prepare-sensor-fixtures.sh",
+        "docs/cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv",
+        "docs/cr3-results/2026-11-14-crx-wavelet/README.md",
+        "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "Registry c4dec60d35e2df53be4a0609e38bd625fa6497f4bf7bc30419e6f6940f7515d5 pins every input CR3 and reference PGM. The preparation script pins DNGLab."
       }
     }
   ]

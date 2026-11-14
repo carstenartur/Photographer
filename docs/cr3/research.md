@@ -4,7 +4,7 @@ This is the maintained process entry for CRX semantic research. Read [Current st
 
 ## Present decision
 
-[RG4](../cr3-results/2026-11-14-crx-native/README.md) supports complete native decoding of the measured V1 lossless layout. Subsequent experiments on C-RAW and other CRX variants require their own sensor-reference comparisons. The earlier RG1–RG3 tests remain available to reproduce the opening and framing decisions.
+[RG4](../cr3-results/2026-11-14-crx-native/README.md) supports complete native decoding of the measured V1 lossless layout. [RG5](../cr3-results/2026-11-14-crx-wavelet/README.md) separately verifies the three-level C-RAW layout. Other CRX variants require sensor-reference comparisons. The earlier RG1–RG3 tests remain available to reproduce the opening and framing decisions.
 
 ### Active evidence path
 

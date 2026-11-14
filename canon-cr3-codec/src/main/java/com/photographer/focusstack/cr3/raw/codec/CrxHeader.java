@@ -17,7 +17,8 @@ import java.util.List;
  *       10 subbands for lossy (3-level wavelet decomposition).</li>
  * </ul>
  *
- * <p>After all headers, 4 null bytes act as a separator before the encoded pixel data.</p>
+ * <p>For native sensor tracks, CMP1 supplies the header length and the first subband starts
+ * immediately after it. The parser also accepts a directory with four terminal zero bytes.</p>
  *
  * <p>This is a cleanroom implementation based on published ISO BMFF and
  * Canon CR3 format documentation. No proprietary source code was used.</p>
@@ -49,10 +50,16 @@ public final class CrxHeader {
      * @param dataSize        size of the encoded subband data in bytes
      * @param supportsPartial whether partial decoding is flagged
      * @param quantValue      quantization value (0 for lossless)
+     * @param paddingBytes    number of terminal padding bytes declared in the subband record
      * @param dataOffset      absolute offset of the subband data within the CRX block
      */
     public record Subband(int index, long dataSize, boolean supportsPartial,
-                          int quantValue, long dataOffset) {}
+                          int quantValue, long dataOffset, int paddingBytes) {
+        /** Compatibility constructor for callers describing subbands without terminal padding. */
+        public Subband(int index, long dataSize, boolean supportsPartial, int quantValue, long dataOffset) {
+            this(index, dataSize, supportsPartial, quantValue, dataOffset, 0);
+        }
+    }
 
     /**
      * Describes a colour plane within a tile.
@@ -93,7 +100,7 @@ public final class CrxHeader {
     }
 
     /**
-     * Returns the total header size including the four-byte null separator.
+     * Returns the total header size including any terminal padding supplied with the directory.
      *
      * @return the total header size in bytes
      */
@@ -176,9 +183,10 @@ public final class CrxHeader {
                     boolean subPartial = (packedSub & 0x08) != 0;
                     // quantValue: 3 lower bits of byte 8 + 5 upper bits of byte 9
                     int quantValue = ((packedSub & 0x07) << 5) | ((data[pos + 9] & 0xFF) >> 3);
+                    int paddingBytes = readUnsignedShort(data, pos + 10);
                     pos += 4 + subHeaderLen;
 
-                    subbands.add(new Subband(subIndex, subDataSize, subPartial, quantValue, 0));
+                    subbands.add(new Subband(subIndex, subDataSize, subPartial, quantValue, 0, paddingBytes));
                 }
 
                 planes.add(new Plane(planeIndex, planeDataSize, planePartial, roundedBits,
@@ -188,7 +196,7 @@ public final class CrxHeader {
             tiles.add(new Tile(tileIndex, tileDataSize, Collections.unmodifiableList(planes)));
         }
 
-        // Skip the 4-byte null separator after all headers
+        // Some callers supply a directory with four terminal zero bytes.
         if (pos + 4 <= data.length
                 && data[pos] == 0 && data[pos + 1] == 0
                 && data[pos + 2] == 0 && data[pos + 3] == 0) {
@@ -229,7 +237,7 @@ public final class CrxHeader {
                 List<Subband> resolvedSubbands = new ArrayList<>();
                 for (Subband sub : plane.subbands()) {
                     resolvedSubbands.add(new Subband(sub.index(), sub.dataSize(),
-                            sub.supportsPartial(), sub.quantValue(), currentOffset));
+                            sub.supportsPartial(), sub.quantValue(), currentOffset, sub.paddingBytes()));
                     currentOffset += sub.dataSize();
                 }
                 resolvedPlanes.add(new Plane(plane.index(), plane.dataSize(),
