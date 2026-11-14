@@ -62,16 +62,18 @@ jobs:
           case "$GITHUB_WORKFLOW_REF" in
             "$workflows/deploy-release.yml@refs/heads/main")
               [[ "$GITHUB_REF" == refs/heads/main && "$CALL_TAG" == "$RELEASE_TAG" ]]
-              [[ "$MERGED_SHA" =~ ^[0-9a-f]{40}$ && "$MERGED_SHA" == "$GITHUB_SHA" ]]
+              [[ "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
+              source_commit=$MERGED_SHA
               ;;
             "$workflows/cr3-central-release.yml@refs/tags/$RELEASE_TAG")
               [[ "$GITHUB_REF" == "refs/tags/$RELEASE_TAG" && -z "$CALL_TAG$MERGED_SHA" ]]
               [[ "$MANUAL_OPERATION" == validate || "$MANUAL_OPERATION" == publish ]]
+              source_commit=$GITHUB_SHA
               ;;
             *) exit 1 ;;
           esac
           tagged_commit=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
-          expected_commit=$(git rev-parse --verify "$GITHUB_SHA^{commit}")
+          expected_commit=$(git rev-parse --verify "$source_commit^{commit}")
           [[ "$(git rev-parse HEAD)" == "$tagged_commit" && "$tagged_commit" == "$expected_commit" ]]
 
       - uses: actions/setup-java@v6

@@ -14,7 +14,7 @@ Use JDK 25. For the 0.1.5 release, add this dependency inside the consumer POM's
 </dependency>
 ```
 
-Maven Central is Maven's default repository. Until the version is published there, build from a repository checkout with JDK 25 and Maven 3.9+ using `mvn -pl canon-cr3-core -am install`. Use that checkout's version in the consumer POM, for example `0.1.5-SNAPSHOT` for its development build.
+Configure the [Git-backed release repository](../cr3-maven-central.md#resolve-a-released-version) for a regular release. A version also published to Maven Central uses Maven's default configuration. For a development version, build from a source checkout with JDK 25 and Maven 3.9+ using `mvn -pl canon-cr3-core -am install`. Use that checkout's version in the consumer POM, for example `0.1.5-SNAPSHOT` for its development build.
 
 ## Import from a file
 

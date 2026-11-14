@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.example</groupId>
+    <artifactId>cr3-release-consumer</artifactId>
+    <version>1</version>
+    <properties>
+        <cr3.version>0.1.5</cr3.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>io.github.carstenartur</groupId>
+            <artifactId>cr3-imageio</artifactId>
+            <version>${cr3.version}</version>
+        </dependency>
+    </dependencies>
+    <profiles>
+        <profile>
+            <id>photographer-releases</id>
+            <repositories>
+                <repository>
+                    <id>photographer-releases</id>
+                    <url>${photographer.repository.url}</url>
+                    <releases><checksumPolicy>fail</checksumPolicy></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+</project>

@@ -18,7 +18,7 @@ STEPS = (
     'Checkout exact dispatched main control commit with full history',
     'Set up JDK 25',
     'Prepare protected handoff or validate explicit merged release resume',
-    'Guard publication and create exact stable tag and application release',
+    'Publish Maven repository, exact stable tag and application release',
     'Log in to GitHub Container Registry',
     'Extract Docker metadata',
     'Recheck exact stable source and publication targets before image publication',
@@ -34,9 +34,10 @@ def validate(workflow: str) -> list[str]:
             failures.append(message)
     event = re.search(r'^on:\n((?:[ \t].*\n|\n)*)', workflow, re.MULTILINE)
     check(event is not None and re.findall(r'^  ([\w_]+):', event.group(1), re.MULTILINE) == ['workflow_dispatch'], 'only workflow_dispatch may enter the canonical publisher')
-    names = re.findall(r'^      - name: (.+)$', workflow, re.MULTILINE)
+    release = workflow.split("\n  release:\n", 1)[-1].split("\n  central:\n", 1)[0]
+    names = re.findall(r'^      - name: (.+)$', release, re.MULTILINE)
     check(tuple(names) == STEPS, 'release steps/order differ from the reviewed finite handoff')
-    chunks = re.split(r'^      - name: ', workflow, flags=re.MULTILINE)[1:]
+    chunks = re.split(r'^      - name: ', release, flags=re.MULTILINE)[1:]
     if len(chunks) == len(STEPS):
         for step in chunks[3:]:
             check(GATE in step, 'every publication/continuation step requires a successful verified live resume')
@@ -46,6 +47,9 @@ def validate(workflow: str) -> list[str]:
         check('scripts/release_handoff.py image-guard ' in chunks[6], 'image publication requires a fresh stable-source/target guard')
         check('context: .' in chunks[7] and 'push: true' in chunks[7], 'image must use the still-stable working checkout')
         check('scripts/release_handoff.py finish ' in chunks[8], 'snapshot handoff must follow image publication')
+    check("      also_publish_to_central:" in workflow and
+          "if: ${{ inputs.also_publish_to_central && needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}" in workflow,
+          'Central requires an explicit live release request')
     required = (
         '      next_development_version:\n',
         '      next_version_increment:\n', '        type: choice\n',

@@ -103,6 +103,9 @@
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
+        <cr3.fixtureInstallPhase>none</cr3.fixtureInstallPhase>
+        <cr3.guideCopyPhase>none</cr3.guideCopyPhase>
+        <cr3.centralRelease>false</cr3.centralRelease>
         <central.skipPublishing>true</central.skipPublishing>
         <cr3.attachTestJars>true</cr3.attachTestJars>
         <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
@@ -175,6 +178,125 @@
                         <excludedGroups>${excludedGroups}</excludedGroups>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>3.6.2</version>
+                    <executions>
+                        <execution>
+                            <id>include-cr3-license</id>
+                            <goals><goal>add-resource</goal></goals>
+                            <configuration>
+                                <resources>
+                                    <resource>
+                                        <directory>${project.basedir}/..</directory>
+                                        <includes><include>LICENSE</include></includes>
+                                        <targetPath>META-INF/cr3</targetPath>
+                                    </resource>
+                                </resources>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>include-cr3-javadoc-resources</id>
+                            <phase>${cr3.guideCopyPhase}</phase>
+                            <goals><goal>copy-resources</goal></goals>
+                            <configuration>
+                                <outputDirectory>${project.build.directory}/reports/apidocs</outputDirectory>
+                                <resources>
+                                    <resource>
+                                        <directory>${project.build.outputDirectory}/META-INF/cr3</directory>
+                                    </resource>
+                                </resources>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <executions>
+                        <execution>
+                            <id>require-public-release</id>
+                            <phase>validate</phase>
+                            <goals><goal>enforce</goal></goals>
+                            <configuration>
+                                <skip>${central.skipPublishing}</skip>
+                                <rules>
+                                    <requireMavenVersion><version>[3.9,4)</version></requireMavenVersion>
+                                    <requireReleaseVersion>
+                                        <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
+                                    </requireReleaseVersion>
+                                    <requireReleaseDeps>
+                                        <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
+                                    </requireReleaseDeps>
+                                </rules>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                    <configuration>
+                        <flattenedPomFilename>target/.flattened-pom.xml</flattenedPomFilename>
+                        <flattenMode>oss</flattenMode>
+                        <flattenDependencyMode>inherited</flattenDependencyMode>
+                        <updatePomFile>true</updatePomFile>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten-public-pom</id>
+                            <phase>process-resources</phase>
+                            <goals>
+                                <goal>flatten</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>clean-flattened-public-pom</id>
+                            <phase>clean</phase>
+                            <goals>
+                                <goal>clean</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven-source-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>attach-public-sources</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                    <configuration>
+                        <doclint>all</doclint>
+                        <quiet>true</quiet>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-public-javadocs</id>
+                            <phase>package</phase>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
     </build>
@@ -192,20 +314,77 @@
             </modules>
         </profile>
 
-        <!--
-            Produces the consumer-facing Maven Central artifacts. The dedicated
-            release aggregator selects only the supported CR3 runtime modules;
-            this inherited profile supplies their publication configuration,
-            flattens the internal parent relationship, attaches sources/Javadoc
-            and signs every deployable file.
-        -->
+        <!-- Maven creates an ordinary repository. The release handoff transports it with Git. -->
+        <profile>
+            <id>public-repository-release</id>
+            <properties>
+                <public.repository.directory>${project.basedir}/../target/public-maven-repository</public.repository.directory>
+                <maven.deploy.skip>${central.skipPublishing}</maven.deploy.skip>
+                <cr3.attachTestJars>false</cr3.attachTestJars>
+                <cr3.fixtureInstallPhase>install</cr3.fixtureInstallPhase>
+                <cr3.guideCopyPhase>prepare-package</cr3.guideCopyPhase>
+                <project.build.outputTimestamp>2026-11-14T00:00:00Z</project.build.outputTimestamp>
+            </properties>
+            <distributionManagement>
+                <repository>
+                    <id>photographer-releases</id>
+                    <url>file://${public.repository.directory}</url>
+                </repository>
+            </distributionManagement>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-resources-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>separate-release-destinations</id>
+                                <goals><goal>enforce</goal></goals>
+                                <configuration>
+                                    <rules>
+                                        <requireProperty>
+                                            <property>cr3.centralRelease</property>
+                                            <regex>false</regex>
+                                            <regexMessage>Select either public-repository-release or central-release.</regexMessage>
+                                        </requireProperty>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>flatten-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Central signs and bundles locally unless the caller expressly enables uploading. -->
         <profile>
             <id>central-release</id>
             <properties>
+                <cr3.centralRelease>true</cr3.centralRelease>
                 <central.skipUpload>true</central.skipUpload>
                 <central.autoPublish>false</central.autoPublish>
                 <central.waitUntil>validated</central.waitUntil>
                 <cr3.attachTestJars>false</cr3.attachTestJars>
+                <cr3.fixtureInstallPhase>install</cr3.fixtureInstallPhase>
+                <cr3.guideCopyPhase>prepare-package</cr3.guideCopyPhase>
                 <project.build.outputTimestamp>2026-11-14T00:00:00Z</project.build.outputTimestamp>
             </properties>
             <build>
@@ -213,62 +392,24 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>build-helper-maven-plugin</artifactId>
-                        <version>3.6.2</version>
-                        <executions>
-                            <execution>
-                                <id>include-cr3-license</id>
-                                <goals><goal>add-resource</goal></goals>
-                                <configuration>
-                                    <resources>
-                                        <resource>
-                                            <directory>${project.basedir}/..</directory>
-                                            <includes><include>LICENSE</include></includes>
-                                            <targetPath>META-INF/cr3</targetPath>
-                                        </resource>
-                                    </resources>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
                     <plugin>
                         <artifactId>maven-resources-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>include-cr3-javadoc-resources</id>
-                                <phase>prepare-package</phase>
-                                <goals><goal>copy-resources</goal></goals>
-                                <configuration>
-                                    <outputDirectory>${project.build.directory}/reports/apidocs</outputDirectory>
-                                    <resources>
-                                        <resource>
-                                            <directory>${project.build.outputDirectory}/META-INF/cr3</directory>
-                                        </resource>
-                                    </resources>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
                     <plugin>
                         <artifactId>maven-enforcer-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>require-public-release</id>
-                                <phase>validate</phase>
-                                <goals><goal>enforce</goal></goals>
-                                <configuration>
-                                    <skip>${central.skipPublishing}</skip>
-                                    <rules>
-                                        <requireMavenVersion><version>[3.9,4)</version></requireMavenVersion>
-                                        <requireReleaseVersion>
-                                            <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
-                                        </requireReleaseVersion>
-                                        <requireReleaseDeps>
-                                            <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
-                                        </requireReleaseDeps>
-                                    </rules>
-                                </configuration>
-                            </execution>
-                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>flatten-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
                     </plugin>
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
@@ -283,65 +424,6 @@
                             <skipPublishing>${central.skipPublishing}</skipPublishing>
                             <deploymentName>Photographer CR3 ${revision}</deploymentName>
                         </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>flatten-maven-plugin</artifactId>
-                        <version>${flatten-maven-plugin.version}</version>
-                        <configuration>
-                            <flattenedPomFilename>target/.flattened-pom.xml</flattenedPomFilename>
-                            <flattenMode>oss</flattenMode>
-                            <flattenDependencyMode>inherited</flattenDependencyMode>
-                            <updatePomFile>true</updatePomFile>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>flatten-public-pom</id>
-                                <phase>process-resources</phase>
-                                <goals>
-                                    <goal>flatten</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>clean-flattened-public-pom</id>
-                                <phase>clean</phase>
-                                <goals>
-                                    <goal>clean</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-source-plugin</artifactId>
-                        <version>${maven-source-plugin.version}</version>
-                        <executions>
-                            <execution>
-                                <id>attach-public-sources</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>jar-no-fork</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-javadoc-plugin</artifactId>
-                        <version>${maven-javadoc-plugin.version}</version>
-                        <configuration>
-                            <doclint>all</doclint>
-                            <quiet>true</quiet>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>attach-public-javadocs</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>jar</goal>
-                                </goals>
-                            </execution>
-                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
