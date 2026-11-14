@@ -56,6 +56,8 @@ These classes implement the current CR3 pipeline and are not a general-purpose p
 
 ## Unified facade
 
+For a runnable Maven consumer that reads files by path, develops RGB or selects a sensor region, see [Import a CR3 file](import.md).
+
 `cr3-core` composes container, metadata, codec and processing into:
 
 - `Cr3Decoder`;

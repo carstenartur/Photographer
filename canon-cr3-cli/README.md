@@ -36,43 +36,43 @@ Command-line debug and analysis tool for Canon CR3 files.
 
 ```bash
 # High-level file and metadata summary
-java -jar canon-cr3-cli.jar info photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar info photo.cr3
 
 # Parsed CR3 boxes
-java -jar canon-cr3-cli.jar boxes photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar boxes photo.cr3
 
 # Raw BMFF tree with offsets/sizes
-java -jar canon-cr3-cli.jar dump-box-tree photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar dump-box-tree photo.cr3
 
 # Extracted metadata and active area
-java -jar canon-cr3-cli.jar dump-metadata photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar dump-metadata photo.cr3
 
 # Sensor / crop geometry from IAD1-derived metadata
-java -jar canon-cr3-cli.jar dump-crop photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar dump-crop photo.cr3
 
 # RAW track layout and compression summary
-java -jar canon-cr3-cli.jar dump-raw-layout photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar dump-raw-layout photo.cr3
 
 # CRX header / subband inventory
-java -jar canon-cr3-cli.jar list-subbands photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar list-subbands photo.cr3
 
 # Dump one CRX subband plus JSON metadata
-java -jar canon-cr3-cli.jar dump-subband photo.cr3 7 sample.sb7
+java -jar canon-cr3-cli/target/cr3-cli.jar dump-subband photo.cr3 7 sample.sb7
 
 # Subband statistics from CR3 or a dumped .bits file
-java -jar canon-cr3-cli.jar subband-stats photo.cr3 7
-java -jar canon-cr3-cli.jar subband-stats --bits sample.sb7.bits
+java -jar canon-cr3-cli/target/cr3-cli.jar subband-stats photo.cr3 7
+java -jar canon-cr3-cli/target/cr3-cli.jar subband-stats --bits sample.sb7.bits
 
 # Extract embedded JPEGs
-java -jar canon-cr3-cli.jar preview photo.cr3 output.jpg
-java -jar canon-cr3-cli.jar thumb photo.cr3 thumbnail.jpg
+java -jar canon-cr3-cli/target/cr3-cli.jar preview photo.cr3 output.jpg
+java -jar canon-cr3-cli/target/cr3-cli.jar thumb photo.cr3 thumbnail.jpg
 
 # Decode RAW and compare against camera-rendered outputs
-java -jar canon-cr3-cli.jar decode photo.cr3 output.jpg
-java -jar canon-cr3-cli.jar decode-compare photo.cr3 compare
+java -jar canon-cr3-cli/target/cr3-cli.jar decode photo.cr3 output.jpg
+java -jar canon-cr3-cli/target/cr3-cli.jar decode-compare photo.cr3 compare
 
 # Diagnose pedestal/black-level source and values
-java -jar canon-cr3-cli.jar pedestal-report photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar pedestal-report photo.cr3
 ```
 
 ## Analysis coverage relevant to CR3 research

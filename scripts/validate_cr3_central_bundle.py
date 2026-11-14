@@ -32,6 +32,11 @@ FORBIDDEN_ARTIFACTS = {
     "canon-cr3-benchmark",
     "canon-cr3-cli",
 }
+REPO_ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_GUIDES = {
+    "cr3-core": ("import.md",),
+    "cr3-imageio": ("import.md", "imageio.md"),
+}
 PRIMARY_SUFFIXES = (".pom", ".jar", "-sources.jar", "-javadoc.jar")
 CHECKSUM_SUFFIXES = (".md5", ".sha1", ".sha256", ".sha512")
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -71,10 +76,15 @@ def _validate_checksum(entries: dict[str, bytes], file_name: str, algorithm: str
         )
 
 
-def _validate_jar(entries: dict[str, bytes], file_name: str, required_entry: str) -> None:
+def _validate_jar(
+    entries: dict[str, bytes], file_name: str, required_entry: str, documents: dict[str, bytes]
+) -> None:
     try:
         with zipfile.ZipFile(io.BytesIO(entries[file_name])) as jar:
             names = set(jar.namelist())
+            for path, expected in documents.items():
+                if path not in names or jar.read(path) != expected:
+                    raise BundleValidationError(f"{file_name}: missing or incorrect {path}")
     except zipfile.BadZipFile as exc:
         raise BundleValidationError(f"Invalid JAR/ZIP {file_name}") from exc
     if not any(name.endswith(required_entry) for name in names):
@@ -240,9 +250,13 @@ def validate_bundle(
                 verified_signatures += 1
 
         _validate_pom(entries[primary_files[".pom"]], artifact_id, version)
-        _validate_jar(entries, primary_files[".jar"], ".class")
-        _validate_jar(entries, primary_files["-sources.jar"], ".java")
-        _validate_jar(entries, primary_files["-javadoc.jar"], "index.html")
+        documents = {"LICENSE": (REPO_ROOT / "LICENSE").read_bytes()}
+        for name in PUBLIC_GUIDES.get(artifact_id, ()):
+            documents[name] = (REPO_ROOT / "docs/cr3" / name).read_bytes()
+        resources = {f"META-INF/cr3/{name}": data for name, data in documents.items()}
+        _validate_jar(entries, primary_files[".jar"], ".class", resources)
+        _validate_jar(entries, primary_files["-sources.jar"], ".java", resources)
+        _validate_jar(entries, primary_files["-javadoc.jar"], "index.html", documents)
 
     unexpected = entries.keys() - expected_files
     if unexpected:
