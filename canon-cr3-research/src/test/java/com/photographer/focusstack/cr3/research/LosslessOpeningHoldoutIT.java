@@ -28,7 +28,7 @@ class LosslessOpeningHoldoutIT {
             + "\tfullX\tfullY\tfirstReference\tfirstPredicted\tfirstOutcome\tsecondReference\tsecondPredicted"
             + "\tsecondOutcome\tsecondBranch\tq\tprefix18\tfirstCode\tdetail";
 
-    private record Sample(String id, String model, String group, String inputHash, String pgmHash) {
+    record Sample(String id, String model, String group, String inputHash, String pgmHash) {
         static Sample fromRegistry(String line) {
             String[] fields = line.split("\t", -1);
             assertThat(fields).hasSize(7);

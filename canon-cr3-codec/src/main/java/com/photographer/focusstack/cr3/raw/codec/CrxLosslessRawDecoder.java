@@ -14,9 +14,8 @@ import java.util.Comparator;
  * Decoder for Canon CRX lossless RAW data.
  *
  * <p>CRX lossless compression uses adaptive Rice-Golomb entropy coding over
- * positional Bayer planes. The production default is the reference-research
- * derived {@link KUpdateRule#PATENT_BRACKET} profile; the legacy JPEG-LS
- * approximation remains selectable for controlled A/B experiments.</p>
+ * positional Bayer planes. The native decoder uses the CMP1-declared start of each plane. Legacy
+ * profiles remain selectable for explicit experiments and historical synthetic inputs.</p>
  *
  * <p>The implementation composes explicit package-private stages:</p>
  * <ol>
@@ -106,7 +105,17 @@ public final class CrxLosslessRawDecoder {
             int bitDepth,
             CrxHeader.CodecVersion version,
             Cmp1Box cmp1) throws Cr3Exception {
+        if (cmp1 != null && cmp1.mdatHeaderSize() > 0 && data != null && data.length >= 2
+                && version != null && ((data[0] & 255) << 8 | (data[1] & 255)) == version.tileMarker) {
+            return decodeNative(data, width, height, bitDepth, version, cmp1);
+        }
         return decode(data, width, height, bitDepth, version, cmp1, DEFAULT_K_UPDATE_RULE);
+    }
+
+    /** Decodes the sensor track of a camera file with validated CMP1 framing. */
+    public static Cr3RawImage decodeNative(byte[] data, int width, int height, int bitDepth,
+                                           CrxHeader.CodecVersion version, Cmp1Box cmp1) throws Cr3Exception {
+        return CrxNativeLosslessImage.decode(data, width, height, bitDepth, version, cmp1, resolveBayerPattern(cmp1));
     }
 
     /**

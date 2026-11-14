@@ -2,7 +2,7 @@
 
 This is the maintained entry point for Photographer's Canon CR3 libraries and clean-room CRX research.
 
-Do not treat all CR3 functionality as one maturity level. Container inspection, metadata, embedded JPEGs and standard ImageIO integration have supported external surfaces. Full sensor-RAW reconstruction remains experimental and requires genuinely new causal evidence before another decoder-semantic candidate is justified.
+Photographer natively decodes verified 14-bit lossless Canon CRX V1 Bayer tracks through the Java RAW import. The full sensor mosaic was verified on EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. [Supported layout and exact measurements](../cr3-results/2026-11-14-crx-native/README.md)
 
 ## Choose the path you need
 
@@ -30,7 +30,7 @@ Do not treat all CR3 functionality as one maturity level. Container inspection, 
 | `io.github.carstenartur:canon-cr3-metadata` | Structured EXIF, MakerNote, CTMD and sensor/active-area metadata | Stable external surface |
 | `io.github.carstenartur:canon-cr3-codec` | CRX header, entropy, predictor, tile/plane reconstruction and Bayer transfer model | Experimental/internal except explicitly classified diagnostics/models |
 | `io.github.carstenartur:canon-cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
-| `io.github.carstenartur:canon-cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; full RAW experimental |
+| `io.github.carstenartur:canon-cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; verified V1 lossless RAW, other profiles experimental |
 | `io.github.carstenartur:canon-cr3-imageio` | Java ImageIO SPI, reader, thumbnails and metadata | Stable standard integration; RAW-specific parameters experimental |
 | `com.photographer.focusstack:canon-cr3-cli` | Inspection, extraction and experimental decode commands | Repository CLI; excluded from the public Maven Central library bundle |
 

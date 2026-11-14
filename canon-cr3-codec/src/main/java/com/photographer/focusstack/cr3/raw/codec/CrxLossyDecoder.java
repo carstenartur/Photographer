@@ -128,13 +128,12 @@ public final class CrxLossyDecoder {
 
         throw new Cr3Exception(
                 "C-RAW (lossy) decoding is not yet fully implemented. "
-                + "File has %d wavelet levels, %d planes. "
+                + "File has %d wavelet levels, %d planes. ".formatted(waveletLevels, numPlanes)
                 + "Header and subband structure validated successfully. "
                 + "IDWT infrastructure is ready (Le Gall 5/3). "
                 + "Remaining: entropy decoding integration, dequantization formula, "
                 + "subband ordering confirmation. "
-                + "Use lossless RAW files, or extract the embedded JPEG preview instead."
-                        .formatted(waveletLevels, numPlanes));
+                + "Use lossless RAW files, or extract the embedded JPEG preview instead.");
     }
 
     /**

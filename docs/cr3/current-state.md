@@ -75,19 +75,13 @@ LightCraft and DNGLab agreed on every Bayer value of the public EOS R and PowerS
 
 The RG3 research reader derives both values in a plane directly from the payload. It matched all 88 discovery streams and all 32 prospective streams from four cameras. Changing each of extractor-relative bits 18–31 on two cameras and swapping that range between them gave the exact predicted first values. The CMP1-declared origin in all 15 files is four bytes earlier, so the same physical bits are then 50–63. The fixed prefix conditions this result. Changes to earlier bits can also affect the first value. All four second-code remainder controls were rejected. See the [RG3 measurements](../cr3-results/2026-11-14-crx-opening/README.md).
 
+## Verified native lossless import
+
+`Cr3Decoder` reconstructs the full uncropped native Bayer mosaic from four-plane, 14-bit, encoding-type-0 lossless V1 files. Eleven original and four independent RAW files match their external reference at all 365,774,016 sites. The decoder uses the CMP1-declared byte origin and validates tile and plane extents. [RG4 measurements](../cr3-results/2026-11-14-crx-native/README.md)
+
 ## Current priority
 
-Start the next lossless experiment at RG3's recorded end-bit cursor and the third same-plane site. General entropy adaptation, complete rows and later boundaries remain open. An additional evidence-acquisition path is the controlled spatial-code corpus in issue #249:
-
-- the deterministic screen/print pattern pack and manifests exist;
-- duplicate captures, camera/display state records and payload observations are still required;
-- the JPEG or embedded preview is the observable calibration channel for whether and where the camera detected the controlled stimulus;
-- CRX changes must be separated from duplicate noise and correlated with the known stimulus;
-- an adaptive closed loop may choose the next pattern or intensity, but it must preserve the same manifests, provenance and predeclared decision boundaries.
-
-A completed capture corpus can justify a later semantic hypothesis. The pattern assets alone, ordinary additional photographs, or another passive LibRaw metric sweep cannot.
-
-Do not repeat current-symbol K rules, neighbor-coordinate searches, subband permutations, broad predictor sweeps, CFA/alignment sweeps or combined `Sd`/`Kd`/reset experiments on the same fixed panel.
+The three-level C-RAW transform uses separately coded and quantized subbands. Its independent acceptance criterion is exact equality on complete uncropped C-RAW sensor mosaics under issue #337.
 
 ## Stable product boundary
 
@@ -96,8 +90,8 @@ The research block does not invalidate supported CR3 functionality:
 - container/track parsing and embedded JPEG extraction remain supported;
 - structured metadata remains supported;
 - standard ImageIO preview, thumbnail, discovery and metadata paths remain supported;
-- full RAW/CRX modes remain experimental;
-- production has not adopted D12, RG1 oracle initialization or another unsupported entropy variant.
+- the measured native lossless layout is supported; other profiles have separate verification gates;
+- RAW processing and color rendering have separate quality criteria.
 
 See [CR3 overview](index.md), [ImageIO](imageio.md) and [Decoder](decoder.md).
 

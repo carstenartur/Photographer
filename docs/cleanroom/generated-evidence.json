@@ -369,7 +369,7 @@
         }
       ],
       "gitBlobLocks": {
-        "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv": "8fadd9d54dca23273022d11378225de5ce11ff50"
+        "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv": "3ab323721d57b44fbab18a7eb9769b4ec1f38975"
       }
     },
     {
@@ -502,6 +502,85 @@
       "gitBlobLocks": {
         "docs/cr3-results/2026-11-14-crx-opening/interventions.tsv": "25a93edd58e70e8fa598a5bc623306e728a14771",
         "docs/cr3-results/2026-11-14-crx-opening/second-remainder.tsv": "66d72392455b9c7af35808773f427bfcf96fe073"
+      }
+    },
+    {
+      "id": "RG4-report",
+      "classification": "historical-manual",
+      "ownerModule": "canon-cr3-research",
+      "inputs": [
+        "docs/cleanroom/experiment-ledger.json",
+        "docs/cleanroom/source-register.json",
+        "docs/cr3-results/2026-11-14-crx-native/first-row-discovery.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/first-row-holdout.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-native/README.md"
+      ],
+      "ledgerExperiment": "RG4",
+      "timestampPolicy": "not-applicable",
+      "rationale": "Reviewed interpretation of the frozen first-row and full-image tests on the discovery and held-out photos, including the historical product baseline."
+    },
+    {
+      "id": "RG4-first-row",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessFirstRowIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=LosslessFirstRowIT -Djava.awt.headless=true -Dcr3.first-row.discovery.enabled=true -Dcr3.first-row.holdout.enabled=true -Dcr3.opening.holdout.dir=\"$holdout\"",
+      "inputs": [
+        "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessFirstRow.java",
+        "docs/cr3-reference-manifest.md",
+        "scripts/research/public-crx/lossless-holdout.tsv"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-native/first-row-discovery.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/first-row-holdout.tsv"
+      ],
+      "ledgerExperiment": "RG4",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "discovery.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-native/first-row-discovery.tsv"
+        },
+        {
+          "source": "holdout.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-native/first-row-holdout.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-native/first-row-discovery.tsv": "d17849f752a03c18375549f179fdb5e826ad9b82",
+        "docs/cr3-results/2026-11-14-crx-native/first-row-holdout.tsv": "836a43580da34d8d57a907e301b22ed4e509b421"
+      }
+    },
+    {
+      "id": "RG4-full-sensor",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/FullSensorDecodeIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=FullSensorDecodeIT -Djava.awt.headless=true -Dcr3.full-sensor.mode=strict -Dcr3.opening.holdout.dir=\"$holdout\" -Dcr3.public.craw.dir=\"$craw\"",
+      "inputs": [
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessImage.java",
+        "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java",
+        "docs/cr3-reference-manifest.md",
+        "scripts/research/public-crx/lossless-holdout.tsv",
+        "scripts/research/public-crx/verify-public-crx.sh"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
+      ],
+      "ledgerExperiment": "RG4",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv": "5dd465bcae66d8b5b860407cab4d026fee87569b"
       }
     }
   ]

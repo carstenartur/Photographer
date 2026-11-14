@@ -68,6 +68,23 @@ class Cr3DecoderTest {
         }
     }
 
+    @Test
+    void readsEachCfaPositionThroughRawLinear() throws Exception {
+        // Synthetic 2x2 CR3: one V1 tile, four 8-byte planes, a 108-byte CMP1 directory.
+        // Opening residual codes 0, 2, 1, 4 give 8192, 8193, 8191, 8194 from the 14-bit midpoint.
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var image = decoder.decode(Cr3DecodeOptions.rawLinear().cropToActiveArea(false).applyBlackLevel(false));
+            assertEquals(BufferedImage.TYPE_USHORT_GRAY, image.getType());
+            assertEquals(2, image.getWidth());
+            assertEquals(2, image.getHeight());
+            assertArrayEquals(new int[] {32769, 32773, 32765, 32777},
+                    image.getRaster().getSamples(0, 0, 2, 2, 0, (int[]) null));
+        }
+    }
+
     @Nested
     class OptionsFactoryMethods {
         @Test

@@ -24,7 +24,9 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Public MED-predictor and Golomb coding background",
       "prohibitedUse": "Assuming CRX equals JPEG-LS without project evidence",
-      "repositoryEvidence": ["docs/crx-cleanroom-spec.md"],
+      "repositoryEvidence": [
+        "docs/crx-cleanroom-spec.md"
+      ],
       "integrity": null
     },
     {
@@ -35,7 +37,9 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Public wavelet terminology and reversible 5/3 transform background",
       "prohibitedUse": "Assuming CRX packet syntax or coefficients follow JPEG 2000",
-      "repositoryEvidence": ["docs/crx-cleanroom-spec.md"],
+      "repositoryEvidence": [
+        "docs/crx-cleanroom-spec.md"
+      ],
       "integrity": null
     },
     {
@@ -46,7 +50,9 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Container box and track structure",
       "prohibitedUse": "Inferring Canon-private payload semantics from generic boxes",
-      "repositoryEvidence": ["canon-cr3-container"],
+      "repositoryEvidence": [
+        "canon-cr3-container"
+      ],
       "integrity": null
     },
     {
@@ -57,7 +63,9 @@
       "verifiedDate": "2026-05-14",
       "permittedUse": "Metadata tag interpretation",
       "prohibitedUse": "Using metadata values as unvalidated entropy-decoder rules",
-      "repositoryEvidence": ["canon-cr3-metadata"],
+      "repositoryEvidence": [
+        "canon-cr3-metadata"
+      ],
       "integrity": null
     },
     {
@@ -68,7 +76,9 @@
       "verifiedDate": "2026-07-20",
       "permittedUse": "Camera-control API paths, methods, abilities and error semantics",
       "prohibitedUse": "Treating CCAPI documentation as CRX codec documentation",
-      "repositoryEvidence": ["docs/canon-ccapi-native-focus-sequence.md"],
+      "repositoryEvidence": [
+        "docs/canon-ccapi-native-focus-sequence.md"
+      ],
       "integrity": null
     },
     {
@@ -82,7 +92,8 @@
       "repositoryEvidence": [
         "camera-ptp/src/test/java/com/photographer/ptp/integration/CleanroomCr3FixtureCaptureIT.java",
         "canon-cr3-imageio/src/test/resources/samples/research/manifest.tsv",
-        "canon-cr3-imageio/src/test/resources/samples/research/README.md"
+        "canon-cr3-imageio/src/test/resources/samples/research/README.md",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
       ],
       "integrity": {
         "algorithm": "manifest-defined",
@@ -99,7 +110,8 @@
       "prohibitedUse": "Inferring unsupported models or firmware behavior",
       "repositoryEvidence": [
         "app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/EosRSampleCaptureIT.java",
-        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json"
+        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
       ],
       "integrity": {
         "algorithm": "sha256",
@@ -116,7 +128,8 @@
       "prohibitedUse": "Consulting LibRaw source or translating its CRX implementation",
       "repositoryEvidence": [
         "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
-        "docs/cr3-reference-inventory.md"
+        "docs/cr3-reference-inventory.md",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
       ],
       "integrity": {
         "algorithm": "sha256",
@@ -148,7 +161,8 @@
         "docs/cr3-results/2026-11-14-crx/README.md",
         "scripts/research/public-crx/verify-public-crx.sh",
         "docs/cr3-results/2026-11-14-crx/external-sensors.tsv",
-        "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv"
+        "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
       ],
       "integrity": {
         "algorithm": "sha256",
@@ -161,16 +175,36 @@
       "title": "Four CC0 Canon lossless CR3 inputs and native DNGLab sensor references",
       "citation": "raw.pixls.us IDs 3510, 4515, 4657 and 4674. DNGLab release 0.8.0 for Linux x86-64, analyze --raw-pixel.",
       "verifiedDate": "2026-11-14",
-      "permittedUse": "Compare predictions frozen in issue 334 against output samples at native tile/plane coordinates. Use the published camera files under the CC0 dedication recorded for each input.",
+      "permittedUse": "Compare predictions frozen in issue 334 against output samples at native tile/plane coordinates. Use the published camera files under the CC0 dedication recorded for each input. Compare frozen native full-row and full-plane predictions against the registered outputs in issue 336.",
       "prohibitedUse": "Deriving codec semantics from external decoder implementation source.",
       "repositoryEvidence": [
         "scripts/research/public-crx/lossless-holdout.tsv",
         "scripts/research/public-crx/prepare-lossless-holdout.sh",
-        "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv"
+        "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
       ],
       "integrity": {
         "algorithm": "sha256",
         "digest": "The sample registry pins each input and native PGM. The replay script pins the DNGLab executable."
+      }
+    },
+    {
+      "id": "SRC-013",
+      "class": "first-party-observation",
+      "title": "RG4 exact CRX code and full native sensor comparisons",
+      "citation": "Photographer first-party CRX bitstreams and native sensor observations, issue 336 first-row and full-plane freezes, baseline 623487053156b0c2326bc9d8ea05448ed3814b2c.",
+      "verifiedDate": "2026-11-14",
+      "permittedUse": "Implement and validate the measured V1 14-bit lossless entropy, predictor, run coding and tile/plane placement.",
+      "prohibitedUse": "Extrapolating these rules to other bit depths, entropy layouts, rounded planes, C-RAW or wavelet coefficient coding without evidence.",
+      "repositoryEvidence": [
+        "docs/cr3-results/2026-11-14-crx-native/README.md",
+        "docs/cr3-results/2026-11-14-crx-native/first-row-discovery.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/first-row-holdout.tsv",
+        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "Input and expected native sample files pinned by the replay; first-row result TSVs carry per-row sample hashes. Frozen full-plane comparator: 47fcf8c6b6e644dc76809821c9448bf3913c79ec620a744547185e3267fab168."
       }
     }
   ]

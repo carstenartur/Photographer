@@ -50,6 +50,18 @@ class CrxLossyDecoderTest {
     }
 
     @Test
+    void unsupportedFileReportsItsWaveletLevelsAndPlanes() {
+        Cmp1Box cmp1 = new Cmp1Box((short) 1, 100, 100,
+                100, 100, 14, 4, 0, 0, 2, false, 0, false);
+        byte[] headers = CrxHeaderTest.buildMinimalHeader(1, 4, 7, CrxHeader.CodecVersion.V1);
+
+        assertThatThrownBy(() -> CrxLossyDecoder.decode(
+                headers, 100, 100, 14, CrxHeader.CodecVersion.V1, cmp1))
+                .isInstanceOf(Cr3Exception.class)
+                .hasMessageContaining("File has 2 wavelet levels, 4 planes.");
+    }
+
+    @Test
     @DisplayName("decode throws Cr3Exception when CMP1 is null")
     void decodeNullCmp1() {
         byte[] data = new byte[100];

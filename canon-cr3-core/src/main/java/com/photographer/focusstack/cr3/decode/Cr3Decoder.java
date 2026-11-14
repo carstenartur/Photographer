@@ -479,7 +479,7 @@ public final class Cr3Decoder implements AutoCloseable {
             decoded = CrxLossyDecoder.decode(crxData, rawWidth, rawHeight,
                     bitDepth, codecVersion, cmp1);
         } else {
-            decoded = CrxLosslessRawDecoder.decode(crxData, rawWidth, rawHeight,
+            decoded = CrxLosslessRawDecoder.decodeNative(crxData, rawWidth, rawHeight,
                     bitDepth, codecVersion, cmp1);
         }
 

@@ -1,0 +1,18 @@
+fixture	width	height	bits	planes	levels	status	compared	mismatches	first(x,y,reference,photographer)	maxAbsDifference	detail
+eosr-iso-high	6888	4546	14	4	0	EXACT	31312848	0	-	0	-
+eosr-iso-low	6888	4546	14	4	0	EXACT	31312848	0	-	0	-
+eosr-iso-mid	6888	4546	14	4	0	EXACT	31312848	0	-	0	-
+research/g5xm2-asis-iso200-ss130-ff2p5-01	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+research/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+research/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+sample-iso-high	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+sample-tele	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+sample-wb-tungsten	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+sample-wide	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+sample	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+3510	5632	3710	14	4	0	EXACT	20894720	0	-	0	-
+4515	6888	4546	14	4	0	EXACT	31312848	0	-	0	-
+4657	6288	4056	14	4	0	EXACT	25504128	0	-	0	-
+4674	6384	4224	14	4	0	EXACT	26966016	0	-	0	-
+eos-r	6888	4546	14	4	3	UNSUPPORTED	0	-	-	-	C-RAW (lossy) decoding is not yet fully implemented. File has 3 wavelet levels, 4 planes. Header and subband structure validated successfully. IDWT infrastructure is ready (Le Gall 5/3). Remaining: entropy decoding integration, dequantization formula, subband ordering confirmation. Use lossless RAW files, or extract the embedded JPEG preview instead.
+g5xm2	5632	3710	14	4	3	UNSUPPORTED	0	-	-	-	C-RAW (lossy) decoding is not yet fully implemented. File has 3 wavelet levels, 4 planes. Header and subband structure validated successfully. IDWT infrastructure is ready (Le Gall 5/3). Remaining: entropy decoding integration, dequantization formula, subband ordering confirmation. Use lossless RAW files, or extract the embedded JPEG preview instead.
