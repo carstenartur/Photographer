@@ -224,6 +224,9 @@
                                         <requireReleaseVersion>
                                             <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
                                         </requireReleaseVersion>
+                                        <requireReleaseDeps>
+                                            <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
+                                        </requireReleaseDeps>
                                     </rules>
                                 </configuration>
                             </execution>

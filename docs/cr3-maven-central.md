@@ -53,7 +53,7 @@ bash scripts/run_cr3_central_preflight.sh 0.1.5
 
 The script verifies 24 payloads, their 96 checksums and their 24 detached signatures. It writes `target/cr3-central-preflight/central-bundle.zip`, its SHA-256 digest and the build log, then deletes the temporary keyring and repository. The same preflight runs in the CR3 Packaged Consumer workflow.
 
-With your own signing key, build the bundle directly from Maven. Selecting `central-release` defaults to local bundling. Once all plugins and dependencies are cached, the same command accepts Maven’s `-o` option for an offline build.
+With your own signing key, build the bundle directly from Maven. Selecting `central-release` defaults to local bundling. Run Maven in its normal network mode. With `-o`, Maven skips Sonatype’s bundle goal even after all dependencies are cached.
 
 ```bash
 mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release \
