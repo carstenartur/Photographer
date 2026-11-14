@@ -41,6 +41,7 @@ public class Cr3ImageMetadata extends IIOMetadata {
     public static final String NATIVE_FORMAT_NAME = "com_photographer_focusstack_cr3_1.0";
 
     private final Cr3Metadata metadata;
+    private final Cr3SensorCalibration calibration;
 
     /**
      * Creates IIOMetadata wrapping the given CR3 metadata.
@@ -48,6 +49,10 @@ public class Cr3ImageMetadata extends IIOMetadata {
      * @param metadata the CR3 metadata to expose (must not be null)
      */
     public Cr3ImageMetadata(Cr3Metadata metadata) {
+        this(metadata, null);
+    }
+
+    Cr3ImageMetadata(Cr3Metadata metadata, Cr3SensorCalibration calibration) {
         super(
                 false,                  // standardMetadataFormatSupported
                 NATIVE_FORMAT_NAME,     // nativeMetadataFormatName
@@ -56,6 +61,7 @@ public class Cr3ImageMetadata extends IIOMetadata {
                 null                    // extraMetadataFormatClassNames
         );
         this.metadata = metadata;
+        this.calibration = calibration;
     }
 
     @Override
@@ -91,6 +97,11 @@ public class Cr3ImageMetadata extends IIOMetadata {
         return metadata;
     }
 
+    /** Returns native RAW calibration, or null when only descriptive metadata is available. */
+    public Cr3SensorCalibration sensorCalibration() {
+        return calibration;
+    }
+
     private IIOMetadataNode buildTree() {
         IIOMetadataNode root = new IIOMetadataNode("CanonCR3Metadata");
 
@@ -108,10 +119,14 @@ public class Cr3ImageMetadata extends IIOMetadata {
         image.setAttribute("visibleHeight", String.valueOf(metadata.visibleHeight()));
         image.setAttribute("orientation", String.valueOf(metadata.orientation()));
         image.setAttribute("bitDepth", String.valueOf(metadata.bitDepth()));
-        image.setAttribute("bayerPattern", "RGGB");  // Canon standard
-        int whiteLevel = (1 << metadata.bitDepth()) - 1;
+        image.setAttribute("bayerPattern", calibration == null ? "unknown" : calibration.compression().cfaLayoutName());
+        var color = calibration == null ? null : calibration.color();
+        int whiteLevel = color == null ? (1 << metadata.bitDepth()) - 1 : color.white();
         image.setAttribute("whiteLevel", String.valueOf(whiteLevel));
-        if (metadata.perChannelBlackLevels() != null && metadata.perChannelBlackLevels().length >= 4) {
+        if (color != null) {
+            image.setAttribute("blackLevel", "%d,%d,%d,%d".formatted(
+                    color.redBlack(), color.greenRedBlack(), color.greenBlueBlack(), color.blueBlack()));
+        } else if (metadata.perChannelBlackLevels() != null && metadata.perChannelBlackLevels().length >= 4) {
             int[] bl = metadata.perChannelBlackLevels();
             image.setAttribute("blackLevel", "%d,%d,%d,%d".formatted(bl[0], bl[1], bl[2], bl[3]));
         } else {
@@ -135,6 +150,10 @@ public class Cr3ImageMetadata extends IIOMetadata {
 
         // White balance
         double[] wb = metadata.whiteBalanceMultipliers();
+        if (color != null && color.greenRedGain() + color.greenBlueGain() > 0) {
+            double green = (color.greenRedGain() + color.greenBlueGain()) / 2.0;
+            wb = new double[]{color.redGain() / green, 1.0, color.blueGain() / green};
+        }
         if (wb == null) {
             wb = WhiteBalanceProcessor.DEFAULT_DAYLIGHT_MULTIPLIERS;
         }

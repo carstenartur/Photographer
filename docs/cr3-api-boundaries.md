@@ -32,6 +32,7 @@ The package default applies unless a symbol is listed as an exception below.
 | `com.photographer.focusstack.cr3.raw.codec` | `INTERNAL` | `cr3-codec` | CRX entropy, predictor, tiling, and reconstruction implementation. |
 | `com.photographer.focusstack.cr3.processing` | `INTERNAL` | `cr3-processing` | CR3 RAW-to-image pipeline, not a general processing toolkit. |
 | `com.photographer.focusstack.cr3.imageio` | `PUBLIC_STABLE` | `cr3-imageio` | Standard ImageIO integration; RAW-specific parameters are exceptions below. |
+| `com.photographer.focusstack.dng.imageio` | `PUBLIC_EXPERIMENTAL` | `cr3-imageio` | ImageIO reader and writer for uncompressed 16-bit Bayer DNGs and their sensor calibration. |
 | `com.photographer.focusstack.cr3.cli` | `INTERNAL` | `canon-cr3-cli` | The command syntax is user-facing; Java implementation classes are not library API. |
 | `com.photographer.focusstack.cr3.reference` | `RESEARCH_ONLY` | `canon-cr3-reference-testkit` | Shared test infrastructure, never a production runtime dependency. |
 | `com.photographer.focusstack.cr3.research` | `RESEARCH_ONLY` | `canon-cr3-research` | Reverse-engineering, diagnostics, and hypothesis tests. |
