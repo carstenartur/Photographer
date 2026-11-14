@@ -155,6 +155,17 @@ jobs:
           -rf json
           -rff jmh-result.json
 
+      - name: Measure allocations per full RAW-to-RGB import
+        if: github.event_name != 'pull_request'
+        run: >-
+          java -Djava.awt.headless=true
+          -jar canon-cr3-benchmark/target/benchmarks.jar
+          Cr3ImageImportBenchmark.importProcessedRawViaImageIo
+          -prof gc -bm ss -wi 2 -i 5 -f 1 -foe true
+          -jvmArgs '-Xms24m -Xmx512m -XX:ActiveProcessorCount=1 -XX:+UseSerialGC'
+          -p sample=sample.cr3,eosr-iso-low.cr3
+          -rf json -rff rgb-import-profile.json
+
       - name: Prepare readable chart labels
         if: github.event_name != 'pull_request'
         run: >-
@@ -170,6 +181,7 @@ jobs:
           path: |
             jmh-result.json
             jmh-history.json
+            rgb-import-profile.json
           if-no-files-found: error
           retention-days: 30
 

@@ -17,7 +17,12 @@ final class CrxNativeLosslessPlane {
 
     static void decodeSensor(byte[] compressed, int start, int length, int width, int height,
                              int x, int y, CrxSensorDecoder.RowConsumer consumer) throws IOException {
-        var plane = new CrxNativeLosslessPlane(new BitReader(compressed, start, length), true);
+        decodeSensor(new BitReader(compressed, start, length), width, height, x, y, consumer);
+    }
+
+    static void decodeSensor(BitReader bits, int width, int height,
+                             int x, int y, CrxSensorDecoder.RowConsumer consumer) throws IOException {
+        var plane = new CrxNativeLosslessPlane(bits, true);
         int[] current = new int[width];
         int[] previous = new int[width];
         plane.readFirstRow(current, width);
@@ -33,10 +38,13 @@ final class CrxNativeLosslessPlane {
 
     /** Sequential, signed rows of the coarsest C-RAW approximation band. */
     static CrxWaveletTile.Band approximation(byte[] compressed, int start, int length, int width, int height) {
+        return approximation(new BitReader(compressed, start, length), width, height);
+    }
+
+    static CrxWaveletTile.Band approximation(BitReader bits, int width, int height) {
         if (width <= 0 || height <= 0 || (long) width * height > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Invalid approximation band geometry");
         }
-        var bits = new BitReader(compressed, start, length);
         var plane = new CrxNativeLosslessPlane(bits, false);
         return new CrxWaveletTile.Band(width, height, new CrxWaveletTile.RowReader() {
             private final int[] previous = new int[width];
@@ -50,7 +58,7 @@ final class CrxNativeLosslessPlane {
                     plane.readRow(previous, output, width);
                 }
                 System.arraycopy(output, 0, previous, 0, width);
-                if (++row == height && bits.consumedBytes() != length) {
+                if (++row == height && bits.consumedBytes() != bits.length()) {
                     throw new IOException("CRX approximation band byte count differs from its declared entropy length");
                 }
             }
@@ -69,7 +77,7 @@ final class CrxNativeLosslessPlane {
         int value = reconstruct(HALF_RANGE, bits.readBits(literalBits));
         output[0] = value;
         for (int x = 1; x < width; x++) {
-            int unsigned = state.readResidual();
+            int unsigned = state.readPredictionResidual();
             value = reconstruct(value, unsigned);
             output[x] = value;
             state.updateK(unsigned);
@@ -99,7 +107,7 @@ final class CrxNativeLosslessPlane {
                 prediction = above;
             }
 
-            int unsigned = state.readResidual();
+            int unsigned = state.readPredictionResidual();
             output[x] = reconstruct(prediction, unsigned);
             int adaptationValue = x + 1 == width ? unsigned : (unsigned >>> 1) + Math.abs(aboveRight - above);
             state.updateK(adaptationValue);

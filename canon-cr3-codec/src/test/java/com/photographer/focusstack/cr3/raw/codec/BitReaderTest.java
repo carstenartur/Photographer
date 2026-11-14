@@ -10,6 +10,33 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BitReaderTest {
     @Test
+    void riceSymbolsMatchSeparatePrefixAndRemainderReads() throws IOException {
+        var random = new Random(1719);
+        byte[] bytes = new byte[2048];
+        random.nextBytes(bytes);
+        for (int k = 0; k <= 15; k++) {
+            var expected = new BitReader(bytes);
+            var actual = new BitReader(bytes);
+            while (expected.hasMore()) {
+                int value;
+                try {
+                    int quotient = expected.readUnary(41);
+                    value = quotient == 41 ? expected.readBits(21) : (quotient << k) | expected.readBits(k);
+                } catch (IOException end) {
+                    int width = k;
+                    assertThrows(IOException.class, () -> actual.readRice(width, 41, 21));
+                    break;
+                }
+                assertEquals(value, actual.readRice(k, 41, 21));
+                assertEquals(expected.bytePosition(), actual.bytePosition());
+            }
+        }
+        byte[] escaped = {0, 0, 0, 0, 0, 0x7f, (byte) 0xff, (byte) 0xfe};
+        assertEquals((1 << 21) - 1, new BitReader(escaped).readRice(0, 41, 21));
+        assertThrows(IOException.class, () -> new BitReader(new byte[9]).readRice(0, 41, 21));
+    }
+
+    @Test
     void readsEveryBitWidthAcrossWordAndSliceBoundaries() throws IOException {
         byte[] bytes = new byte[25];
         new Random(42).nextBytes(bytes);

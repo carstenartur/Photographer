@@ -104,6 +104,36 @@ class Cr3DecoderTest {
     }
 
     @Test
+    void processedOddCropRetainsSensorBlackAndCropLocalWhiteBalancePhases() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var metadata = decoder.getMetadata();
+            // Crop the right column. Black levels use sensor Gr and B, and WB uses local R and G.
+            metadata.setActiveAreaLeft(1);
+            metadata.setActiveAreaRight(2);
+            metadata.setActiveAreaBottom(2);
+            metadata.setPerChannelBlackLevels(new int[]{1, 4096, 4000, 2048});
+            metadata.setWhiteBalanceMultipliers(new double[]{2, 1, 0.5});
+            metadata.setOrientation(6);
+            var options = Cr3DecodeOptions.rawProcessed().applyColorMatrix(false).applySrgbConversion(false);
+            var image = decoder.decode(options);
+            assertEquals(2, image.getWidth());
+            assertEquals(1, image.getHeight());
+            assertArrayEquals(new int[]{0xff7f5f00, 0xff7f5f00}, image.getRGB(0, 0, 2, 1, null, 0, 2));
+
+            metadata.setActiveAreaTop(1);
+            assertEquals(0xffbf0000, decoder.decode(options).getRGB(0, 0));
+            metadata.setActiveAreaTop(0);
+
+            // Fixed research pedestal takes precedence over MakerNote levels.
+            var fixed = decoder.decode(options.experimentalPedestal(4096));
+            assertArrayEquals(new int[]{0xffaa5500, 0xffaa5500}, fixed.getRGB(0, 0, 2, 1, null, 0, 2));
+        }
+    }
+
+    @Test
     void placesSubsampledSensorSitesAtTheCorrectParity() throws Exception {
         try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
              var input = new MemoryCacheImageInputStream(source);

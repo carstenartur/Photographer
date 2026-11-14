@@ -29,10 +29,13 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
         if (offset < 0 || length < 0 || offset > data.length - length) {
             throw new IOException("Invalid CRX detail payload extent");
         }
+        return band(new BitReader(data, offset, length), width, height, factor);
+    }
+
+    static CrxWaveletTile.Band band(BitReader bits, int width, int height, int factor) throws IOException {
         if (width <= 0 || height <= 0 || (long) width * height > Integer.MAX_VALUE - 8 || factor < 0) {
             throw new IOException("Invalid CRX detail geometry or quantization factor");
         }
-        var bits = new BitReader(data, offset, length);
         return new CrxWaveletTile.Band(width, height, new CrxWaveletDetail(bits, width, height, factor));
     }
 

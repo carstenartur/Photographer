@@ -21,7 +21,6 @@ import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
-import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
 import com.photographer.focusstack.cr3.raw.codec.CrxSensorDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,11 +31,7 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferUShort;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 
 /**
@@ -62,13 +57,6 @@ public final class Cr3Decoder implements AutoCloseable {
     private ImageInputStream input;
     private Cr3Container container;
     private Cr3Metadata metadata;
-    /**
-     * Source file path when {@link #setInput(Path)} was used; enables a fast
-     * memory-mapped read of the CRX RAW track in {@link #decodeRawBayer}.
-     * {@code null} when the decoder was driven by the
-     * {@link #setInput(ImageInputStream)} overload.
-     */
-    private Path sourceFile;
     /**
      * {@code true} when the decoder itself opened {@link #input} (via
      * {@link #setInput(Path)}) and therefore owns its lifecycle. {@code false}
@@ -116,7 +104,6 @@ public final class Cr3Decoder implements AutoCloseable {
     public void setInput(ImageInputStream input) throws IOException, Cr3Exception {
         closeOwnedInputQuietly();
         this.input = input;
-        this.sourceFile = null;
         this.ownsInput = false;
         this.container = Cr3Parser.parse(input);
         this.metadata = extractMetadata();
@@ -124,11 +111,7 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     /**
-     * File-based input variant. The file is opened with a {@code FileImageInputStream}
-     * for the parser/metadata/preview paths, and additionally retained so that
-     * {@link #decodeRawBayer} can pull the (typically multi-MB) CRX RAW track
-     * via a single {@link FileChannel#map memory-mapped read} instead of the
-     * {@code ImageInputStream.readFully(byte[])} bulk copy.
+     * Opens a file for metadata, preview and bounded RAW subband reads.
      *
      * <p>The decoder takes ownership of the internally-opened stream; the caller
      * must invoke {@link #reset} or {@link #close} (or use the decoder in a
@@ -167,7 +150,6 @@ public final class Cr3Decoder implements AutoCloseable {
             throw e;
         }
         this.input = iis;
-        this.sourceFile = file;
         this.ownsInput = true;
         this.container = parsedContainer;
         this.metadata = parsedMetadata;
@@ -230,7 +212,8 @@ public final class Cr3Decoder implements AutoCloseable {
             throw new IllegalStateException("No input set — call setInput() first");
         }
         Cr3RawImage rawImage = decodeRawBayer();
-        BlackLevelResolution resolution = resolveBlackLevelResolution(rawImage);
+        BlackLevelResolution resolution = resolveBlackLevelResolution(
+                ObBlackLevelEstimator.estimate(rawImage, metadata == null ? 0 : metadata.activeAreaLeft()));
 
         int activeAreaLeft = metadata != null ? metadata.activeAreaLeft() : 0;
         Integer activePixel = null;
@@ -268,7 +251,6 @@ public final class Cr3Decoder implements AutoCloseable {
         this.input = null;
         this.container = null;
         this.metadata = null;
-        this.sourceFile = null;
         this.ownsInput = false;
     }
 
@@ -297,65 +279,54 @@ public final class Cr3Decoder implements AutoCloseable {
         return Cr3MetadataReader.read(input, container);
     }
 
-    /**
-     * Full RAW processing pipeline:
-     * CrxLosslessRawDecoder → BlackLevel (on uncropped) → Crop → WhiteBalance → Demosaic → ColorMatrix → sRGB → Orientation
-     *
-     * <p><b>Important:</b> OB (optical black) column estimation must happen
-     * <em>before</em> cropping to the active area. The OB columns sit outside
-     * the active area; if we crop first, the estimator would read real image
-     * pixels instead of masked OB pixels, producing wildly wrong black levels.</p>
-     */
+    /** Decodes Bayer samples into the crop-sized array that also holds the eventual packed RGB pixels. */
     private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception, IOException {
-        boolean shouldCrop = options.cropToActiveArea();
+        RawTrack track = rawTrack();
+        CrxSensorDecoder sensor = prepareSensor(track);
+        Rectangle area = options.cropToActiveArea()
+                ? activeArea(track.width, track.height) : new Rectangle(track.width, track.height);
+        int[] samples = new int[Math.multiplyExact(area.width, area.height)];
+        var rawImage = new Cr3RawImage(area.width, area.height, samples, track.depth,
+                CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
 
-        // Always decode uncropped — OB columns are needed for black level estimation
-        Cr3RawImage rawImage = decodeRawBayer();
+        // Collect the left optical-black border for every sensor row, including rows outside the crop.
+        // Even masked rows can set the minimum black level used for demosaic normalization.
+        boolean experiment = options.pedestalStrategy() == Cr3DecodeOptions.PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH;
+        var ob = options.applyBlackLevel() && !experiment && metadata != null
+                ? ObBlackLevelEstimator.forSensor(track.width, track.height, metadata.activeAreaLeft()) : null;
+        sensor.decodeRows((x, y, row) -> {
+            if (ob != null) {
+                ob.addPlaneRow(x, y, row);
+            }
+            copyBayerRow(samples, area, x, y, row);
+        });
 
-        // 1. Black level subtraction on the UNCROPPED image (OB columns still present).
-        //    We also record the minimum subtracted level so the demosaic step can
-        //    normalise against the correct post-BL white level (avoids a slight
-        //    green-channel under-exposure when G_mult ≈ 1.0 but R/B are clipped
-        //    by the WB multiplier).
         int minBlackLevelSubtracted = 0;
         if (options.applyBlackLevel()) {
-            BlackLevel blackLevel = resolveBlackLevel(rawImage, options);
-            BlackLevelProcessor.process(rawImage, blackLevel);
-            minBlackLevelSubtracted = effectiveMinBlackLevel(blackLevel);
+            BlackLevel black = experiment ? BlackLevel.global(options.experimentalPedestalLevel())
+                    : resolveBlackLevelResolution(ob == null ? null : ob.blackLevel()).blackLevel();
+            BlackLevelProcessor.process(rawImage, black, area.x, area.y);
+            minBlackLevelSubtracted = effectiveMinBlackLevel(black);
         }
 
-        // 2. Now crop to active area (OB columns removed after estimation)
-        if (shouldCrop) {
-            rawImage = cropToActiveArea(rawImage);
-        }
-
-        // 3. White balance — use MakerNote multipliers if available
+        // White balance and interpolation retain their crop-local Bayer phase.
         if (options.applyWhiteBalance()) {
-            double[] wbMultipliers = resolveWhiteBalance();
-            WhiteBalanceProcessor.process(rawImage, wbMultipliers);
+            WhiteBalanceProcessor.process(rawImage, resolveWhiteBalance());
         }
-
-        // 4. Bayer demosaicing → full-colour RGB.
-        //    The white level passed here is (maxValue − minBlackLevel) so that
-        //    the green channel (G_mult ≈ 1.0, not amplified by WB) reaches 255
-        //    at sensor saturation rather than stopping at ~97%.
         int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
-        BufferedImage rgb = BayerDemosaicer.demosaic(rawImage, whiteLevel);
+        BufferedImage rgb = BayerDemosaicer.demosaicInPlace(rawImage, whiteLevel);
 
-        // 5. Color matrix correction — use camera-specific if available
         if (options.applyColorMatrix()) {
             double[][] colorMatrix = resolveColorMatrix();
             ColorMatrixProcessor.process(rgb, colorMatrix);
         }
 
-        // 6. sRGB gamma conversion
         if (options.applySrgbConversion()) {
             SrgbConverter.process(rgb);
         }
 
-        // 7. Apply EXIF orientation (rotation/flip)
         if (metadata != null && metadata.orientation() > 1) {
-            rgb = ExifOrientationTransformer.apply(rgb, metadata.orientation());
+            rgb = ExifOrientationTransformer.applyToOwnedImage(rgb, metadata.orientation());
         }
 
         return rgb;
@@ -411,9 +382,7 @@ public final class Cr3Decoder implements AutoCloseable {
             }
             area.setBounds(area.x + region.x, area.y + region.y, region.width, region.height);
         }
-        byte[] data = readPayload(track.source);
-        CrxSensorDecoder decoder = CrxSensorDecoder.prepare(data, track.width, track.height, track.depth,
-                track.version, track.source.cmp1());
+        CrxSensorDecoder decoder = prepareSensor(track);
         boolean nativeCodes = options.outputMode() == Cr3DecodeOptions.OutputMode.RAW_SENSOR;
         int outputWidth = Math.ceilDiv(area.width, xStep);
         int outputHeight = Math.ceilDiv(area.height, yStep);
@@ -478,13 +447,17 @@ public final class Cr3Decoder implements AutoCloseable {
 
     private Cr3RawImage decodeRawBayer() throws Cr3Exception, IOException {
         RawTrack track = rawTrack();
-        byte[] data = readPayload(track.source);
-        if (CrxLossyDecoder.isLossy(track.source.cmp1())) {
-            return CrxLossyDecoder.decode(data, track.width, track.height, track.depth,
-                    track.version, track.source.cmp1());
-        }
-        return CrxLosslessRawDecoder.decodeNative(data, track.width, track.height, track.depth,
-                track.version, track.source.cmp1());
+        CrxSensorDecoder sensor = prepareSensor(track);
+        var area = new Rectangle(track.width, track.height);
+        int[] samples = new int[Math.multiplyExact(track.width, track.height)];
+        sensor.decodeRows((x, y, row) -> copyBayerRow(samples, area, x, y, row));
+        return new Cr3RawImage(track.width, track.height, samples, track.depth,
+                CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
+    }
+
+    private CrxSensorDecoder prepareSensor(RawTrack track) throws Cr3Exception, IOException {
+        return CrxSensorDecoder.prepare(input, track.source.dataOffset(), (int) track.source.dataSize(),
+                track.width, track.height, track.depth, track.version, track.source.cmp1());
     }
 
     private RawTrack rawTrack() throws Cr3Exception {
@@ -534,17 +507,6 @@ public final class Cr3Decoder implements AutoCloseable {
         return new RawTrack(rawTrack, rawWidth, rawHeight, bitDepth, version);
     }
 
-    private byte[] readPayload(Cr3Track track) throws IOException {
-        int length = (int) track.dataSize();
-        if (sourceFile != null) {
-            return readCrxTrackMmap(sourceFile, track.dataOffset(), length);
-        }
-        byte[] data = new byte[length];
-        input.seek(track.dataOffset());
-        input.readFully(data);
-        return data;
-    }
-
     private Rectangle activeArea(int width, int height) {
         if (metadata != null) {
             int left = Math.clamp(metadata.activeAreaLeft(), 0, width);
@@ -558,77 +520,26 @@ public final class Cr3Decoder implements AutoCloseable {
         return new Rectangle(width, height);
     }
 
-    private Cr3RawImage cropToActiveArea(Cr3RawImage image) {
-        Rectangle area = activeArea(image.width(), image.height());
-        int croppedWidth = area.width;
-        int croppedHeight = area.height;
-        if (croppedWidth == image.width() && croppedHeight == image.height()) {
-            return image;
+    private static void copyBayerRow(int[] destination, Rectangle area, int x, int y, int[] row) {
+        int relativeY = y - area.y;
+        if (relativeY < 0 || relativeY >= area.height) {
+            return;
         }
-        int[] src = image.data();
-        int[] cropped = new int[croppedWidth * croppedHeight];
-        for (int y = 0; y < croppedHeight; y++) {
-            int srcOffset = (area.y + y) * image.width() + area.x;
-            int dstOffset = y * croppedWidth;
-            System.arraycopy(src, srcOffset, cropped, dstOffset, croppedWidth);
+        // A tile-plane row visits every second site. Clip in plane coordinates to retain its phase.
+        int first = Math.max(0, Math.ceilDiv(area.x - x, 2));
+        int end = Math.min(row.length, Math.ceilDiv(area.x + area.width - x, 2));
+        int dest = relativeY * area.width + (x + 2 * first - area.x);
+        for (int i = first; i < end; i++, dest += 2) {
+            destination[dest] = row[i];
         }
-        return new Cr3RawImage(croppedWidth, croppedHeight, cropped,
-                image.bitDepth(), image.bayerPattern());
-    }
-
-    /**
-     * Reads {@code length} bytes starting at {@code offset} from {@code file}
-     * via {@link FileChannel#map} and copies them into a fresh {@code byte[]}.
-     *
-     * <p>For the typical multi-megabyte CRX RAW track this is measurably
-     * faster than {@code RandomAccessFile.readFully}: the read becomes a single
-     * page-fault-driven copy instead of an 8 KB-buffered syscall loop.</p>
-     *
-     * <p>Note: the {@link MappedByteBuffer} returned by {@code FileChannel.map}
-     * is unmapped non-deterministically by the JVM's {@code Cleaner} — closing
-     * the {@link FileChannel} does not force-unmap it. That is harmless here
-     * because we copy the contents into a fresh {@code byte[]} before returning
-     * and the buffer becomes unreachable as soon as this method exits.</p>
-     */
-    private static byte[] readCrxTrackMmap(Path file, long offset, int length) throws IOException {
-        try (FileChannel ch = FileChannel.open(file, StandardOpenOption.READ)) {
-            ByteBuffer mapped = ch.map(FileChannel.MapMode.READ_ONLY, offset, length);
-            byte[] dst = new byte[length];
-            mapped.get(dst);
-            return dst;
-        }
-    }
-
-    /**
-     * Resolves the best available black level for the current image.
-     * Priority: OB per-row estimation &gt; per-channel from metadata &gt; global default.
-     *
-     * @param rawImage the raw image (used for OB estimation if metadata indicates OB columns)
-     */
-    private BlackLevel resolveBlackLevel(Cr3RawImage rawImage, Cr3DecodeOptions options) {
-        return resolveBlackLevelResolution(rawImage, options).blackLevel();
     }
 
     private record BlackLevelResolution(PedestalSource source, BlackLevel blackLevel) {}
 
-    private BlackLevelResolution resolveBlackLevelResolution(Cr3RawImage rawImage, Cr3DecodeOptions options) {
-        if (options != null
-                && options.pedestalStrategy() == Cr3DecodeOptions.PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH) {
-            return new BlackLevelResolution(
-                    PedestalSource.EXPERIMENTAL_REFERENCE_MATCH,
-                    BlackLevel.global(options.experimentalPedestalLevel()));
-        }
-        return resolveBlackLevelResolution(rawImage);
-    }
-
-    private BlackLevelResolution resolveBlackLevelResolution(Cr3RawImage rawImage) {
-        // Try OB-based per-row estimation first (highest accuracy)
-        if (metadata != null && metadata.activeAreaLeft() >= ObBlackLevelEstimator.MIN_OB_COLUMNS) {
-            BlackLevel obLevel = ObBlackLevelEstimator.estimate(rawImage, metadata.activeAreaLeft());
-            if (obLevel != null) {
-                LOG.debug("Using OB-estimated per-row black level");
-                return new BlackLevelResolution(PedestalSource.OB_PER_ROW, obLevel);
-            }
+    private BlackLevelResolution resolveBlackLevelResolution(BlackLevel obLevel) {
+        if (obLevel != null) {
+            LOG.debug("Using OB-estimated per-row black level");
+            return new BlackLevelResolution(PedestalSource.OB_PER_ROW, obLevel);
         }
 
         // Fall back to per-channel from MakerNote metadata

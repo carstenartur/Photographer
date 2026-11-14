@@ -49,33 +49,12 @@ public final class SrgbConverter {
     public static void process(BufferedImage image) {
         LOG.debug("Applying sRGB gamma to {}x{} image", image.getWidth(), image.getHeight());
 
-        try {
-            int[] pixels = Pixels.intBufferOf(image);
-            for (int i = 0; i < pixels.length; i++) {
-                int rgb = pixels[i];
-                int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
-                int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
-                int b = GAMMA_LUT[rgb & 0xFF];
-                pixels[i] = (r << 16) | (g << 8) | b;
-            }
-        } catch (IllegalArgumentException ex) {
-            LOG.debug("Falling back to getRGB/setRGB slow path for image type {}", image.getType());
-            applySlowPath(image);
-        }
-    }
-
-    private static void applySlowPath(BufferedImage image) {
-        int w = image.getWidth();
-        int h = image.getHeight();
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int rgb = image.getRGB(x, y);
-                int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
-                int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
-                int b = GAMMA_LUT[rgb & 0xFF];
-                image.setRGB(x, y, (r << 16) | (g << 8) | b);
-            }
-        }
+        Pixels.transform(image, rgb -> {
+            int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
+            int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
+            int b = GAMMA_LUT[rgb & 0xFF];
+            return (r << 16) | (g << 8) | b;
+        });
     }
 
     /**

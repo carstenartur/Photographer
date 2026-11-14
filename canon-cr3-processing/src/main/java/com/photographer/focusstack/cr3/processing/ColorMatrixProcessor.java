@@ -40,23 +40,18 @@ public final class ColorMatrixProcessor {
 
         LOG.debug("Applying 3x3 color matrix to {}x{} image", image.getWidth(), image.getHeight());
 
-        int w = image.getWidth();
-        int h = image.getHeight();
+        Pixels.transform(image, rgb -> applyMatrix(rgb, matrix));
+    }
 
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int rgb = image.getRGB(x, y);
-                int r = (rgb >> 16) & 0xFF;
-                int g = (rgb >> 8) & 0xFF;
-                int b = rgb & 0xFF;
+    private static int applyMatrix(int rgb, double[][] matrix) {
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
 
-                int nr = clamp((int) (matrix[0][0] * r + matrix[0][1] * g + matrix[0][2] * b));
-                int ng = clamp((int) (matrix[1][0] * r + matrix[1][1] * g + matrix[1][2] * b));
-                int nb = clamp((int) (matrix[2][0] * r + matrix[2][1] * g + matrix[2][2] * b));
-
-                image.setRGB(x, y, (nr << 16) | (ng << 8) | nb);
-            }
-        }
+        int nr = clamp((int) (matrix[0][0] * r + matrix[0][1] * g + matrix[0][2] * b));
+        int ng = clamp((int) (matrix[1][0] * r + matrix[1][1] * g + matrix[1][2] * b));
+        int nb = clamp((int) (matrix[2][0] * r + matrix[2][1] * g + matrix[2][2] * b));
+        return (nr << 16) | (ng << 8) | nb;
     }
 
     /**

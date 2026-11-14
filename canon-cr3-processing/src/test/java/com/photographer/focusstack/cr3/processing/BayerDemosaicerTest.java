@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -118,6 +120,29 @@ class BayerDemosaicerTest {
 
     @Nested
     class EdgeCases {
+        @Test
+        void inPlaceConsumesSuppliedBufferAndMatchesSeparateOutput() {
+            Random random = new Random(802);
+            for (var pattern : Cr3RawImage.BayerPattern.values()) {
+                for (int width : new int[]{1, 2, 7, 8}) {
+                    for (int height : new int[]{1, 2, 5, 6}) {
+                        int[] samples = random.ints(width * height, -400, 16384).toArray();
+                        int[] original = samples.clone();
+                        var raw = new Cr3RawImage(width, height, samples, 14, pattern);
+                        BufferedImage separate = BayerDemosaicer.demosaic(raw, 13000);
+                        assertArrayEquals(original, samples);
+
+                        BufferedImage inPlace = BayerDemosaicer.demosaicInPlace(raw, 13000);
+
+                        assertEquals(BufferedImage.TYPE_INT_RGB, inPlace.getType());
+                        assertSame(samples, ((DataBufferInt) inPlace.getRaster().getDataBuffer()).getData());
+                        assertArrayEquals(separate.getRGB(0, 0, width, height, null, 0, width),
+                                inPlace.getRGB(0, 0, width, height, null, 0, width));
+                    }
+                }
+            }
+        }
+
         @Test
         void minimumSize2x2() {
             int[] data = {8000, 4000, 4000, 2000};

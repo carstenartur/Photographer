@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Any
 
 
+PATH_INPUT_LABEL = "RAW pipeline · Decode display-ready sRGB (path input)"
+LEGACY_MMAP_LABEL = "RAW pipeline · Decode display-ready sRGB (memory-mapped input)"
+
 BENCHMARK_LABELS = {
     "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse":
         "Container · Parse ISO-BMFF boxes",
@@ -29,7 +32,9 @@ BENCHMARK_LABELS = {
     "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed":
         "RAW pipeline · Decode display-ready sRGB (stream input)",
     "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap":
-        "RAW pipeline · Decode display-ready sRGB (memory-mapped input)",
+        PATH_INPUT_LABEL,
+    "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedFromPath":
+        PATH_INPUT_LABEL,
     "com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.parseHeader":
         "CRX stage · Parse codec header",
     "com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.decodeFirstPlane":
@@ -175,6 +180,10 @@ def transform_results(results: Any) -> list[dict[str, Any]]:
 
 def transform_published_series_name(name: str) -> str:
     """Migrate a historical github-action-benchmark series name idempotently."""
+    # Charts already published with human-readable names have no Java method identifier.
+    label, separator, details = name.partition(" — ")
+    if label == LEGACY_MMAP_LABEL:
+        return PATH_INPUT_LABEL + separator + details
     match = PUBLISHED_SERIES.fullmatch(name)
     if match is not None:
         benchmark = match.group("benchmark")

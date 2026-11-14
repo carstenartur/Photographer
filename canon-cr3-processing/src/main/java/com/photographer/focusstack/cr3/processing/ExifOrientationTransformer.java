@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 
 /**
  * Applies EXIF orientation transformations to an image.
@@ -50,16 +51,96 @@ public final class ExifOrientationTransformer {
         LOG.debug("Applying EXIF orientation {} to {}x{} image",
                 orientation, image.getWidth(), image.getHeight());
 
-        return switch (orientation) {
-            case 2 -> flipHorizontal(image);
-            case 3 -> rotate180(image);
-            case 4 -> flipVertical(image);
-            case 5 -> transpose(image);
-            case 6 -> rotate90CW(image);
-            case 7 -> transverse(image);
-            case 8 -> rotate270CW(image);
-            default -> image;
-        };
+        int width = image.getWidth();
+        int height = image.getHeight();
+        boolean transpose = orientation >= 5;
+        boolean reverseLine = orientation == 2 || orientation == 3 || orientation >= 7;
+        boolean reverseRows = orientation == 3 || orientation == 4 || orientation == 6 || orientation == 7;
+        var output = new BufferedImage(transpose ? height : width, transpose ? width : height, image.getType());
+        var packed = Pixels.packed(image);
+        if (packed != null) {
+            int[] dst = ((DataBufferInt) output.getRaster().getDataBuffer()).getData();
+            // A source row becomes either a destination row or a destination column.
+            int step = transpose ? height : 1;
+            int start = reverseLine ? (width - 1) * step : 0;
+            if (reverseLine) {
+                step = -step;
+            }
+            int mask = image.getType() == BufferedImage.TYPE_INT_RGB ? 0xffffff : -1;
+            // On rotation keep a small group of destination rows hot across source rows.
+            int blockWidth = transpose ? 32 : width;
+            for (int left = 0; left < width; left += blockWidth) {
+                int right = Math.min(width, left + blockWidth);
+                for (int y = 0; y < height; y++) {
+                    int row = reverseRows ? height - 1 - y : y;
+                    int to = (transpose ? row : row * width) + start + left * step;
+                    int from = packed.rowStart(y) + left;
+                    for (int x = left; x < right; x++, from++, to += step) {
+                        dst[to] = packed.data()[from] & mask;
+                    }
+                }
+            }
+        } else {
+            for (int y = 0; y < height; y++) {
+                int row = reverseRows ? height - 1 - y : y;
+                for (int x = 0; x < width; x++) {
+                    int col = reverseLine ? width - 1 - x : x;
+                    output.setRGB(transpose ? row : col, transpose ? col : row, image.getRGB(x, y));
+                }
+            }
+        }
+        return output;
+    }
+
+    /**
+     * Orients an exclusively owned image. Flips and 180-degree rotation reuse a packed
+     * image's storage. The caller must use the returned image when the axes are exchanged.
+     *
+     * @param image the input image whose pixels may be overwritten
+     * @param orientation the EXIF orientation value (1-8)
+     * @return the oriented image
+     */
+    public static BufferedImage applyToOwnedImage(BufferedImage image, int orientation) {
+        if (orientation < 2 || orientation > 4) {
+            return apply(image, orientation);
+        }
+        var packed = Pixels.packed(image);
+        int width = image.getWidth();
+        if (packed == null || packed.stride() < width) {
+            return apply(image, orientation);
+        }
+
+        int height = image.getHeight();
+        int[] data = packed.data();
+        if (orientation == 2) {
+            for (int y = 0; y < height; y++) {
+                reverseRow(data, packed.rowStart(y), width);
+            }
+        } else {
+            for (int y = 0; y < height / 2; y++) {
+                int top = packed.rowStart(y);
+                int bottom = packed.rowStart(height - 1 - y);
+                for (int x = 0; x < width; x++) {
+                    swap(data, top + x, bottom + (orientation == 3 ? width - 1 - x : x));
+                }
+            }
+            if (orientation == 3 && (height & 1) != 0) {
+                reverseRow(data, packed.rowStart(height / 2), width);
+            }
+        }
+        return image;
+    }
+
+    private static void reverseRow(int[] data, int rowStart, int width) {
+        for (int x = 0; x < width / 2; x++) {
+            swap(data, rowStart + x, rowStart + width - 1 - x);
+        }
+    }
+
+    private static void swap(int[] data, int first, int second) {
+        int value = data[first];
+        data[first] = data[second];
+        data[second] = value;
     }
 
     /**
@@ -76,84 +157,5 @@ public final class ExifOrientationTransformer {
             return new int[]{height, width};
         }
         return new int[]{width, height};
-    }
-
-    private static BufferedImage flipHorizontal(BufferedImage src) {
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(w, h, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(w - 1 - x, y, src.getRGB(x, y));
-            }
-        }
-        return dst;
-    }
-
-    private static BufferedImage flipVertical(BufferedImage src) {
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(w, h, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(x, h - 1 - y, src.getRGB(x, y));
-            }
-        }
-        return dst;
-    }
-
-    private static BufferedImage rotate180(BufferedImage src) {
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(w, h, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(w - 1 - x, h - 1 - y, src.getRGB(x, y));
-            }
-        }
-        return dst;
-    }
-
-    private static BufferedImage rotate90CW(BufferedImage src) {
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(h, w, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(h - 1 - y, x, src.getRGB(x, y));
-            }
-        }
-        return dst;
-    }
-
-    private static BufferedImage rotate270CW(BufferedImage src) {
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(h, w, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(y, w - 1 - x, src.getRGB(x, y));
-            }
-        }
-        return dst;
-    }
-
-    private static BufferedImage transpose(BufferedImage src) {
-        // Transpose = flip horizontal + rotate 90° CW
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(h, w, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(y, x, src.getRGB(x, y));
-            }
-        }
-        return dst;
-    }
-
-    private static BufferedImage transverse(BufferedImage src) {
-        // Transverse = flip horizontal + rotate 270° CW
-        int w = src.getWidth(), h = src.getHeight();
-        BufferedImage dst = new BufferedImage(h, w, src.getType());
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                dst.setRGB(h - 1 - y, w - 1 - x, src.getRGB(x, y));
-            }
-        }
-        return dst;
     }
 }

@@ -3,7 +3,12 @@ package com.photographer.focusstack.cr3.processing;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferInt;
+import java.awt.image.DirectColorModel;
+import java.awt.image.Raster;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -44,6 +49,49 @@ class ColorMatrixProcessorTest {
             assertEquals(200, (rgb >> 16) & 0xFF);  // 100 * 2
             assertEquals(50, (rgb >> 8) & 0xFF);     // 100 * 0.5
             assertEquals(150, rgb & 0xFF);            // 100 * 1.5
+        }
+
+        @Test
+        void transformsOnlySubimagePixelsAcrossColorModels() {
+            int[] types = {BufferedImage.TYPE_INT_RGB, BufferedImage.TYPE_INT_ARGB,
+                    BufferedImage.TYPE_INT_ARGB_PRE, BufferedImage.TYPE_3BYTE_BGR};
+            for (int type : types) {
+                BufferedImage parent = new BufferedImage(6, 4, type);
+                checkSubimageTransform(parent);
+            }
+            // An int-packed image may also use a non-sRGB color space and a padded buffer.
+            for (int space : new int[]{ColorSpace.CS_sRGB, ColorSpace.CS_LINEAR_RGB}) {
+                var model = new DirectColorModel(ColorSpace.getInstance(space), 24,
+                        0xff0000, 0xff00, 0xff, 0, false, DataBuffer.TYPE_INT);
+                var buffer = new DataBufferInt(new int[50], 40, 3);
+                var raster = Raster.createPackedRaster(buffer, 6, 4, 8,
+                        new int[]{0xff0000, 0xff00, 0xff}, null);
+                checkSubimageTransform(new BufferedImage(model, raster, false, null));
+            }
+        }
+
+        private static void checkSubimageTransform(BufferedImage parent) {
+            int width = parent.getWidth();
+            int height = parent.getHeight();
+            int[] expected = new int[width * height];
+            double[][] matrix = {{0, 0.5, 0}, {0, 0, 1}, {1.5, 0, 0}};
+            var model = parent.getColorModel();
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    parent.setRGB(x, y, 0x91542818 + (x << 20) + (y << 8));
+                    int rgb = parent.getRGB(x, y);
+                    if (x >= 2 && x < 5 && y >= 1 && y < 3) {
+                        int r = rgb >>> 16 & 255;
+                        int g = rgb >>> 8 & 255;
+                        int b = rgb & 255;
+                        int transformed = (g / 2 << 16) | (b << 8) | Math.min(255, 3 * r / 2);
+                        rgb = model.getRGB(model.getDataElements(transformed, null));
+                    }
+                    expected[y * width + x] = rgb;
+                }
+            }
+            ColorMatrixProcessor.process(parent.getSubimage(2, 1, 3, 2), matrix);
+            assertArrayEquals(expected, parent.getRGB(0, 0, width, height, null, 0, width));
         }
 
         @Test

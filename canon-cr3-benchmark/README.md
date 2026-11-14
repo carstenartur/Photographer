@@ -23,7 +23,7 @@ performance change originated.
 | `Cr3PreviewExtractBenchmark` | embedded JPEG extraction |
 | `CrxLosslessDecodeBenchmark` | complete CRX lossless entropy decoder, excluding file I/O |
 | `Cr3RawLinearBenchmark` | complete RAW-linear decode |
-| `Cr3RawProcessedBenchmark` | direct full RAW-to-sRGB decode, including stream and mmap input variants |
+| `Cr3RawProcessedBenchmark` | direct full RAW-to-sRGB decode, including stream and file-path inputs |
 
 ### CRX decoder components
 
@@ -116,6 +116,12 @@ java -jar canon-cr3-benchmark/target/benchmarks.jar \
     Cr3ImageImportBenchmark.importSensorViaImageIo -prof gc \
     -p sample=sample.cr3,research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3
 
+# Time and bytes allocated per full RAW-to-RGB import, two warmups and five measured images.
+java -jar canon-cr3-benchmark/target/benchmarks.jar \
+    Cr3ImageImportBenchmark.importProcessedRawViaImageIo -prof gc -bm ss -wi 2 -i 5 -f 1 \
+    -jvmArgs '-Xms24m -Xmx512m -XX:ActiveProcessorCount=1 -XX:+UseSerialGC' \
+    -p sample=sample.cr3,eosr-iso-low.cr3 -rf json -rff rgb-import-profile.json
+
 # JSON output used by the chart publisher
 java -jar canon-cr3-benchmark/target/benchmarks.jar \
     -rf json -rff jmh-result.json
@@ -144,7 +150,10 @@ separate series, so a local regression cannot be hidden by a project-wide
 average.
 
 The workflow also stores the raw JMH JSON and environment metadata (runner
-image, kernel, CPU, Java and Maven). Environment changes must be considered
+image, kernel, CPU, Java and Maven). The `jmh-result` artifact includes
+`rgb-import-profile.json` from a separate run of the command above. Its primary
+metric is milliseconds per RGB import, and `gc.alloc.rate.norm` is bytes
+allocated per import. Environment changes must be considered
 when interpreting long-term movement on hosted runners.
 
 ## Pull-request comparison

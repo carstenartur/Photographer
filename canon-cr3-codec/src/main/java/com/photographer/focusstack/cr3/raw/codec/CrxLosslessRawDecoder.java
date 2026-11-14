@@ -269,7 +269,8 @@ public final class CrxLosslessRawDecoder {
         return CrxMedPredictor.med(left, above, aboveLeft);
     }
 
-    static Cr3RawImage.BayerPattern resolveBayerPattern(Cmp1Box cmp1) {
+    /** Returns the positional Bayer pattern described by CMP1. */
+    public static Cr3RawImage.BayerPattern resolveBayerPattern(Cmp1Box cmp1) {
         if (cmp1 == null) {
             return Cr3RawImage.BayerPattern.RGGB;
         }

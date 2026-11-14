@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
  * The black level represents the sensor's dark current noise floor and must be
  * subtracted before any further processing.</p>
  *
- * <p>Supports global, per-channel, and (future) per-row black level correction
+ * <p>Supports global, per-channel and per-row black level correction
  * via the {@link BlackLevel} model.</p>
  */
 public final class BlackLevelProcessor {
@@ -39,12 +39,17 @@ public final class BlackLevelProcessor {
      * Subtracts black levels from a RAW image using a {@link BlackLevel} model.
      *
      * <p>If the model is per-channel, each Bayer position gets its own correction.
-     * Otherwise, a uniform subtraction is applied.</p>
+     * A per-row model can additionally vary the correction between row pairs.</p>
      *
      * @param image      the RAW image to process (modified in place)
      * @param blackLevel the black level model
      */
     public static void process(Cr3RawImage image, BlackLevel blackLevel) {
+        process(image, blackLevel, 0, 0);
+    }
+
+    /** Subtracts sensor-coordinate levels from an image cropped at (sensorX, sensorY). */
+    public static void process(Cr3RawImage image, BlackLevel blackLevel, int sensorX, int sensorY) {
         LOG.debug("Subtracting black level {} from {}x{} image",
                 blackLevel, image.width(), image.height());
 
@@ -52,12 +57,14 @@ public final class BlackLevelProcessor {
 
         if (blackLevel.isPerChannel() || blackLevel.isPerRow()) {
             int w = image.width();
-            int h = image.height();
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    int idx = y * w + x;
-                    int bl = blackLevel.levelAt(x, y, image.bayerPattern());
-                    data[idx] = Math.max(0, data[idx] - bl);
+            for (int y = 0; y < image.height(); y++) {
+                int row = y * w;
+                // A Bayer row alternates between exactly two black levels.
+                for (int phase = 0; phase < 2; phase++) {
+                    int bl = blackLevel.levelAt(sensorX + phase, sensorY + y, image.bayerPattern());
+                    for (int x = phase; x < w; x += 2) {
+                        data[row + x] = Math.max(0, data[row + x] - bl);
+                    }
                 }
             }
         } else {

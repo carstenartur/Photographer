@@ -5,6 +5,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.awt.image.DirectColorModel;
+import java.awt.image.Raster;
 
 /**
  * Demosaics a Bayer-pattern RAW image into a full-color RGB image.
@@ -54,26 +57,41 @@ public final class BayerDemosaicer {
         LOG.info("Demosaicing {}x{} {} image with bilinear interpolation (whiteLevel={})",
                 rawImage.width(), rawImage.height(), rawImage.bayerPattern(), whiteLevel);
 
-        int w = rawImage.width();
-        int h = rawImage.height();
+        return demosaicToNewImage(rawImage, Math.max(1, whiteLevel));
+    }
+
+    /**
+     * Demosaics into the supplied sensor buffer and uses it as the returned image's storage.
+     * The caller must own the buffer exclusively. Its Bayer samples are replaced by packed RGB.
+     *
+     * @param rawImage the Bayer image whose storage may be overwritten
+     * @param whiteLevel the value that should map to 255 in the 8-bit output
+     * @return a TYPE_INT_RGB image backed by {@code rawImage.data()}
+     */
+    public static BufferedImage demosaicInPlace(Cr3RawImage rawImage, int whiteLevel) {
+        int width = rawImage.width();
+        int height = rawImage.height();
+        int[] data = rawImage.data();
+        var buffer = new DataBufferInt(data, data.length);
+        var model = new DirectColorModel(24, 0xff0000, 0xff00, 0xff);
+        var raster = Raster.createPackedRaster(buffer, width, height, width,
+                new int[]{model.getRedMask(), model.getGreenMask(), model.getBlueMask()}, null);
+        var output = new BufferedImage(model, raster, false, null);
+
         int effectiveWhite = Math.max(1, whiteLevel);
-
-        BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-        int[] pixels = Pixels.intBufferOf(output);
-
-        for (int y = 0; y < h; y++) {
-            int rowOffset = y * w;
-            for (int x = 0; x < w; x++) {
-                int[] rgb = interpolatePixel(rawImage, x, y);
-
-                int r = clamp8bit(rgb[0], effectiveWhite);
-                int g = clamp8bit(rgb[1], effectiveWhite);
-                int b = clamp8bit(rgb[2], effectiveWhite);
-
-                pixels[rowOffset + x] = (r << 16) | (g << 8) | b;
+        int[] previous = new int[width];
+        int[] current = new int[width];
+        // Row y-1 is still needed as input until interpolation of row y finishes.
+        for (int y = 0; y < height; y++) {
+            interpolateRow(rawImage, y, effectiveWhite, current, 0);
+            if (y > 0) {
+                System.arraycopy(previous, 0, data, (y - 1) * width, width);
             }
+            int[] swap = previous;
+            previous = current;
+            current = swap;
         }
-
+        System.arraycopy(previous, 0, data, (height - 1) * width, width);
         return output;
     }
 
@@ -92,27 +110,16 @@ public final class BayerDemosaicer {
         LOG.info("Demosaicing {}x{} {} image to normalized 8-bit with bilinear interpolation",
                 rawImage.width(), rawImage.height(), rawImage.bayerPattern());
 
-        int w = rawImage.width();
-        int h = rawImage.height();
-        int maxVal = rawImage.maxValue();
+        return demosaicToNewImage(rawImage, rawImage.maxValue());
+    }
 
-        BufferedImage output = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
-        int[] pixels = Pixels.intBufferOf(output);
-
-        for (int y = 0; y < h; y++) {
-            int rowOffset = y * w;
-            for (int x = 0; x < w; x++) {
-                int[] rgb = interpolatePixel(rawImage, x, y);
-
-                // Scale sensor values to 8-bit range for TYPE_INT_RGB
-                int r = Math.min(255, Math.max(0, (int) ((long) rgb[0] * 255 / maxVal)));
-                int g = Math.min(255, Math.max(0, (int) ((long) rgb[1] * 255 / maxVal)));
-                int b = Math.min(255, Math.max(0, (int) ((long) rgb[2] * 255 / maxVal)));
-
-                pixels[rowOffset + x] = (r << 16) | (g << 8) | b;
-            }
+    private static BufferedImage demosaicToNewImage(Cr3RawImage rawImage, int whiteLevel) {
+        int width = rawImage.width();
+        var output = new BufferedImage(width, rawImage.height(), BufferedImage.TYPE_INT_RGB);
+        int[] pixels = ((DataBufferInt) output.getRaster().getDataBuffer()).getData();
+        for (int y = 0; y < rawImage.height(); y++) {
+            interpolateRow(rawImage, y, whiteLevel, pixels, y * width);
         }
-
         return output;
     }
 
@@ -125,18 +132,41 @@ public final class BayerDemosaicer {
         return demosaicNormalized(rawImage);
     }
 
-    /**
-     * Interpolates the RGB values at a given pixel position based on the Bayer pattern.
-     *
-     * @return int[3] with {R, G, B} in raw sensor values
-     */
-    private static int[] interpolatePixel(Cr3RawImage img, int x, int y) {
-        boolean evenRow = (y % 2) == 0;
-        boolean evenCol = (x % 2) == 0;
+    private static void interpolateRow(Cr3RawImage image, int y, int whiteLevel, int[] output, int offset) {
+        int width = image.width();
+        boolean evenRow = (y & 1) == 0;
+        PixelColor first = getPixelColor(image.bayerPattern(), evenRow, true);
+        PixelColor second = getPixelColor(image.bayerPattern(), evenRow, false);
+        int rowStart = y * width;
+        for (int x = 0; x < width; x++) {
+            PixelColor color = (x & 1) == 0 ? first : second;
+            if (x > 0 && x < width - 1 && y > 0 && y < image.height() - 1) {
+                output[offset + x] = interiorPixel(image.data(), rowStart + x, width, color, whiteLevel);
+            } else {
+                output[offset + x] = borderPixel(image, x, y, color, whiteLevel);
+            }
+        }
+    }
 
-        // Determine the color at this pixel position for the given Bayer pattern
-        PixelColor color = getPixelColor(img.bayerPattern(), evenRow, evenCol);
+    private static int interiorPixel(int[] data, int i, int width, PixelColor color, int whiteLevel) {
+        int horizontal = data[i - 1] + data[i + 1];
+        int vertical = data[i - width] + data[i + width];
+        int center = data[i];
+        if (color == PixelColor.GREEN_IN_RED_ROW) {
+            return packRgb(horizontal / 2, center, vertical / 2, whiteLevel);
+        }
+        if (color == PixelColor.GREEN_IN_BLUE_ROW) {
+            return packRgb(vertical / 2, center, horizontal / 2, whiteLevel);
+        }
+        int cross = (horizontal + vertical) / 4;
+        int diagonal = (data[i - width - 1] + data[i - width + 1]
+                + data[i + width - 1] + data[i + width + 1]) / 4;
+        return color == PixelColor.RED
+                ? packRgb(center, cross, diagonal, whiteLevel)
+                : packRgb(diagonal, cross, center, whiteLevel);
+    }
 
+    private static int borderPixel(Cr3RawImage img, int x, int y, PixelColor color, int whiteLevel) {
         int r, g, b;
         switch (color) {
             case RED -> {
@@ -161,7 +191,12 @@ public final class BayerDemosaicer {
             }
             default -> throw new IllegalStateException("Unexpected pixel color: " + color);
         }
-        return new int[]{r, g, b};
+        return packRgb(r, g, b, whiteLevel);
+    }
+
+    private static int packRgb(int red, int green, int blue, int whiteLevel) {
+        return (clamp8bit(red, whiteLevel) << 16) | (clamp8bit(green, whiteLevel) << 8)
+                | clamp8bit(blue, whiteLevel);
     }
 
     /** Identifies the color type at a given Bayer position. */

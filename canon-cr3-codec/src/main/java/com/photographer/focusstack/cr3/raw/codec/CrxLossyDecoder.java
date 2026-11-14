@@ -24,11 +24,11 @@ public final class CrxLossyDecoder {
     /** Reconstructs the four signed transform planes and clips only after the final inverse lift. */
     public static Cr3RawImage decode(byte[] data, int width, int height, int bitDepth,
                                      CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
-        return CrxPlaneAssembler.decodeImage(prepare(data, width, height, bitDepth, version, cmp),
+        return CrxPlaneAssembler.decodeImage(prepare(data == null ? null : CrxTrackInput.fromArray(data), width, height, bitDepth, version, cmp),
                 width, height, bitDepth, CrxLosslessRawDecoder.resolveBayerPattern(cmp));
     }
 
-    static CrxSensorDecoder prepare(byte[] data, int width, int height, int bitDepth,
+    static CrxSensorDecoder prepare(CrxTrackInput data, int width, int height, int bitDepth,
                                     CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
         if (cmp == null) {
             throw new Cr3Exception("Cannot decode C-RAW: CMP1 box is missing");
@@ -54,7 +54,7 @@ public final class CrxLossyDecoder {
         }
         CrxHeader header;
         try {
-            header = CrxHeader.parseDirectory(data, headerSize, version);
+            header = CrxHeader.parseDirectory(data.window(0, headerSize), version);
         } catch (IOException e) {
             throw new Cr3Exception("Invalid C-RAW tile directory: " + e.getMessage(), e);
         }
@@ -95,7 +95,7 @@ public final class CrxLossyDecoder {
         return consumer -> decodeTiles(data, header, tileWidth, height, consumer);
     }
 
-    private static void decodeTiles(byte[] data, CrxHeader header, int tileWidth, int height,
+    private static void decodeTiles(CrxTrackInput data, CrxHeader header, int tileWidth, int height,
                                     CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
         for (int tile = 0; tile < 2; tile++) {
             boolean left = tile > 0, right = tile == 0;
@@ -109,13 +109,14 @@ public final class CrxLossyDecoder {
                     int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
                     int bw = shapes[b].width(), bh = shapes[b].height();
                     int factor = INVERSE_QUANTIZATION[band.quantValue()];
+                    var bits = new BitReader(data.window(start, count));
                     if (b == 0) {
                         if (factor != 1) {
                             throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
                         }
-                        bands[b] = CrxNativeLosslessPlane.approximation(data, start, count, bw, bh);
+                        bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
                     } else {
-                        bands[b] = CrxWaveletDetail.band(data, start, count, bw, bh, factor);
+                        bands[b] = CrxWaveletDetail.band(bits, bw, bh, factor);
                     }
                 }
                 int x = tile * tileWidth + (plane.index() & 1);
