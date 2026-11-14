@@ -143,6 +143,15 @@ final class ExternalConsumptionProbe {
             require(sensor.getType() == BufferedImage.TYPE_USHORT_GRAY, "Expected 16-bit sensor image");
             require(sensor.getRaster().getSample(0, 0, 0) == 2060, "Native Bayer value mismatch");
 
+            sensorParam.setSourceRegion(null);
+            sensorParam.setSourceSubsampling(Integer.MAX_VALUE, Integer.MAX_VALUE, 0, 0);
+            BufferedImage firstSite = reader.read(0, sensorParam);
+            Raster firstSiteRaster = reader.readRaster(0, sensorParam);
+            require(firstSite.getWidth() == 1 && firstSite.getHeight() == 1
+                    && firstSite.getRaster().getSample(0, 0, 0) == 2060, "Extreme RAW subsampling mismatch");
+            require(firstSiteRaster.getBounds().equals(firstSite.getRaster().getBounds())
+                    && firstSiteRaster.getSample(0, 0, 0) == 2060, "Extreme raster subsampling mismatch");
+
             require(reader.getNumThumbnails(0) > 0, "Expected at least one thumbnail");
             BufferedImage thumbnail = reader.readThumbnail(0, 0);
             assertSamePreview(thumbnail, thumbnailImage, "thumbnail read");

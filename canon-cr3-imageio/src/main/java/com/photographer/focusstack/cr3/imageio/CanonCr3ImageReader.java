@@ -111,15 +111,14 @@ public class CanonCr3ImageReader extends ImageReader {
     public Iterator<ImageTypeSpecifier> getImageTypes(int imageIndex) throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
-        return destinationTypes(previewHeader().type());
+        return destinationTypes(previewHeader().type()).iterator();
     }
 
-    private static Iterator<ImageTypeSpecifier> destinationTypes(ImageTypeSpecifier decodedType) {
+    private static List<ImageTypeSpecifier> destinationTypes(ImageTypeSpecifier decodedType) {
         if (decodedType.getNumBands() == 3 && decodedType.getBufferedImageType() != BufferedImage.TYPE_INT_RGB) {
-            return List.of(decodedType, ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB))
-                    .iterator();
+            return List.of(decodedType, ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
         }
-        return List.of(decodedType).iterator();
+        return List.of(decodedType);
     }
 
     // Query the same embedded JPEG as read(0). Sensor metadata describes a different image.
@@ -234,9 +233,9 @@ public class CanonCr3ImageReader extends ImageReader {
         BufferedImage decoded = decode(imageIndex, options);
         int width = decoded.getWidth();
         int height = decoded.getHeight();
-        Rectangle sourceRegion = new Rectangle();
-        Rectangle destRegion = new Rectangle();
-        computeRegions(param, width, height, param.getDestination(), sourceRegion, destRegion);
+        ImageRegions regions = imageRegions(param, width, height);
+        Rectangle sourceRegion = regions.source();
+        Rectangle destRegion = regions.destination();
         int[] sourceBands = param.getSourceBands();
         int[] destBands = param.getDestinationBands();
         if (param.getDestination() == null && param.getDestinationType() == null
@@ -245,8 +244,7 @@ public class CanonCr3ImageReader extends ImageReader {
             return decoded;
         }
 
-        BufferedImage target = getDestination(param, destinationTypes(ImageTypeSpecifier.createFromRenderedImage(decoded)),
-                width, height);
+        BufferedImage target = destination(param, ImageTypeSpecifier.createFromRenderedImage(decoded), destRegion);
         Raster source = decoded.getRaster();
         WritableRaster dest = target.getRaster();
         checkReadParamBandSettings(param, source.getNumBands(), dest.getNumBands());
@@ -273,16 +271,14 @@ public class CanonCr3ImageReader extends ImageReader {
 
         try {
             Rectangle bounds = decoder.getRawBounds(options);
-            Rectangle region = new Rectangle();
-            Rectangle output = new Rectangle();
-            computeRegions(param, bounds.width, bounds.height, supplied, region, output);
-            BufferedImage samples = decoder.decodeRawRegion(options, region, param.getSourceXSubsampling(),
+            ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
+            Rectangle output = regions.destination();
+            BufferedImage samples = decoder.decodeRawRegion(options, regions.source(), param.getSourceXSubsampling(),
                     param.getSourceYSubsampling());
             if (supplied == null && output.x == 0 && output.y == 0) {
                 return samples;
             }
-            BufferedImage target = supplied != null ? supplied
-                    : type.createBufferedImage(output.x + output.width, output.y + output.height);
+            BufferedImage target = destination(param, type, output);
             WritableRaster dest = target.getRaster();
             int[] destBands = param.getDestinationBands();
             if (destBands != null) {
@@ -293,6 +289,50 @@ public class CanonCr3ImageReader extends ImageReader {
         } catch (Cr3Exception e) {
             throw decodeError(options, e);
         }
+    }
+
+    private record ImageRegions(Rectangle source, Rectangle destination) {}
+    private record Axis(int first, int span, int offset, int count) {}
+
+    private static ImageRegions imageRegions(ImageReadParam param, int width, int height) {
+        Rectangle region = getSourceRegion(param, width, height);
+        Point offset = param.getDestinationOffset();
+        BufferedImage target = param.getDestination();
+        Axis x = clipAxis(region.x, region.width, param.getSourceXSubsampling(), offset.x,
+                target == null ? null : target.getWidth());
+        Axis y = clipAxis(region.y, region.height, param.getSourceYSubsampling(), offset.y,
+                target == null ? null : target.getHeight());
+        return new ImageRegions(new Rectangle(x.first, y.first, x.span, y.span),
+                new Rectangle(x.offset, y.offset, x.count, y.count));
+    }
+
+    // Clip on the sampled grid first. Negating an int offset or adding period-1 to a span can overflow.
+    private static Axis clipAxis(int first, int span, int period, int offset, Integer limit) {
+        long skipped = Math.max(0L, -(long) offset);
+        int start = Math.max(0, offset);
+        long count = Math.ceilDiv(span, period) - skipped;
+        if (limit != null) {
+            count = Math.min(count, (long) limit - start);
+        } else if (start + count > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("Destination dimension exceeds integer range");
+        }
+        if (span <= 0 || count <= 0) {
+            throw new IllegalArgumentException("Empty source or destination region");
+        }
+        return new Axis((int) (first + skipped * period), (int) (1L + (count - 1) * period), start, (int) count);
+    }
+
+    private static BufferedImage destination(ImageReadParam param, ImageTypeSpecifier decoded, Rectangle region)
+            throws IIOException {
+        if (param.getDestination() != null) {
+            return param.getDestination();
+        }
+        ImageTypeSpecifier requested = param.getDestinationType();
+        if (requested != null && !destinationTypes(decoded).contains(requested)) {
+            throw new IIOException("Destination image type is incompatible with the selected output");
+        }
+        ImageTypeSpecifier type = requested == null ? decoded : requested;
+        return type.createBufferedImage(region.x + region.width, region.y + region.height);
     }
 
     private static void copySamples(Raster source, Rectangle region, int stepX, int stepY,

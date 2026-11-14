@@ -124,6 +124,30 @@ class CanonCr3ImageReaderTest {
         }
 
         @Test
+        void extremeSubsamplingAndDestinationOffsetsDoNotOverflow() throws Exception {
+            byte[] cr3 = Cr3TestData.buildMinimalCr3WithJpeg();
+            ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
+            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3))) {
+                reader.setInput(input);
+                BufferedImage preview = reader.read(0);
+                ImageReadParam param = new ImageReadParam();
+                param.setSourceSubsampling(Integer.MAX_VALUE, Integer.MAX_VALUE, 0, 0);
+                BufferedImage onlyPixel = reader.read(0, param);
+                assertThat(onlyPixel.getWidth()).isOne();
+                assertThat(onlyPixel.getHeight()).isOne();
+                assertThat(onlyPixel.getRGB(0, 0)).isEqualTo(preview.getRGB(0, 0));
+
+                param.setSourceSubsampling(2, 2, 0, 0);
+                param.setDestinationOffset(new Point(Integer.MIN_VALUE, 0));
+                assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IllegalArgumentException.class);
+                param.setDestinationOffset(new Point(Integer.MAX_VALUE, 0));
+                assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IllegalArgumentException.class);
+            } finally {
+                reader.dispose();
+            }
+        }
+
+        @Test
         @DisplayName("readThumbnail should return thumbnail image")
         void readThumbnail() throws Exception {
             byte[] cr3Data = Cr3TestData.buildMinimalCr3WithJpeg();
