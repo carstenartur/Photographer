@@ -170,6 +170,23 @@ class BayerDemosaicerTest {
         }
 
         @Test
+        void scalesEvery14BitValueAndOutOfRangeSamplesLikeIntegerDivision() {
+            int[] exceptional = {-1, 16384, 32768, Integer.MIN_VALUE, Integer.MAX_VALUE};
+            int[] samples = new int[16384 + exceptional.length];
+            Arrays.setAll(samples, i -> i < 16384 ? i : exceptional[i - 16384]);
+            for (int whiteLevel : new int[]{1, 14271, 16383, Integer.MAX_VALUE}) {
+                var raw = new Cr3RawImage(samples.length, 1, samples.clone(), 14, Cr3RawImage.BayerPattern.RGGB);
+                BufferedImage result = BayerDemosaicer.demosaicInPlace(raw, whiteLevel);
+                for (int x = 0; x < samples.length; x++) {
+                    // On an RG row the red or green channel retains the original site's value.
+                    int shift = (x & 1) == 0 ? 16 : 8;
+                    int expected = Math.clamp((int) ((long) samples[x] * 255 / whiteLevel), 0, 255);
+                    assertEquals(expected, (result.getRGB(x, 0) >> shift) & 255);
+                }
+            }
+        }
+
+        @Test
         void minimumSize2x2() {
             int[] data = {8000, 4000, 4000, 2000};
             Cr3RawImage raw = new Cr3RawImage(2, 2, data, 14, Cr3RawImage.BayerPattern.RGGB);

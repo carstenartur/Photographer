@@ -92,9 +92,9 @@ public final class BayerDemosaicer {
                 new int[]{model.getRedMask(), model.getGreenMask(), model.getBlueMask()}, null);
         var output = new BufferedImage(model, raster, false, null);
 
-        int effectiveWhite = Math.max(1, whiteLevel);
+        RgbScale scale = new RgbScale(rawImage, Math.max(1, whiteLevel));
         if (stripes == 1) {
-            writeRows(rawImage, effectiveWhite, 0, height);
+            writeRows(rawImage, scale, 0, height);
             return output;
         }
 
@@ -103,12 +103,12 @@ public final class BayerDemosaicer {
         int[][] seams = new int[stripes - 1][width];
         for (int stripe = 1; stripe < stripes; stripe++) {
             int seam = Pixels.stripeStart(stripe, height, stripes);
-            interpolateRow(rawImage, seam, effectiveWhite, seams[stripe - 1], 0);
+            interpolateRow(rawImage, seam, scale, seams[stripe - 1], 0);
         }
         Cr3Workers.run(stripes, stripe -> {
             int first = stripe == 0 ? 0 : Pixels.stripeStart(stripe, height, stripes) + 1;
             int end = Pixels.stripeStart(stripe + 1, height, stripes);
-            writeRows(rawImage, effectiveWhite, first, end);
+            writeRows(rawImage, scale, first, end);
         });
         for (int stripe = 1; stripe < stripes; stripe++) {
             int seam = Pixels.stripeStart(stripe, height, stripes);
@@ -117,14 +117,14 @@ public final class BayerDemosaicer {
         return output;
     }
 
-    private static void writeRows(Cr3RawImage rawImage, int whiteLevel, int first, int end) {
+    private static void writeRows(Cr3RawImage rawImage, RgbScale scale, int first, int end) {
         int width = rawImage.width();
         int[] data = rawImage.data();
         int[] previous = new int[width];
         int[] current = new int[width];
         // Row y-1 is still needed as input until interpolation of row y finishes.
         for (int y = first; y < end; y++) {
-            interpolateRow(rawImage, y, whiteLevel, current, 0);
+            interpolateRow(rawImage, y, scale, current, 0);
             if (y > first) {
                 System.arraycopy(previous, 0, data, (y - 1) * width, width);
             }
@@ -157,8 +157,9 @@ public final class BayerDemosaicer {
         int width = rawImage.width();
         var output = new BufferedImage(width, rawImage.height(), BufferedImage.TYPE_INT_RGB);
         int[] pixels = ((DataBufferInt) output.getRaster().getDataBuffer()).getData();
+        RgbScale scale = new RgbScale(rawImage, whiteLevel);
         for (int y = 0; y < rawImage.height(); y++) {
-            interpolateRow(rawImage, y, whiteLevel, pixels, y * width);
+            interpolateRow(rawImage, y, scale, pixels, y * width);
         }
         return output;
     }
@@ -172,41 +173,53 @@ public final class BayerDemosaicer {
         return demosaicNormalized(rawImage);
     }
 
-    private static void interpolateRow(Cr3RawImage image, int y, int whiteLevel, int[] output, int offset) {
+    private static void interpolateRow(Cr3RawImage image, int y, RgbScale scale, int[] output, int offset) {
         int width = image.width();
         boolean evenRow = (y & 1) == 0;
         PixelColor first = getPixelColor(image.bayerPattern(), evenRow, true);
         PixelColor second = getPixelColor(image.bayerPattern(), evenRow, false);
-        int rowStart = y * width;
-        for (int x = 0; x < width; x++) {
-            PixelColor color = (x & 1) == 0 ? first : second;
-            if (x > 0 && x < width - 1 && y > 0 && y < image.height() - 1) {
-                output[offset + x] = interiorPixel(image.data(), rowStart + x, width, color, whiteLevel);
-            } else {
-                output[offset + x] = borderPixel(image, x, y, color, whiteLevel);
+        if (y == 0 || y == image.height() - 1 || width < 3) {
+            for (int x = 0; x < width; x++) {
+                output[offset + x] = borderPixel(image, x, y, (x & 1) == 0 ? first : second, scale);
             }
+            return;
         }
+
+        int rowStart = y * width;
+        int[] samples = image.data();
+        output[offset] = borderPixel(image, 0, y, first, scale);
+        int last = width - 1;
+        int x = 1;
+        // Each Bayer row alternates the same two colors across its entire interior.
+        for (; x + 1 < last; x += 2) {
+            output[offset + x] = interiorPixel(samples, rowStart + x, width, second, scale);
+            output[offset + x + 1] = interiorPixel(samples, rowStart + x + 1, width, first, scale);
+        }
+        if (x < last) {
+            output[offset + x] = interiorPixel(samples, rowStart + x, width, second, scale);
+        }
+        output[offset + last] = borderPixel(image, last, y, (last & 1) == 0 ? first : second, scale);
     }
 
-    private static int interiorPixel(int[] data, int i, int width, PixelColor color, int whiteLevel) {
+    private static int interiorPixel(int[] data, int i, int width, PixelColor color, RgbScale scale) {
         int horizontal = data[i - 1] + data[i + 1];
         int vertical = data[i - width] + data[i + width];
         int center = data[i];
         if (color == PixelColor.GREEN_IN_RED_ROW) {
-            return packRgb(horizontal / 2, center, vertical / 2, whiteLevel);
+            return scale.pack(horizontal / 2, center, vertical / 2);
         }
         if (color == PixelColor.GREEN_IN_BLUE_ROW) {
-            return packRgb(vertical / 2, center, horizontal / 2, whiteLevel);
+            return scale.pack(vertical / 2, center, horizontal / 2);
         }
         int cross = (horizontal + vertical) / 4;
         int diagonal = (data[i - width - 1] + data[i - width + 1]
                 + data[i + width - 1] + data[i + width + 1]) / 4;
         return color == PixelColor.RED
-                ? packRgb(center, cross, diagonal, whiteLevel)
-                : packRgb(diagonal, cross, center, whiteLevel);
+                ? scale.pack(center, cross, diagonal)
+                : scale.pack(diagonal, cross, center);
     }
 
-    private static int borderPixel(Cr3RawImage img, int x, int y, PixelColor color, int whiteLevel) {
+    private static int borderPixel(Cr3RawImage img, int x, int y, PixelColor color, RgbScale scale) {
         int r, g, b;
         switch (color) {
             case RED -> {
@@ -231,12 +244,7 @@ public final class BayerDemosaicer {
             }
             default -> throw new IllegalStateException("Unexpected pixel color: " + color);
         }
-        return packRgb(r, g, b, whiteLevel);
-    }
-
-    private static int packRgb(int red, int green, int blue, int whiteLevel) {
-        return (clamp8bit(red, whiteLevel) << 16) | (clamp8bit(green, whiteLevel) << 8)
-                | clamp8bit(blue, whiteLevel);
+        return scale.pack(r, g, b);
     }
 
     /** Identifies the color type at a given Bayer position. */
@@ -307,7 +315,35 @@ public final class BayerDemosaicer {
         return count > 0 ? sum / count : 0;
     }
 
-    private static int clamp8bit(int value, int maxVal) {
-        return Math.min(255, Math.max(0, (int) ((long) value * 255 / maxVal)));
+    /** One read-only table shared by all stripes; typical 14-bit images need 16 KiB. */
+    private static final class RgbScale {
+        private final int whiteLevel;
+        private final byte[] levels;
+
+        RgbScale(Cr3RawImage image, int whiteLevel) {
+            this.whiteLevel = whiteLevel;
+            int depth = image.bitDepth();
+            int entries = depth >= 1 && depth <= 16 ? 1 << depth : 0;
+            // Small images cannot amortize populating the complete sensor range.
+            levels = new byte[entries <= image.data().length ? entries : 0];
+            for (int value = 0; value < levels.length; value++) {
+                levels[value] = (byte) scale(value);
+            }
+        }
+
+        int pack(int red, int green, int blue) {
+            // The table length is a power of two. One combined check detects any
+            // negative or out-of-range sample, including caller-supplied sensor data.
+            int channelBits = red | green | blue;
+            if (channelBits >= 0 && channelBits < levels.length) {
+                return (Byte.toUnsignedInt(levels[red]) << 16) | (Byte.toUnsignedInt(levels[green]) << 8)
+                        | Byte.toUnsignedInt(levels[blue]);
+            }
+            return (scale(red) << 16) | (scale(green) << 8) | scale(blue);
+        }
+
+        private int scale(int value) {
+            return Math.min(255, Math.max(0, (int) ((long) value * 255 / whiteLevel)));
+        }
     }
 }
