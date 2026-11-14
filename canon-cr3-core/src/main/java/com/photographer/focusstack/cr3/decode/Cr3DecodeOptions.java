@@ -64,6 +64,24 @@ public final class Cr3DecodeOptions {
     private boolean cropToActiveArea = true;
     private PedestalStrategy pedestalStrategy = PedestalStrategy.DEFAULT;
     private int experimentalPedestalLevel = 0;
+    private int maxWorkers;
+
+    /** Maximum workers per RAW stage, or zero to use the processor count available to the JVM. */
+    public int maxWorkers() { return maxWorkers; }
+
+    /**
+     * Limits the workers for this RAW import within the shared CPU budget.
+     * Zero selects automatic sizing; one requests sequential processing.
+     * @throws IllegalArgumentException if the limit is negative
+     */
+    public Cr3DecodeOptions maxWorkers(int limit) {
+        if (limit < 0) {
+            throw new IllegalArgumentException("maxWorkers must be non-negative");
+        }
+        maxWorkers = limit;
+        return this;
+    }
+
 
     /** Returns the output mode. Default is {@link OutputMode#PREVIEW}. */
     public OutputMode outputMode() { return outputMode; }
@@ -191,9 +209,9 @@ public final class Cr3DecodeOptions {
 
     @Override
     public String toString() {
-        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, crop=%s, pedestalStrategy=%s, experimentalPedestal=%s]"
+        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, crop=%s, pedestalStrategy=%s, experimentalPedestal=%s, maxWorkers=%s]"
                 .formatted(outputMode, bitDepth, applyBlackLevel, applyWhiteBalance,
                         applyColorMatrix, applySrgbConversion, cropToActiveArea,
-                        pedestalStrategy, experimentalPedestalLevel);
+                        pedestalStrategy, experimentalPedestalLevel, maxWorkers);
     }
 }

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.util.Arrays;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -120,6 +121,31 @@ class BayerDemosaicerTest {
 
     @Nested
     class EdgeCases {
+        @Test
+        void workerStripesMatchSeparateOutputAcrossSeamsAndImageBorders() {
+            int width = 1027;
+            int height = 773;
+            int[] samples = new Random(342).ints(width * height, -320, 16384).toArray();
+            for (var pattern : Cr3RawImage.BayerPattern.values()) {
+                var raw = new Cr3RawImage(width, height, samples, 14, pattern);
+                BufferedImage reference = BayerDemosaicer.demosaic(raw, 14271);
+                int[] expected = ((DataBufferInt) reference.getRaster().getDataBuffer()).getData();
+                int referenceHash = switch (pattern) {
+                    case RGGB -> -893752329;
+                    case BGGR -> 112064845;
+                    case GRBG -> 2059201541;
+                    case GBRG -> 583535712;
+                };
+                assertEquals(referenceHash, Arrays.hashCode(expected));
+                for (int workers : new int[]{0, 2, 3}) {
+                    var input = new Cr3RawImage(width, height, samples.clone(), 14, pattern);
+                    var result = BayerDemosaicer.demosaicInPlace(input, 14271, workers);
+                    assertSame(input.data(), ((DataBufferInt) result.getRaster().getDataBuffer()).getData());
+                    assertArrayEquals(expected, input.data());
+                }
+            }
+        }
+
         @Test
         void inPlaceConsumesSuppliedBufferAndMatchesSeparateOutput() {
             Random random = new Random(802);

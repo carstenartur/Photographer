@@ -20,4 +20,10 @@ For `RAW_PROCESSED`, the codec writes the selected active area into a packed int
 
 The demosaicer renders into two temporary rows. Once interpolation no longer needs a Bayer row, its slot in the image array receives the finished RGB row. The resulting `TYPE_INT_RGB` image owns that array. Color correction, sRGB conversion, horizontal and vertical flips, and 180-degree rotation operate on it directly. EXIF transforms that exchange the axes allocate a destination image with swapped dimensions. An ImageIO region of processed RGB uses the fully developed, oriented image.
 
+## CPU parallelism
+
+The shared decode pool derives its parallelism from `Runtime.getRuntime().availableProcessors()`. Applications can set a lower limit for an individual import with `Cr3DecodeOptions.maxWorkers(int)`. One worker processes the import sequentially. The native sensor paths can distribute the four Bayer phases across workers. One worker owns a given phase across all tiles, including its optical-black sums. Each worker has independent entropy and row state. Files opened via `Path` use positional reads from the same handle as the metadata reader. Readers over a supplied `ImageInputStream` synchronize only the seek and refill of each input window.
+
+The RGB stages can use more than four workers on large images. In-place demosaicing precomputes the RGB row at each stripe boundary and keeps the original Bayer row in place until both neighbors have finished. Packed color correction and sRGB conversion can process independent row ranges. All stages finish their writes before the next stage starts.
+
 The embedded JPEG preview is available independently of sensor reconstruction. [Output modes and verified profiles](../docs/cr3/decoder.md) · [ImageIO read parameters](../docs/cr3/imageio.md)

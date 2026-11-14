@@ -1,5 +1,6 @@
 package com.photographer.focusstack.cr3.processing;
 
+import com.photographer.focusstack.cr3.Cr3Workers;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,8 +70,21 @@ public final class BayerDemosaicer {
      * @return a TYPE_INT_RGB image backed by {@code rawImage.data()}
      */
     public static BufferedImage demosaicInPlace(Cr3RawImage rawImage, int whiteLevel) {
+        return demosaicInPlace(rawImage, whiteLevel, 1);
+    }
+
+    /**
+     * Demosaics in place, dividing large images into independently processed row stripes.
+     *
+     * @param rawImage the exclusively owned Bayer image whose storage may be overwritten
+     * @param whiteLevel the value that should map to 255 in the 8-bit output
+     * @param maxWorkers maximum number of workers, or zero for automatic selection
+     * @return a TYPE_INT_RGB image backed by {@code rawImage.data()}
+     */
+    public static BufferedImage demosaicInPlace(Cr3RawImage rawImage, int whiteLevel, int maxWorkers) {
         int width = rawImage.width();
         int height = rawImage.height();
+        int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(width, height));
         int[] data = rawImage.data();
         var buffer = new DataBufferInt(data, data.length);
         var model = new DirectColorModel(24, 0xff0000, 0xff00, 0xff);
@@ -79,20 +93,46 @@ public final class BayerDemosaicer {
         var output = new BufferedImage(model, raster, false, null);
 
         int effectiveWhite = Math.max(1, whiteLevel);
+        if (stripes == 1) {
+            writeRows(rawImage, effectiveWhite, 0, height);
+            return output;
+        }
+
+        // Interpolation reads one row above and below. Keep each seam's Bayer samples
+        // intact for both adjacent stripes, saving its RGB result until after the join.
+        int[][] seams = new int[stripes - 1][width];
+        for (int stripe = 1; stripe < stripes; stripe++) {
+            int seam = Pixels.stripeStart(stripe, height, stripes);
+            interpolateRow(rawImage, seam, effectiveWhite, seams[stripe - 1], 0);
+        }
+        Cr3Workers.run(stripes, stripe -> {
+            int first = stripe == 0 ? 0 : Pixels.stripeStart(stripe, height, stripes) + 1;
+            int end = Pixels.stripeStart(stripe + 1, height, stripes);
+            writeRows(rawImage, effectiveWhite, first, end);
+        });
+        for (int stripe = 1; stripe < stripes; stripe++) {
+            int seam = Pixels.stripeStart(stripe, height, stripes);
+            System.arraycopy(seams[stripe - 1], 0, data, seam * width, width);
+        }
+        return output;
+    }
+
+    private static void writeRows(Cr3RawImage rawImage, int whiteLevel, int first, int end) {
+        int width = rawImage.width();
+        int[] data = rawImage.data();
         int[] previous = new int[width];
         int[] current = new int[width];
         // Row y-1 is still needed as input until interpolation of row y finishes.
-        for (int y = 0; y < height; y++) {
-            interpolateRow(rawImage, y, effectiveWhite, current, 0);
-            if (y > 0) {
+        for (int y = first; y < end; y++) {
+            interpolateRow(rawImage, y, whiteLevel, current, 0);
+            if (y > first) {
                 System.arraycopy(previous, 0, data, (y - 1) * width, width);
             }
             int[] swap = previous;
             previous = current;
             current = swap;
         }
-        System.arraycopy(previous, 0, data, (height - 1) * width, width);
-        return output;
+        System.arraycopy(previous, 0, data, (end - 1) * width, width);
     }
 
     /**

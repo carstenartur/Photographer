@@ -34,13 +34,24 @@ public final class ColorMatrixProcessor {
      * @param matrix 3×3 color correction matrix
      */
     public static void process(BufferedImage image, double[][] matrix) {
+        process(image, matrix, 1);
+    }
+
+    /**
+     * Applies the matrix in place, processing disjoint packed RGB rows in parallel.
+     *
+     * @param image the RGB image to modify
+     * @param matrix 3×3 color correction matrix
+     * @param maxWorkers maximum number of workers, or zero for automatic selection
+     */
+    public static void process(BufferedImage image, double[][] matrix, int maxWorkers) {
         if (matrix.length != 3 || matrix[0].length != 3) {
             throw new IllegalArgumentException("Color matrix must be 3x3");
         }
 
         LOG.debug("Applying 3x3 color matrix to {}x{} image", image.getWidth(), image.getHeight());
 
-        Pixels.transform(image, rgb -> applyMatrix(rgb, matrix));
+        Pixels.transform(image, maxWorkers, rgb -> applyMatrix(rgb, matrix));
     }
 
     private static int applyMatrix(int rgb, double[][] matrix) {

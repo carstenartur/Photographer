@@ -3,6 +3,7 @@ package com.photographer.focusstack.cr3.raw.codec;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.Executors;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +39,34 @@ class CrxTrackInputTest {
             assertThrows(IOException.class, first::readBit);
             assertThrows(IllegalArgumentException.class, () -> track.window(length, length + 1));
         }
+    }
+
+    @Test
+    void concurrentRefillsReadFromTheirOwnSubbandPositions() throws Exception {
+        int length = 100_000;
+        byte[] file = new byte[2 * length];
+        new Random(2718).nextBytes(file);
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(file)) {
+            @Override
+            public void seek(long pos) throws IOException {
+                super.seek(pos);
+                Thread.yield();  // Give the other reader an opportunity to change the cursor.
+            }
+        }; var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var track = CrxTrackInput.fromStream(input, 0, file.length);
+            var first = executor.submit(() -> checkRefills(track.window(0, length), file, 0));
+            var second = executor.submit(() -> checkRefills(track.window(length, length), file, length));
+            first.get();
+            second.get();
+        }
+    }
+
+    private static Void checkRefills(CrxTrackInput.Window window, byte[] file, int offset) throws IOException {
+        for (int i = 0; i < 200; i++) {
+            int pos = i % 2 == 0 ? i : window.length - i;
+            assertEquals(Byte.toUnsignedInt(file[offset + pos]), window.unsignedByte(pos));
+        }
+        return null;
     }
 
     @Test

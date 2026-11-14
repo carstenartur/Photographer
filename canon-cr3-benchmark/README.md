@@ -127,6 +127,18 @@ java -jar canon-cr3-benchmark/target/benchmarks.jar \
     -rf json -rff jmh-result.json
 ```
 
+To compare automatic worker sizing, run the same full import on the same runner with different JVM processor counts. The benchmark includes opening the file and closing the reader.
+
+```sh
+for cpus in 1 2 4; do
+    java -jar canon-cr3-benchmark/target/benchmarks.jar \
+        Cr3ImageImportBenchmark.importProcessedRawViaImageIo \
+        -p sample=sample.cr3 -bm ss -wi 3 -i 5 -f 1 -prof gc \
+        -jvmArgs "-Xms24m -Xmx512m -XX:+UseSerialGC -XX:ActiveProcessorCount=$cpus" \
+        -rf json -rff "cr3-rgb-${cpus}cpu.json"
+done
+```
+
 Useful JMH flags:
 
 | Flag | Purpose |

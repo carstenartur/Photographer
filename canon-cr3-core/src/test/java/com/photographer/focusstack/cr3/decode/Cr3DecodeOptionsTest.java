@@ -4,11 +4,22 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * Tests for {@link Cr3DecodeOptions}.
  */
 class Cr3DecodeOptionsTest {
+
+    @Test
+    void rawImportsUseAutomaticParallelismUntilExplicitlyLimited() {
+        var options = Cr3DecodeOptions.rawProcessed();
+        assertThat(options.maxWorkers()).isZero();
+        assertThat(options.maxWorkers(2).maxWorkers()).isEqualTo(2);
+        assertThat(options.maxWorkers(1).maxWorkers()).isOne();
+        assertThat(options.maxWorkers(0).maxWorkers()).isZero();
+        assertThatIllegalArgumentException().isThrownBy(() -> options.maxWorkers(-1));
+    }
 
     @Test
     @DisplayName("Default options should be preview mode with 8-bit output")

@@ -25,12 +25,14 @@ import com.photographer.focusstack.cr3.raw.codec.CrxSensorDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.imageio.ImageIO;
+import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferUShort;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.Arrays;
 
@@ -58,13 +60,10 @@ public final class Cr3Decoder implements AutoCloseable {
     private Cr3Container container;
     private Cr3Metadata metadata;
     /**
-     * {@code true} when the decoder itself opened {@link #input} (via
-     * {@link #setInput(Path)}) and therefore owns its lifecycle. {@code false}
-     * when the caller supplied the stream via {@link #setInput(ImageInputStream)}
-     * — in that case the caller retains ownership and {@link #reset} / {@link #close}
-     * must NOT close it.
+     * Positional access to the same file handle as the owned input stream.
+     * Null for streams supplied by the caller.
      */
-    private boolean ownsInput;
+    private FileChannel ownedChannel;
 
     /** Source used for the resolved black-level/pedestal value. */
     public enum PedestalSource {
@@ -102,11 +101,12 @@ public final class Cr3Decoder implements AutoCloseable {
      * @throws Cr3Exception if the file is not a valid CR3 file
      */
     public void setInput(ImageInputStream input) throws IOException, Cr3Exception {
-        closeOwnedInputQuietly();
+        reset();
+        var parsed = Cr3Parser.parse(input);
+        var parsedMetadata = Cr3MetadataReader.read(input, parsed);
         this.input = input;
-        this.ownsInput = false;
-        this.container = Cr3Parser.parse(input);
-        this.metadata = extractMetadata();
+        this.container = parsed;
+        this.metadata = parsedMetadata;
         LOG.info("CR3 input set: {}", container);
     }
 
@@ -128,11 +128,9 @@ public final class Cr3Decoder implements AutoCloseable {
         if (file == null) {
             throw new IllegalArgumentException("file must not be null");
         }
-        closeOwnedInputQuietly();
-        ImageInputStream iis = ImageIO.createImageInputStream(file.toFile());
-        if (iis == null) {
-            throw new IOException("Could not open ImageInputStream for " + file);
-        }
+        reset();
+        var source = new RandomAccessFile(file.toFile(), "r");
+        var iis = new FileImageInputStream(source);
         // Parse into local variables first; only commit to the instance fields
         // once parsing succeeded, otherwise close the stream we just opened so
         // the file descriptor is released on the error path.
@@ -150,7 +148,7 @@ public final class Cr3Decoder implements AutoCloseable {
             throw e;
         }
         this.input = iis;
-        this.ownsInput = true;
+        this.ownedChannel = source.getChannel();
         this.container = parsedContainer;
         this.metadata = parsedMetadata;
         LOG.info("CR3 input set (file={}): {}", file, container);
@@ -251,7 +249,6 @@ public final class Cr3Decoder implements AutoCloseable {
         this.input = null;
         this.container = null;
         this.metadata = null;
-        this.ownsInput = false;
     }
 
     /**
@@ -265,18 +262,15 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     private void closeOwnedInputQuietly() {
-        if (ownsInput && input != null) {
+        if (ownedChannel != null) {
             try {
                 input.close();
             } catch (IOException e) {
                 LOG.warn("Failed to close internally-owned ImageInputStream", e);
+            } finally {
+                ownedChannel = null;
             }
         }
-    }
-
-    private Cr3Metadata extractMetadata() throws IOException {
-        // Delegate to Cr3MetadataReader — metadata and image data are separate concerns
-        return Cr3MetadataReader.read(input, container);
     }
 
     /** Decodes Bayer samples into the crop-sized array that also holds the eventual packed RGB pixels. */
@@ -299,7 +293,7 @@ public final class Cr3Decoder implements AutoCloseable {
                 ob.addPlaneRow(x, y, row);
             }
             copyBayerRow(samples, area, x, y, row);
-        });
+        }, options.maxWorkers());
 
         int minBlackLevelSubtracted = 0;
         if (options.applyBlackLevel()) {
@@ -314,15 +308,15 @@ public final class Cr3Decoder implements AutoCloseable {
             WhiteBalanceProcessor.process(rawImage, resolveWhiteBalance());
         }
         int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
-        BufferedImage rgb = BayerDemosaicer.demosaicInPlace(rawImage, whiteLevel);
+        BufferedImage rgb = BayerDemosaicer.demosaicInPlace(rawImage, whiteLevel, options.maxWorkers());
 
         if (options.applyColorMatrix()) {
             double[][] colorMatrix = resolveColorMatrix();
-            ColorMatrixProcessor.process(rgb, colorMatrix);
+            ColorMatrixProcessor.process(rgb, colorMatrix, options.maxWorkers());
         }
 
         if (options.applySrgbConversion()) {
-            SrgbConverter.process(rgb);
+            SrgbConverter.process(rgb, options.maxWorkers());
         }
 
         if (metadata != null && metadata.orientation() > 1) {
@@ -390,7 +384,8 @@ public final class Cr3Decoder implements AutoCloseable {
         short[] pixels = ((DataBufferUShort) output.getRaster().getDataBuffer()).getData();
         short[] levels = nativeCodes ? null : linearLevels(track.depth, options.applyBlackLevel());
 
-        decoder.decodeRows((x, y, row) -> writeSamples(pixels, levels, area, outputWidth, xStep, yStep, x, y, row));
+        decoder.decodeRows((x, y, row) -> writeSamples(pixels, levels, area, outputWidth, xStep, yStep, x, y, row),
+                options.maxWorkers());
         return output;
     }
 
@@ -450,14 +445,20 @@ public final class Cr3Decoder implements AutoCloseable {
         CrxSensorDecoder sensor = prepareSensor(track);
         var area = new Rectangle(track.width, track.height);
         int[] samples = new int[Math.multiplyExact(track.width, track.height)];
-        sensor.decodeRows((x, y, row) -> copyBayerRow(samples, area, x, y, row));
+        sensor.decodeRows((x, y, row) -> copyBayerRow(samples, area, x, y, row), 0);
         return new Cr3RawImage(track.width, track.height, samples, track.depth,
                 CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
     }
 
     private CrxSensorDecoder prepareSensor(RawTrack track) throws Cr3Exception, IOException {
-        return CrxSensorDecoder.prepare(input, track.source.dataOffset(), (int) track.source.dataSize(),
-                track.width, track.height, track.depth, track.version, track.source.cmp1());
+        long offset = track.source.dataOffset();
+        int length = (int) track.source.dataSize();
+        if (ownedChannel != null) {
+            return CrxSensorDecoder.prepare(ownedChannel, offset, length, track.width, track.height, track.depth,
+                    track.version, track.source.cmp1());
+        }
+        return CrxSensorDecoder.prepare(input, offset, length, track.width, track.height, track.depth,
+                track.version, track.source.cmp1());
     }
 
     private RawTrack rawTrack() throws Cr3Exception {
