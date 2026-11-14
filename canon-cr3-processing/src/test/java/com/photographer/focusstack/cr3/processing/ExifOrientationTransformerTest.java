@@ -87,6 +87,66 @@ class ExifOrientationTransformerTest {
         assertThat(result.getRGB(0, 3) & 0xFFFFFF).isEqualTo(0xFF0000);
     }
 
+    @Test
+    void orientsEveryPixelAndLimitsInPlaceFlipsToTheOwnedView() {
+        int[][] expectedOrder = {
+                {1, 2, 3, 4, 5, 6}, {3, 2, 1, 6, 5, 4},
+                {6, 5, 4, 3, 2, 1}, {4, 5, 6, 1, 2, 3},
+                {1, 4, 2, 5, 3, 6}, {4, 1, 5, 2, 6, 3},
+                {6, 3, 5, 2, 4, 1}, {3, 6, 2, 5, 1, 4}
+        };
+        for (int type : new int[]{BufferedImage.TYPE_INT_RGB, BufferedImage.TYPE_3BYTE_BGR}) {
+            for (int orientation = 1; orientation <= 8; orientation++) {
+                BufferedImage parent = new BufferedImage(5, 4, type);
+                BufferedImage src = parent.getSubimage(1, 1, 3, 2);
+                src.setRGB(0, 0, 3, 2, expectedOrder[0], 0, 3);
+                BufferedImage copy = ExifOrientationTransformer.apply(src, orientation);
+                assertThat(pixelValues(src)).containsExactly(expectedOrder[0]);
+                BufferedImage owned = ExifOrientationTransformer.applyToOwnedImage(src, orientation);
+                assertThat(pixelValues(copy)).containsExactly(expectedOrder[orientation - 1]);
+                assertThat(pixelValues(owned)).containsExactly(expectedOrder[orientation - 1]);
+                if (type == BufferedImage.TYPE_INT_RGB && orientation <= 4) {
+                    assertThat(owned).isSameAs(src);
+                }
+                for (int y = 0; y < 4; y++) {
+                    for (int x = 0; x < 5; x++) {
+                        if (x == 0 || x == 4 || y == 0 || y == 3) {
+                            assertThat(parent.getRGB(x, y) & 0xffffff).isZero();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void packedRotationMatchesGenericPixelsAcrossTileAndOddMiddleRow() {
+        int width = 71;
+        int height = 9;
+        int[] sourceValues = new int[width * height];
+        for (int i = 0; i < sourceValues.length; i++) {
+            sourceValues[i] = (0x12345 * i) & 0xffffff;
+        }
+        for (int orientation = 2; orientation <= 8; orientation++) {
+            BufferedImage generic = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+            BufferedImage packed = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            generic.setRGB(0, 0, width, height, sourceValues, 0, width);
+            packed.setRGB(0, 0, width, height, sourceValues, 0, width);
+            BufferedImage expected = ExifOrientationTransformer.apply(generic, orientation);
+            BufferedImage actual = ExifOrientationTransformer.applyToOwnedImage(packed, orientation);
+            assertThat(pixelValues(actual)).containsExactly(pixelValues(expected));
+        }
+    }
+
+    private static int[] pixelValues(BufferedImage image) {
+        int width = image.getWidth();
+        int[] values = image.getRGB(0, 0, width, image.getHeight(), null, 0, width);
+        for (int i = 0; i < values.length; i++) {
+            values[i] &= 0xffffff;
+        }
+        return values;
+    }
+
     @ParameterizedTest
     @CsvSource({
             "1, 100, 200, 100, 200",

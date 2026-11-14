@@ -131,7 +131,7 @@ public final class CrxHeader {
      */
     public static CrxHeader parse(byte[] data, int offset, CodecVersion version)
             throws IOException {
-        return parse(data, offset, data.length, version);
+        return parse(new CrxTrackInput.Window(data, 0, data.length), offset, data.length, version);
     }
 
     /** Parses only CMP1's directory, without copying it or reading the adjacent entropy data. */
@@ -139,14 +139,19 @@ public final class CrxHeader {
         if (headerBytes < 0 || headerBytes > track.length) {
             throw new IOException("Invalid CMP1 directory length: " + headerBytes);
         }
-        CrxHeader header = parse(track, 0, headerBytes, version);
+        return parseDirectory(new CrxTrackInput.Window(track, 0, headerBytes), version);
+    }
+
+    static CrxHeader parseDirectory(CrxTrackInput.Window directory, CodecVersion version) throws IOException {
+        int headerBytes = directory.length;
+        CrxHeader header = parse(directory, 0, headerBytes, version);
         if (header.headerSize() != headerBytes) {
             throw new IOException("Incomplete CRX directory at byte " + header.headerSize());
         }
         return header;
     }
 
-    private static CrxHeader parse(byte[] data, int offset, int limit, CodecVersion version) throws IOException {
+    private static CrxHeader parse(CrxTrackInput.Window data, int offset, int limit, CodecVersion version) throws IOException {
         if (offset < 0 || offset > limit - 12) {
             throw new IOException("CRX data too short for header at offset " + offset);
         }
@@ -156,7 +161,7 @@ public final class CrxHeader {
 
         // Parse tiles
         while (pos <= limit - 12) {
-            int marker = readUnsignedShort(data, pos);
+            int marker = data.unsignedShort(pos);
 
             // Check for tile marker
             if (marker != version.tileMarker) {
@@ -164,21 +169,21 @@ public final class CrxHeader {
             }
 
             int end = recordEnd(data, pos, limit);
-            long tileDataSize = readUnsignedInt(data, pos + 4);
-            int tileIndex = (data[pos + 8] >> 4) & 0xF;
+            long tileDataSize = Integer.toUnsignedLong(data.word(pos + 4));
+            int tileIndex = (data.unsignedByte(pos + 8) >> 4) & 0xF;
             pos = end;
 
             // Parse planes within this tile
             List<Plane> planes = new ArrayList<>();
             while (pos <= limit - 12) {
-                int planeMarker = readUnsignedShort(data, pos);
+                int planeMarker = data.unsignedShort(pos);
                 if (planeMarker != version.planeMarker) {
                     break;
                 }
 
                 int planeEnd = recordEnd(data, pos, limit);
-                long planeDataSize = readUnsignedInt(data, pos + 4);
-                int packedPlane = data[pos + 8] & 0xFF;
+                long planeDataSize = Integer.toUnsignedLong(data.word(pos + 4));
+                int packedPlane = data.unsignedByte(pos + 8);
                 int planeIndex = (packedPlane >> 4) & 0xF;
                 boolean planePartial = (packedPlane & 0x08) != 0;
                 int roundedBits = (packedPlane >> 1) & 0x3;
@@ -187,19 +192,19 @@ public final class CrxHeader {
                 // Parse subbands within this plane
                 List<Subband> subbands = new ArrayList<>();
                 while (pos <= limit - 12) {
-                    int subMarker = readUnsignedShort(data, pos);
+                    int subMarker = data.unsignedShort(pos);
                     if (subMarker != version.subbandMarker) {
                         break;
                     }
 
                     int subbandEnd = recordEnd(data, pos, limit);
-                    long subDataSize = readUnsignedInt(data, pos + 4);
-                    int packedSub = data[pos + 8] & 0xFF;
+                    long subDataSize = Integer.toUnsignedLong(data.word(pos + 4));
+                    int packedSub = data.unsignedByte(pos + 8);
                     int subIndex = (packedSub >> 4) & 0xF;
                     boolean subPartial = (packedSub & 0x08) != 0;
                     // quantValue: 3 lower bits of byte 8 + 5 upper bits of byte 9
-                    int quantValue = ((packedSub & 0x07) << 5) | ((data[pos + 9] & 0xFF) >> 3);
-                    int paddingBytes = readUnsignedShort(data, pos + 10);
+                    int quantValue = ((packedSub & 0x07) << 5) | (data.unsignedByte(pos + 9) >> 3);
+                    int paddingBytes = data.unsignedShort(pos + 10);
                     pos = subbandEnd;
 
                     subbands.add(new Subband(subIndex, subDataSize, subPartial, quantValue, 0, paddingBytes));
@@ -213,9 +218,7 @@ public final class CrxHeader {
         }
 
         // Some callers supply a directory with four terminal zero bytes.
-        if (pos <= limit - 4
-                && data[pos] == 0 && data[pos + 1] == 0
-                && data[pos + 2] == 0 && data[pos + 3] == 0) {
+        if (pos <= limit - 4 && data.word(pos) == 0) {
             pos += 4;
         }
 
@@ -267,23 +270,12 @@ public final class CrxHeader {
         return resolved;
     }
 
-    private static int recordEnd(byte[] data, int pos, int limit) throws IOException {
-        int bodyBytes = readUnsignedShort(data, pos + 2);
+    private static int recordEnd(CrxTrackInput.Window data, int pos, int limit) throws IOException {
+        int bodyBytes = data.unsignedShort(pos + 2);
         if (bodyBytes < 8 || bodyBytes > limit - pos - 4) {
             throw new IOException("Invalid CRX record length " + bodyBytes + " at byte " + pos);
         }
         return pos + 4 + bodyBytes;
-    }
-
-    private static int readUnsignedShort(byte[] data, int offset) {
-        return ((data[offset] & 0xFF) << 8) | (data[offset + 1] & 0xFF);
-    }
-
-    private static long readUnsignedInt(byte[] data, int offset) {
-        return ((long) (data[offset] & 0xFF) << 24)
-                | ((long) (data[offset + 1] & 0xFF) << 16)
-                | ((long) (data[offset + 2] & 0xFF) << 8)
-                | (data[offset + 3] & 0xFF);
     }
 
     @Override

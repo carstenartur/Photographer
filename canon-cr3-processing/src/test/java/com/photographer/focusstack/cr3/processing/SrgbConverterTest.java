@@ -83,6 +83,23 @@ class SrgbConverterTest {
         }
 
         @Test
+        void correctsOnlyPixelsInsidePackedSubimage() {
+            BufferedImage parent = new BufferedImage(5, 4, BufferedImage.TYPE_INT_RGB);
+            for (int y = 0; y < 4; y++) {
+                for (int x = 0; x < 5; x++) {
+                    parent.setRGB(x, y, 0x804000);
+                }
+            }
+            SrgbConverter.process(parent.getSubimage(2, 1, 2, 2));
+            for (int y = 0; y < 4; y++) {
+                for (int x = 0; x < 5; x++) {
+                    boolean inside = x >= 2 && x < 4 && y >= 1 && y < 3;
+                    assertEquals(inside ? 0xbc8900 : 0x804000, parent.getRGB(x, y) & 0xffffff);
+                }
+            }
+        }
+
+        @Test
         void processUpdatesNonIntPackedImagesInPlace() {
             BufferedImage image = new BufferedImage(1, 1, BufferedImage.TYPE_3BYTE_BGR);
             image.setRGB(0, 0, (64 << 16) | (64 << 8) | 64);

@@ -1,14 +1,11 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
-import java.nio.ByteOrder;
 
 /**
  * Bitwise reader for binary data streams.
  *
- * <p>Reads individual bits and variable-length codes from a byte array.
+ * <p>Reads individual bits and variable-length codes from a bounded byte window.
  * Used by {@link RiceGolombDecoder} and {@link CrxLosslessRawDecoder} to
  * parse the entropy-coded CRX bitstream.</p>
  *
@@ -16,12 +13,7 @@ import java.nio.ByteOrder;
  */
 public final class BitReader {
 
-    private static final VarHandle BIG_ENDIAN_INT =
-            MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
-
-    private final byte[] data;
-    private final int startOffset;
-    private final int endOffset;
+    private final CrxTrackInput.Window data;
     private int nextByte;
     // Unread bits are left-aligned, with the next bit at the sign bit.
     private long buffer;
@@ -47,15 +39,11 @@ public final class BitReader {
      * @param length number of bytes to read
      */
     public BitReader(byte[] data, int offset, int length) {
-        if (offset < 0 || length < 0 || offset > data.length - length) {
-            throw new IllegalArgumentException(
-                    "Invalid slice: offset=%d, length=%d, array length=%d"
-                            .formatted(offset, length, data.length));
-        }
+        this(new CrxTrackInput.Window(data, offset, length));
+    }
+
+    BitReader(CrxTrackInput.Window data) {
         this.data = data;
-        this.startOffset = offset;
-        this.endOffset = offset + length;
-        this.nextByte = offset;
     }
 
     /**
@@ -125,19 +113,35 @@ public final class BitReader {
         }
     }
 
+    /** Reads a native Rice symbol in one reservoir shift when the entire code is buffered. */
+    int readRice(int k, int escapeQuotient, int literalBits) throws IOException {
+        if (available < 32 && data.length - nextByte >= Integer.BYTES) {
+            refill();
+        }
+        int quotient = Long.numberOfLeadingZeros(buffer);
+        int width = quotient + 1 + k;
+        if (quotient < escapeQuotient && width <= available) {
+            int remainder = (int) (buffer >>> (64 - width)) & ((1 << k) - 1);
+            consume(width);
+            return (quotient << k) | remainder;
+        }
+        quotient = readUnary(escapeQuotient);
+        return quotient == escapeQuotient ? readBits(literalBits) : (quotient << k) | readBits(k);
+    }
+
     private void consume(int bits) {
         buffer <<= bits;
         available -= bits;
     }
 
     private void refill() throws IOException {
-        if (endOffset - nextByte >= Integer.BYTES) {
-            long word = Integer.toUnsignedLong((int) BIG_ENDIAN_INT.get(data, nextByte));
+        if (data.length - nextByte >= Integer.BYTES) {
+            long word = Integer.toUnsignedLong(data.word(nextByte));
             buffer |= word << (32 - available);
             nextByte += Integer.BYTES;
             available += Integer.SIZE;
-        } else if (nextByte < endOffset) {
-            buffer |= (data[nextByte++] & 255L) << (56 - available);
+        } else if (nextByte < data.length) {
+            buffer |= ((long) data.unsignedByte(nextByte++)) << (56 - available);
             available += Byte.SIZE;
         } else {
             // Match sequential reads: a truncated multi-bit value consumes the slice through EOF.
@@ -147,14 +151,14 @@ public final class BitReader {
     }
 
     /** Returns the number of complete bytes consumed relative to the start offset. */
-    public int bytePosition() { return nextByte - startOffset - Math.ceilDiv(available, 8); }
+    public int bytePosition() { return nextByte - Math.ceilDiv(available, 8); }
 
     /** Includes a partially consumed final byte, excluding prefetched bytes. */
-    int consumedBytes() { return nextByte - startOffset - available / 8; }
+    int consumedBytes() { return nextByte - available / 8; }
 
     /** Returns the total number of bytes in this reader's slice. */
-    public int length() { return endOffset - startOffset; }
+    public int length() { return data.length; }
 
     /** Returns whether there is more data to read. */
-    public boolean hasMore() { return available > 0 || nextByte < endOffset; }
+    public boolean hasMore() { return available > 0 || nextByte < data.length; }
 }

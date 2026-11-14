@@ -31,6 +31,17 @@ class PrepareJmhHistoryTest(unittest.TestCase):
         self.assertNotIn("params", result[0])
         self.assertEqual(12.5, result[0]["primaryMetric"]["score"])
 
+    def test_path_decode_keeps_the_same_series_across_the_method_rename(self):
+        method = "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark."
+        params = {"sample": "sample.cr3"}
+        current = history.friendly_series_name(method + "decodeRawProcessedFromPath", params)
+        expected = "RAW pipeline · Decode display-ready sRGB (path input) — G5 X Mark II · ISO 125 · frame 1"
+        self.assertEqual(expected, current)
+        self.assertEqual(current, history.friendly_series_name(method + "decodeRawProcessedMmap", params))
+        published = expected.replace("(path input)", "(memory-mapped input)")
+        self.assertEqual(current, history.transform_published_series_name(published))
+        self.assertEqual(current, history.transform_published_series_name(current))
+
     def test_fixture_labels_do_not_repeat_misleading_file_names(self):
         cases = {
             "sample-tele.cr3": "G5 X Mark II · ISO 125 · frame 2",

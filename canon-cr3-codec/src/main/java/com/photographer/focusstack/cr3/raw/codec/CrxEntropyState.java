@@ -34,6 +34,12 @@ final class CrxEntropyState {
         return quotient == ESCAPE_QUOTIENT ? bits.readBits(LITERAL_BITS) : (quotient << k) + bits.readBits(k);
     }
 
+    // Prediction planes commonly encode a complete symbol in the bit reservoir.
+    // Detail bands favor short codes and use the separate prefix/remainder reader.
+    int readPredictionResidual() throws IOException {
+        return bits.readRice(k, ESCAPE_QUOTIENT, LITERAL_BITS);
+    }
+
     /** The caller has already consumed the positive-run flag, which accounts for one copy. */
     int readRunLength(int remaining) throws IOException {
         long copies = 1;

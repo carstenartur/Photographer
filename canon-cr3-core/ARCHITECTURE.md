@@ -1,75 +1,23 @@
-# cr3-core Architecture
+# cr3-core architecture
 
-## Overview
+The Java facade accepts a file path or a seekable JDK `ImageInputStream`. It owns streams opened from a path. The caller owns a stream supplied to `setInput(ImageInputStream)`. The `cr3-imageio` module adapts this facade to `ImageReader` and provides SPI discovery.
 
-`cr3-core` is a pure-Java library for parsing and decoding Canon CR3 RAW
-files. It has no dependency on `javax.imageio` — the ImageIO integration is a
-separate adapter module (`cr3-imageio`).
+| Module | Responsibility |
+|---|---|
+| `cr3-container` | Locate tracks, read CMP1 compression parameters and extract the embedded JPEG |
+| `cr3-metadata` | Read the active sensor area, orientation and available correction parameters |
+| `cr3-codec` | Parse the track directory, decode entropy and reconstruct lossless or C-RAW tile-plane rows |
+| `cr3-processing` | Apply black level, white balance, bilinear demosaicing, color correction and orientation |
+| `cr3-core` | Select the output mode and allocate its raster |
 
-## Package Structure
+## RAW input and output storage
 
-```
-com.photographer.focusstack.cr3
-├── bmff/           # Generic ISO BMFF box parser (format-agnostic)
-│   ├── IsoBox
-│   ├── IsoBmffReader
-│   └── FtypBox
-├── container/      # CR3-specific container parsing
-│   ├── Cr3Container
-│   ├── Cr3Track
-│   └── Cr3Parser
-├── metadata/       # Metadata extraction
-│   └── Cr3Metadata
-├── preview/        # JPEG preview/thumbnail extraction
-│   └── Cr3PreviewExtractor
-├── raw/            # RAW image data structures
-│   ├── Cr3RawImage
-│   └── codec/     # CRX compression codec
-│       ├── BitReader
-│       ├── RiceGolombDecoder
-│       └── CrxLosslessRawDecoder
-├── processing/     # Image processing pipeline
-│   ├── BlackLevelProcessor
-│   ├── BayerDemosaicer
-│   ├── WhiteBalanceProcessor
-│   ├── ColorMatrixProcessor
-│   └── SrgbConverter
-├── decode/         # High-level decoder API
-│   ├── Cr3Decoder
-│   └── Cr3DecodeOptions
-├── Cr3Exception
-└── Cr3FormatException
-```
+The codec validates track and subband extents before allocating the output raster. Each active subband on a seekable stream has a read-ahead window of at most 32 KiB. Its position is independent of the other subbands. This lets wavelet synthesis alternate between bands while keeping encoded input storage bounded. Callers of the byte-array codec API read directly from their array. An input stream supplied by a caller can have its own cache.
 
-## Design Principles
+`RAW_SENSOR` and `RAW_LINEAR` write tile-plane rows into a single unsigned-short raster. A region or subsampling request reduces that raster to the selected sites. Prediction and wavelet reconstruction still traverse the frame.
 
-- **Separation of concerns**: Generic ISO BMFF parsing is separated from
-  Canon CR3-specific logic, allowing reuse for other BMFF formats.
-- **No ImageIO dependency**: The core decoder can be used standalone without
-  `javax.imageio`. ImageIO is only an adapter layer.
-- **Stream-based I/O**: Uses `ImageInputStream` with `long` offsets throughout.
-  Files are never loaded entirely into memory.
-- **Incremental implementation**: Preview extraction works first, then lossless
-  RAW decoding, then demosaicing and color processing.
-- **Extensibility**: C-RAW (lossy) support and additional camera models are
-  prepared with TODO markers.
+For `RAW_PROCESSED`, the codec writes the selected active area into a packed integer array. During the same pass the facade accumulates the masked left-border samples by sensor row and Bayer phase, including rows outside the crop. Black-level subtraction uses the original sensor coordinates. White balance and demosaicing use the crop-local coordinates established by the processing API.
 
-## Decoding Pipeline
+The demosaicer renders into two temporary rows. Once interpolation no longer needs a Bayer row, its slot in the image array receives the finished RGB row. The resulting `TYPE_INT_RGB` image owns that array. Color correction, sRGB conversion, horizontal and vertical flips, and 180-degree rotation operate on it directly. EXIF transforms that exchange the axes allocate a destination image with swapped dimensions. An ImageIO region of processed RGB uses the fully developed, oriented image.
 
-```
-CR3 File
-  │
-  ├─ IsoBmffReader ──→ IsoBox tree
-  │
-  ├─ Cr3Parser ──→ Cr3Container (tracks, metadata)
-  │
-  ├─ Cr3PreviewExtractor ──→ JPEG BufferedImage (fast path)
-  │
-  └─ CrxLosslessRawDecoder ──→ Cr3RawImage (Bayer)
-       │
-       ├─ BlackLevelProcessor
-       ├─ WhiteBalanceProcessor
-       ├─ BayerDemosaicer ──→ RGB BufferedImage
-       ├─ ColorMatrixProcessor
-       └─ SrgbConverter ──→ Final sRGB BufferedImage
-```
+The embedded JPEG preview is available independently of sensor reconstruction. [Output modes and verified profiles](../docs/cr3/decoder.md) · [ImageIO read parameters](../docs/cr3/imageio.md)

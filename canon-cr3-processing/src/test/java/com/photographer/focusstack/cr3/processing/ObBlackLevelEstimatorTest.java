@@ -13,6 +13,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ObBlackLevelEstimatorTest {
 
     @Test
+    void averagesOddWidthOpticalBlackAcrossTileRowsBeforeTheCrop() {
+        var estimator = ObBlackLevelEstimator.forSensor(12, 3, 7);
+        // Right tile first. The illuminated site at column 7 and the final unpaired row
+        // must not affect the means or the minimum used for demosaic normalization.
+        estimator.addPlaneRow(4, 0, new int[]{12, 17, 9000, 9000});
+        estimator.addPlaneRow(5, 0, new int[]{24, 9000, 9000, 9000});
+        estimator.addPlaneRow(0, 2, new int[]{0, 0});
+        estimator.addPlaneRow(0, 0, new int[]{10, 10});
+        estimator.addPlaneRow(1, 0, new int[]{21, 20});
+        estimator.addPlaneRow(0, 1, new int[]{30, 33, 31, 31, 9000, 9000});
+        estimator.addPlaneRow(1, 1, new int[]{40, 42, 41, 9000, 9000, 9000});
+
+        BlackLevel black = estimator.blackLevel();
+        var pattern = Cr3RawImage.BayerPattern.RGGB;
+        assertThat(black.levelAt(0, 0, pattern)).isEqualTo(12);
+        assertThat(black.levelAt(1, 0, pattern)).isEqualTo(21);
+        assertThat(black.levelAt(0, 1, pattern)).isEqualTo(31);
+        assertThat(black.levelAt(1, 1, pattern)).isEqualTo(41);
+        assertThat(black.levelAt(0, 2, pattern)).isZero();
+        assertThat(black.minPerRowLevel()).isEqualTo(12);
+    }
+
+    @Test
     @DisplayName("Returns null when OB region is too narrow")
     void tooNarrowObRegion() {
         // Image with only 2 columns of OB (below MIN_OB_COLUMNS = 4)

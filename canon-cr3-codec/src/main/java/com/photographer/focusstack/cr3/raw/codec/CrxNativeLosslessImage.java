@@ -14,14 +14,14 @@ final class CrxNativeLosslessImage {
                               CrxHeader.CodecVersion version, Cmp1Box cmp,
                               Cr3RawImage.BayerPattern pattern) throws Cr3Exception {
         try {
-            return CrxPlaneAssembler.decodeImage(prepare(track, width, height, depth, version, cmp),
+            return CrxPlaneAssembler.decodeImage(prepare(track == null ? null : CrxTrackInput.fromArray(track), width, height, depth, version, cmp),
                     width, height, depth, pattern);
         } catch (IOException e) {
             throw invalidPayload(e);
         }
     }
 
-    static CrxSensorDecoder prepare(byte[] track, int width, int height, int depth,
+    static CrxSensorDecoder prepare(CrxTrackInput track, int width, int height, int depth,
                                     CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception {
         if (cmp == null || version != CrxHeader.CodecVersion.V1 || !cmp.isLossless()
                 || cmp.encodingType() != 0 || cmp.numPlanes() != 4 || depth != 14
@@ -42,7 +42,7 @@ final class CrxNativeLosslessImage {
         // CMP1 sizes the marker records. The zero bytes that follow belong to the first plane.
         CrxHeader header;
         try {
-            header = CrxHeader.parseDirectory(track, headerBytes, version);
+            header = CrxHeader.parseDirectory(track.window(0, headerBytes), version);
         } catch (IOException e) {
             throw invalidPayload(e);
         }
@@ -86,7 +86,7 @@ final class CrxNativeLosslessImage {
         };
     }
 
-    private static void decodeTiles(byte[] track, int width, int height, int tileWidth,
+    private static void decodeTiles(CrxTrackInput track, int width, int height, int tileWidth,
                                     CrxHeader header, CrxSensorDecoder.RowConsumer consumer) throws IOException {
         int tileX = 0;
         for (var tile : header.tiles()) {
@@ -95,7 +95,8 @@ final class CrxNativeLosslessImage {
                 var band = plane.subbands().getFirst();
                 int x = tileX + (plane.index() & 1);
                 int y = plane.index() / 2;
-                CrxNativeLosslessPlane.decodeSensor(track, (int) band.dataOffset(), (int) band.dataSize(),
+                var bits = new BitReader(track.window((int) band.dataOffset(), (int) band.dataSize()));
+                CrxNativeLosslessPlane.decodeSensor(bits,
                         extent / 2, height / 2, x, y, consumer);
             }
             tileX += extent;
