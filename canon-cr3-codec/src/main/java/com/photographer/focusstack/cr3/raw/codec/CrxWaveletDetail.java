@@ -1,7 +1,6 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 /** Sequential high-frequency coefficient rows from one independently coded CRX subband. */
 final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
@@ -48,10 +47,11 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
             boolean guard = x + 1 < width && (x == 0 || !nonzero[x - 1]) && !nonzero[x] && !nonzero[x + 1];
             if (guard && bits.readBit() == 1) {
                 int end = x + state.readRunLength(width - x);
-                Arrays.fill(previousK, x, end, 0);
-                Arrays.fill(nonzero, x, end, false);
-                Arrays.fill(output, x, end, 0);
-                x = end;
+                while (x < end) {
+                    previousK[x] = 0;
+                    nonzero[x] = false;
+                    output[x++] = 0;
+                }
                 if (x == width) {
                     break;
                 }

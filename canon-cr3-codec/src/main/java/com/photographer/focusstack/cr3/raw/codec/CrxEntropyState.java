@@ -12,17 +12,6 @@ final class CrxEntropyState {
             4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15
     };
 
-    private static final int[] RUN_PREFIX_SUM = runPrefixSum();
-
-    // Sum of complete segment lengths for run indices [0, i).
-    private static int[] runPrefixSum() {
-        int[] sums = new int[RUN_REMAINDER_BITS.length + 1];
-        for (int i = 0; i < RUN_REMAINDER_BITS.length; i++) {
-            sums[i + 1] = sums[i] + (1 << RUN_REMAINDER_BITS[i]);
-        }
-        return sums;
-    }
-
     private final BitReader bits;
     private int k;
     private int runIndex;
@@ -53,22 +42,6 @@ final class CrxEntropyState {
 
     /** The caller has already consumed the positive-run flag, which accounts for one copy. */
     int readRunLength(int remaining) throws IOException {
-        if (remaining <= 1) {
-            return remaining;
-        }
-        // Within a row every continuation advances the index; the sum gives their total length.
-        int ones = bits.peekRunPrefix();
-        int end = runIndex + ones;
-        if (ones >= 0 && end < RUN_REMAINDER_BITS.length) {
-            int copies = 1 + RUN_PREFIX_SUM[end] - RUN_PREFIX_SUM[runIndex];
-            if (copies < remaining) {
-                runIndex = end;
-                int tail = bits.readRunTail(ones, RUN_REMAINDER_BITS[end]);
-                runIndex = Math.max(0, end - 1);
-                return Math.min(remaining, copies + tail);
-            }
-        }
-        // At a row boundary we may stop before the zero. The largest run index also saturates.
         long copies = 1;
         while (copies < remaining) {
             int remainderBits = RUN_REMAINDER_BITS[runIndex];

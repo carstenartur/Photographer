@@ -129,27 +129,6 @@ public final class BitReader {
         return quotient == escapeQuotient ? readBits(literalBits) : (quotient << k) | readBits(k);
     }
 
-    /** Peeks at a terminated run prefix. Returns -1 if all buffered bits are ones. */
-    int peekRunPrefix() throws IOException {
-        if (available == 0) {
-            refill();
-        }
-        int ones = Long.numberOfLeadingZeros(~buffer);
-        return ones < available ? ones : -1;
-    }
-
-    /** Consumes the prefix identified by peekRunPrefix, its zero terminator, and the remainder. */
-    int readRunTail(int ones, int width) throws IOException {
-        int count = ones + 1 + width;
-        if (count <= available) {
-            int tail = (int) (buffer >>> (64 - count)) & ((1 << width) - 1);
-            consume(count);
-            return tail;
-        }
-        consume(ones + 1);
-        return readBits(width);
-    }
-
     private void consume(int bits) {
         buffer <<= bits;
         available -= bits;
