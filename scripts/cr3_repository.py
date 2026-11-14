@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import tempfile
+from threading import Thread
 import xml.etree.ElementTree as ET
 
 from validate_cr3_central_bundle import (
@@ -133,25 +137,51 @@ def publish(root: Path, stage: Path, version: str, guard):
                 git(root, 'branch', '-D', orphan)
 
 
+@contextmanager
+def serve_stage(stage: Path):
+    """Record actual artifact transfers independently of Maven Resolver's cache format."""
+    served = set()
+
+    class Handler(SimpleHTTPRequestHandler):
+        def log_message(self, *args):
+            pass  # Maven probes missing metadata and third-party dependencies here.
+
+        def copyfile(self, source, output):
+            super().copyfile(source, output)
+            path = Path(self.translate_path(self.path))
+            if path.is_file():
+                served.add(path.relative_to(stage).as_posix())
+
+    with ThreadingHTTPServer(('127.0.0.1', 0), partial(Handler, directory=str(stage))) as server:
+        server.daemon_threads = False  # Finish recording every transfer before inspecting the set.
+        thread = Thread(target=server.serve_forever)
+        thread.start()
+        try:
+            yield f'http://127.0.0.1:{server.server_port}/', served
+        finally:
+            server.shutdown()
+            thread.join()
+
+
 def verify_consumer(root: Path, stage: Path, version: str):
     """A fresh independent Maven consumer resolves cr3-imageio and all five siblings."""
     with tempfile.TemporaryDirectory(prefix='cr3-maven-consumer-') as tmp:
         cache = Path(tmp) / 'repository'
         jars = Path(tmp) / 'jars'
-        subprocess.run(['mvn', '-B', '-ntp', '-f', str(root / 'release/canon-cr3-consumer/pom.xml'),
-                        '-Pphotographer-releases', '-Dphotographer.repository.url=' + stage.as_uri(),
-                        '-Dcr3.version=' + version, '-Dmaven.repo.local=' + str(cache),
-                        '-DoutputDirectory=' + str(jars),
-                        'org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies'],
-                       cwd=root, check=True)
+        with serve_stage(stage) as (url, served):
+            subprocess.run(['mvn', '-B', '-ntp', '-f', str(root / 'release/canon-cr3-consumer/pom.xml'),
+                            '-Pphotographer-releases', '-Dphotographer.repository.url=' + url,
+                            '-Dcr3.version=' + version, '-Dmaven.repo.local=' + str(cache),
+                            '-DoutputDirectory=' + str(jars),
+                            'org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies'],
+                           cwd=root, check=True)
         for artifact in PUBLIC_ARTIFACTS:
             relative = Path(PUBLIC_GROUP_PATH, artifact, version)
-            tracking = (cache / relative / '_remote.repositories').read_text().splitlines()
             for suffix in ('.pom', '.jar'):
                 name = artifact + '-' + version + suffix
                 if (cache / relative / name).read_bytes() != (stage / relative / name).read_bytes():
                     raise ValueError(f'consumer resolved different bytes for {name}')
-                if name + '>photographer-releases=' not in tracking:
+                if (relative / name).as_posix() not in served:
                     raise ValueError(f'consumer did not resolve {name} from the staged repository')
             if not (jars / (artifact + '-' + version + '.jar')).is_file():
                 raise ValueError(f'missing transitive dependency {artifact}')
