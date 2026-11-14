@@ -207,6 +207,7 @@ def validate_bundle(
         ):
             raise BundleValidationError(f"Unexpected deployable coordinate in bundle: {name}")
 
+    expected_files = set()
     verified_signatures = 0
     for artifact_id in PUBLIC_ARTIFACTS:
         directory = f"{PUBLIC_GROUP_PATH}/{artifact_id}/{version}"
@@ -224,11 +225,10 @@ def validate_bundle(
             signature_name = f"{file_name}.asc"
             if signature_name not in entries:
                 raise BundleValidationError(f"Missing GPG signature {signature_name}")
+            expected_files.update((file_name, signature_name))
             for checksum_suffix in CHECKSUM_SUFFIXES:
+                expected_files.add(file_name + checksum_suffix)
                 _validate_checksum(entries, file_name, checksum_suffix.removeprefix("."))
-                _validate_checksum(
-                    entries, signature_name, checksum_suffix.removeprefix(".")
-                )
             if gnupg_home is not None:
                 _verify_signature(entries, file_name, gnupg_home)
                 verified_signatures += 1
@@ -237,6 +237,10 @@ def validate_bundle(
         _validate_jar(entries, primary_files[".jar"], ".class")
         _validate_jar(entries, primary_files["-sources.jar"], ".java")
         _validate_jar(entries, primary_files["-javadoc.jar"], "index.html")
+
+    unexpected = entries.keys() - expected_files
+    if unexpected:
+        raise BundleValidationError(f"Unexpected release file: {min(unexpected)}")
 
     return BundleValidationResult(
         artifact_count=len(PUBLIC_ARTIFACTS),

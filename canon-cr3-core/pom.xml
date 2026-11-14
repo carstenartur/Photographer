@@ -34,6 +34,10 @@
         <url>https://github.com/carstenartur/Photographer/actions</url>
     </ciManagement>
 
+    <properties>
+        <central.skipPublishing>false</central.skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
@@ -90,6 +94,9 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <executions>
                     <execution>
+                        <configuration>
+                            <attach>${cr3.attachTestJars}</attach>
+                        </configuration>
                         <goals>
                             <goal>test-jar</goal>
                         </goals>

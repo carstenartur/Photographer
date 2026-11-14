@@ -5,9 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <!--
-        This POM is an aggregator only, never a published parent. Each public
-        module inherits build policy from the repository parent while the
-        flatten plugin removes that internal parent from the deployed POM.
+        The public libraries inherit their release configuration from the repository
+        parent. The aggregator selects them and skips its own deployment.
     -->
     <groupId>com.photographer.focusstack.build</groupId>
     <artifactId>canon-cr3-public-release</artifactId>
@@ -27,33 +26,6 @@
     </modules>
 
     <properties>
-        <central-publishing-maven-plugin.version>0.11.0</central-publishing-maven-plugin.version>
-        <!-- Preflight builds create the exact bundle but never upload it. -->
-        <central.skipPublishing>true</central.skipPublishing>
+        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
-
-    <!--
-        This plugin is a Maven build extension and must be loaded while the
-        execution root is constructed. Keeping it outside a profile ensures it
-        can replace the ordinary deploy path for every selected reactor module.
-        The dedicated aggregator is never used by ordinary application builds.
-    -->
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.sonatype.central</groupId>
-                <artifactId>central-publishing-maven-plugin</artifactId>
-                <version>${central-publishing-maven-plugin.version}</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <publishingServerId>central</publishingServerId>
-                    <autoPublish>false</autoPublish>
-                    <waitUntil>validated</waitUntil>
-                    <skipPublishing>${central.skipPublishing}</skipPublishing>
-                    <deploymentName>Photographer Canon CR3 ${revision}</deploymentName>
-                    <excludeArtifacts>canon-cr3-public-release</excludeArtifacts>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

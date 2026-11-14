@@ -10,7 +10,7 @@ The public group is:
 io.github.carstenartur
 ```
 
-The first supported release bundle contains exactly these artifacts:
+The release bundle contains these six artifacts. The examples below use the candidate version `0.1.5`.
 
 | Artifact | Purpose |
 |---|---|
@@ -34,58 +34,62 @@ The external Maven smoke test verifies that the runtime dependency graph contain
 
 ## Published POM model
 
-The source modules continue to inherit the repository's internal Spring Boot parent for normal development. The `central-release` profile uses `flatten-maven-plugin` in `ossrh` mode so the deployed consumer POMs:
+The source modules continue to inherit the repository's internal Spring Boot parent for normal development. The `central-release` profile uses `flatten-maven-plugin` in `oss` mode so the deployed consumer POMs:
 
 - have no parent dependency on the monoreactor;
-- contain resolved release versions and dependency management;
+- contain explicit runtime dependency versions;
 - preserve required project, license, developer, SCM and issue metadata;
 - contain no test, research or SNAPSHOT dependency.
 
-The release aggregator at `release/canon-cr3-public/pom.xml` is not a published parent. It only selects the six supported modules and installs the Central Portal build extension.
+The dedicated release reactor selects the six libraries. The container test fixtures are installed locally for sibling test suites. Only the runtime JAR, sources JAR, Javadoc JAR and flattened POM for each module go into the Sonatype bundle.
 
-## Credential-free preflight
+## Build and verify the candidate
 
-Run from any Git checkout with Java 25, Maven, Python 3 and GnuPG:
+From the repository root, use JDK 25 and Maven 3.9.x. This command generates a temporary GnuPG key, builds the candidate in an isolated Maven repository and checks the **exact ZIP produced by Sonatype**. It needs Python 3, GnuPG and access to download the Maven build dependencies.
 
 ```bash
 bash scripts/run_cr3_central_preflight.sh 0.1.5
 ```
 
-The preflight:
+The script verifies 24 payloads, their 96 checksums and their 24 detached signatures. It writes `target/cr3-central-preflight/central-bundle.zip`, its SHA-256 digest and the build log, then deletes the temporary keyring and repository. The same preflight runs in the CR3 Packaged Consumer workflow.
 
-1. rejects SNAPSHOT versions;
-2. generates a one-day, unprotected ephemeral signing key in a temporary keyring;
-3. builds only the six public modules with sources and doclint-checked Javadoc;
-4. flattens every consumer POM;
-5. signs the POM, main JAR, sources JAR and Javadoc JAR for every artifact;
-6. asks the official Central publishing plugin to create its exact deployment bundle with `skipPublishing=true`;
-7. verifies all required artifacts, metadata, dependency constraints, MD5/SHA-1/SHA-256/SHA-512 checksums and detached signatures;
-8. deletes the ephemeral private key;
-9. leaves the validated bundle and SHA-256 digest under `target/cr3-central-preflight/`.
-
-This is also executed in the existing `CR3 Packaged Consumer` workflow. Pull-request CI never has Central credentials and cannot upload.
-
-## Real Central Portal publication
-
-Before the first remote release, the maintainer must complete the external account steps that cannot be encoded in the repository:
-
-1. verify ownership of the `io.github.carstenartur` namespace in the Central Portal;
-2. create a Central Portal user token and configure it as Maven server id `central` outside the repository;
-3. configure the long-lived release GPG key outside the repository and publish its public key through an accepted keyserver;
-4. run the credential-free preflight for the exact release version;
-5. inspect the generated bundle and external-consumer result;
-6. run the upload with manual publication retained:
+With your own signing key, build the bundle directly from Maven. Selecting `central-release` defaults to local bundling. Once all plugins and dependencies are cached, the same command accepts Maven’s `-o` option for an offline build.
 
 ```bash
-mvn -B --no-transfer-progress \
-  -f release/canon-cr3-public/pom.xml \
-  -Pcentral-release,central-publish \
-  -Drevision=0.1.5 \
-  -Dcentral.skipPublishing=false \
-  clean deploy
+mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release \
+  -Drevision=0.1.5 clean deploy
 ```
 
-`autoPublish` is deliberately `false`. A valid uploaded deployment must be reviewed in the Central Portal before it is published. Released coordinates are immutable; a correction requires a new version.
+Maven logs the bundle path. The default output location in this reactor is `canon-cr3-container/target/central-publishing/central-bundle.zip`. Build inputs use a fixed archive timestamp. Signing times and one-use keys naturally change the detached signatures.
+
+## Release credentials
+
+Use a Central Portal user token authorized for `io.github.carstenartur`. Put the token in your secret store and reference its two environment variables in the `servers` section of Maven settings (usually `~/.m2/settings.xml`).
+
+```xml
+<server>
+  <id>central</id>
+  <username>${env.CENTRAL_USERNAME}</username>
+  <password>${env.CENTRAL_PASSWORD}</password>
+</server>
+```
+
+Local signing uses your GnuPG keyring. Select a key with `-Dgpg.keyname=FULL_FINGERPRINT` when needed. For an ASCII-armored private key in `MAVEN_GPG_KEY`, pass `-Dgpg.signer=bc`. The Maven GPG plugin reads `MAVEN_GPG_PASSPHRASE` for encrypted keys and supports the optional `MAVEN_GPG_KEY_FINGERPRINT`. Publish the corresponding public key through a Central-supported keyserver.
+
+## Central Portal publication
+
+Run from the tagged release checkout with a stable version already set in its POM. Maven signs the same set of artifacts and the official extension assembles the bundle as in preflight. Choose one operation.
+
+| Operation | Maven command |
+|---|---|
+| Upload, wait for validation, then publish this deployment in the Portal | `mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release -Dcentral.skipUpload=false clean deploy` |
+| Upload, publish automatically and wait for confirmation | `mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release -Dcentral.skipUpload=false -Dcentral.autoPublish=true -Dcentral.waitUntil=published clean deploy` |
+
+Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
+
+The optional **Canon CR3 Maven Central** Actions workflow runs on manual dispatch. Select the stable `vX.Y.Z` tag and either `validate` (manual Portal publication) or `publish`. The workflow checks out the exact tag commit, confirms its version and invokes the Maven release profile. Use repository secrets named `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` secret maps to the Maven GPG plugin’s fingerprint variable.
+
+The release profile and credential names follow the project’s [jgit-storage-hibernate release procedure](https://github.com/carstenartur/jgit-storage-hibernate/blob/540b847706f9d03ac286a21fefd432787e122671/docs/maven-central.md). See also the [Sonatype plugin documentation](https://central.sonatype.org/publish/publish-portal-maven/).
 
 ## Consumer examples
 
@@ -113,4 +117,4 @@ The ImageIO dependency resolves the remaining supported runtime modules transiti
 
 ## Current limitation
 
-Repository-side release engineering and credential-free bundle validation do not prove that a version is remotely available. A release may be documented as published only after Central Portal validation, manual publication and a clean external resolution from Maven Central by exact released coordinates.
+Repository-side release engineering and credential-free bundle validation do not prove that a version is remotely available. A release may be documented as published only after Central Portal validation, publication and a clean external resolution from Maven Central by exact released coordinates.

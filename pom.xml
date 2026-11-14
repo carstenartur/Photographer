@@ -104,6 +104,7 @@
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
         <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
         <central.skipPublishing>true</central.skipPublishing>
+        <cr3.attachTestJars>true</cr3.attachTestJars>
         <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
         <argLine/>
         <!-- Tags excluded by default; override with -DexcludedGroups= to run real-camera tests -->
@@ -200,8 +201,34 @@
         -->
         <profile>
             <id>central-release</id>
+            <properties>
+                <central.skipUpload>true</central.skipUpload>
+                <central.autoPublish>false</central.autoPublish>
+                <central.waitUntil>validated</central.waitUntil>
+                <cr3.attachTestJars>false</cr3.attachTestJars>
+                <project.build.outputTimestamp>2026-11-14T00:00:00Z</project.build.outputTimestamp>
+            </properties>
             <build>
                 <plugins>
+                    <plugin>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>require-public-release</id>
+                                <phase>validate</phase>
+                                <goals><goal>enforce</goal></goals>
+                                <configuration>
+                                    <skip>${central.skipPublishing}</skip>
+                                    <rules>
+                                        <requireMavenVersion><version>[3.9,4)</version></requireMavenVersion>
+                                        <requireReleaseVersion>
+                                            <failWhenParentIsSnapshot>false</failWhenParentIsSnapshot>
+                                        </requireReleaseVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
@@ -209,8 +236,9 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <autoPublish>false</autoPublish>
-                            <waitUntil>validated</waitUntil>
+                            <skipUpload>${central.skipUpload}</skipUpload>
+                            <autoPublish>${central.autoPublish}</autoPublish>
+                            <waitUntil>${central.waitUntil}</waitUntil>
                             <skipPublishing>${central.skipPublishing}</skipPublishing>
                             <deploymentName>Photographer Canon CR3 ${revision}</deploymentName>
                         </configuration>
@@ -220,6 +248,7 @@
                         <artifactId>flatten-maven-plugin</artifactId>
                         <version>${flatten-maven-plugin.version}</version>
                         <configuration>
+                            <flattenedPomFilename>target/.flattened-pom.xml</flattenedPomFilename>
                             <flattenMode>oss</flattenMode>
                             <flattenDependencyMode>inherited</flattenDependencyMode>
                             <updatePomFile>true</updatePomFile>
@@ -279,6 +308,7 @@
                         <version>${maven-gpg-plugin.version}</version>
                         <configuration>
                             <bestPractices>true</bestPractices>
+                            <skip>${central.skipPublishing}</skip>
                         </configuration>
                         <executions>
                             <execution>

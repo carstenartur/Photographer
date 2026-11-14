@@ -34,6 +34,10 @@
         <url>https://github.com/carstenartur/Photographer/actions</url>
     </ciManagement>
 
+    <properties>
+        <central.skipPublishing>false</central.skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -63,6 +67,9 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <executions>
                     <execution>
+                        <configuration>
+                            <attach>${cr3.attachTestJars}</attach>
+                        </configuration>
                         <goals>
                             <goal>test-jar</goal>
                         </goals>
@@ -71,4 +78,31 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>central-release</id>
+            <build>
+                <plugins>
+                    <!-- Sibling tests depend on this fixture jar. Install it locally
+                         without attaching it to the public component for signing or deployment. -->
+                    <plugin>
+                        <artifactId>maven-install-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>install-local-test-fixtures</id>
+                                <phase>install</phase>
+                                <goals><goal>install-file</goal></goals>
+                                <configuration>
+                                    <file>${project.build.directory}/${project.build.finalName}-tests.jar</file>
+                                    <pomFile>${project.file}</pomFile>
+                                    <classifier>tests</classifier>
+                                    <packaging>jar</packaging>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
