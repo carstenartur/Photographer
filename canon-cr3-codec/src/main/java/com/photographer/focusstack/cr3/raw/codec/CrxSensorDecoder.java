@@ -1,7 +1,7 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
-import com.photographer.focusstack.cr3.Cr3Workers;
+import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 
 import javax.imageio.stream.ImageInputStream;

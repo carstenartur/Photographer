@@ -1,4 +1,4 @@
-package com.photographer.focusstack.cr3;
+package com.photographer.focusstack.cr3.raw;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;

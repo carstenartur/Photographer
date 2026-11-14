@@ -1,7 +1,7 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
-import com.photographer.focusstack.cr3.Cr3Workers;
+import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import java.io.IOException;
 
 /** A Bayer position belongs to one worker across all tiles, including its optical-black rows. */

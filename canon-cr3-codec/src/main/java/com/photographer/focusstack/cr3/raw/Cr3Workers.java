@@ -1,4 +1,4 @@
-package com.photographer.focusstack.cr3;
+package com.photographer.focusstack.cr3.raw;
 
 import java.util.Objects;
 import java.util.concurrent.ForkJoinPool;

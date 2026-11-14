@@ -1,6 +1,6 @@
 package com.photographer.focusstack.cr3.processing;
 
-import com.photographer.focusstack.cr3.Cr3Workers;
+import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
