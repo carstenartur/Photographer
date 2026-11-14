@@ -110,7 +110,7 @@ graph TD
 | `ai-vision` | AI vision abstraction (`VisionProvider` interface, Gemini + mock implementations). |
 | `astro-core` | Astro/long-exposure session management. |
 | `cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
-| `cr3-imageio` | Java ImageIO plugin for CR3 files. |
+| `cr3-imageio` | Java ImageIO plug-in for CR3 import and uncompressed Bayer DNG reading and writing. |
 | `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
 
@@ -118,7 +118,7 @@ graph TD
 
 Add `io.github.carstenartur:cr3-imageio` to a Java 25 Maven application to read the camera’s embedded JPEG with `ImageIO.read(file)`. Select processed RGB, linear Bayer or the original sensor codes through the reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
 
-[ImageIO setup and parameters](docs/cr3/imageio.md) · [CR3 file import, JPEG extraction and Photographer frame export](docs/cr3/import.md) · [Maven release status](docs/cr3-maven-central.md)
+[ImageIO setup and parameters](docs/cr3/imageio.md) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [CR3 file import, JPEG extraction and Photographer frame export](docs/cr3/import.md) · [Maven release status](docs/cr3-maven-central.md)
 
 ## Quickstart (Docker)
 

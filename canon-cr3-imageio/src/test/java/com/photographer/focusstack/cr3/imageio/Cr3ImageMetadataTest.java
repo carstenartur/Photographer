@@ -1,6 +1,9 @@
 package com.photographer.focusstack.cr3.imageio;
 
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
+import com.photographer.focusstack.cr3.bmff.Iad1Box;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
+import com.photographer.focusstack.dng.imageio.DngImageMetadata;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.w3c.dom.Node;
@@ -142,6 +145,25 @@ class Cr3ImageMetadataTest {
         Cr3Metadata meta = buildTestMetadata();
         Cr3ImageMetadata iioMeta = new Cr3ImageMetadata(meta);
         assertThat(iioMeta.getCr3Metadata()).isSameAs(meta);
+    }
+
+    @Test
+    void dngPatternAndLevelsStartAtTheActivePixel() throws Exception {
+        var cmp = new Cmp1Box((short) 256, 8, 8, 8, 8, 14, 4, 2, 0, 0, false, 0, false);
+        var iad = new Iad1Box(8, 8, true, 1, 0, 6, 5, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 7, 7);
+        var color = new Cr3SensorCalibration.ColorData(2000, 1000, 1000, 1500, 100, 200, 300, 400, 15000);
+        var metadata = new Cr3ImageMetadata(buildTestMetadata(), new Cr3SensorCalibration(cmp, iad, color));
+        var dng = DngImageMetadata.fromCr3(metadata).toDirectory();
+        assertThat(dng.getTIFFField(33422).getAsBytes()).containsExactly(2, 1, 1, 0);
+        assertThat(dng.getTIFFField(50714).getAsInts()).containsExactly(400, 300, 200, 100);
+    }
+
+    @Test
+    void dngRequiresNativeCalibration() {
+        var descriptive = new Cr3ImageMetadata(buildTestMetadata());
+        assertThatThrownBy(() -> DngImageMetadata.fromCr3(descriptive))
+                .isInstanceOf(javax.imageio.IIOException.class)
+                .hasMessageContaining("ColorData");
     }
 
     private static Cr3Metadata buildTestMetadata() {

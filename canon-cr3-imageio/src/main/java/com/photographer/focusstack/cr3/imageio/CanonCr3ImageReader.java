@@ -8,6 +8,7 @@ import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions.OutputMode;
 import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
+import com.photographer.focusstack.dng.imageio.DngImageMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +54,7 @@ public class CanonCr3ImageReader extends ImageReader {
 
     private Cr3Decoder decoder;
     private PreviewHeader previewHeader;
+    private Cr3ImageMetadata imageMetadata;
 
     private record PreviewHeader(Dimension dimensions, ImageTypeSpecifier type) {}
 
@@ -70,6 +72,7 @@ public class CanonCr3ImageReader extends ImageReader {
         super.setInput(input, seekForwardOnly, ignoreMetadata);
         this.decoder = null;
         this.previewHeader = null;
+        this.imageMetadata = null;
     }
 
     @Override
@@ -212,9 +215,16 @@ public class CanonCr3ImageReader extends ImageReader {
             checkIndex(imageIndex);
             ensureParsed();
             Cr3Metadata meta = decoder.getMetadata();
-            if (meta != null) {
-                return new Cr3ImageMetadata(meta);
+            if (imageMetadata == null && meta != null) {
+                Cr3SensorCalibration calibration = null;
+                try {
+                    calibration = Cr3SensorCalibration.read((ImageInputStream) getInput(), decoder.getContainer());
+                } catch (IOException e) {
+                    LOG.warn("Could not read CR3 sensor calibration: {}", e.getMessage());
+                }
+                imageMetadata = new Cr3ImageMetadata(meta, calibration);
             }
+            return imageMetadata;
         } catch (IOException e) {
             LOG.warn("Failed to get CR3 image metadata: {}", e.getMessage());
         }
@@ -277,6 +287,14 @@ public class CanonCr3ImageReader extends ImageReader {
             BufferedImage samples = decoder.decodeRawRegion(options, regions.source(), param.getSourceXSubsampling(),
                     param.getSourceYSubsampling());
             if (supplied == null && output.x == 0 && output.y == 0) {
+                if (options.outputMode() == OutputMode.RAW_SENSOR && !isIgnoringMetadata()
+                        && regions.source().equals(bounds) && output.equals(bounds)
+                        && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1) {
+                    IIOMetadata metadata = getImageMetadata(imageIndex);
+                    if (metadata != null) {
+                        return DngImageMetadata.attach(samples, metadata);
+                    }
+                }
                 return samples;
             }
             BufferedImage target = destination(param, type, output);
@@ -400,6 +418,7 @@ public class CanonCr3ImageReader extends ImageReader {
             decoder = null;
         }
         previewHeader = null;
+        imageMetadata = null;
     }
 
     /**

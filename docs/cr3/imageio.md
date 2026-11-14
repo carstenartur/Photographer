@@ -180,6 +180,79 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 - `read` supports destination images, destination types, destination offsets and band selection. Choose a destination compatible with the selected output. A supplied destination receives pixels at the requested physical offset. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
 - `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the preview. For RAW output geometry, inspect the returned image or raster. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
 
+## Write and read a Bayer DNG
+
+The ImageIO plug-in in this checkout also registers a DNG writer and a DNG reader. Both are in
+`io.github.carstenartur:cr3-imageio`. Install the checkout with the Maven command above to use
+this feature before its first release. Keep both ImageIO SPI service files when shading the JAR.
+
+For a full-sensor CR3 import, the returned image carries the metadata needed to export the
+Bayer mosaic. The following method uses the `findReader` helper from the complete example above.
+
+```java
+static void exportDng(File cr3File, File dngFile) throws IOException {
+    try (var input = new FileImageInputStream(cr3File)) {
+        var reader = findReader(input);
+        try {
+            reader.setInput(input);
+            var param = reader.getDefaultReadParam();
+            param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+            var sensor = reader.read(0, param);
+            if (!ImageIO.write(sensor, "DNG", dngFile)) {
+                throw new IOException("No DNG writer for this image on the classpath");
+            }
+        } finally {
+            reader.dispose();
+        }
+    }
+}
+```
+
+Each sensor code occupies one unsigned 16-bit sample. A 14-bit code of 2857 is stored as 2857.
+The file records its Bayer pattern, active area, orientation, black and white levels and camera
+calibration. Compression is disabled. This preserves the decoded samples of both RAW and C-RAW.
+Automatic CR3 calibration covers the EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II with
+recognized CTMD ColorData (versions 16–19). The black level, white level and as-shot white balance
+come from the capture. The two camera color matrices and their illuminants come from the
+[RawTherapee 5.12 public-domain and CC0 profiles](https://github.com/RawTherapee/RawTherapee/tree/5.12/rtdata/dcpprofiles).
+A missing calibration raises an `IIOException`.
+
+For an application that already has the full native `Raster`, pass the calibration explicitly.
+This example assumes the CR3 reader and `param` are configured as above.
+
+```java
+var samples = reader.readRaster(0, param);
+var writer = ImageIO.getImageWritersByFormatName("DNG").next();
+try (var output = ImageIO.createImageOutputStream(dngFile)) {
+    writer.setOutput(output);
+    var image = new javax.imageio.IIOImage(samples, null, reader.getImageMetadata(0));
+    writer.write(null, image, writer.getDefaultWriteParam());
+} finally {
+    writer.dispose();
+}
+```
+
+A different sensor source can supply `DngImageMetadata.fromDirectory(rawIfd)` with its own
+geometry, Bayer pattern and calibration. A grayscale picture by itself has no CFA or camera
+calibration. The writer requires a full-resolution sensor mosaic and rejects incompatible layouts.
+
+Read the exported DNG through the standard API:
+
+```java
+var sensor = ImageIO.read(dngFile);
+int code = sensor.getRaster().getSample(x, y, 0);
+```
+
+The DNG reader returns a single-band Bayer mosaic. Its supported layout is classic TIFF with an
+uncompressed 16-bit unsigned RGB Bayer image in the first image directory (IFD0). DNGs with a
+JPEG preview in IFD0 and the raw image in a SubIFD, packed 12/14-bit samples, compressed DNGs,
+and developed LinearRaw RGB DNGs are outside this reader's scope. Use
+`ImageIO.getImageReadersByFormatName("DNG")` to select the provider explicitly. Generic TIFF
+providers may also recognize the container. Re-export preserves supported calibration and sensor
+samples. The output does not embed the original CR3, JPEG preview, or proprietary MakerNotes.
+
+This product includes DNG technology under license by Adobe. [Digital Negative specification](https://helpx.adobe.com/camera-raw/digital-negative.html)
+
 ## Verification
 
 Run the ImageIO checks from the Photographer checkout.

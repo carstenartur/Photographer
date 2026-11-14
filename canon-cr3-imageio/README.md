@@ -1,6 +1,6 @@
 # cr3-imageio
 
-`javax.imageio` adapter for Canon CR3 files.
+`javax.imageio` adapter for Canon CR3 files and uncompressed 16-bit Bayer DNGs.
 
 ## Purpose
 
@@ -35,10 +35,12 @@ entropy, predictor, subband, processing, or research implementation classes.
 
 See the [Java ImageIO guide](../docs/cr3/imageio.md) for the Maven setup, runnable examples and read parameters for embedded JPEG, thumbnail, processed RGB, linear Bayer and original sensor samples. The [CR3 import guide](../docs/cr3/import.md) covers the standalone decoder, original JPEG byte extraction and captured frames in Photographer.
 
+The [DNG examples](../docs/cr3/imageio.md#write-and-read-a-bayer-dng) show how to export a full native sensor image or an explicit raster with calibration, and how to read the sensor values back.
+
 ## SPI registration
 
 The SPI is registered through
-`META-INF/services/javax.imageio.spi.ImageReaderSpi`.
+`META-INF/services/javax.imageio.spi.ImageReaderSpi` and `META-INF/services/javax.imageio.spi.ImageWriterSpi`.
 
 ## Current RAW limitations
 
