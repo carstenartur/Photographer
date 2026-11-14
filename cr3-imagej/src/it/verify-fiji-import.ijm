@@ -10,4 +10,3 @@ imageCalculator("Difference create 32-bit", sensor, getImageID());
 getRawStatistics(n, mean, min, max);
 File.saveString(w + "x" + h + " " + bits + " bits " + d2s(n,0) + " samples max=" + d2s(max,0) + "\n", dir + "result.txt");
 close("*");
-run("Quit");

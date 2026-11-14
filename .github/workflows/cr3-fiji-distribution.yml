@@ -86,7 +86,7 @@ jobs:
           ln -s "$PWD/canon-cr3-imageio/src/test/resources/samples/sample.cr3" "$sample_dir/sample.cr3"
           ln -s "$PWD/canon-cr3-imageio/src/test/resources/samples/sample.reference.tiff" "$sample_dir/reference.tiff"
           timeout 120 xvfb-run -a "$RUNNER_TEMP/Fiji/fiji" --java-home "$JAVA_HOME" --mem 1g --no-splash -- \
-            -macro "$PWD/cr3-imagej/src/it/verify-fiji-import.ijm" "$sample_dir"
+            -batch "$PWD/cr3-imagej/src/it/verify-fiji-import.ijm" "$sample_dir"
           grep -Fx '5632x3710 16 bits 20894720 samples max=0' "$sample_dir/result.txt"
 
       - name: Save installation and update-site archives
