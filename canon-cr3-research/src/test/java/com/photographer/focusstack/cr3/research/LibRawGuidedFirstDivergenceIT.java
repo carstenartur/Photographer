@@ -88,6 +88,26 @@ class LibRawGuidedFirstDivergenceIT {
 
     private static ReferenceGuidedFirstDivergenceReport.FixtureResult analyzeFixture(
             ManifestEntry entry) throws Exception {
+        List<ReferenceGuidedFirstDivergenceAnalyzer.AnalysisResult> streams = new ArrayList<>();
+        visitPlanes(entry, (mapping, bitDepth, referenceSamples, payload) -> {
+            var baseline = baselineOptions(bitDepth);
+            for (var mode : ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode.values()) {
+                streams.add(ReferenceGuidedFirstDivergenceAnalyzer.analyzePlane(
+                        payload, mapping, bitDepth, referenceSamples, mode, baseline));
+            }
+        });
+        return new ReferenceGuidedFirstDivergenceReport.FixtureResult(
+                entry.fixture(), entry.tool(), entry.version(), entry.sha256(),
+                entry.width(), entry.height(), streams);
+    }
+
+    @FunctionalInterface
+    interface PlaneVisitor {
+        void accept(ReferenceGuidedFirstDivergenceAnalyzer.PlaneMapping mapping,
+                    int bitDepth, int[] referenceSamples, byte[] payload);
+    }
+
+    static void visitPlanes(ManifestEntry entry, PlaneVisitor visitor) throws Exception {
         Path fixture = SAMPLES.resolve(entry.fixture()).normalize();
         Path sidecar = sidecarPath(fixture, entry.sidecar());
         assertThat(fixture).as("fixture %s", entry.fixture()).isRegularFile();
@@ -118,8 +138,6 @@ class LibRawGuidedFirstDivergenceIT {
         int fullPlaneHeight = (reference.height() + 1) / 2;
         int tileXOffset = 0;
         int tileOrdinal = 0;
-        List<ReferenceGuidedFirstDivergenceAnalyzer.AnalysisResult> streams =
-                new ArrayList<>(refs.size() * 2);
 
         for (List<SubbandExtractor.SubbandRef> sourceTile : byTile.values()) {
             List<SubbandExtractor.SubbandRef> tile = new ArrayList<>(sourceTile);
@@ -148,16 +166,7 @@ class LibRawGuidedFirstDivergenceIT {
                         planeWidth,
                         planeHeight);
                 byte[] payload = SubbandExtractor.read(fixture.toFile(), ref);
-                CrxNormativeLosslessCandidate.Options baseline = baselineOptions(ref.bitDepth());
-                for (var mode : ReferenceGuidedFirstDivergenceAnalyzer.InitializationMode.values()) {
-                    streams.add(ReferenceGuidedFirstDivergenceAnalyzer.analyzePlane(
-                            payload,
-                            mapping,
-                            ref.bitDepth(),
-                            reference.samples(),
-                            mode,
-                            baseline));
-                }
+                visitor.accept(mapping, ref.bitDepth(), reference.samples(), payload);
             }
             tileXOffset += planeWidth;
             tileOrdinal++;
@@ -165,17 +174,9 @@ class LibRawGuidedFirstDivergenceIT {
         assertThat(tileXOffset).as("tile coverage for %s", entry.fixture())
                 .isEqualTo(fullPlaneWidth);
 
-        return new ReferenceGuidedFirstDivergenceReport.FixtureResult(
-                entry.fixture(),
-                entry.tool(),
-                entry.version(),
-                entry.sha256(),
-                reference.width(),
-                reference.height(),
-                streams);
     }
 
-    private static CrxNormativeLosslessCandidate.Options baselineOptions(int bitDepth) {
+    static CrxNormativeLosslessCandidate.Options baselineOptions(int bitDepth) {
         CrxNormativeLosslessCandidate.Options options =
                 new CrxNormativeLosslessCandidate.Options();
         options.kInit = 1;
@@ -190,7 +191,7 @@ class LibRawGuidedFirstDivergenceIT {
         return options;
     }
 
-    private static List<ManifestEntry> parseRawLinearManifestEntries() throws IOException {
+    static List<ManifestEntry> parseRawLinearManifestEntries() throws IOException {
         List<String> lines = Files.readAllLines(MANIFEST, StandardCharsets.UTF_8);
         int start = lines.indexOf(TSV_START);
         int end = lines.indexOf(TSV_END);
@@ -238,6 +239,10 @@ class LibRawGuidedFirstDivergenceIT {
         return fixture.resolveSibling(name.replaceFirst("(?i)\\.cr3$", "." + sidecar));
     }
 
+    static String fixtureSha256(ManifestEntry entry) {
+        return sha256Hex(SAMPLES.resolve(entry.fixture()).normalize());
+    }
+
     private static String sha256Hex(Path path) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -254,7 +259,7 @@ class LibRawGuidedFirstDivergenceIT {
         }
     }
 
-    private record ManifestEntry(
+    record ManifestEntry(
             String fixture,
             String sidecar,
             String tool,

@@ -10,6 +10,8 @@ D13 established that the panel contains 88 lossless single-subband records with 
 
 This narrows the failure but does not reveal the private code/state transition. Repeating current-symbol K rules, neighbor searches, predictor permutations or passive score fitting would reuse saturated evidence rather than add knowledge.
 
+The [RG2 experiment](../cr3-results/2026-11-14-crx/README.md) rejected one primary-source hypothesis on the existing 88 streams. The first one at bit offset 10 and the two full-sensor C-RAW references are now measured inputs for a different, independently motivated experiment.
+
 ### Active evidence path
 
 Issue #249 defines a controlled first-party spatial-stimulus corpus. Its deterministic pattern assets exist; hardware acquisition and differential analysis remain open. The intended evidence chain is:

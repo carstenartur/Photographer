@@ -271,6 +271,131 @@
       "ledgerExperiment": "RG1",
       "timestampPolicy": "not-applicable",
       "rationale": "The committed report is the durable interpretation of the hash-bound workflow artifact and is preserved without automatic rewriting."
+    },
+    {
+      "id": "RG2-report",
+      "classification": "historical-manual",
+      "ownerModule": "canon-cr3-research",
+      "inputs": [
+        "docs/cleanroom/source-register.json",
+        "docs/cleanroom/experiment-ledger.json",
+        "docs/cr3-results/2026-11-14-crx/lossless-prefix.tsv",
+        "docs/cr3-results/2026-11-14-crx/external-sensors.tsv",
+        "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx/README.md"
+      ],
+      "ledgerExperiment": "RG2",
+      "timestampPolicy": "not-applicable",
+      "rationale": "Reviewed interpretation of the separately generated lossless and public C-RAW measurements."
+    },
+    {
+      "id": "RG2-metrics",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PatentRunModeIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Djava.awt.headless=true -Dit.test=PatentRunModeIT -Dcr3.patent.run-mode.enabled=true",
+      "inputs": [
+        "docs/cleanroom/source-register.json",
+        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
+        "docs/cleanroom/experiment-ledger.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx/lossless-prefix.tsv",
+        "docs/cr3-results/2026-11-14-crx/lossless-summary.tsv"
+      ],
+      "ledgerExperiment": "RG2",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx/lossless-prefix.tsv"
+        },
+        {
+          "source": "summary.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx/lossless-summary.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx/lossless-prefix.tsv": "d4b0c33c4cecf8ef1fda28f961bfed7aec05a673",
+        "docs/cr3-results/2026-11-14-crx/lossless-summary.tsv": "562764fcc683474b31bb61fdbad4ae7fbe517d07"
+      }
+    },
+    {
+      "id": "RG2-external",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "scripts/research/public-crx/verify-public-crx.sh",
+      "generateCommand": "bash scripts/research/public-crx/verify-public-crx.sh \"$scratch\" > \"$scratch/external-sensors.tsv\"",
+      "inputs": [
+        "scripts/research/public-crx/verify-public-crx.sh",
+        "scripts/research/public-crx/PublicCrxComparison.java"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx/external-sensors.tsv"
+      ],
+      "ledgerExperiment": "RG2",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "external-sensors.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx/external-sensors.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx/external-sensors.tsv": "ce266e86aa901cd5df63b5e5811d795e87c602d7"
+      }
+    },
+    {
+      "id": "RG2-craw",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PublicCrawPhotographerIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Djava.awt.headless=true -Dit.test=PublicCrawPhotographerIT -Dcr3.public.craw.enabled=true -Dcr3.public.craw.dir=\"$scratch\"",
+      "inputs": [
+        "scripts/research/public-crx/verify-public-crx.sh",
+        "docs/cleanroom/source-register.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv"
+      ],
+      "ledgerExperiment": "RG2",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv": "8fadd9d54dca23273022d11378225de5ce11ff50"
+      }
+    },
+    {
+      "id": "RG2-control",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessFirstBitControlIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Djava.awt.headless=true -Dit.test=LosslessFirstBitControlIT -Dcr3.first-bit.control.enabled=true -Dcr3.first-bit.dnglab=\"$scratch/dnglab\"",
+      "inputs": [
+        "scripts/research/public-crx/verify-public-crx.sh",
+        "docs/cleanroom/source-register.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv"
+      ],
+      "ledgerExperiment": "RG2",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv": "8f073c4542478323356a6daad2a512b5d586aef4"
+      }
     }
   ]
 }

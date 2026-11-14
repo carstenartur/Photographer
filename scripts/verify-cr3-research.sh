@@ -11,7 +11,7 @@ if [[ $# -gt 0 ]]; then
 fi
 selection=()
 case "$mode" in
-  --focused) selection=(-Dit.test=ExactBracketKDiscriminatorIT) ;;
+  --focused) selection=(-Dit.test=ExactBracketKDiscriminatorIT,PatentRunModeIT -Dcr3.patent.run-mode.enabled=true) ;;
   --full) ;;
   *) echo 'Usage: verify-cr3-research.sh [--focused|--full] [Maven options...]' >&2; exit 2 ;;
 esac
@@ -29,4 +29,7 @@ if [[ "$mode" == --focused ]]; then
   python3 scripts/manage_cr3_generated_evidence.py \
     --root . compare D12-metrics \
     --source-root canon-cr3-research/target/exact-code-length-k-discriminator
+  python3 scripts/manage_cr3_generated_evidence.py \
+    --root . compare RG2-metrics \
+    --source-root canon-cr3-research/target/patent-run-mode
 fi

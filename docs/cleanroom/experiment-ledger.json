@@ -161,6 +161,29 @@
       "verdict": "COMPLETE: PEDESTAL_ONLY_INSUFFICIENT_AND_EARLIEST_NONZERO_SYMBOL_UNEXPLAINED",
       "productionDecision": "No production decoder change; use the machine-readable prefix evidence only for a separately pre-registered structural hypothesis or controlled capture experiment",
       "status": "complete"
+    },
+    {
+      "id": "RG2",
+      "title": "First divergent symbol after the published low-frequency run decision",
+      "issue": 332,
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008",
+        "SRC-009",
+        "SRC-010",
+        "SRC-011"
+      ],
+      "oneChangedVariable": "Enable only the conditional decision bit with fixed RG1 residual decoding. A separate external control toggles only the first payload bit per input.",
+      "fixedInputs": "11 fixed RG1 CR3 and RAW_LINEAR TIFF pairs; read-only comparison on CC0 C-RAW files 4543 and 3506; one-bit control on eosr-iso-low.cr3 and sample-wide.cr3.",
+      "implementationScope": "Research fixtures, external references and test-only branch probe.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": null,
+      "durableReport": "docs/cr3-results/2026-11-14-crx/README.md",
+      "verdict": "REJECTED for this mapping: all 88 first divergences unchanged. Both C-RAW references agree on 52,207,568 sites. Both one-bit variants are rejected by the reference.",
+      "productionDecision": "Keep the production codec unchanged. Preserve the measured common prefix and externally verified mosaics for future experiments.",
+      "status": "complete",
+      "missingRunMetadataReason": "Local JDK 25 measurements. Baseline Git revision and commands are in the report. CI can independently regenerate the lossless metrics."
     }
   ]
 }

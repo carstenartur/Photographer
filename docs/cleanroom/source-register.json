@@ -122,6 +122,38 @@
         "algorithm": "sha256",
         "digest": "input and reference records are bound by the repository manifest"
       }
+    },
+    {
+      "id": "SRC-010",
+      "class": "public-specification",
+      "title": "Canon JP2017192077A, predictive and run-length decoding",
+      "citation": "Canon, JP2017192077A, figures 10 and 14. https://patents.google.com/patent/JP2017192077A/en",
+      "verifiedDate": "2026-11-14",
+      "permittedUse": "Test the disclosed low-frequency guard and zero/positive-run decision as an explicit hypothesis against untransformed CRX samples.",
+      "prohibitedUse": "Equating a patent embodiment, its boundary values or its flag polarity with Canon CRX without validation.",
+      "repositoryEvidence": [
+        "docs/cr3-results/2026-11-14-crx/README.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-011",
+      "class": "black-box-reference",
+      "title": "Public Canon C-RAW reference mosaics and private lossless one-bit controls",
+      "citation": "Linux x86-64 releases of LightCraft 0.21.1 and DNGLab 0.8.0. CC0 raw.pixls.us samples 4543 and 3506. DNGLab also executed on two controlled first-party lossless inputs.",
+      "verifiedDate": "2026-11-14",
+      "permittedUse": "Full-sensor expected values, externally observable acceptance, rejection and digest comparisons.",
+      "prohibitedUse": "Deriving implementation rules from external decoder sources or treating decoder rejection as a bit-field specification.",
+      "repositoryEvidence": [
+        "docs/cr3-results/2026-11-14-crx/README.md",
+        "scripts/research/public-crx/verify-public-crx.sh",
+        "docs/cr3-results/2026-11-14-crx/external-sensors.tsv",
+        "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "Exact release and input hashes in the replay script, output hashes in the measurement TSVs."
+      }
     }
   ]
 }

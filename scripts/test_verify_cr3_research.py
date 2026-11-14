@@ -21,7 +21,7 @@ class ResearchVerificationTest(unittest.TestCase):
         self.bin.mkdir()
         for name, body in {
             "mvn": 'pwd > "$CALL_LOG/cwd"\nprintf "%s\\n" "$@" > "$CALL_LOG/maven"\nexit "${MAVEN_EXIT:-0}"\n',
-            "python3": 'printf "%s\\n" "$@" > "$CALL_LOG/evidence"\nexit "${EVIDENCE_EXIT:-0}"\n',
+            "python3": 'printf "%s\\n" "$@" >> "$CALL_LOG/evidence"\nexit "${EVIDENCE_EXIT:-0}"\n',
         }.items():
             stub = self.bin / name
             stub.write_text("#!/bin/sh\n" + body)
@@ -47,11 +47,13 @@ class ResearchVerificationTest(unittest.TestCase):
         self.assertEqual("canon-cr3-research", args[args.index("-pl") + 1])
         self.assertIn("-am", args)
         self.assertIn("-Pcr3-research-it", args)
-        self.assertIn("-Dit.test=ExactBracketKDiscriminatorIT", args)
+        self.assertIn("-Dit.test=ExactBracketKDiscriminatorIT,PatentRunModeIT", args)
         self.assertIn("-Dmaven.repo.local=/tmp/empty research cache", args)
         self.assertFalse(any("skip" in arg.lower() or arg == "install" for arg in args))
         self.assertEqual([str(self.root)], self.log("cwd"))
+        self.assertIn("-Dcr3.patent.run-mode.enabled=true", args)
         self.assertIn("D12-metrics", self.log("evidence"))
+        self.assertIn("RG2-metrics", self.log("evidence"))
 
     def test_full_runs_all_integration_tests_without_focused_comparison(self):
         result = self.run_script("--full")
@@ -62,7 +64,7 @@ class ResearchVerificationTest(unittest.TestCase):
 
     def test_default_is_focused(self):
         self.assertEqual(0, self.run_script().returncode)
-        self.assertIn("-Dit.test=ExactBracketKDiscriminatorIT", self.log("maven"))
+        self.assertIn("-Dit.test=ExactBracketKDiscriminatorIT,PatentRunModeIT", self.log("maven"))
 
     def test_build_failure_does_not_compare_stale_evidence(self):
         result = self.run_script("--focused", MAVEN_EXIT="23")

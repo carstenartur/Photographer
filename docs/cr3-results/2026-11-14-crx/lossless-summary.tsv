@@ -1,0 +1,4 @@
+family	streams	baselineMedian	candidateMedianLowerBound	eligibleAtBaselineMismatch	improved	unchanged	worse	unresolved
+all	88	1.0	1.0	0	0	88	0	0
+EOS R	24	1.0	1.0	0	0	24	0	0
+G5 X Mark II	64	1.0	1.0	0	0	64	0	0

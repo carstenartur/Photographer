@@ -65,6 +65,12 @@ A scalar pedestal is therefore not the sole missing semantic. The passive refere
 
 The durable report is [RG1 LibRaw-guided first divergence](../cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md).
 
+## Measured stream prefix and C-RAW reference values
+
+RG2 reproduced RG1 on 88 streams. Consuming the patent-derived conditional flag at offset zero shifted the residual reader by one bit and left all 88 first errors unchanged. Every payload had its first one at offset 10. Flipping bit zero made the external reference reject each of two controlled inputs. The meaning of the ten-zero prefix remains open.
+
+LightCraft and DNGLab agreed on every Bayer value of the public EOS R and PowerShot G5 X Mark II C-RAW fixtures. Photographer currently validates their headers and returns its C-RAW unsupported result. See the [RG2 experiment](../cr3-results/2026-11-14-crx/README.md).
+
 ## Current priority
 
 A new entropy rule remains blocked until genuinely new causal evidence exists. The active evidence-acquisition path is the controlled spatial-code corpus in issue #249:
