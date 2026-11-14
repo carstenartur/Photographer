@@ -44,7 +44,7 @@ import java.util.Arrays;
  *
  * <p>The decoder orchestrates parsing, metadata extraction, and image decoding.
  * It does not depend on {@code javax.imageio.ImageReader} — the ImageIO adapter
- * is a separate layer in the {@code canon-cr3-imageio} module.</p>
+ * is a separate layer in the {@code cr3-imageio} artifact.</p>
  *
  * <p>Usage:</p>
  * <pre>{@code

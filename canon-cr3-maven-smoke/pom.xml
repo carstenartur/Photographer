@@ -34,22 +34,22 @@
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-metadata</artifactId>
+            <artifactId>cr3-metadata</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-codec</artifactId>
+            <artifactId>cr3-codec</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-imageio</artifactId>
+            <artifactId>cr3-imageio</artifactId>
             <version>${revision}</version>
         </dependency>
     </dependencies>

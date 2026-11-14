@@ -35,7 +35,7 @@ import java.util.List;
  * {@code javax.imageio.ImageReader} implementation for Canon CR3 files.
  *
  * <p>This reader is a thin adapter around {@link Cr3Decoder}. The core decoding
- * logic lives in the {@code canon-cr3-core} module.</p>
+ * logic lives in the {@code cr3-core} artifact.</p>
  *
  * <p>Image index mapping:</p>
  * <ul>

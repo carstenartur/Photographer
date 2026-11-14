@@ -10,17 +10,17 @@ The physical module split is complete. The contract is verified from the
 ## Production dependency graph
 
 ```text
-canon-cr3-container
+cr3-container
         ↓
-canon-cr3-metadata
+cr3-metadata
         ↓
-canon-cr3-codec
+cr3-codec
         ↓
-canon-cr3-processing
+cr3-processing
         ↓
-canon-cr3-core (compatibility facade / orchestration)
+cr3-core (compatibility facade / orchestration)
         ↓
-canon-cr3-imageio       canon-cr3-cli       app
+cr3-imageio       canon-cr3-cli       app
 ```
 
 The arrows show the allowed upward composition direction. A module may declare a
@@ -30,12 +30,12 @@ The exact direct CR3 dependencies verified for the library artifacts are:
 
 | Artifact | Direct CR3 runtime dependencies |
 |---|---|
-| `canon-cr3-container` | none |
-| `canon-cr3-metadata` | `canon-cr3-container` |
-| `canon-cr3-codec` | `canon-cr3-container`, `canon-cr3-metadata` |
-| `canon-cr3-processing` | `canon-cr3-metadata`, `canon-cr3-codec` |
-| `canon-cr3-core` | container, metadata, codec, processing |
-| `canon-cr3-imageio` | container, metadata, codec, processing, core |
+| `cr3-container` | none |
+| `cr3-metadata` | `cr3-container` |
+| `cr3-codec` | `cr3-container`, `cr3-metadata` |
+| `cr3-processing` | `cr3-metadata`, `cr3-codec` |
+| `cr3-core` | container, metadata, codec, processing |
+| `cr3-imageio` | container, metadata, codec, processing, core |
 
 Production runtime artifacts must not resolve:
 
@@ -53,16 +53,16 @@ reference testkit, but no production artifact may depend back on either module.
 
 | Package / symbol group | Owning artifact | API role | Allowed CR3 package references |
 |---|---|---|---|
-| `com.photographer.focusstack.cr3.Cr3Exception` and `Cr3FormatException` | `canon-cr3-container` | stable shared exceptions | container layer |
-| `com.photographer.focusstack.cr3.bmff` | `canon-cr3-container` | internal ISO-BMFF implementation | container layer |
-| `com.photographer.focusstack.cr3.container` | `canon-cr3-container` | stable container API | container layer |
-| `com.photographer.focusstack.cr3.preview` | `canon-cr3-container` | stable embedded-preview API | container layer |
-| `com.photographer.focusstack.cr3.metadata` | `canon-cr3-metadata` | stable model, internal parser helpers | container, metadata |
-| `com.photographer.focusstack.cr3.raw` | `canon-cr3-codec` | experimental RAW model | container, metadata, codec |
-| `com.photographer.focusstack.cr3.raw.codec` | `canon-cr3-codec` | internal CRX implementation and diagnostics | container, metadata, codec |
-| `com.photographer.focusstack.cr3.processing` | `canon-cr3-processing` | internal RAW processing | metadata, codec, processing |
-| `com.photographer.focusstack.cr3.decode` | `canon-cr3-core` | experimental compatibility facade | all lower production layers, core |
-| `com.photographer.focusstack.cr3.imageio` | `canon-cr3-imageio` | stable ImageIO adapter, experimental RAW controls | all lower production layers, ImageIO |
+| `com.photographer.focusstack.cr3.Cr3Exception` and `Cr3FormatException` | `cr3-container` | stable shared exceptions | container layer |
+| `com.photographer.focusstack.cr3.bmff` | `cr3-container` | internal ISO-BMFF implementation | container layer |
+| `com.photographer.focusstack.cr3.container` | `cr3-container` | stable container API | container layer |
+| `com.photographer.focusstack.cr3.preview` | `cr3-container` | stable embedded-preview API | container layer |
+| `com.photographer.focusstack.cr3.metadata` | `cr3-metadata` | stable model, internal parser helpers | container, metadata |
+| `com.photographer.focusstack.cr3.raw` | `cr3-codec` | experimental RAW model | container, metadata, codec |
+| `com.photographer.focusstack.cr3.raw.codec` | `cr3-codec` | internal CRX implementation and diagnostics | container, metadata, codec |
+| `com.photographer.focusstack.cr3.processing` | `cr3-processing` | internal RAW processing | metadata, codec, processing |
+| `com.photographer.focusstack.cr3.decode` | `cr3-core` | experimental compatibility facade | all lower production layers, core |
+| `com.photographer.focusstack.cr3.imageio` | `cr3-imageio` | stable ImageIO adapter, experimental RAW controls | all lower production layers, ImageIO |
 | `com.photographer.focusstack.cr3.cli` | `canon-cr3-cli` | CLI product surface, internal Java API | lower production layers, CLI |
 | `com.photographer.focusstack.cr3.reference` | `canon-cr3-reference-testkit` | test-only | production test context only |
 | `com.photographer.focusstack.cr3.research` | `canon-cr3-research` | research-only | production modules and testkit |
@@ -70,7 +70,7 @@ reference testkit, but no production artifact may depend back on either module.
 ### Compatibility exception
 
 `com.photographer.focusstack.cr3.research.SubbandStatistics` remains in
-`canon-cr3-codec` as a documented research-only compatibility type used by the
+`cr3-codec` as a documented research-only compatibility type used by the
 current CLI and research tools. The compiled ownership test permits exactly this
 class and its nested classes in the codec JAR; no other `cr3.research` class may
 appear in a production library artifact.

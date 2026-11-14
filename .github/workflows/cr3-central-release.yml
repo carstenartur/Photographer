@@ -1,0 +1,65 @@
+name: CR3 Maven Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Central Portal operation for the selected release tag
+        type: choice
+        required: true
+        default: validate
+        options:
+          - validate
+          - publish
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cr3-central-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  central:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check selected release tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: '[[ "$REF_TYPE" == tag && "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]'
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+
+      - name: Deploy the signed public libraries
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          OPERATION: ${{ inputs.operation }}
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+          MAVEN_GPG_KEY_FINGERPRINT: ${{ secrets.MAVEN_GPG_FINGERPRINT }}
+        run: |
+          : "${CENTRAL_USERNAME:?Set CENTRAL_USERNAME}" "${CENTRAL_PASSWORD:?Set CENTRAL_PASSWORD}" "${MAVEN_GPG_KEY:?Set MAVEN_GPG_KEY}"
+          version=$(mvn -N -q help:evaluate -Dexpression=revision -DforceStdout)
+          [[ "v$version" == "$RELEASE_TAG" ]]
+          options=()
+          if [[ "$OPERATION" == publish ]]; then
+            options+=(-Dcentral.autoPublish=true -Dcentral.waitUntil=published)
+          fi
+          mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release \
+            -Dcentral.skipUpload=false -Dgpg.signer=bc "${options[@]}" clean deploy

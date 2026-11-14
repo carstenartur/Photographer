@@ -115,9 +115,10 @@ class CanonCr3ImageReaderSpiTest {
         }
 
         @Test
-        @DisplayName("getDescription should return non-null")
+        @DisplayName("getDescription returns the public ImageIO reader description")
         void getDescription() {
-            assertThat(spi.getDescription(null)).isNotBlank();
+            assertThat(spi.getDescription(null))
+                    .isEqualTo("Independent Java ImageIO reader for CR3 files produced by Canon cameras.");
         }
     }
 

@@ -1,4 +1,4 @@
-# canon-cr3-metadata
+# cr3-metadata
 
 CR3 metadata model and parsers, independent of RAW decoding and rendering.
 
@@ -13,7 +13,7 @@ CR3 metadata model and parsers, independent of RAW decoding and rendering.
 
 ## Dependency rule
 
-This module depends only on `canon-cr3-container` among CR3 production modules.
+This module depends only on `cr3-container` among CR3 production modules.
 It must not depend on the RAW codec, processing, ImageIO, CLI, or research modules.
 
 ## Build

@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>io.github.carstenartur</groupId>
-    <artifactId>canon-cr3-processing</artifactId>
+    <artifactId>cr3-processing</artifactId>
     <version>${revision}</version>
 
-    <name>Canon CR3 - Processing</name>
+    <name>CR3 Processing</name>
     <description>RAW pedestal, crop, demosaic, white balance and color processing</description>
     <url>https://github.com/carstenartur/Photographer</url>
 
@@ -34,15 +34,19 @@
         <url>https://github.com/carstenartur/Photographer/actions</url>
     </ciManagement>
 
+    <properties>
+        <central.skipPublishing>false</central.skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-metadata</artifactId>
+            <artifactId>cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-codec</artifactId>
+            <artifactId>cr3-codec</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

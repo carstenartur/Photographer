@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-processing</artifactId>
+            <artifactId>cr3-processing</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>

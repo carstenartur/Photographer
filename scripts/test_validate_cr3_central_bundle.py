@@ -109,9 +109,6 @@ def valid_entries() -> dict[str, bytes]:
             for suffix in CHECKSUM_SUFFIXES:
                 algorithm = suffix.removeprefix(".")
                 entries[f"{name}{suffix}"] = checksum(data, algorithm)
-                entries[f"{signature_name}{suffix}"] = checksum(
-                    entries[signature_name], algorithm
-                )
     return entries
 
 
@@ -139,6 +136,15 @@ class ValidateCr3CentralBundleTest(unittest.TestCase):
             )
         self.assertEqual(len(PUBLIC_ARTIFACTS), result.artifact_count)
         self.assertEqual(0, result.verified_signature_count)
+
+    def test_rejects_attached_test_artifacts(self) -> None:
+        entries = valid_entries()
+        artifact = PUBLIC_ARTIFACTS[0]
+        name = f"{PUBLIC_GROUP_PATH}/{artifact}/{VERSION}/{artifact}-{VERSION}-tests.jar"
+        entries[name] = jar("fixture/Test.class")
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(BundleValidationError, "Unexpected release file"):
+                validate_bundle(write_bundle(entries, Path(temp)), VERSION)
 
     def test_rejects_missing_javadoc_artifact(self) -> None:
         entries = valid_entries()
@@ -177,6 +183,17 @@ class ValidateCr3CentralBundleTest(unittest.TestCase):
         replace_pom(entries, artifact, pom(artifact, dependency="canon-cr3-research"))
         with tempfile.TemporaryDirectory() as temp:
             with self.assertRaises(BundleValidationError):
+                validate_bundle(write_bundle(entries, Path(temp)), VERSION)
+
+    def test_rejects_retired_public_dependency(self) -> None:
+        entries = valid_entries()
+        artifact = "cr3-imageio"
+        old_pom = pom(artifact, dependency="canon-cr3-core").replace(
+            b"com.photographer.focusstack", b"io.github.carstenartur"
+        ).replace(b"0.1.5-SNAPSHOT", VERSION.encode())
+        replace_pom(entries, artifact, old_pom)
+        with tempfile.TemporaryDirectory() as temp:
+            with self.assertRaisesRegex(BundleValidationError, "invalid public CR3 dependency"):
                 validate_bundle(write_bundle(entries, Path(temp)), VERSION)
 
     def test_rejects_corrupt_checksum(self) -> None:

@@ -4,7 +4,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 
 ## Stable container and metadata layers
 
-### `canon-cr3-container`
+### `cr3-container`
 
 Supported responsibilities:
 
@@ -15,7 +15,7 @@ Supported responsibilities:
 
 External entry points include `Cr3Parser`, `Cr3Container`, `Cr3Track` and `Cr3PreviewExtractor`. Low-level BMFF box classes are internal.
 
-### `canon-cr3-metadata`
+### `cr3-metadata`
 
 Supported responsibilities:
 
@@ -27,7 +27,7 @@ Parser helpers and offset/layout interpretation are internal. Consumers should d
 
 ## Native codec layer
 
-`canon-cr3-codec` owns:
+`cr3-codec` owns:
 
 - CRX header parsing;
 - bit readers and Rice-Golomb primitives;
@@ -42,7 +42,7 @@ Most classes under `com.photographer.focusstack.cr3.raw.codec` are internal even
 
 ## Internal processing layer
 
-`canon-cr3-processing` applies post-codec operations:
+`cr3-processing` applies post-codec operations:
 
 - pedestal/optical-black handling;
 - active-area crop;
@@ -56,7 +56,7 @@ These classes implement the current CR3 pipeline and are not a general-purpose p
 
 ## Unified facade
 
-`canon-cr3-core` composes container, metadata, codec and processing into:
+`cr3-core` composes container, metadata, codec and processing into:
 
 - `Cr3Decoder`;
 - `Cr3DecodeOptions`;

@@ -20,12 +20,12 @@
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-core</artifactId>
+            <artifactId>cr3-core</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-codec</artifactId>
+            <artifactId>cr3-codec</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
@@ -36,14 +36,14 @@
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-core</artifactId>
+            <artifactId>cr3-core</artifactId>
             <version>${revision}</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${revision}</version>
             <type>test-jar</type>
             <scope>test</scope>

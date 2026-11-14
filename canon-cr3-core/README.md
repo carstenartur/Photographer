@@ -1,21 +1,21 @@
-# canon-cr3-core
+# cr3-core
 
 Compatibility facade that composes the split Canon CR3 container, metadata, codec,
 and processing modules into one decoder API.
 
 ## Purpose
 
-`canon-cr3-core` no longer owns the low-level parser, CRX codec, or image-processing
+`cr3-core` no longer owns the low-level parser, CRX codec, or image-processing
 implementations. Those responsibilities live in dedicated Maven artifacts:
 
-- `canon-cr3-container`
-- `canon-cr3-metadata`
-- `canon-cr3-codec`
-- `canon-cr3-processing`
+- `cr3-container`
+- `cr3-metadata`
+- `cr3-codec`
+- `cr3-processing`
 
 This module keeps the unified `Cr3Decoder` and `Cr3DecodeOptions` entry points for
 callers that want one facade. It accepts JDK ImageIO streams; the provider discovered
-by `ImageIO.getImageReaders` lives in the separate `canon-cr3-imageio` module.
+by `ImageIO.getImageReaders` lives in the separate `cr3-imageio` module.
 
 ## API stability
 
@@ -42,8 +42,8 @@ Compatibility expectations are defined in
 
 Stable container and metadata APIs are owned by their dedicated artifacts rather
 than duplicated here. Applications that need only file inspection should depend on
-`canon-cr3-container`; applications that need structured metadata should also use
-`canon-cr3-metadata`.
+`cr3-container`; applications that need structured metadata should also use
+`cr3-metadata`.
 
 ## `Cr3DecodeOptions` output modes
 
@@ -64,10 +64,10 @@ exist for fixture/reference comparison and may change or be removed without noti
 
 ## Dependencies
 
-- `canon-cr3-container` — ISO-BMFF/CR3 container and embedded preview structures
-- `canon-cr3-metadata` — structured CR3 metadata
-- `canon-cr3-codec` — internal CRX decoding implementation
-- `canon-cr3-processing` — internal RAW-to-image processing pipeline
+- `cr3-container` — ISO-BMFF/CR3 container and embedded preview structures
+- `cr3-metadata` — structured CR3 metadata
+- `cr3-codec` — internal CRX decoding implementation
+- `cr3-processing` — internal RAW-to-image processing pipeline
 - `slf4j-api` — logging
 
 ## Build

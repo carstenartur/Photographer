@@ -1,10 +1,10 @@
-# canon-cr3-core Architecture
+# cr3-core Architecture
 
 ## Overview
 
-`canon-cr3-core` is a pure-Java library for parsing and decoding Canon CR3 RAW
+`cr3-core` is a pure-Java library for parsing and decoding Canon CR3 RAW
 files. It has no dependency on `javax.imageio` — the ImageIO integration is a
-separate adapter module (`canon-cr3-imageio`).
+separate adapter module (`cr3-imageio`).
 
 ## Package Structure
 

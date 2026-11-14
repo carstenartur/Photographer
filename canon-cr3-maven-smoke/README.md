@@ -15,10 +15,10 @@ repository and builds the project under `src/it/external-consumer`.
 
 That external project verifies:
 
-- `canon-cr3-container` parses a packaged CR3 fixture;
-- `canon-cr3-metadata` reads camera and sensor metadata;
-- `canon-cr3-codec` exposes its intended public bitstream API;
-- `canon-cr3-imageio` is discovered through `ImageReaderSpi`;
+- `cr3-container` parses a packaged CR3 fixture;
+- `cr3-metadata` reads camera and sensor metadata;
+- `cr3-codec` exposes its intended public bitstream API;
+- `cr3-imageio` is discovered through `ImageReaderSpi`;
 - `ImageIO.read(File)` returns the embedded preview;
 - an explicitly requested native Bayer raster returns LibRaw-verified sensor codes at subsampled coordinates and honors the logical raster origin;
 - the installed POMs contain the exact direct CR3 dependency graph documented in
@@ -39,7 +39,7 @@ import statements or the repository working directory.
 The only explicit production-JAR package exception is the documented
 research-only compatibility type
 `com.photographer.focusstack.cr3.research.SubbandStatistics` in
-`canon-cr3-codec`.
+`cr3-codec`.
 
 The fixture path is injected only into the integration-test invocation. None of
 the published CR3 POMs or JARs contains a repository-local filesystem path.

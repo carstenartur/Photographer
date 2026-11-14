@@ -1,4 +1,4 @@
-# canon-cr3-codec
+# cr3-codec
 
 Experimental clean-room CRX RAW codec and linear Bayer data model.
 
@@ -15,7 +15,7 @@ Experimental clean-room CRX RAW codec and linear Bayer data model.
 
 ## Dependency rule
 
-This module may depend on `canon-cr3-container` and `canon-cr3-metadata`.
+This module may depend on `cr3-container` and `cr3-metadata`.
 It must not depend on post-codec processing, the compatibility facade, ImageIO,
 CLI, application, or `canon-cr3-research`.
 

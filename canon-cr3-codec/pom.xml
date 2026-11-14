@@ -12,10 +12,10 @@
     </parent>
 
     <groupId>io.github.carstenartur</groupId>
-    <artifactId>canon-cr3-codec</artifactId>
+    <artifactId>cr3-codec</artifactId>
     <version>${revision}</version>
 
-    <name>Canon CR3 - Codec</name>
+    <name>CR3 Codec</name>
     <description>Experimental clean-room CRX RAW codec and linear Bayer image model</description>
     <url>https://github.com/carstenartur/Photographer</url>
 
@@ -34,15 +34,19 @@
         <url>https://github.com/carstenartur/Photographer/actions</url>
     </ciManagement>
 
+    <properties>
+        <central.skipPublishing>false</central.skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-metadata</artifactId>
+            <artifactId>cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

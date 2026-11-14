@@ -12,11 +12,11 @@
     </parent>
 
     <groupId>io.github.carstenartur</groupId>
-    <artifactId>canon-cr3-imageio</artifactId>
+    <artifactId>cr3-imageio</artifactId>
     <version>${revision}</version>
 
-    <name>Canon CR3 - ImageIO</name>
-    <description>javax.imageio adapter for Canon CR3 files (ImageReaderSpi + ImageReader)</description>
+    <name>CR3 ImageIO</name>
+    <description>Independent Java ImageIO reader for CR3 files produced by Canon cameras.</description>
     <url>https://github.com/carstenartur/Photographer</url>
 
     <scm>
@@ -34,35 +34,39 @@
         <url>https://github.com/carstenartur/Photographer/actions</url>
     </ciManagement>
 
+    <properties>
+        <central.skipPublishing>false</central.skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-core</artifactId>
+            <artifactId>cr3-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-metadata</artifactId>
+            <artifactId>cr3-metadata</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-codec</artifactId>
+            <artifactId>cr3-codec</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-processing</artifactId>
+            <artifactId>cr3-processing</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-container</artifactId>
+            <artifactId>cr3-container</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

@@ -66,8 +66,8 @@ graph TD
     end
 
     subgraph CR3 Stack
-        CR3C["canon-cr3-core"]
-        CR3I["canon-cr3-imageio"]
+        CR3C["cr3-core"]
+        CR3I["cr3-imageio"]
         CR3CLI["canon-cr3-cli"]
     end
 
@@ -109,10 +109,12 @@ graph TD
 | `observer-core` | Wildlife observer workflow. |
 | `ai-vision` | AI vision abstraction (`VisionProvider` interface, Gemini + mock implementations). |
 | `astro-core` | Astro/long-exposure session management. |
-| `canon-cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
-| `canon-cr3-imageio` | Java ImageIO plugin for CR3 files. |
+| `cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
+| `cr3-imageio` | Java ImageIO plugin for CR3 files. |
 | `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
+
+For Java ImageIO applications, the release candidate uses `io.github.carstenartur:cr3-imageio`. It reads files in the Canon CR3 format. [ImageIO examples](docs/cr3/imageio.md) · [Maven coordinates and release status](docs/cr3-maven-central.md)
 
 ## Quickstart (Docker)
 

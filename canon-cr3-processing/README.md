@@ -1,4 +1,4 @@
-# canon-cr3-processing
+# cr3-processing
 
 Post-codec processing for linear CR3 RAW mosaics.
 
@@ -16,9 +16,9 @@ Post-codec processing for linear CR3 RAW mosaics.
 
 ## Dependency rule
 
-This module may depend on `canon-cr3-metadata` and `canon-cr3-codec`. It must
+This module may depend on `cr3-metadata` and `cr3-codec`. It must
 not depend on the decoder compatibility facade, ImageIO, CLI, application or
-research modules. A direct dependency on `canon-cr3-container` is intentionally
+research modules. A direct dependency on `cr3-container` is intentionally
 avoided; container facts should reach this layer through metadata or codec
 models rather than low-level box structures.
 

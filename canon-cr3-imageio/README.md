@@ -1,4 +1,4 @@
-# canon-cr3-imageio
+# cr3-imageio
 
 `javax.imageio` adapter for Canon CR3 files.
 
@@ -138,11 +138,11 @@ The SPI is registered through
 
 ## Dependencies
 
-- `canon-cr3-core` — compatibility decoder facade
-- `canon-cr3-container` — container and preview structures
-- `canon-cr3-metadata` — metadata model
-- `canon-cr3-codec` — internal CRX decoder
-- `canon-cr3-processing` — internal RAW processing pipeline
+- `cr3-core` — compatibility decoder facade
+- `cr3-container` — container and preview structures
+- `cr3-metadata` — metadata model
+- `cr3-codec` — internal CRX decoder
+- `cr3-processing` — internal RAW processing pipeline
 - `slf4j-api` — logging
 
 No runtime dependency on `canon-cr3-research` or

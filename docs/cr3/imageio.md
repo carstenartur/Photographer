@@ -1,6 +1,6 @@
 # Java ImageIO Integration
 
-`canon-cr3-imageio` integrates Canon CR3 files with the standard `javax.imageio` API.
+`cr3-imageio` integrates Canon CR3 files with the standard `javax.imageio` API.
 
 ## Supported behavior
 
@@ -23,7 +23,7 @@ The release contract currently uses version `0.1.5` for the first public bundle:
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
-  <artifactId>canon-cr3-imageio</artifactId>
+  <artifactId>cr3-imageio</artifactId>
   <version>0.1.5</version>
 </dependency>
 ```

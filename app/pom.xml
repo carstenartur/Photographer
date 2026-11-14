@@ -141,12 +141,12 @@
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-core</artifactId>
+            <artifactId>cr3-core</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
-            <artifactId>canon-cr3-imageio</artifactId>
+            <artifactId>cr3-imageio</artifactId>
             <version>${revision}</version>
         </dependency>
         <dependency>

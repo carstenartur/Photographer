@@ -18,8 +18,6 @@ on:
       - 'canon-cr3-reference-testkit/pom.xml'
       - 'app/pom.xml'
       - 'release/canon-cr3-public/**'
-      - 'scripts/build_cr3_central_bundle.py'
-      - 'scripts/test_build_cr3_central_bundle.py'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
       - 'scripts/validate_cr3_source_coordinates.py'
@@ -44,8 +42,6 @@ on:
       - 'canon-cr3-reference-testkit/pom.xml'
       - 'app/pom.xml'
       - 'release/canon-cr3-public/**'
-      - 'scripts/build_cr3_central_bundle.py'
-      - 'scripts/test_build_cr3_central_bundle.py'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
       - 'scripts/validate_cr3_source_coordinates.py'
@@ -80,17 +76,6 @@ jobs:
           distribution: temurin
           cache: maven
           cache-dependency-path: pom.xml
-
-      - name: Test release validators and bundle builder
-        run: |
-          set -o pipefail
-          mkdir -p target/cr3-central-preflight
-          {
-            python3 scripts/test_validate_cr3_central_bundle.py
-            python3 scripts/test_build_cr3_central_bundle.py
-            python3 scripts/test_validate_cr3_source_coordinates.py
-            python3 scripts/validate_cr3_source_coordinates.py .
-          } 2>&1 | tee target/cr3-central-preflight/release-validator.log
 
       - name: Build and validate signed public Central bundle
         run: bash scripts/run_cr3_central_preflight.sh 0.1.5
