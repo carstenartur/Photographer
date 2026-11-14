@@ -106,9 +106,9 @@ this qualified preparation/resume flow, including dry runs.
       publication uses the same stable M checkout. The image guard rechecks main,
       tag/release identities and artifact hash immediately before the image action.
 
-The workflow serializes release runs without cancelling an active release. This
-does not freeze main or remove the requirement for final source checks. No other
-application publisher, Central upload or repository visibility change is added.
+The workflow serializes release runs without cancelling an active release. After
+the successful live release and snapshot handoff, Maven publishes the six CR3
+libraries from the verified tag and waits for Central to confirm publication.
 
 ## Next snapshot and maintenance
 
@@ -152,8 +152,8 @@ and sufficient memory for product/release verification.
 - [ ] Verify application/image provenance and the next-snapshot handoff evidence.
 - [ ] Review citation/archival version and real release date when publication
       actually occurs; never assign a speculative DOI.
-- [ ] Treat optional Maven Central distribution and any visibility change as
-      separate reviewed operations under the existing runbooks.
+- [ ] Confirm the six released CR3 libraries resolve from Maven Central in a clean
+      consumer build. Record the deployment ID from the Maven log.
 
 The repository remains private. No public visibility change, history rewrite,
 Central upload or application publication is authorized merely by this checklist.
