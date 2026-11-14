@@ -16,7 +16,7 @@ This is the maintained implementation/research truth boundary. Module APIs and e
 - Optical-black regions remain the strongest physical falsification axis.
 - MED is the best-supported predictor family.
 - Pure N/W/NW swaps, tile-state continuation, cross-plane seeding and a general per-plane predictor split were rejected.
-- D5 rejected conventional zig-zag residual mapping.
+- D5 rejected replacing the residual mapping throughout the previous decoder. RG3 separately measured signed folding for two opening values.
 - D6 rejected a universal `floor(log2(S+1)) ± 1` K bracket.
 - D7 located D6's first difference at an identical `S=0` and divergent K state.
 - D8 showed zero contraction is useful but insufficient.
@@ -71,9 +71,13 @@ RG2 reproduced RG1 on 88 streams. Consuming the patent-derived conditional flag 
 
 LightCraft and DNGLab agreed on every Bayer value of the public EOS R and PowerShot G5 X Mark II C-RAW fixtures. Photographer currently validates their headers and returns its C-RAW unsupported result. See the [RG2 experiment](../cr3-results/2026-11-14-crx/README.md).
 
+## First two native lossless samples
+
+The RG3 research reader derives both values in a plane directly from the payload. It matched all 88 discovery streams and all 32 prospective streams from four cameras. Changing each of extractor-relative bits 18–31 on two cameras and swapping that range between them gave the exact predicted first values. The CMP1-declared origin in all 15 files is four bytes earlier, so the same physical bits are then 50–63. The fixed prefix conditions this result. Changes to earlier bits can also affect the first value. All four second-code remainder controls were rejected. See the [RG3 measurements](../cr3-results/2026-11-14-crx-opening/README.md).
+
 ## Current priority
 
-A new entropy rule remains blocked until genuinely new causal evidence exists. The active evidence-acquisition path is the controlled spatial-code corpus in issue #249:
+Start the next lossless experiment at RG3's recorded end-bit cursor and the third same-plane site. General entropy adaptation, complete rows and later boundaries remain open. An additional evidence-acquisition path is the controlled spatial-code corpus in issue #249:
 
 - the deterministic screen/print pattern pack and manifests exist;
 - duplicate captures, camera/display state records and payload observations are still required;

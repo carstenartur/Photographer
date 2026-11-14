@@ -396,6 +396,113 @@
       "gitBlobLocks": {
         "docs/cr3-results/2026-11-14-crx/first-bit-control.tsv": "8f073c4542478323356a6daad2a512b5d586aef4"
       }
+    },
+    {
+      "id": "RG3-report",
+      "classification": "historical-manual",
+      "ownerModule": "canon-cr3-research",
+      "inputs": [
+        "docs/cleanroom/experiment-ledger.json",
+        "docs/cleanroom/source-register.json",
+        "docs/cr3-results/2026-11-14-crx-opening/discovery.tsv",
+        "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv",
+        "docs/cr3-results/2026-11-14-crx-opening/interventions.tsv",
+        "docs/cr3-results/2026-11-14-crx-opening/second-remainder.tsv"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-opening/README.md"
+      ],
+      "ledgerExperiment": "RG3",
+      "timestampPolicy": "not-applicable",
+      "rationale": "Reviewed interpretation of the discovery replay, fixed public holdout, and predeclared single-bit interventions on the opening two native sensor sites."
+    },
+    {
+      "id": "RG3-discovery",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessOpeningSamplesIT.java",
+      "generateCommand": "bash scripts/verify-cr3-research.sh --focused",
+      "inputs": [
+        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
+        "docs/cr3-results/2026-11-14-crx/lossless-prefix.tsv",
+        "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessOpeningSamples.java",
+        "docs/cleanroom/experiment-ledger.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-opening/discovery.tsv"
+      ],
+      "ledgerExperiment": "RG3",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-opening/discovery.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-opening/discovery.tsv": "3f6b6bc6dfb450db5241b30c80ecc328a55249bc"
+      }
+    },
+    {
+      "id": "RG3-holdout",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessOpeningHoldoutIT.java",
+      "generateCommand": "bash scripts/verify-cr3-research.sh --opening \"$scratch\"",
+      "inputs": [
+        "scripts/research/public-crx/lossless-holdout.tsv",
+        "scripts/research/public-crx/prepare-lossless-holdout.sh",
+        "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessOpeningSamples.java",
+        "docs/cleanroom/experiment-ledger.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv"
+      ],
+      "ledgerExperiment": "RG3",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv": "a4c40866b4ce4464204e7571a892cdce3d387baa"
+      }
+    },
+    {
+      "id": "RG3-interventions",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/FirstSampleCausalIT.java",
+      "generateCommand": "bash scripts/verify-cr3-research.sh --opening \"$scratch\"",
+      "inputs": [
+        "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
+        "scripts/research/public-crx/prepare-lossless-holdout.sh",
+        "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessFirstBitControlIT.java",
+        "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/LosslessOpeningSamples.java",
+        "docs/cleanroom/experiment-ledger.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-opening/interventions.tsv",
+        "docs/cr3-results/2026-11-14-crx-opening/second-remainder.tsv"
+      ],
+      "ledgerExperiment": "RG3",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-opening/interventions.tsv"
+        },
+        {
+          "source": "suffix.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-opening/second-remainder.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-opening/interventions.tsv": "25a93edd58e70e8fa598a5bc623306e728a14771",
+        "docs/cr3-results/2026-11-14-crx-opening/second-remainder.tsv": "66d72392455b9c7af35808773f427bfcf96fe073"
+      }
     }
   ]
 }
