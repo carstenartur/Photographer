@@ -47,9 +47,19 @@ public final class SrgbConverter {
      * @param image the linear RGB image (modified in place)
      */
     public static void process(BufferedImage image) {
+        process(image, 1);
+    }
+
+    /**
+     * Applies sRGB gamma correction in place, processing disjoint packed RGB rows in parallel.
+     *
+     * @param image the linear RGB image to modify
+     * @param maxWorkers maximum number of workers, or zero for automatic selection
+     */
+    public static void process(BufferedImage image, int maxWorkers) {
         LOG.debug("Applying sRGB gamma to {}x{} image", image.getWidth(), image.getHeight());
 
-        Pixels.transform(image, rgb -> {
+        Pixels.transform(image, maxWorkers, rgb -> {
             int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
             int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
             int b = GAMMA_LUT[rgb & 0xFF];

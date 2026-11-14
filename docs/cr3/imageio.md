@@ -117,6 +117,8 @@ param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
 BufferedImage rawProcessed = reader.read(0, param);
 ```
 
+RAW imports automatically size their shared worker pool to the processors available to the JVM. Each stage schedules only as many workers as it can use. Core and ImageIO callers can cap an individual import with `Cr3DecodeOptions.rawProcessed().maxWorkers(2)`. A limit of `1` runs the RAW stages sequentially, and `0` restores automatic sizing. The same option applies to `rawSensor()`, `rawLinear()` and `readRaster`. Concurrent imports use separate readers and share the decode pool. Each image still needs its own output raster.
+
 ### Scaled linear Bayer and native sensor samples
 
 | Operation | Result |

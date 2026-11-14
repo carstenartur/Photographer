@@ -92,49 +92,46 @@ public final class CrxLossyDecoder {
         if (tileEnd != data.length) {
             throw new Cr3Exception("C-RAW tiles disagree with the track extent");
         }
-        return consumer -> decodeTiles(data, header, tileWidth, height, consumer);
+        return new CrxTileDecoder(header, (tile, plane, consumer) ->
+                decodePlane(data, tile, plane, tileWidth, height, consumer));
     }
 
-    private static void decodeTiles(CrxTrackInput data, CrxHeader header, int tileWidth, int height,
+    private static void decodePlane(CrxTrackInput data, int tile, CrxHeader.Plane plane, int tileWidth, int height,
                                     CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
-        for (int tile = 0; tile < 2; tile++) {
-            boolean left = tile > 0, right = tile == 0;
-            int cols = tileWidth / 2, rows = height / 2;
-            var shapes = CrxWaveletTile.shapes(cols, rows, left, right);
-            for (var plane : header.tiles().get(tile).planes()) {
-                var bands = new CrxWaveletTile.Band[shapes.length];
-                for (int b = 0; b < shapes.length; b++) {
-                    var band = plane.subbands().get(b);
-                    int start = Math.toIntExact(band.dataOffset());
-                    int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
-                    int bw = shapes[b].width(), bh = shapes[b].height();
-                    int factor = INVERSE_QUANTIZATION[band.quantValue()];
-                    var bits = new BitReader(data.window(start, count));
-                    if (b == 0) {
-                        if (factor != 1) {
-                            throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
-                        }
-                        bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
-                    } else {
-                        bands[b] = CrxWaveletDetail.band(bits, bw, bh, factor);
-                    }
+        boolean left = tile > 0, right = tile == 0;
+        int cols = tileWidth / 2, rows = height / 2;
+        var shapes = CrxWaveletTile.shapes(cols, rows, left, right);
+        var bands = new CrxWaveletTile.Band[shapes.length];
+        for (int b = 0; b < shapes.length; b++) {
+            var band = plane.subbands().get(b);
+            int start = Math.toIntExact(band.dataOffset());
+            int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
+            int bw = shapes[b].width(), bh = shapes[b].height();
+            int factor = INVERSE_QUANTIZATION[band.quantValue()];
+            var bits = new BitReader(data.window(start, count));
+            if (b == 0) {
+                if (factor != 1) {
+                    throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
                 }
-                int x = tile * tileWidth + (plane.index() & 1);
-                int y = plane.index() / 2;
-                try {
-                    var planeRows = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
-                    int[] row = new int[cols];
-                    for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
-                        planeRows.rows().read(row);
-                        for (int i = 0; i < row.length; i++) {
-                            row[i] = Math.clamp(row[i], 0, 16383);
-                        }
-                        consumer.write(x, y + 2 * rowIndex, row);
-                    }
-                } catch (ArithmeticException e) {
-                    throw new Cr3Exception("C-RAW coefficient overflow during wavelet reconstruction", e);
-                }
+                bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
+            } else {
+                bands[b] = CrxWaveletDetail.band(bits, bw, bh, factor);
             }
+        }
+        int x = tile * tileWidth + (plane.index() & 1);
+        int y = plane.index() / 2;
+        try {
+            var planeRows = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
+            int[] row = new int[cols];
+            for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+                planeRows.rows().read(row);
+                for (int i = 0; i < row.length; i++) {
+                    row[i] = Math.clamp(row[i], 0, 16383);
+                }
+                consumer.write(x, y + 2 * rowIndex, row);
+            }
+        } catch (ArithmeticException e) {
+            throw new Cr3Exception("C-RAW coefficient overflow during wavelet reconstruction", e);
         }
     }
 }

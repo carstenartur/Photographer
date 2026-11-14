@@ -77,30 +77,19 @@ final class CrxNativeLosslessImage {
         if (end != track.length) {
             throw new Cr3Exception("Lossless CRX tile sizes disagree with track length");
         }
-        return consumer -> {
+        return new CrxTileDecoder(header, (tile, plane, consumer) -> {
+            int tileX = tile * tileWidth;
+            int extent = Math.min(tileWidth, width - tileX);
+            var band = plane.subbands().getFirst();
+            int x = tileX + (plane.index() & 1);
+            int y = plane.index() / 2;
+            var bits = new BitReader(track.window((int) band.dataOffset(), (int) band.dataSize()));
             try {
-                decodeTiles(track, width, height, tileWidth, header, consumer);
+                CrxNativeLosslessPlane.decodeSensor(bits, extent / 2, height / 2, x, y, consumer);
             } catch (IOException e) {
                 throw invalidPayload(e);
             }
-        };
-    }
-
-    private static void decodeTiles(CrxTrackInput track, int width, int height, int tileWidth,
-                                    CrxHeader header, CrxSensorDecoder.RowConsumer consumer) throws IOException {
-        int tileX = 0;
-        for (var tile : header.tiles()) {
-            int extent = Math.min(tileWidth, width - tileX);
-            for (var plane : tile.planes()) {
-                var band = plane.subbands().getFirst();
-                int x = tileX + (plane.index() & 1);
-                int y = plane.index() / 2;
-                var bits = new BitReader(track.window((int) band.dataOffset(), (int) band.dataSize()));
-                CrxNativeLosslessPlane.decodeSensor(bits,
-                        extent / 2, height / 2, x, y, consumer);
-            }
-            tileX += extent;
-        }
+        });
     }
 
     private static Cr3Exception invalidPayload(IOException cause) {

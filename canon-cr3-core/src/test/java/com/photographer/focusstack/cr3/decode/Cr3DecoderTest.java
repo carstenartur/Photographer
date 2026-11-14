@@ -4,12 +4,15 @@ import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,6 +25,32 @@ class Cr3DecoderTest {
             Cr3Decoder decoder = new Cr3Decoder();
             assertThrows(IllegalStateException.class,
                     () -> decoder.decode(Cr3DecodeOptions.defaults()));
+        }
+
+        @Test
+        void replacingPathInputClearsTheOwnedFileAndPreservesBorrowedStreams(@TempDir Path directory)
+                throws Exception {
+            Path raw = directory.resolve("sample.cr3");
+            try (var fixture = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3")) {
+                Files.copy(fixture, raw);
+            }
+            Path missing = directory.resolve("missing.cr3");
+            try (var decoder = new Cr3Decoder();
+                 var source = Files.newInputStream(raw);
+                 var stream = new MemoryCacheImageInputStream(source)) {
+                decoder.setInput(raw);
+                var sensor = decoder.decode(Cr3DecodeOptions.rawSensor());
+                assertThrows(IOException.class, () -> decoder.setInput(missing));
+                assertNull(decoder.getContainer());
+                assertThrows(IllegalStateException.class, () -> decoder.decode(Cr3DecodeOptions.rawSensor()));
+                decoder.setInput(stream);
+                var fromStream = decoder.decode(Cr3DecodeOptions.rawSensor().maxWorkers(1));
+                assertArrayEquals(sensor.getRaster().getSamples(0, 0, 2, 2, 0, (int[]) null),
+                        fromStream.getRaster().getSamples(0, 0, 2, 2, 0, (int[]) null));
+                decoder.reset();
+                stream.seek(0);
+                assertTrue(stream.read() >= 0);
+            }
         }
 
         @Test
