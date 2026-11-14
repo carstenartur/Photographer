@@ -55,6 +55,10 @@ jobs:
     name: Build and Release
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    outputs:
+      verified_resume: ${{ steps.handoff.outputs.verified_resume }}
+      release_tag: v${{ steps.handoff.outputs.release }}
+      merged_sha: ${{ steps.handoff.outputs.merged }}
 
     steps:
       - name: Checkout exact dispatched main control commit with full history
@@ -146,3 +150,19 @@ jobs:
           set -euo pipefail
           python3 scripts/release_handoff.py finish \
             --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+
+  central:
+    needs: release
+    if: ${{ needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/cr3-central-release.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}
+      merged_sha: ${{ needs.release.outputs.merged_sha }}
+    secrets:
+      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+      MAVEN_GPG_KEY: ${{ secrets.MAVEN_GPG_KEY }}
+      MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+      MAVEN_GPG_FINGERPRINT: ${{ secrets.MAVEN_GPG_FINGERPRINT }}

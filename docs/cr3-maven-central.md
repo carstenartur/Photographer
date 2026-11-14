@@ -91,7 +91,9 @@ Run from the tagged release checkout with a stable version already set in its PO
 
 Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
 
-The optional **CR3 Maven Central** Actions workflow runs on manual dispatch. Select the stable `vX.Y.Z` tag and either `validate` (manual Portal publication) or `publish`. The workflow checks out the exact tag commit, confirms its version and invokes the Maven release profile. Use repository secrets named `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` secret maps to the Maven GPG plugin’s fingerprint variable.
+The GitHub **Release Workflow** runs the automatic Maven command after a successful live release. It checks that the published tag points to the verified merged commit and waits for Central to confirm publication. For a separate deployment, the **CR3 Maven Central** workflow also accepts a manual run on the stable `vX.Y.Z` tag with `validate` (manual Portal publication) or `publish`. Check the status of any previous deployment before starting a separate run.
+
+Both GitHub entry points use repository secrets named `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` secret maps to the Maven GPG plugin’s fingerprint variable.
 
 The release profile and credential names follow the project’s [jgit-storage-hibernate release procedure](https://github.com/carstenartur/jgit-storage-hibernate/blob/540b847706f9d03ac286a21fefd432787e122671/docs/maven-central.md). See also the [Sonatype plugin documentation](https://central.sonatype.org/publish/publish-portal-maven/).
 
