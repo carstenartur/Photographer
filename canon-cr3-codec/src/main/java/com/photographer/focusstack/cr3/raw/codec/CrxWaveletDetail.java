@@ -1,6 +1,7 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /** Sequential high-frequency coefficient rows from one independently coded CRX subband. */
 final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
@@ -9,7 +10,8 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
     private final int width;
     private final int height;
     private final int factor;
-    private final int[] previousK;
+    // The adaptive Rice width is in [0, 15], including values carried from the row above.
+    private final byte[] previousK;
     private final boolean[] nonzero;
     private int row;
 
@@ -19,7 +21,7 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
         this.width = width;
         this.height = height;
         this.factor = factor;
-        previousK = new int[width];
+        previousK = new byte[width];
         nonzero = new boolean[width];
     }
 
@@ -47,11 +49,10 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
             boolean guard = x + 1 < width && (x == 0 || !nonzero[x - 1]) && !nonzero[x] && !nonzero[x + 1];
             if (guard && bits.readBit() == 1) {
                 int end = x + state.readRunLength(width - x);
-                while (x < end) {
-                    previousK[x] = 0;
-                    nonzero[x] = false;
-                    output[x++] = 0;
-                }
+                Arrays.fill(previousK, x, end, (byte) 0);
+                Arrays.fill(nonzero, x, end, false);
+                Arrays.fill(output, x, end, 0);
+                x = end;
                 if (x == width) {
                     break;
                 }
@@ -69,7 +70,7 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
             if (row > 0 && x + 1 < width && state.k() + 1 < previousK[x + 1]) {
                 state.setK(state.k() + 1);
             }
-            previousK[x++] = state.k();
+            previousK[x++] = (byte) state.k();
         }
         if (++row == height && bits.consumedBytes() != bits.length()) {
             throw new IOException("Unconsumed bytes at the end of a CRX detail subband");
