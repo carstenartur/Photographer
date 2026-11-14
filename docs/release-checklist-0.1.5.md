@@ -50,7 +50,7 @@ not manufacture another event, change settings, or bypass approval/checks.
 
 - [ ] Merge the workflow repair only after its own real exact-head CI and review.
 - [ ] On freshly verified main, run **Release Workflow** with `dry_run=true`,
-      `skip_tests=false`, `resume_release_pr` empty,
+      `resume_release_pr` empty,
       `next_version_increment=patch`, `next_development_version=0.1.6-SNAPSHOT`.
 - [ ] Confirm Maven `project.version` and `revision` agree, release derives as
       `0.1.5`, next version is `0.1.6-SNAPSHOT`, reactor POMs are stable for the
@@ -58,7 +58,7 @@ not manufacture another event, change settings, or bypass approval/checks.
 - [ ] Review the dry-run source/control SHAs and plan. A dry run performs no remote
       writes and cannot authorize publication; its comparison branch may not exist.
 - [ ] When preparation is authorized, repeat on the same still-current main with
-      `dry_run=false`, `skip_tests=false`, and the same version choices.
+      `dry_run=false` and the same version choices.
 - [ ] Record S, R, C, release/next versions, deterministic staged branch and printed
       comparison URL. Preparation ends at a stable metadata handoff, before any
       tag, application release, image or maintenance ref operation.
@@ -81,14 +81,13 @@ reactor POMs rather than rejecting every unrelated fixture snapshot.
 
 The optional exact next version must use `X.Y.Z-SNAPSHOT` and be strictly newer
 than the release. If empty, the existing patch/minor/major choice is preserved.
-`skip_tests=true` is retained as an input for compatibility but is rejected for
-this qualified preparation/resume flow, including dry runs.
+Release builds always run the tests, including dry runs.
 
 ## Explicitly resume publication from the merged stable PR
 
 - [ ] Verify current main still equals M and the stable PR was normally merged.
 - [ ] Invoke **Release Workflow** on main with `resume_release_pr` set to that PR's
-      positive number, `dry_run=false`, `skip_tests=false`. Leave
+      positive number and `dry_run=false`. Leave
       `next_development_version` empty, or supply the same immutable exact plan.
       The preparation increment no longer selects a new plan during resume.
 - [ ] Confirm resume evidence records S/R/M/C and the immutable version plan,
