@@ -24,10 +24,11 @@ Generated and dated reports are evidence snapshots. The maintained interpretatio
 | 2026-11-14 | Conditional mode flag and two public C-RAW sensor references | Lossless mapping rejected on 88/88. C-RAW external rasters match at all 52,207,568 sites. | [RG2 results](../../cr3-results/2026-11-14-crx/README.md) |
 | 2026-11-14 | First two native lossless Bayer values with a frozen reader | Both sites exact on 88 discovery and 32 held-out streams. First-site causal predictions confirmed in 30/30 cases. | [RG3 opening measurements](../../cr3-results/2026-11-14-crx-opening/README.md) |
 | 2026-11-14 | Complete native lossless import | All 365,774,016 native values exact in the normal Java RAW import on 15 files | [RG4 full mosaics](../../cr3-results/2026-11-14-crx-native/README.md) |
+| 2026-11-14 | Native three-level C-RAW decoding | Six reference rasters, 146,467,152 native samples | [RG5 full mosaics](../../cr3-results/2026-11-14-crx-wavelet/README.md) |
 
 ## Current verdict
 
-RG4 verifies complete lossless native Bayer reconstruction for the measured 14-bit four-plane V1 layout. C-RAW has a separate reconstruction and verification path.
+RG4 verifies complete lossless native Bayer reconstruction for the measured 14-bit four-plane V1 layout. RG5 verifies the full three-level C-RAW reconstruction on four public files and two project-owned PowerShot captures.
 
 ## Evidence classes
 

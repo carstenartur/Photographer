@@ -349,7 +349,7 @@
     },
     {
       "id": "RG2-craw",
-      "classification": "managed-generated",
+      "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/PublicCrawPhotographerIT.java",
       "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Djava.awt.headless=true -Dit.test=PublicCrawPhotographerIT -Dcr3.public.craw.enabled=true -Dcr3.public.craw.dir=\"$scratch\"",
@@ -362,15 +362,7 @@
       ],
       "ledgerExperiment": "RG2",
       "timestampPolicy": "prohibited",
-      "generatedMappings": [
-        {
-          "source": "results.tsv",
-          "destination": "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv"
-        }
-      ],
-      "gitBlobLocks": {
-        "docs/cr3-results/2026-11-14-crx/photographer-craw.tsv": "3ab323721d57b44fbab18a7eb9769b4ec1f38975"
-      }
+      "rationale": "The committed snapshot records the product’s unsupported C-RAW result before native wavelet decoding. Replay the command from revision 07bd797382108f4469d96855f2587cc20cbacf78 to reproduce these bytes. RG5 checks the current product against the same expected sensor values. Historical Git blob: 3ab323721d57b44fbab18a7eb9769b4ec1f38975."
     },
     {
       "id": "RG2-control",
@@ -556,7 +548,7 @@
     },
     {
       "id": "RG4-full-sensor",
-      "classification": "managed-generated",
+      "classification": "historical-generated",
       "ownerModule": "canon-cr3-research",
       "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/FullSensorDecodeIT.java",
       "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=FullSensorDecodeIT -Djava.awt.headless=true -Dcr3.full-sensor.mode=strict -Dcr3.opening.holdout.dir=\"$holdout\" -Dcr3.public.craw.dir=\"$craw\"",
@@ -573,14 +565,109 @@
       ],
       "ledgerExperiment": "RG4",
       "timestampPolicy": "prohibited",
+      "rationale": "The committed snapshot records the product’s unsupported C-RAW result before native wavelet decoding. Replay the command from revision 07bd797382108f4469d96855f2587cc20cbacf78 to reproduce these bytes. RG5 checks the current product against the same expected sensor values. Historical Git blob: 5dd465bcae66d8b5b860407cab4d026fee87569b."
+    },
+    {
+      "id": "RG5-report",
+      "classification": "historical-manual",
+      "ownerModule": "canon-cr3-research",
+      "inputs": [
+        "docs/cleanroom/experiment-ledger.json",
+        "docs/cleanroom/source-register.json",
+        "scripts/research/public-crx/craw-sensors.tsv",
+        "docs/cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv",
+        "docs/cr3-results/2026-11-14-crx-wavelet/full-sensor.tsv",
+        "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-wavelet/README.md"
+      ],
+      "ledgerExperiment": "RG5",
+      "timestampPolicy": "not-applicable",
+      "rationale": "Reviewed interpretation of the discovery and held-out C-RAW numerical acceptance results and unchanged lossless sensor outputs."
+    },
+    {
+      "id": "RG5-craw",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/CrawSensorIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=CrawSensorIT -Djava.awt.headless=true -Dcr3.craw-sensor.mode=strict -Dcr3.craw-sensor.dir=\"$craw\"",
+      "inputs": [
+        "scripts/research/public-crx/craw-sensors.tsv",
+        "scripts/research/public-crx/prepare-sensor-fixtures.sh",
+        "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/FullSensorDecodeIT.java",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLossyDecoder.java",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletTile.java"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv"
+      ],
+      "ledgerExperiment": "RG5",
+      "timestampPolicy": "prohibited",
       "generatedMappings": [
         {
           "source": "results.tsv",
-          "destination": "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv"
+          "destination": "docs/cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv"
         }
       ],
       "gitBlobLocks": {
-        "docs/cr3-results/2026-11-14-crx-native/full-sensor.tsv": "5dd465bcae66d8b5b860407cab4d026fee87569b"
+        "docs/cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv": "19840130652f867bdd10fbae3fbbb2231c20cb5d"
+      }
+    },
+    {
+      "id": "RG5-regression",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/FullSensorDecodeIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=FullSensorDecodeIT -Djava.awt.headless=true -Dcr3.full-sensor.mode=strict -Dcr3.full-sensor.require-craw=true -Dcr3.opening.holdout.dir=\"$holdout\" -Dcr3.public.craw.dir=\"$craw\"",
+      "inputs": [
+        "scripts/research/public-crx/craw-sensors.tsv",
+        "scripts/research/public-crx/prepare-sensor-fixtures.sh",
+        "docs/cr3-reference-manifest.md",
+        "scripts/research/public-crx/lossless-holdout.tsv",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessImage.java",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLossyDecoder.java"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-wavelet/full-sensor.tsv"
+      ],
+      "ledgerExperiment": "RG5",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-wavelet/full-sensor.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-wavelet/full-sensor.tsv": "254ba518f2c580644a86335ca4562b9386f0e7b3"
+      }
+    },
+    {
+      "id": "RG5-local",
+      "classification": "managed-generated",
+      "ownerModule": "canon-cr3-research",
+      "generator": "canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/CrawSensorIT.java",
+      "generateCommand": "mvn -B --no-transfer-progress verify -Pcr3-research-it -pl canon-cr3-research -am -Dit.test=CrawSensorIT -Dcr3.craw-sensor.local-dir=\"$localrefs\" -Djava.awt.headless=true",
+      "inputs": [
+        "canon-cr3-imageio/src/test/resources/samples/research/manifest.tsv",
+        "canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java",
+        "docs/cleanroom/source-register.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv"
+      ],
+      "ledgerExperiment": "RG5",
+      "timestampPolicy": "prohibited",
+      "generatedMappings": [
+        {
+          "source": "results.tsv",
+          "destination": "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv"
+        }
+      ],
+      "gitBlobLocks": {
+        "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv": "17e235456cc50a01c57b9a2367612d8fd2e809ae"
       }
     }
   ]

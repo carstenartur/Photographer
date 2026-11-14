@@ -14,8 +14,7 @@ the embedded JPEG preview by default.
 The ImageIO provider, reader discovery, embedded preview path, thumbnail access,
 and metadata access are intended as stable external APIs.
 
-CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` remain
-experimental while the CRX codec is completed. The complete symbol and package
+CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` select native decoding for supported profiles. The complete symbol and package
 classification is maintained in
 [`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
 

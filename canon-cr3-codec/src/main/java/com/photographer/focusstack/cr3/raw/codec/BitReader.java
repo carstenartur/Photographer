@@ -105,6 +105,9 @@ public final class BitReader {
     /** Returns the current byte position relative to the start offset. */
     public int bytePosition() { return bytePos - startOffset; }
 
+    /** Bytes touched relative to the slice start, including a partially consumed final byte. */
+    int consumedBytes() { return bytePos - startOffset + (bitPos == 8 ? 0 : 1); }
+
     /** Returns the total number of bytes in this reader's slice. */
     public int length() { return endOffset - startOffset; }
 
