@@ -10,6 +10,12 @@ on:
         type: string
         required: true
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cr3-imagej/**'
+      - 'scripts/build_cr3_fiji_site.py'
+      - '.github/workflows/cr3-fiji-distribution.yml'
 
 permissions:
   contents: read
@@ -64,6 +70,24 @@ jobs:
         run: >-
           mvn -B -ntp -pl cr3-imagej -am verify -Pfiji-update-site
           -Dfiji.directory="$RUNNER_TEMP/Fiji" -Djava.awt.headless=true
+
+      - name: Run the installed plugin on Fiji's Java 21 runtime
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compare the Fiji menu import with LibRaw
+        run: |
+          set -euo pipefail
+          unzip -q target/cr3-fiji-site/cr3-fiji-install.zip -d "$RUNNER_TEMP/Fiji"
+          sample_dir="$RUNNER_TEMP/cr3-sensor-test"
+          mkdir "$sample_dir"
+          ln -s "$PWD/canon-cr3-imageio/src/test/resources/samples/sample.cr3" "$sample_dir/sample.cr3"
+          ln -s "$PWD/canon-cr3-imageio/src/test/resources/samples/sample.reference.tiff" "$sample_dir/reference.tiff"
+          timeout 120 xvfb-run -a "$RUNNER_TEMP/Fiji/fiji" --java-home "$JAVA_HOME" --mem 1g --no-splash -- \
+            -macro "$PWD/cr3-imagej/src/it/verify-fiji-import.ijm" "$sample_dir"
+          grep -Fx '5632x3710 16 bits 20894720 samples max=0' "$sample_dir/result.txt"
 
       - name: Save installation and update-site archives
         uses: actions/upload-artifact@v7
