@@ -79,6 +79,7 @@
         <module>canon-cr3-reference-testkit</module>
         <module>canon-cr3-research</module>
         <module>canon-cr3-imageio</module>
+        <module>cr3-imagej</module>
         <module>canon-cr3-maven-smoke</module>
         <module>canon-cr3-cli</module>
         <module>frontend-web</module>

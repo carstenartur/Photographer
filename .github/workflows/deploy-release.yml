@@ -45,6 +45,16 @@ env:
   DRY_RUN: ${{ inputs.dry_run }}
 
 jobs:
+  fiji:
+    needs: release
+    if: ${{ needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/cr3-fiji-distribution.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}
+      merged_sha: ${{ needs.release.outputs.merged_sha }}
+
   release:
     name: Build and Release
     runs-on: ubuntu-24.04

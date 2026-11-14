@@ -111,6 +111,7 @@ graph TD
 | `astro-core` | Astro/long-exposure session management. |
 | `cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
 | `cr3-imageio` | Java ImageIO plug-in for CR3 import and uncompressed Bayer DNG reading and writing. |
+| `cr3-imagej` | ImageJ/Fiji importer for full-resolution, unsigned 16-bit Bayer sensor data. [Installation and use](cr3-imagej/README.md). |
 | `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
 
