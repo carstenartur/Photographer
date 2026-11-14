@@ -96,6 +96,6 @@ public class CanonCr3ImageReaderSpi extends ImageReaderSpi {
 
     @Override
     public String getDescription(Locale locale) {
-        return "Canon CR3 RAW Image Reader";
+        return "Independent Java ImageIO reader for CR3 files produced by Canon cameras.";
     }
 }
