@@ -1,6 +1,6 @@
 # CR3 Decoder and Processing
 
-Photographer separates stable CR3 container/metadata functionality from the experimental clean-room CRX sensor-RAW pipeline.
+The Java RAW import reconstructs complete V1 lossless 14-bit Bayer mosaics. RG4 compared 365,774,016 native samples through that entry point. [Camera matrix and reproduction](../cr3-results/2026-11-14-crx-native/README.md)
 
 ## Stable container and metadata layers
 
@@ -25,7 +25,7 @@ Supported responsibilities:
 
 Parser helpers and offset/layout interpretation are internal. Consumers should depend on `Cr3Metadata`, the facade or ImageIO metadata rather than low-level parsing classes.
 
-## Experimental codec layer
+## Native codec layer
 
 `canon-cr3-codec` owns:
 
@@ -68,7 +68,7 @@ These classes implement the current CR3 pipeline and are not a general-purpose p
 |---|---|---|
 | `PREVIEW` | Stable subset | Embedded JPEG preview; default and most reliable path |
 | `THUMBNAIL` | Stable subset | Embedded JPEG thumbnail |
-| `RAW_LINEAR` | Experimental | Linear Bayer mosaic without demosaic |
+| `RAW_LINEAR` | Verified for the RG4 lossless layout | Linear Bayer mosaic without demosaic |
 | `RAW_PROCESSED` | Experimental | RAW decode plus crop/demosaic/color processing |
 
 Factory shortcuts include `Cr3DecodeOptions.defaults()`, `rawLinear()` and `rawProcessed()`.

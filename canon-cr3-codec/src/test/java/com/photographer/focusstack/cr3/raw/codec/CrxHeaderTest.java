@@ -138,7 +138,7 @@ class CrxHeaderTest {
 
     // --- Helper methods ---
 
-    private static byte[] buildMinimalHeader(int numTiles, int numPlanes, int numSubbands,
+    static byte[] buildMinimalHeader(int numTiles, int numPlanes, int numSubbands,
                                               CrxHeader.CodecVersion version) {
         return buildHeaderWithDataSize(numTiles, numPlanes, numSubbands, 100, version);
     }

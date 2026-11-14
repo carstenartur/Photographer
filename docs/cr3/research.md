@@ -4,9 +4,7 @@ This is the maintained process entry for CRX semantic research. Read [Current st
 
 ## Present decision
 
-[RG3](../cr3-results/2026-11-14-crx-opening/README.md) derives the first two native same-plane values directly from an ordinary 14-bit lossless CRX subband. The reader passed the original 88 streams and 32 streams from four held-out files. Preregistered bit flips and transplants independently tested the first-value formula. The next testable site is the third, at the bit cursor recorded for each stream.
-
-The D13 panel has no evidence of a deeper subband parent or `Sd`/`Kd` lifecycle. RG1 diagnosed the earlier decoder's first failure, and [RG2](../cr3-results/2026-11-14-crx/README.md) located the common ten-zero prefix. RG3 remains scoped to those opening sites and the measured layout. Full-row prediction, code adaptation and the grammar of the opening prefix remain open.
+[RG4](../cr3-results/2026-11-14-crx-native/README.md) supports complete native decoding of the measured V1 lossless layout. Subsequent experiments on C-RAW and other CRX variants require their own sensor-reference comparisons. The earlier RG1–RG3 tests remain available to reproduce the opening and framing decisions.
 
 ### Active evidence path
 

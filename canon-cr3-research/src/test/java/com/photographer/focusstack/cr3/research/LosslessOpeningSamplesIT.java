@@ -140,7 +140,7 @@ class LosslessOpeningSamplesIT {
         }
     }
 
-    private static Map<String, String> registeredPanelHashes() throws IOException {
+    static Map<String, String> registeredPanelHashes() throws IOException {
         var file = Path.of("../docs/cr3-results/2026-11-14-crx/lossless-prefix.tsv");
         List<String> lines = Files.readAllLines(file);
         assertThat(lines.getFirst()).startsWith("fixture\tinputSha256\t");
