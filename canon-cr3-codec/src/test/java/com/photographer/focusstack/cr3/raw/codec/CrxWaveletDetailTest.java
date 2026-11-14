@@ -12,18 +12,18 @@ class CrxWaveletDetailTest {
     @Test
     void readsRunsTheirInterruptionsAndSignedDetailCoefficients() throws IOException {
         byte[] data = HexFormat.of().parseHex("ab841ccc52bcfe0671a0cd");
-        assertThat(CrxWaveletDetail.decode(data, 1, 9, 8, 4, 4)).containsExactly(
+        assertThat(decode(data, 1, 9, 8, 4, 4)).containsExactly(
                 0, 8, -24, 0, 0, 0, 8, 12,
                 0, 0, 0, 0, 0, 0, 0, 4,
                 0, 0, 0, 0, 0, 0, 0, 0,
                 12, 0, -4, 0, 0, 4, 0, -4);
-        assertThat(CrxWaveletDetail.decode(data, 1, 9, 8, 4, 0)).containsOnly(0);
+        assertThat(decode(data, 1, 9, 8, 4, 0)).containsOnly(0);
     }
 
     @Test
     void usesTheStoredRiceWidthAboveTheNextCoefficient() throws IOException {
         byte[] data = HexFormat.of().parseHex("2040002034fc802012202041094a94d5111180");
-        assertThat(CrxWaveletDetail.decode(data, 0, data.length, 8, 3, 1)).containsExactly(
+        assertThat(decode(data, 0, data.length, 8, 3, 1)).containsExactly(
                 1, 3, 32, 45, -32, 32, 64, 100,
                 0, 0, 0, 0, 1, 1, 2, 2,
                 0, 0, -2, 0, 0, 0, 0, 1);
@@ -32,14 +32,19 @@ class CrxWaveletDetailTest {
     @Test
     void checksByteConsumptionBoundsAndQuantizationOverflow() {
         byte[] data = HexFormat.of().parseHex("00000000007d0900");
-        assertThatThrownBy(() -> CrxWaveletDetail.decode(data, 0, 7, 1, 1, 1)).isInstanceOf(IOException.class);
-        assertThatThrownBy(() -> CrxWaveletDetail.decode(data, 0, data.length, 1, 1, 3000))
+        assertThatThrownBy(() -> decode(data, 0, 7, 1, 1, 1)).isInstanceOf(IOException.class);
+        assertThatThrownBy(() -> decode(data, 0, data.length, 1, 1, 3000))
                 .isInstanceOf(IOException.class).hasMessageContaining("coefficient");
-        assertThatThrownBy(() -> CrxWaveletDetail.decode(new byte[]{-1, 0}, 0, 2, 1, 1, 1))
+        assertThatThrownBy(() -> decode(new byte[]{-1, 0}, 0, 2, 1, 1, 1))
                 .isInstanceOf(IOException.class).hasMessageContaining("Unconsumed");
-        assertThatThrownBy(() -> CrxWaveletDetail.decode(data, 1, Integer.MAX_VALUE, 1, 1, 1))
+        assertThatThrownBy(() -> decode(data, 1, Integer.MAX_VALUE, 1, 1, 1))
                 .isInstanceOf(IOException.class);
-        assertThatThrownBy(() -> CrxWaveletDetail.decode(data, 0, 1, Integer.MAX_VALUE, 10, 1))
+        assertThatThrownBy(() -> decode(data, 0, 1, Integer.MAX_VALUE, 10, 1))
                 .isInstanceOf(IOException.class);
     }
+    private static int[] decode(byte[] data, int offset, int length, int width, int height, int factor)
+            throws IOException {
+        return WaveletTestRows.collect(CrxWaveletDetail.band(data, offset, length, width, height, factor));
+    }
+
 }

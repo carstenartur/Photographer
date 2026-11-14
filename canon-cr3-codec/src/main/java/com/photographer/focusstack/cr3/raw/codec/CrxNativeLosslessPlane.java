@@ -15,55 +15,49 @@ final class CrxNativeLosslessPlane {
         this.sensorValues = sensorValues;
     }
 
-    /**
-     * Reads only the declared subband slice. Plane neighbours are two columns and two
-     * sensor rows apart in the destination mosaic. All predictor state belongs to this plane.
-     */
-    static void decode(byte[] compressed, int start, int length, int width, int height,
-                       int[] mosaic, int stride, int firstPixel) throws IOException {
-        if (start < 0 || length < 0 || start > compressed.length - length) {
-            throw new IllegalArgumentException("Invalid compressed plane range");
-        }
-        if (width <= 0 || height <= 0 || stride <= 0 || firstPixel < 0
-                || firstPixel % stride + 2L * (width - 1) >= stride
-                || firstPixel + 2L * (width - 1) + 2L * (height - 1) * stride >= mosaic.length) {
-            throw new IllegalArgumentException("Plane exceeds destination mosaic geometry");
-        }
+    static void decodeSensor(byte[] compressed, int start, int length, int width, int height,
+                             int x, int y, CrxSensorDecoder.RowConsumer consumer) throws IOException {
         var plane = new CrxNativeLosslessPlane(new BitReader(compressed, start, length), true);
-        plane.decodeRows(mosaic, firstPixel, width, height, 2 * stride, 2);
+        int[] current = new int[width];
+        int[] previous = new int[width];
+        plane.readFirstRow(current, width);
+        consumer.write(x, y, current);
+        for (int row = 1; row < height; row++) {
+            int[] swap = previous;
+            previous = current;
+            current = swap;
+            plane.readRow(previous, current, width);
+            consumer.write(x, y + 2 * row, current);
+        }
     }
 
-    /** Reads a C-RAW approximation band in raster order, preserving signed coefficients. */
-    static int[] decodeCoefficients(byte[] compressed, int start, int length, int width, int height)
-            throws IOException {
-        if (start < 0 || length < 0 || start > compressed.length - length) {
-            throw new IllegalArgumentException("Invalid compressed approximation band range");
-        }
+    /** Sequential, signed rows of the coarsest C-RAW approximation band. */
+    static CrxWaveletTile.Band approximation(byte[] compressed, int start, int length, int width, int height) {
         if (width <= 0 || height <= 0 || (long) width * height > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Invalid approximation band geometry");
         }
         var bits = new BitReader(compressed, start, length);
         var plane = new CrxNativeLosslessPlane(bits, false);
-        int[] samples = new int[width * height];
-        plane.decodeRows(samples, 0, width, height, width, 1);
-        if (bits.consumedBytes() != length) {
-            throw new IOException("CRX approximation band byte count differs from its declared entropy length");
-        }
-        return samples;
+        return new CrxWaveletTile.Band(width, height, new CrxWaveletTile.RowReader() {
+            private final int[] previous = new int[width];
+            private int row;
+
+            @Override
+            public void read(int[] output) throws IOException {
+                if (row == 0) {
+                    plane.readFirstRow(output, width);
+                } else {
+                    plane.readRow(previous, output, width);
+                }
+                System.arraycopy(output, 0, previous, 0, width);
+                if (++row == height && bits.consumedBytes() != length) {
+                    throw new IOException("CRX approximation band byte count differs from its declared entropy length");
+                }
+            }
+        });
     }
 
-    private void decodeRows(int[] output, int first, int width, int height, int rowStep, int columnStep)
-            throws IOException {
-        readFirstRow(output, first, width, columnStep);
-        int row = first;
-        for (int y = 1; y < height; y++) {
-            int previous = row;
-            row += rowStep;
-            readRow(output, previous, row, width, columnStep);
-        }
-    }
-
-    private void readFirstRow(int[] mosaic, int first, int width, int columnStep) throws IOException {
+    private void readFirstRow(int[] output, int width) throws IOException {
         // The physical opening consumes 64 bits in both layouts. Approximation
         // bands can use the full 21-bit residual, including values outside the
         // sensor range. The verified lossless sensor profile uses 14 bits.
@@ -73,40 +67,40 @@ final class CrxNativeLosslessPlane {
             throw new IOException("Unsupported opening of a 14-bit CRX plane");
         }
         int value = reconstruct(HALF_RANGE, bits.readBits(literalBits));
-        mosaic[first] = value;
+        output[0] = value;
         for (int x = 1; x < width; x++) {
             int unsigned = state.readResidual();
             value = reconstruct(value, unsigned);
-            mosaic[first + columnStep * x] = value;
+            output[x] = value;
             state.updateK(unsigned);
         }
     }
 
-    private void readRow(int[] mosaic, int previous, int row, int width, int columnStep) throws IOException {
+    private void readRow(int[] previousRow, int[] output, int width) throws IOException {
         int x = 0;
         while (x < width) {
-            int above = mosaic[previous + columnStep * x];
-            int left = x == 0 ? above : mosaic[row + columnStep * (x - 1)];
-            int aboveLeft = x == 0 ? above : mosaic[previous + columnStep * (x - 1)];
-            int aboveRight = x + 1 == width ? above : mosaic[previous + columnStep * (x + 1)];
+            int above = previousRow[x];
+            int left = x == 0 ? above : output[x - 1];
+            int aboveLeft = x == 0 ? above : previousRow[x - 1];
+            int aboveRight = x + 1 == width ? above : previousRow[x + 1];
             int prediction = CrxMedPredictor.med(left, above, aboveLeft);
 
             if (x + 1 < width && left == above && left == aboveRight && bits.readBit() == 1) {
                 int end = x + state.readRunLength(width - x);
                 while (x < end) {
-                    mosaic[row + columnStep * x] = left;
+                    output[x] = left;
                     x++;
                 }
                 if (x == width) {
                     return;
                 }
-                above = mosaic[previous + columnStep * x];
-                aboveRight = x + 1 == width ? above : mosaic[previous + columnStep * (x + 1)];
+                above = previousRow[x];
+                aboveRight = x + 1 == width ? above : previousRow[x + 1];
                 prediction = above;
             }
 
             int unsigned = state.readResidual();
-            mosaic[row + columnStep * x] = reconstruct(prediction, unsigned);
+            output[x] = reconstruct(prediction, unsigned);
             int adaptationValue = x + 1 == width ? unsigned : (unsigned >>> 1) + Math.abs(aboveRight - above);
             state.updateK(adaptationValue);
             x++;

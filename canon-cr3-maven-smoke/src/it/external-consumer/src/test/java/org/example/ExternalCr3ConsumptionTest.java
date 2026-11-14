@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
@@ -77,7 +79,7 @@ class ExternalCr3ConsumptionTest {
         assertTrue(readers.hasNext(), "Packaged ImageIO SPI was not discovered");
 
         ImageReader reader = readers.next();
-        assertInstanceOf(CanonCr3ImageReader.class, reader);
+        CanonCr3ImageReader cr3Reader = assertInstanceOf(CanonCr3ImageReader.class, reader);
         assertTrue(reader.canReadRaster(), "CR3 reader should advertise raster access");
 
         BufferedImage preview = ImageIO.read(sample.toFile());
@@ -88,13 +90,25 @@ class ExternalCr3ConsumptionTest {
         try (ImageInputStream input = ImageIO.createImageInputStream(sample.toFile())) {
             assertNotNull(input);
             reader.setInput(input);
-            CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-            param.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
+            assertEquals(preview.getWidth(), reader.getWidth(0));
+            assertEquals(preview.getHeight(), reader.getHeight(0));
+            assertEquals(preview.getType(), reader.getImageTypes(0).next().getBufferedImageType());
+            assertTrue(reader.readerSupportsThumbnails());
+
+            CanonCr3ImageReadParam param = cr3Reader.getDefaultReadParam();
+            param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+            param.setSourceRegion(new Rectangle(2100, 1500, 4, 4));
+            param.setSourceSubsampling(2, 2, 1, 1);
+            param.setDestinationOffset(new Point(-2, 7));
+            param.setDestination(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB));
             Raster raster = reader.readRaster(0, param);
-            assertNotNull(raster);
             assertEquals(DataBuffer.TYPE_USHORT, raster.getTransferType());
-            assertTrue(raster.getWidth() > preview.getWidth());
-            assertTrue(raster.getHeight() > preview.getHeight());
+            assertEquals(new Rectangle(-2, 7, 2, 2), raster.getBounds());
+            // Unscaled Bayer codes from the independent LibRaw sample.reference.tiff.
+            assertEquals(2553, raster.getSample(-2, 7, 0));
+            assertEquals(2605, raster.getSample(-1, 7, 0));
+            assertEquals(2565, raster.getSample(-2, 8, 0));
+            assertEquals(2537, raster.getSample(-1, 8, 0));
         } finally {
             reader.dispose();
         }

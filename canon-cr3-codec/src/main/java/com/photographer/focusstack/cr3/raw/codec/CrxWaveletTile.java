@@ -1,18 +1,20 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
+import java.io.IOException;
+
 /** Three-level integer 5/3 synthesis of a horizontally tiled CRX plane. */
 final class CrxWaveletTile {
     private static final int LEVELS = 3;
 
     record Shape(int width, int height) {}
 
-    record Band(int[] samples, int width, int height) {
-        Band {
-            if (width < 0 || height < 0 || (long) width * height != samples.length) {
-                throw new IllegalArgumentException("Invalid wavelet band geometry");
-            }
-        }
+    @FunctionalInterface
+    interface RowReader {
+        void read(int[] output) throws IOException;
     }
+
+    /** Physical band dimensions include any coded halo columns. */
+    record Band(int width, int height, RowReader rows) {}
 
     private CrxWaveletTile() {}
 
@@ -49,7 +51,7 @@ final class CrxWaveletTile {
     }
 
     /** Band order is LL3 followed by X, Y and XY details at each level, coarsest first. */
-    static int[] synthesize(Band[] bands, int width, int height, boolean hasLeftTile, boolean hasRightTile) {
+    static Band synthesize(Band[] bands, int width, int height, boolean hasLeftTile, boolean hasRightTile) {
         if (bands.length != 1 + 3 * LEVELS || width <= 0 || height <= 0
                 || (long) width * height > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Invalid three-level wavelet tile");
@@ -68,7 +70,7 @@ final class CrxWaveletTile {
             low = level(low, bands[index], bands[index + 1], bands[index + 2],
                     widths[level], heights[level], hasLeftTile, hasRightTile);
         }
-        return low.samples;
+        return low;
     }
 
     private static int lowWidth(int output, boolean hasRightTile) {
@@ -84,21 +86,9 @@ final class CrxWaveletTile {
         requireShape(x, hw, lh);
         requireShape(y, lw, hh);
         requireShape(xy, hw, hh);
-        int[] temporary = new int[Math.multiplyExact(width, height)];
-        for (int row = 0; row < lh; row++) {
-            lift(ll.samples, row * ll.width, 1, lw, x.samples, row * x.width, 1, hw, hasLeftTile,
-                    temporary, row * width, 1, width);
-        }
-        for (int row = 0; row < hh; row++) {
-            lift(y.samples, row * y.width, 1, lw, xy.samples, row * xy.width, 1, hw, hasLeftTile,
-                    temporary, (lh + row) * width, 1, width);
-        }
-        int[] output = new int[temporary.length];
-        for (int col = 0; col < width; col++) {
-            lift(temporary, col, width, lh, temporary, lh * width + col, width, hh, false,
-                    output, col, width, height);
-        }
-        return new Band(output, width, height);
+        var lowRows = new HorizontalRows(ll, x, lw, hw, hasLeftTile, width);
+        var highRows = new HorizontalRows(y, xy, lw, hw, hasLeftTile, width);
+        return new Band(width, height, new VerticalRows(lowRows, highRows, width, height));
     }
 
     private static void requireShape(Band band, int columns, int rows) {
@@ -109,35 +99,111 @@ final class CrxWaveletTile {
         }
     }
 
-    /**
-     * Undoes update, then predict. The arithmetic matches InverseWaveletTransform's
-     * Le Gall 5/3 filter; the strides and the two tile halos differ.
-     */
-    private static void lift(int[] low, int l, int lowStride, int nl,
-                             int[] high, int h, int highStride, int nh, boolean leftGhost,
-                             int[] out, int dst, int outStride, int n) {
-        if (nh == 0) {
-            out[dst] = low[l];
-            return;
+    /** Reconstructs one contiguous row across both tile halos. */
+    private record HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost,
+                                  int width, int[] lowRow, int[] highRow) implements RowReader {
+        HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost, int width) {
+            this(low, high, lowWidth, highWidth, leftGhost, width, new int[low.width], new int[high.width]);
         }
-        long leftDetail = high[h];
-        int detailIndex = leftGhost ? 1 : 0;
-        long rightDetail = high[h + Math.min(detailIndex, nh - 1) * highStride];
-        int even = Math.toIntExact(low[l] - ((leftDetail + rightDetail + 2) >> 2));
-        out[dst] = even;
-        for (int odd = 1, i = 0; odd < n; odd += 2, i++) {
-            int nextEven = even;
-            if (i + 1 < nl) {
-                long nextDetail = high[h + Math.min(detailIndex + 1, nh - 1) * highStride];
-                nextEven = Math.toIntExact(low[l + (i + 1) * lowStride] - ((rightDetail + nextDetail + 2) >> 2));
+
+        @Override
+        public void read(int[] output) throws IOException {
+            low.rows.read(lowRow);
+            high.rows.read(highRow);
+            if (highWidth == 0) {
+                output[0] = lowRow[0];
+                return;
             }
-            out[dst + odd * outStride] = Math.toIntExact(rightDetail + (((long) even + nextEven) >> 1));
-            if (odd + 1 < n) {
-                out[dst + (odd + 1) * outStride] = nextEven;
+            int detail = leftGhost ? 1 : 0;
+            int right = highRow[Math.min(detail, highWidth - 1)];
+            int even = undoUpdate(lowRow[0], highRow[0], right);
+            output[0] = even;
+            for (int odd = 1, i = 1; odd < width; odd += 2, i++) {
+                int nextRight = highRow[Math.min(++detail, highWidth - 1)];
+                int nextEven = i < lowWidth ? undoUpdate(lowRow[i], right, nextRight) : even;
+                output[odd] = undoPredict(right, even, nextEven);
+                if (odd + 1 < width) {
+                    output[odd + 1] = nextEven;
+                }
+                even = nextEven;
+                right = nextRight;
             }
-            detailIndex++;
-            rightDetail = high[h + Math.min(detailIndex, nh - 1) * highStride];
-            even = nextEven;
         }
+    }
+
+    /** One even row above and below the odd row suffice for the vertical inverse 5/3 lift. */
+    private static final class VerticalRows implements RowReader {
+        private final RowReader low;
+        private final RowReader high;
+        private final int width;
+        private final int height;
+        private int[] even;
+        private int[] nextEven;
+        private int[] detail;
+        private int[] nextDetail;
+        private int row;
+
+        VerticalRows(RowReader low, RowReader high, int width, int height) {
+            this.low = low;
+            this.high = high;
+            this.width = width;
+            this.height = height;
+            even = new int[width];
+            nextEven = new int[width];
+            detail = new int[width];
+            nextDetail = new int[width];
+        }
+
+        @Override
+        public void read(int[] output) throws IOException {
+            if (row == 0) {
+                low.read(even);
+                if (height > 1) {
+                    high.read(detail);
+                    updateRow(even, detail, detail);
+                }
+            }
+            if ((row & 1) == 0) {
+                System.arraycopy(even, 0, output, 0, width);
+            } else if (row == height - 1) {
+                predictRow(output, even, even);
+            } else {
+                low.read(nextEven);
+                if (row + 2 < height) {
+                    high.read(nextDetail);
+                    updateRow(nextEven, detail, nextDetail);
+                } else {
+                    updateRow(nextEven, detail, detail);
+                }
+                predictRow(output, even, nextEven);
+                int[] oldEven = even;
+                even = nextEven;
+                nextEven = oldEven;
+                int[] oldDetail = detail;
+                detail = nextDetail;
+                nextDetail = oldDetail;
+            }
+            row++;
+        }
+
+        private void updateRow(int[] lowRow, int[] above, int[] below) {
+            for (int x = 0; x < width; x++) {
+                lowRow[x] = undoUpdate(lowRow[x], above[x], below[x]);
+            }
+        }
+
+        private void predictRow(int[] output, int[] above, int[] below) {
+            for (int x = 0; x < width; x++) {
+                output[x] = undoPredict(detail[x], above[x], below[x]);
+            }
+        }
+    }
+
+    private static int undoUpdate(int low, int left, int right) {
+        return Math.toIntExact(low - (((long) left + right + 2) >> 2));
+    }
+
+    private static int undoPredict(int high, int left, int right) {
+        return Math.toIntExact(high + (((long) left + right) >> 1));
     }
 }

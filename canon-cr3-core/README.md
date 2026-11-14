@@ -14,8 +14,8 @@ implementations. Those responsibilities live in dedicated Maven artifacts:
 - `canon-cr3-processing`
 
 This module keeps the unified `Cr3Decoder` and `Cr3DecodeOptions` entry points for
-callers that want one facade. It has no dependency on `javax.imageio`; the standard
-ImageIO adapter is provided by `canon-cr3-imageio`.
+callers that want one facade. It accepts JDK ImageIO streams; the provider discovered
+by `ImageIO.getImageReaders` lives in the separate `canon-cr3-imageio` module.
 
 ## API stability
 
@@ -52,10 +52,11 @@ than duplicated here. Applications that need only file inspection should depend 
 | `OutputMode.PREVIEW` | Stable subset | Returns the embedded JPEG preview; default and most reliable path. |
 | `OutputMode.THUMBNAIL` | Stable subset | Returns the embedded JPEG thumbnail. |
 | `OutputMode.RAW_PROCESSED` | Experimental | Decodes RAW data with demosaicing and color processing. |
-| `OutputMode.RAW_LINEAR` | Experimental | Returns linear Bayer-pattern data without demosaicing. |
+| `OutputMode.RAW_LINEAR` | Experimental | Unsigned-short Bayer image scaled to the 16-bit output range. Honors active-area crop and black-level options. |
+| `OutputMode.RAW_SENSOR` | Experimental | Original sensor codes in a single unsigned-short band, in uncropped sensor coordinates. |
 
 Factory shortcuts: `Cr3DecodeOptions.defaults()`,
-`Cr3DecodeOptions.rawProcessed()`, and `Cr3DecodeOptions.rawLinear()`.
+`Cr3DecodeOptions.rawProcessed()`, `Cr3DecodeOptions.rawLinear()` and `Cr3DecodeOptions.rawSensor()`.
 
 `experimentalPedestal(int)` and
 `PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH` are research-only controls. They

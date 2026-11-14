@@ -18,11 +18,8 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import javax.imageio.stream.MemoryCacheImageInputStream;
-import java.io.ByteArrayInputStream;
+import javax.imageio.stream.FileImageInputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,10 +47,10 @@ public class CrxDecoderStagesBenchmark {
 
     private byte[] crxPayload;
     private CrxHeader.CodecVersion codecVersion;
-    private int bitDepth;
+    private int directoryBytes;
 
     private int subbandOffset;
-    private int subbandEnd;
+    private int subbandLength;
     private int tilePlaneWidth;
     private int tilePlaneHeight;
 
@@ -68,77 +65,38 @@ public class CrxDecoderStagesBenchmark {
 
     @Setup
     public void setup() throws Exception {
-        byte[] fileBytes = SampleFiles.readAllBytes(sample);
-        Cr3Container container;
-        try (MemoryCacheImageInputStream input =
-                     new MemoryCacheImageInputStream(new ByteArrayInputStream(fileBytes))) {
-            container = Cr3Parser.parse(input);
+        try (var input = new FileImageInputStream(SampleFiles.resolve(sample).toFile())) {
+            Cr3Container container = Cr3Parser.parse(input);
+            Cr3Track rawTrack = container.tracks().stream()
+                    .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
+                            || track.type() == Cr3Track.TrackType.CRX_RAW)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("No CRX RAW track in " + sample));
+
+            Cmp1Box cmp1 = rawTrack.cmp1();
+            if (cmp1 == null || !cmp1.isLossless()) {
+                throw new IllegalStateException("Lossless benchmark requires a lossless CMP1 track: " + sample);
+            }
+            codecVersion = container.cncvBox() == null ? CrxHeader.CodecVersion.V1
+                    : CrxHeader.detectVersion(container.cncvBox().versionString());
+            bayerWidth = cmp1.imageWidth();
+            bayerHeight = cmp1.imageHeight();
+            directoryBytes = cmp1.mdatHeaderSize();
+            planeWidth = Math.ceilDiv(bayerWidth, 2);
+            planeHeight = Math.ceilDiv(bayerHeight, 2);
+            tilePlaneWidth = Math.ceilDiv(cmp1.tileWidth(), 2);
+            tilePlaneHeight = Math.ceilDiv(cmp1.tileHeight(), 2);
+
+            crxPayload = new byte[Math.toIntExact(rawTrack.dataSize())];
+            input.seek(rawTrack.dataOffset());
+            input.readFully(crxPayload);
         }
-
-        Cr3Track rawTrack = container.tracks().stream()
-                .filter(track -> track.type() == Cr3Track.TrackType.CRX_BIG
-                        || track.type() == Cr3Track.TrackType.CRX_RAW)
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No CRX RAW track in " + sample));
-
-        Cmp1Box cmp1 = rawTrack.cmp1();
-        bayerWidth = cmp1 != null && cmp1.imageWidth() > 0
-                ? cmp1.imageWidth() : rawTrack.width();
-        bayerHeight = cmp1 != null && cmp1.imageHeight() > 0
-                ? cmp1.imageHeight() : rawTrack.height();
-        bitDepth = cmp1 != null && cmp1.bitsPerSample() > 0
-                ? cmp1.bitsPerSample() : 14;
-        codecVersion = container.cncvBox() != null
-                ? CrxHeader.detectVersion(container.cncvBox().versionString())
-                : CrxHeader.CodecVersion.V1;
-
-        long rawOffset = rawTrack.dataOffset();
-        long rawSize = rawTrack.dataSize();
-        if (rawOffset < 0 || rawSize <= 0 || rawOffset + rawSize > fileBytes.length
-                || rawSize > Integer.MAX_VALUE) {
-            throw new IllegalStateException("Invalid CRX track range in " + sample);
-        }
-        byte[] crxData = Arrays.copyOfRange(
-                fileBytes, (int) rawOffset, Math.toIntExact(rawOffset + rawSize));
-
-        ParsedCrx parsed = parseCrxData(crxData, codecVersion, cmp1);
-        crxPayload = parsed.data();
-        CrxHeader header = parsed.header();
-        if (header.tiles().isEmpty()) {
-            throw new IllegalStateException("No CRX tiles in " + sample);
-        }
-
-        CrxHeader.Tile firstTile = header.tiles().stream()
-                .min(Comparator.comparingInt(CrxHeader.Tile::index))
-                .orElseThrow();
-        CrxHeader.Plane firstPlane = firstTile.planes().stream()
-                .min(Comparator.comparingInt(CrxHeader.Plane::index))
-                .orElseThrow(() -> new IllegalStateException("No CRX planes in " + sample));
-        CrxHeader.Subband firstSubband = firstPlane.subbands().stream()
-                .min(Comparator.comparingInt(CrxHeader.Subband::index))
-                .orElseThrow(() -> new IllegalStateException("No CRX subbands in " + sample));
-
-        planeWidth = (bayerWidth + 1) / 2;
-        planeHeight = (bayerHeight + 1) / 2;
-        int tileCount = header.tiles().size();
-        tilePlaneWidth = resolveTilePlaneWidth(cmp1, tileCount, planeWidth, bayerWidth);
-        tilePlaneHeight = resolveTilePlaneHeight(cmp1, planeHeight);
-
-        subbandOffset = Math.toIntExact(firstSubband.dataOffset());
-        subbandEnd = Math.min(crxPayload.length,
-                Math.toIntExact(firstSubband.dataOffset() + firstSubband.dataSize()));
-        if (subbandEnd <= subbandOffset) {
-            throw new IllegalStateException("Invalid first subband range in " + sample);
-        }
-
-        decodedTile = CrxLosslessPlaneDecoder.decode(
-                crxPayload,
-                subbandOffset,
-                subbandEnd,
-                tilePlaneWidth,
-                tilePlaneHeight,
-                bitDepth,
-                CrxLosslessRawDecoder.DEFAULT_K_UPDATE_RULE);
+        var header = CrxHeader.parseDirectory(crxPayload, directoryBytes, codecVersion);
+        var band = header.tiles().getFirst().planes().getFirst().subbands().getFirst();
+        subbandOffset = Math.toIntExact(band.dataOffset());
+        subbandLength = Math.toIntExact(band.dataSize());
+        decodedTile = new int[Math.multiplyExact(tilePlaneWidth, tilePlaneHeight)];
+        decodeNativeFirstPlane();
 
         copiedPlane = new int[Math.multiplyExact(planeWidth, tilePlaneHeight)];
         positionalPlanes = new int[4][Math.multiplyExact(planeWidth, planeHeight)];
@@ -153,19 +111,15 @@ public class CrxDecoderStagesBenchmark {
 
     @Benchmark
     public CrxHeader parseHeader() throws IOException {
-        return CrxHeader.parse(crxPayload, codecVersion);
+        return CrxHeader.parseDirectory(crxPayload, directoryBytes, codecVersion);
     }
 
     @Benchmark
-    public int[] decodeFirstPlane() throws IOException {
-        return CrxLosslessPlaneDecoder.decode(
-                crxPayload,
-                subbandOffset,
-                subbandEnd,
-                tilePlaneWidth,
-                tilePlaneHeight,
-                bitDepth,
-                CrxLosslessRawDecoder.DEFAULT_K_UPDATE_RULE);
+    public int[] decodeNativeFirstPlane() throws IOException {
+        CrxNativeLosslessPlane.decodeSensor(crxPayload, subbandOffset, subbandLength,
+                tilePlaneWidth, tilePlaneHeight, 0, 0,
+                (x, y, row) -> System.arraycopy(row, 0, decodedTile, (y / 2) * tilePlaneWidth, row.length));
+        return decodedTile;
     }
 
     @Benchmark
@@ -202,52 +156,5 @@ public class CrxDecoderStagesBenchmark {
             }
         }
         return checksum;
-    }
-
-    private static ParsedCrx parseCrxData(
-            byte[] data,
-            CrxHeader.CodecVersion version,
-            Cmp1Box cmp1) throws IOException {
-        try {
-            CrxHeader header = CrxHeader.parse(data, version);
-            if (!header.tiles().isEmpty()) {
-                return new ParsedCrx(data, header);
-            }
-        } catch (IOException firstError) {
-            int headerSize = cmp1 != null ? cmp1.mdatHeaderSize() : 0;
-            if (headerSize <= 0 || headerSize >= data.length) {
-                throw firstError;
-            }
-        }
-
-        int headerSize = cmp1 != null ? cmp1.mdatHeaderSize() : 0;
-        if (headerSize > 0 && headerSize < data.length) {
-            byte[] stripped = Arrays.copyOfRange(data, headerSize, data.length);
-            return new ParsedCrx(stripped, CrxHeader.parse(stripped, version));
-        }
-        return new ParsedCrx(data, CrxHeader.parse(data, version));
-    }
-
-    private static int resolveTilePlaneWidth(
-            Cmp1Box cmp1,
-            int tileCount,
-            int fullPlaneWidth,
-            int rawWidth) {
-        if (cmp1 != null && cmp1.tileWidth() > 0) {
-            return Math.min(Math.max(1, (cmp1.tileWidth() + 1) / 2), fullPlaneWidth);
-        }
-        return tileCount > 1
-                ? Math.max(1, (rawWidth / tileCount + 1) / 2)
-                : fullPlaneWidth;
-    }
-
-    private static int resolveTilePlaneHeight(Cmp1Box cmp1, int fullPlaneHeight) {
-        if (cmp1 != null && cmp1.tileHeight() > 0) {
-            return Math.min(Math.max(1, (cmp1.tileHeight() + 1) / 2), fullPlaneHeight);
-        }
-        return fullPlaneHeight;
-    }
-
-    private record ParsedCrx(byte[] data, CrxHeader header) {
     }
 }

@@ -59,6 +59,14 @@ public class Cr3ImageImportBenchmark {
         return read(param);
     }
 
+    /** Raw Bayer codes, including the full sensor margins, through the public reader. */
+    @Benchmark
+    public BufferedImage importSensorViaImageIo() throws IOException {
+        CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+        param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+        return read(param);
+    }
+
     /** Complete fast-preview import path, including parsing and JPEG extraction. */
     @Benchmark
     public BufferedImage importPreviewViaImageIo() throws IOException {

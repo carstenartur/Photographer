@@ -26,7 +26,9 @@ public final class Cr3DecodeOptions {
         /** Decode the full RAW image with demosaicing and color processing. Experimental before 1.0. */
         RAW_PROCESSED,
         /** Decode the RAW image as a linear Bayer pattern (no demosaicing). Experimental before 1.0. */
-        RAW_LINEAR
+        RAW_LINEAR,
+        /** Full sensor mosaic in original camera sample units, including optical black margins. */
+        RAW_SENSOR
     }
 
     /**
@@ -166,6 +168,15 @@ public final class Cr3DecodeOptions {
     /** Creates options for full RAW processing. */
     public static Cr3DecodeOptions rawProcessed() {
         return new Cr3DecodeOptions().outputMode(OutputMode.RAW_PROCESSED);
+    }
+
+    /**
+     * Returns full-sensor Bayer codes in an unsigned-short, single-band raster.
+     * The RAW_SENSOR mode always preserves the original extent and sample units.
+     * Crop and processing settings apply only to the other RAW modes.
+     */
+    public static Cr3DecodeOptions rawSensor() {
+        return rawLinear().outputMode(OutputMode.RAW_SENSOR).cropToActiveArea(false).applyBlackLevel(false);
     }
 
     /** Creates options for linear RAW output (no demosaicing). */

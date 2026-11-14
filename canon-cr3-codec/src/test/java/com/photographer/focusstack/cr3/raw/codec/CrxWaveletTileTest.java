@@ -1,5 +1,6 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
+import java.io.IOException;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CrxWaveletTileTest {
     @Test
-    void reconstructsIndependentSignedThreeLevelTransformExactly() {
+    void reconstructsIndependentSignedThreeLevelTransformExactly() throws IOException {
         // A separate integer forward transform split rows vertically first, then horizontally.
         var bands = new CrxWaveletTile.Band[]{
                 square(1, 0), square(1, 33), square(1, 17), square(1, -33),
@@ -17,7 +18,7 @@ class CrxWaveletTileTest {
                 square(4, 80, 46, 59, -2, -27, 91, -135, 32, -131, 54, -17, -25, 74, 11, 60, 2),
                 square(4, 78, -95, -56, -195, 10, 101, -30, -227, -20, -95, -72, -30, 30, -19, 1, 46)
         };
-        assertThat(CrxWaveletTile.synthesize(bands, 8, 8, false, false)).containsExactly(
+        assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesize(bands, 8, 8, false, false))).containsExactly(
                 -93, -33, -3, -5, -73, -77, -99, 51, -38, 60, 86, -12, 93, 10, 21, -72,
                 -64, -93, 75, 26, 66, 51, 19, 74, -47, 7, 87, 50, -74, -50, 98, -85,
                 34, 58, -27, -38, 92, -33, -15, 19, -86, -23, 45, -67, 52, -73, -23, -60,
@@ -40,34 +41,30 @@ class CrxWaveletTileTest {
     }
 
     @Test
-    void aLeadingHighpassNeighbourChangesOnlyTheLeftEdgeOfTheRightTile() {
+    void aLeadingHighpassNeighbourChangesOnlyTheLeftEdgeOfTheRightTile() throws IOException {
         int width = 16, height = 9;
         var bands = zeros(width, height, true, false);
-        Arrays.fill(bands[0].samples(), 2000);
-        for (int y = 0; y < bands[7].height(); y++) {
-            bands[7].samples()[y * bands[7].width()] = 32;
-        }
+        bands[0] = fill(bands[0], 2000);
+        bands[7] = new CrxWaveletTile.Band(bands[7].width(), bands[7].height(), row -> row[0] = 32);
         int[] expected = new int[width * height];
         Arrays.fill(expected, 2000);
         for (int y = 0; y < height; y++) {
             expected[y * width] = 1992;
             expected[y * width + 1] = 1996;
         }
-        assertThat(CrxWaveletTile.synthesize(bands, width, height, true, false)).containsExactly(expected);
+        assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesize(bands, width, height, true, false))).containsExactly(expected);
     }
 
     @Test
-    void separatesPhysicalRowStrideFromCroppedSynthesisExtent() {
+    void separatesPhysicalRowStrideFromCroppedSynthesisExtent() throws IOException {
         int width = 26, height = 17;
         var bands = zeros(width, height, false, true);
-        Arrays.fill(bands[0].samples(), 64);
+        bands[0] = fill(bands[0], 64);
         // The Y-detail row physically includes a surplus trailing column, never a new row's x=0.
         int bandWidth = bands[8].width();
         assertThat(bandWidth).isEqualTo(15);
-        for (int y = 0; y < bands[8].height(); y++) {
-            bands[8].samples()[y * bandWidth + bandWidth - 1] = 10000;
-        }
-        assertThat(CrxWaveletTile.synthesize(bands, width, height, false, true)).containsOnly(64);
+        bands[8] = new CrxWaveletTile.Band(bandWidth, bands[8].height(), row -> row[bandWidth - 1] = 10000);
+        assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesize(bands, width, height, false, true))).containsOnly(64);
         bands[7] = square(1, 0);
         assertThatThrownBy(() -> CrxWaveletTile.synthesize(bands, width, height, false, true))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -75,11 +72,23 @@ class CrxWaveletTileTest {
 
     private static CrxWaveletTile.Band[] zeros(int width, int height, boolean left, boolean right) {
         return Arrays.stream(CrxWaveletTile.shapes(width, height, left, right))
-                .map(s -> new CrxWaveletTile.Band(new int[s.width() * s.height()], s.width(), s.height()))
+                .map(s -> new CrxWaveletTile.Band(s.width(), s.height(), row -> Arrays.fill(row, 0)))
                 .toArray(CrxWaveletTile.Band[]::new);
     }
 
+    private static CrxWaveletTile.Band fill(CrxWaveletTile.Band band, int value) {
+        return new CrxWaveletTile.Band(band.width(), band.height(), row -> Arrays.fill(row, value));
+    }
+
     private static CrxWaveletTile.Band square(int size, int... samples) {
-        return new CrxWaveletTile.Band(samples, size, size);
+        return new CrxWaveletTile.Band(size, size, new CrxWaveletTile.RowReader() {
+            int offset;
+
+            @Override
+            public void read(int[] row) {
+                System.arraycopy(samples, offset, row, 0, size);
+                offset += size;
+            }
+        });
     }
 }

@@ -1,11 +1,28 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
+import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.raw.Cr3RawImage;
+
+import java.io.IOException;
 import java.util.Objects;
 
 /** Copies decoded tile planes and assembles four positional planes into a Bayer grid. */
 final class CrxPlaneAssembler {
 
     private CrxPlaneAssembler() {
+    }
+
+    static Cr3RawImage decodeImage(CrxSensorDecoder decoder, int width, int height, int depth,
+                                   Cr3RawImage.BayerPattern pattern) throws Cr3Exception, IOException {
+        int[] mosaic = new int[Math.multiplyExact(width, height)];
+        decoder.decodeRows((x, y, row) -> {
+            int dest = y * width + x;
+            for (int sample : row) {
+                mosaic[dest] = sample;
+                dest += 2;
+            }
+        });
+        return new Cr3RawImage(width, height, mosaic, depth, pattern);
     }
 
     static void copyTilePlane(

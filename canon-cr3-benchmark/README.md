@@ -45,8 +45,7 @@ microbenchmarks.
 | `Cr3RawProcessingStagesBenchmark` | black-level subtraction, white balance, Bayer demosaic, colour matrix and sRGB conversion as separate measurements |
 | `Cr3ImageImportBenchmark` | complete public ImageIO import: file open, reader discovery, parsing, metadata, decoding, processing and cleanup |
 
-The ImageIO benchmark records both full processed-RAW import and embedded
-preview import. Comparing these with the direct decoder benchmarks shows
+The ImageIO benchmark records native Bayer, processed RGB and embedded preview imports. Comparing these with the direct decoder benchmarks shows
 whether a change comes from the codec/processing pipeline or from integration
 and import overhead.
 
@@ -110,6 +109,12 @@ java -jar canon-cr3-benchmark/target/benchmarks.jar Cr3ImageImportBenchmark
 # Limit a parameterised benchmark to one fixture
 java -jar canon-cr3-benchmark/target/benchmarks.jar \
     -p sample=sample.cr3 Cr3ImageImportBenchmark
+
+# Time per import and allocated bytes per import for lossless RAW and C-RAW.
+# gc.alloc.rate.norm counts allocation; process RSS and peak live heap are separate measures.
+java -jar canon-cr3-benchmark/target/benchmarks.jar \
+    Cr3ImageImportBenchmark.importSensorViaImageIo -prof gc \
+    -p sample=sample.cr3,research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3
 
 # JSON output used by the chart publisher
 java -jar canon-cr3-benchmark/target/benchmarks.jar \
