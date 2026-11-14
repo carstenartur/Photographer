@@ -73,7 +73,7 @@ LightCraft and DNGLab agreed on every Bayer value of the public EOS R and PowerS
 
 ## First two native lossless samples
 
-The RG3 research reader derives both values in a plane directly from the payload. It matched all 88 discovery streams and all 32 prospective streams from four cameras. Changing each of bits 18–31 on two cameras and swapping that range between them gave the exact predicted first values. The fixed prefix conditions this result. Changes to earlier bits can also affect the first value. All four second-code remainder controls were rejected. See the [RG3 measurements](../cr3-results/2026-11-14-crx-opening/README.md).
+The RG3 research reader derives both values in a plane directly from the payload. It matched all 88 discovery streams and all 32 prospective streams from four cameras. Changing each of extractor-relative bits 18–31 on two cameras and swapping that range between them gave the exact predicted first values. The CMP1-declared origin in all 15 files is four bytes earlier, so the same physical bits are then 50–63. The fixed prefix conditions this result. Changes to earlier bits can also affect the first value. All four second-code remainder controls were rejected. See the [RG3 measurements](../cr3-results/2026-11-14-crx-opening/README.md).
 
 ## Current priority
 
