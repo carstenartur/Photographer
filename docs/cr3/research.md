@@ -4,13 +4,9 @@ This is the maintained process entry for CRX semantic research. Read [Current st
 
 ## Present decision
 
-The fixed lossless panel, its LibRaw reference outputs and registered public sources are insufficient to authorize another entropy candidate.
+[RG3](../cr3-results/2026-11-14-crx-opening/README.md) derives the first two native same-plane values directly from an ordinary 14-bit lossless CRX subband. The reader passed the original 88 streams and 32 streams from four held-out files. Preregistered bit flips and transplants independently tested the first-value formula. The next testable site is the third, at the bit cursor recorded for each stream.
 
-D13 established that the panel contains 88 lossless single-subband records with stable topology and contiguous payloads, but it does not expose a deeper parent, LL/HL/LH/HH identity, causal `Sd` source or `Kd` lifecycle. RG1 then showed that supplying the correct first reference sample only moves the first contradiction from symbol 0 to a median matched prefix of one sample: in 71/88 streams the next symbol is already decoded as residual zero although the reference requires a non-zero residual.
-
-This narrows the failure but does not reveal the private code/state transition. Repeating current-symbol K rules, neighbor searches, predictor permutations or passive score fitting would reuse saturated evidence rather than add knowledge.
-
-The [RG2 experiment](../cr3-results/2026-11-14-crx/README.md) rejected one primary-source hypothesis on the existing 88 streams. The first one at bit offset 10 and the two full-sensor C-RAW references are now measured inputs for a different, independently motivated experiment.
+The D13 panel has no evidence of a deeper subband parent or `Sd`/`Kd` lifecycle. RG1 diagnosed the earlier decoder's first failure, and [RG2](../cr3-results/2026-11-14-crx/README.md) located the common ten-zero prefix. RG3 remains scoped to those opening sites and the measured layout. Full-row prediction, code adaptation and the grammar of the opening prefix remain open.
 
 ### Active evidence path
 

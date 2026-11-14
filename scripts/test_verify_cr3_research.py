@@ -9,6 +9,8 @@ import unittest
 
 
 class ResearchVerificationTest(unittest.TestCase):
+    FOCUSED_TESTS = "-Dit.test=ExactBracketKDiscriminatorIT,PatentRunModeIT,LosslessOpeningSamplesIT"
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="research verification ")
         self.addCleanup(self.temp.cleanup)
@@ -17,6 +19,12 @@ class ResearchVerificationTest(unittest.TestCase):
         scripts.mkdir(parents=True)
         self.script = scripts / "verify-cr3-research.sh"
         shutil.copyfile(Path(__file__).with_name(self.script.name), self.script)
+        preparation = scripts / "research/public-crx/prepare-lossless-holdout.sh"
+        preparation.parent.mkdir(parents=True)
+        preparation.write_text(
+            'echo "$1" > "$CALL_LOG/preparation"\n'
+            'mkdir -p -- "$1"\nexit "${PREPARATION_EXIT:-0}"\n'
+        )
         self.bin = Path(self.temp.name) / "bin"
         self.bin.mkdir()
         for name, body in {
@@ -30,6 +38,7 @@ class ResearchVerificationTest(unittest.TestCase):
                     "CALL_LOG": self.temp.name}
         self.env.pop("MAVEN_EXIT", None)
         self.env.pop("EVIDENCE_EXIT", None)
+        self.env.pop("PREPARATION_EXIT", None)
 
     def run_script(self, *args, **env):
         return subprocess.run(
@@ -47,13 +56,51 @@ class ResearchVerificationTest(unittest.TestCase):
         self.assertEqual("canon-cr3-research", args[args.index("-pl") + 1])
         self.assertIn("-am", args)
         self.assertIn("-Pcr3-research-it", args)
-        self.assertIn("-Dit.test=ExactBracketKDiscriminatorIT,PatentRunModeIT", args)
+        self.assertIn(self.FOCUSED_TESTS, args)
         self.assertIn("-Dmaven.repo.local=/tmp/empty research cache", args)
         self.assertFalse(any("skip" in arg.lower() or arg == "install" for arg in args))
         self.assertEqual([str(self.root)], self.log("cwd"))
         self.assertIn("-Dcr3.patent.run-mode.enabled=true", args)
+        self.assertIn("-Dcr3.opening.samples.enabled=true", args)
         self.assertIn("D12-metrics", self.log("evidence"))
         self.assertIn("RG2-metrics", self.log("evidence"))
+        self.assertIn("RG3-discovery", self.log("evidence"))
+        self.assertNotIn("RG3-holdout", self.log("evidence"))
+        self.assertFalse((Path(self.temp.name) / "preparation").exists())
+
+    def test_opening_prepares_cache_and_compares_discovery_holdout_and_both_interventions(self):
+        cache = Path(self.temp.name) / "pinned fixtures"
+        result = self.run_script("--opening", cache.name, "-Dstyle.color=never")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual([str(cache)], self.log("preparation"))
+        args = self.log("maven")
+        self.assertIn("-Dit.test=LosslessOpeningSamplesIT,LosslessOpeningHoldoutIT,FirstSampleCausalIT", args)
+        for prop in ("opening.samples", "opening.holdout", "first-sample.control"):
+            self.assertIn(f"-Dcr3.{prop}.enabled=true", args)
+        self.assertIn(f"-Dcr3.opening.holdout.dir={cache}", args)
+        self.assertIn(f"-Dcr3.first-bit.dnglab={cache}/dnglab", args)
+        self.assertIn("-Dstyle.color=never", args)
+        self.assertNotIn(cache.name, args)
+        log = self.log("evidence")
+        self.assertEqual(["RG3-discovery", "RG3-holdout", "RG3-interventions"],
+                         [log[i + 1] for i, arg in enumerate(log) if arg == "compare"])
+        self.assertEqual(["lossless-opening-samples", "opening-holdout", "first-sample-causality"],
+                         [Path(log[i + 1]).name for i, arg in enumerate(log) if arg == "--source-root"])
+
+    def test_opening_requires_cache_before_work(self):
+        for extra in ((), ("-Dstyle.color=never",)):
+            with self.subTest(extra=extra):
+                result = self.run_script("--opening", *extra)
+                self.assertEqual(2, result.returncode)
+                self.assertIn("CACHE_DIRECTORY", result.stderr)
+        self.assertFalse((Path(self.temp.name) / "preparation").exists())
+        self.assertFalse((Path(self.temp.name) / "maven").exists())
+
+    def test_opening_preparation_failure_does_not_run_maven_or_compare(self):
+        result = self.run_script("--opening", "pinned fixtures", PREPARATION_EXIT="11")
+        self.assertEqual(11, result.returncode)
+        self.assertFalse((Path(self.temp.name) / "maven").exists())
+        self.assertFalse((Path(self.temp.name) / "evidence").exists())
 
     def test_full_runs_all_integration_tests_without_focused_comparison(self):
         result = self.run_script("--full")
@@ -64,7 +111,7 @@ class ResearchVerificationTest(unittest.TestCase):
 
     def test_default_is_focused(self):
         self.assertEqual(0, self.run_script().returncode)
-        self.assertIn("-Dit.test=ExactBracketKDiscriminatorIT,PatentRunModeIT", self.log("maven"))
+        self.assertIn(self.FOCUSED_TESTS, self.log("maven"))
 
     def test_build_failure_does_not_compare_stale_evidence(self):
         result = self.run_script("--focused", MAVEN_EXIT="23")

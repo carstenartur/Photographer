@@ -184,6 +184,29 @@
       "productionDecision": "Keep the production codec unchanged. Preserve the measured common prefix and externally verified mosaics for future experiments.",
       "status": "complete",
       "missingRunMetadataReason": "Local JDK 25 measurements. Baseline Git revision and commands are in the report. CI can independently regenerate the lossless metrics."
+    },
+    {
+      "id": "RG3",
+      "title": "Locate the first native lossless sample and test the next same-plane site",
+      "issue": 334,
+      "sourceIds": [
+        "SRC-007",
+        "SRC-008",
+        "SRC-009",
+        "SRC-011",
+        "SRC-012"
+      ],
+      "oneChangedVariable": "For a fixed layout and prefix, change one bit of one tile/plane payload at a time, or exchange only its 14-bit candidate value with the other camera. RG3b separately changes either second-code remainder bit.",
+      "fixedInputs": "11 discovery CR3/TIFF pairs, then 4 predeclared public lossless inputs with native DNGLab references. Two hash-bound discovery inputs used for controlled interventions.",
+      "implementationScope": "Research-only two-site Java reader and external executable test harnesses.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": null,
+      "durableReport": "docs/cr3-results/2026-11-14-crx-opening/README.md",
+      "verdict": "SUPPORTED for the measured opening: both values exact on 88 discovery and 32 held-out tile/plane streams. All 28 single-bit first-value predictions and both transplants confirmed. No accepted second-code remainder control and no independent literal example.",
+      "productionDecision": "Use the verified opening and end-bit cursor to investigate the third site. A full-stream production decoder requires additional evidence.",
+      "status": "complete",
+      "missingRunMetadataReason": "Executed locally with JDK 25. Baseline c6cac45689bad6d7be0f0a057887a9ae9b7c8255, exact inputs, replay commands and byte-verifiable outputs are in the report."
     }
   ]
 }

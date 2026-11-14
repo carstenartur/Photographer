@@ -101,7 +101,7 @@ class LosslessFirstBitControlIT {
         return prefix + compare(base, changed, header.length, ref) + "\t" + baseSha + "\t" + sha256(changed);
     }
 
-    private static int decode(Path tool, Path file, Path pgm, Path stderr) throws Exception {
+    static int decode(Path tool, Path file, Path pgm, Path stderr) throws Exception {
         var process = new ProcessBuilder(tool.toString(), "analyze", "--raw-pixel", file.toString())
                 .redirectOutput(pgm.toFile()).redirectError(stderr.toFile()).start();
         try {
@@ -114,7 +114,7 @@ class LosslessFirstBitControlIT {
         }
     }
 
-    private static void verifyPgm(Path file, byte[] header, SubbandExtractor.SubbandRef ref) throws IOException {
+    static void verifyPgm(Path file, byte[] header, SubbandExtractor.SubbandRef ref) throws IOException {
         long size = header.length + 2L * ref.trackWidth() * ref.trackHeight();
         try (var input = Files.newInputStream(file)) {
             if (Files.size(file) != size || !Arrays.equals(header, input.readNBytes(header.length))) {
@@ -163,7 +163,7 @@ class LosslessFirstBitControlIT {
                 status, count, first, maxDelta, bounds, parity[0], parity[1], parity[2], parity[3], outsideTile, matchedPrefix);
     }
 
-    private static String sha256(Path path) throws IOException, NoSuchAlgorithmException {
+    static String sha256(Path path) throws IOException, NoSuchAlgorithmException {
         var digest = MessageDigest.getInstance("SHA-256");
         try (var input = new DigestInputStream(Files.newInputStream(path), digest)) {
             input.transferTo(OutputStream.nullOutputStream());

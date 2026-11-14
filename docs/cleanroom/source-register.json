@@ -154,6 +154,24 @@
         "algorithm": "sha256",
         "digest": "Exact release and input hashes in the replay script, output hashes in the measurement TSVs."
       }
+    },
+    {
+      "id": "SRC-012",
+      "class": "black-box-reference",
+      "title": "Four CC0 Canon lossless CR3 inputs and native DNGLab sensor references",
+      "citation": "raw.pixls.us IDs 3510, 4515, 4657 and 4674. DNGLab release 0.8.0 for Linux x86-64, analyze --raw-pixel.",
+      "verifiedDate": "2026-11-14",
+      "permittedUse": "Compare predictions frozen in issue 334 against output samples at native tile/plane coordinates. Use the published camera files under the CC0 dedication recorded for each input.",
+      "prohibitedUse": "Deriving codec semantics from external decoder implementation source.",
+      "repositoryEvidence": [
+        "scripts/research/public-crx/lossless-holdout.tsv",
+        "scripts/research/public-crx/prepare-lossless-holdout.sh",
+        "docs/cr3-results/2026-11-14-crx-opening/holdout.tsv"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "The sample registry pins each input and native PGM. The replay script pins the DNGLab executable."
+      }
     }
   ]
 }

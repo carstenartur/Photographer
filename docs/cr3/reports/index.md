@@ -22,20 +22,11 @@ Generated and dated reports are evidence snapshots. The maintained interpretatio
 | 2026-07-20 | D13 tentative-symbol context and lossless topology | COMPLETE; PRIMARY SOURCE OR MAPPING INSUFFICIENT | [D13](../../cr3-results/2026-07-20-D13-context-topology.md) |
 | 2026-07-23 | RG1 LibRaw-guided first reference divergence | COMPLETE observation; semantics still insufficient | [RG1](../../cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md) |
 | 2026-11-14 | Conditional mode flag and two public C-RAW sensor references | Lossless mapping rejected on 88/88. C-RAW external rasters match at all 52,207,568 sites. | [RG2 results](../../cr3-results/2026-11-14-crx/README.md) |
+| 2026-11-14 | First two native lossless Bayer values with a frozen reader | Both sites exact on 88 discovery and 32 held-out streams. First-site causal predictions confirmed in 30/30 cases. | [RG3 opening measurements](../../cr3-results/2026-11-14-crx-opening/README.md) |
 
 ## Current verdict
 
-D13 proves that the fixed lossless panel is structurally uniform but cannot expose a deeper `Sd`/`Kd` lifecycle. RG1 adds a stronger pixel oracle:
-
-- baseline seed 0 fails at symbol 0 in 88/88 streams;
-- reference-first-sample seeding matches only 1–6 samples, median 1;
-- 71/88 streams then fail at symbol 1;
-- the MED predictor agrees at every first oracle-seeded divergence;
-- the candidate reads residual zero where the reference requires a non-zero residual.
-
-This excludes a scalar pedestal as the sole missing semantic and localizes the failure to the earliest content-bearing residual. It does not identify the private encoded state or grammar, so another passive formula sweep is not justified.
-
-The next useful work is controlled evidence acquisition under issue #249: duplicate camera captures of deterministic stimuli, JPEG calibration and duplicate-stable CRX differential analysis. A semantic candidate remains blocked until that or another genuinely new source produces a causal observation.
+RG3 provides a verified start for the next lossless entropy experiment. Its research reader advances to the recorded end of the second same-plane code without using a reference seed. This supplies a concrete bit cursor and two sample values for a third-site test. Prefix grammar, subsequent adaptation, and full-row reconstruction remain open. The controlled capture campaign in issue #249 can supply complementary observations.
 
 ## Evidence classes
 

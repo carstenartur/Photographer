@@ -1,0 +1,5 @@
+fixture	trackOffset	bit	mutantSha256	baselineFirst	baselineSecond	expectedFirst	expectedSecond	status	firstValue	secondValue	firstDifference(x,y,old,new)	changedSites	outsideTile	outsidePlane	pgmSha256
+eosr-iso-low.cr3	4314247	35	6f0c06a11dad50a887dcb129e656f0fb0aa7bc065452895259c4d0265775f1ad	2048	2053	2048	2052	REJECTED	-	-	-	-	-	-	-
+eosr-iso-low.cr3	4314247	36	4852b94919584e3d16de31891fdd99613740ba072480bf76572262bd47598dbf	2048	2053	2048	2042	REJECTED	-	-	-	-	-	-	-
+sample-wide.cr3	3423873	33	2230ef3574f60fec67c0cc368bd29efddbf5f0cf549321ac35752768423cae43	2052	2052	2052	2053	REJECTED	-	-	-	-	-	-	-
+sample-wide.cr3	3423873	34	56eee4f4bdb23c7a32856e9189a07addf5c2835a3a997cf8b945a3167be37b7e	2052	2052	2052	2051	REJECTED	-	-	-	-	-	-	-

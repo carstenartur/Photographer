@@ -19,8 +19,9 @@ This table records durable status, including rejected and completed questions so
 | D13 | Tentative-symbol context can be mapped from the fixed lossless topology | COMPLETE: INSUFFICIENT | All 88 records are lossless single-subband records. The panel exposes no deeper `Sd`, LL/HL/LH/HH role or `Kd` lifecycle. See [D13](../cr3-results/2026-07-20-D13-context-topology.md). |
 | RG1 | LibRaw reference values can locate the first incorrect sample | COMPLETE: OBSERVATION ONLY | The first reference value removes symbol-0 offset, but 71/88 streams then fail at symbol 1 with predictor agreement and an incorrectly decoded zero residual. See [RG1](../cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md). |
 | RG2 | A conditional low-frequency mode bit explains the earliest lossless error | REJECTED for the tested guard, zero boundary and polarity | All 88 payloads start with ten zero bits. One additional bit left all 88 first errors unchanged. See [RG2 experiment](../cr3-results/2026-11-14-crx/README.md). |
+| RG3 | First native sample is predictable from bits 18–31 at the measured prefix; next same-plane site is a signed difference | SUPPORTED within the measured layout | Two exact sites in 120/120 streams. Controlled flips and transplants confirmed the first value, while second-site remainder flips were rejected. The five literal cases come from discovery only. See [RG3](../cr3-results/2026-11-14-crx-opening/README.md). |
 | D14 acquisition | Controlled spatial stimuli can add causal payload evidence | PARTIAL / OPEN | Pattern PDFs, manifest and analysis primitives exist. Duplicate camera captures, JPEG calibration, noise baselines and independent stimulus reproduction remain open in issue #249. |
-| Next entropy candidate | A new `Sd`/`Kd` or residual-grammar rule can be promoted from current files | BLOCKED | Neither D13 topology nor RG1 output values expose the private state transition. Wait for new controlled first-party, multi-subband or primary-source evidence. |
+| Next lossless site | The third same-plane site can be read starting at the measured RG3 end bit | OPEN | Predeclare a specific third-site prediction, test independent streams and retain any ambiguities in the preceding boundaries. |
 
 ## Open evidence-acquisition work
 
@@ -41,7 +42,7 @@ Blocked without genuinely new evidence:
 
 - causal `Sd` / `Kd` semantics;
 - multi-subband role mapping and lifecycle;
-- the non-zero residual grammar/state that RG1 shows is already wrong near stream start;
+- inference of a general residual grammar and state transitions from just the two RG3 sites;
 - a production entropy candidate;
 - C-RAW semantic sweeps without independent lossy ground truth.
 
