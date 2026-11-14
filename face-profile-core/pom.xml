@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.5-SNAPSHOT</version>
+        <version>0.1.5</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>face-profile-core</artifactId>
-    <version>0.1.5-SNAPSHOT</version>
+    <version>0.1.5</version>
 
     <name>Focus Stack - Face Profile Core</name>
     <description>3D face profile generation interface with mock adapter</description>
