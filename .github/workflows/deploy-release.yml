@@ -22,6 +22,11 @@ on:
         required: false
         type: boolean
         default: true
+      also_publish_to_central:
+        description: 'Also publish the signed CR3 libraries to Maven Central on live resume'
+        required: false
+        type: boolean
+        default: false
       resume_release_pr:
         description: 'Merged release PR number (leave blank to prepare a release)'
         required: false
@@ -102,7 +107,7 @@ jobs:
               --dry-run "$DRY_RUN"
           fi
 
-      - name: Guard publication and create exact stable tag and application release
+      - name: Publish Maven repository, exact stable tag and application release
         if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
         shell: bash
         run: |
@@ -157,7 +162,7 @@ jobs:
 
   central:
     needs: release
-    if: ${{ needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
+    if: ${{ inputs.also_publish_to_central && needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
     permissions:
       contents: read
     uses: ./.github/workflows/cr3-central-release.yml

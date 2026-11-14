@@ -161,6 +161,17 @@ def _validate_pom(pom_bytes: bytes, artifact_id: str, version: str) -> None:
             )
 
 
+def validate_payloads(payloads: dict[str, bytes], artifact_id: str, version: str) -> None:
+    _validate_pom(payloads[".pom"], artifact_id, version)
+    documents = {"LICENSE": (REPO_ROOT / "LICENSE").read_bytes()}
+    for name in PUBLIC_GUIDES.get(artifact_id, ()):
+        documents[name] = (REPO_ROOT / "docs/cr3" / name).read_bytes()
+    resources = {f"META-INF/cr3/{name}": data for name, data in documents.items()}
+    _validate_jar(payloads, ".jar", ".class", resources)
+    _validate_jar(payloads, "-sources.jar", ".java", resources)
+    _validate_jar(payloads, "-javadoc.jar", "index.html", documents)
+
+
 def _verify_signature(
     entries: dict[str, bytes], file_name: str, gnupg_home: Path
 ) -> None:
@@ -249,14 +260,8 @@ def validate_bundle(
                 _verify_signature(entries, file_name, gnupg_home)
                 verified_signatures += 1
 
-        _validate_pom(entries[primary_files[".pom"]], artifact_id, version)
-        documents = {"LICENSE": (REPO_ROOT / "LICENSE").read_bytes()}
-        for name in PUBLIC_GUIDES.get(artifact_id, ()):
-            documents[name] = (REPO_ROOT / "docs/cr3" / name).read_bytes()
-        resources = {f"META-INF/cr3/{name}": data for name, data in documents.items()}
-        _validate_jar(entries, primary_files[".jar"], ".class", resources)
-        _validate_jar(entries, primary_files["-sources.jar"], ".java", resources)
-        _validate_jar(entries, primary_files["-javadoc.jar"], "index.html", documents)
+        validate_payloads({suffix: entries[name] for suffix, name in primary_files.items()},
+                          artifact_id, version)
 
     unexpected = entries.keys() - expected_files
     if unexpected:

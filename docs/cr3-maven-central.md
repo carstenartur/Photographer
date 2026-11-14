@@ -1,6 +1,36 @@
-# CR3 libraries on Maven Central
+# CR3 Maven releases
 
-This document defines the public Maven surface and the release procedure for Photographer’s clean-room libraries for the Canon CR3 format.
+A regular Photographer release stages six CR3 libraries with Maven and publishes the resulting Maven directory to the project's `maven-repository` Git branch. Maven Central is an additional, explicit release option. The branch inherits Photographer's repository permissions.
+
+## Default Git-backed repository
+
+Run from the Photographer checkout with JDK 25, Maven 3.9.x, Git and Python 3. The first command performs the Maven file deployment alone. The second performs a fresh deployment, validates every payload, checksums and flattened POM, and resolves `cr3-imageio` and its five sibling libraries using an empty Maven consumer cache.
+
+```bash
+mvn -B -ntp -f release/canon-cr3-public/pom.xml -Ppublic-repository-release \
+  -Drevision=0.1.5 clean deploy
+python3 scripts/cr3_repository.py 0.1.5
+```
+
+Both commands produce `target/public-maven-repository/`. Ordinary dependency downloads use Maven's configured repositories. Neither command publishes remotely or needs a Central token or signing key. Select one publisher profile per build.
+
+The normal **Release Workflow** stages the repository during preparation and again at the verified merged commit. A live resume fast-forwards `maven-repository` using the existing checkout permissions, then creates the normal GitHub tag/application release. Each version's POM, binary, sources, Javadoc and checksums are immutable. An identical prior Maven release can be reused. A changed or partial version directory stops publication. GitHub Release remains the archival event for a configured Zenodo integration. Record an archive DOI only after the record exists.
+
+### Resolve a released version
+
+For the current private project, use your normal Git access to clone the distribution branch after its first release. Maven can read that checkout through a file URL. This also works with a locally staged candidate.
+
+```bash
+git clone --single-branch --branch maven-repository \
+  https://github.com/carstenartur/Photographer.git ../photographer-maven
+mvn -B -f release/canon-cr3-consumer/pom.xml -Pphotographer-releases \
+  "-Dphotographer.repository.url=file://$(cd ../photographer-maven && pwd)" \
+  -Dcr3.version=0.1.5 dependency:tree
+```
+
+For the local candidate, use `"-Dphotographer.repository.url=file://$PWD/target/public-maven-repository"`. The [standalone consumer POM](../release/canon-cr3-consumer/pom.xml) declares one dependency. Copy its `photographer-releases` profile into another consumer's POM or directly add that profile's repository entry under `<project><repositories>`.
+
+A distribution on a public HTTPS server can be consumed anonymously by passing its repository root as `photographer.repository.url`. For a public Photographer GitHub repository, that URL would be `https://raw.githubusercontent.com/carstenartur/Photographer/maven-repository/`. Private GitHub raw URLs do not provide anonymous access. For a version separately published to Maven Central, run the same consumer command without `-Pphotographer-releases` and without the repository URL.
 
 ## Public coordinates
 
@@ -38,7 +68,7 @@ The external Maven smoke test verifies that the runtime dependency graph contain
 
 ## Published POM model
 
-The source modules continue to inherit the repository's internal Spring Boot parent for normal development. The `central-release` profile uses `flatten-maven-plugin` in `oss` mode so the deployed consumer POMs:
+The source modules continue to inherit the repository's internal Spring Boot parent for normal development. Both release profiles use `flatten-maven-plugin` in `oss` mode so the deployed consumer POMs:
 
 - have no parent dependency on the monoreactor;
 - contain explicit runtime dependency versions;
@@ -47,7 +77,7 @@ The source modules continue to inherit the repository's internal Spring Boot par
 
 The dedicated release reactor selects the six libraries. The container test fixtures are installed locally for sibling test suites. Only the runtime JAR, sources JAR, Javadoc JAR and flattened POM for each module go into the Sonatype bundle.
 
-## Build and verify the candidate
+## Optional Central bundle preflight
 
 From the repository root, use JDK 25 and Maven 3.9.x. This command generates a temporary GnuPG key, builds the candidate in an isolated Maven repository and checks the **exact ZIP produced by Sonatype**. It needs Python 3, GnuPG and access to download the Maven build dependencies.
 
@@ -91,9 +121,9 @@ Run from the tagged release checkout with a stable version already set in its PO
 
 Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
 
-The GitHub **Release Workflow** runs the automatic Maven command after a successful live release. It checks that the published tag points to the verified merged commit and waits for Central to confirm publication. For a separate deployment, the **CR3 Maven Central** workflow also accepts a manual run on the stable `vX.Y.Z` tag with `validate` (manual Portal publication) or `publish`. Check the status of any previous deployment before starting a separate run.
+To include Central in a verified live release, explicitly select `also_publish_to_central=true` in **Release Workflow**. It defaults to false. The optional **CR3 Maven Central** workflow also accepts a manual run on a stable `vX.Y.Z` tag with `validate` (upload for Portal approval) or `publish`. Both entry points verify the tag and source commit. Check any previous deployment before starting a separate run.
 
-Both GitHub entry points use repository secrets named `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` secret maps to the Maven GPG plugin’s fingerprint variable.
+Central operations use repository secrets `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` maps to the GPG plugin’s fingerprint variable.
 
 The release profile and credential names follow the project’s [jgit-storage-hibernate release procedure](https://github.com/carstenartur/jgit-storage-hibernate/blob/540b847706f9d03ac286a21fefd432787e122671/docs/maven-central.md). See also the [Sonatype plugin documentation](https://central.sonatype.org/publish/publish-portal-maven/).
 

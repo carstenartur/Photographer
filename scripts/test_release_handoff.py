@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location('release_handoff', Path(__file__).with_name('release_handoff.py'))
 if not SPEC.origin or not Path(SPEC.origin).exists():
@@ -397,6 +398,12 @@ class StateTests(StateFixture):
                     h.GitHub('owner/repo').read_page('releases?per_page=100&page=1')
 
 class OrchestrationTests(StateFixture):
+    def setUp(self):
+        super().setUp()
+        self.stage_repository = self.enterContext(patch.object(h.cr3_repository, 'stage_release', return_value='payload'))
+        self.verify_repository = self.enterContext(patch.object(h.cr3_repository, 'validate_stage', return_value='payload'))
+        self.publish_repository = self.enterContext(patch.object(h.cr3_repository, 'publish', side_effect=lambda *args: args[-1]()))
+
     def session(self, api, dry_run=False, skip_tests=False):
         self.git('checkout', '-q', self.m)
         return h.Session(self.repo, api, self.m, 'refs/heads/main', dry_run, skip_tests)
@@ -421,6 +428,8 @@ class OrchestrationTests(StateFixture):
         self.assertEqual(calls, [self.m])
         self.assertEqual(result['merged'], self.m)
         self.assertEqual(result['verified_resume'], 'false')
+        self.stage_repository.assert_called_once_with(self.path, '0.1.5')
+        self.publish_repository.assert_not_called()
         self.assertEqual(result['artifact_sha256'], h.artifact_hash(jar))
         self.assertEqual(api.writes, [])
         with self.assertRaises(ValueError):
@@ -489,7 +498,17 @@ class OrchestrationTests(StateFixture):
 
     def release_state(self, session):
         jar = self.artifact()
-        return session.result(self.plan, 'resume', self.r, merged=self.m, artifact_sha256=h.artifact_hash(jar), verified_resume='true')
+        return session.result(self.plan, 'resume', self.r, merged=self.m, artifact_sha256=h.artifact_hash(jar), verified_resume='true', repository_sha256='payload')
+
+    def test_repository_digest_mismatch_aborts_before_any_publication(self):
+        api = self.main_api()
+        session = self.session(api)
+        state = self.release_state(session)
+        self.verify_repository.return_value = 'changed'
+        with self.assertRaisesRegex(ValueError, 'Maven artifacts changed'):
+            session.publish(state)
+        self.publish_repository.assert_not_called()
+        self.assertEqual(api.writes, [])
 
     def test_publish_holds_on_late_main_or_partial_state(self):
         for path, value in [('git/ref/heads/main', {'object': {'sha': self.s}}), ('git/ref/tags/v0.1.5', {'object': {'sha': self.r}}), ('releases/tags/v0.1.5', {'id': 7})]:
@@ -517,6 +536,7 @@ class OrchestrationTests(StateFixture):
             api.values['releases/tags/v0.1.5'] = {'id': 42, 'tag_name': 'v0.1.5', 'draft': False}
         api.command = command
         session.publish(state)
+        self.publish_repository.assert_called_once()
         session.image_guard(state)
         self.assertEqual(self.git('rev-parse', 'HEAD'), self.m)
         tag_payload = next(payload for path, payload in api.writes if path == 'git/tags')

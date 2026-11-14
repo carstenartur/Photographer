@@ -105,9 +105,10 @@ Release builds always run the tests, including dry runs.
       publication uses the same stable M checkout. The image guard rechecks main,
       tag/release identities and artifact hash immediately before the image action.
 
-The workflow serializes release runs without cancelling an active release. After
-the successful live release and snapshot handoff, Maven publishes the six CR3
-libraries from the verified tag and waits for Central to confirm publication.
+The workflow serializes release runs without cancelling an active release. The live resume
+publishes the verified six-library Maven tree to the project’s `maven-repository`
+branch before it creates the GitHub tag/release. A separate Central job runs only
+when `also_publish_to_central=true` was explicitly selected.
 
 ## Next snapshot and maintenance
 
@@ -151,8 +152,9 @@ and sufficient memory for product/release verification.
 - [ ] Verify application/image provenance and the next-snapshot handoff evidence.
 - [ ] Review citation/archival version and real release date when publication
       actually occurs; never assign a speculative DOI.
-- [ ] Confirm the six released CR3 libraries resolve from Maven Central in a clean
-      consumer build. Record the deployment ID from the Maven log.
+- [ ] Confirm all six CR3 libraries resolve from an authorized checkout of `maven-repository`
+      using the [standalone Maven consumer](cr3-maven-central.md#resolve-a-released-version).
+      If Central publication was requested, record its deployment ID and verify that channel separately.
 
 The repository remains private. No public visibility change, history rewrite,
 Central upload or application publication is authorized merely by this checklist.

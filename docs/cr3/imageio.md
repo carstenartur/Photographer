@@ -16,7 +16,7 @@ Preview, thumbnail and metadata access are stable APIs. The RAW modes are experi
 
 ## Maven setup
 
-Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example `pom.xml` declares one dependency. Maven resolves the other five CR3 libraries and the SLF4J API transitively. Once the selected version is published, Maven Central is available through Maven's default configuration. Downloading a release requires no publisher credentials or signing profile.
+Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example `pom.xml` declares one dependency. Maven resolves the other five CR3 libraries and the SLF4J API transitively. For a regular release, add the repository entry from the [Git-backed repository guide](../cr3-maven-central.md#resolve-a-released-version). A version also published to Maven Central uses Maven's default configuration.
 
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -48,7 +48,7 @@ Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example 
 </project>
 ```
 
-The coordinates above target the 0.1.5 release. To use a development checkout before its version reaches Central, run `mvn -pl canon-cr3-imageio -am install` from the Photographer repository root with JDK 25. Set `cr3.version` in the consumer POM to the installed revision, for example `0.1.5-SNAPSHOT`. Publication and independent download verification are covered in the [Maven Central guide](../cr3-maven-central.md).
+The coordinates above target the 0.1.5 release. To use a development checkout before release, run `mvn -pl canon-cr3-imageio -am install` from the Photographer repository root with JDK 25. Set `cr3.version` in the consumer POM to the installed revision, for example `0.1.5-SNAPSHOT`. Publication and independent download verification are covered in the [CR3 Maven release guide](../cr3-maven-central.md).
 
 ## Quick preview
 
