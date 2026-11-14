@@ -18,16 +18,19 @@ from validate_cr3_central_bundle import (  # noqa: E402
     CHECKSUM_SUFFIXES,
     PUBLIC_ARTIFACTS,
     PUBLIC_GROUP_PATH,
+    REPO_ROOT,
     validate_bundle,
 )
 
 VERSION = "1.2.3"
 
 
-def jar(entry_name: str, content: bytes = b"content") -> bytes:
+def jar(entry_name: str, documents: dict[str, bytes] | None = None) -> bytes:
     result = io.BytesIO()
     with zipfile.ZipFile(result, "w") as archive:
-        archive.writestr(entry_name, content)
+        archive.writestr(entry_name, b"content")
+        for path, data in (documents or {}).items():
+            archive.writestr(path, data)
     return result.getvalue()
 
 
@@ -96,11 +99,17 @@ def valid_entries() -> dict[str, bytes]:
     for artifact_id in PUBLIC_ARTIFACTS:
         directory = f"{PUBLIC_GROUP_PATH}/{artifact_id}/{VERSION}"
         base = f"{artifact_id}-{VERSION}"
+        documents = {"LICENSE": (REPO_ROOT / "LICENSE").read_bytes()}
+        if artifact_id in {"cr3-core", "cr3-imageio"}:
+            documents["import.md"] = (REPO_ROOT / "docs/cr3/import.md").read_bytes()
+        if artifact_id == "cr3-imageio":
+            documents["imageio.md"] = (REPO_ROOT / "docs/cr3/imageio.md").read_bytes()
+        resources = {f"META-INF/cr3/{name}": data for name, data in documents.items()}
         primaries = {
             f"{directory}/{base}.pom": pom(artifact_id),
-            f"{directory}/{base}.jar": jar("example/Type.class"),
-            f"{directory}/{base}-sources.jar": jar("example/Type.java"),
-            f"{directory}/{base}-javadoc.jar": jar("index.html"),
+            f"{directory}/{base}.jar": jar("example/Type.class", resources),
+            f"{directory}/{base}-sources.jar": jar("example/Type.java", resources),
+            f"{directory}/{base}-javadoc.jar": jar("index.html", documents),
         }
         for name, data in primaries.items():
             entries[name] = data
@@ -136,6 +145,25 @@ class ValidateCr3CentralBundleTest(unittest.TestCase):
             )
         self.assertEqual(len(PUBLIC_ARTIFACTS), result.artifact_count)
         self.assertEqual(0, result.verified_signature_count)
+
+    def test_rejects_changed_license_or_guide_even_with_valid_checksums(self) -> None:
+        for suffix, content_name, document in (
+            (".jar", "example/Type.class", "META-INF/cr3/LICENSE"),
+            ("-sources.jar", "example/Type.java", "META-INF/cr3/import.md"),
+            ("-javadoc.jar", "index.html", "imageio.md"),
+        ):
+            with self.subTest(suffix=suffix):
+                entries = valid_entries()
+                name = f"{PUBLIC_GROUP_PATH}/cr3-imageio/{VERSION}/cr3-imageio-{VERSION}{suffix}"
+                with zipfile.ZipFile(io.BytesIO(entries[name])) as original:
+                    documents = {n: original.read(n) for n in original.namelist() if n != content_name}
+                documents[document] = b"obsolete"
+                entries[name] = jar(content_name, documents)
+                for algorithm in CHECKSUM_SUFFIXES:
+                    entries[name + algorithm] = checksum(entries[name], algorithm.removeprefix("."))
+                with tempfile.TemporaryDirectory() as temp:
+                    with self.assertRaisesRegex(BundleValidationError, f"missing or incorrect {document}"):
+                        validate_bundle(write_bundle(entries, Path(temp)), VERSION)
 
     def test_rejects_attached_test_artifacts(self) -> None:
         entries = valid_entries()

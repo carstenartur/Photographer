@@ -8,7 +8,7 @@
 mvn -B clean package -pl canon-cr3-cli -am -DskipTests -Djava.awt.headless=true
 ```
 
-Use the executable JAR produced by the module's packaging. The exact file name follows the project version/build configuration.
+Run the examples below from the repository root. Maven assembles the executable JAR with dependencies at `canon-cr3-cli/target/cr3-cli.jar`.
 
 ## Stable inspection and extraction commands
 
@@ -32,11 +32,13 @@ These commands do not require complete sensor-RAW reconstruction:
 Example:
 
 ```bash
-java -jar canon-cr3-cli.jar info photo.cr3
-java -jar canon-cr3-cli.jar dump-metadata photo.cr3
-java -jar canon-cr3-cli.jar preview photo.cr3 preview.jpg
-java -jar canon-cr3-cli.jar list-subbands photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar info photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar dump-metadata photo.cr3
+java -jar canon-cr3-cli/target/cr3-cli.jar preview photo.cr3 preview.jpg
+java -jar canon-cr3-cli/target/cr3-cli.jar list-subbands photo.cr3
 ```
+
+The `preview` and `thumb` commands decode the embedded image and encode the output as JPEG. To preserve the original camera JPEG byte for byte, use the [copy example](import.md#copy-the-cameras-embedded-jpeg-unchanged).
 
 `dump-raw-layout`, `list-subbands` and `dump-subband` expose structural facts and diagnostics. They do not prove that the experimental decoder reconstructs correct sensor samples.
 

@@ -23,6 +23,8 @@ The release bundle contains these six artifacts. The examples below use the cand
 | `cr3-core` | decode orchestration and compatibility facade |
 | `cr3-imageio` | `javax.imageio` reader and service-provider integration |
 
+The binary and sources JARs carry the project's MIT notice at `META-INF/cr3/LICENSE`. The ImageIO JAR also contains `META-INF/cr3/imageio.md` and `META-INF/cr3/import.md`. The core JAR contains the import guide. In the respective Javadoc JARs, these files are at the archive root.
+
 The following repository modules are intentionally excluded from the public runtime bundle:
 
 - `canon-cr3-reference-testkit`;
@@ -94,6 +96,8 @@ The optional **CR3 Maven Central** Actions workflow runs on manual dispatch. Sel
 The release profile and credential names follow the project’s [jgit-storage-hibernate release procedure](https://github.com/carstenartur/jgit-storage-hibernate/blob/540b847706f9d03ac286a21fefd432787e122671/docs/maven-central.md). See also the [Sonatype plugin documentation](https://central.sonatype.org/publish/publish-portal-maven/).
 
 ## Consumer examples
+
+Use [the Java ImageIO examples](cr3/imageio.md) for reader registration, preview selection and sensor parameters. For imports with `Cr3Decoder` and original JPEG extraction, see [Import a CR3 file](cr3/import.md).
 
 ImageIO integration:
 

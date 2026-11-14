@@ -9,6 +9,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | Need | Start here | Status |
 |---|---|---|
 | Inspect CR3 tracks or extract embedded preview/thumbnail JPEGs | [Container and metadata](decoder.md#stable-container-and-metadata-layers) | Stable public APIs |
+| Import a file with the Java decoder or export camera frames from Photographer | [CR3 file import](import.md) | Includes native sensor and developed RGB examples |
 | Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Stable preview, thumbnail, discovery and metadata; RAW controls experimental |
 | Use the command-line tool | [CLI](cli.md) | Supported command surface with experimental decode commands identified |
 | Understand the decoder and processing pipeline | [Decoder and processing](decoder.md) | Mixed: stable container/metadata, experimental RAW, internal processing |

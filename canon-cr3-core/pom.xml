@@ -88,6 +88,18 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>${project.basedir}/../docs/cr3</directory>
+                <includes>
+                    <include>import.md</include>
+                </includes>
+                <targetPath>META-INF/cr3</targetPath>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

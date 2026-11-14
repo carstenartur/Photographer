@@ -114,7 +114,11 @@ graph TD
 | `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
 
-For Java ImageIO applications, the release candidate uses `io.github.carstenartur:cr3-imageio`. It reads files in the Canon CR3 format. [ImageIO examples](docs/cr3/imageio.md) · [Maven coordinates and release status](docs/cr3-maven-central.md)
+## Import Canon CR3 files in Java
+
+Add `io.github.carstenartur:cr3-imageio` to a Java 25 Maven application to read the camera’s embedded JPEG with `ImageIO.read(file)`. Select processed RGB, linear Bayer or the original sensor codes through the reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
+
+[ImageIO setup and parameters](docs/cr3/imageio.md) · [CR3 file import, JPEG extraction and Photographer frame export](docs/cr3/import.md) · [Maven release status](docs/cr3-maven-central.md)
 
 ## Quickstart (Docker)
 
