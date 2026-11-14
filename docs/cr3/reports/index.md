@@ -21,6 +21,7 @@ Generated and dated reports are evidence snapshots. The maintained interpretatio
 | 2026-07-20 | D12 exact code-length K bracket | PARTIAL | [D12](../../cr3-results/2026-07-20-D12-exact-k-bracket.md) |
 | 2026-07-20 | D13 tentative-symbol context and lossless topology | COMPLETE; PRIMARY SOURCE OR MAPPING INSUFFICIENT | [D13](../../cr3-results/2026-07-20-D13-context-topology.md) |
 | 2026-07-23 | RG1 LibRaw-guided first reference divergence | COMPLETE observation; semantics still insufficient | [RG1](../../cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md) |
+| 2026-11-14 | Conditional mode flag and two public C-RAW sensor references | Lossless mapping rejected on 88/88. C-RAW external rasters match at all 52,207,568 sites. | [RG2 results](../../cr3-results/2026-11-14-crx/README.md) |
 
 ## Current verdict
 

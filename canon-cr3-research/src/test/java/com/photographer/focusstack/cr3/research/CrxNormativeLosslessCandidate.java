@@ -93,6 +93,12 @@ final class CrxNormativeLosslessCandidate {
     private CrxNormativeLosslessCandidate() {}
 
     static Result decodePlane(byte[] payload, int width, int height, int bitDepth, Options opt) {
+        return decodePlane(payload, width, height, bitDepth, opt, null);
+    }
+
+    // Issue #332 stops on a positive-run flag without guessing its length or K update.
+    static Result decodePlane(byte[] payload, int width, int height, int bitDepth, Options opt,
+                              PatentRunModeProbe probe) {
         int[] out = new int[width * height];
         int maxVal = (1 << bitDepth) - 1;
         CountingBitReader reader = new CountingBitReader(payload);
@@ -134,6 +140,12 @@ final class CrxNormativeLosslessCandidate {
                 MutableSymbol activeParts = traceActive ? symbolParts : null;
                 int residual;
                 try {
+                    if (probe != null && probe.guard(out, width, x, y)) {
+                        long flagOffset = reader.bitPosition();
+                        int flag = reader.readBit();
+                        probe.recordFlag(x, y, flagOffset, flag);
+                        if (flag == 1) break outer;
+                    }
                     residual = readSymbol(reader, kBefore, opt, activeParts);
                 } catch (EscapeHit e) {
                     residual = e.value;
