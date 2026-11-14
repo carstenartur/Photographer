@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 import cr3_repository as repo
 from test_validate_cr3_central_bundle import valid_entries, VERSION
@@ -40,6 +42,19 @@ class RepositoryTests(unittest.TestCase):
         next(self.checkout.rglob('cr3-imageio-1.2.3.jar')).write_bytes(b'conflict')
         with self.assertRaisesRegex(ValueError, 'immutable'):
             repo.merge_release(self.stage, self.checkout, VERSION)
+
+    def test_repository_origin_records_only_successful_payload_downloads(self):
+        pom = next(self.stage.rglob('*.pom'))
+        relative = pom.relative_to(self.stage).as_posix()
+        with repo.serve_stage(self.stage) as (url, served):
+            with urlopen(Request(url + relative, method='HEAD')):
+                pass
+            with self.assertRaises(HTTPError):
+                urlopen(url + 'missing.jar')
+            self.assertEqual(set(), served)
+            with urlopen(url + relative) as response:
+                self.assertEqual(pom.read_bytes(), response.read())
+        self.assertEqual({relative}, served)
 
     def test_partial_or_extra_artifacts_are_rejected(self):
         (self.stage / 'unrelated.jar').write_bytes(b'other')
