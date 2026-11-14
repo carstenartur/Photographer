@@ -401,8 +401,8 @@ class RealSampleCr3Test {
         }
 
         @Test
-        @DisplayName("RAW histogram is not degenerate (has spread across range)")
-        void rawHistogramHasSpread() throws Exception {
+        @DisplayName("Cropped RAW histogram matches the native reference after black subtraction")
+        void rawHistogramMatchesReference() throws Exception {
             try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
                 Cr3Decoder decoder = new Cr3Decoder();
                 decoder.setInput(in);
@@ -420,13 +420,11 @@ class RealSampleCr3Test {
                     histogram[bin]++;
                 }
 
-                // Count non-empty bins — a real image should spread across several bins
-                int nonEmptyBins = 0;
-                for (int count : histogram) {
-                    if (count > 0) nonEmptyBins++;
-                }
-                assertThat(nonEmptyBins).as("non-empty histogram bins (out of 16)")
-                        .isGreaterThanOrEqualTo(3);
+                // sample.reference.tiff: crop [120, 28, 5615, 3695), subtract the
+                // default 512 DN black level and scale 14-bit values to unsigned 16-bit.
+                assertThat(histogram).as("black-corrected reference histogram")
+                        .containsExactly(0, 11_927_041, 8_223_124, 0, 0, 0, 0, 0,
+                                0, 0, 0, 0, 0, 0, 0, 0);
             }
         }
 
