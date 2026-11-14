@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       next_development_version:
-        description: 'Optional exact next version (X.Y.Z-SNAPSHOT); preparation only, leave empty to use the increment choice'
+        description: 'Next development version (optional, X.Y.Z-SNAPSHOT)'
         required: false
         type: string
         default: ''
       next_version_increment:
-        description: 'Select the conventional next version when no exact version is supplied'
+        description: 'Version increment if the version above is blank'
         required: true
         type: choice
         default: patch
@@ -17,18 +17,13 @@ on:
           - patch
           - minor
           - major
-      skip_tests:
-        description: 'Compatibility input; must be false for qualified preparation or resume'
-        required: false
-        type: boolean
-        default: false
       dry_run:
-        description: 'Validate and build without publishing or changing remote refs'
+        description: 'Dry run (build and test only)'
         required: false
         type: boolean
         default: true
       resume_release_pr:
-        description: 'Normally merged stable preparation PR number; empty prepares a stable PR handoff'
+        description: 'Merged release PR number (leave blank to prepare a release)'
         required: false
         type: string
         default: ''
@@ -48,7 +43,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/photographer/focusstack
   DRY_RUN: ${{ inputs.dry_run }}
-  SKIP_TESTS: ${{ inputs.skip_tests }}
 
 jobs:
   release:
@@ -90,12 +84,12 @@ jobs:
             python3 scripts/release_handoff.py prepare \
               --next-development-version "$EXACT_NEXT_VERSION" \
               --increment "$NEXT_VERSION_INCREMENT" \
-              --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+              --dry-run "$DRY_RUN"
           else
             python3 scripts/release_handoff.py resume \
               --resume-release-pr "$RESUME_RELEASE_PR" \
               --next-development-version "$EXACT_NEXT_VERSION" \
-              --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+              --dry-run "$DRY_RUN"
           fi
 
       - name: Guard publication and create exact stable tag and application release
@@ -104,7 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/release_handoff.py publish \
-            --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+            --dry-run "$DRY_RUN"
 
       - name: Log in to GitHub Container Registry
         if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
@@ -131,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/release_handoff.py image-guard \
-            --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+            --dry-run "$DRY_RUN"
 
       - name: Build and push Docker image from merged stable checkout
         if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
@@ -149,7 +143,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/release_handoff.py finish \
-            --dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"
+            --dry-run "$DRY_RUN"
 
   central:
     needs: release

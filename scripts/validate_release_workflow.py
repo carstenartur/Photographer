@@ -47,7 +47,7 @@ def validate(workflow: str) -> list[str]:
         check('context: .' in chunks[7] and 'push: true' in chunks[7], 'image must use the still-stable working checkout')
         check('scripts/release_handoff.py finish ' in chunks[8], 'snapshot handoff must follow image publication')
     required = (
-        '      next_development_version:\n', 'Optional exact next version (X.Y.Z-SNAPSHOT)',
+        '      next_development_version:\n',
         '      next_version_increment:\n', '        type: choice\n',
         '          - patch\n', '          - minor\n', '          - major\n',
         '      resume_release_pr:\n', '  actions: read\n', '  contents: write\n',
@@ -55,10 +55,12 @@ def validate(workflow: str) -> list[str]:
         'EXACT_NEXT_VERSION: ${{ inputs.next_development_version }}',
         'NEXT_VERSION_INCREMENT: ${{ inputs.next_version_increment }}',
         'RESUME_RELEASE_PR: ${{ inputs.resume_release_pr }}',
-        '--dry-run "$DRY_RUN" --skip-tests "$SKIP_TESTS"',
+        '--dry-run "$DRY_RUN"',
     )
     for token in required:
         check(token in workflow, f'missing release contract token {token!r}')
+    check('skip_tests:' not in workflow and '--skip-tests' not in workflow,
+          'release builds always run tests; remove the skip-tests option')
     for token in ('      release_version:', '${{ inputs.release_version }}', 'ref: main', 'git push', '--method PATCH', '--clobber', 'gh pr create', 'pull_request_target', 'repository_dispatch', 'workflow_run'):
         check(token not in workflow, f'unsafe release orchestration token {token!r}')
     return failures
