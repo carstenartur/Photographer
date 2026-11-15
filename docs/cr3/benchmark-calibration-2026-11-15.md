@@ -34,3 +34,27 @@ The raw records include every iteration and the JMH confidence intervals.
 Use the [raw JMH directory](benchmark-calibration-2026-11-15/) and
 [environment and timings](benchmark-calibration-2026-11-15/environment.txt)
 to reproduce the table. [Runner and comparison instructions](../cr3-benchmarking.md).
+
+## GitHub-hosted runner
+
+[Workflow 43700326062](https://github.com/carstenartur/Photographer/actions/runs/43700326062)
+repeated the matrix on one two-vCPU Ubuntu runner. Each base and head used
+the identical PR revision `3dd84bde`. The one-time Maven build took 26.2 s.
+Pair elapsed time includes both JMH processes. The 12 measured processes
+used 532.4 s in total, excluding checkout, setup and artifact handling.
+
+| Forks | Order | Parse | Metadata | Preview | Lossless decode | Pair time |
+|---:|---|---:|---:|---:|---:|---:|
+| 1 | Base first | +12.2% | 0.0% | −0.7% | +1.4% | 46.2 s |
+| 1 | Head first | +3.7% | −3.0% | +0.5% | −0.8% | 44.5 s |
+| 2 | Base first | +1.2% | +1.0% | −0.6% | −0.6% | 87.9 s |
+| 2 | Head first | −7.5% | −2.3% | −0.2% | −0.6% | 89.5 s |
+| 3 | Base first | +0.1% | −1.6% | +0.1% | +1.3% | 132.8 s |
+| 3 | Head first | +6.4% | −2.6% | +0.5% | −0.4% | 131.5 s |
+
+All 24 hosted tuples were stable. For this runner, three forks cost about
+three times as much as one. Retaining one fork with the 15% threshold and
+the confidence-interval check is consistent with both matrices. A future
+runner image or JDK can be recalibrated using the same workflow.
+[Raw hosted measurements and timings](benchmark-calibration-2026-11-15/hosted-jmh.json) ·
+[Runner and toolchain](benchmark-calibration-2026-11-15/hosted-environment.txt).
