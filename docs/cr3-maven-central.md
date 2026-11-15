@@ -25,6 +25,7 @@ git clone --single-branch --branch maven-repository \
   https://github.com/carstenartur/Photographer.git ../photographer-maven
 mvn -B -f release/canon-cr3-consumer/pom.xml -Pphotographer-releases \
   "-Dphotographer.repository.url=file://$(cd ../photographer-maven && pwd)" \
+  "-Dmaven.repo.local=$(mktemp -d)" \
   -Dcr3.version=0.1.5 dependency:tree
 ```
 
