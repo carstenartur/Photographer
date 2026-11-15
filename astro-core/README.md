@@ -15,7 +15,7 @@ Domain module for astrophotography workflows: star detection, frame registration
 
 ## Stacking contract
 
-The current public image contract is packed 8-bit RGB `BufferedImage` input and output. Non-int-packed inputs are converted once by the existing pixel helper; robust modes do not add another color-space or bit-depth conversion.
+Stacking reads packed 8-bit RGB values for display images. A series of matching unsigned-short gray or RGB component images retains its native raster values, transfer type and color model through the output. Mixed precisions, alpha and incompatible high-precision color models are rejected. Low-depth non-packed display images use the existing 8-bit conversion. Registration estimates positions from a luminance preview; combination reads the original frames.
 
 `AstroStackingMode` makes the algorithm choice explicit:
 
@@ -26,6 +26,8 @@ The current public image contract is packed 8-bit RGB `BufferedImage` input and 
 Sigma decisions within one iteration use the same pre-rejection statistics. A rejection set that would leave fewer than `minimumSamples` is not applied. When the initial count is below that minimum, the pixel falls back to the historical mean rather than silently inventing a robust estimate.
 
 Median and sigma-clipped modes process one output row at a time and reuse temporary arrays proportional to input frame count. They do not allocate a width × height × frames sample cube. `StackingControl` provides cooperative cancellation and row progress.
+
+For the five unsigned-short samples 40001, 40002, 40003, 40004 and 65535, Mean returns 45109, Median returns 40003, and sigma clipping at 1.5 with three minimum samples returns 40002. The deterministic test checks the stored raster samples directly. With few frames a median suppresses real, short-lived sources as readily as artifacts. Sigma clipping cannot distinguish an outlier below its threshold; use Mean for a repeatable baseline.
 
 ## Design
 
@@ -47,7 +49,7 @@ The application integration additionally verifies that:
 - active polling receives fine row progress while durable checkpoints advance in 5-percentage-point increments rather than per-row writes;
 - terminal summaries identify the executed mode.
 
-The existing optional JMH module still measures the historical Mean path. A robust-mode benchmark matrix and trusted CI smoke remain open before performance thresholds can be promoted.
+The [combination benchmark](../astro-core-benchmark/stacking.md) reports execution time and allocated bytes for both precisions, three algorithms and two frame counts. The historical Mean benchmark remains available for comparison with its existing series.
 
 ## Application integration
 

@@ -20,6 +20,46 @@ class AstroStackingServiceTest {
     private final AstroStackingService service = new AstroStackingService();
 
     @Test
+    void preservesAllLinearRgbChannelsAndTheSourceColorSpace() {
+        var color = new java.awt.image.ComponentColorModel(
+                java.awt.color.ColorSpace.getInstance(java.awt.color.ColorSpace.CS_LINEAR_RGB),
+                false, false, java.awt.Transparency.OPAQUE, java.awt.image.DataBuffer.TYPE_USHORT);
+        BufferedImage source = new BufferedImage(color, color.createCompatibleWritableRaster(2, 2), false, null);
+        int[] expected = {1025, 32769, 65534};
+        source.getRaster().setPixel(1, 1, expected);
+        for (var mode : AstroStackingMode.values()) {
+            var inputs = List.of(new AstroStackingService.FrameInput(
+                    source.getSubimage(1, 1, 1, 1), FrameTransform.identity()));
+            var result = service.stack(inputs, 1, 1, new AstroStackingConfig(mode, 2, 3, 3));
+            assertEquals(color, result.getColorModel());
+            assertArrayEquals(expected, result.getRaster().getPixel(0, 0, (int[]) null));
+        }
+    }
+
+    @Test
+    void refusesToMixUnsignedShortAndDisplayRgb() {
+        var frames = List.of(new AstroStackingService.FrameInput(pixel(4), FrameTransform.identity()),
+                new AstroStackingService.FrameInput(new BufferedImage(1, 1, BufferedImage.TYPE_USHORT_GRAY),
+                        FrameTransform.identity()));
+        assertThrows(IllegalArgumentException.class, () -> service.stack(frames, 1, 1));
+    }
+
+    @Test
+    void keepsUnsignedShortSamplesAndClipsAnIsolatedOutlierInSensorUnits() {
+        var frames = new java.util.ArrayList<AstroStackingService.FrameInput>();
+        for (int value : new int[]{40001, 40002, 40003, 40004, 65535}) {
+            BufferedImage source = new BufferedImage(1, 1, BufferedImage.TYPE_USHORT_GRAY);
+            source.getRaster().setSample(0, 0, 0, value);
+            frames.add(new AstroStackingService.FrameInput(source, FrameTransform.identity()));
+        }
+        assertEquals(45109, service.stack(frames, 1, 1).getRaster().getSample(0, 0, 0));
+        assertEquals(40003, service.stack(frames, 1, 1, AstroStackingConfig.median())
+                .getRaster().getSample(0, 0, 0));
+        assertEquals(40002, service.stack(frames, 1, 1, AstroStackingConfig.sigmaClipped(1.5, 3, 3))
+                .getRaster().getSample(0, 0, 0));
+    }
+
+    @Test
     void stacksSingleFrame() {
         BufferedImage image = SyntheticStarImageGenerator.generate(100, 100, 10, 42L);
         var input = new AstroStackingService.FrameInput(
