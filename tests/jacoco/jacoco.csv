@@ -7,7 +7,7 @@ Focus Stack - App,com.photographer.focusstack.observer.service,SpeciesNormalizat
 Focus Stack - App,com.photographer.focusstack.observer.service,ReplayService.ThreadFactoryWithName,16,11,0,0,3,2,1,1,1,1
 Focus Stack - App,com.photographer.focusstack.astro.entity,AstroSessionEntity,37,301,1,11,12,68,13,31,12,26
 Focus Stack - App,com.photographer.focusstack.camera.controller,CameraDiscoveryResponse,4,35,2,2,0,7,2,2,0,2
-Focus Stack - App,com.photographer.focusstack.camera.controller,JobController,56,250,13,15,16,67,12,18,2,14
+Focus Stack - App,com.photographer.focusstack.camera.controller,JobController,35,271,10,18,9,74,11,19,2,14
 Focus Stack - App,com.photographer.focusstack.camera.controller,HdrTimelapseController,52,61,6,0,12,17,4,6,1,6
 Focus Stack - App,com.photographer.focusstack.camera.controller,CameraDiscoveryController,0,24,0,2,0,8,0,3,0,2
 Focus Stack - App,com.photographer.focusstack.camera.controller,CameraDiscoveryResponse.DiscoveredCamera,0,43,0,0,0,9,0,2,0,2
@@ -22,8 +22,8 @@ Focus Stack - App,com.photographer.focusstack.analysis.controller,StackMergeCont
 Focus Stack - App,com.photographer.focusstack.analysis.dto,MotionResponse,0,12,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,AnalyzeRequest,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.analysis.dto,SharpnessResponse,0,6,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewService,155,22,19,3,31,5,13,3,2,3
-Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewService.PreviewResult,9,0,0,0,1,0,1,0,1,0
+Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewService,82,95,12,10,17,19,11,5,1,4
+Focus Stack - App,com.photographer.focusstack.camera.service,RawImagePreviewService.PreviewResult,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.service,StackingJobService,401,1948,86,127,96,417,72,85,2,48
 Focus Stack - App,com.photographer.focusstack.camera.service,FrameDataStore,131,315,24,26,48,78,23,19,0,17
 Focus Stack - App,com.photographer.focusstack.camera.service,StackingJobService.AttemptState,0,21,0,0,0,4,0,1,0,1
@@ -150,7 +150,7 @@ Focus Stack - App,com.photographer.focusstack.generic.backend,CcapiCameraBackend
 Focus Stack - App,com.photographer.focusstack.generic.backend,UsbCameraBackend.SimpleUsbConnection,21,0,0,0,6,0,5,0,5,0
 Focus Stack - App,com.photographer.focusstack.astro.controller,AstroController,26,104,5,7,4,32,7,8,3,6
 Focus Stack - App,com.photographer.focusstack.astro.controller,AstroController.CreateAstroSessionRequest,0,9,0,0,0,1,0,1,0,1
-Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiScrollLiveViewReader,229,623,66,72,71,153,56,39,2,24
+Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiScrollLiveViewReader,223,629,64,74,68,156,55,40,2,24
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiTransportFingerprint,0,17,0,0,0,4,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CanonCcapiCapabilitySnapshotFactory.DeviceInformation,0,9,0,0,0,1,0,1,0,1
 Focus Stack - App,com.photographer.focusstack.camera.backend,CcapiTransportCreation,0,17,0,0,0,4,0,1,0,1

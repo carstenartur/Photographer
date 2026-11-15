@@ -135,13 +135,13 @@ public class JobController {
 
         // Canon RAW files (CR3/CR2) cannot be displayed by browsers.
         // Extract the embedded JPEG preview for display.
-<span class="pc bpc" id="L138" title="1 of 2 branches missed.">        if (rawPreviewService.isRawFile(fileName)) {</span>
-<span class="nc" id="L139">            RawImagePreviewService.PreviewResult preview =</span>
-<span class="nc" id="L140">                    rawPreviewService.extractPreview(imageBytes, fileName);</span>
-<span class="nc bnc" id="L141" title="All 4 branches missed.">            if (preview != null &amp;&amp; preview.jpegBytes() != null) {</span>
-<span class="nc" id="L142">                imageBytes = preview.jpegBytes();</span>
-<span class="nc" id="L143">                fileName = preview.fileName();</span>
-<span class="nc" id="L144">                contentType = MediaType.IMAGE_JPEG;</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        if (rawPreviewService.isRawFile(fileName)) {</span>
+<span class="fc" id="L139">            RawImagePreviewService.PreviewResult preview =</span>
+<span class="fc" id="L140">                    rawPreviewService.extractPreview(imageBytes, fileName);</span>
+<span class="pc bpc" id="L141" title="2 of 4 branches missed.">            if (preview != null &amp;&amp; preview.jpegBytes() != null) {</span>
+<span class="fc" id="L142">                imageBytes = preview.jpegBytes();</span>
+<span class="fc" id="L143">                fileName = preview.fileName();</span>
+<span class="fc" id="L144">                contentType = MediaType.IMAGE_JPEG;</span>
             } else {
                 // Fallback: serve the raw bytes as octet-stream (browser won't display it,
                 // but the user can still download it)
@@ -149,7 +149,7 @@ public class JobController {
 <span class="nc" id="L149">                        frameId, entry.fileName());</span>
 <span class="nc" id="L150">                contentType = MediaType.APPLICATION_OCTET_STREAM;</span>
             }
-<span class="nc" id="L152">        } else {</span>
+<span class="fc" id="L152">        } else {</span>
             // Derive content type from filename extension
 <span class="fc" id="L154">            contentType = deriveContentType(fileName);</span>
         }
