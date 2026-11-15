@@ -252,7 +252,16 @@ def iter_history_blobs(root: Path) -> Iterator[tuple[str, str, bytes]]:
             process.stderr.close()
 
 
+def require_complete_history(root: Path) -> None:
+    if run_git(root, "rev-parse", "--is-shallow-repository").strip() == b"true":
+        raise RuntimeError(
+            "historical audits require a full clone. Fetch complete history, "
+            "all branches and tags before retrying."
+        )
+
+
 def audit_history(root: Path) -> list[Finding]:
+    require_complete_history(root)
     findings: list[Finding] = []
     for object_id, path, data in iter_history_blobs(root):
         findings.extend(scan_bytes(f"{object_id[:12]}:{path}", data))

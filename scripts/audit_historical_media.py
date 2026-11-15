@@ -142,6 +142,7 @@ def inspect_materialized(
 
 
 def audit_historical_media(root: Path, exiftool: str) -> list[AUDIT.Finding]:
+    AUDIT.require_complete_history(root)
     objects = historical_media_objects(root)
     if not objects:
         return []

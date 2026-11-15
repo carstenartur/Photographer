@@ -85,6 +85,24 @@ class HistoricalMediaAuditTest(unittest.TestCase):
             self.assertEqual("ExifIFD:SerialNumber", findings[0].field)
             self.assertNotIn("private-value", findings[0].describe())
 
+    def test_shallow_clone_cannot_certify_historical_media(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            git(source, "init")
+            git(source, "config", "user.email", "audit@example.invalid")
+            git(source, "config", "user.name", "Audit Test")
+            (source / "old.cr3").write_bytes(b"old media")
+            git(source, "add", "old.cr3")
+            git(source, "commit", "-m", "original")
+            git(source, "rm", "old.cr3")
+            git(source, "commit", "-m", "remove media")
+            shallow = root / "shallow"
+            git(root, "clone", "--depth=1", source.as_uri(), str(shallow))
+            with self.assertRaisesRegex(RuntimeError, "full clone"):
+                HISTORY.audit_historical_media(shallow, "unused")
+
     def test_non_media_paths_are_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

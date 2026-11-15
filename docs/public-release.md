@@ -2,6 +2,23 @@
 
 This document defines the repository-owned gate for changing the project from private development to public distribution. A public repository and a supported software release are separate decisions: visibility may change before a stable release, but public API, artifact and compatibility claims must remain precise.
 
+## Verified scope on 15 November 2026
+
+The tracked tree of `0d94d6c5` passed the high-confidence text scan and the
+ExifTool metadata scan (1,480 tracked files, including 278 CR3, TIFF, PNG
+and JPEG files). The repository's 13 real-camera CR3 fixtures were sanitized
+in [commit 1401c547](https://github.com/carstenartur/Photographer/commit/1401c547ec).
+The earlier version of `samples/sample.cr3` in commit `3003597b` is still
+an ancestor's file on `main`. The earlier historical audit recorded camera,
+lens and creator fields. Closing the tracking issue did not remove those
+objects. [Original finding and scope](https://github.com/carstenartur/Photographer/issues/302).
+
+These checks cover common credential formats and embedded metadata. The
+maintainer still needs to review visible subjects and redistribution rights
+for the photographs, derivative reference images and downloadable assets.
+The project-generated D14 pattern PDFs are tracked. Canon developer manuals
+belong in private local storage.
+
 ## Required repository checks
 
 Run from a complete Git checkout containing every branch and tag:
@@ -15,7 +32,7 @@ python3 scripts/audit_historical_media.py
 The commands provide three distinct guarantees:
 
 - normal product verification and the current-tree high-confidence credential scan;
-- every reachable **text** blob in Git history is scanned for high-confidence credential formats, while currently tracked CR3 and image files are inspected for identifying metadata;
+- reachable **text** blobs up to 2,000,000 bytes are scanned for high-confidence credential formats, while currently tracked CR3 and image files are inspected for identifying metadata;
 - every unique historical CR3/image blob reachable from a branch or tag is materialized and inspected with ExifTool.
 
 The media checks require ExifTool (`exiftool` or the Debian/Ubuntu package `libimage-exiftool-perl`). Findings display blob/path and field names but deliberately redact values. The historical media audit may require substantial temporary disk space because it inspects each unique binary version.
@@ -56,16 +73,57 @@ A history rewrite is intentionally not automated by normal CI. It changes commit
 
 Changing visibility before that process is complete would expose the historical bytes even when the current files are clean.
 
+### Rehearse a snapshot without changing a remote
+
+To keep the original research history private, create a standalone local
+repository containing the exact reviewed tree in one root commit. Run in
+Bash from the source repository. Set `ref` to the reviewed commit. Git and
+ExifTool must be installed. Allow space for an additional checkout, its
+object database and temporary media copies.
+
+```bash
+set -euo pipefail
+ref=$(git rev-parse --verify 'HEAD^{commit}')
+source_tree=$(git rev-parse "$ref^{tree}")
+candidate=$(mktemp -d)
+git archive "$ref" | tar -x -C "$candidate"
+git -C "$candidate" init -q -b main
+git -C "$candidate" -c core.autocrlf=false add --force --all
+test "$(git -C "$candidate" write-tree)" = "$source_tree"
+git -C "$candidate" commit -qm "Initial public source snapshot"
+test "$(git -C "$candidate" rev-list --all --count)" = 1
+(
+  cd "$candidate"
+  python3 scripts/audit_public_release.py --history --media-metadata
+  python3 scripts/audit_historical_media.py
+  python3 scripts/validate_cr3_reference_manifest.py
+  python3 scripts/validate_cleanroom_evidence.py
+  python3 scripts/validate_documentation.py .
+)
+printf 'Local candidate: %s\nSource tree: %s\n' "$candidate" "$source_tree"
+```
+
+The tree-ID check compares tracked paths, file contents and executable bits.
+The new root commit has its own ID. Keep the original commit/tree mapping in
+the private archive. Run product, frontend and Docker verification against
+the reviewed candidate and review repository URLs, release assets, Pages
+and issue references for the intended destination. Creating this candidate
+does not change the visibility of the existing repository.
+
+The rehearsal on 15 November 2026 reproduced tree
+`216179278914000fdb4804796759507c365452bb` from `0d94d6c5`. The independent,
+single-commit repository passed both historical audits, the current metadata
+scan, CR3 fixture hashes, clean-room evidence validation and documentation
+validation. This result applies to that snapshot. Repeat the checks for the
+final reviewed tree before publishing it.
+
 ## Public contracts
 
-Before describing the REST API as stable, complete issue [#284](https://github.com/carstenartur/Photographer/issues/284) through pull request [#295](https://github.com/carstenartur/Photographer/pull/295) or a reviewed successor. The intended policy is:
-
-- `/api/v1/**` is the canonical versioned REST surface;
-- `/api/**` is a temporary tested compatibility alias;
-- WebSocket endpoints retain independent, explicitly versioned payload contracts;
-- breaking changes require a new version or a documented pre-release decision.
-
-The repository may be public while this work remains open, but documentation must not imply a stable third-party API until the contract is merged and verified.
+The [REST version policy](api.md#version-contract) applies to the web
+client, third-party API clients and downloads. Use `/api/v1/**` for new
+clients. The [compatibility and removal policy](api.md#compatibility-and-removal-policy)
+defines the lifetime of the legacy aliases. [PR #295](https://github.com/carstenartur/Photographer/pull/295)
+introduced both routes and their contract tests.
 
 ## Security settings after changing visibility
 
