@@ -8,6 +8,7 @@ import com.photographer.focusstack.common.camera.Operation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClientException;
@@ -32,6 +33,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * </pre>
  */
 @RealCamera
+@EnabledIfEnvironmentVariable(named = "CCAPI_CAMERA_URL", matches = ".+")
 class CcapiCaptureFlowIT extends AbstractCaptureFlowIT {
 
     private static final Logger log = LoggerFactory.getLogger(CcapiCaptureFlowIT.class);
@@ -44,7 +46,7 @@ class CcapiCaptureFlowIT extends AbstractCaptureFlowIT {
     static void createBackend() throws Exception {
         rest = new RestTemplate();
         ccapiBackend = new CanonCcapiBackend(BASE_URL, rest);
-        log.info("CcapiCaptureFlowIT targeting {}", BASE_URL);
+        log.info("CCAPI capture flow ready");
         ccapiBackend.getInfo();
         waitForCameraIdle();
     }
@@ -68,10 +70,10 @@ class CcapiCaptureFlowIT extends AbstractCaptureFlowIT {
                 Thread.sleep(1000);
                 break;
             } catch (org.springframework.web.client.HttpServerErrorException e) {
-                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getMessage());
+                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getClass().getSimpleName());
                 Thread.sleep(500);
             } catch (RestClientException e) {
-                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getMessage());
+                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getClass().getSimpleName());
                 break;
             }
         }
@@ -125,7 +127,7 @@ class CcapiCaptureFlowIT extends AbstractCaptureFlowIT {
             Duration elapsed = Duration.between(before, Instant.now());
             log.info("Capture with cameradisplay='on' succeeded in {} ms", elapsed.toMillis());
         } catch (CameraException e) {
-            log.error("Capture with cameradisplay='on' FAILED: {}", e.getMessage());
+            log.error("Capture with cameradisplay='on' FAILED: {}", e.getClass().getSimpleName());
         }
 
         log.info("=== Stopping live view and restarting with cameradisplay='off' ===");
