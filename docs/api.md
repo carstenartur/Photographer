@@ -185,6 +185,17 @@ not break established browser connections:
 | `/topic/jobs/{id}/progress` | Subscribe | v1 job-progress payload |
 | `/topic/jobs/{id}/logs` | Subscribe | v1 sanitized log payload |
 
+During browser sign-in the client sends HTTP Basic credentials to
+`POST /api/v1/browser/socket-session` at the configured REST base with
+`X-Requested-With: XMLHttpRequest`. A successful response returns HTTP 204
+and establishes an HttpOnly session cookie. The same-origin `/ws/plain`
+handshake recognizes this grant. REST calls still authenticate independently.
+A native client can send Basic authentication on its upgrade, including when it
+supplies a different Origin. A second host configured through `VITE_WS_URL`
+receives no login password. For browser streaming, proxy the socket through the
+same origin as the authenticated frontend. To revoke the browser grant and
+close its streams, use the same headers on `DELETE /api/v1/browser/socket-session`.
+
 The existing endpoints and topic payloads are schema version 1. Additive optional fields
 are compatible. A breaking envelope or field-semantics change requires a new endpoint or
 topic namespace such as `/ws/v2` or `/topic/v2/**`; it must not silently replace v1.

@@ -23,7 +23,7 @@ export function isAuthenticated() {
  * Build the Authorization header value for the current credentials.
  * Returns undefined when no credentials are stored.
  */
-function authHeader() {
+export function authHeader() {
   if (!_credentials) return undefined;
   return 'Basic ' + btoa(`${_credentials.username}:${_credentials.password}`);
 }

@@ -1,7 +1,5 @@
 package com.photographer.focusstack.camera.config;
 
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -10,9 +8,12 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.util.Map;
+import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -45,6 +46,20 @@ public class PlainWebSocketBridge extends TextWebSocketHandler {
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
         sessions.add(session);
         log.debug("Plain WS client connected: {} (total={})", session.getId(), sessions.size());
+    }
+
+    /** Stop streams already using a browser grant when the browser signs out or changes identity. */
+    public void closeBrowserSession(String id) {
+        for (WebSocketSession socket : sessions) {
+            if (id.equals(socket.getAttributes().get(HttpSessionHandshakeInterceptor.HTTP_SESSION_ID_ATTR_NAME))) {
+                sessions.remove(socket);
+                try {
+                    socket.close(CloseStatus.NORMAL);
+                } catch (IOException ignored) {
+                    // A concurrent disconnect already closed the transport.
+                }
+            }
+        }
     }
 
     @Override

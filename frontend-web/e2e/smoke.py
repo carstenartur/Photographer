@@ -1,6 +1,7 @@
 """Exercise the packaged web UI in an isolated H2/mock-camera container."""
 
 import argparse
+import base64
 from contextlib import contextmanager
 import os
 from pathlib import Path
@@ -62,12 +63,45 @@ def capture(view, directory, filename):
         view.screenshot(path=directory / filename, animations='disabled')
 
 
+def socket_headers(origin):
+    return {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
+            'Origin': origin, 'Upgrade': 'websocket', 'Connection': 'Upgrade',
+            'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ=='}
+
+
+def check_socket_boundary(page, url):
+    headers = {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+    # The socket grant alone cannot authorize ordinary REST reads or another origin's upgrade.
+    assert page.request.get(url + '/api/v1/cameras', headers=headers, max_redirects=0).status == 401
+    assert page.request.get(url + '/ws/plain', headers=socket_headers('https://outside.invalid'),
+                            max_redirects=0).status == 401
+
+
+def revoke_open_socket(page, url, password):
+    page.evaluate("""() => new Promise((resolve, reject) => {
+      const stream = new WebSocket(location.origin.replace(/^http/, 'ws') + '/ws/plain');
+      window.revokedSocketClosed = new Promise(done => { stream.onclose = done });
+      stream.onopen = resolve;
+      stream.onerror = reject;
+    })""")
+    authorization = base64.b64encode(('admin:' + password).encode()).decode()
+    reply = page.request.delete(url + '/api/v1/browser/socket-session', headers={
+        'Authorization': 'Basic ' + authorization, 'X-Requested-With': 'XMLHttpRequest'})
+    assert reply.status == 204
+    page.evaluate("""() => Promise.race([window.revokedSocketClosed.then(() => true),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Socket still open')), 3000))])""")
+    assert page.request.get(url + '/ws/plain', headers=socket_headers(url), max_redirects=0).status == 401
+
+
 def exercise(page, url, password, captures):
+    assert page.request.get(url + '/ws/plain', headers=socket_headers(url), max_redirects=0).status == 401
     page.goto(url)
     login(page, 'invalid')
     expect(page.get_by_role('alert')).to_have_text('Invalid username or password')
     login(page, password)
     expect(page.get_by_role('heading', name='Dashboard', exact=True)).to_be_visible()
+
+    check_socket_boundary(page, url)
 
     page.get_by_role('link', name='Add Camera').click()
     page.get_by_label('Name', exact=True).fill('Practice camera')
@@ -95,6 +129,7 @@ def exercise(page, url, password, captures):
     page.get_by_role('button', name='Start', exact=True).click()
     expect(page.get_by_text('COMPLETED', exact=True).first).to_be_visible(timeout=45000)
     expect(page.get_by_text('2 / 2 frames captured (100%)')).to_be_visible()
+    expect(page.get_by_text("Job completed with 2 frames", exact=True)).to_be_visible(timeout=5000)
     with page.expect_download() as download:
         page.get_by_role('button', name='Export Frames (ZIP)').click()
     with zipfile.ZipFile(download.value.path()) as archive:
@@ -128,6 +163,7 @@ def exercise(page, url, password, captures):
     page.goto(url + '/jobs/missing-browser-test')
     login(page, password)
     expect(page.get_by_text(re.compile(r'400 Camera Error.*Job not found: missing-browser-test'))).to_be_visible()
+    revoke_open_socket(page, url, password)
 
 
 def run(image, captures, artifacts):

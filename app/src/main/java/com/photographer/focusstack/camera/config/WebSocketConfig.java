@@ -1,6 +1,7 @@
 package com.photographer.focusstack.camera.config;
 
 import com.photographer.focusstack.app.api.RealtimeApiPaths;
+import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -9,6 +10,7 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -29,6 +31,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer, WebSoc
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // SockJS also registers /ws/**. Let the exact /ws/plain mapping run first.
+        registry.setOrder(2);
         registry.addEndpoint(RealtimeApiPaths.STOMP_ENDPOINT)
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
@@ -40,7 +44,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer, WebSoc
      */
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+        var attributes = new HttpSessionHandshakeInterceptor(List.of());
+        attributes.setCreateSession(false);
         registry.addHandler(plainWebSocketBridge, RealtimeApiPaths.PLAIN_ENDPOINT)
+                .addInterceptors(attributes)
                 .setAllowedOriginPatterns("*");
     }
 }

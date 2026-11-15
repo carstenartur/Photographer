@@ -1,18 +1,25 @@
 package com.photographer.focusstack.app.security;
 
 import com.photographer.focusstack.app.api.ApiPaths;
+import com.photographer.focusstack.app.api.RealtimeApiPaths;
 import com.photographer.focusstack.app.web.BrowserRoutes;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.web.util.WebUtils;
 
 @Configuration
 @EnableWebSecurity
@@ -31,6 +38,30 @@ public class SecurityConfig {
                         .roles(user.getRole().name())
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    }
+
+    @Bean
+    @Order(1)
+    public SecurityFilterChain crossOriginSocketSecurity(HttpSecurity http) throws Exception {
+        var plainSocket = PathPatternRequestMatcher.pathPattern(RealtimeApiPaths.PLAIN_ENDPOINT);
+        // A client on another origin must supply its own credentials on the upgrade.
+        return http.securityMatcher(request -> plainSocket.matches(request)
+                        && !WebUtils.isSameOrigin(new ServletServerHttpRequest(request)))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
+                .httpBasic(Customizer.withDefaults())
+                .build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain plainWebSocketSecurity(HttpSecurity http) throws Exception {
+        // Only the same-origin plain socket reads the browser grant. Form login still works.
+        return http.securityMatcher(RealtimeApiPaths.PLAIN_ENDPOINT)
+                .securityContext(context -> context.securityContextRepository(BrowserSocketSession.handshakeRepository()))
+                .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
+                .httpBasic(Customizer.withDefaults())
+                .build();
     }
 
     @Bean

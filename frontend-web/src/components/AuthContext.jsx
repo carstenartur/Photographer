@@ -1,29 +1,39 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiUrl, setCredentials, clearCredentials, isAuthenticated as checkAuth } from '../api/auth';
+import { apiUrl, authHeader, setCredentials, clearCredentials, isAuthenticated as checkAuth } from '../api/auth';
 import { AuthContext } from './authContextDef';
 
 export default function AuthProvider({ children }) {
   const [authed, setAuthed] = useState(checkAuth());
 
   const login = useCallback(async (username, password) => {
-    // Validate credentials by making a test request
     const auth = 'Basic ' + btoa(`${username}:${password}`);
-    const res = await fetch(apiUrl('/cameras'), {
-      headers: { Authorization: auth, Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+    const res = await fetch(apiUrl('/browser/socket-session'), {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Authorization: auth, 'X-Requested-With': 'XMLHttpRequest' },
     });
     if (res.status === 401 || res.status === 403) {
       throw new Error('Invalid username or password');
     }
-    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+    if (res.status !== 204) {
       throw new Error('Unable to verify sign-in with the camera service');
     }
     setCredentials(username, password);
     setAuthed(true);
   }, []);
 
-  const logout = useCallback(() => {
-    clearCredentials();
-    setAuthed(false);
+  const logout = useCallback(async () => {
+    try {
+      const response = await fetch(apiUrl('/browser/socket-session'), {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { Authorization: authHeader(), 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!response.ok) throw new Error('Unable to close the browser session');
+    } finally {
+      clearCredentials();
+      setAuthed(false);
+    }
   }, []);
 
   // Listen for 401 responses from the shared request() helper
