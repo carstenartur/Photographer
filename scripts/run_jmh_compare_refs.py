@@ -31,7 +31,6 @@ DEFAULT_JMH_ARGS = (
     "-i", "3",
     "-w", "1s",
     "-r", "1s",
-    "-f", "1",
 )
 
 
@@ -57,6 +56,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         default="base-head",
         help="Execution order on the shared host",
     )
+    parser.add_argument("--forks", type=int, default=1, help="Fresh JVMs per benchmark")
     parser.add_argument("--threshold", type=float, default=1.15)
     parser.add_argument("--fail-on-regression", action="store_true")
     parser.add_argument("--benchmark-pattern", default=DEFAULT_PATTERN)
@@ -140,6 +140,7 @@ def jmh_command(
     result_path: Path,
     benchmark_pattern: str,
     extra_args: Iterable[str] = (),
+    forks: int = 1,
 ) -> tuple[str, ...]:
     samples = worktree / "canon-cr3-imageio" / "src" / "test" / "resources" / "samples"
     jar = worktree / "canon-cr3-benchmark" / "target" / "benchmarks.jar"
@@ -151,6 +152,8 @@ def jmh_command(
         str(jar),
         benchmark_pattern,
         *DEFAULT_JMH_ARGS,
+        "-f", str(forks),
+        "-foe", "true",
         *tuple(extra_args),
         "-rf",
         "json",
@@ -176,6 +179,7 @@ def write_environment(
     base_sha: str,
     head_sha: str,
     order: str,
+    forks: int,
 ) -> None:
     lines = [
         f"timestamp={datetime.now(timezone.utc).isoformat()}",
@@ -183,6 +187,7 @@ def write_environment(
         f"base_sha={base_sha}",
         f"head_ref={head_ref}",
         f"head_sha={head_sha}",
+        f"forks={forks}",
         f"run_order={order.replace('-', ',')}",
         f"platform={platform.platform()}",
         f"machine={platform.machine()}",
@@ -223,13 +228,14 @@ def run_revision(
     output_dir: Path,
     benchmark_pattern: str,
     extra_jmh_args: Sequence[str],
+    forks: int,
     dry_run: bool,
 ) -> None:
     result_path = output_dir / f"{revision.label}.json"
     commands = (
         ("git", "worktree", "add", "--detach", str(worktree), revision.sha),
         maven_command(),
-        jmh_command(worktree, result_path, benchmark_pattern, extra_jmh_args),
+        jmh_command(worktree, result_path, benchmark_pattern, extra_jmh_args, forks),
     )
     if dry_run:
         for command in commands:
@@ -247,6 +253,10 @@ def run_revision(
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
+    if args.forks < 1:
+        raise ValueError("Fork count must be positive")
+    if "-f" in args.jmh_arg:
+        raise ValueError("Use --forks to set the number of fresh JVMs")
     if args.threshold <= 1.0:
         raise ValueError("Threshold must be greater than 1.0")
 
@@ -264,6 +274,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         base_sha=base_sha,
         head_sha=head_sha,
         order=args.order,
+        forks=args.forks,
     )
 
     revisions = ordered_revisions(args.order, base_sha, head_sha)
@@ -276,6 +287,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output_dir=output_dir,
                 benchmark_pattern=args.benchmark_pattern,
                 extra_jmh_args=args.jmh_arg,
+                forks=args.forks,
                 dry_run=True,
             )
         return 0
@@ -290,6 +302,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output_dir=output_dir,
                 benchmark_pattern=args.benchmark_pattern,
                 extra_jmh_args=args.jmh_arg,
+                forks=args.forks,
                 dry_run=False,
             )
 

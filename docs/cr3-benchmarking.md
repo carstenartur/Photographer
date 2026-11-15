@@ -53,11 +53,27 @@ The default pull-request command currently uses one fork to control hosted-runne
 ```bash
 python3 scripts/run_jmh_compare_refs.py \
   main feature/my-change \
-  --jmh-arg=-f --jmh-arg=3 \
+  --forks 3 \
   --order head-base
 ```
 
-When extra JMH arguments repeat an earlier option, JMH's last-option behavior applies. Record the exact command and both execution orders when promoting a noisy signal to an engineering conclusion.
+Use `--forks` for the JVM count. JMH 1.37 rejects repeated `-f` options.
+Use `--jmh-arg` for additional options such as a profiler. Record both
+execution orders when investigating a noisy signal.
+
+## Unchanged-code calibration
+
+Run `python3 scripts/calibrate_cr3_sentinels.py` from a clean checkout.
+It builds once and measures the four PR sentinels on the same revision in
+both execution orders at one, two and three forks. Each case includes raw
+JMH JSON, per-tuple verdicts and environment information. Elapsed build
+and measurement times are recorded separately in `target/jmh-calibration`.
+On GitHub the **Calibrate unchanged CR3 sentinels** job runs when its driver
+changes or when selected in the manual benchmark workflow. The downloadable
+`cr3-jmh-calibration` artifact contains the measurements.
+
+[Calibration measurements and gate policy](cr3/benchmark-calibration-2026-11-15.md)
+
 
 ## Longitudinal full-suite scope
 
