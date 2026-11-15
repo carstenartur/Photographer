@@ -33,6 +33,7 @@ COPY canon-cr3-core/pom.xml canon-cr3-core/pom.xml
 COPY canon-cr3-reference-testkit/pom.xml canon-cr3-reference-testkit/pom.xml
 COPY canon-cr3-research/pom.xml canon-cr3-research/pom.xml
 COPY canon-cr3-imageio/pom.xml canon-cr3-imageio/pom.xml
+COPY cr3-imagej/pom.xml cr3-imagej/pom.xml
 COPY canon-cr3-maven-smoke/pom.xml canon-cr3-maven-smoke/pom.xml
 COPY canon-cr3-cli/pom.xml canon-cr3-cli/pom.xml
 COPY canon-cr3-benchmark/pom.xml canon-cr3-benchmark/pom.xml
