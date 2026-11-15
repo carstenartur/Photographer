@@ -5,13 +5,15 @@ import com.photographer.focusstack.common.model.AstroStackingMode;
 import com.photographer.focusstack.common.model.FrameTransform;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.WritableRaster;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 
 /**
- * Stacks registered astronomical frames into a final 8-bit RGB image.
+ * Stacks registered astronomical frames in 8-bit RGB or their native unsigned-short samples.
  *
  * <p>The historical {@link AstroStackingMode#MEAN} path retains integer-floor
  * arithmetic. Robust modes operate on the same registered 8-bit channel samples
@@ -101,9 +103,106 @@ public class AstroStackingService {
         }
 
         checkCancelled(control);
+        if (frames.stream().anyMatch(frame -> hasHighPrecision(frame.image()))) {
+            return stackHighPrecision(frames, width, height, config, control);
+        }
         return config.mode() == AstroStackingMode.MEAN
                 ? mean(frames, width, height, size, control)
                 : robust(frames, width, height, config, control);
+    }
+
+    private static boolean hasHighPrecision(BufferedImage image) {
+        return Arrays.stream(image.getSampleModel().getSampleSize()).anyMatch(bits -> bits > 8);
+    }
+
+    /** Operates on native channel samples, including translated child rasters. */
+    private static BufferedImage stackHighPrecision(
+            List<FrameInput> frames, int width, int height,
+            AstroStackingConfig config, StackingControl control) {
+        BufferedImage first = frames.getFirst().image();
+        var color = first.getColorModel();
+        int bands = first.getRaster().getNumBands();
+        if (!(color instanceof java.awt.image.ComponentColorModel)
+                || (color.getColorSpace().getType() != java.awt.color.ColorSpace.TYPE_GRAY
+                    && color.getColorSpace().getType() != java.awt.color.ColorSpace.TYPE_RGB)) {
+            throw new IllegalArgumentException("Expected gray or RGB component samples");
+        }
+        for (FrameInput frame : frames) {
+            var image = frame.image();
+            if (image.getRaster().getTransferType() != DataBuffer.TYPE_USHORT
+                    || (bands != 1 && bands != 3) || color.hasAlpha()
+                    || !color.equals(image.getColorModel())
+                    || !Arrays.equals(first.getSampleModel().getSampleSize(),
+                            image.getSampleModel().getSampleSize())) {
+                throw new IllegalArgumentException(
+                        "High-precision stacks require matching unsigned-short gray or RGB frames");
+            }
+        }
+
+        WritableRaster output = color.createCompatibleWritableRaster(width, height);
+        int frameCount = frames.size();
+        int[][] samples = new int[bands][frameCount];
+        int[] red = samples[0];
+        int[] green = samples[bands == 1 ? 0 : 1];
+        int[] blue = samples[bands - 1];
+        boolean[] active = new boolean[frameCount];
+        boolean[] rejected = new boolean[frameCount];
+        int[] sourceRows = new int[frameCount];
+        for (int y = 0; y < height; y++) {
+            checkCancelled(control);
+            for (int i = 0; i < frameCount; i++) {
+                var frame = frames.get(i);
+                sourceRows[i] = sourceCoordinate(y, frame.transform().translationY(), frame.image().getHeight());
+            }
+            for (int x = 0; x < width; x++) {
+                if ((x & 0xff) == 0) {
+                    checkCancelled(control);
+                }
+                int count = 0;
+                for (int i = 0; i < frameCount; i++) {
+                    var frame = frames.get(i);
+                    int sourceX = sourceCoordinate(x, frame.transform().translationX(), frame.image().getWidth());
+                    if (sourceRows[i] >= 0 && sourceX >= 0) {
+                        for (int band = 0; band < bands; band++) {
+                            samples[band][count] = frame.image().getRaster().getSample(sourceX, sourceRows[i], band);
+                        }
+                        count++;
+                    }
+                }
+                if (count == 0) {
+                    continue;
+                }
+                boolean clip = config.mode() == AstroStackingMode.SIGMA_CLIPPED_MEAN
+                        && count >= config.minimumSamples();
+                if (clip) {
+                    // The RGB policy rejects a whole sample when any channel is an outlier.
+                    // For a gray raster the three views refer to the same channel.
+                    rejectOutliers(red, green, blue,
+                            active, rejected, count, config);
+                }
+                for (int band = 0; band < bands; band++) {
+                    int[] values = samples[band];
+                    int value;
+                    if (config.mode() == AstroStackingMode.MEDIAN) {
+                        Arrays.sort(values, 0, count);
+                        value = medianChannel(values, count);
+                    } else {
+                        long sum = 0;
+                        int included = 0;
+                        for (int i = 0; i < count; i++) {
+                            if (!clip || active[i]) {
+                                sum += values[i];
+                                included++;
+                            }
+                        }
+                        value = (int) (sum / included);
+                    }
+                    output.setSample(x, y, band, value);
+                }
+            }
+            control.onProgress(y + 1, height);
+        }
+        return new BufferedImage(color, output, false, null);
     }
 
     private static BufferedImage mean(
@@ -307,6 +406,13 @@ public class AstroStackingService {
         if (count < config.minimumSamples()) {
             return arithmeticMean(red, green, blue, null, count);
         }
+        rejectOutliers(red, green, blue, active, rejected, count, config);
+        return arithmeticMean(red, green, blue, active, count);
+    }
+
+    private static void rejectOutliers(
+            int[] red, int[] green, int[] blue, boolean[] active, boolean[] rejected,
+            int count, AstroStackingConfig config) {
         Arrays.fill(active, 0, count, true);
         int activeCount = count;
 
@@ -340,7 +446,6 @@ public class AstroStackingService {
             }
             activeCount = survivors;
         }
-        return arithmeticMean(red, green, blue, active, count);
     }
 
     private static ChannelStatistics statistics(
