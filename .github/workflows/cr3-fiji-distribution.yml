@@ -10,11 +10,18 @@ on:
         type: string
         required: true
   workflow_dispatch:
+    inputs:
+      publish_existing_tag:
+        type: string
+        required: false
+        description: 'Publish an existing release asset to Fiji Pages (vX.Y.Z). Leave empty to build only.'
   pull_request:
     branches: [main]
     paths:
       - 'cr3-imagej/**'
       - 'scripts/build_cr3_fiji_site.py'
+      - 'scripts/publish_cr3_fiji_site.py'
+      - 'scripts/test_publish_cr3_fiji_site.py'
       - '.github/workflows/cr3-fiji-distribution.yml'
 
 permissions:
@@ -22,6 +29,7 @@ permissions:
 
 jobs:
   bundle:
+    if: ${{ !inputs.publish_existing_tag }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -37,6 +45,18 @@ jobs:
           java-version: '25'
           cache: maven
 
+      - name: Test update-site publication
+        run: python3 -m unittest discover -s scripts -p 'test_publish_cr3_fiji_site.py'
+
+      - name: Read the hosted update site at a specific Pages revision
+        if: ${{ inputs.release_tag != '' }}
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: previous-pages
+          persist-credentials: false
+          sparse-checkout: fiji/cr3
+
       - name: Load the preceding Fiji update site for a release
         if: ${{ inputs.release_tag != '' }}
         env:
@@ -49,6 +69,11 @@ jobs:
           [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_WORKFLOW_REF" == "$GH_REPO/.github/workflows/deploy-release.yml@refs/heads/main" ]]
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(git rev-parse HEAD)" == "$MERGED_SHA" && "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$MERGED_SHA" ]]
+          if [[ -f previous-pages/fiji/cr3/db.xml.gz ]]; then
+            python3 scripts/publish_cr3_fiji_site.py previous previous-pages/fiji/cr3 "$RUNNER_TEMP/cr3-fiji-update-site.zip"
+            echo "FIJI_PREVIOUS_SITE=$RUNNER_TEMP/cr3-fiji-update-site.zip" >> "$GITHUB_ENV"
+            exit 0
+          fi
           for tag in $(git tag --merged "$MERGED_SHA^" --list 'v[0-9]*' --sort=-v:refname); do
             [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
             git cat-file -e "$tag:.github/workflows/cr3-fiji-distribution.yml" 2>/dev/null || continue
@@ -104,6 +129,10 @@ jobs:
       contents: write
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.merged_sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: cr3-fiji-distribution
@@ -119,4 +148,78 @@ jobs:
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)" == "$MERGED_SHA" ]]
-          gh release upload "$RELEASE_TAG" archives/cr3-fiji-install.zip archives/cr3-fiji-update-site.zip
+          python3 scripts/publish_cr3_fiji_site.py attach "$GH_REPO" "$RELEASE_TAG" archives
+
+  publish-site:
+    name: Publish the released Fiji update site
+    needs: attach
+    if: >-
+      ${{ !cancelled() && (needs.attach.result == 'success' ||
+          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_existing_tag != '')) }}
+    permissions:
+      contents: write
+      pages: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || inputs.publish_existing_tag }}
+      EXPECTED_SHA: ${{ inputs.merged_sha }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Verify stable source, release asset and Pages source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          sha=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
+          git merge-base --is-ancestor "$sha" origin/main
+          [[ -z "$EXPECTED_SHA" || "$sha" == "$EXPECTED_SHA" ]]
+          [[ "$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)" == "$sha" ]]
+          version=$(git show "${sha}:pom.xml" | python3 -c 'import sys, xml.etree.ElementTree as E; print(E.parse(sys.stdin).findtext("{*}properties/{*}revision"))')
+          [[ "v$version" == "$RELEASE_TAG" ]]
+          gh release view "$RELEASE_TAG" --json isDraft,isPrerelease,tagName | jq -e --arg tag "$RELEASE_TAG" '.tagName == $tag and (.isDraft or .isPrerelease | not)'
+          gh api "repos/$GH_REPO/pages" > "$RUNNER_TEMP/pages.json"
+          jq -e '.source.branch == "gh-pages" and .source.path == "/" and .build_type == "legacy" and .public == true' "$RUNNER_TEMP/pages.json"
+          gh release download "$RELEASE_TAG" --pattern cr3-fiji-update-site.zip --dir "$RUNNER_TEMP"
+
+      - uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: hosted
+          fetch-depth: 1
+
+      - name: Fast-forward Pages while retaining unrelated site content
+        run: |
+          set -euo pipefail
+          git -C hosted config user.name 'github-actions[bot]'
+          git -C hosted config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3 4; do
+            git -C hosted fetch --depth=1 origin refs/heads/gh-pages
+            git -C hosted reset --hard FETCH_HEAD
+            python3 scripts/publish_cr3_fiji_site.py install "$RUNNER_TEMP/cr3-fiji-update-site.zip" "$RELEASE_TAG" hosted
+            cp LICENSE hosted/fiji/cr3/LICENSE.txt
+            git -C hosted add -- fiji/cr3
+            if git -C hosted diff --cached --quiet; then exit 0; fi
+            git -C hosted commit -m "Publish Fiji CR3 update site $RELEASE_TAG"
+            if git -C hosted push origin HEAD:refs/heads/gh-pages; then exit 0; fi
+          done
+          exit 1
+
+      - name: Request the Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GH_REPO/pages/builds" > /dev/null
+
+      - name: Verify anonymous downloads of the version, database and all seven Fiji JARs
+        run: |
+          set -euo pipefail
+          base=$(jq -er .html_url "$RUNNER_TEMP/pages.json")
+          url="${base%/}/fiji/cr3/"
+          python3 scripts/publish_cr3_fiji_site.py verify-served hosted/fiji/cr3 "$url" "$RELEASE_TAG"
+          echo "Fiji update site: $url" >> "$GITHUB_STEP_SUMMARY"
