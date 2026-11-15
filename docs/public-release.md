@@ -123,12 +123,14 @@ the reviewed candidate and review repository URLs, release assets, Pages
 and issue references for the intended destination. Creating this candidate
 does not change the visibility of the existing repository.
 
-The rehearsal on 15 November 2026 reproduced tree
-`216179278914000fdb4804796759507c365452bb` from `0d94d6c5`. The independent,
-single-commit repository passed both historical audits, the current metadata
-scan, CR3 fixture hashes, clean-room evidence validation and documentation
-validation. This result applies to that snapshot. Repeat the checks for the
-final reviewed tree before publishing it.
+On 15 November 2026 the rehearsal reproduced tree
+`6d348164b3a66875b0e196d9a14bdf4634f95b32` from
+[commit 8ca11a8d](https://github.com/carstenartur/Photographer/commit/8ca11a8dec162adbe806e7d83aa74e5f619813ba).
+The candidate contained 1,513 tracked files, including 282 media files.
+Its independent, single-commit history passed both historical audits, the
+current metadata scan, CR3 fixture hashes, clean-room evidence validation
+and documentation validation. Repeat the checks for the final reviewed
+tree before publishing it.
 
 ## Public contracts
 
