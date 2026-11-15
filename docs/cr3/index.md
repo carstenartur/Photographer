@@ -15,7 +15,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | Inspect sensor values in Fiji or ImageJ | [Fiji update site](fiji-update-site.md) · [Import and macro examples](../../cr3-imagej/README.md) | One unsigned 16-bit plane, full sensor coordinates |
 | Use the command-line tool | [CLI](cli.md) | Supported command surface with experimental decode commands identified |
 | Understand the decoder and processing pipeline | [Decoder and processing](decoder.md) | Mixed: stable container/metadata, experimental RAW, internal processing |
-| Inspect the CR3 file layout or implement a compatible writer | [CR3 and CRX format reference](format.md) | Measured byte and bit layouts with source provenance |
+| Implement or verify a CR3 reader or writer | [CR3 and CRX format reference](format.md) | Measured byte and bit layouts, fixtures and implementation links |
 | See the exact research boundary | [Current state](current-state.md) | Maintained truth boundary |
 | See unresolved, rejected and evidence-acquisition work | [Open hypotheses](open-hypotheses.md) | Maintained research state |
 | Conduct clean-room research | [Research process](research.md) | Mandatory process |

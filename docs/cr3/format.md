@@ -7,6 +7,7 @@ This independent engineering reference describes the layouts measured in Photogr
 ## Contents
 
 - [Scope and evidence](#scope-and-evidence)
+- [Implementing a reader](#implementing-a-reader)
 - [ISO Base Media File Format container](#iso-base-media-file-format-container)
 - [Metadata and sensor calibration](#metadata-and-sensor-calibration)
 - [CRX framing and sample placement](#crx-framing-and-sample-placement)
@@ -24,6 +25,44 @@ This independent engineering reference describes the layouts measured in Photogr
 | CRX V1 three-level C-RAW | 14-bit reconstruction, encoding type 0, four unrounded positional planes, two equal-width horizontal tiles, ten subbands per plane | Six files with 146,467,152 matching reconstructed samples across the same models. The comparison is with the Bayer mosaic decoded from each compressed recording. [RG5](../cr3-results/2026-11-14-crx-wavelet/README.md) |
 
 The reported evidence compares every position of the uncropped sensor raster, including the optical-black margins. A camera model can emit other layouts when its settings or shooting mode change. The parser can identify structures beyond this matrix. The current product and research boundaries are listed in the [decoder guide](decoder.md), [current research state](current-state.md) and [open hypotheses](open-hypotheses.md).
+
+## Implementing a reader
+
+The byte and bit layouts in this reference can be used to implement a reader for the measured profiles. Start by returning the full native Bayer raster and its CFA pattern. Thumbnail extraction, metadata interpretation and RGB development can be added as separate outputs. [Measured profiles](#scope-and-evidence)
+
+### Reading order
+
+1. Read `ftyp` and walk the BMFF boxes. Bound each header and payload by the enclosing box and the file extent. Interpret the container integers as big-endian and retain the absolute offsets of media data. [Box framing](#box-framing-and-file-identification)
+2. Resolve the RAW track from its descriptor and sample tables. `CRAW` can describe a JPEG track as well as a CRX track. For a one-sample profile, locate the single sample and verify that its declared byte range lies inside the intended `mdat`. [Track roles and sample ranges](#tracks-and-sample-ranges)
+3. Read `CMP1` and select the CRX marker family. Check the geometry, bit depth, CFA, encoding and wavelet levels against the layout you implement. Use the first `CMP1.mdatHeaderSize` bytes **of the selected sample** as the directory. Reconcile tile, plane and subband sizes before reading entropy or allocating the output raster. [Codec parameters](#codec-parameters-in-cmp1) · [Directory and entropy origin](#directory-records-and-entropy-origin)
+4. Decode each plane from its bounded subband ranges. Lossless V1 uses one subband per plane. Measured three-level C-RAW uses an approximation band and nine detail bands, followed by inverse quantization and lifting. Place the reconstructed codes using the tile ordinal and plane index. An unsupported layout or truncated payload should produce an explicit RAW read error. [Lossless coding](#v1-lossless-sample-coding) · [C-RAW reconstruction](#v1-three-level-c-raw-reconstruction) · [Bayer placement](#tile-order-position-planes-and-sensor-output)
+5. Return the full sensor dimensions, 14-bit values in an unsigned storage type and the CFA phase at the sensor origin. Keep crop, orientation, black-level correction and scaling separate so an exact comparison can address every original sensor site. Expose JPEG preview and thumbnail extraction as distinct read modes. [Metadata and calibration](#metadata-and-sensor-calibration) · [Embedded preview and thumbnail](#embedded-preview-and-thumbnail)
+
+### Verifying a reader
+
+The project's synthetic `four-sites.cr3` is a compact first test. The RAW sample starts at file byte 255 and contains 140 bytes. The first 108 bytes are the CRX directory. The four remaining eight-byte plane payloads reconstruct a 2 × 2 raster whose rows are `[8192, 8193]` and `[8191, 8194]`. Check these native values before applying any crop or scaling. [Synthetic file](../../canon-cr3-core/src/test/resources/com/photographer/focusstack/cr3/decode/four-sites.cr3) · [Expected API output](../../canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3DecoderTest.java#L101-L132)
+
+| Check | Expected behavior | Evidence |
+| --- | --- | --- |
+| Vary plane order across two tiles | File order controls payload consumption. Plane indices control Bayer placement. | [Synthetic two-tile test](../../canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxSensorDecoderTest.java) |
+| Exercise lossless runs, literal escapes and truncation | Reconstruct the expected values and reject a symbol that exceeds its bounded stream. | [Lossless plane tests](../../canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlaneTest.java) |
+| Exercise C-RAW detail bands and tile boundaries | Preserve signed coefficients during reconstruction and compare the final sensor values. | [Detail-band tests](../../canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetailTest.java) · [Lifting and boundary tests](../../canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletTileTest.java) |
+| Compare camera files with the registered reference mosaics | Match every site of the uncropped native raster for the profiles exercised. | [Lossless comparison and replay](../cr3-results/2026-11-14-crx-native/README.md) · [C-RAW comparison and replay](../cr3-results/2026-11-14-crx-wavelet/README.md) |
+
+### Reference implementation and license
+
+| Reader stage | Photographer source |
+| --- | --- |
+| BMFF boxes and CR3 track resolution | [IsoBmffReader](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/bmff/IsoBmffReader.java) · [Cr3Parser](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/container/Cr3Parser.java) |
+| Metadata, calibration and embedded JPEGs | [Cr3MetadataReader](../../canon-cr3-metadata/src/main/java/com/photographer/focusstack/cr3/metadata/Cr3MetadataReader.java) · [Cr3SensorCalibration](../../canon-cr3-imageio/src/main/java/com/photographer/focusstack/cr3/imageio/Cr3SensorCalibration.java) · [Cr3PreviewExtractor](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/preview/Cr3PreviewExtractor.java) |
+| CRX parameters, directories and native dispatch | [Cmp1Box](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/bmff/Cmp1Box.java) · [CrxHeader](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxHeader.java) · [CrxSensorDecoder](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxSensorDecoder.java) |
+| Lossless entropy and plane reconstruction | [CrxEntropyState](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxEntropyState.java) · [CrxNativeLosslessPlane](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java) · [CrxNativeLosslessImage](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessImage.java) |
+| C-RAW detail coding and inverse lifting | [CrxLossyDecoder](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLossyDecoder.java) · [CrxWaveletDetail](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java) · [CrxWaveletTile](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletTile.java) |
+| Native raster and Java ImageIO integration | [Cr3Decoder](../../canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java) · [CanonCr3ImageReader](../../canon-cr3-imageio/src/main/java/com/photographer/focusstack/cr3/imageio/CanonCr3ImageReader.java) |
+
+Photographer's MIT license covers the code and accompanying documentation. It permits use, modification and redistribution, including in commercial and closed-source products. Include the copyright and license notices in copies or substantial portions. Check the recorded terms for external fixtures and reference outputs before redistributing them. [MIT license](../../LICENSE) · [Source register](../cleanroom/source-register.json)
+
+A project with its own clean-room policy should follow that policy when selecting which descriptions, fixtures and implementation sources to consult. The format rules and expected reader outputs are specified here for readers who choose to work from the description. For Java projects integrating the existing reader, see the [Core import example](import.md#maven) and [ImageIO guide](imageio.md#maven-setup).
 
 ## ISO Base Media File Format container
 
