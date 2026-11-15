@@ -8,6 +8,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.ExpectedCount;
@@ -53,6 +55,10 @@ class CanonCcapiNativeSequenceTriggerTest {
                           "ver150":[
                             {"path":"/ccapi/ver150/vendor/shooting/control/shutterbutton",
                              "get":false,"post":true,"put":false,"delete":false}
+                          ],
+                          "ver160":[
+                            {"path":"/ccapi/ver160/shooting%2Fcontrol/shutterbutton",
+                             "get":false,"post":true,"put":false,"delete":false}
                           ]
                         }
                         """, MediaType.APPLICATION_JSON));
@@ -63,6 +69,35 @@ class CanonCcapiNativeSequenceTriggerTest {
 
         CanonCcapiNativeFocusBracketingBackend backend =
                 new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);
+        CanonCcapiNativeSequenceTrigger.trigger(backend);
+
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "path, ccapi/ver110/shooting/control/shutterbutton",
+            "url, https://proxy.example/camera-a/ccapi/ver110/shooting/control/shutterbutton"
+    })
+    void acceptsOnlyTheConfiguredProxyPrefix(String field, String advertisedShutter) {
+        String baseUrl = "https://proxy.example/camera-a";
+        String shutterUrl = baseUrl + "/ccapi/ver110/shooting/control/shutterbutton";
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(requestTo(baseUrl + "/ccapi"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                          "ver110":[{"%s":"%s","post":true}],
+                          "ver120":[{"url":"https://proxy.example/camera-a-other/ccapi/ver120/shooting/control/shutterbutton",
+                                     "post":true}]
+                        }
+                        """.formatted(field, advertisedShutter), MediaType.APPLICATION_JSON));
+        server.expect(ExpectedCount.once(), requestTo(shutterUrl))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        var backend = new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);
         CanonCcapiNativeSequenceTrigger.trigger(backend);
 
         server.verify();

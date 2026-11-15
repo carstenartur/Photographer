@@ -140,6 +140,10 @@ public class CanonCcapiBackend implements CameraBackend {
         this.shutterReleaseDelayMs = shutterReleaseDelayMs;
     }
 
+    final String ccapiBaseUrl() {
+        return baseUrl;
+    }
+
     // ── endpoint discovery ──────────────────────────────────────────────────
 
     /**
