@@ -19,6 +19,11 @@ public interface ObservationEventRepository extends JpaRepository<ObservationEve
 
     long countByMode(String mode);
 
+    @Query("SELECT a.failureKind, COUNT(a) FROM AiResultEntity a "
+            + "WHERE a.failureKind IS NOT NULL AND a.failureKind <> 'NONE' GROUP BY a.failureKind")
+    List<Object[]> countClassificationFailures();
+
+
     long countByTimestampBetween(Instant from, Instant to);
 
     @Query("SELECT e.mode, COUNT(e) FROM ObservationEventEntity e GROUP BY e.mode")

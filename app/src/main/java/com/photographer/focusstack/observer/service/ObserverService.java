@@ -1,5 +1,6 @@
 package com.photographer.focusstack.observer.service;
 
+import com.photographer.focusstack.ai.VisionFailureKind;
 import com.photographer.focusstack.observer.entity.AiResultEntity;
 import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
@@ -43,7 +44,8 @@ public class ObserverService implements ObservationEventListener {
         ObservationEventEntity entity = toEntity(event);
         eventRepository.save(entity);
 
-        if (event.aiResult() != null && !"none".equals(event.aiResult().primaryLabel())) {
+        if (event.aiResult() != null && event.aiResult().failureKind() == VisionFailureKind.NONE
+                && !"none".equals(event.aiResult().primaryLabel())) {
             updateSpeciesRecord(event.aiResult());
         }
     }
@@ -87,6 +89,15 @@ public class ObserverService implements ObservationEventListener {
     @Transactional(readOnly = true)
     public long getTotalEventCount() {
         return eventRepository.count();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Long> getClassificationFailures() {
+        java.util.Map<String, Long> counts = new java.util.TreeMap<>();
+        for (Object[] row : eventRepository.countClassificationFailures()) {
+            counts.put((String) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 
     @Transactional(readOnly = true)
@@ -185,6 +196,7 @@ public class ObserverService implements ObservationEventListener {
         entity.setModel(result.model());
         entity.setTaskType(result.taskType());
         entity.setPrimaryLabel(result.primaryLabel());
+        entity.setFailureKind(result.failureKind().name());
         entity.setAlternativeLabelsJson(
                 result.alternativeLabels() != null ? String.join(",", result.alternativeLabels()) : null);
         entity.setConfidence(result.confidence());

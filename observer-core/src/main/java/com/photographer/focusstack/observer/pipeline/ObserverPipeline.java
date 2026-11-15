@@ -1,5 +1,6 @@
 package com.photographer.focusstack.observer.pipeline;
 
+import com.photographer.focusstack.ai.VisionFailureKind;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.pipeline.PipelineBlockerKind;
@@ -141,20 +142,17 @@ public class ObserverPipeline {
                     + " image(s); best=" + series.bestImage().id()));
 
             // 3. AI analysis
-            VisionResultData aiResult = null;
-            if (visionProvider != null && visionProvider.isAvailable()) {
-                aiResult = visionProvider.classify(series.bestImage(), profile.mode(), profile.aiPromptTemplate());
-            }
+            VisionResultData aiResult = classify(series);
 
-            // 4. Complete or discard
-            if (aiResult != null && !"none".equals(aiResult.primaryLabel())) {
+            // Only a successful negative detection discards a capture.
+            if (!"none".equals(aiResult.primaryLabel())) {
                 stateMachine.analysisComplete(aiResult);
                 ObservationEvent event = stateMachine.getCurrentEvent();
                 safetyGuards.recordEvent(PipelineEvent.act("Event completed: label="
                         + aiResult.primaryLabel()));
                 notifyCompleted(event);
             } else {
-                String reason = aiResult != null ? "No subject detected by AI" : "AI unavailable";
+                String reason = "No subject detected by AI";
                 stateMachine.discard(reason);
                 ObservationEvent event = stateMachine.getCurrentEvent();
                 safetyGuards.recordEvent(PipelineEvent.act("Event discarded: " + reason));
@@ -176,6 +174,22 @@ public class ObserverPipeline {
             // Reset for next event
             sceneMonitor.resetAfterEvent(frame.data());
             stateMachine.reset(camera.getInfo().id(), profile.mode());
+        }
+    }
+
+    private VisionResultData classify(CaptureSeriesResult series) {
+        if (visionProvider == null) {
+            return VisionResultData.unclassified(VisionFailureKind.NOT_CONFIGURED);
+        }
+        try {
+            if (!visionProvider.isAvailable()) {
+                return VisionResultData.unclassified(VisionFailureKind.TEMPORARY_UNAVAILABLE);
+            }
+            var result = visionProvider.classify(series.bestImage(), profile.mode(), profile.aiPromptTemplate());
+            return result == null ? VisionResultData.unclassified(VisionFailureKind.MALFORMED_RESPONSE) : result;
+        } catch (RuntimeException failure) {
+            // External providers may include prompts, credentials or image details in exception messages.
+            return VisionResultData.unclassified(VisionFailureKind.UNKNOWN);
         }
     }
 

@@ -10,6 +10,15 @@ export default function AiResultPanel({ aiResult }) {
     );
   }
 
+  if (aiResult.failureKind && aiResult.failureKind !== 'NONE') {
+    return (
+      <div className="ai-result-panel">
+        <h3>AI Classification</h3>
+        <p>Unclassified · {aiResult.failureKind}</p>
+      </div>
+    );
+  }
+
   const alternatives = aiResult.alternativeLabelsJson
     ? aiResult.alternativeLabelsJson.split(',').filter(Boolean)
     : [];

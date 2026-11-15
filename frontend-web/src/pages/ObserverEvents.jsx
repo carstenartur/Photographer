@@ -70,7 +70,7 @@ export default function ObserverEvents() {
                   </td>
                   <td>{evt.aiResult?.primaryLabel || '—'}</td>
                   <td>
-                    {evt.aiResult?.confidence != null
+                    {evt.aiResult?.confidence != null && evt.aiResult?.primaryLabel !== 'unclassified'
                       ? `${Math.round(evt.aiResult.confidence * 100)}%`
                       : '—'}
                   </td>
