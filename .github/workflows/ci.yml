@@ -18,8 +18,60 @@ permissions:
   contents: read
 
 jobs:
+  change-scope:
+    name: Detect documentation-only changes
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.paths.outputs.docs_only }}
+    steps:
+      - name: Checkout commit history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          sparse-checkout: .github/workflows
+
+      - name: Classify the changed paths
+        id: paths
+        shell: bash
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            # The first parent of the PR test merge is the base it was tested against.
+            git rev-parse --verify HEAD^2 >/dev/null
+            base=$(git rev-parse --verify HEAD^1)
+          else
+            base="$PUSH_BEFORE"
+          fi
+
+          docs_only=false
+          if [[ -n "$base" && ! "$base" =~ ^0+$ ]]; then
+            if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+              git fetch --no-tags --depth=1 origin "$base"
+            fi
+
+            changed_paths=$(mktemp)
+            trap 'rm -f "$changed_paths"' EXIT
+            git diff --name-only --no-renames -z "$base" HEAD -- > "$changed_paths"
+            docs_only=true
+            while IFS= read -r -d '' path; do
+              case "$path" in
+                # This Markdown file is a reference manifest consumed by CI.
+                docs/cr3-reference-manifest.md) docs_only=false; break ;;
+                docs/*.md|README.md) ;;
+                *) docs_only=false; break ;;
+              esac
+            done < "$changed_paths"
+          fi
+          printf 'docs_only=%s\n' "$docs_only" >> "$GITHUB_OUTPUT"
+          printf 'Documentation-only change: %s\n' "$docs_only"
+
   java-verify:
     name: Maven verification
+    needs: change-scope
+    if: ${{ !cancelled() && (needs.change-scope.result != 'success' || needs.change-scope.outputs.docs_only != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -105,6 +157,8 @@ jobs:
 
   frontend-build:
     name: Frontend Test, Lint & Build
+    needs: change-scope
+    if: ${{ !cancelled() && (needs.change-scope.result != 'success' || needs.change-scope.outputs.docs_only != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
