@@ -159,7 +159,8 @@ final class CanonCcapiProductionBackend implements
     @Override
     public boolean supports(Operation operation) {
         return operation == Operation.LIVE_VIEW
-                ? liveViewClient.supportsFrameRetrieval() || scrollEndpoint().isPresent()
+                ? liveViewClient.supportsControl()
+                        && (liveViewClient.supportsFrameRetrieval() || scrollEndpoint().isPresent())
                 : delegate.supports(operation);
     }
 
@@ -229,7 +230,7 @@ final class CanonCcapiProductionBackend implements
         Map<String, String> endpoints = delegate.getDiscoveredEndpoints();
         Map<String, Set<HttpMethod>> methods = delegate.getDiscoveredEndpointMethods();
         return endpoints.entrySet().stream()
-                .filter(entry -> endpointPath(entry.getValue()).endsWith(SCROLL_SUFFIX))
+                .filter(entry -> CcapiEndpointCatalog.matchesOperation(endpointPath(entry.getValue()), SCROLL_SUFFIX))
                 .filter(entry -> {
                     Set<HttpMethod> advertised = methods.get(entry.getKey());
                     return advertised != null && advertised.containsAll(SCROLL_METHODS);

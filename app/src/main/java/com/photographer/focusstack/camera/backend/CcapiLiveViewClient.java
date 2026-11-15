@@ -298,6 +298,10 @@ final class CcapiLiveViewClient {
         }
     }
 
+    boolean supportsControl() {
+        return highestCompatible(CONTROL_SUFFIX, Set.of(HttpMethod.POST)).isPresent();
+    }
+
     boolean supportsFrameRetrieval() {
         return selectFrameEndpoint().isPresent();
     }
@@ -371,14 +375,14 @@ final class CcapiLiveViewClient {
             String suffix,
             Set<HttpMethod> requiredMethods) {
         return endpoints().stream()
-                .filter(endpoint -> endpoint.path().endsWith(normalizeSuffix(suffix)))
+                .filter(endpoint -> CcapiEndpointCatalog.matchesOperation(endpoint.path(), suffix))
                 .filter(endpoint -> endpoint.supports(requiredMethods))
                 .max(endpointOrder());
     }
 
     private Optional<Endpoint> highestExact(String suffix) {
         return endpoints().stream()
-                .filter(endpoint -> endpoint.path().endsWith(normalizeSuffix(suffix)))
+                .filter(endpoint -> CcapiEndpointCatalog.matchesOperation(endpoint.path(), suffix))
                 .max(endpointOrder());
     }
 
@@ -526,12 +530,6 @@ final class CcapiLiveViewClient {
         } catch (NumberFormatException ignored) {
             return -1;
         }
-    }
-
-    private static String normalizeSuffix(String suffix) {
-        Objects.requireNonNull(suffix, "suffix");
-        String normalized = suffix.trim();
-        return normalized.startsWith("/") ? normalized : "/" + normalized;
     }
 
     private static String requireProfileId(String profileId) {

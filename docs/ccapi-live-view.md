@@ -17,7 +17,9 @@ This document describes application support. It does not claim that every Canon 
 
 `/shooting/liveview` is the separate control endpoint and must support `POST` when method metadata is available.
 
-The production composition chooses the least complex compatible implementation:
+For example, `/ccapi/ver120/shooting/liveview/flip` identifies the version 120 flip operation. A path such as `/ccapi/ver120/vendor/shooting/liveview/flip` remains visible in the raw catalog but cannot enable the flip capability or receive a live-view request. The same comparison applies to control, scroll, multipart and RTP.
+
+The production backend reports live-view support when it can both start live view and read frames. It chooses the least complex compatible implementation:
 
 1. the highest-version exact `single-frame` endpoint that advertises `GET`, or a legacy exact flip endpoint whose method metadata is absent;
 2. otherwise the highest-version exact `cursor-stream` endpoint that explicitly advertises both `GET` and `DELETE`.
@@ -82,3 +84,5 @@ Advertised-but-unimplemented modes remain visible in capability diagnostics and 
 Synthetic catalogs and transport tests cover exact method selection, version preference, flip priority, scroll fallback, arbitrary read fragmentation, bounded frame size, timeout, one matching DELETE, lifecycle idempotence, stable bodies and typed 503 behavior.
 
 Model/firmware support claims remain evidence work under the CCAPI capability-snapshot issue and must be backed by redacted real-camera snapshots. Canon's specification defines the protocol contract, while actual model/firmware snapshots determine whether a camera advertises the required endpoints and methods.
+
+For a new camera or firmware, record the model, firmware, API version group, advertised path and method flags from its redacted catalog. Confirm that a frame can be retrieved and that stopping the selected mode releases the camera before capture. Multipart requires a boundary-framed sample and a verified cancellation exchange. RTP requires a redacted session description and verified start and stop behavior. Until then, a catalog entry identifies an advertised transport; it supplies no evidence of a successful stream.

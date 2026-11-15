@@ -29,6 +29,8 @@ import java.util.regex.Pattern;
 public final class CcapiEndpointCatalog {
 
     private static final String API_ROOT = "/ccapi";
+    private static final Pattern VERSIONED_OPERATION = Pattern.compile("/ccapi/ver[0-9]+(/.*)");
+    private static final String LIVE_VIEW = "/shooting/liveview";
     private static final String DEVELOPER_ROOT = "/ccapi/ver100/topurlfordev";
     private static final Pattern VERSION_ROOT_PATTERN = Pattern.compile(".*/ver\\d+/?$");
     private static final Pattern VERSION_NUMBER_PATTERN = Pattern.compile("ver(\\d+)");
@@ -73,7 +75,7 @@ public final class CcapiEndpointCatalog {
     public Optional<Endpoint> findExactPath(String suffix) {
         String normalizedSuffix = normalizeSuffix(suffix);
         return endpoints.stream()
-                .filter(endpoint -> endpoint.path().endsWith(normalizedSuffix))
+                .filter(endpoint -> matchesOperation(endpoint.path(), normalizedSuffix))
                 .max(Comparator.comparingInt(Endpoint::versionNumber)
                         .thenComparing(Endpoint::path));
     }
@@ -90,7 +92,7 @@ public final class CcapiEndpointCatalog {
     private List<Endpoint> findExactPathCandidates(String suffix) {
         String normalizedSuffix = normalizeSuffix(suffix);
         return endpoints.stream()
-                .filter(endpoint -> endpoint.path().endsWith(normalizedSuffix))
+                .filter(endpoint -> matchesOperation(endpoint.path(), normalizedSuffix))
                 .toList();
     }
 
@@ -276,6 +278,19 @@ public final class CcapiEndpointCatalog {
         } catch (NumberFormatException exception) {
             return -1;
         }
+    }
+
+    static boolean matchesOperation(String path, String operation) {
+        if (!isLiveViewOperation(operation)) {
+            // Older capture/status callers use short suffixes such as "shutterbutton".
+            return path.endsWith(operation);
+        }
+        Matcher versioned = VERSIONED_OPERATION.matcher(path);
+        return path.equals(operation) || versioned.matches() && versioned.group(1).equals(operation);
+    }
+
+    static boolean isLiveViewOperation(String operation) {
+        return operation.equals(LIVE_VIEW) || operation.startsWith(LIVE_VIEW + "/");
     }
 
     private static String normalizeSuffix(String suffix) {
