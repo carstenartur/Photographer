@@ -42,6 +42,8 @@ Reproduzierbar (z. B. nach `mvn -B test-compile -pl canon-cr3-core,canon-cr3-ima
 
 > *Hinweis:* `sample-tele.cr3`, `sample-wide.cr3`, `sample.cr3` haben dieselbe Brennweite 8.8 mm in EXIF, sind also vermutlich Burst-Frames mit gleicher Optik (siehe §4.1) — die Dateinamen `tele`/`wide` spiegeln nicht zwingend reale Brennweitenunterschiede wider.
 
+<a name="preview-thumbnail-track-layout"></a>
+
 ### 1.3 Preview / Thumbnail / Track-Layout
 
 Alle CR3-Dateien haben **dieselbe** 4-Track-Struktur:
