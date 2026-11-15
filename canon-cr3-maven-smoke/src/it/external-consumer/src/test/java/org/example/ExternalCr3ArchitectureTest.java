@@ -364,7 +364,8 @@ class ExternalCr3ArchitectureTest {
         if (internalType.startsWith(CR3_INTERNAL_PREFIX + "processing/")) {
             return Layer.PROCESSING;
         }
-        if (internalType.startsWith(CR3_INTERNAL_PREFIX + "decode/")) {
+        if (internalType.startsWith(CR3_INTERNAL_PREFIX + "decode/")
+                || internalType.startsWith(CR3_INTERNAL_PREFIX + "encode/")) {
             return Layer.CORE;
         }
         if (internalType.startsWith(CR3_INTERNAL_PREFIX + "imageio/")) {
