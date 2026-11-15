@@ -36,9 +36,11 @@ public final class CcapiEndpointCatalog {
     private static final Pattern VERSION_NUMBER_PATTERN = Pattern.compile("ver(\\d+)");
 
     private final List<Endpoint> endpoints;
+    private final String basePath;
 
-    private CcapiEndpointCatalog(List<Endpoint> endpoints) {
+    private CcapiEndpointCatalog(String baseUrl, List<Endpoint> endpoints) {
         this.endpoints = List.copyOf(endpoints);
+        this.basePath = endpointPath(baseUrl);
     }
 
     /** Discovers and normalizes the endpoint catalog using documented CCAPI roots. */
@@ -51,7 +53,7 @@ public final class CcapiEndpointCatalog {
             versions = getMap(restTemplate, normalizedBaseUrl + DEVELOPER_ROOT);
         }
         if (versions == null) {
-            return new CcapiEndpointCatalog(List.of());
+            return new CcapiEndpointCatalog(normalizedBaseUrl, List.of());
         }
 
         Builder builder = new Builder(normalizedBaseUrl, restTemplate);
@@ -73,27 +75,26 @@ public final class CcapiEndpointCatalog {
      * {@code /devicestatus/storage}.
      */
     public Optional<Endpoint> findExactPath(String suffix) {
-        String normalizedSuffix = normalizeSuffix(suffix);
-        return endpoints.stream()
-                .filter(endpoint -> matchesOperation(endpoint.path(), normalizedSuffix))
-                .max(Comparator.comparingInt(Endpoint::versionNumber)
-                        .thenComparing(Endpoint::path));
+        return findPath(suffix, null, false);
     }
 
     /** Same as {@link #findExactPath(String)}, additionally requiring a method when known. */
     public Optional<Endpoint> findExactPath(String suffix, HttpMethod method) {
         Objects.requireNonNull(method, "method");
-        return findExactPathCandidates(suffix).stream()
-                .filter(endpoint -> !endpoint.methodMetadataKnown() || endpoint.methods().contains(method))
-                .max(Comparator.comparingInt(Endpoint::versionNumber)
-                        .thenComparing(Endpoint::path));
+        return findPath(suffix, method, false);
     }
 
-    private List<Endpoint> findExactPathCandidates(String suffix) {
+    /** A null method only checks whether an endpoint is advertised. */
+    Optional<Endpoint> findPath(String suffix, HttpMethod method, boolean matchWholeOperation) {
         String normalizedSuffix = normalizeSuffix(suffix);
         return endpoints.stream()
-                .filter(endpoint -> matchesOperation(endpoint.path(), normalizedSuffix))
-                .toList();
+                .filter(endpoint -> matchWholeOperation
+                        ? matchesConfiguredOperation(endpoint.path(), normalizedSuffix)
+                        : matchesOperation(endpoint.path(), normalizedSuffix))
+                .filter(endpoint -> method == null || !endpoint.methodMetadataKnown()
+                        || endpoint.methods().contains(method))
+                .max(Comparator.comparingInt(Endpoint::versionNumber)
+                        .thenComparing(Endpoint::path));
     }
 
     /** One advertised endpoint with normalized transport metadata. */
@@ -232,7 +233,7 @@ public final class CcapiEndpointCatalog {
             List<Endpoint> ordered = new ArrayList<>(endpointsByIdentity.values());
             ordered.sort(Comparator.comparingInt(Endpoint::versionNumber)
                     .thenComparing(Endpoint::path));
-            return new CcapiEndpointCatalog(ordered);
+            return new CcapiEndpointCatalog(baseUrl, ordered);
         }
     }
 
@@ -253,7 +254,8 @@ public final class CcapiEndpointCatalog {
     private static String endpointPath(String endpoint) {
         try {
             URI uri = URI.create(endpoint);
-            String path = uri.getPath();
+            // Escaped path segments are distinct from the literal advertised operation.
+            String path = uri.getRawPath();
             return path == null ? endpoint : path;
         } catch (IllegalArgumentException exception) {
             int query = endpoint.indexOf('?');
@@ -285,8 +287,26 @@ public final class CcapiEndpointCatalog {
             // Older capture/status callers use short suffixes such as "shutterbutton".
             return path.endsWith(operation);
         }
+        return matchesWholeOperation(path, operation);
+    }
+
+    private static boolean matchesWholeOperation(String path, String operation) {
+        return path.equals(operation) || operation.equals(versionedOperation(path));
+    }
+
+    private boolean matchesConfiguredOperation(String path, String operation) {
+        String relativePath = path.startsWith("/") ? path : "/" + path;
+        return matchesWholeOperation(relativePath, operation)
+                || !basePath.isEmpty() && relativePath.startsWith(basePath + "/")
+                && matchesWholeOperation(relativePath.substring(basePath.length()), operation);
+    }
+
+    static String versionedOperation(String path) {
+        if (path == null) {
+            return null;
+        }
         Matcher versioned = VERSIONED_OPERATION.matcher(path);
-        return path.equals(operation) || versioned.matches() && versioned.group(1).equals(operation);
+        return versioned.matches() ? versioned.group(1) : null;
     }
 
     static boolean isLiveViewOperation(String operation) {

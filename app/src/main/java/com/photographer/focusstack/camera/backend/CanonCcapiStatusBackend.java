@@ -46,7 +46,6 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     private static final String BATTERY_SUFFIX = "/devicestatus/battery";
     private static final String BATTERY_LIST_SUFFIX = "/devicestatus/batterylist";
     private static final String LIVE_VIEW_SUFFIX = "/shooting/liveview";
-    private static final String VERSION_ROOT_PREFIX = "/ccapi/ver";
 
     private final String baseUrl;
     private final RestTemplate restTemplate;
@@ -139,25 +138,26 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     }
 
     /**
-     * Uses the exact stable suffix encoded in the compatibility path. If Canon
+     * Uses the whole operation encoded by a versioned compatibility path. If Canon
      * advertises that endpoint but explicitly rejects the required method, fail as
      * unsupported instead of silently reconstructing and invoking the same path.
      */
     @Override
     String resolveEndpoint(String suffix, String defaultPath) {
-        String exactSuffix = suffixFromDefaultPath(defaultPath, suffix);
+        String operation = CcapiEndpointCatalog.versionedOperation(defaultPath);
+        boolean matchWholeOperation = operation != null;
+        String operationOrSuffix = matchWholeOperation ? operation : suffix;
         CcapiEndpointCatalog catalog = endpointCatalog();
-        HttpMethod requiredMethod = requiredMethod(exactSuffix);
+        HttpMethod requiredMethod = requiredMethod(operationOrSuffix);
 
-        CcapiEndpointCatalog.Endpoint endpoint = requiredMethod == null
-                ? catalog.findExactPath(exactSuffix).orElse(null)
-                : catalog.findExactPath(exactSuffix, requiredMethod).orElse(null);
+        CcapiEndpointCatalog.Endpoint endpoint =
+                catalog.findPath(operationOrSuffix, requiredMethod, matchWholeOperation).orElse(null);
         if (endpoint != null) {
             return endpoint.url();
         }
 
-        CcapiEndpointCatalog.Endpoint advertised = catalog.findExactPath(exactSuffix)
-                .orElse(null);
+        CcapiEndpointCatalog.Endpoint advertised =
+                catalog.findPath(operationOrSuffix, null, matchWholeOperation).orElse(null);
         if (advertised != null && requiredMethod != null
                 && advertised.methodMetadataKnown()) {
             throw new CameraException("CCAPI endpoint " + advertised.path()
@@ -165,7 +165,7 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
         }
 
         log.debug("CCAPI endpoint '{}' was not advertised; using legacy fallback {}",
-                exactSuffix, defaultPath);
+                operationOrSuffix, defaultPath);
         return baseUrl + defaultPath;
     }
 
@@ -238,20 +238,6 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
             return HttpMethod.POST;
         }
         return null;
-    }
-
-    private static String suffixFromDefaultPath(String defaultPath, String requestedSuffix) {
-        if (defaultPath != null) {
-            int versionRoot = defaultPath.indexOf(VERSION_ROOT_PREFIX);
-            if (versionRoot >= 0) {
-                int operationPath = defaultPath.indexOf('/',
-                        versionRoot + VERSION_ROOT_PREFIX.length());
-                if (operationPath >= 0) {
-                    return defaultPath.substring(operationPath);
-                }
-            }
-        }
-        return requestedSuffix;
     }
 
     private ReadResult<BatteryInfo> readBattery() {
