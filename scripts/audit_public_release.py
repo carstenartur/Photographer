@@ -70,20 +70,7 @@ SENSITIVE_METADATA_KEYS = frozenset(
     }
 )
 
-MEDIA_GLOBS = (
-    "*.cr3",
-    "*.CR3",
-    "*.jpg",
-    "*.JPG",
-    "*.jpeg",
-    "*.JPEG",
-    "*.tif",
-    "*.TIF",
-    "*.tiff",
-    "*.TIFF",
-    "*.png",
-    "*.PNG",
-)
+MEDIA_SUFFIXES = frozenset({".cr3", ".dng", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"})
 
 
 @dataclass(frozen=True)
@@ -252,7 +239,16 @@ def iter_history_blobs(root: Path) -> Iterator[tuple[str, str, bytes]]:
             process.stderr.close()
 
 
+def require_complete_history(root: Path) -> None:
+    if run_git(root, "rev-parse", "--is-shallow-repository").strip() == b"true":
+        raise RuntimeError(
+            "historical audits require a full clone. Fetch complete history, "
+            "all branches and tags before retrying."
+        )
+
+
 def audit_history(root: Path) -> list[Finding]:
+    require_complete_history(root)
     findings: list[Finding] = []
     for object_id, path, data in iter_history_blobs(root):
         findings.extend(scan_bytes(f"{object_id[:12]}:{path}", data))
@@ -284,7 +280,7 @@ def metadata_findings(records: Iterable[dict[str, object]]) -> list[Finding]:
 
 
 def audit_media_metadata(root: Path) -> list[Finding]:
-    media_paths = tracked_paths(root, MEDIA_GLOBS)
+    media_paths = [path for path in tracked_paths(root) if path.suffix.lower() in MEDIA_SUFFIXES]
     if not media_paths:
         return []
 

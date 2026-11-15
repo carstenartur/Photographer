@@ -119,6 +119,24 @@ class PublicReleaseAuditTest(unittest.TestCase):
             self.assertEqual(0, status)
             self.assertIn("Public-release audit passed", output.getvalue())
 
+    def test_shallow_clone_cannot_certify_history(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            initialize_repository(source)
+            for content in ("original", "replacement"):
+                (source / "fixture.txt").write_text(content)
+                git(source, "add", "fixture.txt")
+                git(source, "commit", "-m", content)
+            shallow = root / "shallow"
+            git(root, "clone", "--depth=1", source.as_uri(), str(shallow))
+            with self.assertRaisesRegex(RuntimeError, "full clone"):
+                AUDIT.audit_history(shallow)
+            self.assertEqual([], AUDIT.audit_current_tree(shallow))
+            git(shallow, "fetch", "--unshallow")
+            self.assertEqual([], AUDIT.audit_history(shallow))
+
     def test_metadata_scan_flags_location_identity_and_serial(self) -> None:
         records = [
             {

@@ -85,6 +85,41 @@ class HistoricalMediaAuditTest(unittest.TestCase):
             self.assertEqual("ExifIFD:SerialNumber", findings[0].field)
             self.assertNotIn("private-value", findings[0].describe())
 
+    def test_shallow_clone_cannot_certify_historical_media(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            git(source, "init")
+            git(source, "config", "user.email", "audit@example.invalid")
+            git(source, "config", "user.name", "Audit Test")
+            (source / "old.cr3").write_bytes(b"old media")
+            git(source, "add", "old.cr3")
+            git(source, "commit", "-m", "original")
+            git(source, "rm", "old.cr3")
+            git(source, "commit", "-m", "remove media")
+            shallow = root / "shallow"
+            git(root, "clone", "--depth=1", source.as_uri(), str(shallow))
+            with self.assertRaisesRegex(RuntimeError, "full clone"):
+                HISTORY.audit_historical_media(shallow, "unused")
+
+    def test_current_and_historical_audits_recognize_webp_and_dng(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git(root, "init")
+            git(root, "config", "user.email", "audit@example.invalid")
+            git(root, "config", "user.name", "Audit Test")
+            for name in ("guide.WebP", "sensor.DnG"):
+                (root / name).write_text(name)
+            git(root, "add", ".")
+            git(root, "commit", "-m", "test media")
+            git(root, "rm", "guide.WebP")
+            git(root, "commit", "-m", "remove screenshot")
+            paths = [name for _, name in HISTORY.historical_media_objects(root)]
+            self.assertEqual(["guide.WebP", "sensor.DnG"], paths)
+            self.assertIn(".webp", HISTORY.AUDIT.MEDIA_SUFFIXES)
+            self.assertIn(".dng", HISTORY.AUDIT.MEDIA_SUFFIXES)
+
     def test_non_media_paths_are_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

@@ -26,13 +26,12 @@ The maintained research boundary is in [`docs/cr3/current-state.md`](docs/cr3/cu
 ### Architecture, quality and resilience
 
 - [#283 — real-browser E2E coverage](https://github.com/carstenartur/Photographer/issues/283)
-- [#284 — explicit REST API versioning](https://github.com/carstenartur/Photographer/issues/284)
 - [#285 — bounded AI-provider outage/fallback behavior](https://github.com/carstenartur/Photographer/issues/285)
 - [#286 — robust astronomical stacking and outlier rejection](https://github.com/carstenartur/Photographer/issues/286)
 
-### Documentation quality
+### Capture integrations
 
-- [#279 — generated CR3 evidence ownership and verify/update contract](https://github.com/carstenartur/Photographer/issues/279)
+- [#314 — paired capture sessions for Fresnel](https://github.com/carstenartur/Photographer/issues/314)
 
 ## Deliberately not committed roadmap items
 
