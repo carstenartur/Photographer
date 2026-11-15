@@ -12,11 +12,17 @@ Use `ImageIO.read(file)` for the photograph as rendered by the camera. It decode
 | Exact JPEG file for export | [Copy the camera’s embedded JPEG unchanged](import.md#copy-the-cameras-embedded-jpeg-unchanged) | Original compressed bytes, including the camera’s JPEG encoding. |
 | Camera and capture information | `reader.getImageMetadata(0)` | Read-only native metadata, when available. |
 
-Preview, thumbnail and metadata access are stable APIs. The RAW modes are experimental and depend on the file's CRX profile. An explicit RAW read reports an error if decoding fails. An application that can use a camera preview instead can handle the exception and request the preview explicitly. See the [decoder and supported layouts](decoder.md).
+Preview, thumbnail and metadata access are stable APIs. Full-sensor values have been verified on the measured 14-bit, four-plane V1 lossless RAW and three-level C-RAW layouts. RGB development and RAW-specific parameters are experimental. An explicit RAW read reports an error if decoding fails. An application that can use a camera preview instead can handle the exception and request the preview explicitly. See the [decoder and supported layouts](decoder.md).
 
 ## Maven setup
 
-Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example `pom.xml` declares one dependency. Maven resolves the other five CR3 libraries and the SLF4J API transitively. For a regular release, add the repository entry from the [Git-backed repository guide](../cr3-maven-central.md#resolve-a-released-version). A version also published to Maven Central uses Maven's default configuration.
+Use JDK 21 or newer in the consuming application. To try the checkout locally, use JDK 25 and Maven 3.9+ in the Photographer repository and install the CR3 reactor prerequisites:
+
+```sh
+mvn -B -pl canon-cr3-imageio -am install -DskipTests
+```
+
+In a separate consumer project, use this POM and match `cr3.version` to the installed revision. Only one dependency is required. Maven resolves the other five CR3 libraries and SLF4J transitively.
 
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -27,7 +33,7 @@ Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example 
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <cr3.version>0.1.5</cr3.version>
+    <cr3.version>0.1.5-SNAPSHOT</cr3.version>
   </properties>
   <dependencies>
     <dependency>
@@ -48,7 +54,7 @@ Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example 
 </project>
 ```
 
-The coordinates above target the 0.1.5 release. To use a development checkout before release, run `mvn -pl canon-cr3-imageio -am install` from the Photographer repository root with JDK 25. Set `cr3.version` in the consumer POM to the installed revision, for example `0.1.5-SNAPSHOT`. Publication and independent download verification are covered in the [CR3 Maven release guide](../cr3-maven-central.md).
+For a published version, select its version number from [GitHub Releases](https://github.com/carstenartur/Photographer/releases) and use the repository specified for that release. The [consumer setup](../cr3-maven-central.md#resolve-a-released-version) shows how to add the Git-backed repository. Versions explicitly published to Maven Central use Maven's default configuration.
 
 ## Quick preview
 
@@ -182,9 +188,7 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 
 ## Write and read a Bayer DNG
 
-The ImageIO plug-in in this checkout also registers a DNG writer and a DNG reader. Both are in
-`io.github.carstenartur:cr3-imageio`. Install the checkout with the Maven command above to use
-this feature before its first release. Keep both ImageIO SPI service files when shading the JAR.
+The same `io.github.carstenartur:cr3-imageio` dependency registers a DNG writer and reader. Keep the ImageReaderSpi and ImageWriterSpi service entries when shading the JAR.
 
 For a full-sensor CR3 import, the returned image carries the metadata needed to export the
 Bayer mosaic. The following method uses the `findReader` helper from the complete example above.

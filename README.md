@@ -1,4 +1,4 @@
-# Focus Stack (Photographer)
+# Photographer (Focus Stack)
 
 [![CI](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
 [![Benchmark](https://github.com/carstenartur/Photographer/actions/workflows/cr3-benchmark.yml/badge.svg?branch=main)](https://carstenartur.github.io/Photographer/dev/bench/)
@@ -11,7 +11,17 @@
 
 Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automated focus stacking, timelapse, and AI-assisted image analysis. It connects to Canon cameras via CCAPI and USB/PTP, provides a React/Vite frontend, and is extensible through a ServiceLoader-based plugin architecture.
 
-> **Note:** This project uses Java 25 and Spring Boot 4, which are recent releases. An up-to-date toolchain is required (JDK 25, Maven 3.9+).
+| What would you like to do? | Start here |
+|---|---|
+| Control a camera or try a focus stack without hardware | [Start the web application](docs/quickstart.md) · [Illustrated walkthrough](docs/web-interface.md) |
+| Read a CR3 or write a Bayer DNG in Java | [ImageIO dependency and working examples](docs/cr3/imageio.md) · [Supported cameras and RAW layouts](docs/cr3/decoder.md) |
+| Measure native Bayer samples in ImageJ/Fiji | [Install the Fiji update site](docs/cr3/fiji-update-site.md) · [Import a file or run a macro](cr3-imagej/README.md) |
+| Inspect a CR3 or extract its JPEG from the command line | [CLI commands](docs/cr3/cli.md) |
+| Build or extend Photographer | [Developer manual](docs/developer/index.md) · [Project verification](docs/developer/testing.md) |
+
+![Mock camera profile showing the generated live view, battery level and camera settings](docs/screenshots/mock-camera.webp)
+
+The application builds with JDK 25 and Maven 3.9+. The standalone CR3 libraries and Fiji importer run on Java 21 or newer.
 
 ## Features
 
@@ -42,53 +52,17 @@ Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automa
 ## Architecture
 
 ```mermaid
-graph TD
-    FE["frontend-web<br/>(React/Vite)"]
-    APP["app<br/>(Spring Boot 4)"]
-    DB[("storage<br/>(PostgreSQL)")]
-
-    subgraph Domain
-        CAP["capture-core"]
-        SES["session-core"]
-        HDR["hdr-core"]
-        VID["video-core"]
-        FACE["face-analysis-core"]
-        FP["face-profile-core"]
-        OBS["observer-core"]
-        AI["ai-vision"]
-        ASTRO["astro-core"]
-    end
-
-    subgraph Camera Backends
-        PTP["camera-ptp"]
-        CCAPI["Canon CCAPI"]
-        MOCK["Mock camera backend<br/>(built-in, no hardware needed)"]
-    end
-
-    subgraph CR3 Stack
-        CR3C["cr3-core"]
-        CR3I["cr3-imageio"]
-        CR3CLI["canon-cr3-cli"]
-    end
-
-    subgraph Plugin Layer
-        PAPI["plugin-api"]
-        SL["ServiceLoader"]
-    end
-
-    FE -->|HTTP/REST| APP
-    APP --> Domain
-    APP --> DB
-    APP --> CR3C
-    APP --> PAPI
-    PAPI --> SL
-    CAP --> PTP
-    CAP --> CCAPI
-    CAP --> MOCK
-    CR3C --> CR3I
-    CR3I --> CR3CLI
-    OBS --> AI
+flowchart TD
+    UI["Web interface"] -->|HTTP| APP["Spring Boot application"]
+    APP --> CAM["Camera backends"]
+    APP --> DB["Storage"]
+    APP --> IO["CR3 and DNG ImageIO"]
+    FIJI["Fiji sensor importer"] --> IO
+    IO --> CORE["CR3 decoder"]
+    CLI["CR3 command line"] --> CORE
 ```
+
+The packaged application serves the React frontend and runs capture jobs. The same decoder is available independently through ImageIO, Fiji and the CLI. [Architecture and module dependencies](docs/developer/architecture.md)
 
 ## Modules
 
@@ -112,7 +86,7 @@ graph TD
 | `cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
 | `cr3-imageio` | Java ImageIO plug-in for CR3 import and uncompressed Bayer DNG reading and writing. |
 | `cr3-imagej` | ImageJ/Fiji importer for full-resolution, unsigned 16-bit Bayer sensor data. [Installation and use](cr3-imagej/README.md). |
-| `canon-cr3-cli` | CLI tooling for CR3 inspection and experimental decoding. |
+| `canon-cr3-cli` | Command-line inspection, JPEG extraction and RAW decoding. |
 | `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
 
 ## Import Canon CR3 files in Java
@@ -121,83 +95,31 @@ Add `io.github.carstenartur:cr3-imageio` to a Java 21 or newer Maven application
 
 [ImageIO setup and parameters](docs/cr3/imageio.md) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [CR3 file import, JPEG extraction and Photographer frame export](docs/cr3/import.md) · [Maven release status](docs/cr3-maven-central.md)
 
-## Quickstart (Docker)
+## Run the web application
+
+Follow the [quickstart](docs/quickstart.md) to build with Docker Compose, set the administrator password and run a capture job with a mock camera. It also covers running the packaged JAR with an in-memory database. For a physical camera, create a profile for its transport and check the operations its firmware advertises. [Camera setup](docs/camera-setup.md)
+
+## Build and test
+
+Run the product checks used by CI from the repository root. They require JDK 25, Maven 3.9+, Python 3 and a Docker daemon for the Testcontainers integration tests.
 
 ```bash
-git clone https://github.com/carstenartur/Photographer.git
-cd Photographer
-cp .env.example .env
-docker compose up --build
+bash scripts/verify-product.sh
 ```
 
-Open: http://localhost:8080
+For a faster local run that skips integration tests, pass `-DskipITs=true`. The [testing guide](docs/developer/testing.md) covers module-specific and hardware checks. To verify frontend changes separately, use Node.js 24 and run:
 
-Default credentials:
-
-- Username: `admin`
-- Password: value of `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in `.env` (**required**)
-
-> **Security:** `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` is mandatory at startup and must not be blank or a known default (`focusstack` / `changeme`).
-
-Optional demo seed:
-
-```bash
-./scripts/seed-demo-data.sh
-```
-
-## Local Development
-
-Prerequisites:
-
-- JDK 25
-- Maven 3.9+
-- Node.js 20.19+ (or 22.12+)
-- Docker / Docker Compose (for PostgreSQL and integration tests)
-
-Run backend:
-
-```bash
-mvn spring-boot:run -pl app -am -Djava.awt.headless=true
-```
-
-Run frontend dev server:
-
-```bash
-cd frontend-web
-npm ci
-npm run dev
-```
-
-## Build & Test
-
-Backend full verify (unit + integration tests):
-
-```bash
-mvn -B clean verify -Djava.awt.headless=true
-```
-
-This builds the full multi-module reactor. The CI workflow uses an equivalent `-pl <module list> -am` form; both produce the same result.
-
-To skip integration tests for faster feedback:
-
-```bash
-mvn -B clean verify -DskipITs=true -Djava.awt.headless=true
-```
-
-Integration tests use Testcontainers and require a running Docker daemon.
-
-Frontend:
-
-```bash
+```sh
 cd frontend-web
 npm ci
 npm run lint
+npm test
 npm run build
 ```
 
 ## Configuration
 
-Key environment variables (see `.env.example` for defaults):
+Compose reads the database, login and port settings in [the environment template](.env.example). Set additional application options in the Java process environment or in the Compose service’s `environment` section.
 
 > **Security:** Never commit API keys or passwords to version control. Use environment variables, a secrets manager, or a `.env` file that is listed in `.gitignore`.
 
@@ -211,7 +133,6 @@ Key environment variables (see `.env.example` for defaults):
 | `POSTGRES_USER` | PostgreSQL user (docker-compose) | `focusstack` | — |
 | `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | `focusstack` | — |
 | `CAMERA_MOCK_ENABLED` | Enable mock camera backend | `true` | `false` |
-| `FOCUSSTACK_CAMERA_CCAPI_BASE_URL` | Canon CCAPI base URL | `http://192.168.1.2:8080` | `http://192.168.1.2:8080` |
 | `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` | `./plugins` |
 | `GEMINI_API_KEY` | Google Gemini API key for AI vision | _(empty)_ | _(empty)_ |
 | `OBSERVER_AI_PROVIDER` | Active AI provider (`gemini` or `mock`) | `mock` | `mock` |
@@ -236,7 +157,7 @@ The `ai-vision` module provides a `VisionProvider` interface that decouples the 
 - **`MockVisionProvider`** — returns pre-configured results; suitable for development and CI.
 - **`GeminiVisionProvider`** — calls the Google Gemini API; requires `GEMINI_API_KEY`.
 
-Set `OBSERVER_AI_PROVIDER=gemini` and provide `GEMINI_API_KEY` to enable live analysis.
+Configure `OBSERVER_AI_PROVIDER=gemini` and `GEMINI_API_KEY` for the Observer workflow. Pass these variables into the application container when using Compose.
 
 See [`ai-vision/README.md`](ai-vision/README.md) for full configuration details.
 
@@ -249,7 +170,7 @@ Other compatible Canon cameras may work but are not officially verified. See [do
 
 ## Reports & Benchmarks
 
-Published to GitHub Pages after each push to `main`:
+The scheduled Maven site publishes the test and coverage reports. CR3 benchmark runs update the performance history for relevant changes on `main`.
 
 - [Test Report](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
 - [Coverage Report](https://carstenartur.github.io/Photographer/coverage/)
@@ -261,7 +182,7 @@ Published to GitHub Pages after each push to `main`:
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Public Release Checklist](docs/public-release.md)
-- [Quickstart](docs/quickstart.md)
+- [Quickstart and first capture](docs/quickstart.md) · [Web interface walkthrough](docs/web-interface.md)
 - [REST API Reference](docs/api.md)
 - [Camera Setup](docs/camera-setup.md)
 - [CR3 / CRX clean-room engineering record](docs/cleanroom/README.md)

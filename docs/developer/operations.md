@@ -151,7 +151,7 @@ A new thread, executor, socket or stream reader needs an explicit owner and shut
 For a new development machine:
 
 1. clone the repository;
-2. install JDK 25, Maven 3.9+, Node 20.19+ and Docker;
+2. install JDK 25, Maven 3.9+, Node.js 24 and Docker;
 3. restore private Canon references only to ignored local paths when needed;
 4. restore required private fixture/reference files according to their manifests;
 5. create `.env` from `.env.example` and set a strong local administrator password;

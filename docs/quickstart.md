@@ -1,122 +1,58 @@
-# Quick Start
+# Run Photographer and capture your first stack
 
-Get Focus Stack running in under five minutes.
+The web application serves the camera controls and capture jobs on port 8080. Docker Compose builds the UI and backend and stores profiles and jobs in PostgreSQL. A mock camera lets you try the workflow before connecting hardware. To open an existing CR3 file directly, see [Java ImageIO](cr3/imageio.md) or [Fiji](cr3/fiji-update-site.md).
 
----
+## Start with Docker Compose
 
-## Prerequisites
+Install Git, Docker and Docker Compose v2. Run from a shell:
 
-| Tool | Minimum Version |
-|---|---|
-| [Docker](https://docs.docker.com/get-docker/) | 24 |
-| [Docker Compose](https://docs.docker.com/compose/) | 2.20 |
-
-For **development mode** you will also need:
-
-| Tool | Minimum Version |
-|---|---|
-| Java (JDK) | 25 |
-| Maven | 3.9+ |
-| Node.js | 20.19+ (or 22.12+) |
-| npm | 10+ |
-
----
-
-## Option 1 — Docker Compose (recommended)
-
-### 1. Clone the repository
-
-```bash
+```sh
 git clone https://github.com/carstenartur/Photographer.git
 cd Photographer
+cp .env.example .env
 ```
 
-### 2. Start all services
+Edit `.env` before the first start. Give `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` and `POSTGRES_PASSWORD` separate passwords of your own. The first is the web login for `admin`. Compose passes the second to both PostgreSQL and the application. Leave `CAMERA_MOCK_ENABLED=true` for this walkthrough.
+
+```sh
+docker compose up --build -d
+docker compose ps
+```
+
+The first build downloads Maven and frontend dependencies. When the `focusstack` service reports **healthy**, open [localhost:8080](http://localhost:8080) and sign in as `admin` with your web password. If you changed `APP_PORT` in `.env`, use that port.
+
+## Try a capture without hardware
+
+1. On the dashboard select **Add Camera**. Give the profile a name such as `Desk mock`, choose **Mock** under **Backend Type**, and select **Create**. This profile needs no network address.
+2. On **Jobs**, select **Create Job**, select that camera and set **Max Frames** to a small number such as 5. Select **Create** to save the job.
+3. In the job list select **Start**. Follow the job ID to see capture progress and inspect its frames. The [illustrated walkthrough](web-interface.md) shows the controls and job details.
+
+For a physical camera, see [Camera setup](camera-setup.md). To stop the stack, run `docker compose down`. Compose keeps the database, image storage and search index in named volumes for the next start.
+
+## Run locally with Maven
+
+From the repository root, use JDK 25 and Maven 3.9+. Include `frontend-web` explicitly to package the UI. Its Maven build installs its own Node.js and runs the locked npm build. The default application profile uses an in-memory H2 database, so local profiles and jobs last only until shutdown.
+
+```sh
+mvn -B -pl frontend-web,app -am package -DskipTests -Djava.awt.headless=true
+```
+
+Set `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in the environment of the Java process. For example, in Bash, read it without echoing it or saving it in your shell history:
 
 ```bash
-docker compose up --build
+read -rs -p 'Photographer admin password: ' FOCUSSTACK_SECURITY_ADMIN_PASSWORD
+echo
+export FOCUSSTACK_SECURITY_ADMIN_PASSWORD
+java -Djava.awt.headless=true -jar app/target/focusstack.jar
 ```
 
-This starts:
-- **focusstack** (Spring Boot app serving the UI and REST API) on [http://localhost:8080](http://localhost:8080)
-- **PostgreSQL** on port `5432`
-
-The default profile uses the **mock camera**, so no hardware is needed.
-
-### 3. Open the UI
-
-Navigate to [http://localhost:8080](http://localhost:8080) in your browser.
-
-Log in with username `admin` and password `focusstack` (the default value of
-`FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in your `.env` file).
-
-### 4. (Optional) Seed demo data
-
-```bash
-./scripts/seed-demo-data.sh
-```
-
-This populates the database with sample sessions and copies example frames into
-the shared volume so you can explore the gallery without running a real capture.
-
-### 5. Stop
-
-```bash
-docker compose down
-```
-
-Add `-v` to also remove database volumes:
-
-```bash
-docker compose down -v
-```
-
----
-
-## Option 2 — Development Mode
-
-Development mode runs infrastructure in Docker while the application services
-run natively for fast iteration and hot-reload.
-
-### 1. Start infrastructure
-
-```bash
-./scripts/dev-up.sh
-```
-
-This launches PostgreSQL in Docker.
-
-### 2. Start the application
-
-```bash
-mvn spring-boot:run -pl app -am -Djava.awt.headless=true
-```
-
-### 3. Start frontend-web
-
-```bash
-cd frontend-web
-npm install
-npm run dev
-```
-
-The Vite dev server starts on [http://localhost:5173](http://localhost:5173) with
-hot module replacement enabled.
-
----
-
-## Connecting a Real Camera
-
-See [camera-setup.md](camera-setup.md) for instructions on enabling CCAPI on
-your Canon camera and pointing the system at it.
-
----
+Open [localhost:8080](http://localhost:8080) and follow the same capture steps. For frontend hot reload, start a second terminal in `frontend-web` and run `npm ci` followed by `npm run dev`. Use Node.js 24 to match the Maven build. Vite prints its local URL and proxies API requests to the backend on port 8080. See [local development](developer/contributing.md) for PowerShell and verification commands.
 
 ## Troubleshooting
 
-| Symptom | Fix |
+| Symptom | What to check |
 |---|---|
-| `port 8080 already in use` | Stop the conflicting process or change the port in `docker-compose.yml`. |
-| Camera not discovered | Ensure the camera and your machine are on the same Wi-Fi network. See [camera-setup.md](camera-setup.md). |
-| Database connection refused | Wait a few seconds for PostgreSQL to finish initializing, then retry. |
-| `npm install` fails | Delete `node_modules` and `package-lock.json`, then run `npm install` again. |
+| Compose asks for `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Check that the file is named `.env` in the repository root and contains your value. The app also rejects blank passwords, `focusstack` and `changeme`. |
+| No dashboard on port 8080 | Check `docker compose ps` and `docker compose logs focusstack`. If the port is occupied, set a free `APP_PORT` in `.env` and run `docker compose up -d` again. |
+| A local job disappears after restarting Java | The default H2 database runs in memory. Use Compose with its PostgreSQL volume for persistent profiles and jobs. |
+| A physical camera has no live view | Check connectivity from the backend host and whether the camera advertises live view in its current mode. See [camera capabilities](ccapi-capabilities.md). |

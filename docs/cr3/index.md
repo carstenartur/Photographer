@@ -11,6 +11,8 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | Inspect CR3 tracks or extract embedded preview/thumbnail JPEGs | [Container and metadata](decoder.md#stable-container-and-metadata-layers) | Stable public APIs |
 | Import a file with the Java decoder or export camera frames from Photographer | [CR3 file import](import.md) | Includes native sensor and developed RGB examples |
 | Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Stable preview, thumbnail, discovery and metadata; RAW controls experimental |
+| Export a native sensor image and reopen it as a DNG | [Bayer DNG round trip](imageio.md#write-and-read-a-bayer-dng) | Uncompressed 16-bit Bayer mosaic with calibration |
+| Inspect sensor values in Fiji or ImageJ | [Fiji update site](fiji-update-site.md) · [Import and macro examples](../../cr3-imagej/README.md) | One unsigned 16-bit plane, full sensor coordinates |
 | Use the command-line tool | [CLI](cli.md) | Supported command surface with experimental decode commands identified |
 | Understand the decoder and processing pipeline | [Decoder and processing](decoder.md) | Mixed: stable container/metadata, experimental RAW, internal processing |
 | See the exact research boundary | [Current state](current-state.md) | Maintained truth boundary |
@@ -32,7 +34,8 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | `io.github.carstenartur:cr3-codec` | CRX header, entropy, predictor, tile/plane reconstruction and Bayer transfer model | Experimental/internal except explicitly classified diagnostics/models |
 | `io.github.carstenartur:cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
 | `io.github.carstenartur:cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; verified V1 lossless and three-level C-RAW |
-| `io.github.carstenartur:cr3-imageio` | Java ImageIO SPI, reader, thumbnails and metadata | Stable standard integration; RAW-specific parameters experimental |
+| `io.github.carstenartur:cr3-imageio` | Java ImageIO CR3 reader and Bayer DNG reader/writer | Stable preview and metadata access, profile-specific RAW import |
+| `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer importer for ImageJ 1.x and Fiji | Distributed as a Fiji plugin |
 | `com.photographer.focusstack:canon-cr3-cli` | Inspection, extraction and experimental decode commands | Repository CLI; excluded from the public Maven Central library bundle |
 
 ### Internal evidence and development modules
