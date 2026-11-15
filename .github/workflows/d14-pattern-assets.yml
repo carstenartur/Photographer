@@ -6,14 +6,14 @@ on:
       - research/d14-controlled-patterns
     paths:
       - 'docs/cr3-patterns/**'
-      - 'tools/cr3/generate_d14_patterns.py'
+      - 'tools/cr3/*d14*.py'
       - 'canon-cr3-research/**/D14DifferentialAnalyzer*.java'
       - '.github/workflows/d14-pattern-assets.yml'
   pull_request:
     branches: [main]
     paths:
       - 'docs/cr3-patterns/**'
-      - 'tools/cr3/generate_d14_patterns.py'
+      - 'tools/cr3/*d14*.py'
       - 'canon-cr3-research/**/D14DifferentialAnalyzer*.java'
       - '.github/workflows/d14-pattern-assets.yml'
   workflow_dispatch:
@@ -111,6 +111,9 @@ jobs:
           expected = '\n'.join(hashes) + '\n'
           assert (root / 'SHA256SUMS').read_text() == expected
           PY
+
+      - name: Test captured series preflight
+        run: python tools/cr3/test_verify_d14_capture_series.py
 
       - name: Run deterministic differential-analysis tests
         run: >-
