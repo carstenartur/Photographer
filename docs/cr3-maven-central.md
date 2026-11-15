@@ -25,6 +25,7 @@ git clone --single-branch --branch maven-repository \
   https://github.com/carstenartur/Photographer.git ../photographer-maven
 mvn -B -f release/canon-cr3-consumer/pom.xml -Pphotographer-releases \
   "-Dphotographer.repository.url=file://$(cd ../photographer-maven && pwd)" \
+  "-Dmaven.repo.local=$(mktemp -d)" \
   -Dcr3.version=0.1.5 dependency:tree
 ```
 
@@ -155,4 +156,4 @@ The ImageIO dependency resolves the remaining supported runtime modules transiti
 
 ## Current limitation
 
-Repository-side release engineering and credential-free bundle validation do not prove that a version is remotely available. A release may be documented as published only after Central Portal validation, publication and a clean external resolution from Maven Central by exact released coordinates.
+Verify the exact release version in the selected distribution channel before documenting it as available. For the Git-backed repository, use a fresh authorized checkout of `maven-repository` and an empty Maven cache. For an optional Central release, verify the Portal deployment and resolve the same version independently from Maven Central. The [qualification checklist](release-checklist-0.1.5.md#holds-evidence-and-later-distribution) covers partial publication and recovery.
