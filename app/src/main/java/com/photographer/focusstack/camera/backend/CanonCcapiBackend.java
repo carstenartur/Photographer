@@ -1120,7 +1120,7 @@ public class CanonCcapiBackend implements CameraBackend {
         long backoffMs = DEVICE_BUSY_INITIAL_BACKOFF_MS;
         for (int attempt = 0; ; attempt++) {
             try {
-                restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);
+                ccapiPostOnce(url, body);
                 return;
             } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {
                 boolean deviceBusy = e.getResponseBodyAsString().contains("Device busy");
@@ -1132,6 +1132,11 @@ public class CanonCcapiBackend implements CameraBackend {
                 backoffMs = Math.min(backoffMs * 2, 5_000);
             }
         }
+    }
+
+    /** Sends the raw JSON POST without an application-level busy retry. */
+    protected final void ccapiPostOnce(String url, Object body) {
+        restTemplate.exchange(url, HttpMethod.POST, ccapiEntity(body), String.class);
     }
 
     /**

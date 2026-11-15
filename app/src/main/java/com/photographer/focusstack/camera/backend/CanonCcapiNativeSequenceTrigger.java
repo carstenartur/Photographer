@@ -14,7 +14,8 @@ import java.util.regex.Pattern;
 final class CanonCcapiNativeSequenceTrigger {
 
     private static final String SHUTTER_SUFFIX = "/shooting/control/shutterbutton";
-    private static final Pattern VERSION_PATTERN = Pattern.compile("(?:^|/)ver(\\d+)(?:/|$)");
+    private static final Pattern SHUTTER_PATH =
+            Pattern.compile("/ccapi/ver(\\d+)" + SHUTTER_SUFFIX);
 
     private CanonCcapiNativeSequenceTrigger() {
     }
@@ -22,7 +23,7 @@ final class CanonCcapiNativeSequenceTrigger {
     static void trigger(CanonCcapiNativeFocusBracketingBackend backend) {
         String shutterUrl = exactPostEndpoint(backend);
         backend.stopLiveView();
-        backend.ccapiPost(shutterUrl, Map.of("af", false));
+        backend.ccapiPostOnce(shutterUrl, Map.of("af", false));
     }
 
     private static String exactPostEndpoint(
@@ -31,7 +32,7 @@ final class CanonCcapiNativeSequenceTrigger {
         Map<String, Set<HttpMethod>> methods = backend.getDiscoveredEndpointMethods();
         return endpoints.entrySet().stream()
                 .map(entry -> candidate(entry, methods.get(entry.getKey())))
-                .filter(candidate -> candidate.path().endsWith(SHUTTER_SUFFIX))
+                .filter(candidate -> candidate.versionNumber() >= 0)
                 .filter(candidate -> candidate.methods() != null
                         && candidate.methods().contains(HttpMethod.POST))
                 .max(Comparator.comparingInt(Candidate::versionNumber)
@@ -61,8 +62,8 @@ final class CanonCcapiNativeSequenceTrigger {
         if (path == null) {
             return -1;
         }
-        Matcher matcher = VERSION_PATTERN.matcher(path);
-        if (!matcher.find()) {
+        Matcher matcher = SHUTTER_PATH.matcher(path);
+        if (!matcher.matches()) {
             return -1;
         }
         try {

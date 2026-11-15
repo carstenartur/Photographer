@@ -10,12 +10,18 @@ import org.apache.hc.client5.http.auth.StandardAuthScheme;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.DefaultHttpRequestRetryStrategy;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.Method;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.http.protocol.HttpCoreContext;
 import org.apache.hc.core5.util.Timeout;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -52,6 +58,18 @@ public final class CcapiRestTemplateFactory {
             CcapiRestTemplateFactory.class.getName() + ".authChallenged";
     private static final Pattern CHALLENGE_PARAMETER = Pattern.compile(
             "(?i)(?:^|,)\\s*([a-zA-Z0-9_-]+)\\s*=\\s*(?:\"([^\"]*)\"|([^,\\s]+))");
+
+    // HttpClient's response retry can otherwise replay a shutter POST after 503.
+    // CCAPI operations decide explicitly when a non-idempotent command can be retried.
+    private static final DefaultHttpRequestRetryStrategy RETRY_IDEMPOTENT_RESPONSES =
+            new DefaultHttpRequestRetryStrategy() {
+                @Override
+                public boolean retryRequest(HttpResponse response, int execCount, HttpContext context) {
+                    HttpRequest request = HttpCoreContext.castOrCreate(context).getRequest();
+                    return request != null && Method.isIdempotent(request.getMethod())
+                            && super.retryRequest(response, execCount, context);
+                }
+            };
 
     private final CameraConfig cameraConfig;
     private final CcapiAuthenticationProperties authenticationProperties;
@@ -128,6 +146,7 @@ public final class CcapiRestTemplateFactory {
                         HttpClients.custom()
                                 .setConnectionManager(connectionManager)
                                 .setDefaultRequestConfig(requestConfig)
+                                .setRetryStrategy(RETRY_IDEMPOTENT_RESPONSES)
                                 .disableRedirectHandling()
                                 .addResponseInterceptorLast((response, entity, context) -> {
                                     int status = response.getCode();
