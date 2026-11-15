@@ -72,6 +72,18 @@ final class CanonCcapiCapabilitySnapshotFactory {
                     "/shooting/settings/focusbracketing/cropdepthcomp")
     );
 
+    /** Publication exports only exact, known operation paths, excluding media names and vendor-private paths. */
+    static boolean isDocumentedEvidencePath(String path) {
+        Matcher version = VERSION_PATTERN.matcher(path);
+        if (!version.find() || !path.substring(0, version.start()).equals("/ccapi")) {
+            return false;
+        }
+        String suffix = "/" + path.substring(version.end());
+        return suffix.equals("/shooting/liveview/scroll")
+                || java.util.stream.Stream.concat(BASE_DEFINITIONS.stream(), NATIVE_BRACKETING_DEFINITIONS.stream())
+                        .anyMatch(definition -> definition.suffixes().contains(suffix));
+    }
+
     private final CanonCcapiStatusBackend backend;
     private final RestTemplate restTemplate;
 

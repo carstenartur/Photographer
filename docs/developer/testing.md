@@ -91,14 +91,9 @@ Docker-tagged tests must have bounded startup and shutdown, must remove temporar
 
 Real-camera tests are tagged `real-camera` and are never part of normal CI. Run them only with the intended camera connected and an explicit test/profile selection.
 
-```bash
-mvn -B verify -pl app -am \
-  -Dgroups=real-camera \
-  -DexcludedGroups=docker \
-  -Djava.awt.headless=true
-```
+For a read-only capability report, use the [model/firmware snapshot procedure](../ccapi-capabilities.md#collect-a-model-and-firmware-snapshot). It selects only `CcapiEndpointDiagnosticsIT` and produces redacted JSON for comparison across firmware and connection modes.
 
-Module-specific hardware tests may require additional environment variables or system properties documented in the test class. Prefer a focused class over executing every hardware test against an unknown camera state.
+For capture, focus drive, file transfer or bracketing, select the individual hardware test class and read its configuration requirements before execution. These tests can actuate the camera. Existing G5 X Mark II and EOS R capture evidence is listed in [Camera setup](../camera-setup.md#hardware-coverage).
 
 Hardware evidence records:
 

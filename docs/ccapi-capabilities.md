@@ -99,3 +99,23 @@ Backends that do not implement `CameraCapabilityProvider` return a safe snapshot
 `catalogAvailable=false`, no endpoint list and no invented capability claims. Their
 legacy host/path and backend-specific identifier are not copied into this diagnostic
 response.
+
+## Collect a model and firmware snapshot
+
+Run the opt-in diagnostic on the computer that can reach the camera, with the camera in the mode you want to document. Use JDK 25 and Maven 3.9+. From the repository root, set the environment variables in the shell where Maven will run. In Bash:
+
+```bash
+read -r -p 'Camera base URL (scheme, host and port): ' CCAPI_EVIDENCE_URL
+export CCAPI_EVIDENCE_URL
+export CCAPI_EVIDENCE_MODE=WIFI_INFRASTRUCTURE
+mvn -B -pl app -am verify -Dgroups=real-camera -DexcludedGroups=docker \
+  -Dit.test=CcapiEndpointDiagnosticsIT -Dfailsafe.failIfNoSpecifiedTests=false
+```
+
+Use `WIFI_INFRASTRUCTURE`, `WIFI_CAMERA_ACCESS_POINT` or `ETHERNET` for the connection mode. If the camera requires Digest authentication, supply `CCAPI_EVIDENCE_USERNAME` and `CCAPI_EVIDENCE_PASSWORD` in the process environment. Run this exact test on its own. The broader hardware suite includes tests that actuate the camera.
+
+The test creates `app/target/ccapi-capabilities.json`. Set `CCAPI_EVIDENCE_OUTPUT` to an absolute path for a different output. Each run requires a fresh filename. The diagnostic reads the same catalog, semantic capability snapshot and native focus-bracketing ranges as a normal camera profile. It can request the API roots, device information, advertised lens status and bracketing settings. It never starts live view, polls media, moves focus or triggers the shutter.
+
+The JSON records the advertised product model and firmware, connection mode, exact recognized versioned operation paths, advertised/required methods, capability classifications and available native bracketing ranges. Unknown or private paths contribute only to `omittedEndpoints`. The export skips lens names, media names and raw response bodies. Inspect the model and firmware before publishing and record the shooting mode and source commit alongside the file. An unknown firmware value cannot establish firmware-specific support. Keep successive files so a later camera mode or firmware can be compared against the original.
+
+The G5 X Mark II CCAPI capture, focus and manual-stacking tests and the G5 X Mark II / EOS R USB captures are the historical baseline. They establish different facts from a fresh capability snapshot. See the [hardware tests](../app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/) and [camera coverage](camera-setup.md#hardware-coverage). Physical snapshots and native-sequence validation are tracked in [#183](https://github.com/carstenartur/Photographer/issues/183) and [#144](https://github.com/carstenartur/Photographer/issues/144).

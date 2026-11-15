@@ -1,320 +1,54 @@
 package com.photographer.focusstack.camera.integration.realcamera;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeAll;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.turbo.TurboFilter;
+import ch.qos.logback.core.spi.FilterReply;
+import com.photographer.focusstack.camera.backend.CcapiEvidence;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
+import org.slf4j.Marker;
 
-import java.util.List;
-import java.util.Map;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-/**
- * Diagnostic tests that dump the raw CCAPI responses from a real camera.
- *
- * <p>These are <strong>not</strong> behavioural assertions — they exist to
- * investigate what the camera actually returns so that the
- * {@link com.photographer.focusstack.camera.backend.CanonCcapiBackend} can be
- * improved or debugged.
- *
- * <p>Run with:
- * <pre>
- *   mvn verify -pl app -am -Djava.awt.headless=true \
- *       -DexcludedGroups= -Dgroups=real-camera
- * </pre>
- */
+/** Opt-in catalog and ability snapshot. See docs/ccapi-capabilities.md for the dedicated invocation. */
 @RealCamera
+@Isolated
+@EnabledIfEnvironmentVariable(named = "CCAPI_EVIDENCE_URL", matches = ".+")
 class CcapiEndpointDiagnosticsIT {
-
-    private static final Logger log = LoggerFactory.getLogger(CcapiEndpointDiagnosticsIT.class);
-    private static final String BASE_URL = CanonCcapiRealCameraIT.CAMERA_BASE_URL;
-
-    private static RestTemplate rest;
-    private static final ObjectMapper mapper = new ObjectMapper();
-
-    @BeforeAll
-    static void setUp() {
-        rest = new RestTemplate();
-    }
-
-    // ── Root discovery ──────────────────────────────────────────────────────
-
     @Test
-    void dumpCcapiRootResponse() throws Exception {
-        String url = BASE_URL + "/ccapi";
-        log.info("GET {}", url);
-        ResponseEntity<String> response = rest.getForEntity(url, String.class);
-
-        log.info("Status: {}", response.getStatusCode());
-        log.info("Body:\n{}", prettyPrint(response.getBody()));
-
-        assertEquals(200, response.getStatusCode().value(),
-                "CCAPI root should return 200");
-        assertNotNull(response.getBody());
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void dumpAllDiscoveredEndpoints() throws Exception {
-        // Step 1: discover version roots
-        Map<String, Object> versions = rest.getForObject(BASE_URL + "/ccapi", Map.class);
-        assertNotNull(versions, "CCAPI root must return versions");
-        log.info("Available versions: {}", versions.keySet());
-
-        // Step 2: pick best version
-        String bestVersion = versions.keySet().stream()
-                .filter(k -> k.startsWith("ver"))
-                .sorted()
-                .reduce((a, b) -> b)
-                .orElse(null);
-        assertNotNull(bestVersion, "At least one CCAPI version should exist");
-
-        // The CCAPI root returns the version value as a list of endpoint
-        // descriptor objects: [{url: "...", get: true, post: false, ...}, ...]
-        // NOT as a simple version-root URL.
-        Object versionValue = versions.get(bestVersion);
-        assertInstanceOf(List.class, versionValue,
-                "Version value should be a list of endpoint descriptors");
-
-        List<?> endpointDescriptors = (List<?>) versionValue;
-        assertFalse(endpointDescriptors.isEmpty(), "Endpoint list should not be empty");
-
-        log.info("Discovered {} endpoints under {}:", endpointDescriptors.size(), bestVersion);
-        for (Object ep : endpointDescriptors) {
-            if (ep instanceof Map<?, ?> epMap) {
-                String url = String.valueOf(epMap.get("url"));
-                boolean get = Boolean.TRUE.equals(epMap.get("get"));
-                boolean post = Boolean.TRUE.equals(epMap.get("post"));
-                boolean put = Boolean.TRUE.equals(epMap.get("put"));
-                boolean delete = Boolean.TRUE.equals(epMap.get("delete"));
-                log.info("  {} [GET={} POST={} PUT={} DELETE={}]",
-                        url, get, post, put, delete);
-            } else {
-                log.info("  {}", ep);
+    void writeReadOnlyCapabilityEvidence() throws Exception {
+        var output = Path.of(System.getenv().getOrDefault("CCAPI_EVIDENCE_OUTPUT", "target/ccapi-capabilities.json"));
+        var context = (LoggerContext) LoggerFactory.getILoggerFactory();
+        // The HTTP stack can log hosts, cookies and challenge headers at debug/trace levels.
+        var silence = new TurboFilter() {
+            @Override
+            public FilterReply decide(Marker marker, Logger logger, Level level, String format,
+                                      Object[] params, Throwable throwable) {
+                return FilterReply.DENY;
             }
-        }
-    }
-
-    // ── Device information ──────────────────────────────────────────────────
-
-    @Test
-    void dumpDeviceInformation() throws Exception {
-        String url = BASE_URL + "/ccapi/ver100/deviceinformation";
-        log.info("GET {}", url);
+        };
+        silence.start();
+        String evidence;
+        context.addTurboFilter(silence);
         try {
-            ResponseEntity<String> response = rest.getForEntity(url, String.class);
-            log.info("Status: {}", response.getStatusCode());
-            log.info("Device info:\n{}", prettyPrint(response.getBody()));
-        } catch (RestClientException e) {
-            log.warn("deviceinformation not available: {}", e.getMessage());
+            var mode = CcapiEvidence.ConnectionMode.valueOf(System.getenv("CCAPI_EVIDENCE_MODE"));
+            evidence = CcapiEvidence.capture(System.getenv("CCAPI_EVIDENCE_URL"), mode,
+                    System.getenv("CCAPI_EVIDENCE_USERNAME"), System.getenv("CCAPI_EVIDENCE_PASSWORD"));
+        } catch (Exception failure) {
+            // Exceptions from HTTP or URI parsing may themselves contain identifying details.
+            throw new AssertionError("Capability capture failed (" + failure.getClass().getSimpleName()
+                    + "). Check the camera, connection and credentials.");
+        } finally {
+            context.getTurboFilterList().remove(silence);
+            silence.stop();
         }
-    }
-
-    // ── Battery ─────────────────────────────────────────────────────────────
-
-    @Test
-    void dumpBatteryStatus() throws Exception {
-        String url = BASE_URL + "/ccapi/ver100/devicestatus/battery";
-        log.info("GET {}", url);
-        try {
-            ResponseEntity<String> response = rest.getForEntity(url, String.class);
-            log.info("Status: {}", response.getStatusCode());
-            log.info("Battery:\n{}", prettyPrint(response.getBody()));
-        } catch (RestClientException e) {
-            log.warn("Battery status not available: {}", e.getMessage());
-        }
-    }
-
-    // ── Storage ─────────────────────────────────────────────────────────────
-
-    @Test
-    void dumpStorageStatus() throws Exception {
-        tryGetAndDump("/ccapi/ver100/devicestatus/currentstorage", "Current storage");
-        tryGetAndDump("/ccapi/ver100/devicestatus/storage", "Storage (fallback)");
-    }
-
-    // ── Live view ───────────────────────────────────────────────────────────
-
-    @Test
-    void dumpLiveViewFlipResponse() {
-        String url = BASE_URL + "/ccapi/ver100/shooting/liveview/flip";
-        log.info("GET {} (expecting JPEG bytes)", url);
-        try {
-            byte[] data = rest.getForObject(url, byte[].class);
-            if (data != null) {
-                log.info("Received {} bytes", data.length);
-                if (data.length >= 3) {
-                    log.info("First 3 bytes: {:02X} {:02X} {:02X}",
-                            data[0] & 0xFF, data[1] & 0xFF, data[2] & 0xFF);
-                }
-            } else {
-                log.warn("Received null response");
-            }
-        } catch (RestClientException e) {
-            log.warn("liveview/flip not available: {}", e.getMessage());
-        }
-    }
-
-    // ── Shooting settings ───────────────────────────────────────────────────
-
-    @Test
-    void dumpShootingSettings() throws Exception {
-        tryGetAndDump("/ccapi/ver100/shooting/settings", "Shooting settings");
-        tryGetAndDump("/ccapi/ver100/shooting/settings/tv", "Shutter speed (Tv)");
-        tryGetAndDump("/ccapi/ver100/shooting/settings/av", "Aperture (Av)");
-        tryGetAndDump("/ccapi/ver100/shooting/settings/iso", "ISO");
-        tryGetAndDump("/ccapi/ver100/shooting/settings/wb", "White balance");
-        tryGetAndDump("/ccapi/ver100/shooting/settings/metering", "Metering mode");
-        tryGetAndDump("/ccapi/ver100/shooting/settings/afmethod", "AF method");
-    }
-
-    // ── Event polling ───────────────────────────────────────────────────────
-
-    @Test
-    void dumpEventPolling() throws Exception {
-        tryGetAndDump("/ccapi/ver100/event/polling", "Event polling");
-    }
-
-    // ── Drive focus endpoint verification ──────────────────────────────────
-
-    @Test
-    void verifyDriveFocusEndpointAcceptsPost() {
-        // Per the Canon SDK, manual focus drive uses /drivefocus with {"value": "far1"}.
-        // NOTE: Not all cameras expose this endpoint (e.g. PowerShot G5 X Mark II
-        // with ver100 only does not have /drivefocus).  A 404 is acceptable.
-        String url = BASE_URL + "/ccapi/ver100/shooting/control/drivefocus";
-        byte[] body = "{\"value\":\"far1\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        log.info("POST {} with raw JSON body", url);
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setAccept(List.of(MediaType.ALL));
-            headers.set("Accept-Encoding", "");
-            ResponseEntity<String> response = rest.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(body), String.class);
-            log.info("POST drivefocus — Status: {}, Body: {}", response.getStatusCode(), response.getBody());
-            assertTrue(response.getStatusCode().is2xxSuccessful(),
-                    "POST to drivefocus endpoint should succeed, got: " + response.getStatusCode());
-        } catch (HttpClientErrorException.NotFound e) {
-            log.info("drivefocus endpoint not available on this camera (404) — OK for cameras without MF drive");
-        } catch (RestClientException e) {
-            fail("POST to drivefocus endpoint should not throw: " + e.getMessage());
-        }
-    }
-
-    // ── AF endpoint verification (autofocus start/stop) ─────────────────────
-
-    @Test
-    void verifyAfEndpointAcceptsPost() {
-        // Per the Canon SDK, /af is for autofocus start/stop, NOT manual focus drive.
-        // Body should be {"action": "start"} or {"action": "stop"}.
-        // NOTE: Canon CCAPI rejects unknown HTTP headers with 400 "Illegal request
-        // header".  Sending raw bytes with no custom headers matches the Canon SDK.
-        String url = BASE_URL + "/ccapi/ver100/shooting/control/af";
-        byte[] body = "{\"action\":\"start\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        log.info("POST {} with raw JSON body", url);
-        try {
-            ResponseEntity<String> response = rest.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(body), String.class);
-            log.info("POST AF — Status: {}, Body: {}", response.getStatusCode(), response.getBody());
-            assertTrue(response.getStatusCode().is2xxSuccessful(),
-                    "POST to AF endpoint should succeed, got: " + response.getStatusCode());
-        } catch (org.springframework.web.client.HttpServerErrorException e) {
-            // 503 "Already started" is OK — means AF is already running (e.g. live view active)
-            if (e.getStatusCode().value() == 503 && e.getResponseBodyAsString().contains("Already started")) {
-                log.info("POST AF returned 503 'Already started' — AF is already active, acceptable");
-            } else {
-                fail("POST to AF endpoint should not throw: " + e.getMessage());
-            }
-        } catch (RestClientException e) {
-            fail("POST to AF endpoint should not throw: " + e.getMessage());
-        }
-    }
-
-    @Test
-    void verifyAfEndpointRejectsPut() {
-        // PUT is not a valid method for the AF endpoint per the Canon SDK.
-        String url = BASE_URL + "/ccapi/ver100/shooting/control/af";
-        byte[] body = "{\"action\":\"start\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        log.info("PUT {} with raw JSON body", url);
-        try {
-            rest.exchange(url, HttpMethod.PUT, new HttpEntity<>(body), String.class);
-            // If PUT succeeds, the camera firmware differs from what we observed.
-            // Log it but don't fail — the important thing is POST works.
-            log.warn("PUT to AF endpoint unexpectedly succeeded — camera may accept both methods");
-        } catch (HttpClientErrorException.MethodNotAllowed e) {
-            log.info("PUT correctly rejected with 405 Method Not Allowed");
-        } catch (HttpClientErrorException e) {
-            log.info("PUT rejected with HTTP {}: {}", e.getStatusCode(), e.getMessage());
-        } catch (RestClientException e) {
-            log.info("PUT rejected: {}", e.getMessage());
-        }
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void verifyDescriptorMethodFlagsMatchRealBehaviour() {
-        // Cross-check: the descriptor flags for the AF endpoint should say
-        // post=true (and ideally put=false), matching the actual HTTP behaviour.
-        Map<String, Object> versions = rest.getForObject(BASE_URL + "/ccapi", Map.class);
-        assertNotNull(versions);
-
-        String bestVersion = versions.keySet().stream()
-                .filter(k -> k.startsWith("ver"))
-                .sorted().reduce((a, b) -> b).orElse(null);
-        assertNotNull(bestVersion);
-
-        Object versionValue = versions.get(bestVersion);
-        assertInstanceOf(List.class, versionValue);
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> descriptors = (List<Map<String, Object>>) versionValue;
-        Map<String, Object> afDescriptor = descriptors.stream()
-                .filter(d -> String.valueOf(d.get("url")).contains("/shooting/control/af"))
-                .findFirst()
-                .orElse(null);
-
-        if (afDescriptor != null) {
-            boolean post = Boolean.TRUE.equals(afDescriptor.get("post"));
-            boolean put = Boolean.TRUE.equals(afDescriptor.get("put"));
-            log.info("AF descriptor: post={}, put={}, full={}", post, put, afDescriptor);
-            assertTrue(post, "AF descriptor should indicate post=true");
-            assertFalse(put, "AF descriptor should indicate put=false (or absent)");
-        } else {
-            log.warn("AF endpoint not found in descriptors — camera may not expose it");
-        }
-    }
-
-    // ── Helpers ─────────────────────────────────────────────────────────────
-
-    private void tryGetAndDump(String path, String label) {
-        String url = BASE_URL + path;
-        log.info("GET {} ({})", url, label);
-        try {
-            ResponseEntity<String> response = rest.getForEntity(url, String.class);
-            log.info("{} — Status {}:\n{}", label, response.getStatusCode(),
-                    prettyPrint(response.getBody()));
-        } catch (RestClientException e) {
-            log.warn("{} — Not available: {}", label, e.getMessage());
-        }
-    }
-
-    private static String prettyPrint(String json) {
-        if (json == null) return "<null>";
-        try {
-            Object parsed = mapper.readValue(json, Object.class);
-            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(parsed);
-        } catch (Exception e) {
-            return json; // not JSON, return as-is
-        }
+        Files.createDirectories(output.toAbsolutePath().getParent());
+        Files.writeString(output, evidence, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
     }
 }
