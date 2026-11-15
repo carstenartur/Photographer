@@ -9,10 +9,13 @@ export default function AuthProvider({ children }) {
     // Validate credentials by making a test request
     const auth = 'Basic ' + btoa(`${username}:${password}`);
     const res = await fetch(apiUrl('/cameras'), {
-      headers: { Authorization: auth },
+      headers: { Authorization: auth, Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
     });
     if (res.status === 401 || res.status === 403) {
       throw new Error('Invalid username or password');
+    }
+    if (!res.ok || !res.headers.get('content-type')?.includes('application/json')) {
+      throw new Error('Unable to verify sign-in with the camera service');
     }
     setCredentials(username, password);
     setAuthed(true);

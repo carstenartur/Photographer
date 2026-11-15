@@ -160,6 +160,32 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Install browser smoke runtime
+        run: |
+          python3 -m venv target/browser-venv
+          target/browser-venv/bin/pip install -r frontend-web/e2e/requirements.txt
+          target/browser-venv/bin/python -m playwright install --with-deps chromium
+
+      - name: Exercise packaged application in Chromium
+        run: target/browser-venv/bin/python frontend-web/e2e/smoke.py --image focusstack:test --captures target/browser-guide
+
+      - name: Upload browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure
+          path: target/browser-smoke/
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Upload guide screenshots
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-guide
+          path: target/browser-guide/
+          retention-days: 3
+
   report-site:
     name: Scheduled Maven Site & Badges
     runs-on: ubuntu-latest
