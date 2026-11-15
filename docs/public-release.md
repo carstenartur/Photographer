@@ -16,6 +16,10 @@ objects. [Original finding and scope](https://github.com/carstenartur/Photograph
 These checks cover common credential formats and embedded metadata. The
 maintainer still needs to review visible subjects and redistribution rights
 for the photographs, derivative reference images and downloadable assets.
+A visual review of all 13 real-camera previews and 11 reference PNGs found
+indoor scenes and diagnostic exposures. In particular, the two G5 X Mark II
+detail captures include objects from the room. Review the originals at full
+resolution when deciding which photographs to redistribute.
 The project-generated D14 pattern PDFs are tracked. Canon developer manuals
 belong in private local storage.
 
