@@ -43,6 +43,8 @@ For the next release, reuse that output directory to extend its history. From a 
 
 ## Release publication
 
-The regular release workflow builds and tests the seven Fiji JARs on the verified stable tag. The distribution job attaches the two ZIPs to the GitHub release and publishes that release's update-site archive under `fiji/cr3/` on the existing `gh-pages` branch. It checks the Maven coordinates inside the current JARs, keeps timestamped payloads from previous releases and verifies the public database after requesting a Pages build. The site uses the existing public Pages source at the root of `gh-pages`.
+The regular release workflow builds and tests the seven Fiji JARs on the verified stable tag. The distribution job attaches the two ZIPs to the GitHub release and publishes that release's update-site archive under `fiji/cr3/` on the existing `gh-pages` branch. It checks the Maven coordinates inside the current JARs, keeps timestamped payloads from previous releases and compares the anonymous downloads of the version file, update database and all seven current JARs against the local release bytes after requesting a Pages build. The site uses the existing public Pages source at the root of `gh-pages`.
+
+If an attachment step stops after uploading one ZIP, rerun the failed jobs in the original Actions run while its verified artifact is retained. The attach job downloads that pair, checks every already uploaded ZIP byte-for-byte and fills only missing assets. Rebuilding can change Fiji timestamps and JAR bytes; a mismatching upload is reported before any missing file is added.
 
 To recover a failed Pages publication, run **CR3 Fiji distribution** on **main** with `publish_existing_tag=vX.Y.Z` for the published stable GitHub release. This reuses its existing archive and accepts a byte-identical replay. Leaving the input empty runs the ordinary verification build.

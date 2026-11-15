@@ -1,12 +1,19 @@
 import gzip
+import json
+import subprocess
 import io
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import shutil
+from threading import Thread
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 import unittest
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
-from publish_cr3_fiji_site import ARTIFACTS, install, previous_archive
+from publish_cr3_fiji_site import ARTIFACTS, attach_archives, install, previous_archive, verify_served
 
 
 def archive(root, version, timestamp):
@@ -101,3 +108,96 @@ class PublicationTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Unexpected'):
                 install(bad, 'v0.1.5', root)
             self.assertFalse((root / 'index.html').exists())
+
+    def test_public_verification_requires_all_nine_anonymous_downloads_to_match(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            asset = archive(root, '0.1.5', '20260101000000')
+            install(asset, 'v0.1.5', root)
+            site = root / 'fiji/cr3'
+            published = root / 'public'
+            shutil.copytree(site, published)
+            requests = []
+
+            class Handler(SimpleHTTPRequestHandler):
+                def log_message(self, *args):
+                    pass
+
+                def do_GET(self):
+                    requests.append((self.path.lstrip('/'), self.headers.get('Authorization')))
+                    super().do_GET()
+
+            with ThreadingHTTPServer(('127.0.0.1', 0), partial(Handler, directory=published)) as server:
+                thread = Thread(target=server.serve_forever)
+                thread.start()
+                url = f'http://127.0.0.1:{server.server_port}/'
+                try:
+                    verify_served(site, url, 'v0.1.5')
+                    expected = {p.relative_to(site).as_posix() for p in site.rglob('*') if p.is_file()}
+                    self.assertEqual(9, len(expected))
+                    self.assertEqual({(name, None) for name in expected}, set(requests))
+                    jar = next((published / 'jars').iterdir())
+                    original = jar.read_bytes()
+                    jar.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
+                    with self.assertRaisesRegex(ValueError, jar.name):
+                        verify_served(site, url, 'v0.1.5')
+                    jar.write_bytes(original)
+                    (published / 'version.txt').write_text('0.1.5-SNAPSHOT\n')
+                    with self.assertRaisesRegex(ValueError, 'version.txt'):
+                        verify_served(site, url, 'v0.1.5')
+                finally:
+                    server.shutdown()
+                    thread.join()
+
+    def test_partial_release_reuses_original_artifact_and_never_replaces_existing_zips(self):
+        with tempfile.TemporaryDirectory() as temp:
+            local = Path(temp)
+            names = ['cr3-fiji-install.zip', 'cr3-fiji-update-site.zip']
+            for name in names:
+                (local / name).write_bytes(name.encode())
+            # The previous job successfully uploaded only the installation archive.
+            assets = {names[0]: (3, names[0].encode())}
+            uploads = []
+
+            def gh(args, *, check, stdout=None, **kwargs):
+                if 'releases/tags/' in args[2]:
+                    data = json.dumps({'id': 42, 'tag_name': 'v0.1.5', 'draft': False, 'prerelease': False})
+                elif args[1] == 'api' and args[2].endswith('/releases/42/assets'):
+                    data = json.dumps([[{'name': n, 'id': i, 'state': 'uploaded'} for n, (i, _) in assets.items()]])
+                elif args[1] == 'api':
+                    asset_id = int(args[2].split('/')[-1])
+                    stdout.write(next(b for i, b in assets.values() if i == asset_id))
+                    stdout.flush()
+                    data = ''
+                else:
+                    self.assertEqual(['release', 'upload', 'v0.1.5'], args[1:4])
+                    path = Path(args[4])
+                    self.assertNotIn(path.name, assets)
+                    self.assertNotIn('--clobber', args)
+                    assets[path.name] = (4, path.read_bytes())
+                    uploads.append(path.name)
+                    data = ''
+                return subprocess.CompletedProcess(args, 0, data.encode())
+
+            with patch('publish_cr3_fiji_site.subprocess.run', side_effect=gh):
+                attach_archives('owner/repo', 'v0.1.5', local)
+                attach_archives('owner/repo', 'v0.1.5', local)
+                self.assertEqual([names[1]], uploads)
+                # A different existing archive prevents any new upload, in either order.
+                del assets[names[0]]
+                assets[names[1]] = (4, b'other verified build')
+                with self.assertRaisesRegex(ValueError, 'byte'):
+                    attach_archives('owner/repo', 'v0.1.5', local)
+                self.assertEqual([names[1]], uploads)
+
+    def test_release_asset_inventory_error_does_not_trigger_upload(self):
+        calls = []
+        def gh(args, **kwargs):
+            calls.append(args)
+            if 'releases/tags/' in args[2]:
+                return subprocess.CompletedProcess(args, 0, b'{"id": 42, "tag_name": "v0.1.5", "draft": false, "prerelease": false}')
+            raise subprocess.CalledProcessError(1, args)
+        with patch('publish_cr3_fiji_site.subprocess.run', side_effect=gh):
+            with self.assertRaises(subprocess.CalledProcessError):
+                attach_archives('owner/repo', 'v0.1.5', Path('.'))
+            self.assertTrue(all(args[1] == 'api' for args in calls))

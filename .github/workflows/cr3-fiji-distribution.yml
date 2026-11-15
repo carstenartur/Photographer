@@ -129,6 +129,10 @@ jobs:
       contents: write
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.merged_sha }}
+          persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
           name: cr3-fiji-distribution
@@ -144,7 +148,7 @@ jobs:
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)" == "$MERGED_SHA" ]]
-          gh release upload "$RELEASE_TAG" archives/cr3-fiji-install.zip archives/cr3-fiji-update-site.zip
+          python3 scripts/publish_cr3_fiji_site.py attach "$GH_REPO" "$RELEASE_TAG" archives
 
   publish-site:
     name: Publish the released Fiji update site
@@ -207,19 +211,15 @@ jobs:
           done
           exit 1
 
-      - name: Build Pages and check that Fiji can fetch the database anonymously
+      - name: Request the Pages build
         env:
           GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GH_REPO/pages/builds" > /dev/null
+
+      - name: Verify anonymous downloads of the version, database and all seven Fiji JARs
         run: |
           set -euo pipefail
-          gh api --method POST "repos/$GH_REPO/pages/builds" > /dev/null
           base=$(jq -er .html_url "$RUNNER_TEMP/pages.json")
-          for attempt in {1..50}; do
-            if curl -fsSL --max-time 8 "${base%/}/fiji/cr3/db.xml.gz?release=$RELEASE_TAG" -o "$RUNNER_TEMP/public-db.gz" &&
-               cmp -s "$RUNNER_TEMP/public-db.gz" hosted/fiji/cr3/db.xml.gz; then
-              echo "Fiji update site: ${base%/}/fiji/cr3/" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            sleep 10
-          done
-          exit 1
+          url="${base%/}/fiji/cr3/"
+          python3 scripts/publish_cr3_fiji_site.py verify-served hosted/fiji/cr3 "$url" "$RELEASE_TAG"
+          echo "Fiji update site: $url" >> "$GITHUB_STEP_SUMMARY"
