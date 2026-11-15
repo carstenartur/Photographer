@@ -186,6 +186,49 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 - `read` supports destination images, destination types, destination offsets and band selection. Choose a destination compatible with the selected output. A supplied destination receives pixels at the requested physical offset. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
 - `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the preview. For RAW output geometry, inspect the returned image or raster. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
 
+## Write a lossless CR3 using a camera reference
+
+Supply a full, single-band unsigned-short Bayer raster in native 14-bit sensor units. The
+camera reference defines the required sensor dimensions, CFA, track layout and capture
+metadata. A raster from `Cr3DecodeOptions.rawSensor()` is suitable for editing the capture
+that produced it. Use that capture as the reference to preserve its calibration, exposure,
+date and other metadata. Choose a new destination file. To reuse an existing file, truncate
+it before wrapping it in an ImageOutputStream.
+
+```java
+import com.photographer.focusstack.cr3.imageio.CanonCr3ImageWriter;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.stream.FileImageOutputStream;
+import java.awt.image.Raster;
+import java.io.IOException;
+import java.nio.file.Path;
+
+static void writeCr3(Raster mosaic, Path cameraReference, Path destination) throws IOException {
+    var writer = (CanonCr3ImageWriter) ImageIO.getImageWritersByFormatName("CR3").next();
+    try (var output = new FileImageOutputStream(destination.toFile())) {
+        writer.setDefaultCameraReference(cameraReference);
+        writer.setOutput(output);
+        writer.write(new IIOImage(mosaic, null, null));
+    } finally {
+        writer.dispose();
+    }
+}
+```
+
+Set `CanonCr3ImageWriteParam.setCameraReference(path)` on the parameters passed to
+`writer.write(null, image, parameters)` to override the writer's default for one image.
+An unconfigured writer reports an `IIOException`. Source cropping and subsampling are
+unsupported because the regenerated RAW track must retain the reference's full sensor grid.
+
+The writer supports the observed four-track lossless CRX V1 layout. The full Bayer values
+round-trip exactly. The reduced Bayer image and JPEGs are regenerated as simple previews
+from the supplied mosaic. The camera's capture metadata, CFA, sensor geometry
+and container structure come from the reference. Both EOS R and PowerShot G5 X Mark II
+samples have been checked with the Photographer reader and DNGLab 0.8.0. Canon Digital
+Photo Professional compatibility and byte-identical Canon compression remain unverified.
+
 ## Write and read a Bayer DNG
 
 The same `io.github.carstenartur:cr3-imageio` dependency registers a DNG writer and reader. Keep the ImageReaderSpi and ImageWriterSpi service entries when shading the JAR.

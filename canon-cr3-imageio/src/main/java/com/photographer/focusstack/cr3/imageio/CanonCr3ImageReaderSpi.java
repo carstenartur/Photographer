@@ -41,7 +41,7 @@ public class CanonCr3ImageReaderSpi extends ImageReaderSpi {
                 MIME_TYPES,                // MIMETypes
                 READER_CLASS_NAME,         // readerClassName
                 new Class[]{ImageInputStream.class}, // inputTypes
-                null,                      // writerSpiNames
+                new String[]{CanonCr3ImageWriterSpi.class.getName()}, // writerSpiNames
                 false,                     // supportsStandardStreamMetadataFormat
                 null,                      // nativeStreamMetadataFormatName
                 null,                      // nativeStreamMetadataFormatClassName
