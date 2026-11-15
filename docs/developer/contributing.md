@@ -30,23 +30,15 @@ The root `pom.xml` is the authoritative reactor definition. See [Modules](module
 
 ## Local backend with H2
 
-The default Spring profile uses an in-memory H2 database and local-heap Hibernate Search. An administrator password is mandatory.
+Follow the [Maven quickstart](../quickstart.md#run-locally-with-maven) to build the executable JAR with the frontend and run it on port 8080. The default profile uses an in-memory H2 database and local-heap Hibernate Search.
 
-```bash
-export FOCUSSTACK_SECURITY_ADMIN_PASSWORD='use-a-local-non-default-password'
-export FOCUSSTACK_CAMERA_MOCK_ENABLED=true
-mvn spring-boot:run -pl app -am -Djava.awt.headless=true
-```
-
-On Windows PowerShell:
+With PowerShell 7, run from the repository root:
 
 ```powershell
-$env:FOCUSSTACK_SECURITY_ADMIN_PASSWORD = 'use-a-local-non-default-password'
-$env:FOCUSSTACK_CAMERA_MOCK_ENABLED = 'true'
-mvn spring-boot:run -pl app -am -Djava.awt.headless=true
+mvn -B -pl frontend-web,app -am package -DskipTests "-Djava.awt.headless=true"
+$env:FOCUSSTACK_SECURITY_ADMIN_PASSWORD = Read-Host "Photographer admin password" -MaskInput
+java "-Djava.awt.headless=true" -jar app/target/focusstack.jar
 ```
-
-The backend listens on port 8080 by default. Do not commit local passwords, API keys or camera credentials.
 
 ## Docker Compose development
 

@@ -11,6 +11,14 @@ Use Fiji with Java 21 or newer. Add the hosted update site to receive the import
 
 The [published version](https://carstenartur.github.io/Photographer/fiji/cr3/version.txt) identifies the installed channel's current build. A version ending in `-SNAPSHOT` is a preview. Stable releases use the same URL and retain the timestamped updater history.
 
+## Open a sensor image
+
+Choose **File › Import › CR3 Sensor Data...** and select a CR3. To reproduce the example, open the repository fixture [sample-tele.cr3](../../canon-cr3-imageio/src/test/resources/samples/sample-tele.cr3). The importer opens one grayscale plane in sensor coordinates. In this PowerShot G5 X Mark II capture, the RGGB mosaic contains 14-bit sensor codes. ImageJ stores them in an unsigned 16-bit image measuring 5,632 × 3,710 pixels.
+
+![ImageJ displaying the imported sample-tele.cr3 sensor plane at 16.7% zoom. The image window reports 5632 × 3710 pixels and 16-bit depth.](../screenshots/cr3-sensor-imagej.webp)
+
+The screenshot uses **Image › Adjust › Brightness/Contrast... › Set** with a display minimum of **2048** and maximum of **6473**. Use **Reset** to restore the display range. Adjusting these limits preserves the pixel values for measurement. Leave **Apply** unused to preserve those values. Other exposures can need different display limits.
+
 ## Install from the ZIP
 
 Close Fiji. Extract `cr3-fiji-install.zip` into the Fiji application directory that contains `jars/` and `plugins/`. On macOS, open **Show Package Contents** to locate those folders. Merge the two directories with their existing counterparts. Restart Fiji and choose **File › Import › CR3 Sensor Data...**.

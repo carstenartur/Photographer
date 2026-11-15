@@ -43,19 +43,7 @@ mvn -B clean verify -pl common-api,app -am -Djava.awt.headless=true
 
 ## Run
 
-```bash
-# Local development (uses H2 by default)
-mvn spring-boot:run -pl app -am -Djava.awt.headless=true
-
-# With Docker Compose (PostgreSQL)
-docker compose up --build
-```
-
-## Default Credentials
-
-| Username | Password |
-|---|---|
-| `admin` | `focusstack` (override via `FOCUSSTACK_SECURITY_ADMIN_PASSWORD`) |
+Follow the [application quickstart](../docs/quickstart.md) to start with Docker Compose and PostgreSQL, or build the executable JAR with its React UI and run locally with H2. Sign in as `admin` using the password you set in `FOCUSSTACK_SECURITY_ADMIN_PASSWORD`. The [web walkthrough](../docs/web-interface.md) covers a capture with the mock camera.
 
 ## Canonical documentation
 
