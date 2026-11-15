@@ -114,7 +114,13 @@ jobs:
           -am
           -Djava.awt.headless=true
 
-      - name: Verify isolated external Maven consumer
+      - name: Set up the minimum CR3 runtime (JDK 21)
+        uses: actions/setup-java@v6
+        with:
+          java-version: '21'
+          distribution: temurin
+
+      - name: Verify isolated external Maven consumer on JDK 21
         run: >-
           mvn -B --no-transfer-progress verify
           -pl canon-cr3-maven-smoke

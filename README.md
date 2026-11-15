@@ -116,7 +116,7 @@ graph TD
 
 ## Import Canon CR3 files in Java
 
-Add `io.github.carstenartur:cr3-imageio` to a Java 25 Maven application to read the camera’s embedded JPEG with `ImageIO.read(file)`. Select processed RGB, linear Bayer or the original sensor codes through the reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
+Add `io.github.carstenartur:cr3-imageio` to a Java 21 or newer Maven application to read the camera’s embedded JPEG with `ImageIO.read(file)`. Select processed RGB, linear Bayer or the original sensor codes through the reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
 
 [ImageIO setup and parameters](docs/cr3/imageio.md) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [CR3 file import, JPEG extraction and Photographer frame export](docs/cr3/import.md) · [Maven release status](docs/cr3-maven-central.md)
 

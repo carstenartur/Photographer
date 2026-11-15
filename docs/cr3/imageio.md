@@ -16,7 +16,7 @@ Preview, thumbnail and metadata access are stable APIs. The RAW modes are experi
 
 ## Maven setup
 
-Use JDK 25 and Maven 3.9.x. This example `pom.xml` declares one dependency. Maven resolves the other five CR3 libraries and the SLF4J API transitively. For a regular release, add the repository entry from the [Git-backed repository guide](../cr3-maven-central.md#resolve-a-released-version). A version also published to Maven Central uses Maven's default configuration.
+Use JDK 21 or newer and Maven 3.9.x for the consuming application. This example `pom.xml` declares one dependency. Maven resolves the other five CR3 libraries and the SLF4J API transitively. For a regular release, add the repository entry from the [Git-backed repository guide](../cr3-maven-central.md#resolve-a-released-version). A version also published to Maven Central uses Maven's default configuration.
 
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -25,7 +25,7 @@ Use JDK 25 and Maven 3.9.x. This example `pom.xml` declares one dependency. Mave
   <artifactId>read-cr3</artifactId>
   <version>1.0</version>
   <properties>
-    <maven.compiler.release>25</maven.compiler.release>
+    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <cr3.version>0.1.5</cr3.version>
   </properties>
@@ -48,7 +48,7 @@ Use JDK 25 and Maven 3.9.x. This example `pom.xml` declares one dependency. Mave
 </project>
 ```
 
-The coordinates above target the 0.1.5 release. To use a development checkout before release, run `mvn -pl canon-cr3-imageio -am install` from the Photographer repository root. Set `cr3.version` in the consumer POM to the installed revision, for example `0.1.5-SNAPSHOT`. Publication and independent download verification are covered in the [CR3 Maven release guide](../cr3-maven-central.md).
+The coordinates above target the 0.1.5 release. To use a development checkout before release, run `mvn -pl canon-cr3-imageio -am install` from the Photographer repository root with JDK 25. Set `cr3.version` in the consumer POM to the installed revision, for example `0.1.5-SNAPSHOT`. Publication and independent download verification are covered in the [CR3 Maven release guide](../cr3-maven-central.md).
 
 ## Quick preview
 

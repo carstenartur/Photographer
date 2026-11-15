@@ -35,6 +35,7 @@
     </ciManagement>
 
     <properties>
+        <java.version>${cr3.java.version}</java.version>
         <central.skipPublishing>false</central.skipPublishing>
     </properties>
 

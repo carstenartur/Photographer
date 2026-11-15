@@ -4,7 +4,7 @@ Use `cr3-core` to open a local CR3 file, inspect camera metadata, or choose exac
 
 ## Maven
 
-Use JDK 25. For the 0.1.5 release, add this dependency inside the consumer POM's `<dependencies>` element. Maven resolves the container, metadata, codec and processing modules transitively. A consumer that already declares `cr3-imageio` also receives `cr3-core` transitively.
+Use JDK 21 or newer for the consuming application. For the 0.1.5 release, add this dependency inside the consumer POM's `<dependencies>` element. Maven resolves the container, metadata, codec and processing modules transitively. A consumer that already declares `cr3-imageio` also receives `cr3-core` transitively.
 
 ```xml
 <dependency>
