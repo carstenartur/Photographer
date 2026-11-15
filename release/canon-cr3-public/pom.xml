@@ -14,7 +14,7 @@
     <packaging>pom</packaging>
 
     <name>Canon CR3 Public Release Aggregator</name>
-    <description>Credential-free bundle validation and controlled Central Portal publication for supported CR3 libraries</description>
+    <description>Git-backed Maven releases and optional signed Central Portal bundles for supported CR3 libraries</description>
 
     <modules>
         <module>../../canon-cr3-container</module>

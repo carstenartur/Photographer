@@ -21,6 +21,9 @@ on:
       - 'docs/cr3/imageio.md'
       - 'docs/cr3/import.md'
       - 'release/canon-cr3-public/**'
+      - 'release/canon-cr3-consumer/**'
+      - 'scripts/cr3_repository.py'
+      - 'scripts/test_cr3_repository.py'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
       - 'scripts/validate_cr3_source_coordinates.py'
@@ -48,6 +51,9 @@ on:
       - 'docs/cr3/imageio.md'
       - 'docs/cr3/import.md'
       - 'release/canon-cr3-public/**'
+      - 'release/canon-cr3-consumer/**'
+      - 'scripts/cr3_repository.py'
+      - 'scripts/test_cr3_repository.py'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
       - 'scripts/validate_cr3_source_coordinates.py'
@@ -82,6 +88,11 @@ jobs:
           distribution: temurin
           cache: maven
           cache-dependency-path: pom.xml
+
+      - name: Verify the independent Git-backed Maven release and consumer
+        run: |
+          python3 scripts/test_cr3_repository.py
+          python3 scripts/cr3_repository.py 0.1.5
 
       - name: Build and validate signed public Central bundle
         run: bash scripts/run_cr3_central_preflight.sh 0.1.5

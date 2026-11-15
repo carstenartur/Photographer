@@ -63,6 +63,24 @@
 
     <build>
         <plugins>
+            <!-- Sibling tests depend on this fixture jar. Install it locally
+                 without attaching it to the public component for signing or deployment. -->
+            <plugin>
+                <artifactId>maven-install-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>install-local-test-fixtures</id>
+                        <phase>${cr3.fixtureInstallPhase}</phase>
+                        <goals><goal>install-file</goal></goals>
+                        <configuration>
+                            <file>${project.build.directory}/${project.build.finalName}-tests.jar</file>
+                            <pomFile>${project.file}</pomFile>
+                            <classifier>tests</classifier>
+                            <packaging>jar</packaging>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -79,31 +97,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <id>central-release</id>
-            <build>
-                <plugins>
-                    <!-- Sibling tests depend on this fixture jar. Install it locally
-                         without attaching it to the public component for signing or deployment. -->
-                    <plugin>
-                        <artifactId>maven-install-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>install-local-test-fixtures</id>
-                                <phase>install</phase>
-                                <goals><goal>install-file</goal></goals>
-                                <configuration>
-                                    <file>${project.build.directory}/${project.build.finalName}-tests.jar</file>
-                                    <pomFile>${project.file}</pomFile>
-                                    <classifier>tests</classifier>
-                                    <packaging>jar</packaging>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

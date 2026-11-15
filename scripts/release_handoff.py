@@ -18,6 +18,8 @@ import subprocess
 import sys
 import xml.etree.ElementTree as ET
 
+import cr3_repository
+
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location('release_version_plan', ROOT / '.github/scripts/release-version-plan.py')
 _planner = importlib.util.module_from_spec(_spec)
@@ -487,6 +489,7 @@ class Session:
         prepared = self.commit(plan, 'Release version')
         validate_transition(self.git, plan.source, prepared, project, plan.release)
         self.build()
+        cr3_repository.stage_release(self.git.path, plan.release)
         stable_checkout(self.git, prepared)
         # Prove the successor locally now, restore stable source before staging.
         self.set_version(plan.next)
@@ -514,10 +517,11 @@ class Session:
         self.git.call('checkout', '--detach', merged)
         require(self.versions() == (plan.release, plan.release), 'merged Maven project.version/revision mismatch')
         self.build()
+        repository_digest = cr3_repository.stage_release(self.git.path, plan.release)
         stable_checkout(self.git, merged)
         digest = artifact_hash(self.jar)
         # A dry resume validates/builds but can never authorize any publication.
-        return self.result(plan, 'resume', prepared, merged=merged, artifact_sha256=digest, verified_resume='false' if self.dry_run else 'true')
+        return self.result(plan, 'resume', prepared, merged=merged, artifact_sha256=digest, repository_sha256=repository_digest, verified_resume='false' if self.dry_run else 'true')
 
     def validated_state(self, state: dict[str, str]) -> tuple[Plan, str]:
         require(not self.dry_run and not self.skip_tests and self.ref == 'refs/heads/main', 'publication requires live tests-enabled main control')
@@ -534,6 +538,15 @@ class Session:
         publication_guard(self.git, self.api, plan, merged, self.jar, state['artifact_sha256'])
         maintenance = self.api.read('git/ref/heads/'+plan.maintenance_branch, absent=True)
         state['maintenance_sha'] = object_sha(maintenance) if maintenance is not None else 'absent'
+        stage = self.git.path / cr3_repository.STAGE
+        require(cr3_repository.validate_stage(stage, plan.release) == state.get('repository_sha256'),
+                'Maven artifacts changed after verified build')
+
+        def guard_repository_push():
+            publication_guard(self.git, self.api, plan, merged, self.jar, state['artifact_sha256'])
+
+        cr3_repository.publish(self.git.path, stage, plan.release, guard_repository_push)
+        guard_repository_push()
         self.validated_state(state)
         tag = self.api.write('git/tags', {'tag': 'v'+plan.release, 'message': 'Release '+plan.release, 'object': merged, 'type': 'commit'})
         require(bool(SHA.fullmatch(tag.get('sha', ''))), 'invalid annotated tag SHA')
@@ -635,7 +648,7 @@ def main() -> int:
                 state = session.finish(state)
         state_path.write_text(json.dumps(state), encoding='utf-8')
         emit(state)
-    except (ValueError, KeyError, TypeError, OSError, ET.ParseError) as error:
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError, subprocess.CalledProcessError, ET.ParseError) as error:
         print(f'::error::{error}. Stop; publication recovery requires separate diagnosis.', file=sys.stderr)
         return 1
     return 0
