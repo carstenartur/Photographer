@@ -539,4 +539,4 @@ window.BENCHMARK_DATA = {
       }
     ]
   }
-}
+};
