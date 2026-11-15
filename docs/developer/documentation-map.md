@@ -20,7 +20,8 @@ Removal still requires a content audit and link-preserving migration.
 | `docs/developer/architecture.md` | canonical | Current cross-module architecture derived from POMs, code and tests. |
 | `docs/developer/modules.md` | canonical | Reactor modules, support classification and public surfaces. |
 | `docs/developer/contributing.md` | canonical | Checkout, local development, build and contribution workflow. |
-| `docs/developer/testing.md` | canonical | Test layers, local commands, CI orchestration and evidence boundaries. |
+| `docs/developer/testing.md` | canonical | Test layers, local commands and evidence boundaries. |
+| `docs/developer/ci.md` | canonical | Workflow responsibilities, triggers and failure diagnosis. |
 | `docs/developer/operations.md` | canonical | Secrets, private references, runtime data, backup and recovery. |
 | `docs/developer/documentation-map.md` | canonical | Documentation ownership, classification and correction workflow. |
 | `docs/developer/documentation-ownership.json` | canonical machine-readable contract | Unique topic owners, redirects, required module links and forbidden generated-output paths. |
@@ -32,6 +33,7 @@ Removal still requires a content audit and link-preserving migration.
 | File | Class | Ownership |
 |---|---|---|
 | `docs/cr3/index.md` | canonical | CR3 entry point, module map and maturity boundary. |
+| `docs/cr3/format.md` | canonical | Measured CR3 and CRX layout, reader and writer implementation and verification. |
 | `docs/cr3/imageio.md` | canonical | Stable ImageIO integration and experimental RAW controls. |
 | `docs/cr3/decoder.md` | canonical | Stable container/metadata versus experimental codec/internal processing. |
 | `docs/cr3/cli.md` | canonical | User-facing CLI commands and experimental decode boundary. |
@@ -65,7 +67,7 @@ Existing issues continue to own CCAPI/hardware evidence, CR3 research/release/be
 
 Module `README.md` and `ARCHITECTURE.md` files are **local** by default. They own module purpose, public contracts, dependencies, independent verification and module-specific limitations. Cross-module architecture, release maturity, testing and research policy belong in the manuals.
 
-Explicit local evidence includes `canon-cr3-core/SubbandFixtures.md`, `canon-cr3-imageio/CR3_FORMAT.md`, fixture/sample READMEs, benchmark documentation and the research/reference-testkit READMEs.
+Explicit local evidence includes `canon-cr3-core/SubbandFixtures.md`, fixture/sample READMEs, benchmark documentation and the research/reference-testkit READMEs.
 
 Local documentation does not become a supported external API merely because a Java class is public.
 
@@ -78,7 +80,6 @@ Local documentation does not become a supported external API merely because a Ja
 | `docs/quickstart.md` | canonical | Concise user/operator quickstart. |
 | `docs/reference-pipeline.md` | canonical | Independent CR3 reference-sidecar generation and validation. |
 | `docs/cr3-api-boundaries.md` | canonical | Symbol/package compatibility classification. |
-| `docs/crx-cleanroom-spec.md` | canonical | Implementation-aligned internal clean-room specification. |
 | `docs/cleanroom/**` process/attestation files | canonical | Clean-room policy, source registry, experiment ledger, generated-evidence ownership and contributor records. |
 | `docs/ccapi-*.md` maintained contracts | canonical | Transport, security, ownership, shutdown, media, event and live-view behavior backed by code/tests. |
 
@@ -92,6 +93,7 @@ Private Canon manuals and extracted text remain outside Git and are never redist
 | `docs/development.md` | merge | `docs/developer/contributing.md` and `testing.md` |
 | `docs/test-strategy.md` | merge | `docs/developer/testing.md` |
 | `docs/generic-camera-architecture.md` | merge | `docs/developer/architecture.md#camera-architecture` |
+| `canon-cr3-imageio/CR3_FORMAT.md` | merge | `docs/cr3/format.md` |
 | `docs/cr3-current-state.md` | merge | `docs/cr3/current-state.md` |
 | `docs/cr3-open-hypotheses.md` | merge | `docs/cr3/open-hypotheses.md` |
 | `docs/cr3-results-index.md` | merge | `docs/cr3/reports/index.md` |
@@ -108,6 +110,7 @@ The last two redirects retire obsolete D5/Phase-A defaults while preserving hist
 | `docs/cr3-reference-inventory.md` | generated | Reference-corpus snapshot. |
 | `docs/cr3-reference-manifest.md` | canonical/generated boundary | Maintained schema plus generated/hash-bound entries. |
 | `docs/patent-us20160323602a1-analysis.md` | local | Registered-source analysis, not product/API documentation. |
+| `docs/crx-cleanroom-spec.md` | local | Historical lossless-decoder hypotheses and D12 promotion criteria. |
 | `docs/cr3-results/**` | generated | Complete per-file ownership is defined by `docs/cleanroom/generated-evidence.json`; the curated current interpretation remains in `docs/cr3/reports/index.md`. |
 | `docs/cleanroom/generated-evidence.json` | canonical machine-readable evidence contract | Exact owner, generator/input metadata, classification, outputs, timestamp policy, mappings and locks. |
 | `docs/cleanroom/generated-evidence.md` | canonical process documentation | Read-only verify/compare and explicit reviewed update procedure. |

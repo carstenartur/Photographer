@@ -6,21 +6,22 @@ it is not the only supported execution environment.
 
 ## Local verification
 
-Run the same product checks used by the general CI workflow:
+Run the project verification script for Java product changes.
 
 ```bash
-python3 scripts/validate_cr3_reference_manifest.py
-mvn -B --no-transfer-progress clean verify \
-  -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,cr3-imagej,canon-cr3-cli,app \
-  -am \
-  -Djava.awt.headless=true
-npm --prefix frontend-web ci
-npm --prefix frontend-web run lint
-npm --prefix frontend-web run build
-docker build -t focusstack:test .
+bash scripts/verify-product.sh
 ```
 
-Verify the packaged CR3 artifacts from an isolated Maven consumer:
+Run the Markdown and ownership checks directly for documentation changes.
+
+```bash
+python3 scripts/test_validate_documentation.py
+python3 scripts/validate_documentation.py .
+```
+
+Use the [testing guide](testing.md) for the frontend and packaged-browser smoke commands.
+
+To verify the installed CR3 artifacts against the isolated Maven consumer, stage the six Maven libraries with JDK 25, then run the smoke module with JDK 21.
 
 ```bash
 mvn -B --no-transfer-progress install \
@@ -28,37 +29,28 @@ mvn -B --no-transfer-progress install \
   -pl canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio \
   -am \
   -Djava.awt.headless=true
-mvn -B --no-transfer-progress verify \
-  -pl canon-cr3-maven-smoke \
-  -Djava.awt.headless=true
+mvn -B --no-transfer-progress verify -pl canon-cr3-maven-smoke -Djava.awt.headless=true
 ```
 
-Run the intentionally expensive CR3 research suite explicitly:
+Run the focused or full CR3 research suite from a checkout.
 
 ```bash
-mvn -B --no-transfer-progress install \
-  -DskipTests \
-  -pl canon-cr3-research \
-  -am \
-  -Djava.awt.headless=true
-mvn -B --no-transfer-progress verify \
-  -Pcr3-research-it \
-  -pl canon-cr3-research \
-  -Djava.awt.headless=true
+bash scripts/verify-cr3-research.sh --focused
+bash scripts/verify-cr3-research.sh --full
 ```
 
 ## Workflow responsibilities
 
-| Workflow | Pull requests | Main/scheduled responsibility |
+| Workflow | Pull requests | Main, scheduled and manual runs |
 |---|---|---|
-| `CI` | Java tests, Testcontainers integration tests, manifest validation, frontend lint/build and Docker smoke build | Same product verification; Maven site and badges only on scheduled/manual runs |
-| `CR3 Packaged Consumer` | Installed-POM graph, compiled JAR boundaries, runtime dependency leaks and external ImageIO/Maven consumption | Same packaged-consumer gate after CR3 changes |
-| `Benchmark` | Short base/head sentinel comparison on the same runner | Full longitudinal JMH suite weekly or manually |
-| `CR3 Research Integration` | Not automatic | Full reference-backed research profile monthly or manually |
+| [CI](../../.github/workflows/ci.yml) | Path classification, Java verification, frontend tests/lint/build and packaged browser smoke | Classifies pushes to main. Scheduled and manual runs also generate the Maven site and badges. |
+| [CR3 Packaged Consumer](../../.github/workflows/cr3-modules.yml) | Packaged CR3 artifacts, installed-POM dependencies, isolated Java 21 consumer and Maven Central preflight on relevant changes | Same checks on relevant pushes to main or manual runs. |
+| [CR3 Benchmark History](../../.github/workflows/cr3-benchmark.yml) | Base/head JMH sentinel comparison on the same runner for relevant changes | Full JMH history on relevant pushes to main, weekly schedule and ordinary manual runs. |
+| [CR3 Research Integration](../../.github/workflows/cr3-research.yml) | Focused evidence profile for changes to the CR3 implementation, fixtures and evidence inputs | Full reference-backed profile on scheduled and manual runs. |
 
-The general CI owns production unit and integration tests. The CR3 packaged-consumer
-workflow must not repeat those tests; it stages already-tested production artifacts
-with `-DskipTests` and then executes only the independent consumer.
+The CI path check skips Maven, frontend and Docker jobs for Markdown-only changes under `docs/` and to the root `README.md`. The CR3 reference manifest is a build input. The other workflows apply their own path filters.
+
+Product CI owns the production unit and integration suite. The packaged-consumer workflow stages the runtime artifacts with `-DskipTests` and tests their use in an independent Maven project.
 
 ## Private-repository Actions usage
 
@@ -71,12 +63,12 @@ same commands in one bounded job.
 Repository controls used here:
 
 - superseded runs are cancelled with workflow concurrency groups;
-- the lightweight manifest gate shares the Java runner;
-- reports never run on pull requests;
+- the reference manifest check shares the Java runner;
+- the Maven site and badge publication run on scheduled and manual invocations;
 - the full reactor schedule is weekly rather than daily;
 - CR3 production tests are not repeated by the packaged-consumer workflow;
-- heavy research is monthly/manual;
-- full benchmark history is weekly/manual rather than per merge;
+- research uses the focused profile on relevant pull requests;
+- benchmark pull requests use the sentinel suite;
 - every job has a timeout;
 - transient artifacts use short retention periods.
 

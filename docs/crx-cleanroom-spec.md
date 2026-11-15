@@ -1,8 +1,6 @@
 # CRX lossless decoder — clean-room engineering specification
 
-> **Status:** research specification, not a normative Canon CRX format document.
->
-> This specification separates verified container behavior, public algorithm-family disclosures, project observations and unresolved CRX semantics. Only behavior promoted through the clean-room experiment ledger may enter the production decoder.
+> **Historical research specification.** This document records the hypotheses and promotion criteria through D12. Later RG4 and RG5 evidence established native decoding for the measured V1 lossless and three-level C-RAW layouts. See the [current format reference](cr3/format.md), [verified implementation status](cr3/current-state.md) and [clean-room engineering record](cleanroom/README.md).
 
 ## 1. Sources and evidence classes
 

@@ -6,8 +6,8 @@ Photographer uses layered, locally runnable verification. CI calls repository-ow
 
 | Layer | Typical runner | Purpose |
 |---|---|---|
-| Java unit tests | Maven Surefire / JUnit 5 | Fast class and contract tests without external infrastructure. |
-| Java integration tests | Maven Failsafe / JUnit 5 | Module interaction, Spring contexts, persistence and reference pipelines. |
+| Java unit tests | Maven Surefire / JUnit Jupiter | Fast class and contract tests without external infrastructure. |
+| Java integration tests | Maven Failsafe / JUnit Jupiter | Module interaction, Spring contexts, persistence and reference pipelines. |
 | Testcontainers integration | Maven Failsafe + Docker | PostgreSQL and packaged/infrastructure behavior from a normal checkout. |
 | Docker-tagged tests | JUnit tag `docker` | Image builds or heavyweight container scenarios, excluded by default. |
 | Real-camera tests | JUnit tag `real-camera` | Hardware-backed CCAPI/PTP behavior, excluded by default. |
@@ -146,8 +146,8 @@ CR3 tests are split with the production modules:
 - metadata in `cr3-metadata`;
 - experimental codec behavior in `cr3-codec`;
 - image processing in `cr3-processing`;
-- facade/orchestration in `cr3-core`;
-- SPI, reader and reference-backed integration in `cr3-imageio`.
+- decoder orchestration and camera-profile writing in `cr3-core`;
+- ImageIO reader, writer and reference-backed integration in `cr3-imageio`.
 
 The stable container/metadata/ImageIO tests and experimental decoder tests must remain distinguishable. A green preview test is not evidence of correct sensor RAW reconstruction.
 
@@ -195,15 +195,7 @@ Benchmark evidence records base/head SHAs, order, CPU, runner image, kernel, Jav
 
 ## CI gates
 
-The main CI workflow currently performs:
-
-- repository utility/manifest validation;
-- canonical product Java verification;
-- frontend dependency installation, tests, lint and build;
-- Docker image smoke build after Java and frontend success;
-- scheduled/manual site and badge generation.
-
-Site, coverage and test HTML are build artifacts or GitHub Pages output, not committed source files.
+See [Continuous Integration](ci.md#workflow-responsibilities) for the current workflow triggers, documentation-only path check and packaged-consumer checks.
 
 ## Failure diagnosis
 
