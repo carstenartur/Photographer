@@ -35,7 +35,7 @@ import java.io.ByteArrayInputStream;
      * @param jpegBytes  the JPEG preview bytes, or {@code null} if extraction failed
      * @param fileName   a display filename for the preview (e.g. {@code IMG_1234.preview.jpg})
      */
-<span class="nc" id="L38">    public record PreviewResult(byte[] jpegBytes, String fileName) {}</span>
+<span class="fc" id="L38">    public record PreviewResult(byte[] jpegBytes, String fileName) {}</span>
 
     /**
      * Returns {@code true} if the filename indicates a Canon RAW file that may
@@ -44,7 +44,7 @@ import java.io.ByteArrayInputStream;
     public boolean isRawFile(String fileName) {
 <span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if (fileName == null) return false;</span>
 <span class="fc" id="L46">        String upper = fileName.toUpperCase();</span>
-<span class="pc bpc" id="L47" title="2 of 4 branches missed.">        return upper.endsWith(&quot;.CR3&quot;) || upper.endsWith(&quot;.CR2&quot;);</span>
+<span class="pc bpc" id="L47" title="1 of 4 branches missed.">        return upper.endsWith(&quot;.CR3&quot;) || upper.endsWith(&quot;.CR2&quot;);</span>
     }
 
     /**
@@ -55,30 +55,30 @@ import java.io.ByteArrayInputStream;
      * @return a {@link PreviewResult} with the JPEG bytes, or {@code null} if extraction fails
      */
     public PreviewResult extractPreview(byte[] rawBytes, String originalFileName) {
-<span class="nc bnc" id="L58" title="All 4 branches missed.">        if (rawBytes == null || rawBytes.length == 0) {</span>
+<span class="pc bpc" id="L58" title="2 of 4 branches missed.">        if (rawBytes == null || rawBytes.length == 0) {</span>
 <span class="nc" id="L59">            return null;</span>
         }
-<span class="nc" id="L61">        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {</span>
-<span class="nc" id="L62">            Cr3Container container = Cr3Parser.parse(iis);</span>
-<span class="nc bnc" id="L63" title="All 2 branches missed.">            if (!Cr3PreviewExtractor.hasPreview(container)) {</span>
+<span class="fc" id="L61">        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {</span>
+<span class="fc" id="L62">            Cr3Container container = Cr3Parser.parse(iis);</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">            if (!Cr3PreviewExtractor.hasPreview(container)) {</span>
 <span class="nc" id="L64">                log.warn(&quot;CR3 file {} has no embedded JPEG preview&quot;, originalFileName);</span>
 <span class="nc" id="L65">                return null;</span>
             }
-<span class="nc" id="L67">            byte[] jpegBytes = Cr3PreviewExtractor.extractPreviewBytes(iis, container);</span>
-<span class="nc bnc" id="L68" title="All 4 branches missed.">            if (jpegBytes == null || jpegBytes.length == 0) {</span>
+<span class="fc" id="L67">            byte[] jpegBytes = Cr3PreviewExtractor.extractPreviewBytes(iis, container);</span>
+<span class="pc bpc" id="L68" title="2 of 4 branches missed.">            if (jpegBytes == null || jpegBytes.length == 0) {</span>
 <span class="nc" id="L69">                log.warn(&quot;CR3 file {} — preview extraction returned empty data&quot;, originalFileName);</span>
 <span class="nc" id="L70">                return null;</span>
             }
             // Build a display filename: IMG_1234.CR3 → IMG_1234.preview.jpg
-<span class="nc" id="L73">            String baseName = originalFileName;</span>
-<span class="nc" id="L74">            int dotIdx = baseName.lastIndexOf('.');</span>
-<span class="nc bnc" id="L75" title="All 2 branches missed.">            if (dotIdx &gt; 0) {</span>
-<span class="nc" id="L76">                baseName = baseName.substring(0, dotIdx);</span>
+<span class="fc" id="L73">            String baseName = originalFileName;</span>
+<span class="fc" id="L74">            int dotIdx = baseName.lastIndexOf('.');</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">            if (dotIdx &gt; 0) {</span>
+<span class="fc" id="L76">                baseName = baseName.substring(0, dotIdx);</span>
             }
-<span class="nc" id="L78">            String previewName = baseName + &quot;.preview.jpg&quot;;</span>
-<span class="nc" id="L79">            log.info(&quot;Extracted {} byte JPEG preview from {} → {}&quot;,</span>
-<span class="nc" id="L80">                    jpegBytes.length, originalFileName, previewName);</span>
-<span class="nc" id="L81">            return new PreviewResult(jpegBytes, previewName);</span>
+<span class="fc" id="L78">            String previewName = baseName + &quot;.preview.jpg&quot;;</span>
+<span class="fc" id="L79">            log.info(&quot;Extracted {} byte JPEG preview from {} → {}&quot;,</span>
+<span class="fc" id="L80">                    jpegBytes.length, originalFileName, previewName);</span>
+<span class="fc" id="L81">            return new PreviewResult(jpegBytes, previewName);</span>
 <span class="nc" id="L82">        } catch (Exception e) {</span>
 <span class="nc" id="L83">            log.error(&quot;Failed to extract JPEG preview from {}: {}&quot;, originalFileName, e.getMessage(), e);</span>
 <span class="nc" id="L84">            return null;</span>
