@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.photographer.focusstack</groupId>
+        <artifactId>canon-focus-stack-parent</artifactId>
+        <version>0.1.5-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <groupId>io.github.carstenartur</groupId>
+    <artifactId>cr3-imagej</artifactId>
+    <version>${revision}</version>
+    <name>Canon CR3 sensor importer for ImageJ</name>
+    <description>Imports the full Canon CR3 sensor mosaic as an unsigned 16-bit ImageJ image.</description>
+
+    <properties>
+        <java.version>${cr3.java.version}</java.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.carstenartur</groupId>
+            <artifactId>cr3-imageio</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>ij</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>fiji-update-site</id>
+            <properties>
+                <fiji.site.output>${project.basedir}/../target/cr3-fiji-site</fiji.site.output>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <version>3.11.0</version>
+                        <executions>
+                            <execution>
+                                <id>stage-cr3-runtime</id>
+                                <phase>prepare-package</phase>
+                                <goals><goal>copy-dependencies</goal></goals>
+                                <configuration>
+                                    <includeScope>runtime</includeScope>
+                                    <includeGroupIds>io.github.carstenartur</includeGroupIds>
+                                    <outputDirectory>${project.build.directory}/fiji-libraries</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.6.4</version>
+                        <executions>
+                            <execution>
+                                <id>build-and-install-fiji-update-site</id>
+                                <phase>verify</phase>
+                                <goals><goal>exec</goal></goals>
+                                <configuration>
+                                    <executable>python3</executable>
+                                    <arguments>
+                                        <argument>${project.basedir}/../scripts/build_cr3_fiji_site.py</argument>
+                                        <argument>--fiji</argument>
+                                        <argument>${fiji.directory}</argument>
+                                        <argument>--version</argument>
+                                        <argument>${project.version}</argument>
+                                        <argument>--output</argument>
+                                        <argument>${fiji.site.output}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

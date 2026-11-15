@@ -1,0 +1,122 @@
+name: CR3 Fiji distribution
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        type: string
+        required: true
+      merged_sha:
+        type: string
+        required: true
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'cr3-imagej/**'
+      - 'scripts/build_cr3_fiji_site.py'
+      - '.github/workflows/cr3-fiji-distribution.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.merged_sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Load the preceding Fiji update site for a release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          MERGED_SHA: ${{ inputs.merged_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_WORKFLOW_REF" == "$GH_REPO/.github/workflows/deploy-release.yml@refs/heads/main" ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$MERGED_SHA" && "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$MERGED_SHA" ]]
+          for tag in $(git tag --merged "$MERGED_SHA^" --list 'v[0-9]*' --sort=-v:refname); do
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            git cat-file -e "$tag:.github/workflows/cr3-fiji-distribution.yml" 2>/dev/null || continue
+            gh release download "$tag" --pattern cr3-fiji-update-site.zip --dir "$RUNNER_TEMP"
+            echo "FIJI_PREVIOUS_SITE=$RUNNER_TEMP/cr3-fiji-update-site.zip" >> "$GITHUB_ENV"
+            break
+          done
+
+      - name: Extract the reference Fiji installation
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --location --retry 3 --output fiji.zip \
+            https://downloads.imagej.net/fiji/archive/latest/20261112-1517/fiji-latest-linux64-jdk.zip
+          echo 'fb3a5206ee94434907dea34b88b84f174de08ce25b3038c7a999bc554edcda15  fiji.zip' | sha256sum --check
+          unzip -q fiji.zip -x 'Fiji/java/*'
+          rm fiji.zip
+
+      - name: Build the Fiji installation and update-site archives
+        run: >-
+          mvn -B -ntp -pl cr3-imagej -am verify -Pfiji-update-site
+          -Dfiji.directory="$RUNNER_TEMP/Fiji" -Djava.awt.headless=true
+
+      - name: Run the installed plugin on Fiji's Java 21 runtime
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compare the Fiji menu import with LibRaw
+        run: |
+          set -euo pipefail
+          unzip -q target/cr3-fiji-site/cr3-fiji-install.zip -d "$RUNNER_TEMP/Fiji"
+          sample_dir="$RUNNER_TEMP/cr3-sensor-test"
+          mkdir "$sample_dir"
+          ln -s "$PWD/canon-cr3-imageio/src/test/resources/samples/sample.cr3" "$sample_dir/sample.cr3"
+          ln -s "$PWD/canon-cr3-imageio/src/test/resources/samples/sample.reference.tiff" "$sample_dir/reference.tiff"
+          timeout 120 xvfb-run -a "$RUNNER_TEMP/Fiji/fiji" --java-home "$JAVA_HOME" --mem 1g --no-splash -- \
+            -batch "$PWD/cr3-imagej/src/it/verify-fiji-import.ijm" "$sample_dir"
+          grep -Fx '5632x3710 16 bits 20894720 samples max=0' "$sample_dir/result.txt"
+
+      - name: Save installation and update-site archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: cr3-fiji-distribution
+          path: target/cr3-fiji-site/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  attach:
+    if: ${{ inputs.release_tag != '' }}
+    needs: bundle
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: cr3-fiji-distribution
+          path: archives
+
+      - name: Attach Fiji archives to the verified release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          MERGED_SHA: ${{ inputs.merged_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)" == "$MERGED_SHA" ]]
+          gh release upload "$RELEASE_TAG" archives/cr3-fiji-install.zip archives/cr3-fiji-update-site.zip

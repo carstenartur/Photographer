@@ -11,7 +11,7 @@ Run the same product checks used by the general CI workflow:
 ```bash
 python3 scripts/validate_cr3_reference_manifest.py
 mvn -B --no-transfer-progress clean verify \
-  -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,canon-cr3-cli,app \
+  -pl common-api,plugin-api,capture-core,storage,camera-ptp,hdr-core,video-core,face-analysis-core,face-profile-core,session-core,observer-core,ai-vision,astro-core,canon-cr3-container,canon-cr3-metadata,canon-cr3-codec,canon-cr3-processing,canon-cr3-core,canon-cr3-imageio,cr3-imagej,canon-cr3-cli,app \
   -am \
   -Djava.awt.headless=true
 npm --prefix frontend-web ci
