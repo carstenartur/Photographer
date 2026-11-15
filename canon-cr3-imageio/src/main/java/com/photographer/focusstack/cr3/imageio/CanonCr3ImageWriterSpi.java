@@ -8,7 +8,7 @@ import java.awt.color.ColorSpace;
 import java.awt.image.DataBuffer;
 import java.util.Locale;
 
-/** ImageIO provider for lossless CR3 writing with a selected camera reference. */
+/** ImageIO provider for lossless CR3 writing with a selected camera profile. */
 public final class CanonCr3ImageWriterSpi extends ImageWriterSpi {
     public CanonCr3ImageWriterSpi() {
         super("Photographer", "1.0", new String[]{"CR3", "cr3", "canon-cr3"}, new String[]{"cr3", "CR3"},
@@ -32,6 +32,6 @@ public final class CanonCr3ImageWriterSpi extends ImageWriterSpi {
 
     @Override
     public String getDescription(Locale locale) {
-        return "Lossless CR3 writer using a camera reference";
+        return "Lossless CR3 writer with built-in camera profiles";
     }
 }

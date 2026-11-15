@@ -1,5 +1,6 @@
 package com.photographer.focusstack.cr3.imageio;
 
+import com.photographer.focusstack.cr3.encode.Cr3CameraProfile;
 import com.photographer.focusstack.cr3.encode.Cr3Writer;
 
 import javax.imageio.IIOException;
@@ -13,26 +14,25 @@ import javax.imageio.stream.ImageOutputStream;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.Objects;
 
-/** Writes a full native Bayer mosaic using the camera layout and metadata from a supplied CR3. */
+/** Writes a full native Bayer mosaic using a built-in lossless CR3 camera profile. */
 public final class CanonCr3ImageWriter extends ImageWriter {
-    private Path defaultCameraReference;
+    private Cr3CameraProfile defaultCameraProfile;
 
     CanonCr3ImageWriter(ImageWriterSpi provider) {
         super(provider);
     }
 
-    /** Sets this writer's default camera reference. Per-image parameters can override it. */
-    public void setDefaultCameraReference(Path cameraReference) {
-        defaultCameraReference = Objects.requireNonNull(cameraReference, "cameraReference");
+    /** Sets this writer's default camera profile. Per-image parameters can override it. */
+    public void setDefaultCameraProfile(Cr3CameraProfile profile) {
+        defaultCameraProfile = Objects.requireNonNull(profile, "profile");
     }
 
     @Override
     public void reset() {
         super.reset();
-        defaultCameraReference = null;
+        defaultCameraProfile = null;
     }
 
     @Override
@@ -73,13 +73,13 @@ public final class CanonCr3ImageWriter extends ImageWriter {
         if (image == null) {
             throw new IllegalArgumentException("An image is required");
         }
-        Path reference = defaultCameraReference;
-        if (param instanceof CanonCr3ImageWriteParam cr3 && cr3.getCameraReference() != null) {
-            reference = cr3.getCameraReference();
+        Cr3CameraProfile profile = defaultCameraProfile;
+        if (param instanceof CanonCr3ImageWriteParam cr3 && cr3.getCameraProfile() != null) {
+            profile = cr3.getCameraProfile();
         }
-        if (reference == null) {
-            throw new IIOException("Select a lossless CR3 camera reference with setCameraReference "
-                    + "or setDefaultCameraReference before writing");
+        if (profile == null) {
+            throw new IIOException("Select a lossless CR3 camera profile with setCameraProfile "
+                    + "or setDefaultCameraProfile before writing");
         }
 
         Raster sensor = sensorRaster(image);
@@ -94,7 +94,7 @@ public final class CanonCr3ImageWriter extends ImageWriter {
             processWriteAborted();
             return;
         }
-        Cr3Writer.write(output, sensor, reference);
+        Cr3Writer.write(output, sensor, profile);
         processImageComplete();
     }
 
