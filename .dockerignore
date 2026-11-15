@@ -1,0 +1,15 @@
+.git
+**/target
+**/node_modules
+frontend-web/node
+frontend-web/dist
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.jks
+**/*.keystore
+**/credentials*.json
+**/secrets*.json

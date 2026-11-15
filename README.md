@@ -128,10 +128,10 @@ Compose reads the database, login and port settings in [the environment template
 | `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password (required; must not be `focusstack`/`changeme`) | _(required)_ | _(required)_ |
 | `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL | `jdbc:postgresql://postgres:5432/focusstack` | H2 in-memory |
 | `SPRING_DATASOURCE_USERNAME` | Database username | `focusstack` | — |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | `focusstack` | — |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | Supplied by Compose from `POSTGRES_PASSWORD` | — |
 | `POSTGRES_DB` | PostgreSQL database name (docker-compose) | `focusstack` | — |
 | `POSTGRES_USER` | PostgreSQL user (docker-compose) | `focusstack` | — |
-| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | `focusstack` | — |
+| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | Required in `.env` | — |
 | `CAMERA_MOCK_ENABLED` | Enable mock camera backend | `true` | `false` |
 | `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` | `./plugins` |
 | `GEMINI_API_KEY` | Google Gemini API key for AI vision | _(empty)_ | _(empty)_ |
