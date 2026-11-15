@@ -25,9 +25,6 @@ AUDIT = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = AUDIT
 SPEC.loader.exec_module(AUDIT)
 
-MEDIA_SUFFIXES = frozenset(
-    {".cr3", ".jpg", ".jpeg", ".tif", ".tiff", ".png"}
-)
 EXIFTOOL_BATCH_SIZE = 40
 
 
@@ -44,7 +41,7 @@ def historical_media_objects(root: Path) -> list[tuple[str, str]]:
         if len(parts) != 2:
             continue
         object_id, path = parts
-        if Path(path).suffix.lower() not in MEDIA_SUFFIXES:
+        if Path(path).suffix.lower() not in AUDIT.MEDIA_SUFFIXES:
             continue
         objects.setdefault(object_id, path)
     return sorted(objects.items(), key=lambda item: (item[1], item[0]))

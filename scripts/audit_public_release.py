@@ -70,20 +70,7 @@ SENSITIVE_METADATA_KEYS = frozenset(
     }
 )
 
-MEDIA_GLOBS = (
-    "*.cr3",
-    "*.CR3",
-    "*.jpg",
-    "*.JPG",
-    "*.jpeg",
-    "*.JPEG",
-    "*.tif",
-    "*.TIF",
-    "*.tiff",
-    "*.TIFF",
-    "*.png",
-    "*.PNG",
-)
+MEDIA_SUFFIXES = frozenset({".cr3", ".dng", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"})
 
 
 @dataclass(frozen=True)
@@ -293,7 +280,7 @@ def metadata_findings(records: Iterable[dict[str, object]]) -> list[Finding]:
 
 
 def audit_media_metadata(root: Path) -> list[Finding]:
-    media_paths = tracked_paths(root, MEDIA_GLOBS)
+    media_paths = [path for path in tracked_paths(root) if path.suffix.lower() in MEDIA_SUFFIXES]
     if not media_paths:
         return []
 

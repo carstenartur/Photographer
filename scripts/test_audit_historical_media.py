@@ -103,6 +103,23 @@ class HistoricalMediaAuditTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "full clone"):
                 HISTORY.audit_historical_media(shallow, "unused")
 
+    def test_current_and_historical_audits_recognize_webp_and_dng(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git(root, "init")
+            git(root, "config", "user.email", "audit@example.invalid")
+            git(root, "config", "user.name", "Audit Test")
+            for name in ("guide.WebP", "sensor.DnG"):
+                (root / name).write_text(name)
+            git(root, "add", ".")
+            git(root, "commit", "-m", "test media")
+            git(root, "rm", "guide.WebP")
+            git(root, "commit", "-m", "remove screenshot")
+            paths = [name for _, name in HISTORY.historical_media_objects(root)]
+            self.assertEqual(["guide.WebP", "sensor.DnG"], paths)
+            self.assertIn(".webp", HISTORY.AUDIT.MEDIA_SUFFIXES)
+            self.assertIn(".dng", HISTORY.AUDIT.MEDIA_SUFFIXES)
+
     def test_non_media_paths_are_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
