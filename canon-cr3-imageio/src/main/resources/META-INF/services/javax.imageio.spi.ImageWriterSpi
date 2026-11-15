@@ -1,1 +1,2 @@
 com.photographer.focusstack.dng.imageio.DngImageWriterSpi
+com.photographer.focusstack.cr3.imageio.CanonCr3ImageWriterSpi

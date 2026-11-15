@@ -2,7 +2,7 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import java.util.Objects;
 
-/** Maps an unsigned entropy symbol to a signed prediction residual. */
+/** Maps between unsigned entropy symbols and signed prediction residuals. */
 final class CrxResidualSignMapper {
 
     enum Mapping {
@@ -36,5 +36,9 @@ final class CrxResidualSignMapper {
                     ? encodedResidual >>> 1
                     : -(encodedResidual >>> 1) - 1;
         };
+    }
+
+    static int encodeZigZag(int residual) {
+        return residual >= 0 ? 2 * residual : -2 * residual - 1;
     }
 }

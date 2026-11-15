@@ -186,6 +186,62 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 - `read` supports destination images, destination types, destination offsets and band selection. Choose a destination compatible with the selected output. A supplied destination receives pixels at the requested physical offset. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
 - `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the preview. For RAW output geometry, inspect the returned image or raster. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
 
+## Write a lossless CR3 using a camera profile
+
+Select a built-in `Cr3CameraProfile` and supply a full, single-band unsigned-short Bayer
+raster in native 14-bit sensor units (0–16383). The profile provides the sensor geometry,
+CFA, CRX tile layout, track descriptions and preview dimensions. The writer can encode a
+synthetic raster or one from `Cr3DecodeOptions.rawSensor()` and needs no sample CR3.
+
+| Profile | Full RGGB raster including masked margins | Full JPEG |
+|---|---:|---:|
+| `EOS_R` | 6888 × 4546 | 6720 × 4480 |
+| `POWERSHOT_G5_X_MARK_II` | 5632 × 3710 | 5472 × 3648 |
+| `EOS_M50` | 6288 × 4056 | 6000 × 4000 |
+| `EOS_RP` | 6384 × 4224 | 6240 × 4160 |
+
+Choose a new destination file. To reuse an existing file, truncate it before wrapping it
+in an `ImageOutputStream`.
+
+```java
+import com.photographer.focusstack.cr3.encode.Cr3CameraProfile;
+import com.photographer.focusstack.cr3.imageio.CanonCr3ImageWriter;
+
+import javax.imageio.IIOImage;
+import javax.imageio.ImageIO;
+import javax.imageio.stream.FileImageOutputStream;
+import java.awt.image.Raster;
+import java.io.IOException;
+import java.nio.file.Path;
+
+static void writeCr3(Raster mosaic, Cr3CameraProfile profile, Path destination) throws IOException {
+    var writer = (CanonCr3ImageWriter) ImageIO.getImageWritersByFormatName("CR3").next();
+    try (var output = new FileImageOutputStream(destination.toFile())) {
+        writer.setDefaultCameraProfile(profile);
+        writer.setOutput(output);
+        writer.write(new IIOImage(mosaic, null, null));
+    } finally {
+        writer.dispose();
+    }
+}
+```
+
+For an EOS R mosaic, pass `Cr3CameraProfile.EOS_R` as the profile. Set
+`CanonCr3ImageWriteParam.setCameraProfile(profile)` on the parameters passed to
+`writer.write(null, image, parameters)` to override the writer's default for one image.
+An unconfigured writer reports an `IIOException`. The writer requires the full sensor grid
+for the selected profile.
+
+The writer emits the four-track lossless CRX V1 layout and generates the reduced Bayer
+image and JPEGs from the mosaic. It records the selected camera model and
+`Software=Photographer`. The output uses nominal black and white levels, unit white
+balance gains and orientation 1. These are encoding defaults. ISO, exposure, capture
+date, lens, serial number and location are omitted. [Camera profiles and defaults](../../canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3CameraProfile.java) · [Metadata generation](../../canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3ProfileMetadata.java)
+
+All four formats have been checked with Photographer and DNGLab 0.8.0. The full Bayer
+codes round-trip exactly. Preview rendering and entropy encoding use Photographer's
+algorithms. Canon Digital Photo Professional compatibility remains unverified.
+
 ## Write and read a Bayer DNG
 
 The same `io.github.carstenartur:cr3-imageio` dependency registers a DNG writer and reader. Keep the ImageReaderSpi and ImageWriterSpi service entries when shading the JAR.

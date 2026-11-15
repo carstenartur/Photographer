@@ -28,6 +28,7 @@ The package default applies unless a symbol is listed as an exception below.
 | `com.photographer.focusstack.cr3.bmff` | `INTERNAL` | `cr3-container` | Low-level ISO-BMFF and Canon-box implementation details. |
 | `com.photographer.focusstack.cr3.metadata` | `PUBLIC_STABLE` | `cr3-metadata` | Structured metadata models are consumer-facing; parser helpers are internal. |
 | `com.photographer.focusstack.cr3.decode` | `PUBLIC_EXPERIMENTAL` | `cr3-core` | Compatibility facade; preview is mature, full RAW remains experimental. |
+| `com.photographer.focusstack.cr3.encode` | `PUBLIC_EXPERIMENTAL` | `cr3-core` | Lossless CR3 writer and built-in camera profiles. |
 | `com.photographer.focusstack.cr3.raw` | `PUBLIC_EXPERIMENTAL` | `cr3-codec` | RAW mosaic transfer model may evolve with decoder completion. |
 | `com.photographer.focusstack.cr3.raw.codec` | `INTERNAL` | `cr3-codec` | CRX entropy, predictor, tiling, and reconstruction implementation. |
 | `com.photographer.focusstack.cr3.processing` | `INTERNAL` | `cr3-processing` | CR3 RAW-to-image pipeline, not a general processing toolkit. |
@@ -52,6 +53,7 @@ The package default applies unless a symbol is listed as an exception below.
 | `Cr3Decoder` | `cr3-core` | `com.photographer.focusstack.cr3.decode` | `PUBLIC_EXPERIMENTAL` | Useful unified facade, but full RAW results still depend on an incomplete codec matrix. | Preserve preview behavior; version or document unavoidable RAW contract changes. |
 | `Cr3DecodeOptions` | `cr3-core` | `com.photographer.focusstack.cr3.decode` | `PUBLIC_EXPERIMENTAL` | Preview/thumbnail selection is mature while RAW and processing controls may evolve. | Label RAW-specific modes and controls experimental before 1.0. |
 | `Cr3DecodeOptions.experimentalPedestal(int)` and `EXPERIMENTAL_REFERENCE_MATCH` | `cr3-core` | `com.photographer.focusstack.cr3.decode` | `RESEARCH_ONLY` | Explicit pedestal injection exists only for fixture/reference experiments. | Keep out of production examples and allow removal without compatibility promise. |
+| `Cr3Writer` and `Cr3CameraProfile` | `cr3-core` | `com.photographer.focusstack.cr3.encode` | `PUBLIC_EXPERIMENTAL` | Write a full native lossless CR3 using a built-in camera profile. | Keep the selected profile and sensor geometry explicit. |
 | `Cr3Decoder.pedestalReport()` and related diagnostics | `cr3-core` | `com.photographer.focusstack.cr3.decode` | `PUBLIC_EXPERIMENTAL` | Diagnostic schemas follow active decoder investigation. | Do not promise binary compatibility until a diagnostics API is designed. |
 | `Cr3DecodeOptions.rawSensor()` | `cr3-core` | `com.photographer.focusstack.cr3.decode` | `PUBLIC_EXPERIMENTAL` | Selects original Bayer codes in an unsigned-short raster for the verified 14-bit V1 profiles. | Preserve sensor coordinates and sample units across Core and ImageIO. |
 | `CrxSensorDecoder` and `RowConsumer` | `cr3-codec` | `com.photographer.focusstack.cr3.raw.codec` | `INTERNAL` | Connects the entropy decoder to the Core raster writer. Row buffers are reused. | Applications select sensor output through the Core or ImageIO API. |
@@ -64,6 +66,7 @@ The package default applies unless a symbol is listed as an exception below.
 | `BlackLevelProcessor`, `BayerDemosaicer`, `WhiteBalanceProcessor`, `ColorMatrixProcessor`, `SrgbConverter` | `cr3-processing` | `com.photographer.focusstack.cr3.processing` | `INTERNAL` | They implement the current CR3 rendering pipeline rather than a designed general API. | Promote only through a separate processing-API design. |
 | `CanonCr3ImageReaderSpi` | `cr3-imageio` | `com.photographer.focusstack.cr3.imageio` | `PUBLIC_STABLE` | Standard service discovery is the primary packaged integration contract. | Preserve service registration, suffixes, MIME type, and `canDecodeInput` behavior. |
 | `CanonCr3ImageReader` | `cr3-imageio` | `com.photographer.focusstack.cr3.imageio` | `PUBLIC_STABLE` | Preview, thumbnail, and metadata behavior is stable through standard ImageIO APIs. | Keep codec implementation outside the adapter; document unsupported RAW variants. |
+| `CanonCr3ImageWriter` and `CanonCr3ImageWriteParam` | `cr3-imageio` | `com.photographer.focusstack.cr3.imageio` | `PUBLIC_EXPERIMENTAL` | ImageIO CR3 writer and camera profile selection. | Preserve the native Bayer sample contract. |
 | `Cr3ImageMetadata` | `cr3-imageio` | `com.photographer.focusstack.cr3.imageio` | `PUBLIC_STABLE` | Exposes CR3 information through the standard `IIOMetadata` contract. | Preserve or explicitly version the native metadata format. |
 | `CanonCr3ImageReadParam` | `cr3-imageio` | `com.photographer.focusstack.cr3.imageio` | `PUBLIC_EXPERIMENTAL` | Stable preview selection and experimental RAW controls share the same type. | Preserve preview semantics; allow RAW-specific options to evolve before 1.0. |
 | `Cr3CliApp` | `canon-cr3-cli` | `com.photographer.focusstack.cr3.cli` | `INTERNAL` | The CLI is a product surface, but its Java entry class is not a library API. | Treat documented command syntax, exit codes, and output formats as the CLI contract. |
@@ -80,7 +83,9 @@ External Maven-facing examples should use only:
 - standard `ImageIO`, `CanonCr3ImageReaderSpi`, `CanonCr3ImageReader`, and
   `Cr3ImageMetadata` from `cr3-imageio`;
 - `Cr3Decoder` and `Cr3DecodeOptions` only with an explicit statement that full
-  RAW decoding is experimental.
+  RAW decoding is experimental;
+- `Cr3CameraProfile`, `Cr3Writer`, `CanonCr3ImageWriter` and `CanonCr3ImageWriteParam`
+  for experimental lossless writing.
 
 External examples must not directly use entropy, predictor, internal processing,
 reference-matching pedestal, or research classes.
