@@ -55,6 +55,7 @@ jobs:
     if: ${{ needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
     permissions:
       contents: write
+      pages: write
     uses: ./.github/workflows/cr3-fiji-distribution.yml
     with:
       release_tag: ${{ needs.release.outputs.release_tag }}
