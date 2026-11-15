@@ -3,7 +3,7 @@
 The application exposes a redacted, camera-advertised capability snapshot at:
 
 ```text
-GET /api/cameras/{profileId}/capabilities
+GET /api/v1/cameras/{profileId}/capabilities
 ```
 
 This endpoint answers two different questions separately:
@@ -118,4 +118,4 @@ The test creates `app/target/ccapi-capabilities.json`. Set `CCAPI_EVIDENCE_OUTPU
 
 The JSON records the advertised product model and firmware, connection mode, exact recognized versioned operation paths, advertised/required methods, capability classifications and available native bracketing ranges. Unknown or private paths contribute only to `omittedEndpoints`. The export skips lens names, media names and raw response bodies. Inspect the model and firmware before publishing and record the shooting mode and source commit alongside the file. An unknown firmware value cannot establish firmware-specific support. Keep successive files so a later camera mode or firmware can be compared against the original.
 
-The G5 X Mark II CCAPI capture, focus and manual-stacking tests and the G5 X Mark II / EOS R USB captures are the historical baseline. They establish different facts from a fresh capability snapshot. See the [hardware tests](../app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/) and [camera coverage](camera-setup.md#hardware-coverage). Physical snapshots and native-sequence validation are tracked in [#183](https://github.com/carstenartur/Photographer/issues/183) and [#144](https://github.com/carstenartur/Photographer/issues/144).
+The G5 X Mark II CCAPI capture, focus and manual-stacking tests and the G5 X Mark II / EOS R USB captures are the historical baseline. They establish different facts from a fresh capability snapshot. See the [hardware tests](../app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/) and [camera coverage](camera-setup.md). Physical snapshots and native-sequence validation are tracked in [#183](https://github.com/carstenartur/Photographer/issues/183) and [#144](https://github.com/carstenartur/Photographer/issues/144).
