@@ -148,6 +148,66 @@ class CanonCcapiProductionLiveViewTest {
                 eq(String.class));
     }
 
+    @Test
+    void nestedLiveViewLookalikesCannotAdvertiseOrStartATransport() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        String nested = "/ccapi/ver100/vendor/shooting/liveview";
+        when(restTemplate.getForObject(BASE + "/ccapi", Map.class)).thenReturn(Map.of(
+                "ver100", List.of(descriptor(nested, false, true, false),
+                        descriptor(nested + "/flip", true, false, false),
+                        descriptor(nested + "/scroll", true, false, true),
+                        descriptor(nested + "/multipart", true, false, true),
+                        descriptor(nested + "/rtp", false, true, false))));
+        CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(PROFILE, BASE, restTemplate);
+
+        var snapshot = backend.getCapabilitySnapshot();
+        assertThat(snapshot.advertisedEndpoints()).hasSize(5);
+        assertThat(snapshot.capabilities()).filteredOn(capability -> capability.id().startsWith("live-view-"))
+                .hasSize(5).allSatisfy(capability -> {
+                    assertThat(capability.advertised()).isFalse();
+                    assertThat(capability.condition()).isEqualTo("ENDPOINT_NOT_ADVERTISED");
+                });
+        assertThat(backend.supports(Operation.LIVE_VIEW)).isFalse();
+        assertThatThrownBy(backend::getLiveView).isInstanceOf(CameraOperationException.class);
+        verify(restTemplate, never()).getForObject(BASE + nested + "/flip", byte[].class);
+        verify(restTemplate, never()).exchange(eq(BASE + nested), eq(HttpMethod.POST),
+                any(HttpEntity.class), eq(String.class));
+    }
+
+    @Test
+    void usableFrameWithoutAdvertisedControlPostCannotStartLiveView() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.getForObject(BASE + "/ccapi", Map.class)).thenReturn(Map.of(
+                "ver100", List.of(descriptor("/ccapi/ver100/shooting/liveview", true, false, false),
+                        descriptor("/ccapi/ver100/shooting/liveview/flip", true, false, false))));
+        CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(PROFILE, BASE, restTemplate);
+
+        assertThat(backend.supports(Operation.LIVE_VIEW)).isFalse();
+        assertThatThrownBy(backend::getLiveView).isInstanceOfSatisfying(CameraOperationException.class,
+                failure -> assertThat(failure.reason()).isEqualTo(METHOD_NOT_ALLOWED));
+        verify(restTemplate, never()).getForObject(FLIP, byte[].class);
+        verify(restTemplate, never()).exchange(eq(CONTROL), eq(HttpMethod.POST),
+                any(HttpEntity.class), eq(String.class));
+    }
+
+    @Test
+    void newerIncompatibleFlipCannotHideOlderUsableVersionInSnapshot() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.getForObject(BASE + "/ccapi", Map.class)).thenReturn(Map.of(
+                "ver100", List.of(descriptor("/ccapi/ver100/shooting/liveview", false, true, false),
+                        descriptor("/ccapi/ver100/shooting/liveview/flip", true, false, false)),
+                "ver120", List.of(descriptor("/ccapi/ver120/shooting/liveview/flip", false, true, false))));
+        CanonCcapiProductionBackend backend = new CanonCcapiProductionBackend(PROFILE, BASE, restTemplate);
+
+        assertThat(backend.supports(Operation.LIVE_VIEW)).isTrue();
+        assertThat(backend.getCapabilitySnapshot().capabilities())
+                .filteredOn(capability -> capability.id().equals("live-view-frame"))
+                .singleElement().satisfies(capability -> {
+                    assertThat(capability.availability()).isEqualTo(AVAILABLE);
+                    assertThat(capability.advertisedMethods()).containsExactly("GET");
+                });
+    }
+
     private static Map<String, Object> catalog(boolean flipGet, boolean scroll) {
         List<Map<String, Object>> descriptors = new ArrayList<>();
         descriptors.add(descriptor(

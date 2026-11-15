@@ -196,7 +196,9 @@ final class CanonCcapiCapabilitySnapshotFactory {
     private static CapabilityResult resolve(
             Definition definition,
             List<AdvertisedEndpoint> endpoints) {
-        AdvertisedEndpoint endpoint = highestExact(endpoints, definition.suffixes()).orElse(null);
+        AdvertisedEndpoint endpoint = CcapiEndpointCatalog.isLiveViewOperation(definition.suffixes().getFirst())
+                ? highestCompatibleLiveView(endpoints, definition)
+                : highestExact(endpoints, definition.suffixes()).orElse(null);
         if (endpoint == null) {
             return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(
                     definition.id(),
@@ -250,6 +252,20 @@ final class CanonCcapiCapabilitySnapshotFactory {
                 methodNames(endpoint.methods()),
                 true,
                 null), endpoint);
+    }
+
+    private static AdvertisedEndpoint highestCompatibleLiveView(
+            List<AdvertisedEndpoint> endpoints, Definition definition) {
+        String operation = definition.suffixes().getFirst();
+        Comparator<AdvertisedEndpoint> order = Comparator
+                .comparing((AdvertisedEndpoint endpoint) -> !endpoint.methodMetadataKnown()
+                        || endpoint.methods().containsAll(definition.requiredMethods()))
+                .thenComparingInt(AdvertisedEndpoint::versionNumber)
+                .thenComparing(AdvertisedEndpoint::path);
+        return endpoints.stream()
+                .filter(endpoint -> CcapiEndpointCatalog.matchesOperation(endpoint.path(), operation))
+                .max(order)
+                .orElse(null);
     }
 
     private static Optional<AdvertisedEndpoint> highestExact(

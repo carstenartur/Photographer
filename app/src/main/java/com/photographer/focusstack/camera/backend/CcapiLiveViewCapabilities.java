@@ -22,7 +22,7 @@ final class CcapiLiveViewCapabilities {
     static CameraCapabilitySnapshot.Capability scroll(
             CameraCapabilitySnapshot snapshot) {
         List<CameraCapabilitySnapshot.Endpoint> advertised = snapshot.advertisedEndpoints().stream()
-                .filter(endpoint -> endpoint.path().endsWith(SCROLL_SUFFIX))
+                .filter(endpoint -> CcapiEndpointCatalog.matchesOperation(endpoint.path(), SCROLL_SUFFIX))
                 .toList();
         if (advertised.isEmpty()) {
             return new CameraCapabilitySnapshot.Capability(
