@@ -2,7 +2,7 @@
 
 CR3 is an ISO Base Media File Format container with Canon-specific tracks and metadata. CRX is the compressed sensor payload in a RAW track. Both full RAW and compact RAW (C-RAW) recordings can use the `.CR3` extension. A file can also carry JPEGs that can be read independently of the sensor payload.
 
-This independent engineering reference describes the layouts measured in Photographer. The code and evidence reviewed for this reference are pinned to [2640720dfa9170e6093e2b13e3b24e108ad4567a](https://github.com/carstenartur/Photographer/tree/2640720dfa9170e6093e2b13e3b24e108ad4567a). The sections on writing describe construction and validation derived from those layouts.
+This independent engineering reference describes the layouts measured in Photographer. The reader code and evidence reviewed for this reference are pinned to [2640720dfa9170e6093e2b13e3b24e108ad4567a](https://github.com/carstenartur/Photographer/tree/2640720dfa9170e6093e2b13e3b24e108ad4567a). The sections on writing describe construction and validation for the four measured lossless camera profiles.
 
 ## Contents
 
@@ -14,6 +14,7 @@ This independent engineering reference describes the layouts measured in Photogr
 - [V1 lossless sample coding](#v1-lossless-sample-coding)
 - [V1 three-level C-RAW reconstruction](#v1-three-level-c-raw-reconstruction)
 - [Minimal lossless writer derivation](#minimal-lossless-writer-derivation)
+- [Lossless writer camera profiles](#lossless-writer-camera-profiles)
 - [Writing and verifying a CR3 file](#writing-and-verifying-a-cr3-file)
 - [Source provenance and references](#source-provenance-and-references)
 
@@ -167,7 +168,7 @@ First-party camera checks found `PRVW` at 1620 × 1080 and `THMB` at 160 × 120,
 
 For a single-sample track, serialize the box sizes from the actual bytes, store the sample's absolute offset in `stco` or `co64`, and store its full length in `stsz`. Use `co64` when a chunk offset exceeds the unsigned 32-bit range. Keep sample ranges inside the intended `mdat` payload. The native CRX profiles additionally require the directory and declared tile extents to account for the whole CRX sample. Embedded `PRVW` and `THMB` lengths count their JPEG bytes. [Synthetic offset patching](../../canon-cr3-container/src/test/java/com/photographer/focusstack/cr3/testutil/Cr3TestData.java#L161-L244) · [Native sample extent check](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessImage.java#L38-L79) · [Preview parser](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/bmff/PrvwBox.java#L15-L30) · [Thumbnail parser](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/bmff/ThmbBox.java#L15-L34)
 
-The container tests create a reduced, JPEG-only CR3 layout for parser and extractor checks. Other tests assemble synthetic RAW samples. The ImageIO writer provider emits DNG. The required Canon-private boxes, values of their opaque fields and interoperability of newly written CR3 files with independent consumers remain unverified at this revision. [JPEG fixture generator](../../canon-cr3-container/src/test/java/com/photographer/focusstack/cr3/testutil/Cr3TestData.java#L98-L205) · [Synthetic extraction test](../../canon-cr3-container/src/test/java/com/photographer/focusstack/cr3/preview/Cr3PreviewExtractorTest.java#L69-L130) · [ImageIO writer registration](../../canon-cr3-imageio/src/main/resources/META-INF/services/javax.imageio.spi.ImageWriterSpi)
+The container tests create a reduced JPEG-only CR3 for parser and extractor checks. The four-profile writer generates a complete still-image layout, including Canon-specific descriptors and timed metadata. Its construction parameters and the scope of independent validation are listed below. [JPEG fixture generator](../../canon-cr3-container/src/test/java/com/photographer/focusstack/cr3/testutil/Cr3TestData.java#L98-L205) · [Lossless writer camera profiles](#lossless-writer-camera-profiles)
 
 ## Metadata and sensor calibration
 
@@ -276,11 +277,11 @@ The CTMD black and white values are used in the DNG calibration mapping. The cor
 
 **Lens metadata.** The CMT reader exposes Exif focal length and the standalone CTMD parser recognizes a focal-length record. Exif LensModel `0xA434` and FocalLengthIn35mmFilm `0xA405` are defined in the TIFF parser’s tag list and are unused by the CMT field mapping. Canon lens profiles, distortion and shading tables remain unverified. [Exif tag definitions](../../canon-cr3-metadata/src/main/java/com/photographer/focusstack/cr3/metadata/TiffIfdParser.java#L50-L59) · [Fields extracted into the model](../../canon-cr3-metadata/src/main/java/com/photographer/focusstack/cr3/metadata/Cr3MetadataReader.java#L149-L188) · [CTMD focal length](../../canon-cr3-metadata/src/main/java/com/photographer/focusstack/cr3/metadata/CtmdParser.java#L79-L86)
 
-### Preserving capture metadata in a writer
+### Capture metadata and regenerated mosaics
 
 For same-capture remuxing, retain `CMT1`–`CMT4`, applicable Canon-private metadata and complete `CTMD` samples byte-for-byte, including unknown tags and flags. Keep the corresponding `CMP1` geometry, CFA and bit depth, the `IAD1` crop, active and masked areas, and the original native sample coordinate system. Recalculate container sizes and sample offsets when relocating data. Preserve each embedded TIFF base and its internal relationships. The read model discards some types, directory links and uninterpreted bytes, so serialize opaque metadata from the original payloads. [TIFF reader boundaries](../../canon-cr3-metadata/src/main/java/com/photographer/focusstack/cr3/metadata/TiffIfdParser.java#L134-L250) · [CTMD sample lookup](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/container/Cr3Parser.java#L225-L270) · [CTMD calibration layout](../../canon-cr3-imageio/src/main/java/com/photographer/focusstack/cr3/imageio/Cr3SensorCalibration.java#L37-L85)
 
-For newly encoded mosaics, carry calibration only where it accurately describes the new full sensor grid, native code scale, CFA phase and exposure. Preserve capture-specific lens and color data only when it still describes those samples. Leave unknown metadata opaque and record unresolved dependencies for any modified geometry or capture settings. Required tags and acceptance of newly encoded CR3 files in Canon Digital Photo Professional or other RAW editors are **unverified**. [Project ImageIO and DNG coverage](imageio.md#write-and-read-a-bayer-dng)
+For a newly encoded mosaic, the selected camera mode provides the static fields, including sensor geometry and CFA. Per-capture calibration applies to a specific exposure and native sample grid. Black and white levels can vary within the same camera mode. The profile writer emits documented nominal levels and neutral gains. It does not carry details of a source exposure into the new image. [Generated metadata](#generated-metadata)
 
 ## CRX framing and sample placement
 
@@ -529,23 +530,105 @@ The native lossless reader determines a candidate inverse for its supported subs
 1. For the first site of each plane, take `d = sample - 8192`. Fold any residual `d` to `u = 2*d` for `d >= 0` or `u = -2*d-1` for `d < 0`. Write the 32-bit zero word, 18-bit value 128 and 14-bit `u`. This fits every opening value in `0..16383`.
 2. For the remaining first-row sites, predict from the previous site. For each later row, compute MED using the known mosaic values in this plane. Emit a zero flag exactly at the sites where the lossless decoder would read a flag. Subtract the predictor from the desired sample and fold the difference. For these samples and predictors the folded residual is at most 32766.
 3. Use the current `k` to compute `q = floor(u/2^k)`. For `q < 41` emit `q` zero bits, a one and the low `k` bits of `u`. Otherwise emit 41 zero bits, a one and the full unsigned `u` in 21 bits. Apply the same `k` update using the same `v` as the reader. Once the plane is complete, fill any unused low bits of its last byte with zeros.
-4. Use 12-byte directory records with four planes per tile and one band per plane. Set the plane partial flag. Clear its rounded bits and use band index zero with a zero band partial flag, quantizer and padding count. Fill each band and plane data-size field with that plane's encoded byte length. Fill each tile data-size field with the sum of its plane sizes. Concatenate all directory records, then concatenate all band bytes in the same directory order. Store the exact directory length in CMP1 and match the enclosing BMFF sample offset and length to the resulting sample. With no directory terminator, each tile contributes 108 directory bytes.
+4. Use 12-byte directory records with four planes per tile and one band per plane. Set the plane partial flag and clear its rounded bits. The minimal synthetic sample uses band index zero with zero quantizer and padding. For profile output, use the measured flags and counted padding [specified below](#crx-parameters-for-the-writer). Fill each band and plane data-size field with that plane's encoded byte length. Fill each tile data-size field with the sum of its plane sizes. Concatenate all directory records, then concatenate all band bytes in the same directory order. Store the exact directory length in CMP1 and match the enclosing BMFF sample offset and length to the resulting sample. With no directory terminator, each tile contributes 108 directory bytes.
 
 A run-enabled candidate would also simulate `r`, emit the positive-run flag only for one or more valid copies, and encode the group increments and remainder with the row-end rules. At a nonterminal run it would fold the difference from the above sample using the unchanged `k`. The subsequent K adaptation uses the interruption's neighbours. [Run decoder and boundaries](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxEntropyState.java#L43-L70) · [Lossless interruption](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java#L87-L115)
 
-The project's synthetic `four-sites.cr3` shows a complete 140-byte single-tile sample with a 108-byte directory and four 8-byte plane payloads. Its four opening symbols `[0, 2, 1, 4]` produce native codes `[8192, 8193, 8191, 8194]` in mosaic order. The directory and opening rules reproduce those sample bytes. The product test exercises the committed sample through the decoder API. A general-purpose CR3 writer, Canon's encoder decisions and interoperability of newly encoded files remain unverified. [Synthetic CR3 sample](../../canon-cr3-core/src/test/resources/com/photographer/focusstack/cr3/decode/four-sites.cr3) · [Product-path test](../../canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3DecoderTest.java#L101-L132)
+The project's synthetic `four-sites.cr3` shows a complete 140-byte single-tile sample with a 108-byte directory and four 8-byte plane payloads. Its four opening symbols `[0, 2, 1, 4]` produce native codes `[8192, 8193, 8191, 8194]` in mosaic order. The directory and opening rules reproduce those sample bytes. The product test exercises the committed sample through the decoder API. The four camera profiles below use the same inverse with their measured record flags, geometry and metadata. [Synthetic CR3 sample](../../canon-cr3-core/src/test/resources/com/photographer/focusstack/cr3/decode/four-sites.cr3) · [Product-path test](../../canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3DecoderTest.java#L101-L132)
+
+## Lossless writer camera profiles
+
+A built-in profile supplies the static parameters for one observed full-frame, 14-bit lossless RAW mode. A writer takes the profile and the full Bayer raster including its masked margins. Reference captures are evidence for the profile and comparison inputs for testing. The write path constructs every box and sample from the profile and input raster. [Camera profile definitions](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3CameraProfile.java) · [Core writer](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3Writer.java) · [ImageIO example](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile)
+
+| Profile | TIFF Model | Full RAW | Full tile | Full JPEG | CC0 sample ID |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `EOS_R` | `Canon EOS R` | 6888 × 4546 | 3444 × 4546 | 6720 × 4480 | 4515 |
+| `POWERSHOT_G5_X_MARK_II` | `Canon PowerShot G5 X Mark II` | 5632 × 3710 | 2816 × 3710 | 5472 × 3648 | 3510 |
+| `EOS_M50` | `Canon EOS M50` | 6288 × 4056 | 3144 × 4056 | 6000 × 4000 | 4657 |
+| `EOS_RP` | `Canon EOS RP` | 6384 × 4224 | 3192 × 4224 | 6240 × 4160 | 4674 |
+
+The common TIFF Make is `Canon`. All four layouts use two full-height, equal-width tiles in the full RAW track and one 1624 × 1080 tile in the reduced RAW track. The full CFA is RGGB. The reduced CFA is GRBG. The separate embedded preview is 1620 × 1080 and the thumbnail is 160 × 120. The source register binds the four CC0 captures and their DNGLab rasters to SRC-012. First-party EOS R and PowerShot G5 X Mark II files provide additional observations under SRC-007. [Registered captures and hashes](../../scripts/research/public-crx/lossless-holdout.tsv) · [Source register](../cleanroom/source-register.json)
+
+### Writer sensor geometry
+
+`IAD1` uses inclusive coordinates in the order (left, top, right, bottom). Store a big-endian u16 header of `[0, 0, width, height, 1, 2, 1, 0]` for the full RAW track, then these four rectangles in column order.
+
+| Profile | Default crop | Left optical black | Top optical black | Active area |
+| --- | --- | --- | --- | --- |
+| `EOS_R` | (156, 58, 6875, 4537) | (0, 0, 143, 4545) | (144, 0, 6887, 45) | (144, 46, 6887, 4545) |
+| `POWERSHOT_G5_X_MARK_II` | (132, 40, 5603, 3687) | (0, 0, 119, 3695) | (120, 0, 5615, 27) | (120, 28, 5615, 3695) |
+| `EOS_M50` | (276, 48, 6275, 4047) | (0, 0, 263, 4055) | (264, 0, 6287, 35) | (264, 36, 6287, 4055) |
+| `EOS_RP` | (132, 56, 6371, 4215) | (0, 0, 119, 4223) | (120, 0, 6383, 43) | (120, 44, 6383, 4223) |
+
+The reduced `IAD1` consists of u16 words `[0, 0, 1624, 1080, 1, 0, 1, 0, left, 0, right, 1079, 0, 0, 1623, 1079]`. For the PowerShot use `left=3, right=1622`. For the EOS models use `left=1, right=1620`. In both RAW sample descriptions, a four-byte zero prefix precedes the `IAD1` box inside `CDI1`.
+
+### CRX parameters for the writer
+
+| Offset in the 52-byte `CMP1` payload | Encoding | Value |
+| --- | --- | --- |
+| +0 | 4 × u16 | `[0xff00, 48, 0x0100, 0]` |
+| +8 | 4 × u32 | Raster width, raster height, tile width, tile height |
+| +24 | 4 × u8 | `[14, 0x40, 0, 0]` for full RAW or `[14, 0x41, 0, 0]` for reduced RAW. Encoding type and wavelet level are zero. |
+| +28 | u32 | Directory length 216 for full RAW or 112 for reduced RAW |
+| +32 | 5 × u32 | `[0, 0x01010000, 0x01010000, 0x01010000, 0x01010000]` |
+
+Use the V1 tile, plane and subband markers (respectively `0xff01`, `0xff02`, `0xff03`) and eight-byte record bodies. After the u32 byte count, each tile has a u32 value `tileIndex << 16` and each plane has `(planeIndex << 28) | 0x08000000`. A subband has flag bytes `00 20` and a u16 padding count. Encode each plane with the [lossless inverse](#minimal-lossless-writer-derivation), pad its bytes to a multiple of eight, and include that padding in both the plane and subband counts. Write a zero u32 after the reduced directory's 108 bytes. The full directory ends after its second tile. [Profile serialization](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3CameraProfile.java) · [Entropy encoding](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLosslessEncoder.java)
+
+### Writer track and reference values
+
+| Profile | `CNCV` suffix after `CanonCR3_001/` | `CTBO` entries | Visual `stsz` form | `PRVW +10`, `THMB +12` |
+| --- | --- | ---: | --- | ---: |
+| `EOS_R` | `00.09.00/00.00.00` | 4 | Fixed size | 1 |
+| `POWERSHOT_G5_X_MARK_II` | `01.09.00/00.00.00` | 5 | Explicit size | 1 |
+| `EOS_M50` | `00.09.00/00.00.00` | 4 | Fixed size | 1 |
+| `EOS_RP` | `00.09.00/00.00.00` | 5 | Explicit size | 2 |
+
+The top-level box order is `ftyp`, `moov`, XMP UUID, Canon preview UUID and extended-size `mdat`. Write major brand `crx `, minor version 1 and compatible brands `crx `, `isom`. Write the Canon metadata UUID before `mvhd` and the four `trak` boxes inside `moov`. The XMP UUID contains a generated empty XMP packet padded to 64 KiB. `CTBO` stores IDs 1, 2 and 3 with the file-relative offset and size of the complete XMP, preview and `mdat` boxes. The later entries retain their sequential IDs with zero offset and size. Free boxes provide padding for the aligned size and offset fields.
+
+| Track ID | Handler | Sample entry | `CCDT` image type | Payload |
+| --- | --- | --- | ---: | --- |
+| 1 | `vide` | `CRAW` + `JPEG` | 16 | Full JPEG |
+| 2 | `vide` | `CRAW` + `CMP1`, `CDI1` | 1 | Reduced RAW |
+| 3 | `vide` | `CRAW` + `CMP1`, `CDI1` | 0 | Full RAW |
+| 4 | `meta` | `CTMD` | — | Timed metadata |
+
+Each track has one sample and one chunk, duration and timescale 1, and a self-contained `url ` data reference. The four offsets in `co64` point to the starts of their samples in `mdat` order. Align each subsequent sample to eight bytes relative to the `mdat` payload. `stsz` counts only the sample bytes, including its internal CRX plane padding. For the fixed form, write the sample size and sample count 1. For the explicit form, write a zero default size, sample count 1 and the size of the only sample. `CTMD` uses the fixed form in all four profiles.
+
+Write the `CCTP` prefix as u32 words `[0, 1, 3]`, then a 16-byte `CCDT` payload of u32 words `[0, imageType, 0, trackID]` for each visual track. The `CRAW` visual sample entry has an 82-byte prefix. Besides the dimensions at +24 and +26, its nonzero u16 fields are `+6=1, +28=72, +32=72, +40=1, +74=24, +76=65535`. For JPEG the suffix is `+78=3, +80=0` followed by a `JPEG` box with a zero u32 payload. For RAW it is `+78=1, +80=1` followed by `CMP1` and `CDI1`. The `CTMD` sample entry has six zero bytes and a u16 data reference index of 1, followed by a u32 record count and big-endian u32 `(type, length)` pairs matching the timed records.
+
+Inside the Canon preview UUID, the u32 prefix `[0, 1]` precedes `PRVW`. The `PRVW` payload starts with u32 0, then four u16 values (1, width, height, profile flag), then a u32 JPEG length. In `THMB`, write u32 0, u16 width and height, u32 JPEG length, u16 profile flag and u16 0. Both headers are 16 bytes. In the thumbnail box, pad the JPEG bytes to eight without increasing the stored JPEG length. The preview, thumbnail and full JPEG are generated anew from the supplied mosaic. [Container serialization](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3ContainerWriter.java) · [Container field reference](#iso-base-media-file-format-container)
+
+### Generated metadata
+
+Generate one little-endian TIFF with a zero next-IFD offset for each `CMT` box. Use the table below to construct fields. Never infer an ISO, shutter speed, date, lens, serial number or GPS location from the selected mode.
+
+| Box | Written fields |
+| --- | --- |
+| `CMT1` | ASCII Make `0x010f`, exact ASCII Model `0x0110`, SHORT Orientation `0x0112=1`, ASCII Software `0x0131=Photographer` |
+| `CMT2` | ExifVersion `0x9000`, UNDEFINED[4] ASCII bytes `0230` |
+| `CMT3` | CameraSettings `0x0001`, SHORT array of the profile's measured length. Word 0 is the array's byte length, word 3 is 4 for lossless RAW, and remaining words are zero. |
+| `CMT4` | GPSVersionID `0x0000`, BYTE[4] `[2, 3, 0, 0]` |
+
+The generated `CTMD` sample contains one 1642-byte type-8 record. Its little-endian prefix is a u32 length 1642 then u16 words `[8, 0x0101, 0x0100, 0xffff]`. The sole nested block starts with u32 length 1630 and u32 tag `0x927c`. It contains a little-endian TIFF with one tag `0x4001` of type SHORT and count 798. Write the layout version at word 0, gains `[1024, 1024, 1024, 1024]` at words 71–74, the same four nominal black levels at 329–332 and 792–795, and white level at 797. All other words are zero. The two black-level groups support both DNGLab and Photographer.
+
+| Profile | CameraSettings words | ColorData version | Nominal black per site | Nominal white |
+| --- | ---: | ---: | ---: | ---: |
+| `EOS_R` | 49 | 17 | 512 | 14008 |
+| `POWERSHOT_G5_X_MARK_II` | 53 | 19 | 2048 | 14335 |
+| `EOS_M50` | 49 | 16 | 512 | 11892 |
+| `EOS_RP` | 51 | 18 | 512 | 14558 |
+
+These defaults use per-model observations without claiming calibration of a particular exposure. For example, the EOS R CC0 capture at ISO 100 has black levels near 512 and white 14008, while the first-party ISO 12800 EOS R captures have black 2048 and white 14448. The writer preserves every input sample code independently of these metadata defaults. [Generated TIFF and CTMD metadata](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3ProfileMetadata.java) · [Read-side ColorData](#ctmd-colordata)
 
 ## Writing and verifying a CR3 file
 
-The lossless V1 layout is the first candidate for a writer that takes original sensor codes. Use one measured camera profile as the initial construction target. A camera-generated example with documented provenance supplies the geometry, CFA order, sample entries and optional metadata for comparison. A profile consists of concrete layout parameters observed in the chosen file.
+Select a profile for the input's full native sample geometry. The following checks establish the extent of a writer's compatibility.
 
 ### Container round trip
 
-1. Parse the source `ftyp`, `moov` and `mdat`. Record the tracks in order, their sample descriptions and ranges, the selected RAW track and the CRX parameters. For the first writer profile, verify the one-sample and one-chunk layout of each retained track using the actual `stsd`, `stsc`, `stco` or `co64`, and `stsz` entries. Keep a complete sample-table and track-header template, including `stts`, `stsc` and the data reference. The reduced internal fixtures exercise the reader's first-sample projection.
-2. For a remux test, preserve the source CRX sample byte for byte. Rebuild the affected sample sizes, chunk offsets and enclosing box sizes. Inspect both the ordinary sample tables and Canon-specific references affected by movement. A template with unresolved position-dependent fields can be used for in-place replacements that leave every referenced range intact.
-3. For an encoding test, build each CRX tile and plane from the native Bayer input. Serialize the CRX directory and payload, then set the sample length and the `CMP1` directory length consistently. Update all descriptions and metadata that depend on the dimensions, bit depth, CFA, sample offsets or sizes. Preserve uncharacterised data only where its context and references still apply.
-4. Read the result with the [container parser](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/container/Cr3Parser.java). Check expected box types, parent lengths, track roles, data ranges, dimensions and bit-depth metadata explicitly. A successful parse is the first check. Check against the intended data layout even if the reader accepts a recovery path.
-5. Decode the result with `Cr3DecodeOptions.rawSensor()`. Compare the width, height and unsigned sample value at every coordinate with the input to the writer. Check the selected track's `CMP1` CFA value separately. For a remux, also compare the SHA-256 of the extracted RAW sample and the retained opaque metadata payloads with the original. [Native sensor API](decoder.md#output-modes) · [CFA metadata](#cfa-and-calibration-in-output-modes)
+1. Build the four tracks from the camera profile. Serialize the CRX planes and record their sizes in the directory. Calculate sample sizes and offsets from the resulting bytes and write the profile's sample descriptions and metadata.
+2. Read the result with the [container parser](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/container/Cr3Parser.java). Check expected box types, parent lengths, track roles, data ranges, dimensions and bit-depth metadata explicitly. A successful parse is the first check. Check against the intended data layout even if the reader accepts a recovery path.
+3. Decode the result with `Cr3DecodeOptions.rawSensor()`. Compare the width, height and unsigned sample value at every coordinate with the input to the writer. Check the selected track's `CMP1` CFA value separately. For a remux, also compare the SHA-256 of the extracted RAW sample and the retained opaque metadata payloads with the original. [Native sensor API](decoder.md#output-modes) · [CFA metadata](#cfa-and-calibration-in-output-modes)
 
 For a lossless synthetic image, use several distinct values at all four Bayer positions. Include cases that exercise the first and last samples of a row, the two sides of a tile seam and the minimum and maximum sensor codes. Compare across the entire sensor extent. A photograph alone can leave addressing errors invisible in flat regions.
 
@@ -570,6 +653,8 @@ Use the CLI output for structural checks and the native sensor API for sample eq
 | Reopen a lossless encoding and compare every native sample with the encoder input | Correct round trip through the Photographer reader for the tested input and layout |
 | Read the generated file with an independent binary decoder and compare its native raster | Interoperability beyond a reader and writer using the same interpretation |
 | Open and develop the generated file in the intended application | Compatibility with that application and the specific profile exercised |
+
+The ImageIO writer tests build synthetic full mosaics for all four profiles, select the profile through normal ImageIO calls, and compare every native sensor code on readback. In a separate comparison, each registered SRC-012 camera file supplied just its native raster to the writer. DNGLab 0.8.0 reported the same `analyze --raw-checksum --json` digest for the camera file and the corresponding newly written file across all 104,677,712 sample sites. DNGLab also extracted each generated preview and thumbnail. For profile-generated synthetic mosaics, DNGLab converted all four CR3s to DNG and LightCraft 0.21.1 rendered them to JPEG. These checks cover the measured full-frame lossless modes. Compatibility with Canon Digital Photo Professional, byte-identical Canon encoder output, C-RAW writing and other camera modes remain open. [ImageIO regression tests](https://github.com/carstenartur/Photographer/blob/275e0869a0b5af8a4d32f4382d34042baaff2598/canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3ImageWriterTest.java) · [Writer validation results](https://github.com/carstenartur/Photographer/pull/365)
 
 The repository's RG4 and RG5 reports contain the fixture manifests, pinned reference outputs and replay commands for **camera-generated** inputs. Use those comparisons to catch reader regressions and the checks above to establish compatibility of newly constructed files. [Lossless replay](../cr3-results/2026-11-14-crx-native/README.md#reproduction) · [C-RAW replay](../cr3-results/2026-11-14-crx-wavelet/README.md#reproduction)
 
