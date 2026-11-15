@@ -19,7 +19,7 @@ export default function JobDetail() {
     let cancelled = false;
     getJob(id)
       .then((data) => { if (!cancelled) setJob(data); })
-      .catch(() => { if (!cancelled) setError('Failed to load job.'); });
+      .catch((err) => { if (!cancelled) setError(`Failed to load job: ${err.message}`); });
     return () => { cancelled = true; };
   }, [id]);
 
@@ -89,8 +89,8 @@ export default function JobDetail() {
     try {
       const data = await getJob(id);
       setJob(data);
-    } catch {
-      setError('Failed to load job.');
+    } catch (err) {
+      setError(`Failed to load job: ${err.message}`);
     }
   }
 

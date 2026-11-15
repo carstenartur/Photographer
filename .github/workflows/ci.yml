@@ -160,6 +160,38 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Install browser smoke runtime
+        run: |
+          python3 -m venv target/browser-venv
+          target/browser-venv/bin/pip install -r frontend-web/e2e/requirements.txt
+          target/browser-venv/bin/python -m playwright install --with-deps chromium
+
+      - name: Exercise packaged application in Chromium
+        shell: bash
+        run: |
+          capture_args=()
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            capture_args=(--captures target/browser-guide)
+          fi
+          target/browser-venv/bin/python frontend-web/e2e/smoke.py --image focusstack:test "${capture_args[@]}"
+
+      - name: Upload browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure
+          path: target/browser-smoke/
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Upload guide screenshots
+        if: success() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-guide
+          path: target/browser-guide/
+          retention-days: 3
+
   report-site:
     name: Scheduled Maven Site & Badges
     runs-on: ubuntu-latest

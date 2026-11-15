@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   getAllCameras,
   createCamera,
+  updateCamera,
   deleteCamera,
   getCameraStatus,
   getCameraInfo,
@@ -43,7 +44,7 @@ function ConnectionDot({ connected }) {
 }
 
 /* ── CameraCard: single camera with auto-refreshing liveview & info ── */
-function CameraCard({ cam, onDelete }) {
+function CameraCard({ cam, onEdit, onDelete }) {
   const [status, setStatus] = useState(null);
   const [info, setInfo] = useState(null);
   const [liveviewSrc, setLiveviewSrc] = useState(null);
@@ -155,6 +156,7 @@ function CameraCard({ cam, onDelete }) {
       {/* ── Actions ── */}
       <div className="cam-card-actions">
         <span className="cam-type-badge">{cam.backendType}</span>
+        <button className="btn btn-small" onClick={() => onEdit(cam)}>Edit</button>
         <button className="btn btn-small btn-danger" onClick={() => onDelete(cam.id)}>
           Delete
         </button>
@@ -190,24 +192,26 @@ export default function CameraList() {
     }
   }, []);
 
-  async function handleCreate(e) {
+  async function handleSave(e) {
     e.preventDefault();
     setError(null);
     try {
-      await createCamera({
+      const profile = {
         id: form.id || crypto.randomUUID(),
         name: form.name,
         backendType: form.backendType,
-        host: form.host,
+        host: ['canon-ccapi', 'folder'].includes(form.backendType) ? form.host : '',
         defaultStepSize: Number(form.defaultStepSize),
         maxFrames: Number(form.maxFrames),
         movementThreshold: Number(form.movementThreshold),
-      });
+      };
+      if (form.id) await updateCamera(form.id, profile);
+      else await createCamera(profile);
       setForm(EMPTY_FORM);
       setShowForm(false);
       await refreshCameras();
     } catch (err) {
-      setError(`Create failed: ${err.message}`);
+      setError(`${form.id ? 'Update' : 'Create'} failed: ${err.message}`);
     }
   }
 
@@ -231,7 +235,7 @@ export default function CameraList() {
         <h1>Cameras</h1>
         <button
           className="btn btn-primary"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => { setForm(EMPTY_FORM); setShowForm(!showForm); setError(null); }}
         >
           {showForm ? 'Cancel' : 'Add Camera'}
         </button>
@@ -240,8 +244,8 @@ export default function CameraList() {
       {error && <p className="error">{error}</p>}
 
       {showForm && (
-        <form className="form-card" onSubmit={handleCreate}>
-          <h2>New Camera Profile</h2>
+        <form className="form-card" onSubmit={handleSave}>
+          <h2>{form.id ? 'Edit Camera Profile' : 'New Camera Profile'}</h2>
           <label>
             Name
             <input
@@ -320,7 +324,7 @@ export default function CameraList() {
             />
           </label>
           <button type="submit" className="btn btn-primary">
-            Create
+            {form.id ? 'Save' : 'Create'}
           </button>
         </form>
       )}
@@ -330,7 +334,8 @@ export default function CameraList() {
       ) : (
         <div className="cam-grid">
           {cameras.map((cam) => (
-            <CameraCard key={cam.id} cam={cam} onDelete={handleDelete} />
+            <CameraCard key={cam.id} cam={cam} onDelete={handleDelete}
+              onEdit={(profile) => { setForm({ ...profile, host: profile.host ?? '' }); setShowForm(true); setError(null); }} />
           ))}
         </div>
       )}

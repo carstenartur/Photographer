@@ -821,3 +821,29 @@ th {
 .status-item {
   white-space: nowrap;
 }
+@media (max-width: 800px) {
+  .navbar {
+    height: auto;
+    padding: 0.5rem 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .navbar-links, .status-bar {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.8rem;
+  }
+
+  .navbar-links {
+    margin: 0.25rem 0 0;
+  }
+
+  .main-content {
+    min-width: 0;
+    padding: 1rem;
+  }
+
+  .cam-grid {
+    grid-template-columns: 1fr;
+  }
+}
