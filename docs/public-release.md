@@ -13,6 +13,15 @@ an ancestor's file on `main`. The earlier historical audit recorded camera,
 lens and creator fields. Closing the tracking issue did not remove those
 objects. [Original finding and scope](https://github.com/carstenartur/Photographer/issues/302).
 
+A second check compared the 13 pre-sanitization Git blob IDs with the current
+trees of all 67 branches and five tags listed during the review. **42 branch
+tips and two release tags still contain original fixture bytes**. The tree
+of [v0.1.4](https://github.com/carstenartur/Photographer/tree/v0.1.4)
+contains all 13. The tree of [v0.1.3](https://github.com/carstenartur/Photographer/tree/v0.1.3)
+contains eight. A source archive downloaded from one of these tags includes
+those files. This check identifies direct exposure at the listed tips.
+Earlier commits and provider-side archives need separate review.
+
 These checks cover common credential formats and embedded metadata. The
 maintainer still needs to review visible subjects and redistribution rights
 for the photographs, derivative reference images and downloadable assets.
