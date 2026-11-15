@@ -12,6 +12,7 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
+      - 'scripts/calibrate_cr3_sentinels.py'
       - 'scripts/compare_jmh.py'
       - 'scripts/test_compare_jmh.py'
       - 'scripts/run_jmh_compare_refs.py'
@@ -30,6 +31,7 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
+      - 'scripts/calibrate_cr3_sentinels.py'
       - 'scripts/compare_jmh.py'
       - 'scripts/test_compare_jmh.py'
       - 'scripts/run_jmh_compare_refs.py'
@@ -41,6 +43,11 @@ on:
     # Longitudinal full-suite history; PRs use the short same-runner sentinel below.
     - cron: '0 5 * * 0'
   workflow_dispatch:
+    inputs:
+      calibrate:
+        description: 'Measure unchanged-code variance and runner time at 1, 2 and 3 JMH forks'
+        type: boolean
+        default: false
 
 concurrency:
   group: benchmark-${{ github.event.pull_request.number || github.ref }}
@@ -50,8 +57,48 @@ permissions:
   contents: read
 
 jobs:
+  calibration:
+    name: Calibrate unchanged CR3 sentinels
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.calibrate)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Select calibration runs
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -eu
+          if [ -z "$BASE_SHA" ] || [ -n "$(git diff --name-only "$BASE_SHA"...HEAD -- scripts/calibrate_cr3_sentinels.py)" ]; then
+            echo 'measure=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-java@v6
+        if: steps.scope.outputs.measure == 'true'
+        with:
+          java-version: '25'
+          distribution: temurin
+          cache: maven
+          cache-dependency-path: pom.xml
+      - name: Measure fork count and execution order on one runner
+        if: steps.scope.outputs.measure == 'true'
+        run: python3 scripts/calibrate_cr3_sentinels.py --output-dir "$RUNNER_TEMP/calibration"
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.scope.outputs.measure == 'true'
+        with:
+          name: cr3-jmh-calibration
+          path: ${{ runner.temp }}/calibration/
+          if-no-files-found: error
+          retention-days: 30
+
   benchmark:
     name: JMH Benchmarks (Canon CR3)
+    if: ${{ github.event_name != 'workflow_dispatch' || !inputs.calibrate }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:

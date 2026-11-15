@@ -1,0 +1,23 @@
+revision=0d94d6c579a019c69f6b9feb189c8fe7ab9f825c
+runner=local Linux x86_64
+affinity=4,5
+JVM=-XX:ActiveProcessorCount=2 -XX:+UseSerialGC -Xmx512m
+openjdk version "25.0.5" 2026-10-20 LTS
+OpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)
+OpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)
+Linux-6.18.57-x86_64-with-glibc2.41
+model name	: AMD EPYC 9V74 80-Core Processor
+
+Measured process elapsed times (seconds) and benchmark count:
+1 base-head base 22.76 4
+1 base-head head 23.39 4
+1 head-base head 23.58 4
+1 head-base base 22.42 4
+2 base-head base 46.25 4
+2 base-head head 45.71 4
+2 head-base head 44.99 4
+2 head-base base 45.18 4
+3 base-head base 68.71 4
+3 base-head head 67.24 4
+3 head-base head 68.66 4
+3 head-base base 69.74 4

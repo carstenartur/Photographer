@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
+import contextlib
+import io
+import json
 import sys
+import tempfile
+from unittest.mock import patch
 import unittest
 from pathlib import Path
 
@@ -48,6 +53,42 @@ class RunJmhCompareRefsTest(unittest.TestCase):
         self.assertEqual(str(result), command[-1])
         self.assertIn("-prof", command)
         self.assertIn("gc", command)
+
+    def test_fork_selection_is_passed_to_jmh_once(self) -> None:
+        command = jmh_command(Path("/checkout"), Path("out.json"), DEFAULT_PATTERN, forks=3)
+        self.assertEqual(1, command.count("-f"))
+        self.assertEqual("3", command[command.index("-f") + 1])
+
+    def test_two_ref_gate_fails_only_for_the_slow_parameter(self) -> None:
+        # Inject only the benchmark execution. Exercise CLI semantics, parsing,
+        # per-parameter classification, output reporting and the CI exit code.
+        from run_jmh_compare_refs import main
+
+        def emit_jmh_results(*, revision, output_dir, **kwargs):
+            rows = []
+            for sample in ("stable.cr3", "slower.cr3"):
+                score = 140 if sample == "slower.cr3" and revision.label == "head" else 100
+                rows.append({
+                    "benchmark": "sentinel.parse", "params": {"sample": sample},
+                    "mode": "avgt", "primaryMetric": {
+                        "score": score, "scoreUnit": "ms/op",
+                        "scoreConfidence": [score - 1, score + 1],
+                    },
+                })
+            (output_dir / f"{revision.label}.json").write_text(json.dumps(rows))
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("run_jmh_compare_refs.run_revision", side_effect=emit_jmh_results), \
+                patch("run_jmh_compare_refs.command_output", return_value="test"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            args = ["HEAD", "HEAD", "--order", "head-base", "--output-dir", directory]
+            self.assertEqual(1, main([*args, "--fail-on-regression"]))
+            self.assertEqual(0, main(args))
+            report = json.loads((Path(directory) / "comparison.json").read_text())
+            self.assertEqual(1, report["confirmedRegressions"])
+            self.assertEqual({"slower.cr3": "REGRESSION", "stable.cr3": "STABLE"},
+                             {dict(case["params"])["sample"]: case["verdict"]
+                              for case in report["comparisons"]})
 
     def test_cli_has_no_github_specific_required_arguments(self) -> None:
         args = parse_args(("main", "feature", "--dry-run"))
