@@ -206,10 +206,10 @@ Key environment variables (see `.env.example` for defaults):
 | `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password (required; must not be `focusstack`/`changeme`) | _(required)_ | _(required)_ |
 | `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL | `jdbc:postgresql://postgres:5432/focusstack` | H2 in-memory |
 | `SPRING_DATASOURCE_USERNAME` | Database username | `focusstack` | — |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | `focusstack` | — |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | Supplied by Compose from `POSTGRES_PASSWORD` | — |
 | `POSTGRES_DB` | PostgreSQL database name (docker-compose) | `focusstack` | — |
 | `POSTGRES_USER` | PostgreSQL user (docker-compose) | `focusstack` | — |
-| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | `focusstack` | — |
+| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | Required in `.env` | — |
 | `CAMERA_MOCK_ENABLED` | Enable mock camera backend | `true` | `false` |
 | `FOCUSSTACK_CAMERA_CCAPI_BASE_URL` | Canon CCAPI base URL | `http://192.168.1.2:8080` | `http://192.168.1.2:8080` |
 | `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` | `./plugins` |
