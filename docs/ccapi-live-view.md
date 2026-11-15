@@ -71,18 +71,16 @@ The default first/next-frame wait is ten seconds. Timeout or caller interruption
 
 Before capture, an active scroll GET is cancelled before the inherited shutter path stops the live-view control endpoint. This prevents a long-running frame operation from surviving into capture.
 
-## Remaining stream modes
+## Deferred stream modes
 
-Multipart remains unimplemented until its boundary parser, bounded latest-frame queue and explicit DELETE cancellation have the same deterministic ownership guarantees as Scroll.
+The production backend implements Flip and Scroll. Multipart and RTP remain deferred and appear as `ADVERTISED_NOT_IMPLEMENTED` when a camera advertises them. A camera that only advertises these modes has no usable live-view transport in Photographer.
 
-RTP remains unimplemented until SDP acquisition, target-address selection, receiver shutdown and bounded socket cancellation are owned by one transport component.
-
-Advertised-but-unimplemented modes remain visible in capability diagnostics and are never silently treated as usable frame sources.
+Multipart needs a boundary-framed camera sample and an observed DELETE cancellation exchange. Its eventual consumer must bound frame size, keep only the latest frame and close the response before the camera lease can be released. RTP needs a redacted SDP exchange and observed start/stop behavior. Its eventual consumer must bound receiver startup and shutdown, restrict the negotiated destination and close its sockets before releasing the lease. Enabling either mode without this evidence could leave a stream active when the next capture starts.
 
 ## Evidence boundary
 
 Synthetic catalogs and transport tests cover exact method selection, version preference, flip priority, scroll fallback, arbitrary read fragmentation, bounded frame size, timeout, one matching DELETE, lifecycle idempotence, stable bodies and typed 503 behavior.
 
-Model/firmware support claims remain evidence work under the CCAPI capability-snapshot issue and must be backed by redacted real-camera snapshots. Canon's specification defines the protocol contract, while actual model/firmware snapshots determine whether a camera advertises the required endpoints and methods.
+[Issue #183](https://github.com/carstenartur/Photographer/issues/183) tracks redacted model/firmware catalogs and physical validation of the selected transport. Canon's specification defines the protocol contract, while actual model/firmware snapshots determine whether a camera advertises the required endpoints and methods.
 
 For a new camera or firmware, record the model, firmware, API version group, advertised path and method flags from its redacted catalog. Confirm that a frame can be retrieved and that stopping the selected mode releases the camera before capture. Multipart requires a boundary-framed sample and a verified cancellation exchange. RTP requires a redacted session description and verified start and stop behavior. Until then, a catalog entry identifies an advertised transport; it supplies no evidence of a successful stream.

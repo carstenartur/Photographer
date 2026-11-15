@@ -8,12 +8,11 @@ This file is retained as a stable pointer for old links. Git history preserves t
 
 ### Camera and CCAPI evidence
 
-- [#143 — remaining CCAPI production hardening and capability evidence](https://github.com/carstenartur/Photographer/issues/143)
+- [#143 — remaining CCAPI production endpoint matching](https://github.com/carstenartur/Photographer/issues/143)
 - [#144 — native Canon focus-bracketing hardware validation](https://github.com/carstenartur/Photographer/issues/144)
-- [#182 — live-view mode selection and bounded cancellation](https://github.com/carstenartur/Photographer/issues/182)
 - [#183 — redacted model/firmware capability snapshots](https://github.com/carstenartur/Photographer/issues/183)
 
-The capability collector can export a redacted catalog for each camera mode and firmware version. Live view selects advertised Flip or Scroll operations. Validating native bracketing, collecting real catalogs, and verifying bounded Multipart/RTP capture still require camera access.
+The capability collector exports redacted catalogs for physical camera modes and firmware versions. Live view selects advertised Flip or Scroll operations. The [live-view guide](docs/ccapi-live-view.md) records the evidence required to add Multipart or RTP. #183 tracks catalog and transport validation. #144 tracks hardware validation of native bracketing and the manual fallback.
 
 ### CR3 / CRX
 
@@ -28,7 +27,7 @@ The maintained research boundary is in [`docs/cr3/current-state.md`](docs/cr3/cu
 
 - [#314 — paired capture sessions for Fresnel](https://github.com/carstenartur/Photographer/issues/314)
 
-The bridge has an interface and a mock transport. Pairing against Fresnel and resuming durable experiment sessions depend on the upstream protocol.
+Fresnel supplies a capture-provider interface and a mock provider. Pairing and durable capture-session recovery depend on the [shared capture protocol](https://github.com/carstenartur/Fresnel/issues/139).
 
 ## Other proposals
 
