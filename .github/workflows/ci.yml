@@ -167,7 +167,13 @@ jobs:
           target/browser-venv/bin/python -m playwright install --with-deps chromium
 
       - name: Exercise packaged application in Chromium
-        run: target/browser-venv/bin/python frontend-web/e2e/smoke.py --image focusstack:test --captures target/browser-guide
+        shell: bash
+        run: |
+          capture_args=()
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            capture_args=(--captures target/browser-guide)
+          fi
+          target/browser-venv/bin/python frontend-web/e2e/smoke.py --image focusstack:test "${capture_args[@]}"
 
       - name: Upload browser failure diagnostics
         if: failure()
@@ -179,7 +185,7 @@ jobs:
           retention-days: 3
 
       - name: Upload guide screenshots
-        if: success()
+        if: success() && github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: browser-guide

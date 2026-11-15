@@ -13,7 +13,8 @@ Photographer uses layered, locally runnable verification. CI calls repository-ow
 | Real-camera tests | JUnit tag `real-camera` | Hardware-backed CCAPI/PTP behavior, excluded by default. |
 | Frontend tests | Vitest + Testing Library | React behavior in jsdom. |
 | Frontend static/build checks | ESLint + Vite | Accessibility/static checks and production bundling. |
-| Full-stack smoke | `scripts/test-e2e.sh` | Starts Compose and checks HTTP endpoints with `curl`. |
+| Packaged browser test | [Playwright smoke](../../frontend-web/e2e/README.md) | Chromium operates the packaged React UI against Spring Boot, H2 and a mock camera. |
+| HTTP smoke | `scripts/test-e2e.sh` | Starts Compose and checks HTTP endpoints with `curl`. |
 | CR3 research tests | Failsafe / explicit test selection | Fixed-input scientific experiments and generated evidence. |
 | Benchmarks | JMH | Performance measurement with recorded environment and same-runner comparisons. |
 
@@ -138,7 +139,7 @@ Despite its historical name, the current script is an HTTP/Compose smoke test, n
 3. checks selected REST endpoints and Swagger access with `curl`;
 4. tears the stack down and removes volumes.
 
-Playwright/Cypress-style browser E2E coverage remains separate work and must not be claimed by this script.
+The [Playwright smoke test](../../frontend-web/e2e/README.md) exercises the packaged UI, including sign-in, profile changes, a capture, frame download, deep links and a phone viewport. The Docker CI job runs it against the image it has just built.
 
 ## CR3 runtime tests
 

@@ -56,11 +56,10 @@ def login(page, password):
     page.get_by_role('button', name='Sign in').click()
 
 
-def capture(page, directory, filename):
+def capture(view, directory, filename):
     if directory:
         directory.mkdir(parents=True, exist_ok=True)
-        page.evaluate('window.scrollTo(0, 0)')
-        page.screenshot(path=directory / filename, animations='disabled')
+        view.screenshot(path=directory / filename, animations='disabled')
 
 
 def exercise(page, url, password, captures):
@@ -81,7 +80,7 @@ def exercise(page, url, password, captures):
     camera = page.locator('.cam-card').filter(has_text='Mock studio camera')
     expect(camera.get_by_role('img', name='Mock studio camera live view')).to_be_visible()
     expect(camera.get_by_text('85%')).to_be_visible()
-    capture(page, captures, 'mock-camera.png')
+    capture(camera, captures, 'mock-camera.png')
 
     page.get_by_role('link', name='Jobs', exact=True).click()
     page.get_by_role('button', name='Create Job').click()
@@ -89,7 +88,7 @@ def exercise(page, url, password, captures):
     page.get_by_role('button', name=re.compile('Fast')).click()
     page.get_by_label('Max Frames').fill('2')
     page.get_by_label('Enable Motion Detection').uncheck()
-    capture(page, captures, 'new-job.png')
+    capture(page.locator('form'), captures, 'new-job.png')
     page.get_by_role('button', name='Create', exact=True).click()
     page.get_by_role('row').filter(has_text='CREATED').get_by_role('link').click()
     expect(page.get_by_text('0 / 2 frames captured (0%)')).to_be_visible()
@@ -106,7 +105,6 @@ def exercise(page, url, password, captures):
     page.reload()
     login(page, password)
     expect(page.get_by_text('2 / 2 frames captured (100%)')).to_be_visible()
-    capture(page, captures, 'completed-job.png')
     page.once('dialog', lambda dialog: dialog.accept())
     page.get_by_role('button', name='Delete Job').click()
     expect(page.get_by_text('No jobs yet.')).to_be_visible()
@@ -114,6 +112,7 @@ def exercise(page, url, password, captures):
     page.get_by_role('link', name='HDR Timelapse').click()
     page.get_by_role('button', name='New Session').click()
     page.get_by_label('Total Intervals').fill('1')
+    capture(page.locator('form'), captures, 'hdr-session.png')
     page.get_by_role('button', name='Create Session').click()
     expect(page.get_by_role('heading', name=re.compile('Session:'))).to_be_visible()
     expect(page.get_by_text('CREATED', exact=True).first).to_be_visible()
