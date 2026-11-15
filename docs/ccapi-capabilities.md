@@ -32,9 +32,9 @@ matching version is selected.
 
 ## Legacy endpoint compatibility
 
-Production selection prefers the highest exact endpoint compatible with the required method. Older CCAPI catalogs may advertise an exact path without method metadata. The operations that accept such catalogs retain this compatibility behavior and report unknown methods in the capability snapshot.
+Live view matches the complete operation path under the advertised CCAPI version and selects the highest compatible endpoint. Native focus-bracketing settings also require a complete operation path with explicit methods. Inherited capture, status, media and event lookups still include suffix matching. [Issue #143](https://github.com/carstenartur/Photographer/issues/143) tracks hardening these selectors and aligning their diagnostic status. Legacy catalogs may omit method flags. The operations that accept these catalogs report unknown methods in the capability snapshot.
 
-A few inherited operations, such as basic device information and the regular shutter command, retain a fixed CCAPI v1.0 compatibility path when the exact operation is absent. If the catalog explicitly advertises the operation with incompatible methods, the runtime rejects the call. Newly selected live-view frame modes and native focus-bracketing settings require their own exact catalog entries and method rules.
+A few inherited operations, such as basic device information and the regular shutter command, retain a fixed CCAPI v1.0 compatibility path when the selector finds no matching endpoint. A matching advertisement with known incompatible methods blocks that fallback.
 
 Removing the fixed compatibility paths could regress control on older cameras or shooting modes with incomplete catalogs. Retain these paths while [issue #183](https://github.com/carstenartur/Photographer/issues/183) collects representative model, firmware and mode snapshots. The snapshots and a physical check of affected operations are the basis for narrowing the compatibility policy.
 

@@ -8,6 +8,7 @@ This file is retained as a stable pointer for old links. Git history preserves t
 
 ### Camera and CCAPI evidence
 
+- [#143 — remaining CCAPI production endpoint matching](https://github.com/carstenartur/Photographer/issues/143)
 - [#144 — native Canon focus-bracketing hardware validation](https://github.com/carstenartur/Photographer/issues/144)
 - [#183 — redacted model/firmware capability snapshots](https://github.com/carstenartur/Photographer/issues/183)
 
