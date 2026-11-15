@@ -12,11 +12,12 @@ Photographer is a multi-module Java 25 / Spring Boot 4 application with a React 
 | Find a module or supported public surface | [Modules and public surfaces](modules.md) |
 | Build, run or contribute from a checkout | [Contributing and local development](contributing.md) |
 | Run unit, integration, Docker, hardware or research tests | [Testing](testing.md) |
+| Find CI checks and their triggers | [Continuous Integration](ci.md) |
 | Handle secrets, backups, generated evidence or recovery | [Operations, secrets and recovery](operations.md) |
 | Use the REST API | [REST API reference](../api.md) |
 | Configure a camera | [Camera setup](../camera-setup.md) |
 | Work on Canon CCAPI session ownership | [CCAPI session ownership](../ccapi-session-ownership.md) |
-| Use or develop CR3/CRX functionality | [CR3 / CRX Manual](../cr3/index.md) |
+| Use or develop CR3/CRX functionality | [CR3 / CRX Manual](../cr3/index.md) · [CR3 and CRX format reference](../cr3/format.md) |
 | Inspect the current RAW research boundary | [CR3 current state](../cr3/current-state.md) and [results](../cr3/reports/index.md) |
 | Follow clean-room rules | [Clean-room engineering record](../cleanroom/README.md) |
 | Understand remaining documentation migration | [Migration plan](migration-plan.md) |

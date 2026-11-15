@@ -83,6 +83,10 @@ The RG3 research reader derives both values in a plane directly from the payload
 
 Six two-tile, 14-bit, three-level C-RAW recordings match external reconstructions at all 146,467,152 sensor sites. Two project-owned PowerShot captures exercise signed low-frequency coefficients at the start of a tile plane. Two test files were selected and identified by SHA-256 before prospective validation. [RG5 measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
 
+## Experimental lossless CR3 writing
+
+`Cr3Writer` and the ImageIO provider write native Bayer data according to the built-in EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II profiles. The profile supplies the full sensor dimensions, track layout and nominal calibration. Verification covers native-code round trips, DNGLab checksum comparisons and JPEG exports in LightCraft. The [format reference](format.md#lossless-writer-camera-profiles) gives the parameters and verification limits. The [ImageIO guide](imageio.md#write-a-lossless-cr3-using-a-camera-profile) shows the Java API.
+
 ## Stable product boundary
 
 The verified product paths include the following functions.

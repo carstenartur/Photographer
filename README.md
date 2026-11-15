@@ -14,7 +14,8 @@ Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automa
 | What would you like to do? | Start here |
 |---|---|
 | Control a camera or try a focus stack without hardware | [Start the web application](docs/quickstart.md) · [Illustrated walkthrough](docs/web-interface.md) |
-| Read a CR3 or write a Bayer DNG in Java | [ImageIO dependency and working examples](docs/cr3/imageio.md) · [Supported cameras and RAW layouts](docs/cr3/decoder.md) |
+| Read CR3 or write lossless CR3 and Bayer DNG in Java | [ImageIO dependency and working examples](docs/cr3/imageio.md) · [Supported RAW layouts](docs/cr3/decoder.md) |
+| Understand the CR3 container and CRX bitstream | [CR3 and CRX format reference](docs/cr3/format.md) · [CR3 / CRX manual](docs/cr3/index.md) |
 | Measure native Bayer samples in ImageJ/Fiji | [Install the Fiji update site](docs/cr3/fiji-update-site.md) · [Import a file or run a macro](cr3-imagej/README.md) |
 | Inspect a CR3 or extract its JPEG from the command line | [CLI commands](docs/cr3/cli.md) |
 | Build or extend Photographer | [Developer manual](docs/developer/index.md) · [Project verification](docs/developer/testing.md) |
@@ -66,34 +67,13 @@ The packaged application serves the React frontend and runs capture jobs. The sa
 
 ## Modules
 
-| Module | Purpose |
-|---|---|
-| `app` | Main Spring Boot application — REST API, workflows, plugin management, serves frontend. |
-| `frontend-web` | React/Vite UI (Dashboard, Cameras, Jobs, Gallery, HDR, Face Orbit, Observer, Astro, Plugins). |
-| `common-api` | Shared records and contracts used across modules. |
-| `plugin-api` | Public plugin extension interfaces (`AnalysisPlugin`, `CameraBackendPlugin`, `VisionProviderPlugin`). |
-| `capture-core` | Capture orchestration and focus-stacking logic. |
-| `camera-ptp` | PTP/USB camera backend. |
-| `storage` | JPA repositories and PostgreSQL persistence. |
-| `session-core` | Session workflow management. |
-| `hdr-core` | HDR timelapse capture and processing. |
-| `video-core` | Video recording integration. |
-| `face-analysis-core` | Face detection and analysis. |
-| `face-profile-core` | Face profile management for face-orbit sessions. |
-| `observer-core` | Wildlife observer workflow. |
-| `ai-vision` | AI vision abstraction (`VisionProvider` interface, Gemini + mock implementations). |
-| `astro-core` | Astro/long-exposure session management. |
-| `cr3-core` | Canon CR3 BMFF parser, metadata facade and native RAW decoding. |
-| `cr3-imageio` | Java ImageIO plug-in for CR3 import and uncompressed Bayer DNG reading and writing. |
-| `cr3-imagej` | ImageJ/Fiji importer for full-resolution, unsigned 16-bit Bayer sensor data. [Installation and use](cr3-imagej/README.md). |
-| `canon-cr3-cli` | Command-line inspection, JPEG extraction and RAW decoding. |
-| `canon-cr3-benchmark` | JMH microbenchmarks for the CR3 stack. |
+Find the Maven modules, dependency layers and supported library interfaces in the [Developer Manual](docs/developer/modules.md). The [CR3 module map](docs/cr3/index.md#module-map) identifies the standalone library artifacts.
 
 ## Import Canon CR3 files in Java
 
 Add `io.github.carstenartur:cr3-imageio` to a Java 21 or newer Maven application to read the camera’s embedded JPEG with `ImageIO.read(file)`. Select processed RGB, linear Bayer or the original sensor codes through the reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
 
-[ImageIO setup and parameters](docs/cr3/imageio.md) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [CR3 file import, JPEG extraction and Photographer frame export](docs/cr3/import.md) · [Maven release status](docs/cr3-maven-central.md)
+[ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
 
 ## Run the web application
 
@@ -107,36 +87,11 @@ Run the product checks used by CI from the repository root. They require JDK 25,
 bash scripts/verify-product.sh
 ```
 
-For a faster local run that skips integration tests, pass `-DskipITs=true`. The [testing guide](docs/developer/testing.md) covers module-specific and hardware checks. To verify frontend changes separately, use Node.js 24 and run:
-
-```sh
-cd frontend-web
-npm ci
-npm run lint
-npm test
-npm run build
-```
+Pass `-DskipITs=true` for faster feedback. The [testing guide](docs/developer/testing.md) covers frontend, module-specific and hardware checks.
 
 ## Configuration
 
-Compose reads the database, login and port settings in [the environment template](.env.example). Set additional application options in the Java process environment or in the Compose service’s `environment` section.
-
-> **Security:** Never commit API keys or passwords to version control. Use environment variables, a secrets manager, or a `.env` file that is listed in `.gitignore`.
-
-| Variable | Description | Default (Docker) | Default (local) |
-|---|---|---|---|
-| `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` | Admin user password (required; must not be `focusstack`/`changeme`) | _(required)_ | _(required)_ |
-| `SPRING_DATASOURCE_URL` | JDBC URL for PostgreSQL | `jdbc:postgresql://postgres:5432/focusstack` | H2 in-memory |
-| `SPRING_DATASOURCE_USERNAME` | Database username | `focusstack` | — |
-| `SPRING_DATASOURCE_PASSWORD` | Database password | Supplied by Compose from `POSTGRES_PASSWORD` | — |
-| `POSTGRES_DB` | PostgreSQL database name (docker-compose) | `focusstack` | — |
-| `POSTGRES_USER` | PostgreSQL user (docker-compose) | `focusstack` | — |
-| `POSTGRES_PASSWORD` | PostgreSQL password (docker-compose) | Required in `.env` | — |
-| `CAMERA_MOCK_ENABLED` | Enable mock camera backend | `true` | `false` |
-| `FOCUSSTACK_PLUGINS_DIR` | Directory scanned for plugin JARs | `./plugins` | `./plugins` |
-| `GEMINI_API_KEY` | Google Gemini API key for AI vision | _(empty)_ | _(empty)_ |
-| `OBSERVER_AI_PROVIDER` | Active AI provider (`gemini` or `mock`) | `mock` | `mock` |
-| `SPRING_PROFILES_ACTIVE` | Active Spring profile | `docker` | `default` |
+The [Compose environment template](.env.example) lists the settings needed for local startup. The [quickstart](docs/quickstart.md) explains how to configure them. See the [operations guide](docs/developer/operations.md) for application profiles, credentials and persistent data.
 
 ## Plugins
 

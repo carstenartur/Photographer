@@ -35,7 +35,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | `io.github.carstenartur:cr3-metadata` | Structured EXIF, MakerNote, CTMD and sensor/active-area metadata | Stable external surface |
 | `io.github.carstenartur:cr3-codec` | CRX header, entropy, predictor, tile/plane reconstruction and Bayer transfer model | Experimental/internal except explicitly classified diagnostics/models |
 | `io.github.carstenartur:cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
-| `io.github.carstenartur:cr3-core` | Unified `Cr3Decoder` / `Cr3DecodeOptions` facade | Preview/thumbnail subset reliable; verified V1 lossless and three-level C-RAW |
+| `io.github.carstenartur:cr3-core` | Decoder facade and camera-profile writer | Stable preview and thumbnail paths. Native decoding and lossless writing cover the measured profiles. |
 | `io.github.carstenartur:cr3-imageio` | Java ImageIO CR3 and Bayer DNG readers and writers | Stable preview and metadata access, profile-specific RAW import |
 | `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer importer for ImageJ 1.x and Fiji | Distributed as a Fiji plugin |
 | `com.photographer.focusstack:canon-cr3-cli` | Inspection, extraction and experimental decode commands | Repository CLI; excluded from the public Maven Central library bundle |
@@ -67,7 +67,7 @@ The following do not depend on a correct sensor-RAW reconstruction:
 
 ### Native sensor decoding
 
-Use `Cr3Decoder` with `Cr3DecodeOptions.rawLinear()` for the Bayer image. Canon's three-level C-RAW mode uses per-subband inverse quantization and inverse 5/3 lifting. The default ImageIO read still selects the embedded JPEG. Processed color, other codec versions, RAW bursts and other sensor layouts have separate support and verification boundaries.
+Use `Cr3DecodeOptions.rawSensor()` for the native Bayer mosaic, including the optical-black margins. Use `rawLinear()` for the scaled Bayer output. The default ImageIO read selects the embedded JPEG. See the [ImageIO output modes](imageio.md) and [verified layouts](current-state.md).
 
 ## Documentation authority
 
