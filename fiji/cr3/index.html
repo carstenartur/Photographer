@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Install Canon CR3 Sensor Importer for Fiji to open the original Bayer sensor values from Canon RAW files.">
+  <title>Canon CR3 Sensor Importer for Fiji</title>
+  <style>
+    body { font: 1.1rem/1.6 system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; padding: 0 1.2rem; }
+    h1, h2 { line-height: 1.2; }
+    h2 { margin-top: 1.8rem; }
+    li + li { margin-top: .5rem; }
+    code { overflow-wrap: anywhere; }
+    @media (prefers-color-scheme: dark) { body { background: #16191c; color: #eee; } a { color: #96ccff; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Canon CR3 Sensor Importer for Fiji</h1>
+    <p>Open a supported Canon CR3 file as a 16-bit grayscale image with one pixel per Bayer sensor site. The importer preserves the camera's recorded values and sensor margins. You can inspect the Bayer pattern and available capture metadata under <strong>Image → Show Info…</strong>.</p>
+    <h2>Install with the Fiji updater</h2>
+    <ol>
+      <li>In Fiji with Java 21 or newer, choose <strong>Help → Update… → Manage update sites → Add Unlisted Site</strong>.</li>
+      <li>Enter <strong>Canon CR3 Sensor Importer</strong> as the name and use this URL:<br><code>https://carstenartur.github.io/Photographer/fiji/cr3/</code></li>
+      <li>Enable the site, close the site manager, choose <strong>Apply changes</strong> and restart Fiji.</li>
+      <li>Choose <strong>File → Import → CR3 Sensor Data…</strong> and select a CR3 file.</li>
+    </ol>
+    <p><a href="version.txt">Build currently available</a> · <a href="LICENSE.txt">MIT license</a></p>
+  </main>
+</body>
+</html>
