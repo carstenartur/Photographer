@@ -148,7 +148,8 @@ public class ObserverController {
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> stats = Map.of(
                 "totalEvents", observerService.getTotalEventCount(),
-                "totalSpecies", observerService.getTotalSpeciesCount()
+                "totalSpecies", observerService.getTotalSpeciesCount(),
+                "classificationFailures", observerService.getClassificationFailures()
         );
         return ResponseEntity.ok(stats);
     }

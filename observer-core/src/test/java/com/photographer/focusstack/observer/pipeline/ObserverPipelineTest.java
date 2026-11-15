@@ -123,6 +123,23 @@ class ObserverPipelineTest {
         assertEquals(1, discardedEvents.size());
     }
 
+    @Test
+    void unavailableOptionalEnrichmentRetainsTheEventAsUnclassified() {
+        MotionDetector motion = new MotionDetector() {
+            @Override public double detect(byte[] ref, byte[] cur, RegionOfInterest roi) { return 1.0; }
+            @Override public double estimateObjectSize(byte[] frame, RegionOfInterest roi) { return 0.1; }
+        };
+        SceneMonitor monitor = new SceneMonitor(motion,
+                new RulesEngine(List.of(new MotionThresholdRule(0.1))), profile);
+        var pipeline = buildPipeline(monitor, null);
+        pipeline.start();
+        pipeline.processFrame(frame(STATIC_FRAME));
+        pipeline.processFrame(frame(MOTION_FRAME));
+        assertEquals(1, completedEvents.size());
+        assertEquals("unclassified", completedEvents.getFirst().aiResult().primaryLabel());
+        assertTrue(discardedEvents.isEmpty());
+    }
+
     /** Pipeline is stopped → processFrame is a no-op. */
     @Test
     void stoppedPipeline_ignoresFrames() {

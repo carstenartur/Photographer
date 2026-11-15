@@ -1,5 +1,6 @@
 package com.photographer.focusstack.observer.integration;
 
+import com.photographer.focusstack.ai.VisionFailureKind;
 import com.photographer.focusstack.camera.integration.AbstractPostgresIntegrationTest;
 import com.photographer.focusstack.observer.entity.ObservationEventEntity;
 import com.photographer.focusstack.observer.entity.SpeciesRecordEntity;
@@ -36,6 +37,20 @@ class ObserverServiceIT extends AbstractPostgresIntegrationTest {
 
     @Autowired
     private ObserverService observerService;
+
+    @Test
+    void outageIsPersistedWithoutCreatingASpecies() {
+        String id = UUID.randomUUID().toString();
+        long before = observerService.getClassificationFailures().getOrDefault("TIMEOUT", 0L);
+        observerService.onEventCompleted(new ObservationEvent.Builder()
+                .id(id).timestamp(Instant.now()).state(EventState.COMPLETED).mode("wildlife")
+                .aiResult(VisionResultData.unclassified(VisionFailureKind.TIMEOUT)).build());
+        var stored = observerService.findEventById(id).orElseThrow().getAiResult();
+        assertEquals("unclassified", stored.getPrimaryLabel());
+        assertEquals("TIMEOUT", stored.getFailureKind());
+        assertTrue(observerService.findSpeciesByName("unclassified").isEmpty());
+        assertEquals(before + 1L, observerService.getClassificationFailures().get("TIMEOUT").longValue());
+    }
 
     @Test
     void persistAndQueryObservationEvent() {

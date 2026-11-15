@@ -103,17 +103,18 @@ Logs contain task type, status and failure category, not API keys, Authorization
 
 `AIGateway` reports `POLICY_DENIED` and never contacts the delegate when local access/privacy policy rejects a call. This is intentionally distinct from provider-side `AUTHENTICATION`.
 
-## Current resilience boundary
+## Outages and recovery
 
-This module now owns typed provider outcomes and bounded Gemini retries. Issue #285 still owns:
+Each Gemini client admits at most four concurrent operations. Excess calls return a typed rate-limited result immediately. Three consecutive calls ending in a transient failure open a circuit shared by classification, description, detection and ranking. After 30 seconds (or a longer provider retry hint, capped at 60 seconds), one caller probes recovery. A transient probe failure starts another cooldown. Calls during the cooldown return `CIRCUIT_OPEN` and a retry delay. The caller can inspect these outcomes without examining an exception message.
 
-- a circuit breaker with recovery/half-open behavior;
-- call-site classification as mandatory, optional enrichment or gate;
-- persisted observer/job degradation status;
-- user-facing diagnostics and aggregate metrics;
-- bounded postpone/requeue behavior where a workflow explicitly permits it.
+| Caller | Behavior when classification fails |
+|---|---|
+| Observer after capture | Completes the captured event with an `unclassified` result and a typed failure. A genuine successful `none` result still discards the negative observation. Only successful detections update species counts. |
+| Two-stage pre-filter | Returns the typed failure to the caller and skips stage two. |
+| Privacy/permission gate | Returns `POLICY_DENIED` before contacting the remote provider. |
+| Direct classify, describe, detect or rank | Returns an unsuccessful `VisionResult` with the failure category. The caller decides whether its own operation can continue. |
 
-No call site may substitute a guessed species, quality label or successful negative classification when a provider failed.
+Observer classification is optional enrichment. Once the provider’s bounded transient retries are exhausted, the observer persists the outcome immediately. There is no background requeue or substitute classifier. Event detail displays the failure category. `GET /api/v1/observer/stats` includes aggregate counts by classification failure under `classificationFailures`. Historical events without a recorded category contribute no failure count.
 
 ## Dependencies
 

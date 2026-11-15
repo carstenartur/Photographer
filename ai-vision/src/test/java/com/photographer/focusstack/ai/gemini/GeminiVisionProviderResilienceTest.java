@@ -31,6 +31,57 @@ class GeminiVisionProviderResilienceTest {
     }
 
     @Test
+    void recoveryAdmitsOnlyOneProbeAndHonorsTheLastRetryHint() {
+        var time = new java.util.concurrent.atomic.AtomicLong();
+        var circuit = new GeminiCircuit(time::get);
+        var unavailable = VisionResult.failure("p", "m", "t", VisionFailureKind.RATE_LIMITED,
+                true, 42, "rate limited", 0);
+        var late = circuit.admit();
+        for (int i = 0; i < 3; i++) {
+            circuit.complete(circuit.admit(), unavailable);
+        }
+        var success = GeminiResponseParser.parse(successBody("bird"), "p", "m", "t", 0);
+        circuit.complete(late, success);
+        assertEquals(42, circuit.admit().retryAfterSeconds());
+        time.addAndGet(Duration.ofSeconds(42).toNanos());
+        var probe = circuit.admit();
+        assertTrue(probe.allowed());
+        assertFalse(circuit.admit().allowed());
+        circuit.complete(probe, unavailable);
+        assertFalse(circuit.admit().allowed());
+        time.addAndGet(Duration.ofSeconds(43).toNanos());
+        circuit.complete(circuit.admit(), success);
+        assertTrue(circuit.admit().allowed());
+        assertTrue(circuit.admit().allowed());
+    }
+
+    @Test
+    void limitsConcurrentRequestsWithoutQueuing() {
+        var circuit = new GeminiCircuit(System::nanoTime);
+        var first = circuit.admit();
+        for (int i = 1; i < 4; i++) {
+            assertTrue(circuit.admit().allowed());
+        }
+        assertEquals(VisionFailureKind.RATE_LIMITED, circuit.admit().failure());
+        circuit.complete(first, GeminiResponseParser.parse(successBody("bird"), "p", "m", "t", 0));
+        assertTrue(circuit.admit().allowed());
+    }
+
+    @Test
+    void shortCircuitsConsecutiveOutagesAcrossOperations() {
+        var transport = new ScriptedTransport(response(503, ""), response(503, ""),
+                response(503, ""), response(200, successBody("unexpected request")));
+        var provider = provider(0, transport, new RecordingSleeper());
+        for (int i = 0; i < 3; i++) {
+            assertFailure(provider.detectObjects(new byte[]{1}, VisionContext.wildlife()),
+                    VisionFailureKind.TEMPORARY_UNAVAILABLE, true);
+        }
+        assertFailure(provider.describeImage(new byte[]{1}, VisionContext.wildlife()),
+                VisionFailureKind.CIRCUIT_OPEN, true);
+        assertEquals(3, transport.calls);
+    }
+
+    @Test
     void authenticationFailureIsPermanentSanitizedAndNotRetried() {
         ScriptedTransport transport = new ScriptedTransport(response(
                 401, "secret provider payload containing token"));

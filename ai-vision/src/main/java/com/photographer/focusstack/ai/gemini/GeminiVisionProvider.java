@@ -33,6 +33,7 @@ public class GeminiVisionProvider implements VisionProvider {
     private static final Duration BASE_BACKOFF = Duration.ofMillis(100);
     private static final Duration MAX_BACKOFF = Duration.ofSeconds(2);
 
+    private final GeminiCircuit circuit;
     private final ProviderConfig config;
     private final GeminiTransport transport;
     private final GeminiTransport.Sleeper sleeper;
@@ -49,6 +50,7 @@ public class GeminiVisionProvider implements VisionProvider {
             ProviderConfig config,
             GeminiTransport transport,
             GeminiTransport.Sleeper sleeper) {
+        this.circuit = new GeminiCircuit(System::nanoTime);
         this.config = Objects.requireNonNull(config, "config");
         this.transport = Objects.requireNonNull(transport, "transport");
         this.sleeper = Objects.requireNonNull(sleeper, "sleeper");
@@ -134,6 +136,21 @@ public class GeminiVisionProvider implements VisionProvider {
                     false, null, "Image exceeds the configured provider limit", 0L);
         }
 
+        GeminiCircuit.Admission admission = circuit.admit();
+        if (!admission.allowed()) {
+            return failure(taskType, admission.failure(), true, admission.retryAfterSeconds(),
+                    "AI provider temporarily paused", 0L);
+        }
+        VisionResult result = null;
+        try {
+            result = performRequest(imageData, prompt, taskType);
+            return result;
+        } finally {
+            circuit.complete(admission, result);
+        }
+    }
+
+    private VisionResult performRequest(byte[] imageData, String prompt, String taskType) {
         HttpRequest request;
         try {
             request = request(imageData, prompt);

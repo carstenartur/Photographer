@@ -30,6 +30,7 @@ public class AiResultEntity {
     private String model;
     private String taskType;
     private String primaryLabel;
+    private String failureKind;
 
     @Column(columnDefinition = "TEXT")
     private String alternativeLabelsJson;
@@ -65,6 +66,9 @@ public class AiResultEntity {
 
     public String getAlternativeLabelsJson() { return alternativeLabelsJson; }
     public void setAlternativeLabelsJson(String json) { this.alternativeLabelsJson = json; }
+
+    public String getFailureKind() { return failureKind; }
+    public void setFailureKind(String failureKind) { this.failureKind = failureKind; }
 
     public double getConfidence() { return confidence; }
     public void setConfidence(double confidence) { this.confidence = confidence; }

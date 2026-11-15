@@ -4,7 +4,7 @@
 export default function EventCard({ event, onClick }) {
   const aiResult = event.aiResult;
   const label = aiResult?.primaryLabel || 'Unknown';
-  const confidence = aiResult?.confidence;
+  const confidence = label === 'unclassified' ? null : aiResult?.confidence;
   const time = event.timestamp
     ? new Date(event.timestamp).toLocaleTimeString()
     : '—';
