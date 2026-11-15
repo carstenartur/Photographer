@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
@@ -49,6 +50,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * </ul>
  */
 @RealCamera
+@EnabledIfEnvironmentVariable(named = "CCAPI_CAMERA_URL", matches = ".+")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class CcapiContentAndTransferIT {
 
@@ -87,7 +89,7 @@ class CcapiContentAndTransferIT {
         if (sdContentsUrl == null) {
             sdContentsUrl = BASE_URL + "/ccapi/ver100/contents/sd";
         }
-        log.info("CcapiContentAndTransferIT targeting {}, SD contents URL: {}", BASE_URL, sdContentsUrl);
+        log.info("CCAPI camera storage discovered");
     }
 
     /**
@@ -110,10 +112,10 @@ class CcapiContentAndTransferIT {
                 Thread.sleep(1000); // let camera settle after stopping LV
                 break;
             } catch (org.springframework.web.client.HttpServerErrorException e) {
-                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getMessage());
+                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getClass().getSimpleName());
                 Thread.sleep(500);
             } catch (RestClientException e) {
-                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getMessage());
+                log.debug("Stop live view attempt {}: {}", attempt + 1, e.getClass().getSimpleName());
                 break;
             }
         }
@@ -173,7 +175,7 @@ class CcapiContentAndTransferIT {
             assertTrue(List.of("oneshot", "servo", "aifocus", "manual").contains(value),
                     "afoperation value must be one of: oneshot, servo, aifocus, manual — was: " + value);
         } catch (RestClientException e) {
-            log.warn("afoperation endpoint not available: {}", e.getMessage());
+            log.warn("afoperation endpoint not available: {}", e.getClass().getSimpleName());
             // Some cameras may not expose this — don't fail
         }
     }
@@ -193,7 +195,7 @@ class CcapiContentAndTransferIT {
             List<String> abilities = (List<String>) response.get("ability");
             log.info("AF method: value={}, abilities={}", value, abilities);
         } catch (RestClientException e) {
-            log.warn("afmethod endpoint not available: {}", e.getMessage());
+            log.warn("afmethod endpoint not available: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -226,12 +228,12 @@ class CcapiContentAndTransferIT {
         } else {
             // If it IS discovered, try to POST and verify it works or returns an error
             String url = BASE_URL + "/ccapi/ver100/shooting/control/drivefocus";
-            log.info("drivefocus endpoint IS discovered — testing POST to {}", url);
+            log.info("Drive focus endpoint is advertised");
             try {
                 rest.postForObject(url, Map.of("value", "far1"), String.class);
                 log.info("POST drivefocus succeeded — camera supports focus drive");
             } catch (RestClientException e) {
-                log.warn("POST drivefocus failed: {} — endpoint exists but may not work in current mode", e.getMessage());
+                log.warn("POST drivefocus failed: {} — endpoint exists but may not work in current mode", e.getClass().getSimpleName());
             }
         }
     }
@@ -248,12 +250,12 @@ class CcapiContentAndTransferIT {
                             "{\"value\":\"far1\"}".getBytes(),
                             new org.springframework.http.HttpHeaders()),
                     String.class);
-            log.info("POST drivefocus responded: {} — {}", response.getStatusCode(), response.getBody());
+            log.info("Drive focus returned HTTP {}", response.getStatusCode());
             // If we got here, the camera supports it — not a failure
         } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
             log.info("✓ POST /drivefocus returned 404 — confirmed not supported on this camera");
         } catch (RestClientException e) {
-            log.info("POST /drivefocus returned error: {} — documenting behaviour", e.getMessage());
+            log.info("POST /drivefocus returned error: {} — documenting behaviour", e.getClass().getSimpleName());
         }
     }
 
@@ -281,8 +283,7 @@ class CcapiContentAndTransferIT {
         long maxSize = ((Number) sd.get("maxsize")).longValue();
         long spaceSize = ((Number) sd.get("spacesize")).longValue();
 
-        log.info("Storage: name={}, url={}, maxSize={} bytes, freeSpace={} bytes, contents={}",
-                name, sdUrl, maxSize, spaceSize, sd.get("contentsnumber"));
+        log.info("Storage capacity: {} bytes, free: {} bytes", maxSize, spaceSize);
 
         assertEquals("sd", name, "First storage should be 'sd'");
         assertTrue(maxSize > 0, "maxsize should be positive");
@@ -308,8 +309,6 @@ class CcapiContentAndTransferIT {
 
         for (Map<String, Object> entry : dirs) {
             String name = (String) entry.get("name");
-            String attrib = (String) entry.get("attrib");
-            log.info("  {}/{} (attrib={})", sdContentsUrl, name, attrib);
             assertNotNull(name, "Folder name must not be null");
         }
         log.info("Found {} folders on SD card", dirs.size());
@@ -328,7 +327,7 @@ class CcapiContentAndTransferIT {
         // Pick the last (highest-numbered) folder
         String folderName = (String) dirs.get(dirs.size() - 1).get("name");
         String folderUrl = sdContentsUrl + "/" + folderName;
-        log.info("Browsing {}", folderUrl);
+        log.info("Browsing selected camera folder");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> folderResponse = rest.getForObject(folderUrl, Map.class);
@@ -340,18 +339,16 @@ class CcapiContentAndTransferIT {
         assertFalse(files.isEmpty(), "Folder should have at least one file");
 
         int imageCount = 0;
-        String lastImageName = null;
         for (Map<String, Object> file : files) {
             String name = (String) file.get("name");
             String attrib = (String) file.get("attrib");
             if ("A".equals(attrib) && name != null &&
                     (name.toUpperCase().endsWith(".JPG") || name.toUpperCase().endsWith(".CR3"))) {
                 imageCount++;
-                lastImageName = name;
             }
         }
-        log.info("Found {} image files in {}, last={}", imageCount, folderName, lastImageName);
-        assertTrue(imageCount > 0, "Should have at least one image file in " + folderName);
+        log.info("Found {} image files", imageCount);
+        assertTrue(imageCount > 0, "Should have at least one image file in the selected camera folder");
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -391,12 +388,12 @@ class CcapiContentAndTransferIT {
 
         // Download the full image
         String imageUrl = sdContentsUrl + "/" + folderName + "/" + imageName;
-        log.info("Downloading image: {}", imageUrl);
+        log.info("Downloading selected image");
 
         byte[] imageData = rest.getForObject(imageUrl, byte[].class);
         assertNotNull(imageData, "Image data must not be null");
         assertTrue(imageData.length > 1000, "Image data should be substantial, was " + imageData.length + " bytes");
-        log.info("✓ Downloaded {} — {} bytes", imageName, imageData.length);
+        log.info("Downloaded {} bytes", imageData.length);
 
         // Verify file signature
         if (imageName.toUpperCase().endsWith(".JPG")) {
@@ -446,7 +443,7 @@ class CcapiContentAndTransferIT {
         assumeTrue(imageName != null, "Need an image on SD card");
 
         String thumbUrl = sdContentsUrl + "/" + folderName + "/" + imageName + "?kind=thumbnail";
-        log.info("Downloading thumbnail: {}", thumbUrl);
+        log.info("Downloading thumbnail");
 
         byte[] thumbData = rest.getForObject(thumbUrl, byte[].class);
         assertNotNull(thumbData, "Thumbnail data must not be null");
@@ -489,7 +486,7 @@ class CcapiContentAndTransferIT {
         assumeTrue(cr3Name != null, "Need a CR3 file for embedded image test");
 
         String embeddedUrl = sdContentsUrl + "/" + folderName + "/" + cr3Name + "?kind=embedded";
-        log.info("Downloading embedded JPEG from CR3: {}", embeddedUrl);
+        log.info("Downloading embedded JPEG");
 
         try {
             byte[] embedded = rest.getForObject(embeddedUrl, byte[].class);
@@ -497,9 +494,9 @@ class CcapiContentAndTransferIT {
             assertTrue(embedded.length > 1000, "Embedded JPEG should be substantial");
             assertEquals(0xFF, embedded[0] & 0xFF, "Embedded should be JPEG");
             assertEquals(0xD8, embedded[1] & 0xFF, "Embedded should be JPEG");
-            log.info("✓ Downloaded embedded JPEG from {} — {} bytes", cr3Name, embedded.length);
+            log.info("Downloaded {} embedded JPEG bytes", embedded.length);
         } catch (RestClientException e) {
-            log.warn("Embedded image download failed: {} — may not be supported for this file", e.getMessage());
+            log.warn("Embedded image download failed: {} — may not be supported for this file", e.getClass().getSimpleName());
         }
     }
 
@@ -515,12 +512,7 @@ class CcapiContentAndTransferIT {
         @SuppressWarnings("unchecked")
         Map<String, Object> response = rest.getForObject(url, Map.class);
         assertNotNull(response, "event/polling response must not be null");
-        log.info("event/polling response keys: {}", response.keySet());
-
-        // Log all top-level keys to understand what the camera reports
-        for (Map.Entry<String, Object> entry : response.entrySet()) {
-            log.info("  {} → {}", entry.getKey(), entry.getValue());
-        }
+        log.info("Event polling returned {} fields", response.size());
     }
 
     @Test
@@ -536,17 +528,17 @@ class CcapiContentAndTransferIT {
         log.info("Triggering capture to generate an event...");
         CaptureResult result = backend.capture();
         assertNotNull(result);
-        log.info("Capture returned: imageId={}, fileSize={}", result.imageId(), result.fileSize());
+        log.info("Capture returned {} bytes", result.fileSize());
 
         // Read event/polling — it should now contain the URL of the newly captured image
         @SuppressWarnings("unchecked")
         Map<String, Object> events = rest.getForObject(pollingUrl, Map.class);
         assertNotNull(events);
-        log.info("event/polling after capture: {}", events.keySet());
+        log.info("Event polling after capture returned {} fields", events.size());
 
         // Search for content URLs in the response
         List<String> contentUrls = extractContentUrlsFromMap(events);
-        log.info("Content URLs in event/polling: {}", contentUrls);
+        log.info("Event polling returned {} media references", contentUrls.size());
 
         // The event may or may not still contain the image URL (it's consumed by
         // the backend during capture). Document the behaviour either way.
@@ -556,7 +548,6 @@ class CcapiContentAndTransferIT {
         } else {
             log.info("✓ Found {} content URL(s) in event/polling:", contentUrls.size());
             for (String url2 : contentUrls) {
-                log.info("  {}", url2);
                 assertTrue(url2.contains("/contents/"), "Content URL should contain /contents/");
             }
         }
@@ -641,7 +632,7 @@ class CcapiContentAndTransferIT {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> preFileList = (List<Map<String, Object>>) preFiles.get("dir");
         int preImageCount = preFileList != null ? preFileList.size() : 0;
-        log.info("Pre-capture: {} files in {}", preImageCount, lastFolder);
+        log.info("Pre-capture: {} files", preImageCount);
 
         // Step 2: Clear event buffer
         String pollingUrl = BASE_URL + "/ccapi/ver100/event/polling";
@@ -651,7 +642,7 @@ class CcapiContentAndTransferIT {
         log.info("Triggering capture...");
         CaptureResult result = backend.capture();
         assertNotNull(result);
-        log.info("Capture complete: imageId={}, fileSize={}", result.imageId(), result.fileSize());
+        log.info("Capture complete: {} bytes", result.fileSize());
 
         // Step 4: Verify the image appeared on the SD card
         Thread.sleep(1000); // allow camera to write
@@ -660,7 +651,7 @@ class CcapiContentAndTransferIT {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> postFileList = (List<Map<String, Object>>) postFiles.get("dir");
         int postImageCount = postFileList != null ? postFileList.size() : 0;
-        log.info("Post-capture: {} files in {} (was {})", postImageCount, lastFolder, preImageCount);
+        log.info("Post-capture: {} files (was {})", postImageCount, preImageCount);
         assertTrue(postImageCount > preImageCount,
                 "A new file should have appeared on the SD card after capture");
 
@@ -668,7 +659,7 @@ class CcapiContentAndTransferIT {
         Map<String, Object> newestFile = postFileList.get(postFileList.size() - 1);
         String newFileName = (String) newestFile.get("name");
         String downloadUrl = sdContentsUrl + "/" + lastFolder + "/" + newFileName;
-        log.info("Downloading newly captured image: {}", downloadUrl);
+        log.info("Downloading newly captured image");
 
         byte[] downloaded = rest.getForObject(downloadUrl, byte[].class);
         assertNotNull(downloaded);

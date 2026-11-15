@@ -53,7 +53,7 @@ abstract class AbstractCaptureFlowIT {
                     return frame;
                 }
             } catch (Exception e) {
-                log.debug("LiveView attempt {} failed: {}", attempt + 1, e.getMessage());
+                log.debug("LiveView attempt {} failed: {}", attempt + 1, e.getClass().getSimpleName());
             }
             Thread.sleep(500);
         }
@@ -61,7 +61,7 @@ abstract class AbstractCaptureFlowIT {
         try {
             return b.getLiveView();
         } catch (Exception e) {
-            log.warn("LiveView unavailable after retries: {}", e.getMessage());
+            log.warn("LiveView unavailable after retries: {}", e.getClass().getSimpleName());
             return null;
         }
     }
@@ -92,8 +92,7 @@ abstract class AbstractCaptureFlowIT {
 
         assertNotNull(result, "CaptureResult must not be null");
         assertNotNull(result.imageId(), "imageId must be set");
-        log.info("Capture succeeded in {} ms: imageId={}, file={}",
-                elapsed.toMillis(), result.imageId(), result.fileName());
+        log.info("Capture succeeded in {} ms", elapsed.toMillis());
     }
 
     // ── Test 2: Capture after setFocus with NO delay ────────────────────
@@ -163,8 +162,7 @@ abstract class AbstractCaptureFlowIT {
 
             assertNotNull(result, "Frame " + (i + 1) + " must not be null");
             assertNotNull(result.imageId(), "Frame " + (i + 1) + " imageId must be set");
-            log.info("  Frame {}/{}: {} ms, imageId={}", i + 1, frameCount,
-                    elapsed.toMillis(), result.imageId());
+            log.info("Frame {}/{}: {} ms", i + 1, frameCount, elapsed.toMillis());
         }
 
         log.info("Rapid capture: {} frames in {} ms (avg {} ms/frame)",
@@ -191,9 +189,7 @@ abstract class AbstractCaptureFlowIT {
             CaptureResult result = b.capture();
             Duration elapsed = Duration.between(before, Instant.now());
             assertNotNull(result, "Frame " + i + " must not be null");
-            log.info("  Frame {}/{}: {} ms, imageId={}, focusPos={}",
-                    i + 1, stackSize, elapsed.toMillis(),
-                    result.imageId(), result.focusPosition());
+            log.info("Frame {}/{}: {} ms, focus position {}", i + 1, stackSize, elapsed.toMillis(), result.focusPosition());
 
             if (i < stackSize - 1) {
                 b.setFocus(new FocusCommand(FocusCommand.Direction.FAR, 1));
@@ -228,7 +224,7 @@ abstract class AbstractCaptureFlowIT {
 
         CaptureResult captureResult = b.capture();
         assertNotNull(captureResult);
-        log.info("Capture: imageId={}", captureResult.imageId());
+        log.info("Capture succeeded");
 
         Thread.sleep(500);
         LiveViewFrame lvAfter = getLiveViewWithRetry(b);
@@ -264,7 +260,7 @@ abstract class AbstractCaptureFlowIT {
             } catch (Exception e) {
                 Duration elapsed = Duration.between(before, Instant.now());
                 log.error("  Delay={} ms → capture FAILED after {} ms: {}",
-                        delay, elapsed.toMillis(), e.getMessage());
+                        delay, elapsed.toMillis(), e.getClass().getSimpleName());
             }
 
             b.setFocus(new FocusCommand(FocusCommand.Direction.NEAR, 1));

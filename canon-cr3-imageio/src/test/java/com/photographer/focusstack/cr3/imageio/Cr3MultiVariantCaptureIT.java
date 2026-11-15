@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,19 +61,20 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *
  * <h3>Prerequisites</h3>
  * <ul>
- *   <li>Canon camera reachable at {@value #CAMERA_BASE_URL}</li>
+ *   <li>Canon camera reachable at the operator-supplied {@code CCAPI_CAMERA_URL}</li>
  *   <li>Camera in <strong>P</strong> (Program AE) or <strong>M</strong> mode with CCAPI enabled</li>
  *   <li>Camera not in sleep mode; live view should be off</li>
  * </ul>
  */
 @Tag("real-camera")
+@EnabledIfEnvironmentVariable(named = "CCAPI_CAMERA_URL", matches = ".+")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class Cr3MultiVariantCaptureIT {
 
     private static final Logger log = LoggerFactory.getLogger(Cr3MultiVariantCaptureIT.class);
 
     /** Base URL for the Canon camera CCAPI endpoint. */
-    private static final String CAMERA_BASE_URL = "http://192.168.0.206:8080";
+    private static final String CAMERA_BASE_URL = System.getenv("CCAPI_CAMERA_URL");
 
     /** Directory where sample CR3 files are saved (relative to module root). */
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
@@ -94,11 +96,11 @@ class Cr3MultiVariantCaptureIT {
         try {
             HttpResponse<String> resp = httpGet(CAMERA_BASE_URL + "/ccapi");
             assumeTrue(resp.statusCode() == 200,
-                    "Camera not reachable at " + CAMERA_BASE_URL);
-            log.info("Camera reachable at {}", CAMERA_BASE_URL);
+                    "Configured camera is unreachable");
+            log.info("Camera reachable");
         } catch (Exception e) {
             assumeTrue(false,
-                    "Camera not reachable at " + CAMERA_BASE_URL + ": " + e.getMessage());
+                    "Configured camera is unreachable");
         }
 
         // Stop live view if active (prevents "Device busy" errors)
@@ -208,7 +210,7 @@ class Cr3MultiVariantCaptureIT {
             String isoValue = extractJsonStringValue(originalIsoBody, "value");
             if (isoValue != null) {
                 trySetSetting("iso", "{\"value\":\"" + isoValue + "\"}");
-                log.info("Restored ISO to {}", isoValue);
+                log.info("Restored original ISO");
             }
         }
 
@@ -217,7 +219,7 @@ class Cr3MultiVariantCaptureIT {
             String wbValue = extractJsonStringValue(originalWbBody, "value");
             if (wbValue != null) {
                 trySetSetting("wb", "{\"value\":\"" + wbValue + "\"}");
-                log.info("Restored WB to {}", wbValue);
+                log.info("Restored original white balance");
             }
         }
 
@@ -313,10 +315,7 @@ class Cr3MultiVariantCaptureIT {
                 assertThat(meta.sensorHeight())
                         .as(name + " sensor height").isGreaterThan(0);
 
-                log.info("  Metadata: model='{}', sensor={}x{}, ISO={}, f/{}, {}s, {}mm, dt='{}'",
-                        meta.cameraModel(), meta.sensorWidth(), meta.sensorHeight(),
-                        meta.isoSpeed(), meta.fNumber(), meta.exposureTime(),
-                        meta.focalLengthMm(), meta.captureDateTime());
+                log.info("Sensor: {} x {}, ISO {}", meta.sensorWidth(), meta.sensorHeight(), meta.isoSpeed());
 
                 // Preview decoding
                 BufferedImage preview = decoder.decode(Cr3DecodeOptions.defaults());
@@ -414,7 +413,7 @@ class Cr3MultiVariantCaptureIT {
         for (int attempt = 0; attempt < 5; attempt++) {
             HttpResponse<String> eventResp = httpGet(
                     CAMERA_BASE_URL + "/ccapi/ver100/event/polling");
-            log.info("Event polling attempt {}: {}", attempt + 1, eventResp.body());
+            log.info("Event polling attempt {} returned HTTP {}", attempt + 1, eventResp.statusCode());
             cr3Url = findCr3UrlInResponse(eventResp.body());
             if (cr3Url != null) break;
             Thread.sleep(2000);
@@ -431,7 +430,7 @@ class Cr3MultiVariantCaptureIT {
                 .isNotNull()
                 .containsIgnoringCase(".cr3");
         cr3Url = cr3Url.replace("\\/", "/");
-        log.info("Found CR3 for '{}': {}", baseName, cr3Url);
+        log.info("Located CR3 for fixture {}", baseName);
 
         // Download the full CR3 file
         HttpRequest request = HttpRequest.newBuilder()
@@ -455,7 +454,7 @@ class Cr3MultiVariantCaptureIT {
         Path outputFile = SAMPLES_DIR.resolve(baseName + ".cr3");
         Files.write(outputFile, cr3Data);
         capturedVariants.put(baseName, outputFile);
-        log.info("✓ Saved {} to {}", baseName, outputFile.toAbsolutePath());
+        log.info("Saved fixture {}", baseName);
 
         // Wait for camera to be ready for next shot
         waitForCameraIdle();
@@ -467,13 +466,13 @@ class Cr3MultiVariantCaptureIT {
         HttpResponse<String> resp = httpGet(
                 CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/stillimagequality");
         if (resp.statusCode() == 200) {
-            log.info("Current still image quality: {}", resp.body());
+            log.info("Read current still image quality");
             if (!resp.body().contains("\"raw\"")) {
                 log.info("Setting quality to RAW...");
                 HttpResponse<String> putResp = httpPut(
                         CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/stillimagequality",
                         "{\"value\":\"raw\"}");
-                log.info("Set quality response: {} {}", putResp.statusCode(), putResp.body());
+                log.info("Set quality returned HTTP {}", putResp.statusCode());
                 Thread.sleep(500);
             }
         }
@@ -484,11 +483,11 @@ class Cr3MultiVariantCaptureIT {
             HttpResponse<String> resp = httpGet(
                     CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/" + settingName);
             if (resp.statusCode() == 200) {
-                log.info("Current {}: {}", settingName, resp.body());
+                log.info("Read setting {}", settingName);
                 return resp.body();
             }
         } catch (Exception e) {
-            log.warn("Could not read setting '{}': {}", settingName, e.getMessage());
+            log.warn("Could not read setting '{}': {}", settingName, e.getClass().getSimpleName());
         }
         return null;
     }
@@ -498,10 +497,10 @@ class Cr3MultiVariantCaptureIT {
             HttpResponse<String> resp = httpPut(
                     CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/" + settingName,
                     jsonBody);
-            log.info("Set {} → {} {}", settingName, resp.statusCode(), resp.body());
+            log.info("Set {} returned HTTP {}", settingName, resp.statusCode());
             return resp.statusCode() < 300;
         } catch (Exception e) {
-            log.warn("Could not set '{}' to {}: {}", settingName, jsonBody, e.getMessage());
+            log.warn("Could not set {} ({})", settingName, e.getClass().getSimpleName());
             return false;
         }
     }
@@ -535,11 +534,10 @@ class Cr3MultiVariantCaptureIT {
                 log.info("Live view enabled for zoom control");
                 Thread.sleep(1000); // let live view stabilise
             } else {
-                log.info("Could not start live view for zoom ({}): {}",
-                        lvResp.statusCode(), lvResp.body());
+                log.info("Could not start live view for zoom (HTTP {})", lvResp.statusCode());
             }
         } catch (Exception e) {
-            log.info("Live view start failed: {}", e.getMessage());
+            log.info("Live view start failed: {}", e.getClass().getSimpleName());
         }
 
         // Try multiple parameter formats; Canon CCAPI versions differ
@@ -560,15 +558,14 @@ class Cr3MultiVariantCaptureIT {
                     }
                     break;
                 }
-                log.info("Zoom format '{}' not accepted: {} {}",
-                        value, probe.statusCode(), probe.body());
+                log.info("Zoom option rejected (HTTP {})", probe.statusCode());
             }
             // Stop the zoom motor
             httpPost(zoomUrl, "{\"value\":\"stop\"}");
             log.info("Zoom stopped (worked={})", zoomWorked);
         } catch (Exception e) {
             log.warn("Zoom drive ('{}') failed: {} — continuing with current zoom",
-                    direction, e.getMessage());
+                    direction, e.getClass().getSimpleName());
         }
 
         // Stop live view so the camera can take a still image
@@ -616,7 +613,7 @@ class Cr3MultiVariantCaptureIT {
                     "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}");
             log.info("Live view stopped");
         } catch (Exception e) {
-            log.debug("Could not stop live view (may already be off): {}", e.getMessage());
+            log.debug("Could not stop live view (may already be off): {}", e.getClass().getSimpleName());
         }
     }
 
@@ -673,7 +670,7 @@ class Cr3MultiVariantCaptureIT {
         String folderUrl = sdUrl + "/" + lastFolder;
         HttpResponse<String> folderResp = httpGet(folderUrl);
         if (folderResp.statusCode() != 200) {
-            log.warn("Cannot list folder {}: {}", lastFolder, folderResp.statusCode());
+            log.warn("Folder listing returned HTTP {}", folderResp.statusCode());
             return null;
         }
 
@@ -684,7 +681,7 @@ class Cr3MultiVariantCaptureIT {
             lastCr3 = fileMatcher.group(1);
         }
         if (lastCr3 == null) {
-            log.warn("No CR3 files found in {}", lastFolder);
+            log.warn("No CR3 files found in selected folder");
             return null;
         }
 

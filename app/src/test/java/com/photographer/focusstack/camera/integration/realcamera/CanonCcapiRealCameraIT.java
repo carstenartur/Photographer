@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
@@ -42,26 +43,27 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <h3>Prerequisites</h3>
  * <ul>
- *   <li>Canon camera reachable at {@value #CAMERA_BASE_URL}</li>
+ *   <li>Canon camera reachable at the operator-supplied {@code CCAPI_CAMERA_URL}</li>
  *   <li>Camera in WiFi mode with CCAPI enabled</li>
  *   <li>Lens attached and camera not in sleep mode</li>
  * </ul>
  */
 @RealCamera
+@EnabledIfEnvironmentVariable(named = "CCAPI_CAMERA_URL", matches = ".+")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class CanonCcapiRealCameraIT {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiRealCameraIT.class);
 
     /** Base URL for the real Canon camera CCAPI endpoint. */
-    static final String CAMERA_BASE_URL = "http://192.168.0.206:8080";
+    static final String CAMERA_BASE_URL = System.getenv("CCAPI_CAMERA_URL");
 
     private static CanonCcapiBackend backend;
 
     @BeforeAll
     static void createBackend() {
         backend = new CanonCcapiBackend(CAMERA_BASE_URL, new RestTemplate());
-        log.info("Real-camera tests targeting {}", CAMERA_BASE_URL);
+        log.info("CCAPI camera configured");
     }
 
     @BeforeEach
@@ -77,8 +79,7 @@ class CanonCcapiRealCameraIT {
         // Discovery is triggered lazily; calling getInfo forces it.
         CameraInfo info = backend.getInfo();
         assertNotNull(info, "CameraInfo must not be null");
-        log.info("Camera info: id={}, model={}, firmware={}, host={}",
-                info.id(), info.model(), info.firmwareVersion(), info.host());
+        log.info("Camera model={}, firmware={}", info.model(), info.firmwareVersion());
 
         assertNotNull(info.id(), "Camera id should be populated");
         assertNotNull(info.model(), "Camera model should be populated");
@@ -106,9 +107,6 @@ class CanonCcapiRealCameraIT {
         assertFalse(endpoints.isEmpty(),
                 "Discovered endpoints should not be empty after getInfo()");
         log.info("Discovered {} endpoints", endpoints.size());
-        for (Map.Entry<String, String> entry : endpoints.entrySet()) {
-            log.info("  {} → {}", entry.getKey(), entry.getValue());
-        }
     }
 
     @Test
@@ -120,9 +118,6 @@ class CanonCcapiRealCameraIT {
         assertFalse(methods.isEmpty(),
                 "endpointMethods should be populated from Format B descriptors");
         log.info("Discovered HTTP methods for {} endpoints:", methods.size());
-        for (Map.Entry<String, Set<HttpMethod>> entry : methods.entrySet()) {
-            log.info("  {} → {}", entry.getKey(), entry.getValue());
-        }
 
         // The AF endpoint should be discovered with POST (not PUT) on real hardware
         boolean afMethodFound = methods.entrySet().stream()
@@ -384,8 +379,7 @@ class CanonCcapiRealCameraIT {
         assertNotNull(result, "CaptureResult must not be null");
         assertNotNull(result.imageId(), "imageId must be set");
         assertNotNull(result.capturedAt(), "capturedAt must be set");
-        log.info("Capture result: imageId={}, file={}, focusPos={}, capturedAt={}",
-                result.imageId(), result.fileName(), result.focusPosition(), result.capturedAt());
+        log.info("Captured at focus position {}", result.focusPosition());
     }
 
     // ── Combined workflow ───────────────────────────────────────────────────
@@ -407,8 +401,7 @@ class CanonCcapiRealCameraIT {
                 Thread.sleep(500); // allow the lens to settle
             }
             CaptureResult result = backend.capture();
-            log.info("  Frame {}/{}: imageId={}, focusPos={}",
-                    i + 1, stackSize, result.imageId(), result.focusPosition());
+            log.info("Frame {}/{} at focus position {}", i + 1, stackSize, result.focusPosition());
             Thread.sleep(1000); // give the camera time to save
         }
 

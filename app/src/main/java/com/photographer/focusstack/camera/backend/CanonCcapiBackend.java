@@ -158,7 +158,7 @@ public class CanonCcapiBackend implements CameraBackend {
     void discoverEndpoints() {
         if (discovered.get()) return;
         try {
-            log.info("Discovering CCAPI endpoints at {}/ccapi", baseUrl);
+            log.info("Discovering CCAPI endpoints");
 
             @SuppressWarnings("unchecked")
             Map<String, Object> versions = restTemplate.getForObject(
@@ -173,14 +173,14 @@ public class CanonCcapiBackend implements CameraBackend {
                     return;
                 }
             }
-            log.info("CCAPI versions available: {}", versions.keySet());
+            log.info("CCAPI version groups: {}", versions.size());
 
             // Pick the highest version (e.g. ver110 > ver100)
             String bestVersion = versions.keySet().stream()
                     .filter(k -> k.startsWith("ver"))
                     .sorted().reduce((a, b) -> b).orElse(null);
             if (bestVersion == null) {
-                log.warn("No versioned CCAPI entry found in {}", versions.keySet());
+                log.warn("No versioned CCAPI entry found");
                 return;
             }
 
@@ -189,8 +189,7 @@ public class CanonCcapiBackend implements CameraBackend {
             // ── Format B: list of endpoint descriptor objects ────────────
             List<EndpointDescriptor> descriptors = extractDescriptors(versionValue);
             if (descriptors != null) {
-                log.info("Using CCAPI {} (descriptor-object format, {} endpoints)",
-                        bestVersion, descriptors.size());
+                log.info("Using CCAPI catalog with {} endpoint descriptors", descriptors.size());
                 registerDescriptors(descriptors);
                 return;
             }
@@ -198,13 +197,12 @@ public class CanonCcapiBackend implements CameraBackend {
             // ── Format A: version root URL (string or single-element list) ─
             String versionRoot = extractString(versionValue);
             if (versionRoot == null) {
-                log.warn("CCAPI version '{}' has no usable URL value: {}",
-                        bestVersion, versionValue);
+                log.warn("Version entry has no usable URL");
                 return;
             }
             String versionUrl = versionRoot.startsWith("http")
                     ? versionRoot : baseUrl + versionRoot;
-            log.info("Using CCAPI {}: {}", bestVersion, versionUrl);
+            log.info("Using discovered CCAPI version root");
 
             @SuppressWarnings("unchecked")
             List<String> eps = restTemplate.getForObject(versionUrl, List.class);
@@ -215,7 +213,7 @@ public class CanonCcapiBackend implements CameraBackend {
             log.info("CCAPI discovered {} endpoints via version root", eps.size());
             registerEndpoints(eps);
         } catch (RestClientException e) {
-            log.warn("CCAPI endpoint discovery failed ({}): {}", baseUrl, e.getMessage());
+            log.warn("CCAPI endpoint discovery failed ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -233,7 +231,7 @@ public class CanonCcapiBackend implements CameraBackend {
     Map<String, Object> fetchVersionsViaTopUrlFallback() {
         try {
             String fallbackUrl = baseUrl + "/ccapi/topurlfordev";
-            log.info("Attempting CCAPI fallback discovery via {}", fallbackUrl);
+            log.info("Attempting CCAPI fallback discovery");
             Object response = restTemplate.getForObject(fallbackUrl, Object.class);
             if (response == null) {
                 return null;
@@ -272,7 +270,7 @@ public class CanonCcapiBackend implements CameraBackend {
             }
             return null;
         } catch (RestClientException e) {
-            log.debug("CCAPI topurlfordev fallback failed: {}", e.getMessage());
+            log.debug("CCAPI topurlfordev fallback failed: {}", e.getClass().getSimpleName());
             return null;
         }
     }
@@ -285,7 +283,6 @@ public class CanonCcapiBackend implements CameraBackend {
         for (String ep : endpointPaths) {
             String fullUrl = ep.startsWith("http") ? ep : baseUrl + ep;
             endpoints.put(ep, fullUrl);
-            log.debug("  {}", ep);
         }
         discovered.set(true);
     }
@@ -301,7 +298,7 @@ public class CanonCcapiBackend implements CameraBackend {
             if (!desc.methods.isEmpty()) {
                 endpointMethods.put(desc.url, desc.methods);
             }
-            log.debug("  {} {}", desc.url, desc.methods);
+            log.debug("Discovered endpoint methods: {}", desc.methods);
         }
         discovered.set(true);
     }
@@ -443,7 +440,7 @@ public class CanonCcapiBackend implements CameraBackend {
                     "Canon Camera",
                     model, "ccapi", baseUrl, firmware);
         } catch (RestClientException e) {
-            log.warn("CCAPI deviceinformation unavailable ({}), using defaults", e.getMessage());
+            log.warn("CCAPI deviceinformation unavailable ({}), using defaults", e.getClass().getSimpleName());
             return new CameraInfo("ccapi-camera", "Canon Camera", DEFAULT_MODEL, "ccapi", baseUrl, "unknown");
         }
     }
@@ -467,7 +464,7 @@ public class CanonCcapiBackend implements CameraBackend {
                 sleepMs(500); // give the camera time to initialise the stream
             } catch (CameraException e) {
                 liveViewStarted.set(false);
-                log.warn("Failed to auto-start live view: {}", e.getMessage());
+                log.warn("Failed to auto-start live view: {}", e.getClass().getSimpleName());
             }
         }
 
@@ -554,7 +551,7 @@ public class CanonCcapiBackend implements CameraBackend {
             log.info("Live view stopped.");
         } catch (RestClientException e) {
             // Camera may already be idle — log and continue.
-            log.debug("Failed to stop live view (may already be off): {}", e.getMessage());
+            log.debug("Failed to stop live view (may already be off): {}", e.getClass().getSimpleName());
         }
         // Reset the flag so getLiveView() will re-start LV on next call.
         liveViewStarted.set(false);
@@ -643,7 +640,7 @@ public class CanonCcapiBackend implements CameraBackend {
      * directory level as on a physical SD card.  The storage API
      * ({@code /devicestatus/storage}) returns a {@code storagelist[].url} field
      * pointing to the correct base (e.g.
-     * {@code http://192.168.0.206:8080/ccapi/ver100/contents/sd}).
+     * {@code http://camera.example:8080/ccapi/ver100/contents/sd}).
      *
      * <p>Resolution order:
      * <ol>
@@ -678,7 +675,7 @@ public class CanonCcapiBackend implements CameraBackend {
                 }
             }
         } catch (Exception e) {
-            log.debug("Could not read storage URL from /devicestatus/storage: {}", e.getMessage());
+            log.debug("Could not read storage URL from /devicestatus/storage: {}", e.getClass().getSimpleName());
         }
         // 3. Well-known fallback (no /DCIM — Canon CCAPI doesn't use it)
         return baseUrl + "/ccapi/ver100/contents/sd";
@@ -694,7 +691,7 @@ public class CanonCcapiBackend implements CameraBackend {
             ImageLocation loc = findNewestImage(dcimUrl);
             return loc != null ? loc.entry().datetime() : null;
         } catch (Exception e) {
-            log.debug("Could not read pre-capture contents listing: {}", e.getMessage());
+            log.debug("Could not read pre-capture contents listing: {}", e.getClass().getSimpleName());
             return null;
         }
     }
@@ -721,13 +718,12 @@ public class CanonCcapiBackend implements CameraBackend {
                     byte[] data = restTemplate.getForObject(imageUrl, byte[].class);
                     if (data != null && data.length > 0) {
                         String fileName = newest.entry().name();
-                        log.info("Downloaded {} bytes from camera SD card ({}, fileName={})",
-                                data.length, imageUrl, fileName);
+                        log.info("Downloaded {} bytes from camera storage", data.length);
                         return new DownloadResult(fileName, data);
                     }
                 }
             } catch (Exception e) {
-                log.debug("Error while polling SD card for new image: {}", e.getMessage());
+                log.debug("Error while polling SD card for new image: {}", e.getClass().getSimpleName());
             }
             try {
                 if (Thread.currentThread().isInterrupted()) {
@@ -739,8 +735,7 @@ public class CanonCcapiBackend implements CameraBackend {
                 break;
             }
         }
-        log.warn("Timed out after {}ms waiting for new image on camera {}",
-                captureTimeoutMs, baseUrl);
+        log.warn("Timed out after {}ms waiting for new image on camera", captureTimeoutMs);
         return null;
     }
 
@@ -794,7 +789,7 @@ public class CanonCcapiBackend implements CameraBackend {
         try {
             return restTemplate.getForObject(url, ContentListing.class);
         } catch (RestClientException e) {
-            log.debug("Failed to list SD card contents at {}: {}", url, e.getMessage());
+            log.debug("Failed to list camera storage ({})", e.getClass().getSimpleName());
             return null;
         }
     }
@@ -832,17 +827,16 @@ public class CanonCcapiBackend implements CameraBackend {
                             byte[] data = restTemplate.getForObject(fullUrl, byte[].class);
                             if (data != null && data.length > 0) {
                                 String fileName = extractFileNameFromUrl(fullUrl);
-                                log.info("Downloaded {} bytes via event/polling ({}, fileName={})",
-                                        data.length, fullUrl, fileName);
+                                log.info("Downloaded {} bytes via event polling", data.length);
                                 return new DownloadResult(fileName, data);
                             }
                         } catch (RestClientException e) {
-                            log.debug("Failed to download image {} from event/polling: {}", fullUrl, e.getMessage());
+                            log.debug("Event image download failed ({})", e.getClass().getSimpleName());
                         }
                     }
                 }
             } catch (RestClientException e) {
-                log.debug("event/polling unavailable: {}", e.getMessage());
+                log.debug("event/polling unavailable: {}", e.getClass().getSimpleName());
             }
             try {
                 if (Thread.currentThread().isInterrupted()) break;
@@ -959,10 +953,7 @@ public class CanonCcapiBackend implements CameraBackend {
                         "Failed to drive focus via " + driveFocusUrl + ": " + e.getMessage(), e);
             }
         } else {
-            log.warn("No /shooting/control/drivefocus endpoint discovered on camera {}. "
-                    + "Available endpoints: {}. "
-                    + "Manual focus adjustment is not supported on this camera.",
-                    baseUrl, endpoints.keySet());
+            log.warn("Camera did not advertise manual focus drive");
         }
         // Update tracked position: NEAR decrements, FAR increments
         int delta = command.direction() == FocusCommand.Direction.NEAR
@@ -994,7 +985,7 @@ public class CanonCcapiBackend implements CameraBackend {
                     batteryLevel = worst;
                 }
             } catch (RestClientException e) {
-                log.debug("CCAPI batterylist unavailable: {}", e.getMessage());
+                log.debug("CCAPI batterylist unavailable: {}", e.getClass().getSimpleName());
             }
         } else {
             // Single-battery body: query /devicestatus/battery directly.
@@ -1006,7 +997,7 @@ public class CanonCcapiBackend implements CameraBackend {
                 }
                 connected = true;
             } catch (RestClientException e) {
-                log.debug("CCAPI battery status unavailable: {}", e.getMessage());
+                log.debug("CCAPI battery status unavailable: {}", e.getClass().getSimpleName());
             }
         }
 
@@ -1023,7 +1014,7 @@ public class CanonCcapiBackend implements CameraBackend {
                 }
                 connected = true;
             } catch (RestClientException e) {
-                log.debug("CCAPI storage status unavailable: {}", e.getMessage());
+                log.debug("CCAPI storage status unavailable: {}", e.getClass().getSimpleName());
             }
         } else {
             log.debug("No storage endpoint discovered — skipping storage status");
@@ -1136,8 +1127,7 @@ public class CanonCcapiBackend implements CameraBackend {
                 if (!deviceBusy || attempt >= DEVICE_BUSY_MAX_RETRIES) {
                     throw e;
                 }
-                log.warn("Camera returned 503 Device busy on POST {} — retrying in {} ms (attempt {}/{})",
-                        url, backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);
+                log.warn("Camera busy after POST; retrying in {} ms (attempt {}/{})", backoffMs, attempt + 1, DEVICE_BUSY_MAX_RETRIES);
                 sleepMs(backoffMs);
                 backoffMs = Math.min(backoffMs * 2, 5_000);
             }

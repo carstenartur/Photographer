@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,19 +63,20 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *
  * <h3>Prerequisites</h3>
  * <ul>
- *   <li>Canon camera reachable at {@value #CAMERA_BASE_URL}</li>
+ *   <li>Canon camera reachable at the operator-supplied {@code CCAPI_CAMERA_URL}</li>
  *   <li>Camera in WiFi mode with CCAPI enabled</li>
  *   <li>Camera not in sleep mode</li>
  * </ul>
  */
 @Tag("real-camera")
+@EnabledIfEnvironmentVariable(named = "CCAPI_CAMERA_URL", matches = ".+")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class Cr3SampleCaptureIT {
 
     private static final Logger log = LoggerFactory.getLogger(Cr3SampleCaptureIT.class);
 
     /** Base URL for the Canon camera CCAPI endpoint. */
-    private static final String CAMERA_BASE_URL = "http://192.168.0.206:8080";
+    private static final String CAMERA_BASE_URL = System.getenv("CCAPI_CAMERA_URL");
 
     /** Directory where sample CR3 files are saved (relative to module root). */
     private static final Path SAMPLES_DIR = Path.of("src", "test", "resources", "samples");
@@ -95,11 +97,11 @@ class Cr3SampleCaptureIT {
         try {
             HttpResponse<String> resp = httpGet(CAMERA_BASE_URL + "/ccapi");
             assumeTrue(resp.statusCode() == 200,
-                    "Camera not reachable at " + CAMERA_BASE_URL);
-            log.info("Camera reachable at {}", CAMERA_BASE_URL);
+                    "Configured camera is unreachable");
+            log.info("Camera reachable");
         } catch (Exception e) {
             assumeTrue(false,
-                    "Camera not reachable at " + CAMERA_BASE_URL + ": " + e.getMessage());
+                    "Configured camera is unreachable");
         }
 
         // Stop live view if active (prevents "Device busy" errors)
@@ -120,7 +122,7 @@ class Cr3SampleCaptureIT {
         HttpResponse<String> resp = httpGet(
                 CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/stillimagequality");
         assertThat(resp.statusCode()).isEqualTo(200);
-        log.info("Current still image quality: {}", resp.body());
+        log.info("Read current still image quality");
 
         // The G5X Mark II returns a nested object for the combined RAW+JPEG setting:
         //   {"value":{"raw":"raw","jpeg":"large_fine"},"ability":{...}}
@@ -137,7 +139,7 @@ class Cr3SampleCaptureIT {
             HttpResponse<String> putResp = httpPut(
                     CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/stillimagequality",
                     "{\"value\":\"raw\"}");
-            log.info("Set quality response: {} {}", putResp.statusCode(), putResp.body());
+            log.info("Set quality returned HTTP {}", putResp.statusCode());
             // Only assert success when we actually attempted the change
             assertThat(putResp.statusCode()).isLessThan(300);
             Thread.sleep(500); // let camera apply the setting
@@ -164,7 +166,7 @@ class Cr3SampleCaptureIT {
         // Poll event/polling to find the new image URL
         HttpResponse<String> eventResp = httpGet(
                 CAMERA_BASE_URL + "/ccapi/ver100/event/polling");
-        log.info("Event polling response: {}", eventResp.body());
+        log.info("Event polling returned HTTP {}", eventResp.statusCode());
 
         // Search for CR3 URLs in the event response
         capturedCr3Url = findCr3UrlInResponse(eventResp.body());
@@ -181,7 +183,7 @@ class Cr3SampleCaptureIT {
                 .containsIgnoringCase(".cr3");
         // Ensure no JSON-escaped slashes remain before it is stored
         capturedCr3Url = capturedCr3Url.replace("\\/", "/");
-        log.info("Found CR3 file: {}", capturedCr3Url);
+        log.info("Located captured CR3");
     }
 
     @Test
@@ -190,7 +192,7 @@ class Cr3SampleCaptureIT {
         assertThat(capturedCr3Url).as("CR3 URL must have been found in previous test").isNotNull();
 
         // Download the full CR3 file
-        log.info("Downloading CR3 from {}...", capturedCr3Url);
+        log.info("Downloading captured CR3");
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(capturedCr3Url))
                 .GET()
@@ -209,7 +211,7 @@ class Cr3SampleCaptureIT {
         // Save to test resources
         Path outputFile = SAMPLES_DIR.resolve("sample.cr3");
         Files.write(outputFile, cr3Data);
-        log.info("✓ Saved CR3 to {}", outputFile.toAbsolutePath());
+        log.info("Saved CR3 fixture");
 
         // Also download and save the embedded JPEG preview
         String embeddedUrl = capturedCr3Url + "?kind=embedded";
@@ -220,8 +222,7 @@ class Cr3SampleCaptureIT {
             byte[] jpegData = embeddedResp.body();
             Path jpegFile = SAMPLES_DIR.resolve("sample-embedded.jpg");
             Files.write(jpegFile, jpegData);
-            log.info("✓ Saved embedded JPEG preview ({} bytes) to {}",
-                    jpegData.length, jpegFile.toAbsolutePath());
+            log.info("Saved embedded JPEG preview ({} bytes)", jpegData.length);
         }
 
         // Download and save the thumbnail
@@ -233,8 +234,7 @@ class Cr3SampleCaptureIT {
             byte[] thumbData = thumbResp.body();
             Path thumbFile = SAMPLES_DIR.resolve("sample-thumbnail.jpg");
             Files.write(thumbFile, thumbData);
-            log.info("✓ Saved thumbnail ({} bytes) to {}",
-                    thumbData.length, thumbFile.toAbsolutePath());
+            log.info("Saved thumbnail ({} bytes)", thumbData.length);
         }
     }
 
@@ -247,7 +247,7 @@ class Cr3SampleCaptureIT {
             HttpResponse<String> resp = httpPut(
                     CAMERA_BASE_URL + "/ccapi/ver100/shooting/settings/stillimagequality",
                     "{\"value\":\"" + originalQuality + "\"}");
-            log.info("Restore quality response: {} {}", resp.statusCode(), resp.body());
+            log.info("Restore quality returned HTTP {}", resp.statusCode());
         } else {
             log.info("Quality was already RAW — nothing to restore");
         }
@@ -352,10 +352,7 @@ class Cr3SampleCaptureIT {
                     .as("sensor height should be > 0")
                     .isGreaterThan(0);
 
-            log.info("✓ Metadata: model='{}', sensor={}x{}, ISO={}, f/{}, {}s, {}mm, dt='{}'",
-                    meta.cameraModel(), meta.sensorWidth(), meta.sensorHeight(),
-                    meta.isoSpeed(), meta.fNumber(), meta.exposureTime(),
-                    meta.focalLengthMm(), meta.captureDateTime());
+            log.info("Sensor: {} x {}, ISO {}", meta.sensorWidth(), meta.sensorHeight(), meta.isoSpeed());
 
             // ── Preview decoding ────────────────────────────────────────────
             BufferedImage preview = decoder.decode(Cr3DecodeOptions.defaults());
@@ -419,7 +416,7 @@ class Cr3SampleCaptureIT {
                     "{\"liveviewsize\":\"off\",\"cameradisplay\":\"on\"}");
             log.info("Live view stopped");
         } catch (Exception e) {
-            log.debug("Could not stop live view (may already be off): {}", e.getMessage());
+            log.debug("Could not stop live view (may already be off): {}", e.getClass().getSimpleName());
         }
     }
 
@@ -482,13 +479,13 @@ class Cr3SampleCaptureIT {
             log.warn("No DCIM folders found on SD card");
             return null;
         }
-        log.info("Newest folder on SD: {}", lastFolder);
+        log.info("Selected latest camera folder");
 
         // List files in the folder
         String folderUrl = sdUrl + "/" + lastFolder;
         HttpResponse<String> folderResp = httpGet(folderUrl);
         if (folderResp.statusCode() != 200) {
-            log.warn("Cannot list folder {}: {}", lastFolder, folderResp.statusCode());
+            log.warn("Folder listing returned HTTP {}", folderResp.statusCode());
             return null;
         }
 
@@ -500,7 +497,7 @@ class Cr3SampleCaptureIT {
             lastCr3 = fileMatcher.group(1);
         }
         if (lastCr3 == null) {
-            log.warn("No CR3 files found in {}", lastFolder);
+            log.warn("No CR3 files found in selected folder");
             return null;
         }
 

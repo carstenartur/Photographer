@@ -95,6 +95,8 @@ For a read-only capability report, use the [model/firmware snapshot procedure](.
 
 For capture, focus drive, file transfer or bracketing, select the individual hardware test class and read its configuration requirements before execution. These tests can actuate the camera. Existing G5 X Mark II and EOS R capture evidence is listed in [Camera setup](../camera-setup.md).
 
+The CCAPI capture/transfer tests and the ImageIO CR3 capture-fixture generators take the camera origin from `CCAPI_CAMERA_URL` (for example `http://camera.example:8080`). Set it in the test process environment before selecting one of those classes. They skip when it is absent. USB/PTP tests use their own device selection. The read-only evidence procedure uses a separate `CCAPI_EVIDENCE_URL` so opting into a report does not enable capture.
+
 Hardware evidence records:
 
 - camera model;
