@@ -154,7 +154,7 @@ For a new development machine:
 2. install JDK 25, Maven 3.9+, Node.js 24 and Docker;
 3. restore private Canon references only to ignored local paths when needed;
 4. restore required private fixture/reference files according to their manifests;
-5. create `.env` from `.env.example` and set a strong local administrator password;
+5. create `.env` from `.env.example` and set separate administrator and PostgreSQL passwords;
 6. run repository validation scripts;
 7. run `bash scripts/verify-product.sh`;
 8. start the default/H2 or Compose profile;
