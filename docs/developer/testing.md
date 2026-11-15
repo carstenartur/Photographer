@@ -93,7 +93,7 @@ Real-camera tests are tagged `real-camera` and are never part of normal CI. Run 
 
 For a read-only capability report, use the [model/firmware snapshot procedure](../ccapi-capabilities.md#collect-a-model-and-firmware-snapshot). It selects only `CcapiEndpointDiagnosticsIT` and produces redacted JSON for comparison across firmware and connection modes.
 
-For capture, focus drive, file transfer or bracketing, select the individual hardware test class and read its configuration requirements before execution. These tests can actuate the camera. Existing G5 X Mark II and EOS R capture evidence is listed in [Camera setup](../camera-setup.md#hardware-coverage).
+For capture, focus drive, file transfer or bracketing, select the individual hardware test class and read its configuration requirements before execution. These tests can actuate the camera. Existing G5 X Mark II and EOS R capture evidence is listed in [Camera setup](../camera-setup.md).
 
 Hardware evidence records:
 
