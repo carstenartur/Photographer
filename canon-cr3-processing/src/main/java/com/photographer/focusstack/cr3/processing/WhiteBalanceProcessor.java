@@ -1,6 +1,7 @@
 package com.photographer.focusstack.cr3.processing;
 
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
+import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,22 @@ public final class WhiteBalanceProcessor {
      * @param multipliers array of 3 multipliers [R, G, B]
      */
     public static void process(Cr3RawImage image, double[] multipliers) {
+        process(image, multipliers, null, 0, 0, 1);
+    }
+
+    /**
+     * Applies optional black-level correction and white balance in one pass.
+     * The pedestal uses sensor coordinates and white balance uses the image's local Bayer phase.
+     *
+     * @param image the image to process
+     * @param multipliers array of 3 multipliers [R, G, B]
+     * @param blackLevel the sensor pedestal, or null to apply white balance alone
+     * @param sensorX sensor column corresponding to the first image column
+     * @param sensorY sensor row corresponding to the first image row
+     * @param maxWorkers maximum number of workers, or zero for automatic selection
+     */
+    public static void process(Cr3RawImage image, double[] multipliers, BlackLevel blackLevel,
+                               int sensorX, int sensorY, int maxWorkers) {
         if (multipliers.length != 3) {
             throw new IllegalArgumentException("Expected 3 multipliers [R, G, B], got " + multipliers.length);
         }
@@ -40,18 +57,57 @@ public final class WhiteBalanceProcessor {
         LOG.debug("Applying white balance: R={}, G={}, B={}",
                 multipliers[0], multipliers[1], multipliers[2]);
 
-        int w = image.width();
-        int h = image.height();
+        int width = image.width();
+        int height = image.height();
+        int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(width, height));
+        if (width <= 0 || height <= 0) {
+            return;
+        }
         int maxVal = image.maxValue();
         int[] data = image.data();
-
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int idx = y * w + x;
-                double mult = getMultiplier(x, y, image.bayerPattern(), multipliers);
-                data[idx] = Math.min(maxVal, Math.max(0, (int) (data[idx] * mult)));
+        var pattern = image.bayerPattern();
+        Cr3Workers.run(stripes, stripe -> {
+            int end = Pixels.stripeStart(stripe + 1, height, stripes);
+            for (int y = Pixels.stripeStart(stripe, height, stripes); y < end; y++) {
+                double even = getMultiplier(0, y, pattern, multipliers);
+                double odd = getMultiplier(1, y, pattern, multipliers);
+                int first = y * width;
+                if (blackLevel == null) {
+                    balanceRow(data, first, first + width, even, odd, maxVal);
+                } else {
+                    int evenBlack = blackLevel.levelAt(sensorX, sensorY + y, pattern);
+                    int oddBlack = blackLevel.levelAt(sensorX + 1, sensorY + y, pattern);
+                    correctRow(data, first, first + width, evenBlack, oddBlack, even, odd, maxVal);
+                }
             }
+        });
+    }
+
+    private static void balanceRow(int[] data, int first, int end, double even, double odd, int maxVal) {
+        int i = first;
+        for (; i + 1 < end; i += 2) {
+            data[i] = multiply(data[i], even, maxVal);
+            data[i + 1] = multiply(data[i + 1], odd, maxVal);
         }
+        if (i < end) {
+            data[i] = multiply(data[i], even, maxVal);
+        }
+    }
+
+    private static void correctRow(int[] data, int first, int end, int evenBlack, int oddBlack,
+                                   double even, double odd, int maxVal) {
+        int i = first;
+        for (; i + 1 < end; i += 2) {
+            data[i] = multiply(Math.max(0, data[i] - evenBlack), even, maxVal);
+            data[i + 1] = multiply(Math.max(0, data[i + 1] - oddBlack), odd, maxVal);
+        }
+        if (i < end) {
+            data[i] = multiply(Math.max(0, data[i] - evenBlack), even, maxVal);
+        }
+    }
+
+    private static int multiply(int value, double multiplier, int maxVal) {
+        return Math.min(maxVal, Math.max(0, (int) (value * multiplier)));
     }
 
     /**
