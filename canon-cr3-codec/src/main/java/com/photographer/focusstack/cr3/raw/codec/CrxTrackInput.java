@@ -82,10 +82,17 @@ final class CrxTrackInput {
     }
 
     Window window(int offset, int count) {
+        return window(offset, count, READ_AHEAD);
+    }
+
+    Window window(int offset, int count, int readAhead) {
         if (offset < 0 || count < 0 || offset > length - count) {
             throw new IllegalArgumentException("Invalid CRX byte slice");
         }
-        return bytes != null ? new Window(bytes, offset, count) : new Window(reader, start + offset, count);
+        if (readAhead < Long.BYTES) {
+            throw new IllegalArgumentException("CRX read-ahead must fit an entropy word");
+        }
+        return bytes != null ? new Window(bytes, offset, count) : new Window(reader, start + offset, count, readAhead);
     }
 
     /** Positions are relative to the slice. An array slice needs no copy or I/O. */
@@ -111,11 +118,11 @@ final class CrxTrackInput {
             this.limit = length;
         }
 
-        private Window(Reader reader, long start, int length) {
+        private Window(Reader reader, long start, int length, int readAhead) {
             this.reader = reader;
             this.start = start;
             this.length = length;
-            data = new byte[Math.min(READ_AHEAD, length)];
+            data = new byte[Math.min(readAhead, length)];
             target = ByteBuffer.wrap(data);
         }
 
