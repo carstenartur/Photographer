@@ -9,6 +9,7 @@ import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CaptureResult;
+import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.QualityMode;
@@ -23,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collections;
@@ -72,6 +74,32 @@ class StackingJobServiceTest {
     void createJobShouldPersistWithCreatedStatus() {
         service.createJob("cam-1", PARAMS);
         verify(repository).save(argThat(e -> e.getStatus() == JobStatus.CREATED));
+    }
+
+    @Test
+    void manualCaptureRequestsTheProcessingOriginalAndPreservesItOnDisk() throws Exception {
+        CameraBackend rawBackend = mock(CameraBackend.class, withSettings()
+                .extraInterfaces(ProcessingCaptureProvider.class));
+        ProcessingCaptureProvider processing = (ProcessingCaptureProvider) rawBackend;
+        when(backendFactory.getBackend(PROFILE)).thenReturn(rawBackend);
+        byte[] original = {0, 0, 0, 16, 'f', 't', 'y', 'p', 'c', 'r', 'x', ' ', 0, 0, 0, 0};
+        when(processing.captureForProcessing()).thenReturn(
+                new CaptureResult("raw-1", "IMG_0001.CR3", "/camera", Instant.now(), 1,
+                        original.length, original));
+        AnalysisResult analysis = new AnalysisResult("raw-1", 0.5, 0.4, false, 0, 0.3, false);
+        when(stackingAdvisor.analyzeRawFrame(any(), any(), any(), any(), any()))
+                .thenReturn(new StackingAdvisor.RawFrameAnalysis(analysis, null));
+
+        StackingJob job = new StackingJob("job-raw", "cam-1", JobStatus.RUNNING,
+                Instant.now(), null, PARAMS, Collections.emptyList(), null);
+        service.executeStackingAsync(job);
+
+        verify(rawBackend, never()).capture();
+        verify(stackingAdvisor).analyzeRawFrame(eq(original), isNull(), isNull(), any(), eq(PARAMS));
+        assertArrayEquals(original, Files.readAllBytes(tempDir.resolve("raw-1")));
+        assertEquals("IMG_0001.CR3", Files.readString(tempDir.resolve("raw-1.meta")));
+        verify(messagingTemplate, never()).convertAndSend(
+                eq("/topic/jobs/job-raw/preview"), any(Object.class));
     }
 
     @Test

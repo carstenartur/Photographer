@@ -1,5 +1,6 @@
 package com.photographer.focusstack.camera.service;
 
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
@@ -10,9 +11,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.awt.image.BufferedImage;
+import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Path;
 
 /**
  * Extracts browser-displayable JPEG preview images from Canon RAW files (CR3/CR2).
@@ -22,7 +26,7 @@ import java.io.ByteArrayInputStream;
  * without requiring a full RAW decoder on the client side.
  *
  * <p>The original RAW data is preserved in {@link FrameDataStore} for export
- * and processing; only the HTTP image endpoint uses the extracted preview.
+ * and processing. Browser previews can be read separately from the original.
  */
 @Service
 public class RawImagePreviewService {
@@ -42,9 +46,7 @@ public class RawImagePreviewService {
      * contain an embedded JPEG preview.
      */
     public boolean isRawFile(String fileName) {
-        if (fileName == null) return false;
-        String upper = fileName.toUpperCase();
-        return upper.endsWith(".CR3") || upper.endsWith(".CR2");
+        return CapturedImageFormat.isCanonRaw(fileName);
     }
 
     /**
@@ -59,6 +61,25 @@ public class RawImagePreviewService {
             return null;
         }
         try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {
+            return extractPreview(iis, originalFileName);
+        } catch (IOException e) {
+            log.debug("Failed to close preview input for {}", originalFileName, e);
+            return null;
+        }
+    }
+
+    /** Extracts a browser preview directly from the saved original. */
+    public PreviewResult extractFilePreview(Path original, String originalFileName) {
+        try (ImageInputStream iis = new FileImageInputStream(original.toFile())) {
+            return extractPreview(iis, originalFileName);
+        } catch (IOException e) {
+            log.debug("Failed to open original frame {}", originalFileName, e);
+            return null;
+        }
+    }
+
+    private PreviewResult extractPreview(ImageInputStream iis, String originalFileName) {
+        try {
             Cr3Container container = Cr3Parser.parse(iis);
             if (!Cr3PreviewExtractor.hasPreview(container)) {
                 log.warn("CR3 file {} has no embedded JPEG preview", originalFileName);
@@ -70,7 +91,7 @@ public class RawImagePreviewService {
                 return null;
             }
             // Build a display filename: IMG_1234.CR3 → IMG_1234.preview.jpg
-            String baseName = originalFileName;
+            String baseName = originalFileName == null ? "frame" : originalFileName;
             int dotIdx = baseName.lastIndexOf('.');
             if (dotIdx > 0) {
                 baseName = baseName.substring(0, dotIdx);

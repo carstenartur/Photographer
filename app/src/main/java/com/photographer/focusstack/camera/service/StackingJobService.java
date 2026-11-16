@@ -21,11 +21,13 @@ import com.photographer.focusstack.camera.strategy.NativeFocusBracketingExecutor
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionResult;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
 import com.photographer.focusstack.common.model.StackingCaptureStrategy;
@@ -41,6 +43,10 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -71,6 +77,7 @@ public class StackingJobService {
     private final FocusStepStrategy stepStrategy;
     private final TaskExecutor taskExecutor;
     private final FrameDataStore frameDataStore;
+    private final RawImagePreviewService rawPreviewService = new RawImagePreviewService();
     private final PlainWebSocketBridge plainWebSocketBridge;
     private final CameraSessionLeaseManager leaseManager;
     private final CameraLeaseIdentityProvider leaseIdentityProvider;
@@ -616,12 +623,17 @@ public class StackingJobService {
             String frameId = frameIds.get(index);
             String fileName = frameDataStore.getFileName(frameId);
             byte[] previewData = null;
-            if (NativeFrameFileIngestor.isPreviewable(fileName)) {
+            if (CapturedImageFormat.isCr3(fileName)) {
+                FrameDataStore.OriginalFrame original = frameDataStore.getOriginalFrame(frameId);
+                if (original != null) {
+                    previewData = previewBytes(rawPreviewService.extractFilePreview(original.path(), fileName));
+                }
+            } else if (NativeFrameFileIngestor.isPreviewable(fileName)) {
                 FrameDataStore.FrameEntry entry = frameDataStore.getEntry(frameId);
                 previewData = entry == null ? null : entry.data();
-                if (previewData != null && previewData.length > 0) {
-                    capturedPreviewData.add(previewData);
-                }
+            }
+            if (previewData != null && previewData.length > 0) {
+                addPreview(capturedPreviewData, previewData);
                 sendPreviewFrame(jobId, previewData, index);
                 sendStackPreview(jobId, capturedPreviewData, index);
             }
@@ -642,9 +654,10 @@ public class StackingJobService {
         String id = job.id();
         List<String> frames = new ArrayList<>(job.frames());
         List<AnalysisResult> analysisHistory = new ArrayList<>();
-        List<byte[]> capturedFrameData = new ArrayList<>();
+        List<byte[]> capturedPreviewData = new ArrayList<>();
         StackingParameters params = job.parameters();
         byte[] previousFrameData = null;
+        StackingAdvisor.RawFrameAnalysis previousRawAnalysis = null;
 
         if (attemptShouldStop(id, attempt)) {
             return;
@@ -663,28 +676,44 @@ public class StackingJobService {
                 return;
             }
 
-            CaptureResult result = cameraBackend.capture();
+            CaptureResult result = ProcessingCaptureProvider.capture(cameraBackend);
+            byte[] imageData = result.imageData();
+            boolean cr3 = CapturedImageFormat.hasCr3Header(imageData)
+                    || CapturedImageFormat.isCr3(result.fileName());
+            boolean raw = cr3 || CapturedImageFormat.isCanonRaw(result.fileName());
             frames.add(result.imageId());
-            if (result.imageData() != null && result.imageData().length > 0) {
-                frameDataStore.put(result.imageId(), result.fileName(), result.imageData());
-                capturedFrameData.add(result.imageData());
+            if (imageData != null && imageData.length > 0) {
+                storeCapturedFrame(result, raw);
                 log.debug("Job {}: frame {} stored ({} bytes, file={})",
-                        id, result.imageId(), result.imageData().length, result.fileName());
+                        id, result.imageId(), imageData.length, result.fileName());
             } else {
                 log.warn("Job {}: frame {} has no image data", id, result.imageId());
                 sendJobLog(id, "WARN", "Frame " + (i + 1)
                         + " captured but image data is missing");
             }
 
-            sendPreviewFrame(id, result.imageData(), i);
-            sendStackPreview(id, capturedFrameData, i);
+            byte[] previewData = raw
+                    ? previewBytes(rawPreviewService.extractPreview(imageData, result.fileName()))
+                    : imageData;
+            if (previewData != null && previewData.length > 0) {
+                addPreview(capturedPreviewData, previewData);
+                sendPreviewFrame(id, previewData, i);
+                sendStackPreview(id, capturedPreviewData, i);
+            }
 
             AnalysisResult analysisResult = null;
-            if (result.imageData() != null) {
+            StackingAdvisor.RawFrameAnalysis currentRawAnalysis = null;
+            if (imageData != null && (!raw || cr3)) {
                 try {
-                    analysisResult = stackingAdvisor.analyzeFrame(
-                            result.imageData(), previousFrameData,
-                            analysisHistory, params);
+                    if (cr3 || previousRawAnalysis != null) {
+                        currentRawAnalysis = stackingAdvisor.analyzeRawFrame(
+                                imageData, previousFrameData, previousRawAnalysis,
+                                analysisHistory, params);
+                        analysisResult = currentRawAnalysis.result();
+                    } else {
+                        analysisResult = stackingAdvisor.analyzeFrame(
+                                imageData, previousFrameData, analysisHistory, params);
+                    }
                 } catch (Exception analysisException) {
                     log.warn("Job {}: frame analysis failed for frame {} — continuing. {}",
                             id, i, analysisException.getMessage());
@@ -692,7 +721,8 @@ public class StackingJobService {
                             + " analysis failed — continuing capture");
                 }
             }
-            previousFrameData = result.imageData();
+            previousRawAnalysis = cr3 ? currentRawAnalysis : null;
+            previousFrameData = raw ? null : imageData;
 
             Map<String, Object> frameEvent = new HashMap<>();
             frameEvent.put("strategy", "MANUAL");
@@ -841,6 +871,36 @@ public class StackingJobService {
         return Duration.ofSeconds(seconds);
     }
 
+    private void storeCapturedFrame(CaptureResult capture, boolean raw) {
+        if (!raw) {
+            frameDataStore.put(capture.imageId(), capture.fileName(), capture.imageData());
+            return;
+        }
+        try {
+            Path temporary = Files.createTempFile("focusstack-raw-", ".part");
+            try {
+                Files.write(temporary, capture.imageData());
+                frameDataStore.putFile(capture.imageId(), capture.fileName(), temporary);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Failed to store captured RAW frame", exception);
+        }
+    }
+
+    private static byte[] previewBytes(RawImagePreviewService.PreviewResult preview) {
+        return preview == null ? null : preview.jpegBytes();
+    }
+
+    private static void addPreview(List<byte[]> previews, byte[] data) {
+        if (previews.size() == MAX_PREVIEW_MERGE_FRAMES) {
+            // Keep the initial focus position and the most recent browser previews.
+            previews.remove(1);
+        }
+        previews.add(data);
+    }
+
     private void sendPreviewFrame(String jobId, byte[] imageData, int frameIndex) {
         if (imageData == null || imageData.length == 0) return;
         try {
@@ -863,24 +923,13 @@ public class StackingJobService {
     private void sendStackPreview(String jobId, List<byte[]> capturedFrameData, int frameIndex) {
         if (capturedFrameData.size() < 2) return;
         try {
-            List<byte[]> framesToMerge;
-            if (capturedFrameData.size() <= MAX_PREVIEW_MERGE_FRAMES) {
-                framesToMerge = capturedFrameData;
-            } else {
-                framesToMerge = new ArrayList<>();
-                double step = (double) capturedFrameData.size() / MAX_PREVIEW_MERGE_FRAMES;
-                for (int i = 0; i < MAX_PREVIEW_MERGE_FRAMES; i++) {
-                    framesToMerge.add(capturedFrameData.get((int) (i * step)));
-                }
-                framesToMerge.add(capturedFrameData.get(capturedFrameData.size() - 1));
-            }
-            byte[] merged = stackMerger.merge(framesToMerge);
+            byte[] merged = stackMerger.merge(List.copyOf(capturedFrameData));
             if (merged != null && merged.length > 0) {
                 String base64 = Base64.getEncoder().encodeToString(merged);
                 Map<String, Object> preview = Map.of(
                         "type", "stack",
                         "frameIndex", frameIndex,
-                        "framesUsed", framesToMerge.size(),
+                        "framesUsed", capturedFrameData.size(),
                         "imageBase64", base64,
                         "timestamp", Instant.now().toString(),
                         "jobId", jobId);

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.concurrent.TimeUnit;
@@ -30,6 +31,9 @@ public class FrameDataStore {
 
     /** Holds both the raw bytes and the original filename for a captured frame. */
     public record FrameEntry(String fileName, byte[] data) {}
+
+    /** Disk-backed original and its camera filename. */
+    public record OriginalFrame(String fileName, Path path) {}
 
     /** Hot-cache: avoids disk reads for recently accessed frames. */
     private final Cache<String, FrameEntry> cache;
@@ -184,6 +188,19 @@ public class FrameDataStore {
     public byte[] get(String imageId) {
         FrameEntry entry = getEntry(imageId);
         return entry != null ? entry.data() : null;
+    }
+
+    /** Locates a stored original without loading it into the frame cache. */
+    public OriginalFrame getOriginalFrame(String imageId) {
+        if (imageId == null || imageId.isBlank() || imageId.equals(".") || imageId.equals("..")
+                || imageId.indexOf('/') >= 0 || imageId.indexOf('\\') >= 0 || imageId.indexOf('\0') >= 0) {
+            return null;
+        }
+        Path path = storageDir.resolve(imageId);
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        return new OriginalFrame(safeFileName(imageId, getFileName(imageId)), path);
     }
 
     /** Returns whether the frame exists in cache or disk storage. */

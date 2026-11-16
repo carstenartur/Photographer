@@ -6,7 +6,9 @@ import com.photographer.ptp.usb.PtpTransport;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -19,10 +21,17 @@ public class MockPtpTransport implements PtpTransport {
 
     private final Map<Integer, Function<PtpContainer, DataResponse>> dataHandlers = new HashMap<>();
     private final Map<Integer, Function<PtpContainer, PtpContainer>> handlers = new HashMap<>();
+    private final List<Integer> downloadedObjects = new ArrayList<>();
+    private final boolean pairedRaw;
     private boolean open;
     private int sessionId;
 
     public MockPtpTransport() {
+        this(false);
+    }
+
+    MockPtpTransport(boolean pairedRaw) {
+        this.pairedRaw = pairedRaw;
         // Standard handlers
         handlers.put(PtpConstants.OP_OPEN_SESSION, this::handleOpenSession);
         handlers.put(PtpConstants.OP_CLOSE_SESSION, this::handleCloseSession);
@@ -49,6 +58,10 @@ public class MockPtpTransport implements PtpTransport {
         // Canon data handlers
         dataHandlers.put(CanonConstants.OC_EOS_GET_LIVEVIEW_DATA, this::handleGetLiveViewData);
         dataHandlers.put(CanonConstants.OC_EOS_GET_EVENT, this::handleGetEvent);
+    }
+
+    List<Integer> downloadedObjects() {
+        return List.copyOf(downloadedObjects);
     }
 
     @Override
@@ -144,6 +157,7 @@ public class MockPtpTransport implements PtpTransport {
     }
 
     private DataResponse handleGetObject(PtpContainer req) {
+        downloadedObjects.add(req.getParam1());
         // Return fake JPEG data
         byte[] jpeg = new byte[] {
             (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, // JPEG header
@@ -194,7 +208,7 @@ public class MockPtpTransport implements PtpTransport {
             { CanonConstants.DPC_EOS_BATTERY_LEVEL, 3 },     // 75%
         };
 
-        ByteBuffer buf = ByteBuffer.allocate(props.length * entrySize + objEntrySize)
+        ByteBuffer buf = ByteBuffer.allocate(props.length * entrySize + objEntrySize * (pairedRaw ? 2 : 1))
                 .order(ByteOrder.LITTLE_ENDIAN);
 
         for (int[] prop : props) {
@@ -208,6 +222,11 @@ public class MockPtpTransport implements PtpTransport {
         buf.putInt(objEntrySize);
         buf.putInt(CanonConstants.EVENT_OBJ_ADDED);
         buf.putInt(42);  // object handle
+        if (pairedRaw) {
+            buf.putInt(objEntrySize);
+            buf.putInt(CanonConstants.EVENT_OBJ_INFO_EX);
+            buf.putInt(43);
+        }
 
         return new DataResponse(buf.array(), okResponse(req));
     }
@@ -302,7 +321,8 @@ public class MockPtpTransport implements PtpTransport {
         buf.putInt(0);                // associationDesc
         buf.putInt(objectHandle);     // sequenceNumber
 
-        String filename = "IMG_%04d.JPG".formatted(objectHandle);
+        String filename = pairedRaw && objectHandle == 43
+                ? "IMG_0042.CR3" : "IMG_%04d.JPG".formatted(objectHandle);
         writePtpString(buf, filename);
         writePtpString(buf, "20240101T120000");
         writePtpString(buf, "20240101T120000");

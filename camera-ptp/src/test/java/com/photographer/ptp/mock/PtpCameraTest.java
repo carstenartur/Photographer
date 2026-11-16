@@ -63,6 +63,25 @@ class PtpCameraTest {
     }
 
     @Test
+    void processingCaptureDownloadsOnlyTheNamedRawFromAPair() {
+        MockPtpTransport paired = new MockPtpTransport(true);
+        try (PtpCamera processingCamera = PtpCamera.open(paired, PtpCamera.Config.zeroDelays())) {
+            ImageDownload result = processingCamera.captureForProcessing();
+
+            assertEquals("IMG_0042.CR3", result.fileName());
+            assertEquals(List.of(43), paired.downloadedObjects());
+        }
+    }
+
+    @Test
+    void processingCaptureCanStillDownloadAJpeg() {
+        ImageDownload result = camera.captureForProcessing();
+
+        assertEquals("IMG_0042.JPG", result.fileName());
+        assertEquals(List.of(42), transport.downloadedObjects());
+    }
+
+    @Test
     void driveFocus() {
         assertDoesNotThrow(() -> camera.driveFocusNear(1));
         assertDoesNotThrow(() -> camera.driveFocusNear(2));

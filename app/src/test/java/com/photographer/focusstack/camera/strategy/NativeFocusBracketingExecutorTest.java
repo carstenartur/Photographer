@@ -63,6 +63,47 @@ class NativeFocusBracketingExecutorTest {
     }
 
     @Test
+    void pairsRawAndJpegAsOneShotEvenWhenJpegArrivesFirst() {
+        FakeBackend backend = new FakeBackend(3, false, true);
+        List<String> transfers = new ArrayList<>();
+
+        NativeFocusBracketingExecutionResult result = new NativeFocusBracketingExecutor().execute(
+                backend,
+                REQUEST,
+                Duration.ofSeconds(2),
+                () -> false,
+                (media, reference) -> {
+                    transfers.add(reference.fileName());
+                    return reference.fileName();
+                });
+
+        assertEquals(COMPLETE, result.completionState());
+        assertEquals(List.of("NEW_1.CR3", "NEW_2.CR3", "NEW_3.CR3"), transfers);
+        assertEquals(3, result.observedMedia().size());
+        assertEquals(transfers, result.ingestedFrameIds());
+    }
+
+    @Test
+    void fallsBackToThePairedJpegIfTheRawTransferFails() {
+        FakeBackend backend = new FakeBackend(3, false, true);
+
+        NativeFocusBracketingExecutionResult result = new NativeFocusBracketingExecutor().execute(
+                backend,
+                REQUEST,
+                Duration.ofSeconds(2),
+                () -> false,
+                (media, reference) -> {
+                    if (reference.fileName().equals("NEW_1.CR3")) {
+                        throw new IllegalStateException("CR3 not available");
+                    }
+                    return reference.fileName();
+                });
+
+        assertEquals(COMPLETE, result.completionState());
+        assertEquals(List.of("NEW_1.JPG", "NEW_2.CR3", "NEW_3.CR3"), result.ingestedFrameIds());
+    }
+
+    @Test
     void preservesPartialSequenceWhenFewerFilesArriveBeforeTimeout() {
         FakeBackend backend = new FakeBackend(1, false);
 
@@ -126,6 +167,7 @@ class NativeFocusBracketingExecutorTest {
 
         private final int generatedFrames;
         private final boolean failClose;
+        private final boolean paired;
         private final AtomicInteger prepareCount = new AtomicInteger();
         private final AtomicInteger triggerCount = new AtomicInteger();
         private final AtomicInteger closeCount = new AtomicInteger();
@@ -133,8 +175,13 @@ class NativeFocusBracketingExecutorTest {
         private boolean triggered;
 
         private FakeBackend(int generatedFrames, boolean failClose) {
+            this(generatedFrames, failClose, false);
+        }
+
+        private FakeBackend(int generatedFrames, boolean failClose, boolean paired) {
             this.generatedFrames = generatedFrames;
             this.failClose = failClose;
+            this.paired = paired;
         }
 
         @Override
@@ -182,7 +229,12 @@ class NativeFocusBracketingExecutorTest {
             List<CameraMediaReference> media = new ArrayList<>();
             media.add(oldReference());
             for (int index = 1; index <= generatedFrames; index++) {
-                media.add(reference(index));
+                if (paired) {
+                    media.add(reference(index, "JPG"));
+                }
+                if (!paired || eventCount.get() > 1) {
+                    media.add(reference(index, "CR3"));
+                }
             }
             return new MediaPage(media, media.size(), false);
         }
@@ -200,7 +252,9 @@ class NativeFocusBracketingExecutorTest {
                 EventMode mode,
                 Duration timeout) {
             eventCount.incrementAndGet();
-            return generatedFrames == 0 ? Optional.empty() : Optional.of(reference(1));
+            return generatedFrames == 0
+                    ? Optional.empty()
+                    : Optional.of(reference(1, paired ? "JPG" : "CR3"));
         }
 
         @Override
@@ -222,12 +276,12 @@ class NativeFocusBracketingExecutorTest {
                     "OLD.CR3", "CR3", "ver140");
         }
 
-        private static CameraMediaReference reference(int index) {
-            String fileName = "NEW_" + index + ".CR3";
+        private static CameraMediaReference reference(int index, String format) {
+            String fileName = "NEW_" + index + "." + format;
             return new CameraMediaReference(
                     "card1",
                     "/ccapi/ver140/contents/card1/DCIM/100CANON/" + fileName,
-                    fileName, "CR3", "ver140");
+                    fileName, format, "ver140");
         }
 
         @Override

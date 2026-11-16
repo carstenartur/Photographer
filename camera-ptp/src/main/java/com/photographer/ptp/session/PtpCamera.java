@@ -1,5 +1,6 @@
 package com.photographer.ptp.session;
 
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
 import com.photographer.ptp.canon.*;
 import com.photographer.ptp.core.*;
 import com.photographer.ptp.usb.PtpTransport;
@@ -8,8 +9,14 @@ import com.photographer.ptp.wpd.WpdDeviceScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.BufferUnderflowException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * High-level PTP camera API.
@@ -249,6 +256,14 @@ public class PtpCamera implements AutoCloseable {
      * @return the downloaded image, or an empty-data result on timeout
      */
     public ImageDownload capture() {
+        return capture(false);
+    }
+
+    public ImageDownload captureForProcessing() {
+        return capture(true);
+    }
+
+    private ImageDownload capture(boolean preferRaw) {
         if (isCanon) {
             eventLoop.suspend();
             try {
@@ -258,7 +273,7 @@ public class PtpCamera implements AutoCloseable {
                         config.fullPressDelayMs(),
                         config.releaseDelayMs());
                 remoteCapture.capture(session::nextTransactionId);
-                return pollForCapturedImageCanon();
+                return pollForCapturedImageCanon(preferRaw);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new PtpException("Canon capture interrupted");
@@ -297,7 +312,7 @@ public class PtpCamera implements AutoCloseable {
                         config.fullPressDelayMs(),
                         config.releaseDelayMs());
                 remoteCapture.captureNoAf(session::nextTransactionId);
-                return pollForCapturedImageCanon();
+                return pollForCapturedImageCanon(false);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new PtpException("Canon capture interrupted");
@@ -342,13 +357,14 @@ public class PtpCamera implements AutoCloseable {
      * Polls Canon GetEvent (0x9116) until an {@code EVENT_OBJ_ADDED} or
      * {@code EVENT_OBJ_INFO_EX} event is received, then downloads the image.
      *
-     * <p>On EOS R-series cameras, a single capture produces two events (CR3 + JPEG
-     * sidecar).  We collect all object handles from the batch and return the
-     * largest download (the CR3).
+     * <p>EOS cameras may report separate RAW and JPEG objects for one exposure.
+     * Processing capture checks object metadata before downloading either one.
      */
-    private ImageDownload pollForCapturedImageCanon() {
+    private ImageDownload pollForCapturedImageCanon(boolean preferRaw) {
         long deadline = System.currentTimeMillis() + config.captureTimeoutMs();
-        while (System.currentTimeMillis() < deadline) {
+        long pairDeadline = deadline;
+        Map<Integer, String> candidates = new LinkedHashMap<>();
+        while (!Thread.currentThread().isInterrupted()) {
             try {
                 PtpTransport.DataResponse dr =
                         session.executeReceiveData(CanonConstants.OC_EOS_GET_EVENT);
@@ -356,7 +372,7 @@ public class PtpCamera implements AutoCloseable {
                 List<CanonEventParser.CanonEvent> events = CanonEventParser.parse(dr.data());
 
                 // Collect all object handles from this event batch
-                List<Integer> objectHandles = new java.util.ArrayList<>();
+                Set<Integer> objectHandles = new LinkedHashSet<>();
                 for (CanonEventParser.CanonEvent event : events) {
                     log.debug("Canon event: type=0x{}, payloadLen={}",
                             String.format("%04X", event.type()), event.payload().length);
@@ -364,66 +380,39 @@ public class PtpCamera implements AutoCloseable {
                         int handle = event.getObjectHandle();
                         log.info("Canon object-added event: handle=0x{}, eventType=0x{}",
                                 Integer.toHexString(handle), String.format("%04X", event.type()));
-                        objectHandles.add(handle);
+                        if (handle != 0) {
+                            objectHandles.add(handle);
+                        }
                     }
                 }
 
-                if (!objectHandles.isEmpty()) {
-                    // Download all objects, pick the largest (typically the CR3)
-                    ImageDownload best = null;
-                    for (int objectHandle : objectHandles) {
-                        try {
-                            // Try Canon vendor command first, fall back to standard PTP
-                            byte[] data = null;
-                            try {
-                                data = session.getCanonObject(objectHandle);
-                            } catch (PtpException e) {
-                                log.debug("Canon GetObject failed for 0x{}, trying standard PTP: {}",
-                                        Integer.toHexString(objectHandle), e.getMessage());
-                            }
-                            if (data == null || data.length <= 8) {
-                                log.debug("Canon GetObject returned {} bytes, trying standard PTP GetObject",
-                                        data != null ? data.length : 0);
-                                data = session.getObject(objectHandle);
-                            }
-                            String filename = "object_" + Integer.toHexString(objectHandle);
-                            try {
-                                PtpObjectInfo info = session.getObjectInfo(objectHandle);
-                                filename = info.filename();
-                            } catch (PtpException e) {
-                                log.debug("Could not get ObjectInfo for 0x{}: {}",
-                                        Integer.toHexString(objectHandle), e.getMessage());
-                            }
-                            log.info("Canon capture: downloaded {} bytes as {}",
-                                    data.length, filename);
-
-                            // Acknowledge the object to the camera
-                            try {
-                                session.executeOperation(
-                                        CanonConstants.OC_EOS_TRANSFER_COMPLETE, objectHandle);
-                            } catch (PtpException e) {
-                                log.debug("TransferComplete for 0x{}: {}",
-                                        Integer.toHexString(objectHandle), e.getMessage());
-                            }
-
-                            if (best == null || data.length > best.size()) {
-                                best = new ImageDownload(
-                                        String.valueOf(objectHandle), filename, data);
-                            }
-                        } catch (PtpException e) {
-                            log.warn("Failed to download object 0x{}: {}",
-                                    Integer.toHexString(objectHandle), e.getMessage());
-                        }
+                if (preferRaw) {
+                    for (int handle : objectHandles) {
+                        candidates.computeIfAbsent(handle, this::captureObjectName);
                     }
-                    if (best != null && best.data().length > 0) {
-                        return best;
+                } else {
+                    ImageDownload download = downloadLargestObject(objectHandles);
+                    if (download != null) {
+                        return download;
                     }
                 }
             } catch (PtpException e) {
                 log.debug("GetEvent poll error: {}", e.getMessage());
             }
+
+            long now = System.currentTimeMillis();
+            if (!candidates.isEmpty()) {
+                pairDeadline = Math.min(pairDeadline, now + CapturedImageFormat.PAIRED_FILE_WAIT.toMillis());
+                ImageDownload download = downloadPreferredObject(candidates, now >= pairDeadline);
+                if (download != null) {
+                    return download;
+                }
+            }
+            if (now >= deadline || now >= pairDeadline) {
+                break;
+            }
             try {
-                Thread.sleep(config.capturePollIntervalMs());
+                Thread.sleep(Math.min(config.capturePollIntervalMs(), pairDeadline - now));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -432,6 +421,90 @@ public class PtpCamera implements AutoCloseable {
         log.warn("Canon capture timeout: no image received within {} ms",
                 config.captureTimeoutMs());
         return new ImageDownload("capture", "capture.jpg", new byte[0]);
+    }
+
+    private ImageDownload downloadPreferredObject(Map<Integer, String> candidates, boolean deadlineReached) {
+        String firstName = candidates.values().stream()
+                .filter(CapturedImageFormat::canHavePairedFile)
+                .findFirst().orElse(null);
+        String shotKey = CapturedImageFormat.shotKey(firstName);
+        List<Map.Entry<Integer, String>> ordered = candidates.entrySet().stream()
+                .filter(entry -> !CapturedImageFormat.canHavePairedFile(entry.getValue())
+                        || CapturedImageFormat.shotKey(entry.getValue()).equals(shotKey))
+                .sorted(Comparator.comparingInt((Map.Entry<Integer, String> entry) ->
+                        CapturedImageFormat.processingPriority(entry.getValue())).reversed())
+                .toList();
+        if (deadlineReached && ordered.stream().allMatch(entry -> entry.getValue().isEmpty())) {
+            return downloadLargestObject(candidates.keySet());
+        }
+        boolean canFallback = deadlineReached || ordered.size() > 1
+                && CapturedImageFormat.isCr3(ordered.getFirst().getValue());
+        for (Map.Entry<Integer, String> entry : ordered) {
+            if (canFallback || CapturedImageFormat.isCr3(entry.getValue())) {
+                ImageDownload download = downloadCanonObject(entry.getKey(), entry.getValue());
+                if (download != null) {
+                    return download;
+                }
+            }
+        }
+        return null;
+    }
+
+    private ImageDownload downloadLargestObject(Iterable<Integer> handles) {
+        ImageDownload best = null;
+        for (int handle : handles) {
+            ImageDownload candidate = downloadCanonObject(handle, "");
+            if (candidate != null && (best == null || candidate.size() > best.size())) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private String captureObjectName(int handle) {
+        try {
+            String fileName = session.getObjectInfo(handle).filename();
+            return fileName == null ? "" : fileName;
+        } catch (PtpException | BufferUnderflowException exception) {
+            log.debug("Could not get ObjectInfo for 0x{}: {}",
+                    Integer.toHexString(handle), exception.getMessage());
+            return "";
+        }
+    }
+
+    private ImageDownload downloadCanonObject(int handle, String knownName) {
+        try {
+            byte[] data = null;
+            try {
+                data = session.getCanonObject(handle);
+            } catch (PtpException exception) {
+                log.debug("Canon GetObject failed for 0x{}, trying standard PTP: {}",
+                        Integer.toHexString(handle), exception.getMessage());
+            }
+            if (data == null || data.length <= 8) {
+                data = session.getObject(handle);
+            }
+            if (data == null || data.length == 0) {
+                return null;
+            }
+            String fileName = knownName.isEmpty() ? captureObjectName(handle) : knownName;
+            if (fileName.isEmpty()) {
+                fileName = "object_" + Integer.toHexString(handle)
+                        + (CapturedImageFormat.hasCr3Header(data) ? ".CR3" : "");
+            }
+            log.info("Canon capture: downloaded {} bytes as {}", data.length, fileName);
+            try {
+                session.executeOperation(CanonConstants.OC_EOS_TRANSFER_COMPLETE, handle);
+            } catch (PtpException exception) {
+                log.debug("TransferComplete for 0x{}: {}",
+                        Integer.toHexString(handle), exception.getMessage());
+            }
+            return new ImageDownload(String.valueOf(handle), fileName, data);
+        } catch (PtpException exception) {
+            log.warn("Failed to download object 0x{}: {}",
+                    Integer.toHexString(handle), exception.getMessage());
+            return null;
+        }
     }
 
     /**
