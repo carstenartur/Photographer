@@ -127,10 +127,6 @@ class CanonCr3ImageWriterTest {
             writer.dispose();
         }
 
-        var preview = ImageIO.read(destination.toFile());
-        assertNotNull(preview);
-        assertEquals(1620, preview.getWidth());
-        assertEquals(1080, preview.getHeight());
         var actualLayout = parse(destination);
         assertEquals(4, actualLayout.tracks().size());
         assertEquals(jpegWidth, actualLayout.tracks().get(0).width());
@@ -191,6 +187,11 @@ class CanonCr3ImageWriterTest {
                 assertEquals("Canon", metadata.getCr3Metadata().cameraMake());
                 assertEquals(cameraModel, metadata.getCr3Metadata().cameraModel());
                 assertNotNull(DngImageMetadata.fromCr3(metadata));
+                var previewParameter = reader.getDefaultReadParam();
+                previewParameter.setPreviewOnly(true);
+                var preview = reader.read(0, previewParameter);
+                assertEquals(1620, preview.getWidth());
+                assertEquals(1080, preview.getHeight());
                 var thumbnail = reader.readThumbnail(0, 0);
                 assertEquals(160, thumbnail.getWidth());
                 assertEquals(120, thumbnail.getHeight());

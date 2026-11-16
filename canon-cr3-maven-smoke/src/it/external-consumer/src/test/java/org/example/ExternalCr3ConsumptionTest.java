@@ -82,18 +82,23 @@ class ExternalCr3ConsumptionTest {
         CanonCr3ImageReader cr3Reader = assertInstanceOf(CanonCr3ImageReader.class, reader);
         assertTrue(reader.canReadRaster(), "CR3 reader should advertise raster access");
 
-        BufferedImage preview = ImageIO.read(sample.toFile());
-        assertNotNull(preview, "ImageIO.read should return the embedded preview");
-        assertTrue(preview.getWidth() > 0);
-        assertTrue(preview.getHeight() > 0);
+        BufferedImage developed = ImageIO.read(sample.toFile());
+        assertNotNull(developed, "ImageIO.read should develop the RAW color image");
+        assertEquals(BufferedImage.TYPE_INT_RGB, developed.getType());
 
         try (ImageInputStream input = ImageIO.createImageInputStream(sample.toFile())) {
             assertNotNull(input);
             reader.setInput(input);
-            assertEquals(preview.getWidth(), reader.getWidth(0));
-            assertEquals(preview.getHeight(), reader.getHeight(0));
-            assertEquals(preview.getType(), reader.getImageTypes(0).next().getBufferedImageType());
+            assertEquals(developed.getWidth(), reader.getWidth(0));
+            assertEquals(developed.getHeight(), reader.getHeight(0));
+            assertEquals(developed.getType(), reader.getImageTypes(0).next().getBufferedImageType());
             assertTrue(reader.readerSupportsThumbnails());
+
+            CanonCr3ImageReadParam previewParam = cr3Reader.getDefaultReadParam();
+            previewParam.setPreviewOnly(true);
+            BufferedImage preview = reader.read(0, previewParam);
+            assertTrue(developed.getWidth() > preview.getWidth());
+            assertTrue(developed.getHeight() > preview.getHeight());
 
             CanonCr3ImageReadParam param = cr3Reader.getDefaultReadParam();
             param.setDecodeOptions(Cr3DecodeOptions.rawSensor());

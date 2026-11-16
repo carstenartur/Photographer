@@ -36,8 +36,8 @@ final class ExternalConsumptionProbe {
 
         verifyServiceFile(jarFile);
         verifyAutomaticReaderDiscovery();
-        BufferedImage defaultPreview = verifyDefaultPreviewRead(sampleFile);
-        verifyExplicitReaderUsage(sampleFile, thumbnailReference, defaultPreview);
+        BufferedImage defaultRgb = verifyDefaultRawRead(sampleFile);
+        verifyExplicitReaderUsage(sampleFile, thumbnailReference, defaultRgb);
     }
 
     private static void verifyServiceFile(Path jarFile) throws IOException {
@@ -65,16 +65,15 @@ final class ExternalConsumptionProbe {
         reader.dispose();
     }
 
-    private static BufferedImage verifyDefaultPreviewRead(Path sampleFile) throws IOException {
-        BufferedImage preview = ImageIO.read(sampleFile.toFile());
-        require(preview != null, "ImageIO.read(File) returned null for " + sampleFile);
-        require(preview.getWidth() > 0, "ImageIO.read(File) width should be positive");
-        require(preview.getHeight() > 0, "ImageIO.read(File) height should be positive");
-        return preview;
+    private static BufferedImage verifyDefaultRawRead(Path sampleFile) throws IOException {
+        BufferedImage image = ImageIO.read(sampleFile.toFile());
+        require(image != null, "ImageIO.read(File) returned null for " + sampleFile);
+        require(image.getType() == BufferedImage.TYPE_INT_RGB, "Expected developed RGB from ImageIO.read(File)");
+        return image;
     }
 
     private static void verifyExplicitReaderUsage(
-            Path sampleFile, Path thumbnailReference, BufferedImage defaultPreview) throws IOException {
+            Path sampleFile, Path thumbnailReference, BufferedImage defaultRgb) throws IOException {
         BufferedImage thumbnailImage = ImageIO.read(thumbnailReference.toFile());
         require(thumbnailImage != null, "Thumbnail reference could not be read from " + thumbnailReference);
         Iterator<ImageReader> readers = ImageIO.getImageReadersBySuffix("cr3");
@@ -84,20 +83,17 @@ final class ExternalConsumptionProbe {
         try (ImageInputStream input = ImageIO.createImageInputStream(sampleFile.toFile())) {
             require(input != null, "Could not create ImageInputStream for " + sampleFile);
             reader.setInput(input);
+            require(reader.getWidth(0) == defaultRgb.getWidth(), "Developed RAW width mismatch");
+            require(reader.getHeight(0) == defaultRgb.getHeight(), "Developed RAW height mismatch");
+            require(reader.getImageTypes(0).next().getBufferedImageType() == defaultRgb.getType(),
+                    "Developed RAW type mismatch");
 
             CanonCr3ImageReadParam previewParam = new CanonCr3ImageReadParam();
             previewParam.setPreviewOnly(true);
             BufferedImage preview = reader.read(0, previewParam);
-            assertSamePreview(preview, defaultPreview, "preview mode");
-
-            CanonCr3ImageReadParam processedParam = new CanonCr3ImageReadParam();
-            processedParam.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
-            BufferedImage processedRaw = reader.read(0, processedParam);
-            require(processedRaw != null, "Processed RAW read returned null");
-            require(processedRaw.getWidth() >= preview.getWidth(), "Processed RAW width should be at least preview width");
-            require(processedRaw.getHeight() >= preview.getHeight(), "Processed RAW height should be at least preview height");
-            require(processedRaw.getWidth() > defaultPreview.getWidth(),
-                    "Processed RAW width should be larger than default preview width for the sample fixture");
+            require(preview != null, "Explicit preview read returned null");
+            require(defaultRgb.getWidth() > preview.getWidth() && defaultRgb.getHeight() > preview.getHeight(),
+                    "Default RGB should be larger than the embedded preview for the sample fixture");
 
             CanonCr3ImageReadParam linearParam = new CanonCr3ImageReadParam();
             linearParam.setDecodeOptions(Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
@@ -105,8 +101,8 @@ final class ExternalConsumptionProbe {
             require(linearRaw != null, "Linear RAW image read returned null");
             require(linearRaw.getRaster().getTransferType() == DataBuffer.TYPE_USHORT,
                     "Linear RAW image should expose 16-bit raster data");
-            require(linearRaw.getWidth() > defaultPreview.getWidth(),
-                    "Linear RAW width should be larger than default preview width for the sample fixture");
+            require(linearRaw.getWidth() > preview.getWidth(),
+                    "Linear RAW width should be larger than the embedded preview for the sample fixture");
 
             // Clip a negative offset and the right edge of an existing destination.
             // Compare odd Bayer coordinates after the active-area crop and subsampling.

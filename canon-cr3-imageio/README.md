@@ -6,8 +6,9 @@
 
 This module provides transparent CR3 support through the standard Java ImageIO
 API. After adding this module to the classpath,
-`ImageIO.read(new File("photo.cr3"))` works through SPI service loading and reads
-the embedded JPEG preview by default.
+`ImageIO.read(new File("photo.cr3"))` works through SPI service loading and
+develops a full-resolution color image from the RAW track. Set
+`CanonCr3ImageReadParam.setPreviewOnly(true)` for the camera's embedded JPEG.
 
 ## API stability
 
@@ -18,16 +19,16 @@ CR3-specific full-RAW controls exposed through `CanonCr3ImageReadParam` select n
 classification is maintained in
 [`docs/cr3-api-boundaries.md`](../docs/cr3-api-boundaries.md).
 
-Applications that require the most stable behavior should use standard ImageIO
-APIs and the default embedded-preview path. They should not directly call CRX
-entropy, predictor, subband, processing, or research implementation classes.
+Use standard ImageIO APIs to load the developed photograph or request the
+embedded JPEG. The [ImageIO guide](../docs/cr3/imageio.md) describes the
+behavior change from 0.1.5 and the available sensor output modes.
 
 ## Key types
 
 | Type | Status | Description |
 |---|---|---|
 | `CanonCr3ImageReaderSpi` | `PUBLIC_STABLE` | ImageIO service provider that detects CR3 files. |
-| `CanonCr3ImageReader` | `PUBLIC_STABLE` | Preview, thumbnail, metadata, and experimental RAW reader. |
+| `CanonCr3ImageReader` | `PUBLIC_STABLE` | Default RAW color read, explicit preview, thumbnail and metadata access. |
 | `Cr3ImageMetadata` | `PUBLIC_STABLE` | CR3 metadata exposed through the standard `IIOMetadata` contract. |
 | `CanonCr3ImageReadParam` | `PUBLIC_EXPERIMENTAL` | Preview selection is the stable subset; RAW-specific controls follow decoder maturity. |
 
@@ -46,10 +47,8 @@ The SPI is registered through
 
 ## Current RAW limitations
 
-- `ImageIO.read(file)` and `reader.read(0)` default to the embedded preview because
-  it is the most reliable path.
 - Processed RGB, scaled linear Bayer, and native sensor reads support the CR3/CRX profiles validated by the decoder.
-- Unsupported RAW variants are decoder limitations, not ImageIO fallback behavior.
+- RAW decoding failures are exposed as `IOException`. An embedded preview, when present, can be read explicitly.
 - Metadata and thumbnail availability still depends on the source file.
 
 ## Dependencies

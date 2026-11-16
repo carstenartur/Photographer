@@ -87,9 +87,9 @@ public class Cr3ImageImportBenchmark {
         return read(param);
     }
 
-    /** Standard ImageIO file import, including automatic reader selection. */
+    /** Full-resolution color development through the standard ImageIO file call. */
     @Benchmark
-    public BufferedImage importDefaultViaImageIo() throws IOException {
+    public BufferedImage importDefaultRawViaImageIo() throws IOException {
         BufferedImage image = ImageIO.read(file.toFile());
         if (image == null) {
             throw new IOException("No ImageIO reader found for " + file);

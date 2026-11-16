@@ -93,7 +93,7 @@ The verified product paths include the following functions.
 
 - container/track parsing and embedded JPEG extraction remain supported;
 - structured metadata remains supported;
-- standard ImageIO preview, thumbnail, discovery and metadata paths remain supported;
+- the standard ImageIO read develops RAW color on supported layouts, with explicit preview, thumbnail and metadata access;
 - native V1 lossless and three-level C-RAW decoding on the measured layouts;
 - RAW processing and color rendering have separate quality criteria.
 

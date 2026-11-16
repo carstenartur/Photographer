@@ -101,7 +101,7 @@ Relevant pushes to `main`, the weekly schedule and manual workflow runs execute 
 - complete lossless CRX decoding and RAW-linear/RAW-processed pipelines;
 - CRX header, plane decoding, MED prediction, tile copying, plane interleaving and per-symbol entropy/adaptation stages;
 - black-level, white-balance, demosaic, colour-matrix and sRGB stages;
-- end-to-end ImageIO preview, full-sensor and processed-RAW imports, plus Bayer and RGB regions.
+- end-to-end ImageIO preview, full-sensor and processed-RAW imports, plus Bayer and RGB regions. `importDefaultRawViaImageIo` measures full RAW development through `ImageIO.read(File)`.
 
 Use the hierarchy to localise a change. For example, a slower ImageIO import with stable direct decoder and processing-stage series points toward import/integration overhead. A slower processed-RAW total accompanied by a stable entropy decoder but slower demosaic series points toward the processing layer.
 

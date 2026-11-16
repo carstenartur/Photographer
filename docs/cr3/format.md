@@ -812,7 +812,7 @@ java -jar canon-cr3-cli/target/cr3-cli.jar list-subbands example.cr3
 java -jar canon-cr3-cli/target/cr3-cli.jar dump-metadata example.cr3
 ```
 
-Use the CLI output for structural checks and the native sensor API for sample equality. In ImageIO, pass `Cr3DecodeOptions.rawSensor()` through `CanonCr3ImageReadParam` to `readRaster`. Default `ImageIO.read` selects the embedded JPEG. The default `readRaster` path returns scaled linear data. [ImageIO modes and examples](imageio.md)
+Use the CLI output for structural checks and the native sensor API for sample equality. In ImageIO, pass `Cr3DecodeOptions.rawSensor()` through `CanonCr3ImageReadParam` to `readRaster`. The standard `ImageIO.read` call develops the RAW color image. The default `readRaster` path returns scaled linear data. [ImageIO modes and examples](imageio.md)
 
 #### Verification levels
 
