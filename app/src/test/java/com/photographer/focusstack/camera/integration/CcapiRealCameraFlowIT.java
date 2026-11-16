@@ -478,7 +478,8 @@ class CcapiRealCameraFlowIT extends AbstractPostgresIntegrationTest {
 
         // GET /contents/sd/100CANON — list images in folder
         if (path.equals("/ccapi/ver100/contents/sd/100CANON") && "GET".equals(exchange.getRequestMethod())) {
-            int imageCount = Math.max(1, captureCount.get() / 3);
+            // A file becomes visible only after its shutter sequence completed.
+            int imageCount = captureCount.get() / 3;
             StringBuilder entries = new StringBuilder();
             OffsetDateTime baseTime = OffsetDateTime.of(2026, 4, 12, 10, 0, 0, 0, ZoneOffset.UTC);
             for (int i = 1; i <= imageCount; i++) {

@@ -171,7 +171,12 @@ to `MEAN`.
 | `GET` | `/api/v1/analysis/plugins` | List all registered analysis plugins |
 | `POST` | `/api/v1/analysis/plugins/{name}/analyze` | Run a named plugin on an uploaded image |
 | `POST` | `/api/v1/analysis/merge-stack` | Upload and merge a frame stack |
+| `POST` | `/api/v1/analysis/merge-stored-stack/{jobId}` | Develop and merge the original files from a stored capture job |
 | `GET` | `/api/v1/analysis/merge-result/{jobId}` | Download a cached merged result |
+
+The stored-stack endpoint returns a PNG from the original files on the server. The response headers `X-Photographer-Stack-Source` and `X-Photographer-Stack-Frame-Count` report the development path (`RAW`, `RASTER` or `EMBEDDED_PREVIEW`) and the number of files used. Embedded previews let a CR3 stack remain usable when native development is unavailable or exceeds the configured budget.
+
+RAW analysis and stored-stack processing share the `focusstack.processing.decode.max-workers` and `focusstack.processing.decode.max-bytes` settings. By default they use the JVM's available processors and three quarters of its maximum heap up to 1 GiB. The limits apply to admitted processing work and its estimated working buffers.
 
 ## WebSocket and event schema v1
 

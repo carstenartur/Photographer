@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.service;
 
+import ij.process.FloatProcessor;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
@@ -74,6 +75,41 @@ class ImageJStackMergerTest {
     @Test
     void mergerNameIsCorrect() {
         assertEquals("imagej-edf", merger.name());
+    }
+
+    @Test
+    void streamingRgbMatchesImageJConvolutionAtBordersAndInTheInterior() {
+        var first = new BufferedImage(11, 7, BufferedImage.TYPE_INT_RGB);
+        var second = new BufferedImage(11, 7, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < first.getHeight(); y++) {
+            for (int x = 0; x < first.getWidth(); x++) {
+                first.setRGB(x, y, ((x * 41 + y * 3) << 8) ^ (y * 13));
+                second.setRGB(x, y, ((y * 31 + x) << 16) ^ (x * 23));
+            }
+        }
+        FloatProcessor a = imageJResponse(first);
+        FloatProcessor b = imageJResponse(second);
+
+        BufferedImage actual = merger.mergeImages(List.of(first, second));
+
+        for (int y = 0; y < actual.getHeight(); y++) {
+            for (int x = 0; x < actual.getWidth(); x++) {
+                BufferedImage expected = Math.abs(a.getf(x, y)) >= Math.abs(b.getf(x, y)) ? first : second;
+                assertEquals(expected.getRGB(x, y), actual.getRGB(x, y), "pixel " + x + ", " + y);
+            }
+        }
+    }
+
+    private static FloatProcessor imageJResponse(BufferedImage image) {
+        var processor = new FloatProcessor(image.getWidth(), image.getHeight());
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                Color rgb = new Color(image.getRGB(x, y));
+                processor.setf(x, y, 0.2126f * rgb.getRed() + 0.7152f * rgb.getGreen() + 0.0722f * rgb.getBlue());
+            }
+        }
+        processor.convolve(new float[] {0, 1, 0, 1, -4, 1, 0, 1, 0}, 3, 3);
+        return processor;
     }
 
     // --- Helper methods ---

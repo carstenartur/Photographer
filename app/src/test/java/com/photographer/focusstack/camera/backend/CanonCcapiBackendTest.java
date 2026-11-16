@@ -1125,6 +1125,96 @@ class CanonCcapiBackendTest {
     }
 
     @Test
+    void processingCaptureWaitsForThePairedRawBeforeDownloading() {
+        CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+        stubExchangeOk();
+        String jpg = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.JPG";
+        String raw = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.CR3";
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/event/polling"), eq(Map.class)))
+                .thenReturn(Map.of("addedcontents", List.of(jpg)))
+                .thenReturn(Map.of("addedcontents", List.of(raw)));
+        byte[] rawData = {10, 20, 30};
+        when(restTemplate.getForObject(eq(BASE_URL + jpg), eq(byte[].class)))
+                .thenReturn(new byte[]{1, 2, 3});
+        when(restTemplate.getForObject(eq(BASE_URL + raw), eq(byte[].class)))
+                .thenReturn(rawData);
+
+        CaptureResult result = pollingBackend.captureForProcessing();
+
+        assertEquals("IMG_0010.CR3", result.fileName());
+        assertArrayEquals(rawData, result.imageData());
+        verify(restTemplate, never()).getForObject(eq(BASE_URL + jpg), eq(byte[].class));
+    }
+
+    @Test
+    void processingCaptureFallsBackToJpegForAnUnsupportedPairedRawFormat() {
+        CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+        stubExchangeOk();
+        String jpg = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.JPG";
+        String cr2 = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.CR2";
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/event/polling"), eq(Map.class)))
+                .thenReturn(Map.of("addedcontents", List.of(cr2)))
+                .thenReturn(Map.of("addedcontents", List.of(jpg)));
+        when(restTemplate.getForObject(eq(BASE_URL + jpg), eq(byte[].class)))
+                .thenReturn(new byte[]{1, 2, 3});
+        when(restTemplate.getForObject(eq(BASE_URL + cr2), eq(byte[].class)))
+                .thenReturn(new byte[]{8, 9, 10});
+
+        CaptureResult result = pollingBackend.captureForProcessing();
+
+        assertEquals("IMG_0010.JPG", result.fileName());
+        verify(restTemplate, never()).getForObject(eq(BASE_URL + cr2), eq(byte[].class));
+    }
+
+    @Test
+    void processingCaptureIgnoresTheLateCompanionOfItsPreviousShot() {
+        var backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+        stubExchangeOk();
+        String folder = "/ccapi/ver100/contents/sd/DCIM/100CANON/";
+        String polling = BASE_URL + "/ccapi/ver100/event/polling";
+        String previousJpeg = folder + "IMG_0010.JPG";
+        String previousRaw = folder + "IMG_0010.CR3";
+        String currentRaw = folder + "IMG_0011.CR3";
+        when(restTemplate.getForObject(eq(polling), eq(Map.class)))
+                .thenReturn(Map.of("addedcontents", List.of(previousJpeg)));
+        when(restTemplate.getForObject(eq(BASE_URL + previousJpeg), eq(byte[].class)))
+                .thenReturn(new byte[] {1});
+        assertEquals("IMG_0010.JPG", backend.captureForProcessing().fileName());
+
+        when(restTemplate.getForObject(eq(polling), eq(Map.class)))
+                .thenReturn(Map.of("addedcontents", List.of(previousRaw, currentRaw)));
+        when(restTemplate.getForObject(eq(BASE_URL + previousRaw), eq(byte[].class)))
+                .thenReturn(new byte[] {2});
+        when(restTemplate.getForObject(eq(BASE_URL + currentRaw), eq(byte[].class)))
+                .thenReturn(new byte[] {3});
+
+        assertEquals("IMG_0011.CR3", backend.captureForProcessing().fileName());
+        verify(restTemplate, never()).getForObject(eq(BASE_URL + previousRaw), eq(byte[].class));
+    }
+
+    @Test
+    void processingCaptureDoesNotCountApiAliasesAsTwoFormats() {
+        var backend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);
+        stubExchangeOk();
+        String jpg = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.JPG";
+        String alias = jpg.replace("ver100", "ver110");
+        String raw = "/ccapi/ver100/contents/sd/DCIM/100CANON/IMG_0010.CR3";
+        when(restTemplate.getForObject(
+                eq(BASE_URL + "/ccapi/ver100/event/polling"), eq(Map.class)))
+                .thenReturn(Map.of("addedcontents", List.of(jpg, alias)))
+                .thenReturn(Map.of("addedcontents", List.of(raw)));
+        when(restTemplate.getForObject(eq(BASE_URL + jpg), eq(byte[].class)))
+                .thenReturn(new byte[] {1});
+        when(restTemplate.getForObject(eq(BASE_URL + raw), eq(byte[].class)))
+                .thenReturn(new byte[] {2});
+
+        assertEquals("IMG_0010.CR3", backend.captureForProcessing().fileName());
+        verify(restTemplate, never()).getForObject(eq(BASE_URL + jpg), eq(byte[].class));
+    }
+
+    @Test
     void capture_fallsBackToDcimBrowsingWhenEventPollingReturnsNoImages() {
         // Backend with download enabled; event/polling returns nothing useful.
         CanonCcapiBackend pollingBackend = new CanonCcapiBackend(BASE_URL, restTemplate, 0, 2_000);

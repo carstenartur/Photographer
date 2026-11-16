@@ -9,6 +9,7 @@ export default function StackGallery() {
   const [error, setError]                 = useState(null);
   const [selectedJob, setSelectedJob]     = useState(null);
   const [mergedImage, setMergedImage]     = useState(null); // object URL of merged PNG
+  const [mergeDetails, setMergeDetails]   = useState(null);
   const [merging, setMerging]             = useState(false);
   const [zipLibLoading, setZipLibLoading] = useState(false);
   const [sliderPos, setSliderPos]         = useState(50); // percent 0–100
@@ -45,13 +46,30 @@ export default function StackGallery() {
   async function handleMergeStack(job) {
     setError(null);
     setMergedImageUrl(null);
+    setMergeDetails(null);
     setSelectedJob(job);
     setMerging(true);
     try {
+      if (!import.meta.env.VITE_ANALYSIS_URL) {
+        const result = await authenticatedFetch(
+          `/analysis/merge-stored-stack/${encodeURIComponent(job.id)}`, { method: 'POST' },
+        );
+        if (!result.ok) {
+          const body = await result.text().catch(() => '');
+          throw new Error(`Merge failed: ${result.status} ${body}`);
+        }
+        setMergeDetails({
+          source: result.headers.get('X-Photographer-Stack-Source'),
+          frames: Number(result.headers.get('X-Photographer-Stack-Frame-Count')),
+        });
+        setMergedImageUrl(await result.blob());
+        return;
+      }
+
       // Try to retrieve a cached merge result first
-      const cachedRes = import.meta.env.VITE_ANALYSIS_URL
-        ? await fetch(`${ANALYSIS_BASE}/analysis/merge-result/${job.id}`, { credentials: 'include' })
-        : await authenticatedFetch(`/analysis/merge-result/${job.id}`);
+      const cachedRes = await fetch(`${ANALYSIS_BASE}/analysis/merge-result/${job.id}`, {
+        credentials: 'include',
+      });
       if (cachedRes.ok) {
         const blob = await cachedRes.blob();
         setMergedImageUrl(blob);
@@ -90,16 +108,11 @@ export default function StackGallery() {
         formData.append('frames', bytes, entry.name);
       }
 
-      const mergeRes = import.meta.env.VITE_ANALYSIS_URL
-        ? await fetch(`${ANALYSIS_BASE}/analysis/merge-stack?jobId=${job.id}`, {
-            method: 'POST',
-            credentials: 'include',
-            body: formData,
-          })
-        : await authenticatedFetch(`/analysis/merge-stack?jobId=${job.id}`, {
-            method: 'POST',
-            body: formData,
-          });
+      const mergeRes = await fetch(`${ANALYSIS_BASE}/analysis/merge-stack?jobId=${job.id}`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
       if (!mergeRes.ok) {
         const body = await mergeRes.text().catch(() => '');
         throw new Error(`Merge failed: ${mergeRes.status} ${body}`);
@@ -204,7 +217,7 @@ export default function StackGallery() {
                 <button
                   className="btn btn-primary btn-small"
                   onClick={() => handleMergeStack(job)}
-                  disabled={(merging || zipLibLoading) && selectedJob?.id === job.id}
+                  disabled={merging || zipLibLoading}
                 >
                   {(zipLibLoading && selectedJob?.id === job.id)
                     ? 'Loading merge tools…'
@@ -229,6 +242,15 @@ export default function StackGallery() {
             Before / After — Job {selectedJob.id.substring(0, 8)}…
           </h2>
           <p className="card-label">Drag the slider to compare first frame vs. merged result.</p>
+          {mergeDetails?.source === 'RAW' && <p className="card-label">Developed from camera RAW.</p>}
+          {mergeDetails?.source === 'EMBEDDED_PREVIEW' && (
+            <p className="card-label">Merged from embedded previews.</p>
+          )}
+          {mergeDetails?.frames > 0 && mergeDetails.frames < (selectedJob.frames?.length ?? 0) && (
+            <p className="card-label">
+              Used {mergeDetails.frames} of {selectedJob.frames.length} captured frames.
+            </p>
+          )}
 
           <div
             ref={sliderRef}

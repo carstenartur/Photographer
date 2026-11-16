@@ -18,6 +18,7 @@ import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionP
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
 import com.photographer.focusstack.common.camera.Operation;
+import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
 import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.springframework.http.HttpMethod;
@@ -44,6 +45,7 @@ import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot
 /** Production Canon CCAPI composition with one authoritative endpoint catalog. */
 final class CanonCcapiProductionBackend implements
         CameraBackend,
+        ProcessingCaptureProvider,
         CameraStatusProvider,
         CameraCapabilityProvider,
         NativeFocusBracketingExecutionProvider,
@@ -136,6 +138,15 @@ final class CanonCcapiProductionBackend implements
 
     @Override
     public CaptureResult capture() {
+        return capture(false);
+    }
+
+    @Override
+    public CaptureResult captureForProcessing() {
+        return capture(true);
+    }
+
+    private CaptureResult capture(boolean preferRaw) {
         // A scroll GET owns a separate long-running camera operation and must be
         // cancelled before the inherited capture path stops the control endpoint.
         try {
@@ -143,7 +154,7 @@ final class CanonCcapiProductionBackend implements
         } finally {
             liveViewClient.markStopped();
         }
-        return delegate.capture();
+        return preferRaw ? delegate.captureForProcessing() : delegate.capture();
     }
 
     @Override

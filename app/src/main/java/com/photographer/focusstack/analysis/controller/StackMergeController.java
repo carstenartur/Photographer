@@ -1,10 +1,17 @@
 package com.photographer.focusstack.analysis.controller;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.photographer.focusstack.app.api.ApiPaths;
 import com.photographer.focusstack.analysis.service.StackMerger;
+import com.photographer.focusstack.analysis.service.StackFileProcessor;
+import com.photographer.focusstack.camera.service.FrameDataStore;
+import com.photographer.focusstack.camera.service.FrameDataStore.OriginalFrame;
+import com.photographer.focusstack.camera.service.StackingJobService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,22 +43,26 @@ import java.util.Map;
 public class StackMergeController {
 
     private final StackMerger stackMerger;
+    private final StackFileProcessor stackFiles;
+    private final StackingJobService jobs;
+    private final FrameDataStore frames;
 
-    /** Maximum number of merge results to keep in memory (least recently accessed is evicted). */
-    private static final int MAX_CACHED_RESULTS = 50;
+    private static final long MAX_CACHE_BYTES = 64L << 20;
+    private static final int MIN_CACHE_ENTRY_WEIGHT = 128 << 10;
+    private final Cache<CacheKey, CachedMerge> mergeResultCache = Caffeine.newBuilder()
+            .maximumWeight(Math.min(MAX_CACHE_BYTES, Runtime.getRuntime().maxMemory() / 16))
+            .weigher((CacheKey key, CachedMerge value) -> Math.max(MIN_CACHE_ENTRY_WEIGHT, value.png().length))
+            .build();
 
-    /** In-memory LRU cache: jobId → merged PNG bytes. Evicts the least recently accessed entry when full. */
-    @SuppressWarnings("serial")
-    private final Map<String, byte[]> mergeResultCache = java.util.Collections.synchronizedMap(
-            new java.util.LinkedHashMap<>(MAX_CACHED_RESULTS, 0.75f, true) {
-                @Override
-                protected boolean removeEldestEntry(Map.Entry<String, byte[]> eldest) {
-                    return size() > MAX_CACHED_RESULTS;
-                }
-            });
-
-    public StackMergeController(StackMerger stackMerger) {
+    public StackMergeController(
+            StackMerger stackMerger,
+            StackFileProcessor stackFiles,
+            StackingJobService jobs,
+            FrameDataStore frames) {
         this.stackMerger = stackMerger;
+        this.stackFiles = stackFiles;
+        this.jobs = jobs;
+        this.frames = frames;
     }
 
     /**
@@ -90,12 +101,43 @@ public class StackMergeController {
         }
 
         if (jobId != null && !jobId.isBlank()) {
-            mergeResultCache.put(jobId, merged);
+            mergeResultCache.put(new CacheKey(jobId, false), new CachedMerge(List.of(), merged, null, 0));
         }
 
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
                 .body(merged);
+    }
+
+    /** Develops and merges the original files already stored for a capture job. */
+    @PostMapping("/merge-stored-stack/{jobId}")
+    @Operation(summary = "Merge the original stored frames for a capture job")
+    public ResponseEntity<?> mergeStoredStack(@PathVariable String jobId) throws IOException {
+        List<String> ids = jobs.getJob(jobId).frames();
+        if (ids.size() < 2 || ids.size() > 100) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Between 2 and 100 frames are required for merging"));
+        }
+        var cacheKey = new CacheKey(jobId, true);
+        CachedMerge cached = mergeResultCache.getIfPresent(cacheKey);
+        if (cached != null && ids.equals(cached.frameIds())) {
+            return pngResponse(cached);
+        }
+        List<OriginalFrame> originals = new ArrayList<>(ids.size());
+        for (String id : ids) {
+            OriginalFrame original = frames.getOriginalFrame(id);
+            if (original != null) {
+                originals.add(original);
+            }
+        }
+        if (originals.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "No stored stack originals were found"));
+        }
+        StackFileProcessor.Result result = stackFiles.merge(originals);
+        var merged = new CachedMerge(ids, result.png(), result.source(), result.frameCount());
+        mergeResultCache.put(cacheKey, merged);
+        return pngResponse(merged);
     }
 
     /**
@@ -107,12 +149,26 @@ public class StackMergeController {
     @GetMapping("/merge-result/{jobId}")
     @Operation(summary = "Get cached merged PNG by job id")
     public ResponseEntity<?> getMergeResult(@PathVariable String jobId) {
-        byte[] cached = mergeResultCache.get(jobId);
+        CachedMerge cached = mergeResultCache.getIfPresent(new CacheKey(jobId, true));
+        if (cached == null) {
+            cached = mergeResultCache.getIfPresent(new CacheKey(jobId, false));
+        }
         if (cached == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .body(cached);
+        return pngResponse(cached);
     }
+
+    private static ResponseEntity<byte[]> pngResponse(CachedMerge merged) {
+        var response = ResponseEntity.ok().contentType(MediaType.IMAGE_PNG);
+        if (merged.source() != null) {
+            response.header("X-Photographer-Stack-Source", merged.source().name())
+                    .header("X-Photographer-Stack-Frame-Count", Integer.toString(merged.frameCount()));
+        }
+        return response.body(merged.png());
+    }
+
+    private record CacheKey(String jobId, boolean storedOriginals) {}
+
+    private record CachedMerge(List<String> frameIds, byte[] png, StackFileProcessor.Source source, int frameCount) {}
 }

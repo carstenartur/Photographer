@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -140,74 +141,103 @@ public class ImageJStackMerger implements StackMerger {
             throw new IllegalArgumentException("images must not be null or empty");
         }
 
-        int width = images.getFirst().getWidth();
-        int height = images.getFirst().getHeight();
-        int n = images.size();
-        int totalPixels = width * height;
-
-        log.info("Starting ImageJ RGB EDF stack merge of {} frames ({}×{})", n, width, height);
-
-        for (int i = 1; i < n; i++) {
-            if (images.get(i).getWidth() != width || images.get(i).getHeight() != height) {
-                throw new IllegalArgumentException(
-                        "All frames must have identical dimensions; frame " + i
-                                + " was " + images.get(i).getWidth() + "×" + images.get(i).getHeight()
-                                + " but expected " + width + "×" + height);
-            }
-        }
-
-        // Memory-efficient: keep only best-response and best-frame-index arrays
-        // instead of all N Laplacian maps at once
-        float[] bestResponse = new float[totalPixels];
-        int[] bestFrameIndex = new int[totalPixels];
-
-        for (int i = 0; i < n; i++) {
-            log.info("  Computing sharpness map for frame {}/{}...", i + 1, n);
-            FloatProcessor luminance = toLuminance(images.get(i));
-            luminance.convolve(LAPLACIAN, 3, 3);
-            float[] laplacian = (float[]) luminance.getPixels();
-
-            for (int p = 0; p < totalPixels; p++) {
-                float response = Math.abs(laplacian[p]);
-                if (response > bestResponse[p]) {
-                    bestResponse[p] = response;
-                    bestFrameIndex[p] = i;
-                }
-            }
-            // laplacian array is GC-eligible now
-        }
-        bestResponse = null; // free ~120 MB
-
-        // Compose output — preserve original colour
-        log.info("  Compositing output image...");
-        BufferedImage output = new BufferedImage(width, height, images.getFirst().getType());
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                int idx = y * width + x;
-                output.setRGB(x, y, images.get(bestFrameIndex[idx]).getRGB(x, y));
-            }
-        }
-
-        log.info("RGB stack merge completed: {}×{} px", width, height);
-        return output;
+        var accumulator = new ColorAccumulator(images.getFirst());
+        images.forEach(accumulator::add);
+        return accumulator.image();
     }
 
-    /** Converts a BufferedImage to a luminance FloatProcessor for sharpness analysis. */
-    private FloatProcessor toLuminance(BufferedImage img) {
-        int w = img.getWidth();
-        int h = img.getHeight();
-        FloatProcessor fp = new FloatProcessor(w, h);
-        for (int y = 0; y < h; y++) {
-            for (int x = 0; x < w; x++) {
-                int rgb = img.getRGB(x, y);
-                int r = (rgb >> 16) & 0xFF;
-                int g = (rgb >> 8) & 0xFF;
-                int b = rgb & 0xFF;
-                // ITU-R BT.709 luminance
-                fp.setf(x, y, 0.2126f * r + 0.7152f * g + 0.0722f * b);
+    /** Combines one decoded image at a time using the same five-point Laplacian. */
+    static final class ColorAccumulator {
+        private final int width;
+        private final int height;
+        private final BufferedImage image;
+        private final int[] packed;
+        private final float[] bestResponse;
+        private final Line[] lines;
+        private int frames;
+
+        ColorAccumulator(BufferedImage first) {
+            width = first.getWidth();
+            height = first.getHeight();
+            int type = first.getType();
+            image = new BufferedImage(width, height,
+                    type == BufferedImage.TYPE_CUSTOM ? BufferedImage.TYPE_INT_RGB : type);
+            packed = image.getType() == BufferedImage.TYPE_INT_RGB
+                    ? ((DataBufferInt) image.getRaster().getDataBuffer()).getData() : null;
+            bestResponse = new float[Math.multiplyExact(width, height)];
+            lines = new Line[] {new Line(width), new Line(width), new Line(width)};
+        }
+
+        BufferedImage image() {
+            return image;
+        }
+
+        void add(BufferedImage frame) {
+            if (frame.getWidth() != width || frame.getHeight() != height) {
+                throw new IllegalArgumentException("All frames must have identical dimensions; frame " + frames
+                        + " was " + frame.getWidth() + "×" + frame.getHeight()
+                        + " but expected " + width + "×" + height);
+            }
+            Line above = lines[0];
+            Line current = lines[1];
+            Line below = lines[2];
+            current.load(frame, 0);
+            if (height > 1) {
+                below.load(frame, 1);
+            }
+            for (int y = 0; y < height; y++) {
+                float[] north = y == 0 ? current.luminance : above.luminance;
+                float[] south = y == height - 1 ? current.luminance : below.luminance;
+                float[] middle = current.luminance;
+                for (int x = 0; x < width; x++) {
+                    // ImageJ extends boundary pixels and accumulates the kernel in double precision.
+                    double sum = north[x];
+                    sum += middle[Math.max(0, x - 1)];
+                    sum -= 4 * middle[x];
+                    sum += middle[Math.min(width - 1, x + 1)];
+                    sum += south[x];
+                    float response = Math.abs((float) sum);
+                    int index = y * width + x;
+                    if (frames == 0 || response > bestResponse[index]) {
+                        bestResponse[index] = response;
+                        if (packed != null) {
+                            packed[index] = current.colors[x] & 0x00ff_ffff;
+                        } else {
+                            image.setRGB(x, y, current.colors[x]);
+                        }
+                    }
+                }
+                Line recycled = above;
+                above = current;
+                current = below;
+                below = recycled;
+                if (y + 2 < height) {
+                    below.load(frame, y + 2);
+                }
+            }
+            frames++;
+        }
+    }
+
+    private static final class Line {
+        private final int[] colors;
+        private final float[] luminance;
+
+        Line(int width) {
+            colors = new int[width];
+            luminance = new float[width];
+        }
+
+        void load(BufferedImage frame, int y) {
+            frame.getRGB(0, y, colors.length, 1, colors, 0, colors.length);
+            for (int x = 0; x < colors.length; x++) {
+                int rgb = colors[x];
+                int red = (rgb >>> 16) & 0xff;
+                int green = (rgb >>> 8) & 0xff;
+                int blue = rgb & 0xff;
+                luminance[x] = 0.2126f * red + 0.7152f * green + 0.0722f * blue;
             }
         }
-        return fp;
     }
 
     @Override

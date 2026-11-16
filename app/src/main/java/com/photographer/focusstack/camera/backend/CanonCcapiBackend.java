@@ -6,10 +6,12 @@ import com.photographer.focusstack.camera.exception.CameraException;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.camera.Operation;
+import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -21,10 +23,12 @@ import org.springframework.http.HttpHeaders;
 
 import org.springframework.http.HttpMethod;
 
+import java.net.URI;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -33,6 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Canon CCAPI backend that <strong>discovers available endpoints dynamically</strong>
@@ -67,7 +72,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *     ] }
  * </pre>
  */
-public class CanonCcapiBackend implements CameraBackend {
+public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvider {
 
     private static final Logger log = LoggerFactory.getLogger(CanonCcapiBackend.class);
 
@@ -451,6 +456,7 @@ public class CanonCcapiBackend implements CameraBackend {
 
     /** Tracks whether we have already started live view on this backend instance. */
     private final AtomicBoolean liveViewStarted = new AtomicBoolean(false);
+    private volatile String lastProcessingShot;
 
     @Override
     public LiveViewFrame getLiveView() {
@@ -563,6 +569,15 @@ public class CanonCcapiBackend implements CameraBackend {
 
     @Override
     public CaptureResult capture() {
+        return capture(false);
+    }
+
+    @Override
+    public CaptureResult captureForProcessing() {
+        return capture(true);
+    }
+
+    private CaptureResult capture(boolean preferRaw) {
         // Prefer shutterbutton/manual for the 3-phase sequence (Canon SDK §4.8.2).
         // Fall back to the plain shutterbutton endpoint for older firmware.
         String manualUrl = findEndpoint("shutterbutton/manual");
@@ -583,7 +598,13 @@ public class CanonCcapiBackend implements CameraBackend {
             boolean contentsDiscovered = findEndpoint("contents/sd") != null
                     || findEndpoint("contents") != null;
             String contentsBaseUrl = contentsDiscovered ? resolveContentsBase() : null;
-            String preNewestDatetime = contentsDiscovered ? findNewestImageDatetime(contentsBaseUrl) : null;
+            String preNewestDatetime = contentsDiscovered && !preferRaw
+                    ? findNewestImageDatetime(contentsBaseUrl) : null;
+            Set<String> previousShots = contentsDiscovered && preferRaw
+                    ? listRecentImages(contentsBaseUrl).stream()
+                            .map(location -> processingShotKey(imageUrl(contentsBaseUrl, location)))
+                            .collect(Collectors.toUnmodifiableSet())
+                    : Set.of();
 
             if (manualUrl != null) {
                 // 3-phase shutter sequence per Canon SDK:
@@ -607,8 +628,10 @@ public class CanonCcapiBackend implements CameraBackend {
             // DCIM browsing is only attempted when the contents endpoint was discovered;
             // otherwise skip it to avoid adding captureTimeoutMs delay on every frame for
             // cameras that expose shutter control but no contents endpoint.
-            DownloadResult download = downloadNewImageViaEventPolling();
-            if (download == null && contentsDiscovered) {
+            DownloadResult download = preferRaw
+                    ? downloadProcessingImage(contentsBaseUrl, previousShots)
+                    : downloadNewImageViaEventPolling();
+            if (download == null && contentsDiscovered && !preferRaw) {
                 download = downloadNewImage(contentsBaseUrl, preNewestDatetime);
             }
 
@@ -749,9 +772,17 @@ public class CanonCcapiBackend implements CameraBackend {
      * endpoint is unavailable.
      */
     private ImageLocation findNewestImage(String dcimUrl) {
+        return listRecentImages(dcimUrl).stream()
+                .max(Comparator.comparing(
+                        location -> parseOffsetDateTimeOrNull(location.entry().datetime()),
+                        Comparator.nullsFirst(Comparator.naturalOrder())))
+                .orElse(null);
+    }
+
+    private List<ImageLocation> listRecentImages(String dcimUrl) {
         ContentListing folderListing = listContents(dcimUrl);
         if (folderListing == null || folderListing.dir() == null || folderListing.dir().isEmpty()) {
-            return null;
+            return List.of();
         }
         // Sort folders descending by name so the highest-numbered folder is first.
         List<ContentEntry> folders = folderListing.dir().stream()
@@ -762,16 +793,140 @@ public class CanonCcapiBackend implements CameraBackend {
             String folderUrl = dcimUrl + "/" + folder.name();
             ContentListing fileListing = listContents(folderUrl);
             if (fileListing == null || fileListing.dir() == null) continue;
-            Optional<ContentEntry> newest = fileListing.dir().stream()
+            List<ImageLocation> images = fileListing.dir().stream()
                     .filter(e -> "A".equals(e.attrib()) && isImageFile(e.name()))
                     .filter(e -> e.datetime() != null)
-                    .max(Comparator.comparing(e -> parseOffsetDateTimeOrNull(e.datetime()),
-                            Comparator.nullsFirst(Comparator.naturalOrder())));
-            if (newest.isPresent()) {
-                return new ImageLocation(folder.name(), newest.get());
+                    .map(entry -> new ImageLocation(folder.name(), entry))
+                    .toList();
+            if (!images.isEmpty()) {
+                return images;
             }
         }
+        return List.of();
+    }
+
+    private DownloadResult downloadProcessingImage(String contentsUrl, Set<String> previousShots) {
+        if (captureTimeoutMs <= 0) {
+            return null;
+        }
+        String pollingUrl = findEndpoint("event/polling");
+        if (pollingUrl == null && contentsUrl == null) {
+            return null;
+        }
+        long deadline = System.currentTimeMillis() + captureTimeoutMs;
+        long pairDeadline = deadline;
+        Map<String, String> candidates = new LinkedHashMap<>();
+        while (!Thread.currentThread().isInterrupted()) {
+            if (pollingUrl != null) {
+                addProcessingCandidates(candidates, addedImageUrls(pollingUrl), previousShots);
+            }
+            if (contentsUrl != null && candidates.values().stream().noneMatch(CapturedImageFormat::isCr3)) {
+                List<String> listed = listRecentImages(contentsUrl).stream()
+                        .sorted(Comparator.comparing(
+                                (ImageLocation location) -> parseOffsetDateTimeOrNull(location.entry().datetime()),
+                                Comparator.nullsLast(Comparator.reverseOrder())))
+                        .map(location -> imageUrl(contentsUrl, location))
+                        .toList();
+                addProcessingCandidates(candidates, listed, previousShots);
+            }
+
+            long now = System.currentTimeMillis();
+            if (!candidates.isEmpty()) {
+                pairDeadline = Math.min(pairDeadline, now + CapturedImageFormat.PAIRED_FILE_WAIT.toMillis());
+                boolean tryFallback = now >= pairDeadline || candidates.size() > 1
+                        && candidates.values().stream().anyMatch(CapturedImageFormat::isCanonRaw);
+                List<String> ordered = candidates.values().stream()
+                        .filter(url -> tryFallback || CapturedImageFormat.isCr3(url))
+                        .sorted(Comparator.comparingInt(CapturedImageFormat::processingPriority).reversed())
+                        .toList();
+                for (String url : ordered) {
+                    DownloadResult download = downloadProcessingCandidate(url);
+                    if (download != null) {
+                        lastProcessingShot = processingShotKey(url);
+                        return download;
+                    }
+                }
+            }
+            if (now >= deadline || now >= pairDeadline) {
+                break;
+            }
+            sleepMs(Math.max(1L, Math.min(capturePollIntervalMs, pairDeadline - now)));
+        }
         return null;
+    }
+
+    private List<String> addedImageUrls(String pollingUrl) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(pollingUrl, Map.class);
+            return response == null ? List.of() : extractContentUrls(response.get("addedcontents"));
+        } catch (RestClientException e) {
+            log.debug("event/polling unavailable: {}", e.getClass().getSimpleName());
+            return List.of();
+        }
+    }
+
+    private void addProcessingCandidates(
+            Map<String, String> candidates, List<String> paths, Set<String> previousShots) {
+        URI origin = URI.create(baseUrl);
+        for (String path : paths) {
+            URI url;
+            try {
+                url = origin.resolve(path);
+            } catch (IllegalArgumentException exception) {
+                continue;
+            }
+            if (!origin.getScheme().equalsIgnoreCase(url.getScheme())
+                    || !origin.getHost().equalsIgnoreCase(url.getHost())
+                    || port(origin) != port(url)
+                    || url.getUserInfo() != null || url.getQuery() != null || url.getFragment() != null
+                    || url.getPath() == null || !url.getPath().startsWith("/ccapi/")
+                    || !url.getPath().equals(url.normalize().getPath())
+                    || !url.getPath().equals(url.getRawPath())) {
+                continue;
+            }
+            String candidate = origin.resolve(url.getRawPath()).toString();
+            String pathInStorage = mediaPath(candidate);
+            String shot = CapturedImageFormat.shotKey(pathInStorage);
+            if (previousShots.contains(shot) || shot.equals(lastProcessingShot)) {
+                continue;
+            }
+            if (candidates.isEmpty()
+                    || shot.equals(CapturedImageFormat.shotKey(candidates.keySet().iterator().next()))) {
+                candidates.putIfAbsent(pathInStorage, candidate);
+            }
+        }
+    }
+
+    private static int port(URI url) {
+        if (url.getPort() >= 0) {
+            return url.getPort();
+        }
+        return "https".equalsIgnoreCase(url.getScheme()) ? 443 : 80;
+    }
+
+    private static String mediaPath(String url) {
+        int contents = url.indexOf("/contents/");
+        return contents < 0 ? url : url.substring(contents);
+    }
+
+    private static String processingShotKey(String url) {
+        return CapturedImageFormat.shotKey(mediaPath(url));
+    }
+
+    private static String imageUrl(String contentsUrl, ImageLocation location) {
+        return contentsUrl + "/" + location.folderName() + "/" + location.entry().name();
+    }
+
+    private DownloadResult downloadProcessingCandidate(String url) {
+        try {
+            byte[] data = restTemplate.getForObject(url, byte[].class);
+            return data == null || data.length == 0
+                    ? null : new DownloadResult(extractFileNameFromUrl(url), data);
+        } catch (RestClientException exception) {
+            log.debug("Camera image download failed ({})", exception.getClass().getSimpleName());
+            return null;
+        }
     }
 
     /**

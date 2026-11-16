@@ -6,6 +6,7 @@ import com.photographer.focusstack.analysis.strategy.PixelDiffStrategy;
 import com.photographer.focusstack.analysis.strategy.StructuralSimilarityStrategy;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.model.StackingParameters;
+import ij.process.ByteProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +24,8 @@ public class StackingAdvisor {
     private final InformationGainEstimator informationGainEstimator;
     private final MotionDetectionStrategy motionDetectionStrategy;
     private final ImageJProcessor imageJProcessor;
+
+    public record RawFrameAnalysis(AnalysisResult result, ByteProcessor pixels) {}
 
     public StackingAdvisor(SharpnessAnalyzer sharpnessAnalyzer,
                            MotionDetector motionDetector,
@@ -54,8 +57,6 @@ public class StackingAdvisor {
                                        List<AnalysisResult> history,
                                        StackingParameters params) {
         double sharpnessScore = computeSharpness(imageData);
-        double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);
-
         MotionDetector.MotionResult motionResult;
         if (params.motionDetectionEnabled() && previousFrame != null) {
             motionResult = motionDetectionStrategy.detect(imageData, previousFrame, 0.15);
@@ -63,6 +64,36 @@ public class StackingAdvisor {
             motionResult = new MotionDetector.MotionResult(0.0, false, 0.15);
         }
 
+        return completeAnalysis(sharpnessScore, motionResult, history, params);
+    }
+
+    /** Prepares each captured RAW frame once and keeps only its reduced grayscale pixels. */
+    public RawFrameAnalysis analyzeRawFrame(
+            byte[] imageData,
+            byte[] previousEncoded,
+            RawFrameAnalysis previousRaw,
+            List<AnalysisResult> history,
+            StackingParameters params) {
+        ByteProcessor current = imageJProcessor.readForStacking(imageData);
+        MotionDetector.MotionResult motion = new MotionDetector.MotionResult(0.0, false, 0.15);
+        if (params.motionDetectionEnabled() && current != null) {
+            ByteProcessor previous = previousRaw == null
+                    ? imageJProcessor.readForStacking(previousEncoded) : previousRaw.pixels();
+            motion = motionDetectionStrategy instanceof StructuralSimilarityStrategy
+                    ? imageJProcessor.detectDecodedStructuralMotion(current, previous, 0.15)
+                    : imageJProcessor.detectDecodedMotion(current, previous, 0.15);
+        }
+        AnalysisResult result = completeAnalysis(
+                imageJProcessor.calculateDecodedSharpness(current), motion, history, params);
+        return new RawFrameAnalysis(result, current);
+    }
+
+    private AnalysisResult completeAnalysis(
+            double sharpnessScore,
+            MotionDetector.MotionResult motionResult,
+            List<AnalysisResult> history,
+            StackingParameters params) {
+        double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);
         // Build a preliminary result for gain estimation
         AnalysisResult preliminary = new AnalysisResult(
                 UUID.randomUUID().toString(),

@@ -13,7 +13,7 @@ import java.time.Instant;
  * Adapter: PtpCamera → CameraBackend interface.
  * Makes the PTP module compatible with the Focus Stack application.
  */
-public class PtpCameraBackend implements CameraBackend {
+public class PtpCameraBackend implements CameraBackend, ProcessingCaptureProvider {
     private final PtpCamera camera;
     private volatile boolean liveViewActive;
 
@@ -35,7 +35,15 @@ public class PtpCameraBackend implements CameraBackend {
 
     @Override
     public CaptureResult capture() {
-        ImageDownload download = camera.capture();
+        return toCaptureResult(camera.capture());
+    }
+
+    @Override
+    public CaptureResult captureForProcessing() {
+        return toCaptureResult(camera.captureForProcessing());
+    }
+
+    private static CaptureResult toCaptureResult(ImageDownload download) {
         return new CaptureResult(
                 download.objectId(),
                 download.fileName(),

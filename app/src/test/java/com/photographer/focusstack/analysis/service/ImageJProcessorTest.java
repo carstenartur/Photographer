@@ -9,6 +9,8 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -115,6 +117,28 @@ class ImageJProcessorTest {
         MotionDetector.MotionResult result = processor.detectMotion(invalidCr3, invalidCr3, 0.1);
         assertNotNull(result);
         assertFalse(result.motionDetected());
+    }
+
+    @Test
+    void cr3SharpnessMapUsesTheRawPixelsBeyondTheEmbeddedPreview() throws IOException {
+        Path module = Path.of("canon-cr3-imageio");
+        if (!Files.isDirectory(module)) {
+            module = Path.of("..").resolve(module);
+        }
+        Path sample = module.resolve("src/test/resources/samples/sample.cr3");
+        BufferedImage preview = ImageIO.read(sample.toFile());
+        assertNotNull(preview);
+        int previewEdge = Math.max(preview.getWidth(), preview.getHeight());
+
+        byte[] raw = Files.readAllBytes(sample);
+        SharpnessMap map = processor.createSharpnessMap(raw, previewEdge);
+
+        assertTrue(map.width() > 1 || map.height() > 1,
+                "RAW analysis must span more pixels than the embedded camera preview");
+        SharpnessMap constrained = new ImageJProcessor(new RawDecodeBudget(1, 1))
+                .createSharpnessMap(raw, previewEdge);
+        assertEquals(1, constrained.width(), "The embedded preview fits into one block");
+        assertEquals(1, constrained.height(), "The embedded preview fits into one block");
     }
 
     @Test

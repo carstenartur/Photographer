@@ -1,9 +1,10 @@
 package com.photographer.focusstack.analysis.service;
 
 import com.photographer.focusstack.common.analysis.SharpnessMap;
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
+import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
-import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReadParam;
-import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReaderSpi;
+import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import ij.IJ;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
@@ -11,11 +12,14 @@ import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
 import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -34,10 +38,16 @@ public class ImageJProcessor {
     private static final Logger log = LoggerFactory.getLogger(ImageJProcessor.class);
     private static final double MAX_LAPLACIAN_VARIANCE = 16256.25;
     private static final float[] LAPLACIAN_KERNEL = {0, 1, 0, 1, -4, 1, 0, 1, 0};
-    private static final byte[] FTYP_SIGNATURE = {'f', 't', 'y', 'p'};
-    private static final byte[] CRX_MAJOR_BRAND = {'c', 'r', 'x', ' '};
+    private static final int STACK_ANALYSIS_MAX_EDGE = 2048;
+    private final RawDecodeBudget rawDecodeBudget;
 
     public ImageJProcessor() {
+        this(new RawDecodeBudget(0, 0));
+    }
+
+    @Autowired
+    public ImageJProcessor(RawDecodeBudget rawDecodeBudget) {
+        this.rawDecodeBudget = rawDecodeBudget;
         System.setProperty("java.awt.headless", "true");
         log.info("ImageJ processor initialized (headless mode), ImageJ version: {}", IJ.getVersion());
     }
@@ -50,11 +60,15 @@ public class ImageJProcessor {
      * @return normalized sharpness score 0.0 - 1.0
      */
     public double calculateSharpness(byte[] imageFileBytes) {
-        FloatProcessor fp = readAsFloatProcessor(imageFileBytes);
-        if (fp == null) {
+        return calculateDecodedSharpness(readAsByteProcessor(imageFileBytes));
+    }
+
+    double calculateDecodedSharpness(ByteProcessor pixels) {
+        if (pixels == null) {
             return 0.0;
         }
 
+        FloatProcessor fp = pixels.convertToFloatProcessor();
         fp.convolve(LAPLACIAN_KERNEL, 3, 3);
 
         ImageStatistics stats = fp.getStatistics();
@@ -74,15 +88,18 @@ public class ImageJProcessor {
     public MotionDetector.MotionResult detectMotion(byte[] currentImageBytes,
                                                      byte[] previousImageBytes,
                                                      double threshold) {
-        FloatProcessor fpCurrent = readAsFloatProcessor(currentImageBytes);
-        FloatProcessor fpPrevious = readAsFloatProcessor(previousImageBytes);
+        return detectDecodedMotion(readAsByteProcessor(currentImageBytes),
+                readAsByteProcessor(previousImageBytes), threshold);
+    }
 
-        if (fpCurrent == null || fpPrevious == null) {
+    MotionDetector.MotionResult detectDecodedMotion(
+            ByteProcessor current, ByteProcessor previous, double threshold) {
+        if (current == null || previous == null) {
             return new MotionDetector.MotionResult(0.0, false, threshold);
         }
 
-        int width = Math.min(fpCurrent.getWidth(), fpPrevious.getWidth());
-        int height = Math.min(fpCurrent.getHeight(), fpPrevious.getHeight());
+        int width = Math.min(current.getWidth(), previous.getWidth());
+        int height = Math.min(current.getHeight(), previous.getHeight());
 
         if (width == 0 || height == 0) {
             return new MotionDetector.MotionResult(0.0, false, threshold);
@@ -93,8 +110,8 @@ public class ImageJProcessor {
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                float curr = fpCurrent.getf(x, y);
-                float prev = fpPrevious.getf(x, y);
+                int curr = current.get(x, y);
+                int prev = previous.get(x, y);
                 totalDiff += Math.abs(curr - prev);
             }
         }
@@ -180,7 +197,7 @@ public class ImageJProcessor {
         if (data[0] == 0x42 && data[1] == 0x4D) {
             return true;
         }
-        return isCr3File(data);
+        return CapturedImageFormat.hasCr3Header(data);
     }
 
     /**
@@ -200,23 +217,26 @@ public class ImageJProcessor {
     public MotionDetector.MotionResult detectStructuralMotion(byte[] currentImageBytes,
                                                                byte[] previousImageBytes,
                                                                double threshold) {
-        FloatProcessor fpCurrent = readAsFloatProcessor(currentImageBytes);
-        FloatProcessor fpPrevious = readAsFloatProcessor(previousImageBytes);
+        return detectDecodedStructuralMotion(readAsByteProcessor(currentImageBytes),
+                readAsByteProcessor(previousImageBytes), threshold);
+    }
 
-        if (fpCurrent == null || fpPrevious == null) {
+    MotionDetector.MotionResult detectDecodedStructuralMotion(
+            ByteProcessor current, ByteProcessor previous, double threshold) {
+        if (current == null || previous == null) {
             return new MotionDetector.MotionResult(0.0, false, threshold);
         }
 
-        int width = Math.min(fpCurrent.getWidth(), fpPrevious.getWidth());
-        int height = Math.min(fpCurrent.getHeight(), fpPrevious.getHeight());
+        int width = Math.min(current.getWidth(), previous.getWidth());
+        int height = Math.min(current.getHeight(), previous.getHeight());
 
         if (width < 3 || height < 3) {
             return new MotionDetector.MotionResult(0.0, false, threshold);
         }
 
         // Compute Sobel edge magnitude for both frames
-        float[] edgesCurrent = sobelMagnitude(fpCurrent, width, height);
-        float[] edgesPrevious = sobelMagnitude(fpPrevious, width, height);
+        float[] edgesCurrent = sobelMagnitude(current, width, height);
+        float[] edgesPrevious = sobelMagnitude(previous, width, height);
 
         // Normalised cross-correlation of edge maps
         double similarity = normalizedCrossCorrelation(edgesCurrent, edgesPrevious);
@@ -230,8 +250,8 @@ public class ImageJProcessor {
         return new MotionDetector.MotionResult(motionScore, motionScore > threshold, threshold);
     }
 
-    /** Computes Sobel gradient magnitude for a FloatProcessor. */
-    private float[] sobelMagnitude(FloatProcessor fp, int width, int height) {
+    /** Computes Sobel gradient magnitude for grayscale pixels. */
+    private float[] sobelMagnitude(ByteProcessor fp, int width, int height) {
         int innerW = width - 2;
         int innerH = height - 2;
         float[] result = new float[innerW * innerH];
@@ -287,13 +307,8 @@ public class ImageJProcessor {
         return IJ.getVersion();
     }
 
-    /**
-     * Reads image file bytes into an ImageJ FloatProcessor (grayscale).
-     * Uses ByteProcessor as intermediate to ensure grayscale conversion.
-     */
-    private FloatProcessor readAsFloatProcessor(byte[] imageFileBytes) {
-        ByteProcessor bp = readAsByteProcessor(imageFileBytes);
-        return bp != null ? bp.convertToFloatProcessor() : null;
+    ByteProcessor readForStacking(byte[] imageFileBytes) {
+        return readAsByteProcessor(imageFileBytes, STACK_ANALYSIS_MAX_EDGE);
     }
 
     /**
@@ -305,65 +320,76 @@ public class ImageJProcessor {
      * so we must convert non-grayscale images before wrapping them.
      */
     private ByteProcessor readAsByteProcessor(byte[] imageFileBytes) {
+        return readAsByteProcessor(imageFileBytes, Integer.MAX_VALUE);
+    }
+
+    private ByteProcessor readAsByteProcessor(byte[] imageFileBytes, int maxEdge) {
         if (imageFileBytes == null || imageFileBytes.length == 0) {
             return null;
         }
         try {
+            if (CapturedImageFormat.hasCr3Header(imageFileBytes)) {
+                return readCr3(imageFileBytes, maxEdge);
+            }
             BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageFileBytes));
             if (bi == null) {
-                if (isCr3File(imageFileBytes)) {
-                    bi = decodeCr3WithFallback(imageFileBytes);
-                }
-                if (bi == null) {
-                    log.warn("Could not decode image from {} bytes", imageFileBytes.length);
-                    return null;
-                }
+                log.warn("Could not decode image from {} bytes", imageFileBytes.length);
+                return null;
             }
-            // ByteProcessor requires TYPE_BYTE_GRAY; real camera JPEGs are RGB.
-            // Convert to grayscale if the image is not already 8-bit gray.
-            if (bi.getType() != BufferedImage.TYPE_BYTE_GRAY) {
-                BufferedImage gray = new BufferedImage(
-                        bi.getWidth(), bi.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-                gray.getGraphics().drawImage(bi, 0, 0, null);
-                bi = gray;
-            }
-            return new ByteProcessor(bi);
-        } catch (IOException e) {
-            log.error("Error reading image: {}", e.getMessage(), e);
+            return toGrayscale(bi, maxEdge);
+        } catch (Cr3Exception | IOException e) {
+            log.warn("Could not read image: {}", e.getMessage());
             return null;
         }
     }
 
-    private static boolean isCr3File(byte[] data) {
-        if (data == null || data.length < 12) {
-            return false;
-        }
-        // Compare ftyp signature at offset 4 and CRX major brand at offset 8 inline
-        // to avoid allocating temporary arrays on every call
-        for (int i = 0; i < FTYP_SIGNATURE.length; i++) {
-            if (data[4 + i] != FTYP_SIGNATURE[i]) return false;
-        }
-        for (int i = 0; i < CRX_MAJOR_BRAND.length; i++) {
-            if (data[8 + i] != CRX_MAJOR_BRAND[i]) return false;
-        }
-        return true;
-    }
-
-    private BufferedImage decodeCr3WithFallback(byte[] imageFileBytes) {
+    private ByteProcessor readCr3(byte[] imageFileBytes, int maxEdge) throws Cr3Exception, IOException {
         try (MemoryCacheImageInputStream iis =
                      new MemoryCacheImageInputStream(new ByteArrayInputStream(imageFileBytes))) {
-            ImageReader reader = new CanonCr3ImageReaderSpi().createReaderInstance(null);
+            Cr3Decoder decoder = new Cr3Decoder();
+            decoder.setInput(iis);
+            Cr3DecodeOptions options = Cr3DecodeOptions.rawProcessed();
+            Rectangle bounds;
             try {
-                reader.setInput(iis);
-                CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
-                return reader.read(0, param);
-            } finally {
-                reader.dispose();
+                bounds = decoder.getRawProcessedBounds(options);
+            } catch (Cr3Exception exception) {
+                return readCr3Preview(decoder, maxEdge, exception);
             }
-        } catch (Exception e) {
-            log.warn("CR3 fallback decode failed: {}", e.getMessage(), e);
-            return null;
+            long estimatedBytes = RawDecodeBudget.estimateRawBytes(bounds.width, bounds.height);
+            try (RawDecodeBudget.Lease lease = rawDecodeBudget.acquire(estimatedBytes, 1)) {
+                return toGrayscale(decoder.decode(options.maxWorkers(lease.workers())), maxEdge);
+            } catch (Cr3Exception | IOException exception) {
+                return readCr3Preview(decoder, maxEdge, exception);
+            }
         }
+    }
+
+    private ByteProcessor readCr3Preview(Cr3Decoder decoder, int maxEdge, Exception rawFailure)
+            throws Cr3Exception, IOException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new IOException("CR3 analysis interrupted", rawFailure);
+        }
+        log.debug("Using embedded preview for CR3 analysis: {}", rawFailure.getMessage());
+        return toGrayscale(decoder.decode(Cr3DecodeOptions.defaults()), maxEdge);
+    }
+
+    private static ByteProcessor toGrayscale(BufferedImage image, int maxEdge) {
+        int longestEdge = Math.max(image.getWidth(), image.getHeight());
+        if (image.getType() == BufferedImage.TYPE_BYTE_GRAY && longestEdge <= maxEdge) {
+            return new ByteProcessor(image);
+        }
+        double scale = Math.min(1.0, (double) maxEdge / longestEdge);
+        int width = Math.max(1, (int) Math.round(image.getWidth() * scale));
+        int height = Math.max(1, (int) Math.round(image.getHeight() * scale));
+        BufferedImage gray = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D graphics = gray.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            graphics.drawImage(image, 0, 0, width, height, null);
+        } finally {
+            graphics.dispose();
+        }
+        return new ByteProcessor(gray);
     }
 }
