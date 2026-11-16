@@ -51,26 +51,38 @@ final class Pixels {
         int width = image.getWidth();
         int height = image.getHeight();
         Packed packed = packed(image);
-        // Custom packed rasters can alias adjacent rows. Preserve row order in that case.
-        int workItems = packed != null && packed.stride() >= width ? maxStripes(width, height) : 1;
-        int stripes = Cr3Workers.count(maxWorkers, workItems);
         if (packed != null) {
-            int[] pixels = packed.data();
-            Cr3Workers.run(stripes, stripe -> {
-                int end = stripeStart(stripe + 1, height, stripes);
-                for (int y = stripeStart(stripe, height, stripes); y < end; y++) {
-                    int offset = packed.rowStart(y);
-                    for (int i = offset; i < offset + width; i++) {
-                        pixels[i] = transform.applyAsInt(pixels[i]);
-                    }
+            transformPacked(packed, width, height, maxWorkers, (pixels, offset) -> {
+                for (int i = offset; i < offset + width; i++) {
+                    pixels[i] = transform.applyAsInt(pixels[i]);
                 }
             });
             return;
         }
+        Cr3Workers.count(maxWorkers, 1);
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 image.setRGB(x, y, transform.applyAsInt(image.getRGB(x, y)));
             }
         }
+    }
+
+    @FunctionalInterface
+    interface PackedRowTransform {
+        void apply(int[] pixels, int offset);
+    }
+
+    static void transformPacked(Packed packed, int width, int height, int maxWorkers,
+                                PackedRowTransform transform) {
+        // Custom packed rasters can alias adjacent rows. Preserve row order in that case.
+        int workItems = packed.stride() >= width ? maxStripes(width, height) : 1;
+        int stripes = Cr3Workers.count(maxWorkers, workItems);
+        int[] pixels = packed.data();
+        Cr3Workers.run(stripes, stripe -> {
+            int end = stripeStart(stripe + 1, height, stripes);
+            for (int y = stripeStart(stripe, height, stripes); y < end; y++) {
+                transform.apply(pixels, packed.rowStart(y));
+            }
+        });
     }
 }

@@ -57,6 +57,19 @@ In a separate consumer project, replace `REPLACE_WITH_CR3_VERSION` with the prin
 
 For a published version, follow the [Maven release guide](../cr3-maven-central.md#resolve-a-released-version) to configure the Git-backed repository or resolve a version verified on Maven Central.
 
+### Optional SIMD color matrix on JDK 25
+
+Build with `-Pcr3-vector` to include the Java Vector API implementation of the RAW-to-RGB color matrix. Add `--add-modules=jdk.incubator.vector` to the JDK 25 application launch to enable it. The same processing JAR uses the scalar path on JDK 21, with the module disabled, or when packed rows or 256-bit vectors are unavailable.
+
+The JMH distribution can include the same implementation.
+
+```sh
+mvn -B -Pbenchmarks,cr3-vector -pl canon-cr3-benchmark -am -DskipTests package
+java --add-modules=jdk.incubator.vector \
+  -Dsamples.dir=canon-cr3-imageio/src/test/resources/samples \
+  -jar canon-cr3-benchmark/target/benchmarks.jar Cr3RawProcessedBenchmark
+```
+
 ## Quick preview
 
 Given a `java.io.File file`, read the preview in a method that can throw `IOException`.

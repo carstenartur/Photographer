@@ -51,10 +51,41 @@ public final class ColorMatrixProcessor {
 
         LOG.debug("Applying 3x3 color matrix to {}x{} image", image.getWidth(), image.getHeight());
 
-        Pixels.transform(image, maxWorkers, rgb -> applyMatrix(rgb, matrix));
+        if (!processWithVectors(image, matrix, maxWorkers)) {
+            Pixels.transform(image, maxWorkers, rgb -> applyMatrix(rgb, matrix));
+        }
     }
 
-    private static int applyMatrix(int rgb, double[][] matrix) {
+    static boolean processWithVectors(BufferedImage image, double[][] matrix, int maxWorkers) {
+        VectorKernel kernel = VectorSupport.KERNEL;
+        return kernel != null && kernel.process(image, matrix, maxWorkers);
+    }
+
+    interface VectorKernel {
+        boolean process(BufferedImage image, double[][] matrix, int maxWorkers);
+    }
+
+    private static final class VectorSupport {
+        private static final VectorKernel KERNEL = load();
+
+        private static VectorKernel load() {
+            // Only the optional Java 25 build contains a Vector API implementation.
+            if (Runtime.version().feature() != 25
+                    || ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+                return null;
+            }
+            try {
+                Class<?> implementation = Class.forName("com.photographer.focusstack.cr3.processing.ColorMatrixVectors");
+                return (VectorKernel) implementation.getDeclaredConstructor().newInstance();
+            } catch (ClassNotFoundException | LinkageError e) {
+                return null;
+            } catch (ReflectiveOperationException e) {
+                throw new ExceptionInInitializerError(e);
+            }
+        }
+    }
+
+    static int applyMatrix(int rgb, double[][] matrix) {
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
         int b = rgb & 0xFF;

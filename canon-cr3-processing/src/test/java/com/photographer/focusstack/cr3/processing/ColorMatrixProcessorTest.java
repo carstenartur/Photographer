@@ -56,7 +56,7 @@ class ColorMatrixProcessorTest {
             int[] types = {BufferedImage.TYPE_INT_RGB, BufferedImage.TYPE_INT_ARGB,
                     BufferedImage.TYPE_INT_ARGB_PRE, BufferedImage.TYPE_3BYTE_BGR};
             for (int type : types) {
-                BufferedImage parent = new BufferedImage(6, 4, type);
+                BufferedImage parent = new BufferedImage(8, 4, type);
                 checkSubimageTransform(parent);
             }
             // An int-packed image may also use a non-sRGB color space and a padded buffer.
@@ -64,7 +64,7 @@ class ColorMatrixProcessorTest {
                 var model = new DirectColorModel(ColorSpace.getInstance(space), 24,
                         0xff0000, 0xff00, 0xff, 0, false, DataBuffer.TYPE_INT);
                 var buffer = new DataBufferInt(new int[50], 40, 3);
-                var raster = Raster.createPackedRaster(buffer, 6, 4, 8,
+                var raster = Raster.createPackedRaster(buffer, 8, 4, 10,
                         new int[]{0xff0000, 0xff00, 0xff}, null);
                 checkSubimageTransform(new BufferedImage(model, raster, false, null));
             }
@@ -80,7 +80,7 @@ class ColorMatrixProcessorTest {
                 for (int x = 0; x < width; x++) {
                     parent.setRGB(x, y, 0x91542818 + (x << 20) + (y << 8));
                     int rgb = parent.getRGB(x, y);
-                    if (x >= 2 && x < 5 && y >= 1 && y < 3) {
+                    if (x >= 2 && x < 7 && y >= 1 && y < 3) {
                         int r = rgb >>> 16 & 255;
                         int g = rgb >>> 8 & 255;
                         int b = rgb & 255;
@@ -90,7 +90,7 @@ class ColorMatrixProcessorTest {
                     expected[y * width + x] = rgb;
                 }
             }
-            ColorMatrixProcessor.process(parent.getSubimage(2, 1, 3, 2), matrix);
+            ColorMatrixProcessor.process(parent.getSubimage(2, 1, 5, 2), matrix);
             assertArrayEquals(expected, parent.getRGB(0, 0, width, height, null, 0, width));
         }
 
