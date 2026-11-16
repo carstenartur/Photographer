@@ -849,7 +849,7 @@ Canon's *Image encoding apparatus and control method of the same* is registered 
 
 Canon's *Image encoding apparatus, image decoding apparatus, and control method thereof* is registered as `SRC-010`. Figures 10 and 14 informed the RG2 test of a causal-neighbor check and a run-mode flag. The candidate reproduced the baseline's first error in all 88 measured lossless tile-plane streams. [Patent publication](https://patents.google.com/patent/JP2017192077A/en) · [RG2 experiment](../cr3-results/2026-11-14-crx/README.md#lossless-mode-decision)
 
-The effect of any patent claims on an encoder depends on the implementation and jurisdiction.
+The reviewer guide links the granted documents and describes the remaining applicability review for the reader and writer. [Patent review record](../cleanroom/reviewer-guide.md#patent-review-record)
 
 ### Standards and project evidence
 

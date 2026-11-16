@@ -29,7 +29,7 @@ Choose the output that fits your work.
 | Embedded color JPEG | The camera's rendered preview, when present. It opens without decoding the RAW sensor stream. |
 | RGB developed from RAW | The Java reader demosaics a [supported RAW or C-RAW layout](decoder.md) into sRGB. Its default rendering uses 8 bits per channel, the active sensor area and the recorded orientation. Color reproduction and camera support remain experimental. |
 
-Open Fiji's [Script Editor](https://imagej.net/scripting/), select **Groovy** and run the script below after installing the update site. Choose a CR3 file. With **Develop RAW to RGB** cleared, Fiji opens the camera JPEG. Select it to render from the RAW data using the installed decoder.
+After installing the update site, download the Groovy example and open it in Fiji's Script Editor, or paste the code below with **Groovy** selected. Run it and choose a CR3 file. With **Develop RAW to RGB** cleared, Fiji opens the camera JPEG. Select it to render from the RAW data using the installed decoder. [Download the example](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) · [Fiji scripting guide](https://imagej.net/scripting/)
 
 ```groovy
 #@ File(label="Canon CR3 file", style="file") cr3

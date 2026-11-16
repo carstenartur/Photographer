@@ -1,10 +1,9 @@
-# Photographer 0.1.5 qualification checklist
+# Photographer 0.1.5 release procedure
 
-Historical preparation source: `41d0460c76957717f67961c9d42328c50456ea7b`.
-This is a preparation record; unchecked items remain pending. The preparation
-set `project.version=revision=0.1.5-SNAPSHOT`. A new release handoff must start
-from freshly verified main after the workflow repair merges. Historical checks
-and this checklist do not qualify a later source or publish an application.
+This runbook preserves the protected handoff procedure. The [0.1.5 release record](releases/0.1.5.md)
+links the actual release source, CI, publication workflow and verified artifacts.
+The original qualification draft used `41d0460c76957717f67961c9d42328c50456ea7b`.
+Each release handoff qualifies its own source commit.
 
 ## Exact-source checks
 

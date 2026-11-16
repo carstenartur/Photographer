@@ -155,6 +155,8 @@ Low-level container access:
 
 The ImageIO dependency resolves the remaining supported runtime modules transitively. Applications do not need to declare research or test infrastructure.
 
-## Current limitation
+## Verified 0.1.5 distribution
 
-Verify the exact release version in the selected distribution channel before documenting it as available. For the Git-backed repository, use a fresh authorized checkout of `maven-repository` and an empty Maven cache. For an optional Central release, verify the Portal deployment and resolve the same version independently from Maven Central. The [qualification checklist](release-checklist-0.1.5.md#holds-evidence-and-later-distribution) covers partial publication and recovery.
+The 0.1.5 archives resolve from the authorized Git-backed repository checkout. An independent consumer started with an empty Maven cache and retrieved all six POMs, runtime JARs, sources and Javadocs. Java 21 discovered the CR3 ImageIO provider from those dependencies. [Pinned Maven tree](https://github.com/carstenartur/Photographer/tree/9af70e857d3f138b2688f377e135e85b850f0c81) · [Checksums and release channels](releases/0.1.5.md#artifact-verification)
+
+For a future Central release, verify the Portal deployment and resolve the same version independently from Maven Central. [Publication and recovery procedure](release-checklist-0.1.5.md#holds-evidence-and-later-distribution)
