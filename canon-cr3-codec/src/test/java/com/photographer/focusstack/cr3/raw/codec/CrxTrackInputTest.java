@@ -69,6 +69,30 @@ class CrxTrackInputTest {
     }
 
     @Test
+    void refillsAnExplicitlyBoundedWindowAcrossUnalignedWords() throws IOException {
+        int windowSize = 16 * 1024;
+        int sliceStart = 17;
+        int sliceLength = 2 * windowSize + 11;
+        byte[] file = new byte[sliceStart + sliceLength + 19];
+        new Random(353).nextBytes(file);
+        var expected = ByteBuffer.wrap(file);
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(file)) {
+            @Override
+            public void readFully(byte[] bytes, int offset, int length) throws IOException {
+                assertTrue(length <= windowSize, "Refill exceeded the window capacity");
+                super.readFully(bytes, offset, length);
+            }
+        }) {
+            var window = CrxTrackInput.fromStream(input, sliceStart, sliceLength)
+                    .window(0, sliceLength, windowSize);
+            for (int position : new int[] {0, windowSize - 3, 2 * windowSize - 5, sliceLength - Long.BYTES}) {
+                assertEquals(expected.getLong(sliceStart + position), window.longWord(position));
+            }
+            assertThrows(IOException.class, () -> window.longWord(sliceLength - Long.BYTES + 1));
+        }
+    }
+
+    @Test
     void concurrentRefillsReadFromTheirOwnSubbandPositions() throws Exception {
         int length = 100_000;
         byte[] file = new byte[2 * length];

@@ -8,6 +8,9 @@ import java.io.IOException;
 
 /** Native decoder for three-level, 14-bit Canon CRX V1 C-RAW sensor tracks. */
 public final class CrxLossyDecoder {
+    // All ten subbands of a plane can have a live entropy window during synthesis.
+    private static final int SUBBAND_READ_AHEAD = 16 * 1024;
+
     // Measured with isolated signed coefficient pulses and pinned full-sensor references.
     private static final int[] INVERSE_QUANTIZATION = {
             0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3,
@@ -111,7 +114,7 @@ public final class CrxLossyDecoder {
             int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
             int bw = shapes[b].width(), bh = shapes[b].height();
             int factor = INVERSE_QUANTIZATION[band.quantValue()];
-            var bits = new BitReader(data.window(start, count));
+            var bits = new BitReader(data.window(start, count, SUBBAND_READ_AHEAD));
             if (b == 0) {
                 bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
             } else {
