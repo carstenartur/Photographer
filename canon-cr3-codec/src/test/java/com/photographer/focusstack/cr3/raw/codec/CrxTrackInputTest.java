@@ -2,10 +2,15 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,6 +20,7 @@ class CrxTrackInputTest {
         var window = CrxTrackInput.fromArray(new byte[16]).window(4, 8);
         assertThrows(IOException.class, () -> window.unsignedByte(-1));
         assertThrows(IOException.class, () -> window.word(5));
+        assertThrows(IOException.class, () -> window.longWord(1));
     }
 
     @Test
@@ -38,6 +44,27 @@ class CrxTrackInputTest {
             assertFalse(second.hasMore());
             assertThrows(IOException.class, first::readBit);
             assertThrows(IllegalArgumentException.class, () -> track.window(length, length + 1));
+        }
+    }
+
+    @Test
+    void readsBigEndianWordsAcrossAnUnalignedChannelWindow(@TempDir Path directory) throws IOException {
+        int readAhead = 32 * 1024;
+        int trackStart = 11;
+        int sliceOffset = 6;
+        int sliceStart = trackStart + sliceOffset;
+        int sliceLength = readAhead + 11;
+        byte[] file = new byte[sliceStart + sliceLength + 19];
+        new Random(353).nextBytes(file);
+        Path path = Files.write(directory.resolve("track.bin"), file);
+        try (var channel = FileChannel.open(path)) {
+            var window = CrxTrackInput.fromChannel(channel, trackStart, file.length - trackStart)
+                    .window(sliceOffset, sliceLength);
+            var expected = ByteBuffer.wrap(file);
+            for (int position : new int[] {0, readAhead - 3, sliceLength - Long.BYTES}) {
+                assertEquals(expected.getLong(sliceStart + position), window.longWord(position));
+            }
+            assertThrows(IOException.class, () -> window.longWord(sliceLength - Long.BYTES + 1));
         }
     }
 

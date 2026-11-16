@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,6 +14,27 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests for {@link ExifOrientationTransformer}.
  */
 class ExifOrientationTransformerTest {
+
+    @Test
+    void sourceRectangleReproducesEveryOrientedWindow() {
+        BufferedImage source = createTestImage(7, 5);
+        for (int y = 0; y < 5; y++) {
+            for (int x = 0; x < 7; x++) {
+                source.setRGB(x, y, 32 * y + x);
+            }
+        }
+        Rectangle requested = new Rectangle(1, 2, 3, 2);
+        for (int orientation = 1; orientation <= 8; orientation++) {
+            Rectangle input = ExifOrientationTransformer.sourceRegion(requested, 7, 5, orientation);
+            var patch = source.getSubimage(input.x, input.y, input.width, input.height);
+            var partial = ExifOrientationTransformer.apply(patch, orientation);
+            var full = ExifOrientationTransformer.apply(source, orientation);
+            assertThat(partial.getWidth()).isEqualTo(requested.width);
+            assertThat(partial.getHeight()).isEqualTo(requested.height);
+            assertThat(partial.getRGB(0, 0, 3, 2, null, 0, 3))
+                    .containsExactly(full.getRGB(1, 2, 3, 2, null, 0, 3));
+        }
+    }
 
     @Test
     @DisplayName("Orientation 1 (normal) returns original image unchanged")

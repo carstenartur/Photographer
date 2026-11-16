@@ -241,10 +241,35 @@ public class CanonCr3ImageReader extends ImageReader {
         if (options.outputMode() == OutputMode.RAW_LINEAR || options.outputMode() == OutputMode.RAW_SENSOR) {
             return readBayerImage(imageIndex, options, param);
         }
+        if (options.outputMode() == OutputMode.RAW_PROCESSED) {
+            return readProcessedImage(imageIndex, options, param);
+        }
         BufferedImage decoded = decode(imageIndex, options);
-        int width = decoded.getWidth();
-        int height = decoded.getHeight();
-        ImageRegions regions = imageRegions(param, width, height);
+        return copyImage(param, decoded, imageRegions(param, decoded.getWidth(), decoded.getHeight()));
+    }
+
+    private BufferedImage readProcessedImage(int imageIndex, Cr3DecodeOptions options, ImageReadParam param)
+            throws IOException {
+        checkIndex(imageIndex);
+        ensureParsed();
+        try {
+            Rectangle bounds = decoder.getRawProcessedBounds(options);
+            ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
+            Rectangle source = regions.source();
+            if (source.equals(bounds)) {
+                return copyImage(param, decoder.decode(options), regions);
+            }
+            BufferedImage decoded = decoder.decodeRawProcessedRegion(options, source);
+            // The decoder returns the source region with a zero-based raster.
+            Rectangle localSource = new Rectangle(decoded.getWidth(), decoded.getHeight());
+            return copyImage(param, decoded, new ImageRegions(localSource, regions.destination()));
+        } catch (Cr3Exception e) {
+            throw decodeError(options, e);
+        }
+    }
+
+    private static BufferedImage copyImage(ImageReadParam param, BufferedImage decoded, ImageRegions regions)
+            throws IIOException {
         Rectangle sourceRegion = regions.source();
         Rectangle destRegion = regions.destination();
         int[] sourceBands = param.getSourceBands();
@@ -260,7 +285,7 @@ public class CanonCr3ImageReader extends ImageReader {
         WritableRaster dest = target.getRaster();
         checkReadParamBandSettings(param, source.getNumBands(), dest.getNumBands());
         if (sourceBands != null) {
-            source = source.createChild(0, 0, width, height, 0, 0, sourceBands);
+            source = source.createChild(0, 0, source.getWidth(), source.getHeight(), 0, 0, sourceBands);
         }
         if (destBands != null) {
             dest = dest.createWritableChild(0, 0, dest.getWidth(), dest.getHeight(), 0, 0, destBands);
@@ -284,12 +309,18 @@ public class CanonCr3ImageReader extends ImageReader {
             Rectangle bounds = decoder.getRawBounds(options);
             ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
             Rectangle output = regions.destination();
-            BufferedImage samples = decoder.decodeRawRegion(options, regions.source(), param.getSourceXSubsampling(),
-                    param.getSourceYSubsampling());
+            int xStep = param.getSourceXSubsampling();
+            int yStep = param.getSourceYSubsampling();
+            if (supplied != null && supplied.getType() == BufferedImage.TYPE_USHORT_GRAY) {
+                decoder.decodeRawRegionInto(options, regions.source(), xStep, yStep,
+                        supplied.getRaster(), output.x, output.y);
+                return supplied;
+            }
+            BufferedImage samples = decoder.decodeRawRegion(options, regions.source(), xStep, yStep);
             if (supplied == null && output.x == 0 && output.y == 0) {
                 if (options.outputMode() == OutputMode.RAW_SENSOR && !isIgnoringMetadata()
                         && regions.source().equals(bounds) && output.equals(bounds)
-                        && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1) {
+                        && xStep == 1 && yStep == 1) {
                     IIOMetadata metadata = getImageMetadata(imageIndex);
                     if (metadata != null) {
                         return DngImageMetadata.attach(samples, metadata);

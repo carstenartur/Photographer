@@ -3,6 +3,7 @@ package com.photographer.focusstack.cr3.processing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 
@@ -54,8 +55,8 @@ public final class ExifOrientationTransformer {
         int width = image.getWidth();
         int height = image.getHeight();
         boolean transpose = orientation >= 5;
-        boolean reverseLine = orientation == 2 || orientation == 3 || orientation >= 7;
-        boolean reverseRows = orientation == 3 || orientation == 4 || orientation == 6 || orientation == 7;
+        boolean reverseLine = reversesX(orientation);
+        boolean reverseRows = reversesY(orientation);
         var output = new BufferedImage(transpose ? height : width, transpose ? width : height, image.getType());
         var packed = Pixels.packed(image);
         if (packed != null) {
@@ -157,5 +158,24 @@ public final class ExifOrientationTransformer {
             return new int[]{height, width};
         }
         return new int[]{width, height};
+    }
+
+    /** Maps a rectangle in oriented output coordinates back into the unoriented image. */
+    public static Rectangle sourceRegion(Rectangle output, int width, int height, int orientation) {
+        boolean transpose = orientation >= 5 && orientation <= 8;
+        int x = transpose ? output.y : output.x;
+        int y = transpose ? output.x : output.y;
+        int w = transpose ? output.height : output.width;
+        int h = transpose ? output.width : output.height;
+        return new Rectangle(reversesX(orientation) ? width - x - w : x,
+                reversesY(orientation) ? height - y - h : y, w, h);
+    }
+
+    private static boolean reversesX(int orientation) {
+        return orientation == 2 || orientation == 3 || orientation == 7 || orientation == 8;
+    }
+
+    private static boolean reversesY(int orientation) {
+        return orientation == 3 || orientation == 4 || orientation == 6 || orientation == 7;
     }
 }

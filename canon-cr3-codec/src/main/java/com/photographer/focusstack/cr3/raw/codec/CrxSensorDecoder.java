@@ -20,6 +20,14 @@ public interface CrxSensorDecoder {
         void write(int x, int y, int[] samples);
     }
 
+    /** Chooses how many consecutive rows to read from the start of a tile plane. */
+    @FunctionalInterface
+    interface PlaneRowLimit {
+        PlaneRowLimit ALL_ROWS = (x, y, columns, rows) -> rows;
+
+        int rowsToRead(int x, int y, int columns, int rows);
+    }
+
     /** Validates the profile, dimensions and directory before the caller allocates its output. */
     static CrxSensorDecoder prepare(byte[] track, int width, int height, int depth,
                                     CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
@@ -61,5 +69,17 @@ public interface CrxSensorDecoder {
     default void decodeRows(RowConsumer consumer, int maxWorkers) throws Cr3Exception, IOException {
         Cr3Workers.count(maxWorkers, 1);
         decodeRows(consumer);
+    }
+
+    /**
+     * Reads requested plane prefixes, including rows needed for prediction. A zero limit
+     * skips the plane. Native decoders validate the directory and the payload they read.
+     * Consumers that can write disjoint tiles concurrently may allow independent tiles.
+     * Consumers must clip samples to their requested region. Other implementations can
+     * decode the whole image.
+     */
+    default void decodeSelectedRows(RowConsumer consumer, int maxWorkers, PlaneRowLimit limit,
+                                    boolean allowIndependentTiles) throws Cr3Exception, IOException {
+        decodeRows(consumer, maxWorkers);
     }
 }

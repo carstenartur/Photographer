@@ -79,6 +79,9 @@ public final class CrxLossyDecoder {
                             || band.quantValue() >= INVERSE_QUANTIZATION.length) {
                         throw new Cr3Exception("Unsupported or inconsistent C-RAW subband " + b);
                     }
+                    if (b == 0 && INVERSE_QUANTIZATION[band.quantValue()] != 1) {
+                        throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
+                    }
                     tileEnd += band.dataSize();
                 }
                 if (tileEnd - first != plane.dataSize()) {
@@ -92,14 +95,14 @@ public final class CrxLossyDecoder {
         if (tileEnd != data.length) {
             throw new Cr3Exception("C-RAW tiles disagree with the track extent");
         }
-        return new CrxTileDecoder(header, (tile, plane, consumer) ->
-                decodePlane(data, tile, plane, tileWidth, height, consumer));
+        return new CrxTileDecoder(header, width, height, tileWidth, (tile, plane, columns, rows, consumer) ->
+                decodePlane(data, tile, plane, columns, height / 2, rows, consumer));
     }
 
-    private static void decodePlane(CrxTrackInput data, int tile, CrxHeader.Plane plane, int tileWidth, int height,
+    private static void decodePlane(CrxTrackInput data, int tile, CrxHeader.Plane plane, int cols, int rows,
+                                    int rowsToRead,
                                     CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
         boolean left = tile > 0, right = tile == 0;
-        int cols = tileWidth / 2, rows = height / 2;
         var shapes = CrxWaveletTile.shapes(cols, rows, left, right);
         var bands = new CrxWaveletTile.Band[shapes.length];
         for (int b = 0; b < shapes.length; b++) {
@@ -110,20 +113,17 @@ public final class CrxLossyDecoder {
             int factor = INVERSE_QUANTIZATION[band.quantValue()];
             var bits = new BitReader(data.window(start, count));
             if (b == 0) {
-                if (factor != 1) {
-                    throw new Cr3Exception("Unsupported low-frequency C-RAW quantizer " + band.quantValue());
-                }
                 bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
             } else {
                 bands[b] = CrxWaveletDetail.band(bits, bw, bh, factor);
             }
         }
-        int x = tile * tileWidth + (plane.index() & 1);
+        int x = tile * (2 * cols) + (plane.index() & 1);
         int y = plane.index() / 2;
         try {
             var planeRows = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
             int[] row = new int[cols];
-            for (int rowIndex = 0; rowIndex < rows; rowIndex++) {
+            for (int rowIndex = 0; rowIndex < rowsToRead; rowIndex++) {
                 planeRows.rows().read(row);
                 for (int i = 0; i < row.length; i++) {
                     row[i] = Math.clamp(row[i], 0, 16383);

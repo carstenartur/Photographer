@@ -77,15 +77,13 @@ final class CrxNativeLosslessImage {
         if (end != track.length) {
             throw new Cr3Exception("Lossless CRX tile sizes disagree with track length");
         }
-        return new CrxTileDecoder(header, (tile, plane, consumer) -> {
-            int tileX = tile * tileWidth;
-            int extent = Math.min(tileWidth, width - tileX);
+        return new CrxTileDecoder(header, width, height, tileWidth, (tile, plane, columns, rows, consumer) -> {
             var band = plane.subbands().getFirst();
-            int x = tileX + (plane.index() & 1);
+            int x = tile * tileWidth + (plane.index() & 1);
             int y = plane.index() / 2;
             var bits = new BitReader(track.window((int) band.dataOffset(), (int) band.dataSize()));
             try {
-                CrxNativeLosslessPlane.decodeSensor(bits, extent / 2, height / 2, x, y, consumer);
+                CrxNativeLosslessPlane.decodeSensor(bits, columns, rows, x, y, consumer);
             } catch (IOException e) {
                 throw invalidPayload(e);
             }

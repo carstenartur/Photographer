@@ -2,6 +2,7 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.bmff.Cmp1Box;
+import java.nio.ByteBuffer;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -58,6 +59,35 @@ class CrxLossyDecoderTest {
                 headers, 100, 100, 14, CrxHeader.CodecVersion.V1, cmp1))
                 .isInstanceOf(Cr3Exception.class)
                 .hasMessageContaining("File has 2 wavelet levels, 4 planes.");
+    }
+
+    @Test
+    void preparesEveryLowFrequencyQuantizerBeforeSelectingTiles() {
+        int bandBytes = 8;
+        int planeBytes = 10 * bandBytes;
+        int tileBytes = 4 * planeBytes;
+        int directoryBytes = 2 * (12 + 4 * (12 + 10 * 12));
+        var payload = ByteBuffer.allocate(directoryBytes + 2 * tileBytes);
+        for (int tile = 0; tile < 2; tile++) {
+            record(payload, 0xff01, tileBytes, tile << 28);
+            for (int plane = 0; plane < 4; plane++) {
+                record(payload, 0xff02, planeBytes, plane << 28);
+                for (int band = 0; band < 10; band++) {
+                    int quantizer = band == 0 && (tile != 1 || plane != 3) ? 4 : 0;
+                    record(payload, 0xff03, bandBytes, (band << 28) | (quantizer << 19));
+                }
+            }
+        }
+        var cmp = new Cmp1Box((short) 1, 32, 16, 16, 16,
+                14, 4, 0, 0, 3, true, directoryBytes, false);
+        assertThatThrownBy(() -> CrxSensorDecoder.prepare(payload.array(), 32, 16, 14,
+                CrxHeader.CodecVersion.V1, cmp))
+                .isInstanceOf(Cr3Exception.class)
+                .hasMessageContaining("Unsupported low-frequency C-RAW quantizer");
+    }
+
+    private static void record(ByteBuffer bytes, int marker, int size, int flags) {
+        bytes.putShort((short) marker).putShort((short) 8).putInt(size).putInt(flags);
     }
 
     @Test

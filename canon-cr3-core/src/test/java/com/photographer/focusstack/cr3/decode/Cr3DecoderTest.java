@@ -181,6 +181,52 @@ class Cr3DecoderTest {
         }
     }
 
+    @Test
+    void developsARegionInOrientedOutputCoordinates() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var metadata = decoder.getMetadata();
+            metadata.setActiveAreaLeft(1);
+            metadata.setActiveAreaRight(2);
+            metadata.setActiveAreaBottom(2);
+            metadata.setPerChannelBlackLevels(new int[]{16, 4096, 512, 2048});
+            var options = Cr3DecodeOptions.rawProcessed();
+            for (int orientation = 1; orientation <= 8; orientation++) {
+                metadata.setOrientation(orientation);
+                var whole = decoder.decode(options);
+                var bounds = decoder.getRawProcessedBounds(options);
+                assertEquals(new Rectangle(whole.getWidth(), whole.getHeight()), bounds);
+                var region = new Rectangle(bounds.width - 1, bounds.height - 1, 1, 1);
+                var cropped = decoder.decodeRawProcessedRegion(options, region);
+                assertEquals(1, cropped.getWidth());
+                assertEquals(1, cropped.getHeight());
+                assertEquals(whole.getRGB(region.x, region.y), cropped.getRGB(0, 0),
+                        "orientation " + orientation);
+            }
+        }
+    }
+
+    @Test
+    void writesBayerSamplesIntoAnOffsetUshortSubimage() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var backing = new BufferedImage(5, 4, BufferedImage.TYPE_USHORT_GRAY);
+            var dest = backing.getSubimage(1, 1, 3, 3).getRaster();
+            backing.getRaster().setSample(0, 0, 0, 123);
+            decoder.decodeRawRegionInto(Cr3DecodeOptions.rawSensor(), new Rectangle(0, 0, 2, 2),
+                    2, 1, dest, 1, 1);
+            var pixels = backing.getRaster();
+            assertEquals(8192, pixels.getSample(2, 2, 0));
+            assertEquals(8191, pixels.getSample(2, 3, 0));
+            assertEquals(0, pixels.getSample(3, 2, 0));
+            assertEquals(123, pixels.getSample(0, 0, 0));
+        }
+    }
+
     @Nested
     class OptionsFactoryMethods {
         @Test

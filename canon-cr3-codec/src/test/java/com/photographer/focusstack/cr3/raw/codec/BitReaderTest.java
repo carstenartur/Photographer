@@ -41,7 +41,7 @@ class BitReaderTest {
         byte[] bytes = new byte[25];
         new Random(42).nextBytes(bytes);
         for (int length = 4; length <= 19; length++) {
-            for (int startBit = 0; startBit < 32; startBit++) {
+            for (int startBit = 0; startBit < Math.min(96, length * 8); startBit++) {
                 for (int width = 0; width <= Math.min(32, length * 8 - startBit); width++) {
                     var bits = new BitReader(bytes, 3, length);
                     for (int i = 0; i < startBit; i++) bits.readBit();
@@ -56,6 +56,22 @@ class BitReaderTest {
                 }
             }
         }
+    }
+
+    @Test
+    void consumesExactlyOneWordOfUnaryBits() throws IOException {
+        byte[] data = new byte[17];
+        data[8] = 1;
+        var bits = new BitReader(data, 1, 16);
+        assertEquals(63, bits.readUnary());
+        assertEquals(8, bits.bytePosition());
+        assertEquals(0, bits.readBits(32));
+        assertEquals(0, bits.readBits(32));
+        assertFalse(bits.hasMore());
+
+        data[8] = 0;
+        data[9] = 0x40;
+        assertEquals(65, new BitReader(data, 1, 9).readUnary());
     }
 
     @Test
