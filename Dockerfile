@@ -10,6 +10,7 @@ WORKDIR /app
 # Copy all reactor POMs first for better layer caching. Maven validates every
 # module listed by the root POM even when -pl selects only the application graph.
 COPY pom.xml pom.xml
+COPY LICENSE LICENSE
 COPY common-api/pom.xml common-api/pom.xml
 COPY plugin-api/pom.xml plugin-api/pom.xml
 COPY capture-core/pom.xml capture-core/pom.xml
@@ -94,6 +95,7 @@ RUN apk add --no-cache fontconfig freetype ttf-dejavu libusb \
 WORKDIR /app
 
 COPY --from=build /app/app/target/focusstack.jar app.jar
+COPY --from=build /app/LICENSE LICENSE
 
 # Pre-create volume mount-points so they inherit appuser ownership
 # when Docker initializes empty named volumes.

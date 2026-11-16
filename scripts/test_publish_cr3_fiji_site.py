@@ -13,6 +13,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
+import build_cr3_fiji_site as builder
 from publish_cr3_fiji_site import ARTIFACTS, attach_archives, install, previous_archive, verify_served
 
 
@@ -33,6 +34,36 @@ def archive(root, version, timestamp):
     path = root / (timestamp + '.zip')
     path.write_bytes(temp.getvalue())
     return path
+
+
+class BuildInputTest(unittest.TestCase):
+    def test_rejects_missing_or_different_license_before_accessing_fiji(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            module = root / 'cr3-imagej'
+            libraries = root / 'libraries'
+            output = root / 'target' / 'site'
+            version = '0.1.5'
+            license_notice = (builder.ROOT / 'LICENSE').read_bytes()
+            plugin = module / 'target' / f'cr3-imagej-{version}.jar'
+            library_jars = [libraries / f'cr3-{name}-{version}.jar' for name in builder.LIBRARIES]
+            for artifact in [*library_jars, plugin]:
+                artifact.parent.mkdir(parents=True, exist_ok=True)
+                with ZipFile(artifact, 'w') as jar:
+                    jar.writestr('META-INF/cr3/LICENSE', license_notice)
+
+            with patch.object(builder, 'MODULE', module):
+                for artifact, notice in [(library_jars[0], None), (plugin, b'wrong notice')]:
+                    with self.subTest(artifact=artifact.name):
+                        with ZipFile(artifact, 'w') as jar:
+                            if notice is not None:
+                                jar.writestr('META-INF/cr3/LICENSE', notice)
+                        with self.assertRaisesRegex(ValueError, 'META-INF/cr3/LICENSE') as error:
+                            builder.build(root / 'fiji', version, libraries, output, None)
+                        self.assertIn(artifact.name, str(error.exception))
+                        self.assertFalse(output.parent.exists())
+                        with ZipFile(artifact, 'w') as jar:
+                            jar.writestr('META-INF/cr3/LICENSE', license_notice)
 
 
 class PublicationTest(unittest.TestCase):
