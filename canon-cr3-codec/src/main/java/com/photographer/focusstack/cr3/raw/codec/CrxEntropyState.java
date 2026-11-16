@@ -6,7 +6,8 @@ import java.io.IOException;
 final class CrxEntropyState {
     static final int ESCAPE_QUOTIENT = 41;
     static final int LITERAL_BITS = 21;
-    private static final int MAX_RICE_WIDTH = 15;
+    static final int RICE_WIDTH_BITS = 4;
+    static final int MAX_RICE_WIDTH = (1 << RICE_WIDTH_BITS) - 1;
     private static final int[] RUN_REMAINDER_BITS = {
             0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3,
             4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15
@@ -29,13 +30,7 @@ final class CrxEntropyState {
         this.k = k;
     }
 
-    int readResidual() throws IOException {
-        int quotient = bits.readUnary(ESCAPE_QUOTIENT);
-        return quotient == ESCAPE_QUOTIENT ? bits.readBits(LITERAL_BITS) : (quotient << k) + bits.readBits(k);
-    }
-
     // Prediction planes commonly encode a complete symbol in the bit reservoir.
-    // Detail bands favor short codes and use the separate prefix/remainder reader.
     int readPredictionResidual() throws IOException {
         return bits.readRice(k, ESCAPE_QUOTIENT, LITERAL_BITS);
     }
@@ -56,6 +51,15 @@ final class CrxEntropyState {
             }
         }
         return (int) Math.min(copies, remaining);
+    }
+
+    /** Packs a detail residual with the updated Rice width in the low four bits. */
+    static int packDetailCode(int k, int value, int quotient) {
+        // As in adaptK, decrease below half the scale and increase at the third and sixth multiples.
+        int decrease = (2 * value - (1 << k)) >> 31;
+        int increase = ((2 - quotient) >>> 31) + ((5 - quotient) >>> 31);
+        int width = Math.clamp(k + decrease + increase, 0, MAX_RICE_WIDTH);
+        return (value << RICE_WIDTH_BITS) | width;
     }
 
     void updateK(int value) {

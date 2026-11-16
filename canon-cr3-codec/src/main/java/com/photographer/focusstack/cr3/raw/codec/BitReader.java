@@ -12,6 +12,7 @@ import java.io.IOException;
  * <p>Bits are read MSB-first (big-endian bit order) within each byte.</p>
  */
 public final class BitReader {
+    static final int POSITIVE_RUN = -1;
 
     private final CrxTrackInput.Window data;
     private int nextByte;
@@ -127,6 +128,39 @@ public final class BitReader {
         }
         quotient = readUnary(escapeQuotient);
         return quotient == escapeQuotient ? readBits(literalBits) : (quotient << k) | readBits(k);
+    }
+
+    /** Returns a packed detail symbol or {@link #POSITIVE_RUN} if the optional run flag is set. */
+    int readDetailRice(int k, boolean runFlag) throws IOException {
+        long word = buffer;
+        if (runFlag && word < 0) {
+            buffer = word << 1;
+            available--;
+            return POSITIVE_RUN;
+        }
+        // A zero run flag extends the leading-zero count by one.
+        int leading = Long.numberOfLeadingZeros(word);
+        int quotient = leading - (runFlag ? 1 : 0);
+        int width = leading + 1 + k;
+        if (quotient < CrxEntropyState.ESCAPE_QUOTIENT && width <= available) {
+            // The extracted bits contain the unary terminator as well as the remainder.
+            int value = ((quotient - 1) << k) + (int) (word >>> (Long.SIZE - width));
+            buffer = word << width;
+            available -= width;
+            return CrxEntropyState.packDetailCode(k, value, quotient);
+        }
+        return readDetailRiceSequentially(k, runFlag);
+    }
+
+    private int readDetailRiceSequentially(int k, boolean runFlag) throws IOException {
+        if (runFlag && readBit() == 1) {
+            return POSITIVE_RUN;
+        }
+        int quotient = readUnary(CrxEntropyState.ESCAPE_QUOTIENT);
+        int value = quotient == CrxEntropyState.ESCAPE_QUOTIENT
+                ? readBits(CrxEntropyState.LITERAL_BITS) : (quotient << k) | readBits(k);
+        // An escape changes the coded quotient, but adaptation still depends on the literal value.
+        return CrxEntropyState.packDetailCode(k, value, value >>> k);
     }
 
     private void consume(int bits) {
