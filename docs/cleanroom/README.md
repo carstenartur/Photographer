@@ -1,92 +1,65 @@
 # CR3 / CRX Clean-room Engineering Record
 
-This directory records the sources, experiments and contribution statements behind the project’s CR3 and CRX implementation. Start with the [reviewer guide](reviewer-guide.md) to trace reader and writer claims to exact source, evidence and release artifacts.
+Start with the [development history](development-history.md) for the sequence of changes and the [reviewer guide](reviewer-guide.md) for the evidence behind the released reader, writer and distribution.
 
-The record is intended to make the engineering process independently auditable when the repository becomes public. It is **not legal advice**, does not decide patent or copyright questions, and does not claim that documentation alone satisfies every jurisdiction's definition of clean-room reverse engineering.
+Photographer is maintained and developed by Carsten Hammer ([@carstenartur](https://github.com/carstenartur)), the project's sole human contributor to date, with AI assistance. The clean-room workflow uses registered sources, fixed experiments and evidence-backed decisions to introduce codec changes into production. The historical record includes the sources and exposures reported for specific changes. [Contribution and review record](reviewer-guide.md#contributor-record)
+
+Release 0.1.5 ships native Java decoding for the measured 14-bit CRX V1 lossless and three-level C-RAW layouts. It also ships an experimental lossless ImageIO writer for four measured camera profiles. The support limits and publication findings are documented alongside the release. [Current implementation](../cr3/current-state.md) · [Release record](../releases/0.1.5.md) · [Repository publication audit](../public-release.md)
 
 ## What this record is meant to prove
 
-The repository should let a reviewer verify that:
-
-- algorithmic inputs were public specifications, public patents, public standards or observations produced by this project;
-- real-camera fixtures were captured through project code or otherwise have documented provenance;
-- tools such as LibRaw/rawpy were used only as black-box reference generators;
-- their output, version and hashes are recorded without deriving implementation details from their source;
-- hypotheses were stated before execution and evaluated against fixed inputs;
-- rejected hypotheses remain recorded;
-- production code changes require a separate, evidence-backed decision.
-
-It cannot prove what a contributor may have read outside the repository. Contributor attestations and review are therefore part of the process.
+A reviewer can use the record to trace a change from its documented inputs to the experiment, result and production decision. It records fixture provenance, fixed reference panels, tool versions and hashes, and rejected hypotheses. The [reviewer guide](reviewer-guide.md) identifies historical gaps, reported source exposure and outstanding rights questions.
 
 ## Roles and permitted information flow
 
 ### Specification and observation inputs
 
-Permitted inputs include:
+Use the [source register](source-register.json) to identify what a source may support. Permitted inputs for CR3 and CRX include:
 
-- Canon patents and publicly distributed Canon documentation;
-- ISO-BMFF, Exif, JPEG-LS, JPEG 2000 and other public standards;
-- project-owned camera captures and protocol observations;
-- externally generated decoded images, metadata and metrics used strictly as black-box expected results;
-- academic publications or other public descriptions whose citation and licence are recorded.
+- public Canon patent publications;
+- standards such as ISO BMFF, Exif, JPEG-LS and JPEG 2000;
+- first-party camera captures and observations;
+- decoded images, metadata and metrics produced by external tools as expected results;
+- other public descriptions with a recorded citation and applicable access or licence terms.
+
+The registered Canon CCAPI documentation is scoped to camera control. Its access and redistribution terms apply to the documentation itself. [Source register, SRC-006](source-register.json) · [Publication policy](../public-release.md#fixture-and-evidence-policy)
 
 ### Reference-only tools
 
-A reference-only tool may be executed to produce expected output. The record should include:
-
-- tool and version;
-- exact input hash;
-- output hash or a manifest that binds outputs to inputs;
-- the command or script used where redistribution permits;
-- a statement that its source was not used to derive the implementation.
-
-Reference outputs are test or research data. They are not an algorithm specification.
+Run an external tool such as LibRaw/rawpy, DNGLab or LightCraft as a black box to obtain expected outputs. Record the tool version, input hash, command or replay script where permitted, and an output hash or manifest binding inputs to outputs. Derive implementation rules from registered specifications and observations. [Reference pipeline](../reference-pipeline.md)
 
 ### Prohibited implementation inputs
 
-Do not use:
-
-- source code from LibRaw, dcraw, RawTherapee, darktable or another CR3/CRX decoder to derive this implementation;
-- decompiled proprietary binaries;
-- copied pseudocode or constants whose origin and licence cannot be established;
-- unattributed snippets from forums, models, generated patches or private messages.
-
-A contributor who has consulted a prohibited source for the same algorithmic area must disclose that fact before contributing decoder semantics. The contribution may need independent reimplementation or rejection.
+Keep third-party decoder source, decompiled proprietary binaries, and snippets or constants of unverified origin and licence out of implementation inputs. This applies to material supplied to AI tools and to their generated changes. Record relevant prior exposure for the affected change, including material displayed in an AI session. [Contribution template](contributor-attestation.md) · [Historical disclosures](reviewer-guide.md#contributor-record)
 
 ## Required experiment workflow
 
-1. **Register sources.** Add every new decision-bearing source to `source-register.json`.
-2. **Predeclare one variable.** State the current baseline, one proposed semantic change, fixed inputs and acceptance gate in an issue.
-3. **Keep research separate.** Implement candidates in `canon-cr3-research` or test scope. Do not patch production during exploration.
-4. **Use fixed references.** Bind the experiment to explicit fixture and reference paths. Later corpus growth must not silently change the verdict.
-5. **Generate deterministic evidence.** Produce stable Markdown plus machine-readable TSV/JSON without runtime timestamps or nondeterministic ordering.
-6. **Record the run.** Add commit SHA, workflow run, artifact digest, verdict and durable report to `experiment-ledger.json`.
-7. **Register committed output.** Assign every file under `docs/cr3-results/` to exactly one entry in `generated-evidence.json` and use the documented compare/update contract where available.
-8. **Promote separately.** A production change requires a new PR that cites a `SUPPORTED` experiment and reruns production and reference-backed tests.
-9. **Preserve rejection.** Rejected and partial experiments remain in the ledger and results index.
+1. **Register sources.** Add each new decision-bearing source to [`source-register.json`](source-register.json).
+2. **Predeclare one variable.** State the baseline, proposed semantic change, fixed inputs and acceptance criteria in an issue.
+3. **Keep research separate.** Implement candidates in [`canon-cr3-research`](../../canon-cr3-research/README.md) or test scope. Keep production unchanged during exploration.
+4. **Use fixed references.** Bind the experiment to explicit fixtures and reference outputs so that additions to the corpus leave the original verdict reproducible.
+5. **Generate deterministic evidence.** Produce stable Markdown and machine-readable TSV or JSON with deterministic ordering and without run timestamps.
+6. **Record the run.** Add the commit, workflow run, artifact digest, verdict and report to [`experiment-ledger.json`](experiment-ledger.json). Explain missing historical run metadata in the ledger.
+7. **Register committed output.** Assign each file in [`docs/cr3-results/`](../cr3-results/) to one entry in [`generated-evidence.json`](generated-evidence.json) and use the [documented compare and update commands](generated-evidence.md).
+8. **Promote separately.** Use a production PR that cites a `SUPPORTED` experiment and reruns production and reference-backed tests. The [reviewer guide](reviewer-guide.md) records gaps for earlier releases.
+9. **Preserve rejection.** Retain rejected and partial experiments in the [ledger](experiment-ledger.json) and [results index](../cr3/reports/index.md).
 
 ## Source-register classes
 
-Only the following values are valid for the `class` field in `source-register.json`:
+The [source register](source-register.json) accepts these values for `class`.
 
 | Source class | Meaning | Typical examples |
-|---|---|---|
-| `public-specification` | Public document used to understand structure or algorithm families | ISO-BMFF, JPEG-LS, Canon patent |
-| `first-party-observation` | Evidence generated by this project from owned or controlled hardware | G5 X Mark II and EOS R fixtures, CCAPI/PTP observations |
-| `black-box-reference` | External output used only as expected data | LibRaw TIFF and PNG sidecars |
-| `project-analysis` | Analysis derived inside this project from registered sources and project evidence | pipeline audit or clean-room synthesis document |
+| --- | --- | --- |
+| `public-specification` | Document used to understand structure or algorithm families | ISO BMFF, JPEG-LS, Canon patent publication |
+| `first-party-observation` | Evidence generated by this project with owned or controlled hardware | G5 X Mark II and EOS R fixtures |
+| `black-box-reference` | External output used as expected data | LibRaw TIFF and PNG sidecars |
+| `project-analysis` | Analysis derived from registered sources and project evidence | Pipeline audit or research synthesis |
 
-Experiments and production decisions are **not** source classes. They are records in `experiment-ledger.json`, where the experiment references its permitted source IDs and states the resulting production decision.
+Use [`experiment-ledger.json`](experiment-ledger.json) for experiment inputs, verdicts and production decisions. It refers to the applicable source IDs.
 
 ## Committed generated evidence
 
-The ownership and lifecycle of committed research outputs is defined in:
-
-- [`generated-evidence.json`](generated-evidence.json) — machine-readable complete inventory;
-- [`generated-evidence.md`](generated-evidence.md) — classifications, commands and correction workflow;
-- `scripts/manage_cr3_generated_evidence.py` — read-only validation/comparison and explicit update implementation.
-
-Normal CI uses only `verify` and `compare`. It never calls `update` or writes committed evidence.
+The [generated evidence contract](generated-evidence.md) defines the [inventory](generated-evidence.json), the comparison commands and the correction workflow. CI invokes the read-only `verify` and `compare` modes of [`manage_cr3_generated_evidence.py`](../../scripts/manage_cr3_generated_evidence.py). The `update` mode is an explicit maintenance action.
 
 ## Contamination handling
 
@@ -95,19 +68,23 @@ When a source of uncertain origin is discovered:
 1. stop using it;
 2. record the incident privately if publication would expose protected material;
 3. identify affected files, commits and decisions;
-4. replace the derivation with permitted public sources and project-owned evidence;
+4. replace the derivation with permitted sources and first-party evidence;
 5. rerun the fixed evidence panel;
-6. document the remediation without reproducing prohibited material.
+6. document the remediation without reproducing protected material.
 
 ## Files in this directory
 
-- `source-register.json` — machine-readable permitted-source inventory;
-- `experiment-ledger.json` — hypothesis, run, artifact and production-decision history;
-- `generated-evidence.json` — complete committed CR3-result ownership inventory;
-- `generated-evidence.md` — generated-evidence verify/update contract;
-- `contributor-attestation.md` — template for decoder-semantic contributions;
-- `publication-checklist.md` — checks before making the repository public;
-- `schema-notes.md` — field definitions and update rules;
-- `evidence-retention.md` — deterministic bundle and long-term retention process.
+| File | Purpose |
+| --- | --- |
+| [`development-history.md`](development-history.md) | Dated milestones and links to the underlying issues, PRs and commits |
+| [`reviewer-guide.md`](reviewer-guide.md) | Claims, evidence, release scope and open questions for review |
+| [`source-register.json`](source-register.json) | Source inventory and permitted uses |
+| [`experiment-ledger.json`](experiment-ledger.json) | Hypotheses, runs, results and production decisions |
+| [`generated-evidence.json`](generated-evidence.json) | Inventory of committed CR3 results |
+| [`generated-evidence.md`](generated-evidence.md) | Verification and update procedure for generated evidence |
+| [`contributor-attestation.md`](contributor-attestation.md) | Human statement template for changes to CR3/CRX semantics |
+| [`publication-checklist.md`](publication-checklist.md) | Checks for a source visibility change or artifact release |
+| [`schema-notes.md`](schema-notes.md) | Field definitions and update rules |
+| [`evidence-retention.md`](evidence-retention.md) | Evidence bundling and long-term retention |
 
-Validation is performed by `scripts/validate_cleanroom_evidence.py` and `scripts/manage_cr3_generated_evidence.py` and must work from a plain checkout. The deterministic media-free archive is built by `scripts/build_cleanroom_evidence_bundle.py`.
+A plain checkout can run [`validate_cleanroom_evidence.py`](../../scripts/validate_cleanroom_evidence.py) and [`manage_cr3_generated_evidence.py`](../../scripts/manage_cr3_generated_evidence.py), and build the deterministic media-free archive using [`build_cleanroom_evidence_bundle.py`](../../scripts/build_cleanroom_evidence_bundle.py).
