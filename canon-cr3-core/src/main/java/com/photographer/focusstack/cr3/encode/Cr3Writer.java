@@ -8,9 +8,12 @@ import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageOutputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
-import java.awt.image.DataBufferInt;
+import java.awt.image.DataBufferByte;
 import java.awt.image.Raster;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,6 +23,8 @@ import java.util.Objects;
 public final class Cr3Writer {
     private static final int SENSOR_MAX = (1 << Cr3CameraProfile.BITS_PER_SAMPLE) - 1;
     private static final int[] PREVIEW_LEVELS = previewLevels();
+    private static final ComponentColorModel JPEG_COLOR_MODEL = new ComponentColorModel(
+            ColorSpace.getInstance(ColorSpace.CS_sRGB), false, false, Transparency.OPAQUE, DataBuffer.TYPE_BYTE);
 
     private Cr3Writer() {
     }
@@ -105,8 +110,12 @@ public final class Cr3Writer {
 
     private static void writeJpeg(ImageOutputStream output, Raster crop, int cfa, int width, int height)
             throws IOException {
-        var image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-        int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
+        // RGB byte order lets the JDK JPEG writer read scanlines without rearranging their samples.
+        var raster = Raster.createInterleavedRaster(DataBuffer.TYPE_BYTE, width, height,
+                3 * width, 3, new int[]{0, 1, 2}, null);
+        var image = new BufferedImage(JPEG_COLOR_MODEL, raster, false, null);
+        byte[] pixels = ((DataBufferByte) raster.getDataBuffer()).getData();
+        int offset = 0;
         for (int y = 0; y < height; y++) {
             int cellY = cell(y, height, crop.getHeight());
             for (int x = 0; x < width; x++) {
@@ -114,8 +123,9 @@ public final class Cr3Writer {
                 int red = site(crop, cellX, cellY, cfa);
                 int blue = site(crop, cellX, cellY, cfa ^ 3);
                 int green = (site(crop, cellX, cellY, cfa ^ 1) + site(crop, cellX, cellY, cfa ^ 2)) / 2;
-                pixels[y * width + x] = (PREVIEW_LEVELS[red] << 16)
-                        | (PREVIEW_LEVELS[green] << 8) | PREVIEW_LEVELS[blue];
+                pixels[offset++] = (byte) PREVIEW_LEVELS[red];
+                pixels[offset++] = (byte) PREVIEW_LEVELS[green];
+                pixels[offset++] = (byte) PREVIEW_LEVELS[blue];
             }
         }
         // The JPEG provider owns its cache and can flush it without constraining later CR3 header patches.
