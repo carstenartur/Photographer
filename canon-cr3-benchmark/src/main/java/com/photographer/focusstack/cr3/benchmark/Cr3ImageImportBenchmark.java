@@ -87,6 +87,16 @@ public class Cr3ImageImportBenchmark {
         return read(param);
     }
 
+    /** Standard ImageIO file import, including automatic reader selection. */
+    @Benchmark
+    public BufferedImage importDefaultViaImageIo() throws IOException {
+        BufferedImage image = ImageIO.read(file.toFile());
+        if (image == null) {
+            throw new IOException("No ImageIO reader found for " + file);
+        }
+        return image;
+    }
+
     /** Complete fast-preview import path, including parsing and JPEG extraction. */
     @Benchmark
     public BufferedImage importPreviewViaImageIo() throws IOException {

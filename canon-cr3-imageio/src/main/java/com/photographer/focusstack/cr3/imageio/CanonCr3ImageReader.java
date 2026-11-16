@@ -257,7 +257,13 @@ public class CanonCr3ImageReader extends ImageReader {
             ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
             Rectangle source = regions.source();
             if (source.equals(bounds)) {
-                return copyImage(param, decoder.decode(options), regions);
+                BufferedImage destination = param instanceof CanonCr3ImageReadParam cr3
+                        && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
+                        && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
+                        && param.getSourceBands() == null && param.getDestinationBands() == null
+                        ? param.getDestination() : null;
+                BufferedImage decoded = decoder.decodeRawProcessedRegion(options, null, destination);
+                return decoded == destination ? decoded : copyImage(param, decoded, regions);
             }
             BufferedImage decoded = decoder.decodeRawProcessedRegion(options, source);
             // The decoder returns the source region with a zero-based raster.

@@ -8,9 +8,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageInputStreamImpl;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Extracts JPEG preview and thumbnail images from a CR3 file.
@@ -168,8 +169,13 @@ public final class Cr3PreviewExtractor {
 
     private static BufferedImage readJpegBytes(byte[] jpegData, String source)
             throws IOException, Cr3Exception {
-        BufferedImage image = ImageIO.read(new ByteArrayInputStream(jpegData));
+        // These bytes are already in memory. Reading from the array also avoids ImageIO's
+        // InputStream cache, which can copy the JPEG into a temporary file.
+        var jpegInput = new JpegInput(jpegData);
+        BufferedImage image = ImageIO.read(jpegInput);
         if (image == null) {
+            // ImageIO closes the input once it selects a reader.
+            jpegInput.close();
             throw new Cr3Exception("Failed to decode JPEG data from " + source);
         }
         LOG.info("Extracted {}×{} JPEG from {}", image.getWidth(), image.getHeight(), source);
@@ -181,12 +187,7 @@ public final class Cr3PreviewExtractor {
         byte[] jpegData = readTrackData(input, track);
         LOG.debug("Read {} bytes of JPEG data from track {}", jpegData.length, track.index());
 
-        BufferedImage image = ImageIO.read(new ByteArrayInputStream(jpegData));
-        if (image == null) {
-            throw new Cr3Exception("Failed to decode JPEG data from track " + track.index());
-        }
-        LOG.info("Extracted {}×{} JPEG from track {}", image.getWidth(), image.getHeight(), track.index());
-        return image;
+        return readJpegBytes(jpegData, "track " + track.index());
     }
 
     private static byte[] readTrackData(ImageInputStream input, Cr3Track track) throws IOException {
@@ -220,5 +221,42 @@ public final class Cr3PreviewExtractor {
             }
         }
         return null;
+    }
+
+    private static final class JpegInput extends ImageInputStreamImpl {
+        private final byte[] data;
+
+        JpegInput(byte[] data) {
+            this.data = data;
+        }
+
+        @Override
+        public long length() {
+            return data.length;
+        }
+
+        @Override
+        public int read() throws IOException {
+            checkClosed();
+            bitOffset = 0;
+            return streamPos < data.length ? Byte.toUnsignedInt(data[(int) streamPos++]) : -1;
+        }
+
+        @Override
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+            checkClosed();
+            Objects.checkFromIndexSize(offset, length, bytes.length);
+            bitOffset = 0;
+            if (length == 0) {
+                return 0;
+            }
+            if (streamPos >= data.length) {
+                return -1;
+            }
+            int count = (int) Math.min(length, data.length - streamPos);
+            System.arraycopy(data, (int) streamPos, bytes, offset, count);
+            streamPos += count;
+            return count;
+        }
     }
 }

@@ -15,6 +15,7 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -209,6 +210,34 @@ class CanonCr3ImageReaderTest {
                 assertThat(destination.getRaster().getPixel(2, 1, (int[]) null))
                         .containsExactly(0x22, full.getRaster().getSample(1, 0, 0), 0x44);
                 assertThat(destination.getRGB(1, 1)).isEqualTo(0xff000000);
+            } finally {
+                reader.dispose();
+            }
+        }
+
+        @Test
+        void usesAnExplicitRgbWorkspaceForCompleteRawReads() throws Exception {
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
+                reader.setInput(input);
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().maxWorkers(1));
+                BufferedImage expected = reader.read(0, param);
+                var workspace = new BufferedImage(expected.getWidth(), expected.getHeight(), BufferedImage.TYPE_INT_RGB);
+                param.setDestination(workspace);
+                int[] packed = ((DataBufferInt) workspace.getRaster().getDataBuffer()).getData();
+                Arrays.fill(packed, 0xa5000000);
+                assertThat(reader.read(0, param)).isSameAs(workspace);
+                assertThat(packed[0] >>> 24).isEqualTo(0xa5);
+
+                param.setUseDestinationAsWorkspace(true);
+                assertThat(reader.read(0, param)).isSameAs(workspace);
+                assertThat(packed[0] >>> 24).isZero();
+                int width = expected.getWidth();
+                int height = expected.getHeight();
+                assertThat(workspace.getRGB(0, 0, width, height, null, 0, width))
+                        .containsExactly(expected.getRGB(0, 0, width, height, null, 0, width));
             } finally {
                 reader.dispose();
             }
