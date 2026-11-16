@@ -83,8 +83,22 @@ Relevant pushes to `main`, the weekly schedule and manual workflow runs execute 
 - complete lossless CRX decoding and RAW-linear/RAW-processed pipelines;
 - CRX header, plane decoding, MED prediction, tile copying, plane interleaving and per-symbol entropy/adaptation stages;
 - black-level, white-balance, demosaic, colour-matrix and sRGB stages;
-- end-to-end ImageIO preview and processed-RAW imports.
+- end-to-end ImageIO preview, full-sensor and processed-RAW imports, plus Bayer and RGB regions.
 
 Use the hierarchy to localise a change. For example, a slower ImageIO import with stable direct decoder and processing-stage series points toward import/integration overhead. A slower processed-RAW total accompanied by a stable entropy decoder but slower demosaic series points toward the processing layer.
 
-The GitHub Pages history is an observational time series. Hosted-runner hardware, image, kernel or JVM changes can move all series at once. Every full-suite run therefore stores environment metadata alongside raw JMH JSON; broad simultaneous shifts should be checked against that metadata before attributing them to source changes.
+The [GitHub Pages history](https://carstenartur.github.io/Photographer/dev/bench/) is an observational time series. Hosted-runner hardware, image, kernel or JVM changes can move all series at once. Every full-suite run stores environment metadata alongside raw JMH JSON. Check that metadata when several series move at the same time.
+
+## LibRaw comparison on 2026-11-16
+
+Photographer at `4a816c8` and LibRaw 0.21.4 returned identical unsigned Bayer values for three 64 × 64 rectangles from the same 6888 × 4546 EOS R RAW file. The file SHA-256 was `89bd55532b0cceb5efa360e97827ba35c2076bce0de4675f3a4413a883dac880`.
+
+Photographer used ImageIO `rawSensor()` with `setSourceRegion`. LibRaw used `libraw_open_file`, `libraw_unpack`, then copied the requested rectangle from the full Bayer buffer using the reported row pitch. Each timed call included opening and closing the file. Pixel comparisons ran outside the timed calls. Both processes used one logical CPU on an AMD EPYC 9V74, a warm file cache, six warmups and nine alternating timed pairs per rectangle. Java used OpenJDK 21.0.13.
+
+| Sensor origin | Photographer median | LibRaw median | LibRaw / Photographer |
+| --- | ---: | ---: | ---: |
+| (32, 32) | 41.6 ms | 881.4 ms | 21.2× |
+| (512, 128) | 34.8 ms | 633.5 ms | 18.2× |
+| (6792, 4450) | 554.4 ms | 638.0 ms | 1.15× |
+
+The rows report wall-clock time and the ratio of medians for each position. The decoder needs a longer tile-plane prefix for the rectangle near the bottom of this image. The same-day full-sensor comparison used three files, with median wall-clock time lower for LibRaw on all three. These results describe separate paths through the two APIs on the measured host and versions.

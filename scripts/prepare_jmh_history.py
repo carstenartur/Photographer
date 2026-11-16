@@ -240,11 +240,9 @@ def transform_data_js(document: str) -> str:
     except json.JSONDecodeError as error:
         raise ValueError("Benchmark data.js contains invalid JSON") from error
     transformed = transform_history_data(data)
-    return (
-        "window.BENCHMARK_DATA = "
-        + json.dumps(transformed, ensure_ascii=False, indent=2)
-        + ";\n"
-    )
+    # The publisher strips this prefix and parses the remainder as JSON.
+    return "window.BENCHMARK_DATA = " + json.dumps(
+        transformed, ensure_ascii=False, indent=2, allow_nan=False)
 
 
 def parse_args() -> argparse.Namespace:
