@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULE = ROOT / "cr3-imagej"
 LIBRARIES = ("container", "metadata", "codec", "processing", "core", "imageio")
 PLUGIN = "plugins/CR3_Sensor_Import.jar"
+LICENSE_ENTRY = "META-INF/cr3/LICENSE"
 SITE_NAME = "Canon CR3"
 SITE_ARCHIVE = "cr3-fiji-update-site.zip"
 INSTALL_ARCHIVE = "cr3-fiji-install.zip"
@@ -122,12 +123,24 @@ def zip_files(archive, files):
             output.writestr(zipfile.ZipInfo(name), path.read_bytes())
 
 
+def verify_license(path, expected):
+    with zipfile.ZipFile(path) as jar:
+        try:
+            notice = jar.read(LICENSE_ENTRY)
+        except KeyError:
+            raise ValueError(f"{path} is missing {LICENSE_ENTRY}") from None
+    if notice != expected:
+        raise ValueError(f"{path} has a {LICENSE_ENTRY} that differs from the repository LICENSE")
+
+
 def build(fiji, version, libraries, output, previous):
     inputs = {f"jars/cr3-{name}.jar": libraries / f"cr3-{name}-{version}.jar" for name in LIBRARIES}
     inputs[PLUGIN] = MODULE / "target" / f"cr3-imagej-{version}.jar"
+    license_notice = (ROOT / "LICENSE").read_bytes()
     for path in inputs.values():
         if not path.is_file():
             raise ValueError(f"Missing build artifact: {path}")
+        verify_license(path, license_notice)
     if not (fiji / "db.xml.gz").is_file() or not list((fiji / "jars").glob("imagej-updater-*.jar")):
         raise ValueError(f"Expected a Fiji installation with imagej-updater 2.x: {fiji}")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -146,13 +159,13 @@ def build(fiji, version, libraries, output, previous):
                 raise ValueError("The previous site differs from the existing output. Use a new output directory.")
             previous = installed_archive
         with tempfile.TemporaryDirectory(prefix=".cr3-fiji-", dir=output.parent) as temp:
-            assemble(fiji, inputs, output, previous, Path(temp))
+            assemble(fiji, inputs, output, previous, Path(temp), license_notice)
     finally:
         lock.rmdir()
     print(f"Verified {len(inputs)} installed JARs. Archives and site: {output}")
 
 
-def assemble(fiji, inputs, output, previous, work):
+def assemble(fiji, inputs, output, previous, work, license_notice):
     publisher, consumer, base = (work / name for name in ("publisher", "consumer", "host"))
     result = work / "result"
     site = result / "site"
@@ -172,6 +185,8 @@ def assemble(fiji, inputs, output, previous, work):
     run_updater(fiji, publisher, "upload", "--update-site", SITE_NAME, *inputs)
     (site / "db.xml.gz.old").unlink(missing_ok=True)
     payloads = current_payloads(site, inputs)
+    for payload in payloads.values():
+        verify_license(payload, license_notice)
     configure_client(consumer, base, site)
     run_updater(fiji, consumer, "update")
     for name, payload in payloads.items():
