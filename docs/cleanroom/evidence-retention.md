@@ -45,4 +45,4 @@ The full artifact may include test reports and generated TSV/JSON. It must not b
 6. record the release/tag and bundle digest in release notes;
 7. retain full experiment artifacts separately when they are safe to publish.
 
-A later repository rewrite or report correction requires a new bundle. Existing released bundles should not be replaced silently.
+A later repository rewrite or report correction requires a new bundle. Existing released bundles should not be replaced silently. To audit v0.1.5, use the current builder against a separate checkout of the tagged source. [Reproduction and verified digest](reviewer-guide.md#reproduce-the-dated-release-evidence-archive)
