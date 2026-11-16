@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.5-SNAPSHOT</version>
+        <version>0.1.5</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>storage</artifactId>
-    <version>0.1.5-SNAPSHOT</version>
+    <version>0.1.5</version>
 
     <name>Focus Stack - Storage</name>
     <description>Session storage abstraction and file-based implementation</description>
