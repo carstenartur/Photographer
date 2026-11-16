@@ -153,11 +153,15 @@ class CleanroomEvidenceBundleTest(unittest.TestCase):
 
     def test_canonical_documentation_and_license_are_included(self) -> None:
         expected = {
+            "CONTRIBUTING.md",
             "LICENSE",
             "docs/cr3/current-state.md",
+            "docs/cr3/fiji-update-site.md",
             "docs/cr3/format.md",
+            "docs/cr3/imageio.md",
             "docs/cr3/open-hypotheses.md",
             "docs/cr3/reports/index.md",
+            "docs/public-release.md",
         }
         for relative in expected:
             self.write_file(relative, b"text\n")

@@ -20,7 +20,7 @@ This is the minimum evidence that survives ordinary repository cloning.
 `scripts/build_cleanroom_evidence_bundle.py` creates a reproducible ZIP with these records.
 
 - Clean-room process, source register, experiment ledger and generated evidence inventory.
-- Repository license and maintained CR3 format reference, implementation status, hypotheses, research process and results index.
+- Repository license, contribution terms, publication audit and the maintained CR3 and Fiji chapters referenced by the reviewer guide.
 - Markdown, JSON, CSV and TSV outputs registered in `generated-evidence.json`, including reports and tables in experiment subdirectories.
 - Reference inventory, reference manifest and public input and reference hash tables.
 - `BUNDLE-MANIFEST.json` with the size and SHA-256 of each included file.

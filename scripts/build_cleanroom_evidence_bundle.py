@@ -13,10 +13,14 @@ import manage_cr3_generated_evidence
 import validate_cleanroom_evidence
 
 FIXED_PATHS = (
+    "CONTRIBUTING.md",
     "LICENSE",
     "docs/cr3/current-state.md",
     "docs/cr3/decoder.md",
+    "docs/cr3/fiji-update-site.md",
     "docs/cr3/format.md",
+    "docs/cr3/imageio.md",
+    "docs/cr3/import.md",
     "docs/cr3/index.md",
     "docs/cr3/open-hypotheses.md",
     "docs/cr3/reports/index.md",
@@ -26,6 +30,7 @@ FIXED_PATHS = (
     "docs/cr3-reference-inventory.md",
     "docs/cr3-reference-manifest.md",
     "docs/cr3-results-index.md",
+    "docs/public-release.md",
     "docs/reference-pipeline.md",
     "canon-cr3-imageio/src/test/resources/samples/reference-manifest.json",
     "scripts/research/public-crx/craw-sensors.tsv",
