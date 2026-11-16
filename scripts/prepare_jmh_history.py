@@ -29,6 +29,10 @@ BENCHMARK_LABELS = {
         "CRX decoder · Decode complete lossless RAW",
     "com.photographer.focusstack.cr3.benchmark.Cr3RawLinearBenchmark.decodeRawLinear":
         "RAW pipeline · Decode linear RAW",
+    "com.photographer.focusstack.cr3.benchmark.Cr3RawSensorFileBenchmark.decodeFromPath":
+        "File import · Decode native Bayer samples through Path",
+    "com.photographer.focusstack.cr3.benchmark.Cr3RawSensorFileBenchmark.decodeFromStream":
+        "File import · Decode native Bayer samples through FileImageInputStream",
     "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed":
         "RAW pipeline · Decode display-ready sRGB (stream input)",
     "com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap":
@@ -80,6 +84,8 @@ SAMPLE_LABELS = {
     "sample-wide.cr3": "G5 X Mark II · ISO 125 · frame 3",
     "sample-iso-high.cr3": "G5 X Mark II · ISO 1600",
     "sample-wb-tungsten.cr3": "G5 X Mark II · ISO 1600 · tungsten WB",
+    "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3":
+        "G5 X Mark II · ISO 1600 · C-RAW detail",
     "eosr-iso-low.cr3": "EOS R · ISO 12800 · frame 1",
     "eosr-iso-mid.cr3": "EOS R · ISO 12800 · frame 2",
     "eosr-iso-high.cr3": "EOS R · ISO 12800 · frame 3",

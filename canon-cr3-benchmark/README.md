@@ -23,6 +23,7 @@ performance change originated.
 | `Cr3PreviewExtractBenchmark` | embedded JPEG extraction |
 | `CrxLosslessDecodeBenchmark` | complete CRX lossless entropy decoder, excluding file I/O |
 | `Cr3RawLinearBenchmark` | complete RAW-linear decode |
+| `Cr3RawSensorFileBenchmark` | file open, parsing, full native Bayer decode and close, through `Path` or `FileImageInputStream` |
 | `Cr3RawProcessedBenchmark` | direct full RAW-to-sRGB decode, including stream and file-path inputs |
 
 ### CRX decoder components
@@ -125,6 +126,17 @@ java -jar canon-cr3-benchmark/target/benchmarks.jar \
 # JSON output used by the chart publisher
 java -jar canon-cr3-benchmark/target/benchmarks.jar \
     -rf json -rff jmh-result.json
+```
+
+The file-input benchmark includes two lossless RAW fixtures and one C-RAW
+fixture. The `workers` parameter uses the decoder's automatic sizing at zero
+and caps the number of decoder workers at a positive value. For a local
+comparison, hold the JVM processor count and fixture fixed.
+
+```bash
+java -jar canon-cr3-benchmark/target/benchmarks.jar \
+    Cr3RawSensorFileBenchmark -p sample=eosr-iso-low.cr3 -p workers=1,2,4 \
+    -jvmArgs '-XX:ActiveProcessorCount=4' -prof gc
 ```
 
 To compare automatic worker sizing, run the same full import on the same runner with different JVM processor counts. The benchmark includes opening the file and closing the reader.
