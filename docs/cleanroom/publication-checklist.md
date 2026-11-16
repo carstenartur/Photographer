@@ -1,19 +1,20 @@
 # CR3 / CRX Publication Checklist
 
-Complete this checklist before changing the repository from private to public or publishing the decoder artifacts.
+Apply this checklist to the exact source tree before a visibility change and to the exact artifacts before distributing a CR3 library, application or Fiji update. The [v0.1.5 record](reviewer-guide.md#v015-release-verification) documents the shipped release checks. The [repository publication audit](../public-release.md) covers historical objects and the visibility decision.
 
 ## Provenance
 
-- [ ] `source-register.json` validates and lists every decision-bearing source.
-- [ ] `experiment-ledger.json` validates and includes every current decoder hypothesis.
+- [ ] [`source-register.json`](source-register.json) validates. Review the decision-bearing sources for the changes in scope, including any recovered early records.
+- [ ] [`experiment-ledger.json`](experiment-ledger.json) validates and exposes each verdict and production decision.
+- [ ] The [development history](development-history.md) links the release to the relevant issues, PRs and commits.
 - [ ] Every completed experiment has a durable report.
-- [ ] Every completed post-ledger experiment records commit SHA, workflow run and artifact digest.
+- [ ] Completed experiments identify the durable report and its digest. The ledger records the commit and workflow run or explains missing run metadata.
 - [ ] Rejected and partial experiments remain discoverable.
 - [ ] Production semantics are linked to supported experiments or explicitly marked experimental.
 
 ## Clean-room review
 
-- [ ] Decoder contributors have reviewed the contributor attestation.
+- [ ] The maintainer has reviewed the [attestation record](reviewer-guide.md#contributor-record) for reader and writer changes, including prior exposure and inputs supplied to AI tools.
 - [ ] No third-party CR3/CRX decoder source has been copied or translated.
 - [ ] No decompiled proprietary implementation is present.
 - [ ] Public patents, standards and vendor documents are cited accurately.
@@ -43,7 +44,7 @@ Complete this checklist before changing the repository from private to public or
 - [ ] Fixture and reference-output redistribution rights have been reviewed.
 - [ ] Public artifact POMs include licence, source and developer metadata.
 - [ ] Experimental codec APIs are labelled as such.
-- [ ] Patent references are factual and do not imply a legal clearance opinion.
+- [ ] Record the current status and claim review for applicable patent families and intended distribution markets. [Patent review record](reviewer-guide.md#patent-review-record)
 
 ## Security
 
@@ -54,7 +55,7 @@ Complete this checklist before changing the repository from private to public or
 
 ## Public documentation
 
-- [ ] README distinguishes container/metadata support from experimental RAW decoding.
+- [ ] The [CR3 manual](../cr3/current-state.md) states the measured native RAW and C-RAW reader coverage and the experimental lossless writer's scope.
 - [ ] Supported cameras and transports are tied to evidence.
 - [ ] Known decoder limitations are prominent.
 - [ ] Clean-room process and its limitations are linked from developer documentation.
