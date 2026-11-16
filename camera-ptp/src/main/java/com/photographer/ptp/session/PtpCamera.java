@@ -64,6 +64,7 @@ public class PtpCamera implements AutoCloseable {
     private final Config config;
     private PtpDeviceInfo deviceInfo;
     private boolean isCanon;
+    private ProcessingShot lastProcessingShot;
 
     public PtpCamera(PtpTransport transport) {
         this(transport, Config.defaults());
@@ -380,7 +381,8 @@ public class PtpCamera implements AutoCloseable {
                         int handle = event.getObjectHandle();
                         log.info("Canon object-added event: handle=0x{}, eventType=0x{}",
                                 Integer.toHexString(handle), String.format("%04X", event.type()));
-                        if (handle != 0) {
+                        if (handle != 0 && (!preferRaw || lastProcessingShot == null
+                                || !lastProcessingShot.handles().contains(handle))) {
                             objectHandles.add(handle);
                         }
                     }
@@ -388,7 +390,7 @@ public class PtpCamera implements AutoCloseable {
 
                 if (preferRaw) {
                     for (int handle : objectHandles) {
-                        candidates.computeIfAbsent(handle, this::captureObjectName);
+                        candidates.putIfAbsent(handle, "");
                     }
                 } else {
                     ImageDownload download = downloadLargestObject(objectHandles);
@@ -400,11 +402,23 @@ public class PtpCamera implements AutoCloseable {
                 log.debug("GetEvent poll error: {}", e.getMessage());
             }
 
+            candidates.replaceAll((handle, name) -> name.isEmpty() ? captureObjectName(handle) : name);
+            if (lastProcessingShot != null && lastProcessingShot.key() != null) {
+                candidates.values().removeIf(name -> lastProcessingShot.key().equals(processingShotKey(name)));
+            }
+
             long now = System.currentTimeMillis();
-            if (!candidates.isEmpty()) {
+            if (candidates.isEmpty()) {
+                pairDeadline = deadline;
+            } else {
                 pairDeadline = Math.min(pairDeadline, now + CapturedImageFormat.PAIRED_FILE_WAIT.toMillis());
                 ImageDownload download = downloadPreferredObject(candidates, now >= pairDeadline);
                 if (download != null) {
+                    int handle = Integer.parseInt(download.objectId());
+                    String key = processingShotKey(candidates.get(handle));
+                    lastProcessingShot = new ProcessingShot(
+                            key == null ? firstProcessingShotKey(candidates) : key,
+                            Set.copyOf(candidates.keySet()));
                     return download;
                 }
             }
@@ -424,31 +438,65 @@ public class PtpCamera implements AutoCloseable {
     }
 
     private ImageDownload downloadPreferredObject(Map<Integer, String> candidates, boolean deadlineReached) {
-        String firstName = candidates.values().stream()
-                .filter(CapturedImageFormat::canHavePairedFile)
-                .findFirst().orElse(null);
-        String shotKey = CapturedImageFormat.shotKey(firstName);
+        String shotKey = firstProcessingShotKey(candidates);
         List<Map.Entry<Integer, String>> ordered = candidates.entrySet().stream()
-                .filter(entry -> !CapturedImageFormat.canHavePairedFile(entry.getValue())
-                        || CapturedImageFormat.shotKey(entry.getValue()).equals(shotKey))
+                .filter(entry -> processingShotKey(entry.getValue()) == null
+                        || processingShotKey(entry.getValue()).equals(shotKey))
                 .sorted(Comparator.comparingInt((Map.Entry<Integer, String> entry) ->
                         CapturedImageFormat.processingPriority(entry.getValue())).reversed())
                 .toList();
-        if (deadlineReached && ordered.stream().allMatch(entry -> entry.getValue().isEmpty())) {
-            return downloadLargestObject(candidates.keySet());
-        }
-        boolean canFallback = deadlineReached || ordered.size() > 1
-                && CapturedImageFormat.isCr3(ordered.getFirst().getValue());
         for (Map.Entry<Integer, String> entry : ordered) {
-            if (canFallback || CapturedImageFormat.isCr3(entry.getValue())) {
+            if (CapturedImageFormat.isCr3(entry.getValue())) {
                 ImageDownload download = downloadCanonObject(entry.getKey(), entry.getValue());
                 if (download != null) {
                     return download;
                 }
             }
         }
-        return null;
+        if (!deadlineReached) {
+            return null;
+        }
+
+        // The camera may announce RAW before standard ObjectInfo supplies its name.
+        ImageDownload unnamedFallback = null;
+        for (Map.Entry<Integer, String> entry : ordered) {
+            if (entry.getValue().isEmpty()) {
+                ImageDownload download = downloadCanonObject(entry.getKey(), "");
+                if (download == null) {
+                    continue;
+                }
+                if (CapturedImageFormat.hasCr3Header(download.data())) {
+                    return download;
+                }
+                if (unnamedFallback == null || download.size() > unnamedFallback.size()) {
+                    unnamedFallback = download;
+                }
+            }
+        }
+        for (Map.Entry<Integer, String> entry : ordered) {
+            String name = entry.getValue();
+            if (!name.isEmpty() && !CapturedImageFormat.isCr3(name)) {
+                ImageDownload download = downloadCanonObject(entry.getKey(), name);
+                if (download != null) {
+                    return download;
+                }
+            }
+        }
+        return unnamedFallback;
     }
+
+    private static String firstProcessingShotKey(Map<Integer, String> candidates) {
+        return candidates.values().stream()
+                .filter(CapturedImageFormat::canHavePairedFile)
+                .map(CapturedImageFormat::shotKey)
+                .findFirst().orElse(null);
+    }
+
+    private static String processingShotKey(String name) {
+        return CapturedImageFormat.canHavePairedFile(name) ? CapturedImageFormat.shotKey(name) : null;
+    }
+
+    private record ProcessingShot(String key, Set<Integer> handles) {}
 
     private ImageDownload downloadLargestObject(Iterable<Integer> handles) {
         ImageDownload best = null;
@@ -464,7 +512,7 @@ public class PtpCamera implements AutoCloseable {
     private String captureObjectName(int handle) {
         try {
             String fileName = session.getObjectInfo(handle).filename();
-            return fileName == null ? "" : fileName;
+            return fileName == null || fileName.isBlank() ? "" : fileName;
         } catch (PtpException | BufferUnderflowException exception) {
             log.debug("Could not get ObjectInfo for 0x{}: {}",
                     Integer.toHexString(handle), exception.getMessage());
@@ -494,6 +542,8 @@ public class PtpCamera implements AutoCloseable {
             }
             log.info("Canon capture: downloaded {} bytes as {}", data.length, fileName);
             try {
+                // Only acknowledge a completed GetObject transfer. Unselected card objects
+                // are merely announced by ObjectAdded or ObjectInfoEx.
                 session.executeOperation(CanonConstants.OC_EOS_TRANSFER_COMPLETE, handle);
             } catch (PtpException exception) {
                 log.debug("TransferComplete for 0x{}: {}",

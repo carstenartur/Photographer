@@ -79,7 +79,7 @@ public final class NativeFocusBracketingExecutor {
 
         NativeFocusBracketingSession session = nativeProvider.prepareNativeFocusBracketing(request);
         try {
-            Set<String> before = snapshotPaths(mediaProvider);
+            Set<String> before = snapshotShotKeys(mediaProvider);
             checkCancellation(cancellationRequested);
 
             nativeProvider.triggerNativeFocusBracketing(session);
@@ -182,10 +182,10 @@ public final class NativeFocusBracketingExecutor {
             CameraMediaReference reference,
             int maximum) {
         String mediaPath = mediaIdentity(reference);
-        if (before.contains(mediaPath)) {
+        String shotKey = CapturedImageFormat.shotKey(mediaPath);
+        if (before.contains(shotKey)) {
             return;
         }
-        String shotKey = CapturedImageFormat.shotKey(mediaPath);
         ObservedShot shot = observed.get(shotKey);
         if (shot == null && observed.size() < maximum) {
             shot = new ObservedShot(reference);
@@ -306,10 +306,10 @@ public final class NativeFocusBracketingExecutor {
                         == CameraCapabilitySnapshot.Availability.AVAILABLE);
     }
 
-    private static Set<String> snapshotPaths(CameraMediaProvider mediaProvider) {
+    private static Set<String> snapshotShotKeys(CameraMediaProvider mediaProvider) {
         LinkedHashSet<String> result = new LinkedHashSet<>();
         for (CameraMediaReference reference : snapshot(mediaProvider)) {
-            result.add(mediaIdentity(reference));
+            result.add(CapturedImageFormat.shotKey(mediaIdentity(reference)));
         }
         return Set.copyOf(result);
     }

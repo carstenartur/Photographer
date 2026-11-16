@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
@@ -22,7 +23,12 @@ public class MockPtpTransport implements PtpTransport {
     private final Map<Integer, Function<PtpContainer, DataResponse>> dataHandlers = new HashMap<>();
     private final Map<Integer, Function<PtpContainer, PtpContainer>> handlers = new HashMap<>();
     private final List<Integer> downloadedObjects = new ArrayList<>();
+    private final List<Integer> completedTransfers = new ArrayList<>();
+    private final AtomicBoolean objectEventPending = new AtomicBoolean();
     private final boolean pairedRaw;
+    private final boolean delayFirstRawUntilNextCapture;
+    private int rawMetadataUnavailableReads;
+    private int captures;
     private boolean open;
     private int sessionId;
 
@@ -31,7 +37,17 @@ public class MockPtpTransport implements PtpTransport {
     }
 
     MockPtpTransport(boolean pairedRaw) {
+        this(pairedRaw, 0);
+    }
+
+    MockPtpTransport(boolean pairedRaw, int rawMetadataUnavailableReads) {
+        this(pairedRaw, rawMetadataUnavailableReads, false);
+    }
+
+    MockPtpTransport(boolean pairedRaw, int rawMetadataUnavailableReads, boolean delayFirstRawUntilNextCapture) {
         this.pairedRaw = pairedRaw;
+        this.rawMetadataUnavailableReads = rawMetadataUnavailableReads;
+        this.delayFirstRawUntilNextCapture = delayFirstRawUntilNextCapture;
         // Standard handlers
         handlers.put(PtpConstants.OP_OPEN_SESSION, this::handleOpenSession);
         handlers.put(PtpConstants.OP_CLOSE_SESSION, this::handleCloseSession);
@@ -50,10 +66,10 @@ public class MockPtpTransport implements PtpTransport {
         handlers.put(CanonConstants.OC_EOS_SET_REMOTE_MODE, this::okResponse);
         handlers.put(CanonConstants.OC_EOS_SET_EVENT_MODE, this::okResponse);
         handlers.put(CanonConstants.OC_EOS_REMOTE_RELEASE_ON, this::okResponse);
-        handlers.put(CanonConstants.OC_EOS_REMOTE_RELEASE_OFF, this::okResponse);
+        handlers.put(CanonConstants.OC_EOS_REMOTE_RELEASE_OFF, this::handleShutterRelease);
         handlers.put(CanonConstants.OC_EOS_AF_DRIVE, this::okResponse);
         handlers.put(CanonConstants.OC_EOS_SET_DEVICE_PROP, this::okResponse);
-        handlers.put(CanonConstants.OC_EOS_TRANSFER_COMPLETE, this::okResponse);
+        handlers.put(CanonConstants.OC_EOS_TRANSFER_COMPLETE, this::handleTransferComplete);
 
         // Canon data handlers
         dataHandlers.put(CanonConstants.OC_EOS_GET_LIVEVIEW_DATA, this::handleGetLiveViewData);
@@ -62,6 +78,10 @@ public class MockPtpTransport implements PtpTransport {
 
     List<Integer> downloadedObjects() {
         return List.copyOf(downloadedObjects);
+    }
+
+    List<Integer> completedTransfers() {
+        return List.copyOf(completedTransfers);
     }
 
     @Override
@@ -124,6 +144,17 @@ public class MockPtpTransport implements PtpTransport {
         return okResponse(req);
     }
 
+    private PtpContainer handleShutterRelease(PtpContainer req) {
+        captures++;
+        objectEventPending.set(true);
+        return okResponse(req);
+    }
+
+    private PtpContainer handleTransferComplete(PtpContainer req) {
+        completedTransfers.add(req.getParam1());
+        return okResponse(req);
+    }
+
     private DataResponse handleGetDeviceInfo(PtpContainer req) {
         byte[] data = buildMockDeviceInfo();
         return new DataResponse(data, okResponse(req));
@@ -158,6 +189,10 @@ public class MockPtpTransport implements PtpTransport {
 
     private DataResponse handleGetObject(PtpContainer req) {
         downloadedObjects.add(req.getParam1());
+        if (pairedRaw && req.getParam1() == 43) {
+            byte[] cr3Header = {0, 0, 0, 16, 'f', 't', 'y', 'p', 'c', 'r', 'x', ' ', 0, 0, 0, 0};
+            return new DataResponse(cr3Header, okResponse(req));
+        }
         // Return fake JPEG data
         byte[] jpeg = new byte[] {
             (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, // JPEG header
@@ -208,7 +243,10 @@ public class MockPtpTransport implements PtpTransport {
             { CanonConstants.DPC_EOS_BATTERY_LEVEL, 3 },     // 75%
         };
 
-        ByteBuffer buf = ByteBuffer.allocate(props.length * entrySize + objEntrySize * (pairedRaw ? 2 : 1))
+        boolean announceObjects = objectEventPending.getAndSet(false);
+        boolean announceRaw = pairedRaw && (!delayFirstRawUntilNextCapture || captures == 2);
+        int objectEntries = announceObjects ? (announceRaw ? 2 : 1) : 0;
+        ByteBuffer buf = ByteBuffer.allocate(props.length * entrySize + objEntrySize * objectEntries)
                 .order(ByteOrder.LITTLE_ENDIAN);
 
         for (int[] prop : props) {
@@ -218,17 +256,23 @@ public class MockPtpTransport implements PtpTransport {
             buf.putInt(prop[1]); // value
         }
 
-        // Object-added event (for capture tests)
-        buf.putInt(objEntrySize);
-        buf.putInt(CanonConstants.EVENT_OBJ_ADDED);
-        buf.putInt(42);  // object handle
-        if (pairedRaw) {
-            buf.putInt(objEntrySize);
-            buf.putInt(CanonConstants.EVENT_OBJ_INFO_EX);
-            buf.putInt(43);
+        if (announceObjects) {
+            if (announceRaw && delayFirstRawUntilNextCapture) {
+                addObjectEvent(buf, CanonConstants.EVENT_OBJ_INFO_EX, 43);
+            }
+            addObjectEvent(buf, CanonConstants.EVENT_OBJ_ADDED, 42 + (captures - 1) * 2);
+            if (announceRaw && !delayFirstRawUntilNextCapture) {
+                addObjectEvent(buf, CanonConstants.EVENT_OBJ_INFO_EX, 43);
+            }
         }
 
         return new DataResponse(buf.array(), okResponse(req));
+    }
+
+    private static void addObjectEvent(ByteBuffer buffer, int eventType, int handle) {
+        buffer.putInt(12);
+        buffer.putInt(eventType);
+        buffer.putInt(handle);
     }
 
     // ── Data builders ──
@@ -321,8 +365,15 @@ public class MockPtpTransport implements PtpTransport {
         buf.putInt(0);                // associationDesc
         buf.putInt(objectHandle);     // sequenceNumber
 
-        String filename = pairedRaw && objectHandle == 43
-                ? "IMG_0042.CR3" : "IMG_%04d.JPG".formatted(objectHandle);
+        String filename = "IMG_%04d.JPG".formatted(objectHandle);
+        if (pairedRaw && objectHandle == 43) {
+            if (rawMetadataUnavailableReads > 0) {
+                rawMetadataUnavailableReads--;
+                filename = " ";
+            } else {
+                filename = "IMG_0042.CR3";
+            }
+        }
         writePtpString(buf, filename);
         writePtpString(buf, "20240101T120000");
         writePtpString(buf, "20240101T120000");

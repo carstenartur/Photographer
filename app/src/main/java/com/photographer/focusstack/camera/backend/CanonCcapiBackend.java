@@ -28,7 +28,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -456,6 +456,7 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
 
     /** Tracks whether we have already started live view on this backend instance. */
     private final AtomicBoolean liveViewStarted = new AtomicBoolean(false);
+    private volatile String lastProcessingShot;
 
     @Override
     public LiveViewFrame getLiveView() {
@@ -599,9 +600,9 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
             String contentsBaseUrl = contentsDiscovered ? resolveContentsBase() : null;
             String preNewestDatetime = contentsDiscovered && !preferRaw
                     ? findNewestImageDatetime(contentsBaseUrl) : null;
-            Set<String> previousFiles = contentsDiscovered && preferRaw
+            Set<String> previousShots = contentsDiscovered && preferRaw
                     ? listRecentImages(contentsBaseUrl).stream()
-                            .map(location -> mediaPath(imageUrl(contentsBaseUrl, location)))
+                            .map(location -> processingShotKey(imageUrl(contentsBaseUrl, location)))
                             .collect(Collectors.toUnmodifiableSet())
                     : Set.of();
 
@@ -628,7 +629,7 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
             // otherwise skip it to avoid adding captureTimeoutMs delay on every frame for
             // cameras that expose shutter control but no contents endpoint.
             DownloadResult download = preferRaw
-                    ? downloadProcessingImage(contentsBaseUrl, previousFiles)
+                    ? downloadProcessingImage(contentsBaseUrl, previousShots)
                     : downloadNewImageViaEventPolling();
             if (download == null && contentsDiscovered && !preferRaw) {
                 download = downloadNewImage(contentsBaseUrl, preNewestDatetime);
@@ -804,7 +805,7 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
         return List.of();
     }
 
-    private DownloadResult downloadProcessingImage(String contentsUrl, Set<String> previousFiles) {
+    private DownloadResult downloadProcessingImage(String contentsUrl, Set<String> previousShots) {
         if (captureTimeoutMs <= 0) {
             return null;
         }
@@ -814,32 +815,34 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
         }
         long deadline = System.currentTimeMillis() + captureTimeoutMs;
         long pairDeadline = deadline;
-        Set<String> candidates = new LinkedHashSet<>();
+        Map<String, String> candidates = new LinkedHashMap<>();
         while (!Thread.currentThread().isInterrupted()) {
             if (pollingUrl != null) {
-                addProcessingCandidates(candidates, addedImageUrls(pollingUrl), previousFiles);
+                addProcessingCandidates(candidates, addedImageUrls(pollingUrl), previousShots);
             }
-            if (contentsUrl != null && candidates.stream().noneMatch(CapturedImageFormat::isCr3)) {
+            if (contentsUrl != null && candidates.values().stream().noneMatch(CapturedImageFormat::isCr3)) {
                 List<String> listed = listRecentImages(contentsUrl).stream()
                         .sorted(Comparator.comparing(
                                 (ImageLocation location) -> parseOffsetDateTimeOrNull(location.entry().datetime()),
                                 Comparator.nullsLast(Comparator.reverseOrder())))
                         .map(location -> imageUrl(contentsUrl, location))
                         .toList();
-                addProcessingCandidates(candidates, listed, previousFiles);
+                addProcessingCandidates(candidates, listed, previousShots);
             }
 
             long now = System.currentTimeMillis();
             if (!candidates.isEmpty()) {
                 pairDeadline = Math.min(pairDeadline, now + CapturedImageFormat.PAIRED_FILE_WAIT.toMillis());
-                boolean tryFallback = now >= pairDeadline || candidates.size() > 1;
-                List<String> ordered = candidates.stream()
+                boolean tryFallback = now >= pairDeadline || candidates.size() > 1
+                        && candidates.values().stream().anyMatch(CapturedImageFormat::isCanonRaw);
+                List<String> ordered = candidates.values().stream()
                         .filter(url -> tryFallback || CapturedImageFormat.isCr3(url))
                         .sorted(Comparator.comparingInt(CapturedImageFormat::processingPriority).reversed())
                         .toList();
                 for (String url : ordered) {
                     DownloadResult download = downloadProcessingCandidate(url);
                     if (download != null) {
+                        lastProcessingShot = processingShotKey(url);
                         return download;
                     }
                 }
@@ -864,7 +867,7 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
     }
 
     private void addProcessingCandidates(
-            Set<String> candidates, List<String> paths, Set<String> previousFiles) {
+            Map<String, String> candidates, List<String> paths, Set<String> previousShots) {
         URI origin = URI.create(baseUrl);
         for (String path : paths) {
             URI url;
@@ -884,13 +887,13 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
             }
             String candidate = origin.resolve(url.getRawPath()).toString();
             String pathInStorage = mediaPath(candidate);
-            if (previousFiles.contains(pathInStorage)) {
+            String shot = CapturedImageFormat.shotKey(pathInStorage);
+            if (previousShots.contains(shot) || shot.equals(lastProcessingShot)) {
                 continue;
             }
             if (candidates.isEmpty()
-                    || CapturedImageFormat.shotKey(mediaPath(candidates.iterator().next()))
-                            .equals(CapturedImageFormat.shotKey(pathInStorage))) {
-                candidates.add(candidate);
+                    || shot.equals(CapturedImageFormat.shotKey(candidates.keySet().iterator().next()))) {
+                candidates.putIfAbsent(pathInStorage, candidate);
             }
         }
     }
@@ -905,6 +908,10 @@ public class CanonCcapiBackend implements CameraBackend, ProcessingCaptureProvid
     private static String mediaPath(String url) {
         int contents = url.indexOf("/contents/");
         return contents < 0 ? url : url.substring(contents);
+    }
+
+    private static String processingShotKey(String url) {
+        return CapturedImageFormat.shotKey(mediaPath(url));
     }
 
     private static String imageUrl(String contentsUrl, ImageLocation location) {

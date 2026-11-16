@@ -130,10 +130,15 @@ class ImageJProcessorTest {
         assertNotNull(preview);
         int previewEdge = Math.max(preview.getWidth(), preview.getHeight());
 
-        SharpnessMap map = processor.createSharpnessMap(Files.readAllBytes(sample), previewEdge);
+        byte[] raw = Files.readAllBytes(sample);
+        SharpnessMap map = processor.createSharpnessMap(raw, previewEdge);
 
         assertTrue(map.width() > 1 || map.height() > 1,
                 "RAW analysis must span more pixels than the embedded camera preview");
+        SharpnessMap constrained = new ImageJProcessor(new RawDecodeBudget(1, 1))
+                .createSharpnessMap(raw, previewEdge);
+        assertEquals(1, constrained.width(), "The embedded preview fits into one block");
+        assertEquals(1, constrained.height(), "The embedded preview fits into one block");
     }
 
     @Test

@@ -357,11 +357,9 @@ public class ImageJProcessor {
             }
             long estimatedBytes = RawDecodeBudget.estimateRawBytes(bounds.width, bounds.height);
             try (RawDecodeBudget.Lease lease = rawDecodeBudget.acquire(estimatedBytes, 1)) {
-                try {
-                    return toGrayscale(decoder.decode(options.maxWorkers(lease.workers())), maxEdge);
-                } catch (Cr3Exception | IOException exception) {
-                    return readCr3Preview(decoder, maxEdge, exception);
-                }
+                return toGrayscale(decoder.decode(options.maxWorkers(lease.workers())), maxEdge);
+            } catch (Cr3Exception | IOException exception) {
+                return readCr3Preview(decoder, maxEdge, exception);
             }
         }
     }

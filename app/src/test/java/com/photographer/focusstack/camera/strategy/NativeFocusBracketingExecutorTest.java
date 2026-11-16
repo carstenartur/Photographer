@@ -65,6 +65,7 @@ class NativeFocusBracketingExecutorTest {
     @Test
     void pairsRawAndJpegAsOneShotEvenWhenJpegArrivesFirst() {
         FakeBackend backend = new FakeBackend(3, false, true);
+        backend.delayedOldCompanion = true;
         List<String> transfers = new ArrayList<>();
 
         NativeFocusBracketingExecutionResult result = new NativeFocusBracketingExecutor().execute(
@@ -172,6 +173,7 @@ class NativeFocusBracketingExecutorTest {
         private final AtomicInteger triggerCount = new AtomicInteger();
         private final AtomicInteger closeCount = new AtomicInteger();
         private final AtomicInteger eventCount = new AtomicInteger();
+        private boolean delayedOldCompanion;
         private boolean triggered;
 
         private FakeBackend(int generatedFrames, boolean failClose) {
@@ -228,6 +230,11 @@ class NativeFocusBracketingExecutorTest {
             }
             List<CameraMediaReference> media = new ArrayList<>();
             media.add(oldReference());
+            if (delayedOldCompanion) {
+                media.add(new CameraMediaReference("card1",
+                        "/ccapi/ver140/contents/card1/DCIM/100CANON/OLD.JPG",
+                        "OLD.JPG", "JPEG", "ver140"));
+            }
             for (int index = 1; index <= generatedFrames; index++) {
                 if (paired) {
                     media.add(reference(index, "JPG"));

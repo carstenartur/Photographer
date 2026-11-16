@@ -70,6 +70,43 @@ class PtpCameraTest {
 
             assertEquals("IMG_0042.CR3", result.fileName());
             assertEquals(List.of(43), paired.downloadedObjects());
+            assertEquals(List.of(43), paired.completedTransfers());
+        }
+    }
+
+    @Test
+    void processingCaptureRetriesBlankRawMetadataWithoutARepeatedObjectEvent() {
+        MockPtpTransport paired = new MockPtpTransport(true, 1);
+        try (PtpCamera processingCamera = PtpCamera.open(paired, PtpCamera.Config.zeroDelays())) {
+            ImageDownload result = processingCamera.captureForProcessing();
+
+            assertEquals("IMG_0042.CR3", result.fileName());
+            assertEquals(List.of(43), paired.downloadedObjects());
+            assertEquals(List.of(43), paired.completedTransfers());
+        }
+    }
+
+    @Test
+    void processingCaptureChecksUnknownObjectBytesBeforeDownloadingTheNamedJpeg() {
+        MockPtpTransport paired = new MockPtpTransport(true, Integer.MAX_VALUE);
+        try (PtpCamera processingCamera = PtpCamera.open(paired, PtpCamera.Config.zeroDelays())) {
+            ImageDownload result = processingCamera.captureForProcessing();
+
+            assertEquals("object_2b.CR3", result.fileName());
+            assertEquals(List.of(43), paired.downloadedObjects());
+            assertEquals(List.of(43), paired.completedTransfers());
+        }
+    }
+
+    @Test
+    void processingCaptureSkipsThePreviousShotsLateRawAnnouncement() {
+        MockPtpTransport paired = new MockPtpTransport(true, 0, true);
+        try (PtpCamera processingCamera = PtpCamera.open(paired, PtpCamera.Config.zeroDelays())) {
+            assertEquals("IMG_0042.JPG", processingCamera.captureForProcessing().fileName());
+            assertEquals("IMG_0044.JPG", processingCamera.captureForProcessing().fileName());
+
+            assertEquals(List.of(42, 44), paired.downloadedObjects());
+            assertEquals(List.of(42, 44), paired.completedTransfers());
         }
     }
 
