@@ -9,14 +9,17 @@ Contributions are welcome. The canonical checkout-to-pull-request guide is [docs
 - Run `bash scripts/verify-product.sh` for product changes.
 - Run frontend tests, lint and build for frontend changes.
 - Update canonical and module-local documentation when a public contract changes.
-- Do not commit credentials, private Canon documentation, unredacted camera identifiers or personal image metadata.
+- Keep credentials and private Canon documentation out of contributions.
 - Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue.
 
 ## Camera and CR3 evidence
 
 Hardware claims must state the exact camera model, firmware and connection mode. Tests without real hardware prove protocol and lifecycle behavior, not universal compatibility.
 
-Changes to CR3/CRX container, entropy, predictor, wavelet, dequantisation or image-assembly semantics must follow the [clean-room engineering record](docs/cleanroom/README.md) and include the required [contributor attestation](docs/cleanroom/contributor-attestation.md).
+> [!NOTE]
+> If you want to keep camera serial numbers, names or location data private, remove those fields from copies of your photos or RAW files before uploading them.
+
+For changes to CR3/CRX behavior, describe the technical references and tests in the pull request. [Clean-room engineering record](docs/cleanroom/README.md)
 
 ## Licensing
 

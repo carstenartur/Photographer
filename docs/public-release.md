@@ -22,66 +22,44 @@ contains eight. A source archive downloaded from one of these tags includes
 those files. This check identifies direct exposure at the listed tips.
 Earlier commits and provider-side archives need separate review.
 
-The maintainer confirmed that the original CR3 files are first-party captures
-and accepts retaining camera serial numbers with the originals selected for
-publication. The numbers can corroborate the identity of the camera. Capture
-tests, manifests and file hashes document the capture procedure and the exact
-files. [Capture records](cleanroom/source-register.json)
-
-Review the image content and the embedded metadata together when deciding
-which originals to publish. Review the rights for derivative reference images
-and downloadable
-assets as well. A visual review of all 13 real-camera previews and 11 reference
-PNGs found indoor scenes and diagnostic exposures. In particular, the two G5 X Mark II
-detail captures include objects from the room. Review the originals at full
-resolution when deciding which photographs to redistribute.
-The project-generated D14 pattern PDFs are tracked. Canon developer manuals
+A visual review of 13 real-camera previews and 11 reference PNGs recorded
+indoor scenes and diagnostic exposures. The project-generated D14 pattern PDFs are tracked. Canon developer manuals
 belong in private local storage.
 
-## Required repository checks
+## Repository audit commands
 
-Run from a complete Git checkout containing every branch and tag:
+Use a complete checkout for product verification and the text-history audit.
 
 ```bash
 bash scripts/verify-product.sh
-python3 scripts/audit_public_release.py --history --media-metadata
+python3 scripts/audit_public_release.py --history
+```
+
+The optional media audits inspect identifying fields in current and historical
+image files. They report paths and field names with the values redacted.
+
+```bash
+python3 scripts/audit_public_release.py --media-metadata
 python3 scripts/audit_historical_media.py
 ```
 
-The commands provide three distinct guarantees:
+The media audits require ExifTool. The historical audit may use substantial
+temporary disk space because it inspects each unique image blob reachable
+from a branch or tag.
 
-- normal product verification and the current-tree high-confidence credential scan;
-- reachable **text** blobs up to 2,000,000 bytes are scanned for high-confidence credential formats, while currently tracked CR3 and image files are inspected for identifying metadata;
-- every unique historical CR3/image blob reachable from a branch or tag is materialized and inspected with ExifTool.
-
-The media checks require ExifTool (`exiftool` or the Debian/Ubuntu package `libimage-exiftool-perl`). Findings display blob/path and field names but deliberately redact values. The historical media audit may require substantial temporary disk space because it inspects each unique binary version.
-
-A passing automated scan is not permission to publish third-party material. Review unusual binaries, generated reports, screenshots and archives for provenance and privacy before changing visibility.
+Review redistribution rights for third-party material in binaries, reports,
+screenshots and archives.
 
 ## Fixture and evidence policy
 
-Use sanitized copies for maintained test fixtures and generated evidence.
-Keep camera and lens serial numbers, GPS and location fields, and personal
-owner, artist and creator metadata out of those copies. Use synthetic metadata
-when a test needs those fields. Capture dates and technical exposure data may
-be retained when they are relevant to reproducible evidence and present no
-material privacy risk.
-
-Credentials and material without permission to redistribute, including
-restricted Canon manuals or SDK files, must be removed from the material being
-published. The maintainer can retain first-party originals in the Git history
-after reviewing their image content and metadata for publication.
+Use synthetic metadata when tests need fields that identify a camera or photographer.
+Keep credentials and restricted Canon manuals or SDK files out of published material.
 
 Use `scripts/sanitize_cr3_fixtures.py --write` only on controlled fixture copies or a dedicated maintenance branch. It neutralizes known identifying TIFF/MakerNote entries and XMP creator content without changing file length or BMFF/TIFF offsets. ExifTool and the complete test suite must verify the result before it is committed.
 
 ## Sensitive binary history
 
-Replacing a fixture in the current tree leaves earlier file versions reachable
-through Git history. Use the [historical media audit](../scripts/audit_historical_media.py)
-to review the paths and field names that would become public. The audit flags
-identifying metadata even in first-party images that the maintainer chooses to
-publish. Review those findings against the decision for the affected originals.
-A first-party original approved for publication can stay in the history.
+Replacing a fixture in the current tree leaves earlier file versions reachable through Git history. The [historical media audit](../scripts/audit_historical_media.py) reports the paths and field names in those versions.
 
 When a historical file or field should stay private, two strategies are available.
 
@@ -182,8 +160,8 @@ For a release, add the exact version and release date to the release metadata or
 
 Before changing repository visibility, complete the following checks.
 
-- Review the audit results for the current tree, reachable text history and historical media.
-- Decide which first-party originals and metadata to publish. Remove credentials and material that must stay private from the refs and downloads exposed by publication.
+- Review the current-tree and text-history audit results.
+- Remove credentials and material that must stay private from the refs and downloads exposed by publication.
 - Verify redistribution rights for committed binaries and documentation.
 - Check that the README describes experimental features and hardware support accurately.
 - Verify that the security reporting channel is ready.

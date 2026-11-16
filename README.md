@@ -148,7 +148,7 @@ The scheduled Maven site publishes the test and coverage reports. CR3 benchmark 
 
 Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the canonical [developer contribution guide](docs/developer/contributing.md). There is no formal CLA; by submitting a pull request you agree to license your contribution under the MIT License.
 
-Changes to CR3/CRX container, entropy, predictor, wavelet, dequantisation or assembly semantics must also include the [clean-room contributor attestation](docs/cleanroom/contributor-attestation.md) and cite registered sources plus project-owned evidence.
+Photographer uses a clean-room implementation of CR3 and CRX. The engineering record documents the technical references and tests. [CR3/CRX engineering record](docs/cleanroom/README.md)
 
 Security vulnerabilities must be reported privately according to [SECURITY.md](SECURITY.md).
 
