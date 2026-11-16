@@ -164,10 +164,8 @@ class PrepareJmhHistoryTest(unittest.TestCase):
 
         transformed = history.transform_data_js(document)
         transformed_twice = history.transform_data_js(transformed)
-        payload = json.loads(
-            transformed.removeprefix("window.BENCHMARK_DATA = ")
-            .removesuffix(";\n")
-        )
+        # The publisher passes everything after the assignment prefix to JSON.parse.
+        payload = json.loads(transformed.removeprefix("window.BENCHMARK_DATA = "))
         benches = payload["entries"]["Canon CR3 JMH Benchmarks"]
 
         self.assertEqual(transformed, transformed_twice)
