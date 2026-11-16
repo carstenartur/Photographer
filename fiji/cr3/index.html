@@ -17,7 +17,8 @@
 <body>
   <main>
     <h1>Canon CR3 Sensor Importer for Fiji</h1>
-    <p>Open a supported Canon CR3 file as a 16-bit grayscale image with one pixel per Bayer sensor site. The importer preserves the camera's recorded values and sensor margins. You can inspect the Bayer pattern and available capture metadata under <strong>Image → Show Info…</strong>.</p>
+    <p>Import the original Bayer samples from supported Canon RAW and C-RAW files. Fiji displays the 16-bit sensor plane in grayscale, with one camera value per Bayer site. The importer preserves the recorded values and sensor margins. You can inspect the Bayer pattern and available capture metadata under <strong>Image → Show Info…</strong>.</p>
+    <p>The shared Java reader also supports the camera's embedded color JPEG and experimental RGB development of supported RAW and C-RAW files. The <strong>CR3 Sensor Data…</strong> menu command opens the Bayer samples for measurement.</p>
     <h2>Install with the Fiji updater</h2>
     <ol>
       <li>In Fiji with Java 21 or newer, choose <strong>Help → Update… → Manage update sites → Add Unlisted Site</strong>.</li>
@@ -25,7 +26,11 @@
       <li>Enable the site, close the site manager, choose <strong>Apply changes</strong> and restart Fiji.</li>
       <li>Choose <strong>File → Import → CR3 Sensor Data…</strong> and select a CR3 file.</li>
     </ol>
+    <h2>Open a color image</h2>
+    <p>After installing the update site, open the example in Fiji’s Script Editor and run it. Choose a CR3 file. Clear <strong>Develop RAW to RGB</strong> to open the camera’s color JPEG. Select it to demosaic a supported RAW or C-RAW stream into sRGB.</p>
+    <p><a href="open-cr3-color.groovy" download>Download the Groovy example</a> · <a href="https://imagej.net/scripting/">Fiji scripting guide</a></p>
     <p><a href="version.txt">Build currently available</a> · <a href="LICENSE.txt">MIT license</a></p>
+    <p>This product includes DNG technology under license by Adobe. <a href="https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html">Adobe DNG license</a></p>
   </main>
 </body>
 </html>
