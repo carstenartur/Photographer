@@ -45,7 +45,8 @@ def _load_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def _tracked_files(root: Path) -> list[Path]:
+def repository_files(root: Path) -> list[Path]:
+    """List tracked files or use the file tree in a source archive."""
     try:
         completed = subprocess.run(
             ["git", "-C", str(root), "ls-files", "-z"],
@@ -286,16 +287,17 @@ def _validate_entry(
     return entry_id, sorted(set(matched))
 
 
-def validate_repository(
+def validate_inventory(
     root: Path,
     manifest_path: Path = DEFAULT_MANIFEST,
-) -> list[str]:
+) -> tuple[list[str], list[Path]]:
+    """Return validation errors and the registered repository-relative outputs."""
     root = root.resolve()
     errors: list[str] = []
     try:
         manifest = _load_json(root / manifest_path)
     except EvidenceContractError as exc:
-        return [str(exc)]
+        return [str(exc)], []
 
     if manifest.get("schemaVersion") != 1:
         errors.append("generated-evidence.json: schemaVersion must be 1")
@@ -311,7 +313,7 @@ def validate_repository(
         errors.append(
             f"generated-evidence.json: resultsRoot does not exist: {results_root}")
 
-    tracked = _tracked_files(root)
+    tracked = repository_files(root)
     try:
         ledger = _load_json(root / DEFAULT_LEDGER)
     except EvidenceContractError as exc:
@@ -357,6 +359,14 @@ def validate_repository(
             errors.append(
                 f"generated evidence has multiple owners: {path}: {owners}")
 
+    return errors, sorted(coverage)
+
+
+def validate_repository(
+    root: Path,
+    manifest_path: Path = DEFAULT_MANIFEST,
+) -> list[str]:
+    errors, _ = validate_inventory(root, manifest_path)
     return errors
 
 

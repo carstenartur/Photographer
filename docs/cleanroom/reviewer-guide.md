@@ -1,0 +1,104 @@
+# CR3 and CRX release provenance
+
+## Review boundary
+
+The examined source baseline is `1c1195a70ff1e1e7fd0f89e3ec16cd7f65624ed5`. The audit read the pinned source, GitHub pull-request records and committed results. It independently checked the listed TSV digests and result totals and inspected the seven existing Fiji preview JARs. The codec experiments were reviewed through their recorded results and reproduction instructions. The exact stable tag, run and release artifacts require separate verification. [Source baseline](https://github.com/carstenartur/Photographer/tree/1c1195a70ff1e1e7fd0f89e3ec16cd7f65624ed5)
+
+The evidence covers the measured 14-bit CRX V1 lossless and three-level C-RAW reader profiles, the four-profile lossless CR3 writer, and the CR3 libraries in the Fiji distribution. Several records are in the private repository. An outside reviewer needs authorized access to those records or a reviewed, digest-pinned export. Independent engineering, permission to redistribute individual objects, and patent review each require their own evidence. [Engineering policy](README.md) · [Release visibility and audit policy](../public-release.md)
+
+## Claim-to-evidence map
+
+| Claim | Registered sources and promotion | What the evidence covers |
+| --- | --- | --- |
+| Lossless CRX reads native sensor values in Java | RG4 uses SRC-001, 002, 007–013 as listed individually in the ledger. Issue #336 recorded the reader freezes and PR #338 promoted the implementation in `4255ae07e4cdbd7c35b2b2b4097bdde21a02c5de`. | The normal Java path matched **365,774,016 values** across 11 discovery and four public holdout lossless files. Two C-RAW scope controls returned unsupported at that snapshot and are excluded from the count. The measured profile uses 14-bit samples, four positional planes, one subband per plane and full-height horizontal tiles. [RG4 report](../cr3-results/2026-11-14-crx-native/README.md) · [Issue #336](https://github.com/carstenartur/Photographer/issues/336) · [PR #338](https://github.com/carstenartur/Photographer/pull/338) |
+| C-RAW reads reconstructed native values | RG5 cites SRC-002, 003, 007, 010, 011, 013 and 014. Issue #337 froze the two public holdouts. PR #339 promoted the decoder in `f99ef47c065b22e75ff64c77af10870877182e84`. | DNGLab references matched **104,677,712 values** on four public C-RAW files and **41,789,440** on two additional project captures. The separate lossless regression matched 365,774,016 values. The distinct total is **512,241,168 values across 21 files**. For C-RAW these are the native values reconstructed from lossy input. The measured profile is V1, four unrounded 14-bit planes, three wavelet levels and two equal-width horizontal tiles. [RG5 report](../cr3-results/2026-11-14-crx-wavelet/README.md) · [Issue #337](https://github.com/carstenartur/Photographer/issues/337) · [PR #339](https://github.com/carstenartur/Photographer/pull/339) |
+| The writer produces interoperable lossless CR3 for four measured modes | PR #365 cites SRC-004, 005, 007, 008, 012 and 013, the project reader and format work. The promotion commit is `895678404bc043b933a923bab7b3fbe62e6c8890`. | Four full synthetic mosaics are exercised through the public ImageIO writer and reader. The PR reports matching DNGLab native checksums on four camera mosaics re-encoded by the writer, covering **104,677,712 values**, plus preview and thumbnail extraction. It also reports DNGLab DNG conversion and LightCraft JPEG rendering on four synthetic outputs. Canon DPP, byte identity to the camera encoder, C-RAW writing and other camera modes remain unverified. [PR #365](https://github.com/carstenartur/Photographer/pull/365) · [Writer construction and validation](../cr3/format.md#lossless-writer-camera-profiles) |
+
+The writer takes the selected camera profile and a full Bayer raster. It produces the tracks, JPEGs and metadata from those inputs. Compatibility tests use camera captures as evidence. Production writes use no input template and record Photographer as software with nominal calibration. The writer generates fresh metadata and omits capture-specific date, lens, serial and location information. [ImageIO writer guide](../cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Writer source](../../canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3Writer.java) · [Metadata source](../../canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/encode/Cr3ProfileMetadata.java)
+
+The source register and ledger are the authoritative project inventories. Keep rejected and partial experiments in view. D11 extracted a narrow candidate from a public application, D12 did not pass the promotion gate, and D13 found the context mapping insufficient. RG2's proposed run change also failed on the fixed lossless panel. RG4 and RG5 cite these observations within their respective measured boundaries. [Source register](https://github.com/carstenartur/Photographer/blob/1c1195a70ff1e1e7fd0f89e3ec16cd7f65624ed5/docs/cleanroom/source-register.json) · [Experiment ledger](https://github.com/carstenartur/Photographer/blob/1c1195a70ff1e1e7fd0f89e3ec16cd7f65624ed5/docs/cleanroom/experiment-ledger.json)
+
+The format reference links each implemented area to the layout and observed behavior, including [lossless sample coding](../cr3/format.md#v1-lossless-sample-coding), [three-level C-RAW reconstruction](../cr3/format.md#v1-three-level-c-raw-reconstruction) and [freshly generated writer metadata](../cr3/format.md#generated-metadata). Start the implementation walk-through at the [decoder facade](../../canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java), the [CRX codec module](../../canon-cr3-codec/README.md) and the writer linked above.
+
+## Contributor record
+
+| Change | Record observed | Verification gap |
+| --- | --- | --- |
+| Lossless reader, #338 | The PR describes derivation from project camera bytes, registered Canon publications and pinned external program output. It denies use of third-party decoder source, decompilation or copied codec prose for the change. | The PR statement is shorter than the current attestation template. |
+| C-RAW reader, #339 | The PR contains a clean-room contribution statement, source IDs and a black-box declaration. It is credited to “ChatGPT for the Photographer repository” on 14 November 2026. | This is the contribution record. Independent human authentication of its statements was not verified. |
+| Lossless writer, #365 | The PR discloses that an earlier licensing lookup displayed a LibRaw CRX license header and neighboring declarations. It states that the displayed code supplied no implementation rules and identifies the project inputs used for derivation. | An independent reviewer needs to evaluate that disclosure and the source-to-rule mapping. The audited ledger has no writer-specific record tying a frozen comparator, executable run and output manifest to the promotion. The PR records tool hashes and per-profile results. |
+
+The contribution template asks for the affected semantic area, permitted sources, project evidence, prior exposure and an identified contributor. A historical author statement or automated validation does not establish what a contributor read outside the recorded work. Record any additional author or reviewer statement only from the person who made it, with its date, scope and the exact change reviewed. [Attestation template](contributor-attestation.md) · [Reviewer policy](README.md)
+
+## Reproduction and retention
+
+1. Resolve the stable tag to its commit and tree and record the workflow run URL and artifact SHA-256 digests. Use one checkout for the replay and keep generated reports outside the tracked evidence tree. If the tag differs from the source baseline, review changes in the codec, ImageIO, evidence and packaging paths.
+2. Run the checkout validators below. They check register and ledger structure, repository references and generated evidence coverage and locks. They do not execute the full codec comparison or authenticate the rights and contributor statements.
+3. Follow the RG4 and RG5 replay commands using JDK 25 and the manifest-pinned inputs and expected rasters. The procedures distinguish inputs supplied with the repository, CC0 downloads and the separately prepared first-party C-RAW comparison. Preserve any skipped or unavailable portion in the review record. [RG4 replay](../cr3-results/2026-11-14-crx-native/README.md#reproduction) · [RG5 replay](../cr3-results/2026-11-14-crx-wavelet/README.md#reproduction)
+4. Run the encoder and ImageIO writer tests. For independent writer interoperability, replay the four cases in #365 with the pinned DNGLab and LightCraft binaries and preserve the commands, binary digests, per-profile input and output digests, and native and preview results. The round trip alone exercises the project's own reader and writer together. [Writer tests](../../canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3ImageWriterTest.java) · [Independent comparison recorded in #365](https://github.com/carstenartur/Photographer/pull/365)
+5. Archive the reviewed, media-free evidence with a stable digest. Check that the exact referenced reports and TSVs are present. The builder at the examined baseline uses top-level result globs that miss dated nested RG4 and RG5 files. The maintained builder follows the registered evidence outputs. Its separate CI workflow has 30-day retention. A release packet needs a durable archive and a report inventory. [Bundle builder](../../scripts/build_cleanroom_evidence_bundle.py) · [Evidence retention](evidence-retention.md)
+
+```sh
+python3 scripts/validate_cleanroom_evidence.py .
+python3 scripts/manage_cr3_generated_evidence.py --root . verify
+mvn -B -ntp -pl canon-cr3-imageio -am \
+  -Dtest=CrxLosslessEncoderTest,CanonCr3ImageWriterTest \
+  -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+| Checked object at the source baseline | SHA-256 |
+| --- | --- |
+| [RG4 full-sensor TSV](../cr3-results/2026-11-14-crx-native/full-sensor.tsv) | `94ada9738a214d19f1f7752761efcd5888cefad90a6a1b65714649f205c8fd8f` |
+| [RG5 C-RAW public comparison TSV](../cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv) | `abfc070e9b885cee48dd40943e3466113a06b7ad186a673eabe2ab1821691513` |
+| [RG5 two first-party comparisons TSV](../cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv) | `277c98a17c076e4386f783fe501a56ab24b668ab3e54437875d94429f4fc327e` |
+| [RG5 regression TSV](../cr3-results/2026-11-14-crx-wavelet/full-sensor.tsv) | `0c16de6181258387035dabe99feb1e17fdf1e12c6180a083f3b46fbdb119e085` |
+| [Public C-RAW input and reference registry](../../scripts/research/public-crx/craw-sensors.tsv) | `c4dec60d35e2df53be4a0609e38bd625fa6497f4bf7bc30419e6f6940f7515d5` |
+| [Public lossless input and reference registry](../../scripts/research/public-crx/lossless-holdout.tsv) | `3ad59a5669f666ec6aca419c76f4ec806616bc956b0a2840e5e3171fccb386ba` |
+
+The RG4 and RG5 ledger digests identify the first and second committed TSVs above. Their run and commit fields are null and the entries describe local execution, the baseline and the retained reports. The promotion commits identify the reviewed code changes. They do not identify a CI run of the pinned scientific comparison. [Ledger fields](schema-notes.md) · [Generated evidence policy](generated-evidence.md)
+
+## Source and fixture distribution
+
+| Material | Recorded basis | Outstanding evidence |
+| --- | --- | --- |
+| Photographer source and documentation | The repository has an MIT license and a contributor licensing statement. | Confirm the notice in actual distributed copies and the scope of any third-party content. [LICENSE](../../LICENSE) · [Contribution terms](../../CONTRIBUTING.md) |
+| Eight public CR3 holdout and C-RAW inputs | The two input registries record raw.pixls.us file IDs, URLs, input SHA-256, expected PGM SHA-256 and CC0 1.0. | Preserve the per-file rights record. A checksum establishes which bytes were used. It cannot establish the licensor's authority or other parties' rights. [CC0 legal code](https://creativecommons.org/publicdomain/zero/1.0/legalcode) |
+| First-party CR3s, previews, TIFF and PNG sidecars | Camera capture and geometry records are in SRC-007/008. The reference manifest records 11 oracle pairs with tool, command and hashes. SRC-009 documents rawpy 0.27.0 / LibRaw 0.22.1. | Retain a per-object publication decision. Check rights in the underlying photographs and derivatives, original-resolution subject privacy, and embedded metadata. Tool and digest records establish derivation and integrity. [Reference manifest](../../canon-cr3-imageio/src/test/resources/samples/reference-manifest.json) · [Publication audit](../public-release.md) |
+| External oracle software and auxiliary calibration data | The research scripts pin the oracles as external executables. The ImageIO DNG calibration code separately identifies RawTherapee 5.12 DCP profile data. | Review any redistribution of the external binaries independently from use of their test results. The DCP objects and profile declarations are recorded below. [DNG calibration provenance comment](../../canon-cr3-imageio/src/main/java/com/photographer/focusstack/dng/imageio/Cr3DngMetadata.java#L91-L110) |
+| Canon documentation | SRC-006 is the CCAPI reference source for camera control. The register expressly excludes it as evidence of CRX semantics. | Keep restricted source documents and SDK material out of public releases and evidence exports. Review citations and rights before distributing any vendor material. [Source register](source-register.json) · [Publication audit](../public-release.md) |
+
+The November 15 metadata scan recorded **1,480 tracked files and 278 media files** at `0d94d6c579a019c69f6b9feb189c8fe7ab9f825c`. The separate local snapshot rehearsal used `8ca11a8dec162adbe806e7d83aa74e5f619813ba`, tree `6d348164b3a66875b0e196d9a14bdf4634f95b32`, with 1,513 tracked files and 282 media files. The historical audit also found original fixture blobs at 42 branch tips and two tags in the audited inventory. The v0.1.4 source tree contains 13 originals and v0.1.3 contains eight. Review the actual release tree and artifact bytes for a new release. Public binaries and disclosure of the existing private history require different evidence. [Audit scope and original-blob findings](../public-release.md#verified-scope-on-15-november-2026)
+
+### DNG calibration data
+
+The two matrices and illuminant identifiers in each embedded DNG calibration entry match the named RawTherapee 5.12 DCP object at upstream commit `a8a3d1bc7b419ed1c974c39276c97e618a4f9a1b`. The values below are the actual `ProfileCopyright` fields from the four objects. This is provenance for auxiliary data in ImageIO, separate from the CRX reader and writer derivation.
+
+| Camera profile | Upstream Git blob ID | Recorded declaration |
+| --- | --- | --- |
+| PowerShot G5 X Mark II | `d6a0b3b1e9cef98b30d7d176b3932328a8441672` | `public domain` · [DCP](https://github.com/RawTherapee/RawTherapee/blob/a8a3d1bc7b419ed1c974c39276c97e618a4f9a1b/rtdata/dcpprofiles/CANON%20POWERSHOT%20G5%20X%20MARK%20II.dcp) |
+| EOS R | `6ea5302e290637ef5fb806575782f07b7d344e80` | `public domain` · [DCP](https://github.com/RawTherapee/RawTherapee/blob/a8a3d1bc7b419ed1c974c39276c97e618a4f9a1b/rtdata/dcpprofiles/Canon%20EOS%20R.dcp) |
+| EOS RP | `8379d9703bde2c9c2e9864fbc1899a5aec88771f` | `RawTherapee CC0` · [DCP](https://github.com/RawTherapee/RawTherapee/blob/a8a3d1bc7b419ed1c974c39276c97e618a4f9a1b/rtdata/dcpprofiles/Canon%20EOS%20RP.dcp) |
+| EOS M50 | `38e0e78599874c3a68d3353e03465c13b6dbb512` | `public domain` · [DCP](https://github.com/RawTherapee/RawTherapee/blob/a8a3d1bc7b419ed1c974c39276c97e618a4f9a1b/rtdata/dcpprofiles/CANON%20EOS%20M50.dcp) |
+
+## Fiji distribution
+
+The update site installs one sensor-import plugin and six CR3 library JARs. Fiji provides ImageJ and SLF4J. The importer exposes a read menu. The libraries at the examined baseline also build the Canon lossless writer and its ImageIO SPI, so an audit of their distribution must include that writer. The Fiji menu smoke runs on Java 21 and compares a single lossless fixture against a manifest-bound reference. Full-panel C-RAW and writer evidence is recorded separately above. [Fiji packaging workflow](../../.github/workflows/cr3-fiji-distribution.yml) · [Seven-JAR selector](../../scripts/build_cr3_fiji_site.py) · [ImageIO service file](../../canon-cr3-imageio/src/main/resources/META-INF/services/javax.imageio.spi.ImageWriterSpi)
+
+The public preview at Pages commit `665698a1ec436f6c1aabb795eea773984554b4da` has a site-level `LICENSE.txt`. Its seven version `0.1.5-SNAPSHOT` JARs at timestamp `20261115044335` contained no license entry or MIT permission text. Archive entry inspection of those seven JARs found no CR3 fixtures, reference images, manuals or native libraries. Those observations describe the preview bytes only. At the examined source baseline, Maven's distribution profiles activate the license resource inclusion and the Fiji-only workflow profile does not. Recheck the final stable ZIPs and served JARs directly for complete notices and intended contents. [Pinned preview site](https://github.com/carstenartur/Photographer/tree/665698a1ec436f6c1aabb795eea773984554b4da/fiji/cr3) · [Parent Maven profile](../../pom.xml) · [Repository license](../../LICENSE)
+
+A release evidence packet records the stable commit and run, both Fiji ZIP hashes, JAR paths and hashes, Maven coordinates and license notice checks, update database digest and the anonymously served current version. Distinguish inherited preview history from the seven current JARs. Check actual package entries for fixtures, vendor files, third-party binaries and unexpected data before making an exclusion claim. [Fiji publication checks](../../scripts/publish_cr3_fiji_site.py) · [Fiji release guide](../cr3/fiji-update-site.md#release-publication)
+
+## Copyright and access conditions
+
+For a German or EU review, record how the contributors obtained each source, which uses its terms permit and how each implementation rule was derived. The distinction between program expression, functionality and file formats matters under German copyright law and the Court of Justice's decision in SAS Institute. The lawful-use conditions for observing or testing a program and the specific conditions for decompilation are separate questions. The engineering record documents the project's chosen inputs and the reported exposure. A reviewer should assess the actual access and licence terms for each input and any reuse of protected text, code or profile data. [§§ 69a, 69d, 69e and 69g UrhG](https://www.gesetze-im-internet.de/urhg/BJNR012730965.html) · [Directive 2009/24/EC](https://eur-lex.europa.eu/eli/dir/2009/24/oj) · [CJEU C-406/10, SAS Institute](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:62010CJ0406)
+
+## Patent review record
+
+| Registered application | Experiment | Grant documents for the review |
+| --- | --- | --- |
+| SRC-001 · US 2016/0323602 A1 | Candidate Golomb–Rice code length and parameter update in D11 and D12 | [US 9,942,569 B2](https://patentimages.storage.googleapis.com/00/ab/23/17c0570cfee93e/US9942569.pdf) · [JP 6512927 B2](https://patentimages.storage.googleapis.com/38/01/ea/d85d463d3239f4/JP6512927B2.pdf) |
+| SRC-010 · JP 2017-192077 A | Candidate low-frequency run decision in RG2 | [JP 6727010 B2](https://patentimages.storage.googleapis.com/7c/29/53/386f5f736a507d/JP6727010B2.pdf) |
+
+The grant documents identify claims to review. Current status, additional family members, jurisdiction-specific applicability and a claim map to the released decoder and encoder remain open. [Technical patent references](../cr3/format.md#patent-publications) · [European Patent Register](https://www.epo.org/en/searching-for-patents/legal/register) · [German Patent Act §§ 9 and 14](https://www.gesetze-im-internet.de/patg/) · [U.S. statutory text](https://www.govinfo.gov/content/pkg/USCODE-2024-title35/html/USCODE-2024-title35-partIII-chap28-sec271.htm)
+
+For each market under review, record the family and priority, the local application and grant identifiers, the status date and the applicable granted claims. Map those claims to the named reader and writer paths at the audited tag, and record the distribution and use scenarios considered. Keep the signed or dated finding separate from the engineering experiment report. [EPO patent families](https://worldwide.espacenet.com/patent/help/patent-family) · [DPMA register and research](https://www.dpma.de/patente/recherche/)

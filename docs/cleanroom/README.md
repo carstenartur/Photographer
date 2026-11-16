@@ -1,6 +1,6 @@
 # CR3 / CRX Clean-room Engineering Record
 
-This directory records how the project derives, tests and promotes CR3/CRX behavior without consulting third-party decoder source code.
+This directory records the sources, experiments and contribution statements behind the project’s CR3 and CRX implementation. Start with the [reviewer guide](reviewer-guide.md) to trace reader and writer claims to exact source, evidence and release artifacts.
 
 The record is intended to make the engineering process independently auditable when the repository becomes public. It is **not legal advice**, does not decide patent or copyright questions, and does not claim that documentation alone satisfies every jurisdiction's definition of clean-room reverse engineering.
 

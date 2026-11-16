@@ -17,15 +17,15 @@ This is the minimum evidence that survives ordinary repository cloning.
 
 ## Layer 2: deterministic clean-room bundle
 
-`scripts/build_cleanroom_evidence_bundle.py` creates a reproducible ZIP containing:
+`scripts/build_cleanroom_evidence_bundle.py` creates a reproducible ZIP with these records.
 
-- clean-room process and manifests;
-- CR3 current state, hypotheses and results index;
-- committed CR3 research reports;
-- reference inventory and reference manifest;
-- a generated `BUNDLE-MANIFEST.json` with SHA-256 for every included file.
+- Clean-room process, source register, experiment ledger and generated evidence inventory.
+- Repository license and maintained CR3 format reference, implementation status, hypotheses, research process and results index.
+- Markdown, JSON, CSV and TSV outputs registered in `generated-evidence.json`, including reports and tables in experiment subdirectories.
+- Reference inventory, reference manifest and public input and reference hash tables.
+- `BUNDLE-MANIFEST.json` with the size and SHA-256 of each included file.
 
-The bundle excludes CR3/JPEG/TIFF/PNG media, credentials and stable hardware identifiers. Two builds from the same checkout must have the same SHA-256.
+The builder uses tracked files when run in a Git checkout and excludes media formats. Review the included text for private content and stable hardware identifiers before sharing it. Two builds from the same checkout must have the same SHA-256.
 
 CI uploads the bundle for review. Before public release, generate it from the tagged commit and attach it to the release or another durable archive.
 
