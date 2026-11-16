@@ -282,6 +282,26 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     /**
+     * Decompresses the complete Bayer image and resolves the default color parameters for
+     * a caller that performs its own RGB development. Its crop matches the default RAW
+     * processed decode. The caller applies EXIF orientation after demosaicing.
+     *
+     * @param maxWorkers maximum number of decode workers, or zero for automatic selection
+     * @return owned Bayer samples and color parameters, usable after the decoder closes
+     * @throws Cr3Exception if the file cannot be decoded
+     * @throws IOException if an I/O error occurs
+     */
+    public Cr3PreparedRaw prepareRawDevelopment(int maxWorkers) throws Cr3Exception, IOException {
+        var options = Cr3DecodeOptions.rawProcessed().maxWorkers(maxWorkers);
+        RawTrack track = rawTrack();
+        var prepared = prepareRawDevelopment(track, options, processedArea(options, track), false, orientation());
+        double[][] matrix = prepared.colorMatrix();
+        return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), prepared.sensorX(), prepared.sensorY(),
+                prepared.whiteBalance().clone(), prepared.whiteLevel(),
+                new double[][] {matrix[0].clone(), matrix[1].clone(), matrix[2].clone()}, prepared.orientation());
+    }
+
+    /**
      * Develops a region in final, oriented image coordinates with the same colors as a full decode.
      * A null region selects the complete output. Partial reads retain the Bayer neighbors and
      * optical-black data needed to reproduce the full-frame development.
@@ -300,7 +320,32 @@ public final class Cr3Decoder implements AutoCloseable {
                 ? ExifOrientationTransformer.sourceRegion(outputRegion, fullArea.width, fullArea.height, orientation)
                 : new Rectangle(fullArea.width, fullArea.height);
         Rectangle area = partial ? withDemosaicNeighbors(region, fullArea) : fullArea;
+        var prepared = prepareRawDevelopment(track, options, area, partial, orientation);
 
+        // White balance and interpolation retain their crop-local Bayer phase.
+        if (prepared.whiteBalance() != null) {
+            WhiteBalanceProcessor.process(prepared.image(), prepared.whiteBalance(), prepared.blackLevel(),
+                    area.x, area.y, options.maxWorkers());
+        } else if (prepared.blackLevel() != null) {
+            BlackLevelProcessor.process(prepared.image(), prepared.blackLevel(), area.x, area.y);
+        }
+        BufferedImage rgb = BayerDemosaicer.demosaicInPlace(prepared.image(), prepared.whiteLevel(),
+                options.maxWorkers());
+        if (prepared.colorMatrix() != null) {
+            ColorMatrixProcessor.process(rgb, prepared.colorMatrix(), options.maxWorkers());
+        }
+        if (options.applySrgbConversion()) {
+            SrgbConverter.process(rgb, options.maxWorkers());
+        }
+        if (partial) {
+            rgb = rgb.getSubimage(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
+                    region.width, region.height);
+        }
+        return ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
+    }
+
+    private Cr3PreparedRaw prepareRawDevelopment(RawTrack track, Cr3DecodeOptions options, Rectangle area,
+                                                  boolean partial, int orientation) throws Cr3Exception, IOException {
         CrxSensorDecoder sensor = prepareSensor(track);
         int[] samples = new int[Math.multiplyExact(area.width, area.height)];
         var rawImage = new Cr3RawImage(area.width, area.height, samples, track.depth,
@@ -334,30 +379,10 @@ public final class Cr3Decoder implements AutoCloseable {
             minBlackLevelSubtracted = effectiveMinBlackLevel(black);
         }
 
-        // White balance and interpolation retain their crop-local Bayer phase.
-        if (options.applyWhiteBalance()) {
-            WhiteBalanceProcessor.process(rawImage, resolveWhiteBalance(), black, area.x, area.y,
-                    options.maxWorkers());
-        } else if (black != null) {
-            BlackLevelProcessor.process(rawImage, black, area.x, area.y);
-        }
         int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
-        BufferedImage rgb = BayerDemosaicer.demosaicInPlace(rawImage, whiteLevel, options.maxWorkers());
-
-        if (options.applyColorMatrix()) {
-            double[][] colorMatrix = resolveColorMatrix();
-            ColorMatrixProcessor.process(rgb, colorMatrix, options.maxWorkers());
-        }
-
-        if (options.applySrgbConversion()) {
-            SrgbConverter.process(rgb, options.maxWorkers());
-        }
-
-        if (partial) {
-            rgb = rgb.getSubimage(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
-                    region.width, region.height);
-        }
-        return ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
+        double[] whiteBalance = options.applyWhiteBalance() ? resolveWhiteBalance() : null;
+        double[][] colorMatrix = options.applyColorMatrix() ? resolveColorMatrix() : null;
+        return new Cr3PreparedRaw(rawImage, black, area.x, area.y, whiteBalance, whiteLevel, colorMatrix, orientation);
     }
 
     private Rectangle processedArea(Cr3DecodeOptions options, RawTrack track) {

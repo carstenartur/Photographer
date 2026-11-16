@@ -1,6 +1,11 @@
 package com.photographer.focusstack.cr3.decode;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
+import com.photographer.focusstack.cr3.processing.ColorMatrixProcessor;
+import com.photographer.focusstack.cr3.processing.ExifOrientationTransformer;
+import com.photographer.focusstack.cr3.processing.SrgbConverter;
+import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
 import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -17,6 +22,28 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class Cr3DecoderTest {
+
+    @Test
+    void preparedRawReproducesDefaultColorDevelopment() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            decoder.getMetadata().setOrientation(6);
+            var prepared = decoder.prepareRawDevelopment(1);
+            assertEquals(6, prepared.orientation());
+            assertArrayEquals(new int[] {8192, 8193, 8191, 8194}, prepared.image().data());
+
+            WhiteBalanceProcessor.process(prepared.image(), prepared.whiteBalance(), prepared.blackLevel(),
+                    prepared.sensorX(), prepared.sensorY(), 1);
+            var rgb = BayerDemosaicer.demosaicInPlace(prepared.image(), prepared.whiteLevel(), 1);
+            ColorMatrixProcessor.process(rgb, prepared.colorMatrix(), 1);
+            SrgbConverter.process(rgb, 1);
+            rgb = ExifOrientationTransformer.applyToOwnedImage(rgb, prepared.orientation());
+            var expected = decoder.decode(Cr3DecodeOptions.rawProcessed().maxWorkers(1));
+            assertArrayEquals(expected.getRGB(0, 0, 2, 2, null, 0, 2), rgb.getRGB(0, 0, 2, 2, null, 0, 2));
+        }
+    }
 
     @Nested
     class InputValidation {

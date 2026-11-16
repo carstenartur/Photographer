@@ -2,6 +2,24 @@
 
 CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
+## Full RAW focus stacks
+
+The Photographer benchmark measures a stack from opening the originals through writing the PNG. The CPU series in the history develops three copies of the repository's EOS R fixture. To measure a captured stack, pass a directory of CR3 originals whose filenames sort in acquisition order.
+
+```bash
+mvn -pl app -am -Pfocus-stack-benchmark -DskipTests test
+```
+
+To compare the CPU and TornadoVM paths on the same machine and series, use JDK 25 and an OpenCL GPU with double-precision support.
+
+```bash
+mvn -pl app -am -Pfocus-stack-benchmark,focus-stack-gpu -DskipTests \
+  -Dfocus.stack.series=/absolute/path/to/cr3-series \
+  test
+```
+
+Results are saved in `app/target/focus-stack-jmh.json`. The optional `focus.stack.device` property selects a TornadoVM backend and device by index, for example `0:1`. Tune the fork heap with `focus.stack.heap` and the shared decode budget in bytes with `focus.stack.maxBytes`. The GPU keeps the developed frame, focus scores and winning pixels in device memory. Its native buffers need about 18 bytes per pixel on the host and device, plus the Java decode and PNG buffers on the host. CPU prefetch overlaps GPU work when the decode budget allows a second frame. During benchmark setup the GPU run verifies every pixel of the resulting stack against the CPU result.
+
 ## Local two-ref comparison
 
 The same orchestration used by the pull-request workflow is available from any full Git checkout:

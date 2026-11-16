@@ -19,6 +19,10 @@ PATH_INPUT_LABEL = "RAW pipeline · Decode display-ready sRGB (path input)"
 LEGACY_MMAP_LABEL = "RAW pipeline · Decode display-ready sRGB (memory-mapped input)"
 
 BENCHMARK_LABELS = {
+    "com.photographer.focusstack.analysis.service.RawFocusStackBenchmark.mergeCpu":
+        "Focus stack · Develop CR3 files and merge to PNG (CPU)",
+    "com.photographer.focusstack.analysis.service.GpuRawFocusStackBenchmark.mergeGpu":
+        "Focus stack · Develop CR3 files and merge to PNG (TornadoVM GPU)",
     "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse":
         "Container · Parse ISO-BMFF boxes",
     "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata":
