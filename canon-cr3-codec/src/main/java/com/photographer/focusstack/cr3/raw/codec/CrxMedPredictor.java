@@ -34,12 +34,9 @@ final class CrxMedPredictor {
     }
 
     static int med(int left, int above, int aboveLeft) {
-        if (aboveLeft >= Math.max(left, above)) {
-            return Math.min(left, above);
-        }
-        if (aboveLeft <= Math.min(left, above)) {
-            return Math.max(left, above);
-        }
-        return left + above - aboveLeft;
+        int lo = Math.min(left, above);
+        int hi = Math.max(left, above);
+        // Subtracting the clamped upper-left sample keeps the prediction in [lo, hi].
+        return left + above - Math.min(hi, Math.max(lo, aboveLeft));
     }
 }
