@@ -46,6 +46,18 @@ class CrxNativeLosslessPlaneTest {
     }
 
     @Test
+    void predictsFromAboveWhenRunStopsBeforeTheLastColumn() throws IOException {
+        byte[] bytes = HexFormat.of().parseHex("0000000000203f378113b3120a");
+        int[][] rows = new int[3][];
+        CrxNativeLosslessPlane.decodeSensor(bytes, 0, bytes.length, 4, 3, 0, 0,
+                (x, y, row) -> rows[y / 2] = row.clone());
+        assertThat(rows[0]).containsExactly(100, 100, 104, 108);
+        // The run copies three 100s. Its last-column residual is relative to 108 above it.
+        assertThat(rows[1]).containsExactly(100, 100, 100, 109);
+        assertThat(rows[2]).containsExactly(101, 103, 104, 100);
+    }
+
+    @Test
     void readsOpeningLiteralAndRejectsTruncationInsideTheSelectedSlice() throws IOException {
         byte[] bytes = HexFormat.of().parseHex("0000000000202f35000000000040020a");
         int[] pixels = new int[3];

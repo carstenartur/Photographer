@@ -86,33 +86,47 @@ final class CrxNativeLosslessPlane {
 
     private void readRow(int[] previousRow, int[] output, int width) throws IOException {
         int x = 0;
-        while (x < width) {
-            int above = previousRow[x];
-            int left = x == 0 ? above : output[x - 1];
-            int aboveLeft = x == 0 ? above : previousRow[x - 1];
-            int aboveRight = x + 1 == width ? above : previousRow[x + 1];
-            int prediction = CrxMedPredictor.med(left, above, aboveLeft);
-
-            if (x + 1 < width && left == above && left == aboveRight && bits.readBit() == 1) {
+        int last = width - 1;
+        // Carry the last output and the previous-row neighbours across the interior loop.
+        int above = previousRow[0];
+        int left = above;
+        int aboveLeft = above;
+        while (x < last) {
+            int aboveRight = previousRow[x + 1];
+            int prediction;
+            if (left == above && above == aboveRight && bits.readBit() == 1) {
                 int end = x + state.readRunLength(width - x);
                 while (x < end) {
-                    output[x] = left;
-                    x++;
+                    output[x++] = left;
                 }
-                if (x == width) {
+                if (x >= last) {
+                    if (x == last) {
+                        readLastSample(output, x, previousRow[x]);
+                    }
                     return;
                 }
                 above = previousRow[x];
-                aboveRight = x + 1 == width ? above : previousRow[x + 1];
+                aboveRight = previousRow[x + 1];
                 prediction = above;
+            } else {
+                prediction = CrxMedPredictor.med(left, above, aboveLeft);
             }
 
             int unsigned = state.readPredictionResidual();
-            output[x] = reconstruct(prediction, unsigned);
-            int adaptationValue = x + 1 == width ? unsigned : (unsigned >>> 1) + Math.abs(aboveRight - above);
-            state.updateK(adaptationValue);
-            x++;
+            left = reconstruct(prediction, unsigned);
+            output[x++] = left;
+            state.updateK((unsigned >>> 1) + Math.abs(aboveRight - above));
+            aboveLeft = above;
+            above = aboveRight;
         }
+        readLastSample(output, last, CrxMedPredictor.med(left, above, aboveLeft));
+    }
+
+    private void readLastSample(int[] output, int x, int prediction) throws IOException {
+        int unsigned = state.readPredictionResidual();
+        output[x] = reconstruct(prediction, unsigned);
+        // Without a right neighbour, adaptation uses the whole residual symbol.
+        state.updateK(unsigned);
     }
 
     private int reconstruct(int prediction, int unsigned) throws IOException {
