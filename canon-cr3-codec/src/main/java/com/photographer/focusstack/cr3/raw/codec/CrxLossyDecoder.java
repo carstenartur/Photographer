@@ -108,6 +108,7 @@ public final class CrxLossyDecoder {
         boolean left = tile > 0, right = tile == 0;
         var shapes = CrxWaveletTile.shapes(cols, rows, left, right);
         var bands = new CrxWaveletTile.Band[shapes.length];
+        boolean boundedCoefficients = true;
         for (int b = 0; b < shapes.length; b++) {
             var band = plane.subbands().get(b);
             int start = Math.toIntExact(band.dataOffset());
@@ -118,13 +119,16 @@ public final class CrxLossyDecoder {
             if (b == 0) {
                 bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
             } else {
+                boundedCoefficients &= factor <= CrxWaveletTile.MAX_BOUNDED_DETAIL_FACTOR;
                 bands[b] = CrxWaveletDetail.band(bits, bw, bh, factor);
             }
         }
         int x = tile * (2 * cols) + (plane.index() & 1);
         int y = plane.index() / 2;
         try {
-            var planeRows = CrxWaveletTile.synthesize(bands, cols, rows, left, right);
+            var planeRows = boundedCoefficients
+                    ? CrxWaveletTile.synthesizeNative(bands, cols, rows, left, right)
+                    : CrxWaveletTile.synthesize(bands, cols, rows, left, right);
             int[] row = new int[cols];
             for (int rowIndex = 0; rowIndex < rowsToRead; rowIndex++) {
                 planeRows.rows().read(row);
