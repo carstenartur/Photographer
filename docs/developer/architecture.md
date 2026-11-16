@@ -106,7 +106,7 @@ Canon CCAPI production code is contained in the camera backend and transport pac
 - [live-view modes and lifecycle](../ccapi-live-view.md);
 - [Digest authentication and credential handling](../ccapi-authentication.md).
 
-The camera-advertised endpoint catalogue is authoritative for endpoint path, API version and HTTP-method availability. Code must not construct an endpoint merely because another camera model exposes it. Canon specifies that supported paths and methods vary by model and firmware, so the production catalogue preserves exact advertised metadata. The private Canon reference manuals are not redistributed in the repository.
+The camera-advertised endpoint catalogue records paths, API versions and HTTP methods. Supported operations vary by model and firmware. The [CCAPI compatibility policy](../ccapi-capabilities.md#legacy-endpoint-compatibility) describes the fixed v1.0 paths for inherited operations and the remaining suffix-based lookups. The private Canon reference manuals are not redistributed in the repository.
 
 Only one logical workflow may own a physical CCAPI camera at a time. Session leases are independent from HTTP connection reuse, Digest state and backend caching.
 

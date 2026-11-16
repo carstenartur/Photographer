@@ -47,6 +47,9 @@ bash scripts/verify-cr3-research.sh --full
 | [CR3 Packaged Consumer](../../.github/workflows/cr3-modules.yml) | Packaged CR3 artifacts, installed-POM dependencies, isolated Java 21 consumer and Maven Central preflight on relevant changes | Same checks on relevant pushes to main or manual runs. |
 | [CR3 Benchmark History](../../.github/workflows/cr3-benchmark.yml) | Base/head JMH sentinel comparison on the same runner for relevant changes | Full JMH history on relevant pushes to main, weekly schedule and ordinary manual runs. |
 | [CR3 Research Integration](../../.github/workflows/cr3-research.yml) | Focused evidence profile for changes to the CR3 implementation, fixtures and evidence inputs | Full reference-backed profile on scheduled and manual runs. |
+| [CR3 Clean-room Evidence](../../.github/workflows/cleanroom-evidence.yml) | Validates the source register and retained reports, then builds a deterministic evidence archive on relevant changes | Same checks on relevant pushes to main or manual runs. |
+| [CR3 Fiji distribution](../../.github/workflows/cr3-fiji-distribution.yml) | Tests the importer and installation archives when the Fiji module or distribution inputs change | A live release attaches the verified ZIPs and updates the hosted site. Manual dispatch can verify a build or republish the archive of an existing stable tag. |
+| [Release Workflow](../../.github/workflows/deploy-release.yml) | The staged version PR goes through normal CI | Manual preparation on main stages the version change. Explicit resume on the merged stable commit builds and publishes the selected channels. |
 
 The CI path check skips Maven, frontend and Docker jobs for Markdown-only changes under `docs/` and to the root `README.md`. The CR3 reference manifest is a build input. The other workflows apply their own path filters.
 
@@ -83,7 +86,7 @@ test failure:
 - no job log blob exists;
 - unrelated Java, frontend and Python jobs fail identically.
 
-For a private repository, first inspect the repository owner's GitHub billing page:
+Use the workflow error annotations and GitHub status to diagnose failures before runner assignment. If the annotations indicate billing or quota, check the owner's Actions usage and budgets.
 
 1. Open **Settings** for the owner account.
 2. Open **Billing and licensing**.
@@ -93,9 +96,7 @@ For a private repository, first inspect the repository owner's GitHub billing pa
 5. Alternatively, attach a trusted self-hosted runner or wait for the billing-cycle
    allowance reset.
 
-Repository commits cannot re-enable hosted-runner usage after the account allowance
-or budget has blocked it. Re-running the same workflow before resolving the account
-setting only creates another immediately failed attempt.
+Resume the affected jobs after the reported runner-allocation problem is resolved.
 
 ## Change policy
 

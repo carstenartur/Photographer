@@ -33,7 +33,7 @@ Parser helpers and offset/layout interpretation are internal. Consumers should d
 - bit readers and Rice-Golomb primitives;
 - entropy/predictor state;
 - tile, plane and subband reconstruction;
-- inverse wavelet scaffolding;
+- inverse quantization and integer 5/3 wavelet reconstruction for the measured three-level C-RAW layout;
 - the `Cr3RawImage` linear Bayer transfer model.
 
 The public decoder selects the native entropy and wavelet paths using the compression parameters in the sensor track.

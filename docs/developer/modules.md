@@ -114,7 +114,7 @@ The six supported CR3 library artifacts use `io.github.carstenartur` coordinates
 - `cr3-core`;
 - `cr3-imageio`.
 
-The repository contains a credential-free Central bundle preflight, but documentation must not claim Maven Central availability until an immutable version is visibly published and resolves from an empty external repository.
+The [Maven release guide](../cr3-maven-central.md) covers the default private Git-backed repository and the optional Maven Central channel. Verify the exact version in the selected channel with an empty Maven cache.
 
 ## Camera modules and adapters
 
@@ -128,7 +128,7 @@ Real-camera behavior is limited to models and operations covered by hardware-bac
 
 The production CCAPI implementation currently remains in `app`. It owns discovery/catalog parsing, Digest authentication, retries, typed errors, media/event operations, native focus-bracketing support, session ownership and live-view lifecycle.
 
-The exact camera-advertised endpoint catalogue is the source for path and HTTP-method selection.
+The camera-advertised catalogue supplies endpoint paths and HTTP method flags. The [CCAPI compatibility policy](../ccapi-capabilities.md#legacy-endpoint-compatibility) describes fixed v1.0 paths and remaining legacy suffix lookups.
 
 ### Generic adapters
 

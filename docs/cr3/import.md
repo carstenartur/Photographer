@@ -4,17 +4,22 @@ Use `cr3-core` to open a local CR3 file, inspect camera metadata, or choose exac
 
 ## Maven
 
-Use JDK 21 or newer for the consuming application. For the 0.1.5 release, add this dependency inside the consumer POM's `<dependencies>` element. Maven resolves the container, metadata, codec and processing modules transitively. A consumer that already declares `cr3-imageio` also receives `cr3-core` transitively.
+Use JDK 21 or newer for the consuming application. Add this dependency inside the consumer POM's `<dependencies>` element. Replace `REPLACE_WITH_CR3_VERSION` with the version you installed from source or verified in your release repository. Maven resolves the container, metadata, codec and processing modules transitively. A consumer that already declares `cr3-imageio` also receives `cr3-core` transitively.
 
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-core</artifactId>
-  <version>0.1.5</version>
+  <version>REPLACE_WITH_CR3_VERSION</version>
 </dependency>
 ```
 
-Configure the [Git-backed release repository](../cr3-maven-central.md#resolve-a-released-version) for a regular release. A version also published to Maven Central uses Maven's default configuration. For a development version, build from a source checkout with JDK 25 and Maven 3.9+ using `mvn -pl canon-cr3-core -am install`. Use that checkout's version in the consumer POM, for example `0.1.5-SNAPSHOT` for its development build.
+For published artifacts, follow the [Maven release guide](../cr3-maven-central.md#resolve-a-released-version). From a source checkout, use JDK 25 and Maven 3.9+ to install the library and print the revision for the consumer POM:
+
+```sh
+mvn -B -pl canon-cr3-core -am install
+mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
+```
 
 ## Import from a file
 

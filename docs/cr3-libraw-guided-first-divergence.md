@@ -1,5 +1,7 @@
 # LibRaw-guided first-reference-divergence analysis
 
+This records the RG1 research decoder comparison from July 2026. Later RG4 and RG5 runs measured complete native reconstruction on the supported lossless and C-RAW layouts. [RG1 outcome](cr3-results/2026-07-23-RG1-libraw-guided-first-divergence.md) · [Current CR3 support](cr3/current-state.md)
+
 This diagnostic connects two existing clean-room research assets:
 
 1. the unchanged test-scope lossless CRX decoder trace, which exposes payload bit positions, Rice state, residuals, predictor values and reconstructed samples; and

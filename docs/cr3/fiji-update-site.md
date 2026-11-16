@@ -13,11 +13,56 @@ The [published version](https://carstenartur.github.io/Photographer/fiji/cr3/ver
 
 ## Open a sensor image
 
-Choose **File › Import › CR3 Sensor Data...** and select a CR3. To reproduce the example, open the repository fixture [sample-tele.cr3](../../canon-cr3-imageio/src/test/resources/samples/sample-tele.cr3). The importer opens one grayscale plane in sensor coordinates. In this PowerShot G5 X Mark II capture, the RGGB mosaic contains 14-bit sensor codes. ImageJ stores them in an unsigned 16-bit image measuring 5,632 × 3,710 pixels.
+Choose **File › Import › CR3 Sensor Data...** and select a CR3. To reproduce the example, open the repository fixture [sample-tele.cr3](../../canon-cr3-imageio/src/test/resources/samples/sample-tele.cr3). The importer opens the original Bayer mosaic in sensor coordinates and Fiji displays that plane in grayscale. In this PowerShot G5 X Mark II capture, the RGGB mosaic contains 14-bit sensor codes. ImageJ stores them in an unsigned 16-bit image measuring 5,632 × 3,710 pixels.
 
 ![ImageJ displaying the imported sample-tele.cr3 sensor plane at 16.7% zoom. The image window reports 5632 × 3710 pixels and 16-bit depth.](../screenshots/cr3-sensor-imagej.webp)
 
 The screenshot uses **Image › Adjust › Brightness/Contrast... › Set** with a display minimum of **2048** and maximum of **6473**. Use **Reset** to restore the display range. Adjusting these limits preserves the pixel values for measurement. Leave **Apply** unused to preserve those values. Other exposures can need different display limits.
+
+## Open a color image
+
+Choose the output that fits your work.
+
+| Output | Source and display |
+| --- | --- |
+| **CR3 Sensor Data...** | One value per Bayer site, displayed in grayscale. Use this view to measure the original sensor codes. |
+| Embedded color JPEG | The camera's rendered preview, when present. It opens without decoding the RAW sensor stream. |
+| RGB developed from RAW | The Java reader demosaics a [supported RAW or C-RAW layout](decoder.md) into sRGB. Its default rendering uses 8 bits per channel, the active sensor area and the recorded orientation. Color reproduction and camera support remain experimental. |
+
+Open Fiji's [Script Editor](https://imagej.net/scripting/), select **Groovy** and run the script below after installing the update site. Choose a CR3 file. With **Develop RAW to RGB** cleared, Fiji opens the camera JPEG. Select it to render from the RAW data using the installed decoder.
+
+```groovy
+#@ File(label="Canon CR3 file", style="file") cr3
+#@ Boolean(label="Develop RAW to RGB", value=false) developRaw
+#@output ImagePlus image
+
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions
+import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReaderSpi
+import ij.ImagePlus
+import ij.process.ColorProcessor
+
+import javax.imageio.ImageIO
+
+def reader = new CanonCr3ImageReaderSpi().createReaderInstance()
+try {
+    def stream = ImageIO.createImageInputStream(cr3)
+    if (stream == null) {
+        throw new IOException("Could not open " + cr3)
+    }
+    stream.withCloseable { input ->
+        reader.setInput(input)
+        def param = reader.getDefaultReadParam()
+        param.setDecodeOptions(developRaw ? Cr3DecodeOptions.rawProcessed() : Cr3DecodeOptions.defaults())
+        def pixels = reader.read(0, param)
+        def label = developRaw ? "developed RGB" : "camera JPEG"
+        image = new ImagePlus(cr3.name + " — " + label, new ColorProcessor(pixels))
+    }
+} finally {
+    reader.dispose()
+}
+```
+
+For byte-preserving JPEG extraction in Java, use the [embedded-preview extractor](import.md#copy-the-cameras-embedded-jpeg-unchanged). The [ImageIO guide](imageio.md#read-parameters) describes the development controls.
 
 ## Install from the ZIP
 
