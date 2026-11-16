@@ -25,18 +25,16 @@ application feature is not available on every camera. The response therefore kee
 | `ADVERTISED_NOT_IMPLEMENTED` | The camera advertises the operation, but the application intentionally does not implement it yet. |
 | `METHOD_METADATA_UNKNOWN` | A legacy endpoint list advertises the path without method flags. The application does not claim full availability from the path alone. |
 
-The implementation does not infer capabilities from camera model names or generic
-substrings. It uses the normalized, all-version CCAPI endpoint catalog and exact
-operation suffixes. When several versions advertise the same operation, the highest
-matching version is selected.
+The normalized CCAPI catalog retains the advertised versions, operation paths
+and HTTP methods for capability selection.
 
 ## Legacy endpoint compatibility
 
-Live view matches the complete operation path under the advertised CCAPI version and selects the highest compatible endpoint. Native focus-bracketing settings also require a complete operation path with explicit methods. Inherited capture, status, media and event lookups still include suffix matching. [Issue #143](https://github.com/carstenartur/Photographer/issues/143) tracks hardening these selectors and aligning their diagnostic status. Legacy catalogs may omit method flags. The operations that accept these catalogs report unknown methods in the capability snapshot.
+Live view matches the complete operation path under the advertised CCAPI version and selects the highest compatible endpoint. Native focus-bracketing settings also require a complete operation path with explicit methods. Some media, event and capability-diagnostic selectors still use suffix matching. [Issue #143](https://github.com/carstenartur/Photographer/issues/143) tracks hardening these selectors and aligning their diagnostic status. Legacy catalogs may omit method flags. The operations that accept these catalogs report unknown methods in the capability snapshot.
 
 A few inherited operations, such as basic device information and the regular shutter command, retain a fixed CCAPI v1.0 compatibility path when the selector finds no matching endpoint. A matching advertisement with known incompatible methods blocks that fallback.
 
-Removing the fixed compatibility paths could regress control on older cameras or shooting modes with incomplete catalogs. Retain these paths while [issue #183](https://github.com/carstenartur/Photographer/issues/183) collects representative model, firmware and mode snapshots. The snapshots and a physical check of affected operations are the basis for narrowing the compatibility policy.
+Removing the fixed compatibility paths could regress control on older cameras or shooting modes with incomplete catalogs. Representative model, firmware and mode snapshots are tracked in the [manual checklist](manual-todo.md#ccapi-hardware-evidence). The snapshots and a physical check of affected operations are the basis for narrowing the compatibility policy.
 
 ## Redaction contract
 
@@ -126,4 +124,4 @@ The test creates `app/target/ccapi-capabilities.json`. Set `CCAPI_EVIDENCE_OUTPU
 
 The JSON records the advertised product model and firmware, connection mode, exact recognized versioned operation paths, advertised/required methods, capability classifications and available native bracketing ranges. Unknown or private paths contribute only to `omittedEndpoints`. The export skips lens names, media names and raw response bodies. Inspect the model and firmware before publishing and record the shooting mode and source commit alongside the file. An unknown firmware value cannot establish firmware-specific support. Keep successive files so a later camera mode or firmware can be compared against the original.
 
-The G5 X Mark II CCAPI capture, focus and manual-stacking tests and the G5 X Mark II / EOS R USB captures are the historical baseline. They establish different facts from a fresh capability snapshot. See the [hardware tests](../app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/) and [camera coverage](camera-setup.md). Physical snapshots and native-sequence validation are tracked in [#183](https://github.com/carstenartur/Photographer/issues/183) and [#144](https://github.com/carstenartur/Photographer/issues/144).
+The G5 X Mark II CCAPI capture, focus and manual-stacking tests and the G5 X Mark II / EOS R USB captures are the historical baseline. They establish different facts from a fresh capability snapshot. See the [hardware tests](../app/src/test/java/com/photographer/focusstack/camera/integration/realcamera/) and [camera coverage](camera-setup.md). See the [manual checklist](manual-todo.md#ccapi-hardware-evidence) for physical snapshots and [native-sequence validation](manual-todo.md#native-focus-bracketing-on-hardware).

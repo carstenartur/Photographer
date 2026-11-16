@@ -81,6 +81,6 @@ Multipart needs a boundary-framed camera sample and an observed DELETE cancellat
 
 Synthetic catalogs and transport tests cover exact method selection, version preference, flip priority, scroll fallback, arbitrary read fragmentation, bounded frame size, timeout, one matching DELETE, lifecycle idempotence, stable bodies and typed 503 behavior.
 
-[Issue #183](https://github.com/carstenartur/Photographer/issues/183) tracks redacted model/firmware catalogs and physical validation of the selected transport. Canon's specification defines the protocol contract, while actual model/firmware snapshots determine whether a camera advertises the required endpoints and methods.
+The [manual checklist](manual-todo.md#ccapi-hardware-evidence) tracks redacted model/firmware catalogs and physical validation of the selected transport. Canon's specification defines the protocol contract, while actual model/firmware snapshots determine whether a camera advertises the required endpoints and methods.
 
 For a new camera or firmware, record the model, firmware, API version group, advertised path and method flags from its redacted catalog. Confirm that a frame can be retrieved and that stopping the selected mode releases the camera before capture. Multipart requires a boundary-framed sample and a verified cancellation exchange. RTP requires a redacted session description and verified start and stop behavior. Until then, a catalog entry identifies an advertised transport; it supplies no evidence of a successful stream.

@@ -9,8 +9,10 @@ Every stacking request now selects one explicit `captureStrategy`:
 | Value | Behaviour |
 | --- | --- |
 | `MANUAL` | Uses the existing application-controlled capture/analyse/focus loop. This remains the backward-compatible default. |
-| `NATIVE` | Requires complete native settings, an exact shutter POST endpoint and media/event transport. Missing capability is a terminal job error; there is no silent fallback. |
-| `AUTO` | Prefers native execution when the connected camera advertises a complete executable contract, otherwise selects the manual loop and records the fallback reason. |
+| `NATIVE` | Requests native execution and reports a terminal error when the settings or transport fail. |
+| `AUTO` | Selects native execution when the backend exposes native execution and media support and validates the requested settings. It records a fallback reason when those checks select the manual loop. |
+
+[Issue #144](https://github.com/carstenartur/Photographer/issues/144) tracks validating the advertised shutter, media and event operations before applying native camera settings.
 
 Example request parameters:
 
@@ -137,4 +139,4 @@ Existing clients that use the former six-field `StackingParameters` constructor 
 
 ## Validation boundary
 
-Synthetic tests cover grouped media discovery, one trigger, partial timeout, cancellation before trigger, restoration failure, exact compatible shutter selection, range ingestion, strategy persistence and `AUTO` fallback. Real-camera verification remains optional and must not leave camera settings changed or persist credentials/network details.
+Synthetic tests cover grouped media discovery, one trigger, partial timeout, cancellation before trigger, restoration failure, exact compatible shutter selection, range ingestion, strategy persistence and `AUTO` fallback. The [manual checklist](manual-todo.md#native-focus-bracketing-on-hardware) records the physical checks, settings restoration and redaction requirements.

@@ -1,46 +1,28 @@
 # Roadmap and Open Work
 
-For current status and acceptance criteria, see the [open GitHub issues](https://github.com/carstenartur/Photographer/issues?q=is%3Aissue%20is%3Aopen).
+For current software status and acceptance criteria, see the [open GitHub issues](https://github.com/carstenartur/Photographer/issues?q=is%3Aissue%20is%3Aopen). Camera measurements, capture acquisition and publication decisions are tracked in the [manual follow-up checklist](docs/manual-todo.md).
 
 This file is retained as a stable pointer for old links. Git history preserves the former TODO list, including completed refactoring notes and superseded CRX hypotheses.
 
 ## Active areas
 
-### Camera and CCAPI evidence
+### Camera and CCAPI
 
-- [#143 — remaining CCAPI production endpoint matching](https://github.com/carstenartur/Photographer/issues/143)
-- [#144 — native Canon focus-bracketing hardware validation](https://github.com/carstenartur/Photographer/issues/144)
-- [#183 — redacted model/firmware capability snapshots](https://github.com/carstenartur/Photographer/issues/183)
-
-The capability collector exports redacted catalogs for physical camera modes and firmware versions. Live view selects advertised Flip or Scroll operations. The [live-view guide](docs/ccapi-live-view.md) records the evidence required to add Multipart or RTP. #183 tracks catalog and transport validation. #144 tracks hardware validation of native bracketing and the manual fallback.
+- [#143](https://github.com/carstenartur/Photographer/issues/143) tracks exact media and event endpoint selection and matching capability diagnostics.
+- [#144](https://github.com/carstenartur/Photographer/issues/144) tracks checking the required shutter, media and event transport before native focus bracketing changes camera settings.
 
 ### CR3 / CRX
 
-- [#249 — controlled spatial-code camera/JPEG/CR3 corpus](https://github.com/carstenartur/Photographer/issues/249)
-
-The D14 capture harness and two printable PDFs are available. Each PDF contains the same 48 patterns. The next experiment requires controlled, repeated CR3/JPEG captures from a physical camera.
-
 The [current decoder status](docs/cr3/current-state.md) links the measured lossless and C-RAW results. The [Maven release guide](docs/cr3-maven-central.md) describes distribution and independent consumer verification.
+
+The [D14 capture checklist](docs/manual-todo.md#d14-capture-series) records the inputs needed to run the controlled spatial-code experiment.
 
 ### Capture integrations
 
-- [#314 — paired capture sessions for Fresnel](https://github.com/carstenartur/Photographer/issues/314)
+- [#314](https://github.com/carstenartur/Photographer/issues/314) tracks paired capture sessions for Fresnel.
 
 Fresnel supplies a capture-provider interface and a mock provider. Pairing and durable capture-session recovery depend on the [shared capture protocol](https://github.com/carstenartur/Fresnel/issues/139).
 
-## Other proposals
-
-Additional camera brands, multi-user/RBAC support and a dedicated hardware CI runner are product or operational decisions, not implied commitments. They should receive their own scoped issue only after intended users, hardware, compatibility policy, security model and maintenance cost are defined.
-
 ## Adding work
 
-When creating or updating an issue, include the following information.
-
-- the observed problem and current evidence
-- scope and explicit non-goals
-- an implementation or investigation plan
-- checkout-runnable verification
-- acceptance criteria
-- hardware, clean-room or release constraints where relevant.
-
-Do not add a second roadmap checklist here. Completed work is represented by merged pull requests and closed issues.
+When creating or updating an issue, include the observed problem, supporting evidence, an implementation or investigation plan, checkout-runnable verification and acceptance criteria. Record work that requires hardware access or an owner decision in the [manual follow-up checklist](docs/manual-todo.md).
