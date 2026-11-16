@@ -13,6 +13,10 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
+import org.openjdk.jmh.profile.GCProfiler;
+import org.openjdk.jmh.results.format.ResultFormatType;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,6 +41,17 @@ public class RawFocusStackBenchmark {
 
     private List<OriginalFrame> originals;
     private StackFileProcessor processor;
+
+    public static void main(String[] args) throws Exception {
+        var options = new OptionsBuilder()
+                .include(System.getProperty("focus.stack.pattern"))
+                .param("series", System.getProperty("focus.stack.series"))
+                .result(System.getProperty("focus.stack.result"))
+                .resultFormat(ResultFormatType.JSON)
+                .addProfiler(GCProfiler.class)
+                .shouldFailOnError(true);
+        new Runner(options.build()).run();
+    }
 
     @Setup
     public void setup() throws IOException {

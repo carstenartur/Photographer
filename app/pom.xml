@@ -351,22 +351,14 @@
                                         <argument>-Djava.awt.headless=true</argument>
                                         <argument>-Dfocus.stack.samples=${maven.multiModuleProjectDirectory}/canon-cr3-imageio/src/test/resources/samples</argument>
                                         <argument>-Dfocus.stack.maxBytes=${focus.stack.maxBytes}</argument>
+                                        <argument>-Dfocus.stack.pattern=${focus.stack.pattern}</argument>
+                                        <argument>-Dfocus.stack.series=${focus.stack.series}</argument>
+                                        <argument>-Dfocus.stack.result=${focus.stack.result}</argument>
                                         <argument>-Dphotographer.tornado.device=${focus.stack.device}</argument>
                                         <argument>-Dtornado.recover.bailout=false</argument>
                                         <argument>-cp</argument>
                                         <classpath/>
-                                        <argument>org.openjdk.jmh.Main</argument>
-                                        <argument>${focus.stack.pattern}</argument>
-                                        <argument>-p</argument>
-                                        <argument>series=${focus.stack.series}</argument>
-                                        <argument>-foe</argument>
-                                        <argument>true</argument>
-                                        <argument>-prof</argument>
-                                        <argument>gc</argument>
-                                        <argument>-rf</argument>
-                                        <argument>json</argument>
-                                        <argument>-rff</argument>
-                                        <argument>${focus.stack.result}</argument>
+                                        <argument>com.photographer.focusstack.analysis.service.RawFocusStackBenchmark</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
