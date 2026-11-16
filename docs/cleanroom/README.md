@@ -2,13 +2,13 @@
 
 Start with the [development history](development-history.md) for the sequence of changes and the [reviewer guide](reviewer-guide.md) for the evidence behind the released reader, writer and distribution.
 
-Photographer is maintained and developed by Carsten Hammer ([@carstenartur](https://github.com/carstenartur)), the project's sole human contributor to date, with AI assistance. The clean-room workflow uses registered sources, fixed experiments and evidence-backed decisions to introduce codec changes into production. The historical record includes the sources and exposures reported for specific changes. [Contribution and review record](reviewer-guide.md#contributor-record)
+Photographer uses a clean-room implementation for CR3 and CRX. The engineering record documents public technical references, camera observations, and tests with externally generated comparison data.
 
 Release 0.1.5 ships native Java decoding for the measured 14-bit CRX V1 lossless and three-level C-RAW layouts. It also ships an experimental lossless ImageIO writer for four measured camera profiles. The support limits and publication findings are documented alongside the release. [Current implementation](../cr3/current-state.md) · [Release record](../releases/0.1.5.md) · [Repository publication audit](../public-release.md)
 
 ## What this record is meant to prove
 
-A reviewer can use the record to trace a change from its documented inputs to the experiment, result and production decision. It records fixture provenance, fixed reference panels, tool versions and hashes, and rejected hypotheses. The [reviewer guide](reviewer-guide.md) identifies historical gaps, reported source exposure and outstanding rights questions.
+A reviewer can use the record to trace a change from its documented inputs to the experiment, result and production decision. It records fixture provenance, fixed reference panels, tool versions and hashes, and rejected hypotheses. The [reviewer guide](reviewer-guide.md) identifies historical gaps, reported prior access to materials and outstanding rights questions.
 
 ## Roles and permitted information flow
 
@@ -30,7 +30,7 @@ Run an external tool such as LibRaw/rawpy, DNGLab or LightCraft as a black box t
 
 ### Prohibited implementation inputs
 
-Keep third-party decoder source, decompiled proprietary binaries, and snippets or constants of unverified origin and licence out of implementation inputs. This applies to material supplied to AI tools and to their generated changes. Record relevant prior exposure for the affected change, including material displayed in an AI session. [Contribution template](contributor-attestation.md) · [Historical disclosures](reviewer-guide.md#contributor-record)
+Keep third-party decoder source, decompiled proprietary binaries, and snippets or constants of unverified origin and licence out of implementation inputs. This applies to material supplied to AI tools and to their generated changes. Record relevant prior exposure for the affected change, including material displayed in an AI session. [Optional contribution template](contributor-attestation.md) · [Historical disclosures](reviewer-guide.md#contributor-record)
 
 ## Required experiment workflow
 
@@ -82,7 +82,7 @@ When a source of uncertain origin is discovered:
 | [`experiment-ledger.json`](experiment-ledger.json) | Hypotheses, runs, results and production decisions |
 | [`generated-evidence.json`](generated-evidence.json) | Inventory of committed CR3 results |
 | [`generated-evidence.md`](generated-evidence.md) | Verification and update procedure for generated evidence |
-| [`contributor-attestation.md`](contributor-attestation.md) | Human statement template for changes to CR3/CRX semantics |
+| [`contributor-attestation.md`](contributor-attestation.md) | Optional evidence template for changes to CR3/CRX semantics |
 | [`publication-checklist.md`](publication-checklist.md) | Checks for a source visibility change or artifact release |
 | [`schema-notes.md`](schema-notes.md) | Field definitions and update rules |
 | [`evidence-retention.md`](evidence-retention.md) | Evidence bundling and long-term retention |

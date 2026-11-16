@@ -39,6 +39,17 @@ The controlled capture path is open because it can create evidence not present i
 
 This is an observation program, not an authorized decoder formula. A later semantic experiment must cite a stable result from that corpus and still change only one declared variable.
 
+## Camera modes to check against the format description
+
+The [16 September 2026 description by Laurent Clévy](https://github.com/lclevy/canon_cr3/blob/151c1a965775ef409ace17714c24ed491cfcf9c4/readme.md) supplies observations for test design (SRC-016 in the [reference register](../cleanroom/source-register.json)). The latest revisions extend the camera model ID table. Qualify newer captures by their observed container layout, `CMP1` version, sensor geometry and bit depth. Record the model, firmware and shooting mode with each fixture.
+
+| Camera mode | Photographer verification to add |
+| --- | --- |
+| 1.6× crop | Compare a real capture with the reported out-of-bounds `IAD1` active area through RAW rendering and DNG export. The rendering path bounds the rectangle and the DNG exporter rejects coordinates outside the sensor. Check active area, visible dimensions and CFA phase before choosing a common treatment. [Sensor geometry](format.md#sensor-geometry-and-iad1) |
+| RAW burst | Resolve per-frame byte ranges and timestamps through the BMFF sample tables. Compare the observed frame count and selected frame with the roll information in the `CMT3` MakerNote, tag `0x403f`. The current importer uses the first chunk offset and first sample size for a track. [Track and sample ranges](format.md#tracks-and-sample-ranges) |
+| HDR PQ | Check a CR3 with an HEVC thumbnail or preview. Identify the codec and colour metadata, then verify that the JPEG preview and Bayer RAW paths report their own results for this container. [Embedded images](format.md#embedded-preview-and-thumbnail) |
+| Dual Pixel RAW | Verify the second RAW track and its association with the main image using an owned or otherwise cleared capture. The parser already identifies a Dual Pixel track from `CCDT`. The current native Bayer path selects the main RAW track. [Track roles](format.md#tracks-and-sample-ranges) |
+
 ## Blocked semantic questions
 
 Blocked without genuinely new evidence:

@@ -130,7 +130,7 @@ The project's synthetic `four-sites.cr3` is a compact first test. The RAW sample
 
 ### Reference implementation and license
 
-| Reader stage | Photographer source |
+| Reader stage | Photographer source code |
 | --- | --- |
 | BMFF boxes and CR3 track resolution | [IsoBmffReader](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/bmff/IsoBmffReader.java) · [Cr3Parser](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/container/Cr3Parser.java) |
 | Metadata, calibration and embedded JPEGs | [Cr3MetadataReader](../../canon-cr3-metadata/src/main/java/com/photographer/focusstack/cr3/metadata/Cr3MetadataReader.java) · [Cr3SensorCalibration](../../canon-cr3-imageio/src/main/java/com/photographer/focusstack/cr3/imageio/Cr3SensorCalibration.java) · [Cr3PreviewExtractor](../../canon-cr3-container/src/main/java/com/photographer/focusstack/cr3/preview/Cr3PreviewExtractor.java) |
@@ -141,7 +141,7 @@ The project's synthetic `four-sites.cr3` is a compact first test. The RAW sample
 
 Photographer's MIT license covers the code and accompanying documentation. It permits use, modification and redistribution, including in commercial and closed-source products. Include the copyright and license notices in copies or substantial portions. Check the recorded terms for external fixtures and reference outputs before redistributing them. [MIT license](../../LICENSE) · [Source register](../cleanroom/source-register.json)
 
-A project with its own clean-room policy should follow that policy when selecting which descriptions, fixtures and implementation sources to consult. The format rules and expected reader outputs are specified here for readers who choose to work from the description. For Java projects integrating the existing reader, see the [Core import example](import.md#maven) and [ImageIO guide](imageio.md#maven-setup).
+A project with its own clean-room policy should follow that policy when selecting format descriptions, test fixtures and any source code it consults. The format rules and expected reader outputs are specified here for readers who choose to work from the description. For Java projects integrating the existing reader, see the [Core import example](import.md#maven) and [ImageIO guide](imageio.md#maven-setup).
 
 [Back to contents](#contents)
 

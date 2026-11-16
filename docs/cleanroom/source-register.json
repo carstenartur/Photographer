@@ -227,6 +227,34 @@
         "algorithm": "sha256",
         "digest": "Registry c4dec60d35e2df53be4a0609e38bd625fa6497f4bf7bc30419e6f6940f7515d5 pins every input CR3 and reference PGM. The preparation script pins DNGLab."
       }
+    },
+    {
+      "id": "SRC-015",
+      "class": "public-specification",
+      "title": "Public LibRaw 0.22 release notes and CR3 cropping discussion",
+      "citation": "https://www.libraw.org/news/libraw-0-22-0-release and https://www.libraw.org/node/2760. Cited in the 12 April 2026 design discussion.",
+      "verifiedDate": "2026-11-16",
+      "permittedUse": "Cite the public explanations of 64-bit offsets and crop handling as historical design references.",
+      "prohibitedUse": "Deriving implementation rules from LibRaw source code.",
+      "repositoryEvidence": [
+        "docs/cleanroom/development-history.md",
+        "docs/cleanroom/reviewer-guide.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-016",
+      "class": "public-specification",
+      "title": "Laurent Clévy's public CR3 format description, 16 September 2026 revision",
+      "citation": "https://github.com/lclevy/canon_cr3/blob/151c1a965775ef409ace17714c24ed491cfcf9c4/readme.md",
+      "verifiedDate": "2026-11-16",
+      "permittedUse": "Use public descriptions of CR3 container and metadata layouts to select fixtures and design independent structural comparisons.",
+      "prohibitedUse": "Deriving codec rules from linked third-party source code or treating individual sample observations as universal format guarantees.",
+      "repositoryEvidence": [
+        "docs/cleanroom/development-history.md",
+        "docs/cr3/open-hypotheses.md"
+      ],
+      "integrity": null
     }
   ]
 }

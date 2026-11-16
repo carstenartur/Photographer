@@ -14,18 +14,13 @@ Apply this checklist to the exact source tree before a visibility change and to 
 
 ## Clean-room review
 
-- [ ] The maintainer has reviewed the [attestation record](reviewer-guide.md#contributor-record) for reader and writer changes, including prior exposure and inputs supplied to AI tools.
-- [ ] No third-party CR3/CRX decoder source has been copied or translated.
-- [ ] No decompiled proprietary implementation is present.
+- [ ] The [engineering record](README.md) explains the clean-room implementation and links the records for the reader and writer.
 - [ ] Public patents, standards and vendor documents are cited accurately.
 - [ ] Reference-only tools are described as black-box oracles, not specifications.
 - [ ] Any contamination incident has been remediated and documented without reproducing protected material.
 
-## Fixtures and privacy
+## Fixtures
 
-- [ ] Each fixture intended for public access has been reviewed for visible private content and identifying metadata.
-- [ ] For retained first-party originals, the publication decision covers both the image and the embedded metadata. [Historical fixture policy](../public-release.md#sensitive-binary-history)
-- [ ] Private fixtures are represented by hashes and redacted metadata rather than committed content.
 - [ ] G5 X Mark II and EOS R capture provenance is documented.
 
 ## Integrity and reproducibility
@@ -48,8 +43,8 @@ Apply this checklist to the exact source tree before a visibility change and to 
 ## Security
 
 - [ ] Secret scanning finds no credentials, Authorization headers, nonces or Wi-Fi data.
-- [ ] Camera serials, MAC addresses, UDNs and private host addresses are absent or redacted.
-- [ ] Git history has been reviewed for previously committed secrets or private media.
+- [ ] MAC addresses, UDNs and private host addresses are absent or redacted.
+- [ ] Git history has been reviewed for previously committed secrets.
 - [ ] Docker layers and generated configuration contain no embedded runtime secrets.
 
 ## Public documentation

@@ -1,6 +1,6 @@
 # CR3 / CRX Contribution Attestation
 
-Use this template for PRs that change CR3/CRX reader or writer semantics, including container construction, metadata layout, entropy coding, prediction, wavelets, quantisation or assembly. The person making the statement should identify which facts they can confirm. Use the [historical record](reviewer-guide.md#contributor-record) for earlier changes.
+This optional template can help record references and test evidence for changes to CR3/CRX reader or writer semantics. Earlier changes are documented in the [reviewer guide](reviewer-guide.md#contributor-record).
 
 ```text
 Clean-room contribution attestation

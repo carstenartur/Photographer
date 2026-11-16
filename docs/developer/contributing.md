@@ -128,7 +128,7 @@ python3 scripts/test_audit_public_release.py
 python3 scripts/audit_public_release.py
 ```
 
-The normal public-release audit scans the current tracked tree for high-confidence credential formats. Before changing repository visibility, use a complete checkout and run the stronger history and media-metadata gate described in [Public release and publication checklist](../public-release.md):
+The normal public-release audit scans the current tracked tree for high-confidence credential formats. From a complete checkout, the following command can also inspect text history and media metadata. [Publication checks](../public-release.md)
 
 ```bash
 python3 scripts/audit_public_release.py --history --media-metadata
@@ -173,7 +173,6 @@ A semantic decoder change requires:
 - fixed inputs and a pre-stated hypothesis;
 - quantitative reference evidence;
 - executable regression coverage;
-- the contributor attestation required by repository policy;
 - explicit separation of experimental behavior from stable preview/metadata APIs.
 
 Do not use image appearance alone as scientific evidence when quantitative reference metrics exist.
