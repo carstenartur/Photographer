@@ -10,8 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Decodes independent tile planes, preserving Bayer-position order for shared row accumulators. */
 record CrxTileDecoder(CrxHeader header, int width, int height, int tileWidth, PlaneReader reader)
         implements CrxSensorDecoder {
-    // Small full-frame imports spend less time grouping writes by Bayer position.
-    private static final int AUTO_TILE_PARALLEL_PIXELS = 24_000_000;
+    private static final int BAYER_PHASES = 4;
 
     @FunctionalInterface
     interface PlaneReader {
@@ -33,10 +32,9 @@ record CrxTileDecoder(CrxHeader header, int width, int height, int tileWidth, Pl
     public void decodeSelectedRows(RowConsumer consumer, int maxWorkers, PlaneRowLimit limit,
                                    boolean allowIndependentTiles) throws Cr3Exception, IOException {
         boolean partial = limit != PlaneRowLimit.ALL_ROWS;
-        boolean useTileJobs = allowIndependentTiles
-                && (partial || maxWorkers > 0 || (long) width * height >= AUTO_TILE_PARALLEL_PIXELS);
-        int workers = Cr3Workers.count(maxWorkers, useTileJobs ? header.tiles().size() * 4 : 4);
-        if (useTileJobs && workers > 1 && (workers > 4 || partial)) {
+        int workItems = allowIndependentTiles ? header.tiles().size() * BAYER_PHASES : BAYER_PHASES;
+        int workers = Cr3Workers.count(maxWorkers, workItems);
+        if (allowIndependentTiles && workers > 1 && (workers > BAYER_PHASES || partial)) {
             decodeIndependentTiles(consumer, limit, workers);
             return;
         }
