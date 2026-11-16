@@ -27,6 +27,7 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
 
     private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.defaults();
     private boolean previewOnly;
+    private boolean useDestinationAsWorkspace;
 
     /**
      * Returns the CR3-specific decode options.
@@ -51,6 +52,26 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      */
     public void setDecodeOptions(Cr3DecodeOptions options) {
         this.decodeOptions = Objects.requireNonNull(options, "Decode options must not be null");
+    }
+
+    /**
+     * Indicates whether a supplied RGB destination may serve as RAW working storage.
+     *
+     * @return whether in-place development was requested
+     */
+    public boolean usesDestinationAsWorkspace() {
+        return useDestinationAsWorkspace;
+    }
+
+    /**
+     * Allows compatible, caller-owned full-frame RGB destinations to be used as
+     * RAW working storage. Development can overwrite the previous contents even
+     * if the read fails. Use this for a buffer reserved for image processing.
+     *
+     * @param enabled whether to allow in-place development
+     */
+    public void setUseDestinationAsWorkspace(boolean enabled) {
+        useDestinationAsWorkspace = enabled;
     }
 
     /**

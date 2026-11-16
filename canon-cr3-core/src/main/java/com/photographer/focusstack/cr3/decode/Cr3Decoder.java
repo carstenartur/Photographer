@@ -30,7 +30,9 @@ import javax.imageio.stream.ImageInputStream;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.ComponentSampleModel;
+import java.awt.image.DataBufferInt;
 import java.awt.image.DataBufferUShort;
+import java.awt.image.SinglePixelPackedSampleModel;
 import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -294,7 +296,7 @@ public final class Cr3Decoder implements AutoCloseable {
     public Cr3PreparedRaw prepareRawDevelopment(int maxWorkers) throws Cr3Exception, IOException {
         var options = Cr3DecodeOptions.rawProcessed().maxWorkers(maxWorkers);
         RawTrack track = rawTrack();
-        var prepared = prepareRawDevelopment(track, options, processedArea(options, track), false, orientation());
+        var prepared = prepareRawDevelopment(track, options, processedArea(options, track), false, orientation(), null);
         double[][] matrix = prepared.colorMatrix();
         return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), prepared.sensorX(), prepared.sensorY(),
                 prepared.whiteBalance().clone(), prepared.whiteLevel(),
@@ -308,6 +310,23 @@ public final class Cr3Decoder implements AutoCloseable {
      */
     public BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion)
             throws Cr3Exception, IOException {
+        return decodeRawProcessedRegion(options, outputRegion, null);
+    }
+
+    /**
+     * Develops RAW into a compatible full-frame packed RGB image when supplied.
+     * The returned image owns fresh storage for other layouts and region reads.
+     * A failed decode can leave partial data in a destination used for development.
+     *
+     * @param options RAW development options
+     * @param outputRegion region in final image coordinates, or null for the complete image
+     * @param destination optional reusable RGB image
+     * @return the developed image
+     * @throws Cr3Exception if RAW decoding fails
+     * @throws IOException if reading fails
+     */
+    public BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion,
+                                                  BufferedImage destination) throws Cr3Exception, IOException {
         RawTrack track = rawTrack();
         Rectangle fullArea = processedArea(options, track);
         int orientation = orientation();
@@ -320,7 +339,9 @@ public final class Cr3Decoder implements AutoCloseable {
                 ? ExifOrientationTransformer.sourceRegion(outputRegion, fullArea.width, fullArea.height, orientation)
                 : new Rectangle(fullArea.width, fullArea.height);
         Rectangle area = partial ? withDemosaicNeighbors(region, fullArea) : fullArea;
-        var prepared = prepareRawDevelopment(track, options, area, partial, orientation);
+        int[] suppliedSamples = partial || (orientation >= 5 && orientation <= 8)
+                ? null : reusableRgbSamples(destination, area);
+        var prepared = prepareRawDevelopment(track, options, area, partial, orientation, suppliedSamples);
 
         // White balance and interpolation retain their crop-local Bayer phase.
         if (prepared.whiteBalance() != null) {
@@ -341,13 +362,33 @@ public final class Cr3Decoder implements AutoCloseable {
             rgb = rgb.getSubimage(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
                     region.width, region.height);
         }
-        return ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
+        BufferedImage oriented = ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
+        return suppliedSamples == null ? oriented : destination;
+    }
+
+    private static int[] reusableRgbSamples(BufferedImage image, Rectangle area) {
+        if (image == null || image.getType() != BufferedImage.TYPE_INT_RGB
+                || image.getWidth() != area.width || image.getHeight() != area.height) {
+            return null;
+        }
+        WritableRaster raster = image.getRaster();
+        if (raster.getSampleModelTranslateX() != 0 || raster.getSampleModelTranslateY() != 0
+                || !(raster.getSampleModel() instanceof SinglePixelPackedSampleModel layout)
+                || layout.getScanlineStride() != area.width
+                || !(raster.getDataBuffer() instanceof DataBufferInt data)
+                || data.getNumBanks() != 1 || data.getOffset() != 0
+                || data.getSize() != (long) area.width * area.height) {
+            return null;
+        }
+        int[] samples = data.getData();
+        return samples.length == (long) area.width * area.height ? samples : null;
     }
 
     private Cr3PreparedRaw prepareRawDevelopment(RawTrack track, Cr3DecodeOptions options, Rectangle area,
-                                                  boolean partial, int orientation) throws Cr3Exception, IOException {
+                                                  boolean partial, int orientation, int[] suppliedSamples)
+            throws Cr3Exception, IOException {
         CrxSensorDecoder sensor = prepareSensor(track);
-        int[] samples = new int[Math.multiplyExact(area.width, area.height)];
+        int[] samples = suppliedSamples == null ? new int[Math.multiplyExact(area.width, area.height)] : suppliedSamples;
         var rawImage = new Cr3RawImage(area.width, area.height, samples, track.depth,
                 CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
 

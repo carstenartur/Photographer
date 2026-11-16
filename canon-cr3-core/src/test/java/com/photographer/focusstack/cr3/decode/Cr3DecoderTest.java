@@ -45,6 +45,33 @@ class Cr3DecoderTest {
         }
     }
 
+    @Test
+    void developsIntoAnOwnedRgbDestinationWithInPlaceOrientation() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var options = Cr3DecodeOptions.rawProcessed().maxWorkers(1);
+            var destination = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+            for (int orientation = 1; orientation <= 4; orientation++) {
+                decoder.getMetadata().setOrientation(orientation);
+                BufferedImage expected = decoder.decode(options);
+                assertSame(destination, decoder.decodeRawProcessedRegion(options, null, destination));
+                assertArrayEquals(expected.getRGB(0, 0, 2, 2, null, 0, 2),
+                        destination.getRGB(0, 0, 2, 2, null, 0, 2));
+            }
+
+            decoder.getMetadata().setOrientation(6);
+            assertNotSame(destination, decoder.decodeRawProcessedRegion(options, null, destination));
+
+            decoder.getMetadata().setOrientation(1);
+            var parent = new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB);
+            var view = parent.getSubimage(1, 1, 2, 2);
+            assertNotSame(view, decoder.decodeRawProcessedRegion(options, null, view));
+            assertEquals(0xff000000, parent.getRGB(1, 1));
+        }
+    }
+
     @Nested
     class InputValidation {
         @Test
