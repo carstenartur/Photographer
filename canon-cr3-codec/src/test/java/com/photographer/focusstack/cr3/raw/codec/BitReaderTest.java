@@ -37,6 +37,60 @@ class BitReaderTest {
     }
 
     @Test
+    void readsDetailRiceWithOptionalRunFlagsAcrossReservoirBoundaries() throws IOException {
+        var random = new Random(726);
+        byte[] bytes = new byte[2048];
+        random.nextBytes(bytes);
+        for (int k = 0; k <= 15; k++) {
+            var expected = new BitReader(bytes, 1, bytes.length - 2);
+            var actual = new BitReader(bytes, 1, bytes.length - 2);
+            while (expected.hasMore()) {
+                boolean hasRunFlag = random.nextBoolean();
+                int expectedCode;
+                try {
+                    expectedCode = readSeparateDetailCode(expected, k, hasRunFlag);
+                } catch (IOException end) {
+                    int width = k;
+                    var actualEnd = assertThrows(IOException.class, () -> actual.readDetailRice(width, hasRunFlag));
+                    assertEquals(end.getMessage(), actualEnd.getMessage());
+                    break;
+                }
+                assertEquals(expectedCode, actual.readDetailRice(k, hasRunFlag));
+                assertEquals(expected.bytePosition(), actual.bytePosition());
+                assertEquals(expected.consumedBytes(), actual.consumedBytes());
+                if (expected.hasMore()) {
+                    assertEquals(expected.readBit(), actual.readBit());
+                }
+            }
+        }
+    }
+
+    @Test
+    void readsDetailRiceEscapeAndRejectsTruncationAndAnExcessiveQuotient() throws IOException {
+        byte[] escapedAfterFlag = {0, 0, 0, 0, 0, 0x3f, (byte) 0xff, (byte) 0xff};
+        var escaped = new BitReader(escapedAfterFlag);
+        int literal = (1 << 21) - 1;
+        assertEquals((literal << 4) | 15, escaped.readDetailRice(15, true));
+        assertFalse(escaped.hasMore());
+
+        byte[] escapedZero = {0, 0, 0, 0, 0, 0x20, 0, 0};
+        assertEquals(14, new BitReader(escapedZero).readDetailRice(15, true));
+
+        assertThrows(IOException.class, () -> new BitReader(escapedAfterFlag, 0, 7).readDetailRice(15, true));
+        assertThrows(IOException.class, () -> new BitReader(new byte[9]).readDetailRice(0, true));
+        assertThrows(IOException.class, () -> new BitReader(new byte[0]).readDetailRice(0, true));
+    }
+
+    private static int readSeparateDetailCode(BitReader bits, int k, boolean hasRunFlag) throws IOException {
+        if (hasRunFlag && bits.readBit() == 1) {
+            return BitReader.POSITIVE_RUN;
+        }
+        int quotient = bits.readUnary(41);
+        int value = quotient == 41 ? bits.readBits(21) : (quotient << k) | bits.readBits(k);
+        return (value << 4) | CrxEntropyState.adaptK(k, value);
+    }
+
+    @Test
     void readsEveryBitWidthAcrossWordAndSliceBoundaries() throws IOException {
         byte[] bytes = new byte[25];
         new Random(42).nextBytes(bytes);

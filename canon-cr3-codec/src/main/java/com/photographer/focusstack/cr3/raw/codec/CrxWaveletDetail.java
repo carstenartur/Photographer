@@ -5,14 +5,15 @@ import java.util.Arrays;
 
 /** Sequential high-frequency coefficient rows from one independently coded CRX subband. */
 final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
+    private static final int NONZERO = 1 << CrxEntropyState.RICE_WIDTH_BITS;
+
     private final BitReader bits;
     private final CrxEntropyState state;
     private final int width;
     private final int height;
     private final int factor;
-    // The adaptive Rice width is in [0, 15], including values carried from the row above.
-    private final byte[] previousK;
-    private final boolean[] nonzero;
+    // Each byte holds the Rice width and the nonzero flag for the quantized coefficient.
+    private final byte[] history;
     private int row;
 
     private CrxWaveletDetail(BitReader bits, int width, int height, int factor) {
@@ -21,8 +22,7 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
         this.width = width;
         this.height = height;
         this.factor = factor;
-        previousK = new byte[width];
-        nonzero = new boolean[width];
+        history = new byte[width];
     }
 
     static CrxWaveletTile.Band band(byte[] data, int offset, int length, int width, int height, int factor)
@@ -42,36 +42,44 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
 
     @Override
     public void read(int[] output) throws IOException {
-        // To the left, state already describes this row. At x and x+1 it still describes the row above.
-        // The run guard uses quantized coefficients even when dequantization maps them to zero.
+        // The left state belongs to this row. Above and aboveRight still belong to the previous row.
+        // The guard uses quantized coefficients even when dequantization maps them to zero.
         int x = 0;
+        int k = state.k();
+        int left = 0;
+        int above = history[0];
         while (x < width) {
-            boolean guard = x + 1 < width && (x == 0 || !nonzero[x - 1]) && !nonzero[x] && !nonzero[x + 1];
-            if (guard && bits.readBit() == 1) {
+            int aboveRight = x + 1 < width ? history[x + 1] : 0;
+            boolean guard = x + 1 < width && ((left | above | aboveRight) & NONZERO) == 0;
+            int code = bits.readDetailRice(k, guard);
+            if (code == BitReader.POSITIVE_RUN) {
                 int end = x + state.readRunLength(width - x);
-                Arrays.fill(previousK, x, end, (byte) 0);
-                Arrays.fill(nonzero, x, end, false);
+                Arrays.fill(history, x, end, (byte) 0);
                 Arrays.fill(output, x, end, 0);
                 x = end;
                 if (x == width) {
                     break;
                 }
+                aboveRight = x + 1 < width ? history[x + 1] : 0;
+                // The residual interrupting a run has no extra flag and still uses the guard bias.
+                code = bits.readDetailRice(k, false);
             }
-            int unsigned = state.readResidual();
-            int symbol = unsigned + (guard ? 1 : 0);
-            int coefficient = CrxResidualSignMapper.decode(symbol, CrxResidualSignMapper.Mapping.ZIG_ZAG);
-            nonzero[x] = coefficient != 0;
+            int symbol = (code >>> CrxEntropyState.RICE_WIDTH_BITS) + (guard ? 1 : 0);
+            int coefficient = (symbol >>> 1) ^ -(symbol & 1);
             long expanded = (long) coefficient * factor;
             if (expanded < Integer.MIN_VALUE || expanded > Integer.MAX_VALUE) {
                 throw new IOException("CRX dequantized detail coefficient exceeds the signed integer range");
             }
             output[x] = (int) expanded;
-            state.updateK(unsigned);
-            if (row > 0 && x + 1 < width && state.k() + 1 < previousK[x + 1]) {
-                state.setK(state.k() + 1);
+            k = code & CrxEntropyState.MAX_RICE_WIDTH;
+            if (k + 1 < (aboveRight & CrxEntropyState.MAX_RICE_WIDTH)) {
+                k++;
             }
-            previousK[x++] = (byte) state.k();
+            left = k | ((-symbol >> 31) & NONZERO);
+            history[x++] = (byte) left;
+            above = aboveRight;
         }
+        state.setK(k);
         if (++row == height && bits.consumedBytes() != bits.length()) {
             throw new IOException("Unconsumed bytes at the end of a CRX detail subband");
         }
