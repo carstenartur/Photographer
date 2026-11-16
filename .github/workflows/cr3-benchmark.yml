@@ -12,6 +12,10 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
+      - 'app/pom.xml'
+      - 'app/src/stack-benchmark/**'
+      - 'app/src/gpu-benchmark/**'
+      - 'app/src/main/java/com/photographer/focusstack/analysis/service/**'
       - 'scripts/calibrate_cr3_sentinels.py'
       - 'scripts/compare_jmh.py'
       - 'scripts/test_compare_jmh.py'
@@ -31,6 +35,10 @@ on:
       - 'canon-cr3-core/**'
       - 'canon-cr3-imageio/**'
       - 'canon-cr3-benchmark/**'
+      - 'app/pom.xml'
+      - 'app/src/stack-benchmark/**'
+      - 'app/src/gpu-benchmark/**'
+      - 'app/src/main/java/com/photographer/focusstack/analysis/service/**'
       - 'scripts/calibrate_cr3_sentinels.py'
       - 'scripts/compare_jmh.py'
       - 'scripts/test_compare_jmh.py'
@@ -130,6 +138,21 @@ jobs:
           python3 scripts/test_run_jmh_compare_refs.py
           python3 scripts/test_prepare_jmh_history.py
 
+      - name: Build the RAW focus-stack benchmark profiles
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            app/pom.xml app/src/stack-benchmark app/src/gpu-benchmark; then
+            exit 0
+          fi
+          fixture="$GITHUB_WORKSPACE/canon-cr3-core/src/test/resources/com/photographer/focusstack/cr3/decode/four-sites.cr3"
+          mvn -B --no-transfer-progress -DskipTests -P focus-stack-benchmark,focus-stack-gpu \
+            -pl app -am -Dfocus.stack.pattern='\.mergeCpu$' -Dfocus.stack.series="$fixture" test
+
       - name: Record scheduled benchmark environment
         if: github.event_name != 'pull_request'
         shell: bash
@@ -213,12 +236,19 @@ jobs:
           -p sample=sample.cr3,eosr-iso-low.cr3
           -rf json -rff rgb-import-profile.json
 
-      - name: Prepare readable chart labels
+      - name: Measure CPU RAW focus stack through PNG
         if: github.event_name != 'pull_request'
         run: >-
-          python3 scripts/prepare_jmh_history.py jmh
-          jmh-result.json
-          jmh-history.json
+          mvn -B --no-transfer-progress -DskipTests
+          -P focus-stack-benchmark -pl app -am
+          -Dfocus.stack.result=$GITHUB_WORKSPACE/focus-stack-jmh.json
+          test
+
+      - name: Prepare readable chart labels
+        if: github.event_name != 'pull_request'
+        run: |
+          jq -s add jmh-result.json focus-stack-jmh.json > all-jmh-results.json
+          python3 scripts/prepare_jmh_history.py jmh all-jmh-results.json jmh-history.json
 
       - name: Upload raw and chart-ready full-suite JMH JSON
         if: always() && github.event_name != 'pull_request'
@@ -229,6 +259,7 @@ jobs:
             jmh-result.json
             jmh-history.json
             rgb-import-profile.json
+            focus-stack-jmh.json
           if-no-files-found: error
           retention-days: 30
 
