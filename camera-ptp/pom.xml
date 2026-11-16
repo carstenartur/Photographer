@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.5</version>
+        <version>0.1.6-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>camera-ptp</artifactId>
-    <version>0.1.5</version>
+    <version>0.1.6-SNAPSHOT</version>
 
     <name>Focus Stack - PTP Camera Module</name>
     <description>
