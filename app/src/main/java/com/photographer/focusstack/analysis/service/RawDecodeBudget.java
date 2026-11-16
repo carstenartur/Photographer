@@ -1,5 +1,6 @@
 package com.photographer.focusstack.analysis.service;
 
+import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -36,14 +37,17 @@ public final class RawDecodeBudget {
 
     /** Allows a packed RGB raster, an orientation copy, and codec working buffers. */
     public static long estimateRawBytes(int width, int height) {
-        return estimateRawBytes(width, height, true);
+        return estimateRawBytes(width, height, true, Runtime.getRuntime().availableProcessors());
     }
 
-    static long estimateRawBytes(int width, int height, boolean orientationCopy) {
-        if (width < 1 || height < 1) {
-            throw new IllegalArgumentException("Image dimensions must be positive");
+    static long estimateRawBytes(int width, int height, boolean orientationCopy, int workers) {
+        long rowBytes = BayerDemosaicer.estimateInPlaceRowBytes(width, height, workers);
+        if (orientationCopy) {
+            // The caller can supply developed bounds with the sensor axes swapped by EXIF.
+            rowBytes = Math.max(rowBytes, BayerDemosaicer.estimateInPlaceRowBytes(height, width, workers));
         }
-        return Math.addExact(Math.multiplyExact((long) width * height, orientationCopy ? 8 : 4), 8 * MIB);
+        long rasterBytes = Math.multiplyExact((long) width * height, orientationCopy ? 8 : 4);
+        return Math.addExact(rasterBytes, 8 * MIB + rowBytes);
     }
 
     public Lease acquire(long estimatedBytes, int preferredWorkers) throws IOException {

@@ -212,14 +212,14 @@ public final class StackFileProcessor {
         }
     }
 
-    private static Input inspectRaw(OriginalFrame frame) throws IOException {
+    private Input inspectRaw(OriginalFrame frame) throws IOException {
         try (var decoder = new Cr3Decoder()) {
             decoder.setInput(frame.path());
             Dimension size = decoder.getRawProcessedBounds(Cr3DecodeOptions.rawProcessed()).getSize();
             var metadata = decoder.getMetadata();
             boolean orientationCopy = metadata != null && metadata.orientation() >= 2 && metadata.orientation() <= 8;
             return new Input(frame, size, true, true,
-                    RawDecodeBudget.estimateRawBytes(size.width, size.height, orientationCopy));
+                    RawDecodeBudget.estimateRawBytes(size.width, size.height, orientationCopy, budget.capacityWorkers()));
         } catch (Cr3Exception | EOFException unavailable) {
             throw new RawDecodeException(frame, unavailable);
         }
