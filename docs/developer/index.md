@@ -20,6 +20,7 @@ Photographer is a multi-module Java 25 / Spring Boot 4 application with a React 
 | Use or develop CR3/CRX functionality | [CR3 / CRX Manual](../cr3/index.md) · [CR3 and CRX format reference](../cr3/format.md) |
 | Inspect the current RAW research boundary | [CR3 current state](../cr3/current-state.md) and [results](../cr3/reports/index.md) |
 | Follow clean-room rules | [Clean-room engineering record](../cleanroom/README.md) |
+| Review the CR3 reader and writer provenance | [Reviewer guide](../cleanroom/reviewer-guide.md) |
 | Understand remaining documentation migration | [Migration plan](migration-plan.md) |
 | Inspect the dated 2026-06-17 baseline | [Repository inventory](repository-inventory.md) |
 
