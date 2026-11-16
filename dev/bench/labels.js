@@ -1,6 +1,11 @@
 'use strict';
 
 (function() {
+  const pathInput = 'RAW pipeline · Decode display-ready sRGB (path input)';
+  const headerParse = 'CRX stage · Parse codec header';
+  const sensorRegion = 'ImageIO import · Decode Bayer region';
+  const processedRegion = 'ImageIO import · Develop RGB region';
+
   const benchmarkLabels = {
     'com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse':
       'Container · Parse ISO-BMFF boxes',
@@ -15,11 +20,15 @@
     'com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessed':
       'RAW pipeline · Decode display-ready sRGB (stream input)',
     'com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedMmap':
-      'RAW pipeline · Decode display-ready sRGB (memory-mapped input)',
+      pathInput,
+    'com.photographer.focusstack.cr3.benchmark.Cr3RawProcessedBenchmark.decodeRawProcessedFromPath':
+      pathInput,
     'com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.parseHeader':
-      'CRX stage · Parse codec header',
+      headerParse,
     'com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.decodeFirstPlane':
       'CRX stage · Decode first tile plane',
+    'com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.decodeNativeFirstPlane':
+      'CRX stage · Decode native first tile plane',
     'com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.copyFirstTilePlane':
       'CRX stage · Copy first tile plane',
     'com.photographer.focusstack.cr3.raw.codec.CrxDecoderStagesBenchmark.interleavePositionalPlanes':
@@ -44,9 +53,32 @@
       'RAW processing · Convert linear RGB to sRGB',
     'com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importProcessedRawViaImageIo':
       'Complete import · Open CR3 as display-ready RAW',
+    'com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importSensorViaImageIo':
+      'ImageIO import · Decode native Bayer samples',
+    'com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importSensorRegionViaImageIo':
+      sensorRegion,
+    'com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importProcessedRegionViaImageIo':
+      processedRegion,
     'com.photographer.focusstack.cr3.benchmark.Cr3ImageImportBenchmark.importPreviewViaImageIo':
       'Complete import · Open embedded preview'
   };
+
+  const publishedLabels = new Map([
+    ['RAW pipeline · Decode display-ready sRGB (memory-mapped input)', pathInput],
+    ['CRX stage · Decode first tile plane', 'CRX stage · Decode experimental first tile plane'],
+    ['Cr3 Image Import · Import Sensor Region Via Image Io', sensorRegion],
+    ['Cr3 Image Import · Import Processed Region Via Image Io', processedRegion]
+  ]);
+  const decoderBenchmarks = new Set([
+    'CRX decoder · Decode complete lossless RAW',
+    'RAW pipeline · Decode linear RAW',
+    'RAW pipeline · Decode display-ready sRGB (stream input)',
+    'Complete import · Open CR3 as display-ready RAW'
+  ]);
+
+  // These are the main source commits, not the publication dates of their runs.
+  const nativeDecoderCommit = Date.parse('2026-11-14T11:25:13Z'); // 0448da0, #341
+  const streamedPathCommit = Date.parse('2026-11-14T12:22:25Z'); // b2a4bb3, #342
 
   const sampleLabels = {
     'sample.cr3': 'G5 X Mark II · ISO 125 · frame 1',
@@ -103,7 +135,7 @@
   function format(name) {
     const match = publishedSeries.exec(name);
     if (!match) {
-      return name;
+      return operationLabel(name);
     }
 
     let params;
@@ -121,5 +153,37 @@
     return details.length ? operation + ' — ' + details.join(' · ') : operation;
   }
 
-  window.CR3_BENCHMARK_LABELS = Object.freeze({ format });
+  function implementation(operation, commit) {
+    if (operation !== pathInput && operation !== headerParse && !decoderBenchmarks.has(operation)) {
+      return '';
+    }
+
+    const sourceDate = Date.parse(commit.timestamp);
+    if (!Number.isFinite(sourceDate)) {
+      return 'Source revision date unavailable';
+    }
+    const native = sourceDate >= nativeDecoderCommit;
+    if (operation === headerParse) {
+      return native ? 'CMP1 directory parser' : 'Legacy header parser';
+    }
+    const decoder = native ? 'Native decoder' : 'Experimental decoder';
+    if (operation === pathInput) {
+      const input = sourceDate >= streamedPathCommit ? 'streamed path input' : 'memory-mapped input';
+      return decoder + ' · ' + input;
+    }
+    return decoder;
+  }
+
+  function describe(name, commit) {
+    const formatted = format(name);
+    const separator = formatted.indexOf(' — ');
+    const operation = separator === -1 ? formatted : formatted.slice(0, separator);
+    const label = publishedLabels.get(operation) || operation;
+    return {
+      label: separator === -1 ? label : label + formatted.slice(separator),
+      implementation: implementation(label, commit)
+    };
+  }
+
+  window.CR3_BENCHMARK_LABELS = Object.freeze({ format, describe });
 })();
