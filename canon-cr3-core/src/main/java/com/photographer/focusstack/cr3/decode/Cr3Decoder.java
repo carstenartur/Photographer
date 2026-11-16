@@ -327,16 +327,19 @@ public final class Cr3Decoder implements AutoCloseable {
         sensor.decodeSelectedRows(write, options.maxWorkers(), limit, independentTiles);
 
         int minBlackLevelSubtracted = 0;
+        BlackLevel black = null;
         if (options.applyBlackLevel()) {
-            BlackLevel black = experiment ? BlackLevel.global(options.experimentalPedestalLevel())
+            black = experiment ? BlackLevel.global(options.experimentalPedestalLevel())
                     : resolveBlackLevelResolution(ob == null ? null : ob.blackLevel()).blackLevel();
-            BlackLevelProcessor.process(rawImage, black, area.x, area.y);
             minBlackLevelSubtracted = effectiveMinBlackLevel(black);
         }
 
         // White balance and interpolation retain their crop-local Bayer phase.
         if (options.applyWhiteBalance()) {
-            WhiteBalanceProcessor.process(rawImage, resolveWhiteBalance());
+            WhiteBalanceProcessor.process(rawImage, resolveWhiteBalance(), black, area.x, area.y,
+                    options.maxWorkers());
+        } else if (black != null) {
+            BlackLevelProcessor.process(rawImage, black, area.x, area.y);
         }
         int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
         BufferedImage rgb = BayerDemosaicer.demosaicInPlace(rawImage, whiteLevel, options.maxWorkers());

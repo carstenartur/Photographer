@@ -15,6 +15,35 @@ class WhiteBalanceProcessorTest {
         return new Cr3RawImage(width, height, data, bitDepth, pattern);
     }
 
+    @Test
+    void combinedCorrectionMatchesTwoPassesForAnOddSensorCrop() {
+        int width = 1025;
+        int height = 513;
+        int sensorX = 1;
+        int sensorY = 1;
+        int[] samples = new int[width * height];
+        for (int i = 0; i < samples.length; i++) {
+            samples[i] = i * 17 % 16384;
+        }
+        int[][] rowLevels = new int[4][height / 2];
+        for (int channel = 0; channel < rowLevels.length; channel++) {
+            for (int row = 0; row < rowLevels[channel].length; row++) {
+                rowLevels[channel][row] = 20 * channel + row;
+            }
+        }
+        BlackLevel black = BlackLevel.perRow(rowLevels);
+        double[] multipliers = {1.23, 0.98, 2.34};
+        var pattern = Cr3RawImage.BayerPattern.RGGB;
+        var expected = new Cr3RawImage(width, height, samples.clone(), 14, pattern);
+        var actual = new Cr3RawImage(width, height, samples, 14, pattern);
+
+        BlackLevelProcessor.process(expected, black, sensorX, sensorY);
+        WhiteBalanceProcessor.process(expected, multipliers);
+        WhiteBalanceProcessor.process(actual, multipliers, black, sensorX, sensorY, 0);
+
+        assertArrayEquals(expected.data(), actual.data());
+    }
+
     @Nested
     class MultiplierApplication {
         @Test
