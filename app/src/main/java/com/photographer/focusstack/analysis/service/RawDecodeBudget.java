@@ -35,9 +35,9 @@ public final class RawDecodeBudget {
         return workers;
     }
 
-    /** Allows a packed RGB raster, an orientation copy, and codec working buffers. */
+    /** Allows a packed RGB raster, an orientation copy, and working buffers for one worker. */
     public static long estimateRawBytes(int width, int height) {
-        return estimateRawBytes(width, height, true, Runtime.getRuntime().availableProcessors());
+        return estimateRawBytes(width, height, true, 1);
     }
 
     static long estimateRawBytes(int width, int height, boolean orientationCopy, int workers) {

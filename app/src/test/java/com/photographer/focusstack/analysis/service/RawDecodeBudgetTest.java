@@ -58,5 +58,7 @@ class RawDecodeBudgetTest {
         long landscape = RawDecodeBudget.estimateRawBytes(width, height, true, workers);
         long portrait = RawDecodeBudget.estimateRawBytes(height, width, true, workers);
         assertEquals(landscape, portrait);
+        assertEquals(RawDecodeBudget.estimateRawBytes(width, height, true, 1),
+                RawDecodeBudget.estimateRawBytes(width, height));
     }
 }
