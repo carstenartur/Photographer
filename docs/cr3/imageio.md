@@ -16,13 +16,14 @@ Preview, thumbnail and metadata access are stable APIs. Full-sensor values have 
 
 ## Maven setup
 
-Use JDK 21 or newer in the consuming application. To try the checkout locally, use JDK 25 and Maven 3.9+ in the Photographer repository and install the CR3 reactor prerequisites:
+Use JDK 21 or newer in the consuming application. For a checkout build, use JDK 25 and Maven 3.9+ in the Photographer repository. Install the CR3 libraries and print their version:
 
 ```sh
 mvn -B -pl canon-cr3-imageio -am install -DskipTests
+mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
 ```
 
-In a separate consumer project, use this POM and match `cr3.version` to the installed revision. Only one dependency is required. Maven resolves the other five CR3 libraries and SLF4J transitively.
+In a separate consumer project, replace `REPLACE_WITH_CR3_VERSION` with the printed revision or the exact version available from your configured release repository. Maven resolves the other five CR3 libraries and SLF4J transitively.
 
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -33,7 +34,7 @@ In a separate consumer project, use this POM and match `cr3.version` to the inst
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <cr3.version>0.1.5-SNAPSHOT</cr3.version>
+    <cr3.version>REPLACE_WITH_CR3_VERSION</cr3.version>
   </properties>
   <dependencies>
     <dependency>
@@ -54,7 +55,7 @@ In a separate consumer project, use this POM and match `cr3.version` to the inst
 </project>
 ```
 
-For a published version, select its version number from [GitHub Releases](https://github.com/carstenartur/Photographer/releases) and use the repository specified for that release. The [consumer setup](../cr3-maven-central.md#resolve-a-released-version) shows how to add the Git-backed repository. Versions explicitly published to Maven Central use Maven's default configuration.
+For a published version, follow the [Maven release guide](../cr3-maven-central.md#resolve-a-released-version) to configure the Git-backed repository or resolve a version verified on Maven Central.
 
 ## Quick preview
 
@@ -304,14 +305,14 @@ int code = sensor.getRaster().getSample(x, y, 0);
 ```
 
 The DNG reader returns a single-band Bayer mosaic. Its supported layout is classic TIFF with an
-uncompressed 16-bit unsigned RGB Bayer image in the first image directory (IFD0). DNGs with a
+uncompressed, unsigned 16-bit CFA mosaic in the first image directory (IFD0). DNGs with a
 JPEG preview in IFD0 and the raw image in a SubIFD, packed 12/14-bit samples, compressed DNGs,
 and developed LinearRaw RGB DNGs are outside this reader's scope. Use
 `ImageIO.getImageReadersByFormatName("DNG")` to select the provider explicitly. Generic TIFF
 providers may also recognize the container. Re-export preserves supported calibration and sensor
 samples. The output does not embed the original CR3, JPEG preview, or proprietary MakerNotes.
 
-This product includes DNG technology under license by Adobe. [Digital Negative specification](https://helpx.adobe.com/camera-raw/digital-negative.html)
+This product includes DNG technology under license by Adobe. [Digital Negative specification and patent license](https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html)
 
 ## Verification
 

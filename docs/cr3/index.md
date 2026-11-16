@@ -8,6 +8,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 
 | Need | Start here | Status |
 |---|---|---|
+| Install the CR3 libraries with Maven | [Maven release repositories](../cr3-maven-central.md#resolve-a-released-version) | Git-backed repository by default. Maven Central is optional. |
 | Inspect CR3 tracks or extract embedded preview/thumbnail JPEGs | [Container and metadata](decoder.md#stable-container-and-metadata-layers) | Stable public APIs |
 | Import a file with the Java decoder or export camera frames from Photographer | [CR3 file import](import.md) | Includes native sensor and developed RGB examples |
 | Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Stable preview, thumbnail, discovery and metadata; RAW controls experimental |
@@ -38,7 +39,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | `io.github.carstenartur:cr3-core` | Decoder facade and camera-profile writer | Stable preview and thumbnail paths. Native decoding and lossless writing cover the measured profiles. |
 | `io.github.carstenartur:cr3-imageio` | Java ImageIO CR3 and Bayer DNG readers and writers | Stable preview and metadata access, profile-specific RAW import |
 | `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer importer for ImageJ 1.x and Fiji | Distributed as a Fiji plugin |
-| `com.photographer.focusstack:canon-cr3-cli` | Inspection, extraction and experimental decode commands | Repository CLI; excluded from the public Maven Central library bundle |
+| `com.photographer.focusstack:canon-cr3-cli` | Inspection, preview export and experimental decode commands | Executable built from a source checkout |
 
 ### Internal evidence and development modules
 
@@ -49,7 +50,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | `canon-cr3-maven-smoke` | Empty-repository consumer and dependency-boundary validation | Build/test only |
 | `canon-cr3-benchmark` | JMH performance measurements | Benchmark profile only |
 
-No production module may depend on the reference testkit or research module at runtime. The public Maven bundle and release rules are defined in [Maven Central release contract](../cr3-maven-central.md).
+No production module may depend on the reference testkit or research module at runtime. The [Maven release guide](../cr3-maven-central.md) lists the six distributed libraries and explains both release channels.
 
 ## Maturity boundary
 

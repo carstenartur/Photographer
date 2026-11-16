@@ -17,11 +17,10 @@ The capability collector exports redacted catalogs for physical camera modes and
 ### CR3 / CRX
 
 - [#249 — controlled spatial-code camera/JPEG/CR3 corpus](https://github.com/carstenartur/Photographer/issues/249)
-- [#139 — publish supported CR3 artifacts to a remote Maven repository](https://github.com/carstenartur/Photographer/issues/139)
 
-The D14 capture harness and two printable PDFs are available. Each PDF contains the same 48 patterns. The next experiment requires controlled, repeated CR3/JPEG captures from a physical camera. For the Maven release, acceptance includes resolving all six supported artifacts from a clean consumer.
+The D14 capture harness and two printable PDFs are available. Each PDF contains the same 48 patterns. The next experiment requires controlled, repeated CR3/JPEG captures from a physical camera.
 
-The maintained research boundary is in [`docs/cr3/current-state.md`](docs/cr3/current-state.md). Former TODO claims about a single Rice-Golomb bug, a current-symbol K bracket, LibRaw JNI as a direct decoder solution, or immediately implementing CDF 9/7 are superseded by D13 and RG1. New entropy semantics require genuinely new causal evidence they are not an unchecked implementation task.
+The [current decoder status](docs/cr3/current-state.md) links the measured lossless and C-RAW results. The [Maven release guide](docs/cr3-maven-central.md) describes distribution and independent consumer verification.
 
 ### Capture integrations
 

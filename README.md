@@ -16,8 +16,8 @@ Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automa
 | Control a camera or try a focus stack without hardware | [Start the web application](docs/quickstart.md) · [Illustrated walkthrough](docs/web-interface.md) |
 | Read CR3 or write lossless CR3 and Bayer DNG in Java | [ImageIO dependency and working examples](docs/cr3/imageio.md) · [Supported RAW layouts](docs/cr3/decoder.md) |
 | Understand the CR3 container and CRX bitstream | [CR3 and CRX format reference](docs/cr3/format.md) · [CR3 / CRX manual](docs/cr3/index.md) |
-| Measure native Bayer samples in ImageJ/Fiji | [Install the Fiji update site](docs/cr3/fiji-update-site.md) · [Import a file or run a macro](cr3-imagej/README.md) |
-| Inspect a CR3 or extract its JPEG from the command line | [CLI commands](docs/cr3/cli.md) |
+| Open a Bayer mosaic or a color image in Fiji | [Install the Fiji update site](docs/cr3/fiji-update-site.md) · [Import sensor data](cr3-imagej/README.md) · [Open a color image](docs/cr3/fiji-update-site.md#open-a-color-image) |
+| Inspect a CR3 or export a preview from the command line | [CLI commands](docs/cr3/cli.md) |
 | Build or extend Photographer | [Developer manual](docs/developer/index.md) · [Project verification](docs/developer/testing.md) |
 
 ![Mock camera profile showing the generated live view, battery level and camera settings](docs/screenshots/mock-camera.webp)

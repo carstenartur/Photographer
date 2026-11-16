@@ -120,7 +120,9 @@ Committed scientific reports are different: they preserve dated evidence and mus
 
 ## Release credentials and artifacts
 
-The CR3 release preflight is credential-free. Actual publication additionally requires:
+Local CR3 staging and Central bundle preflight are credential-free. The default release workflow uses Git write access to publish the six libraries to the private `maven-repository` branch. See the [Maven release guide](../cr3-maven-central.md) for verification in the selected channel.
+
+Optional Maven Central publication requires:
 
 - an approved Central namespace;
 - a protected Central Portal token;

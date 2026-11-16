@@ -34,10 +34,12 @@ Removal still requires a content audit and link-preserving migration.
 |---|---|---|
 | `docs/cr3/index.md` | canonical | CR3 entry point, module map and maturity boundary. |
 | `docs/cr3/format.md` | canonical | Measured CR3 and CRX layout, reader and writer implementation and verification. |
+| `docs/cr3/import.md` | canonical | Import by file path, copy the original embedded JPEG and export captured frames. |
 | `docs/cr3/imageio.md` | canonical | Stable ImageIO integration and experimental RAW controls. |
+| `docs/cr3/fiji-update-site.md` | canonical | Fiji installation, sensor measurement, color import and release verification. |
 | `docs/cr3/decoder.md` | canonical | Stable container/metadata versus experimental codec/internal processing. |
 | `docs/cr3/cli.md` | canonical | User-facing CLI commands and experimental decode boundary. |
-| `docs/cr3/research.md` | canonical | Current clean-room process, RG1 boundary and controlled-capture contract. |
+| `docs/cr3/research.md` | canonical | Clean-room process, retained experimental boundaries and controlled-capture contract. |
 | `docs/cr3/current-state.md` | canonical | Maintained implementation/research truth boundary. |
 | `docs/cr3/open-hypotheses.md` | canonical | Durable supported/rejected/blocked/open evidence state. |
 | `docs/cr3/reports/index.md` | canonical | Curated bridge from current state to dated/generated evidence. |
@@ -78,10 +80,13 @@ Local documentation does not become a supported external API merely because a Ja
 | `docs/api.md` | canonical | Maintained REST overview without duplicating generated OpenAPI output. |
 | `docs/camera-setup.md` | canonical | Hardware/connection setup; support claims require evidence. |
 | `docs/quickstart.md` | canonical | Concise user/operator quickstart. |
+| `docs/cr3-maven-central.md` | canonical | Git-backed Maven distribution, optional Central publication and independent consumer verification. |
 | `docs/reference-pipeline.md` | canonical | Independent CR3 reference-sidecar generation and validation. |
 | `docs/cr3-api-boundaries.md` | canonical | Symbol/package compatibility classification. |
+| `docs/cleanroom/reviewer-guide.md` | canonical | Review entry point for reader, writer, fixtures, patents and the distributed artifacts. |
 | `docs/cleanroom/**` process/attestation files | canonical | Clean-room policy, source registry, experiment ledger, generated-evidence ownership and contributor records. |
 | `docs/ccapi-*.md` maintained contracts | canonical | Transport, security, ownership, shutdown, media, event and live-view behavior backed by code/tests. |
+| `docs/releases/` | local | Version-pinned release outcomes, channel and artifact verification. |
 
 Private Canon manuals and extracted text remain outside Git and are never redistributable project documentation.
 

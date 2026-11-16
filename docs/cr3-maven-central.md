@@ -18,7 +18,7 @@ The normal **Release Workflow** stages the repository during preparation and aga
 
 ### Resolve a released version
 
-For the current private project, use your normal Git access to clone the distribution branch after its first release. Maven can read that checkout through a file URL. This also works with a locally staged candidate.
+Use your authorized Git access to clone the private distribution branch and select the exact version to verify. Maven reads that checkout through a file URL.
 
 ```bash
 git clone --single-branch --branch maven-repository \
@@ -26,10 +26,11 @@ git clone --single-branch --branch maven-repository \
 mvn -B -f release/canon-cr3-consumer/pom.xml -Pphotographer-releases \
   "-Dphotographer.repository.url=file://$(cd ../photographer-maven && pwd)" \
   "-Dmaven.repo.local=$(mktemp -d)" \
-  -Dcr3.version=0.1.5 dependency:tree
+  -Dcr3.version=0.1.5 \
+  org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies
 ```
 
-For the local candidate, use `"-Dphotographer.repository.url=file://$PWD/target/public-maven-repository"`. The [standalone consumer POM](../release/canon-cr3-consumer/pom.xml) declares one dependency. Copy its `photographer-releases` profile into another consumer's POM or directly add that profile's repository entry under `<project><repositories>`.
+The command copies the six resolved CR3 runtime JARs and their external dependencies to `release/canon-cr3-consumer/target/dependency/`. For a locally staged candidate, use `"-Dphotographer.repository.url=file://$PWD/target/public-maven-repository"`. The [standalone consumer POM](../release/canon-cr3-consumer/pom.xml) declares one dependency. Copy its `photographer-releases` profile into another consumer's POM or directly add that profile's repository entry under `<project><repositories>`.
 
 A distribution on a public HTTPS server can be consumed anonymously by passing its repository root as `photographer.repository.url`. For a public Photographer GitHub repository, that URL would be `https://raw.githubusercontent.com/carstenartur/Photographer/maven-repository/`. Private GitHub raw URLs do not provide anonymous access. For a version separately published to Maven Central, run the same consumer command without `-Pphotographer-releases` and without the repository URL.
 
@@ -41,9 +42,9 @@ The public group is:
 io.github.carstenartur
 ```
 
-The ImageIO library uses the project name **CR3 ImageIO**. It is an independent Java ImageIO reader for CR3 files produced by Canon cameras.
+The **CR3 ImageIO** library provides Java ImageIO readers and writers for Canon CR3 and uncompressed Bayer DNG. The [ImageIO guide](cr3/imageio.md) describes the supported layouts and write profiles.
 
-The release bundle contains these six artifacts. The examples below use the candidate version `0.1.5`.
+The release bundle contains these six artifacts. The examples use version `0.1.5`.
 
 | Artifact | Purpose |
 |---|---|
@@ -51,8 +52,8 @@ The release bundle contains these six artifacts. The examples below use the cand
 | `cr3-metadata` | EXIF, MakerNote, CTMD and sensor metadata |
 | `cr3-codec` | experimental CRX RAW decoding and linear Bayer model |
 | `cr3-processing` | crop, pedestal, demosaic, white-balance and color processing |
-| `cr3-core` | decode orchestration and compatibility facade |
-| `cr3-imageio` | `javax.imageio` reader and service-provider integration |
+| `cr3-core` | decoder facade and camera-profile lossless CR3 writer |
+| `cr3-imageio` | `javax.imageio` readers, writers and service-provider integration |
 
 The binary and sources JARs carry the project's MIT notice at `META-INF/cr3/LICENSE`. The ImageIO JAR also contains `META-INF/cr3/imageio.md` and `META-INF/cr3/import.md`. The core JAR contains the import guide. In the respective Javadoc JARs, these files are at the archive root.
 

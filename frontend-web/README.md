@@ -5,7 +5,7 @@ Built with Vite and packaged into the Spring Boot app JAR for production deploym
 
 ## Features
 
-- Live View preview (MJPEG stream from the camera)
+- Live view from camera frames fetched periodically through the Photographer API
 - Capture controls for focus-stacking workflows
 - Stack gallery with before/after comparison
 - Responsive layout for desktop and tablet

@@ -2,7 +2,7 @@
 
 Install the plugin and its decoder using the [Fiji installation and update-site instructions](../docs/cr3/fiji-update-site.md). Start Fiji with Java 21 or later. Choose **File › Import › CR3 Sensor Data...** and select a Canon CR3 file.
 
-The image opens as one unsigned 16-bit grayscale plane, with one pixel per Bayer site. It includes the sensor margins and preserves the camera's original numeric range and orientation. ImageJ's brightness and contrast controls adjust the display range independently of these values. Supported RAW and C-RAW configurations are listed in the [decoder guide](../docs/cr3/decoder.md).
+The command opens the original Bayer mosaic as one unsigned 16-bit plane. Fiji displays that plane in grayscale. Each pixel holds one camera sample at a red, green or blue sensor site. The import includes the margins and preserves the camera's numeric range and sensor coordinates. ImageJ's brightness and contrast controls adjust the display range independently of these values. Supported RAW and C-RAW configurations are listed in the [decoder guide](../docs/cr3/decoder.md).
 
 **Image › Show Info...** displays the camera model and available sensor properties. `CR3.CFA` names the Bayer pattern at the sensor origin. `CR3.BitDepth` gives the recorded bit depth. `CR3.ActiveAreaLTRBInclusive` gives zero-based left, top, right and bottom coordinates, including both end pixels. `CR3.BlackLevelRGGB` and `CR3.WhiteBalanceGainRGGB` use camera channel order (red, green on a red row, green on a blue row, blue). `CR3.WhiteLevel` records the white level for the exposure. These values describe the uncorrected mosaic. No crop, rotation, interpolation, black-level adjustment or gain is applied.
 
@@ -22,6 +22,10 @@ import java.nio.file.Path;
 ImagePlus image = Cr3SensorImporter.open(Path.of("/data/capture.cr3"));
 int sensorCode = image.getProcessor().get(100, 200);
 ```
+
+## Open a color image
+
+Use the [Fiji script for color output](../docs/cr3/fiji-update-site.md#open-a-color-image) to open the camera’s embedded JPEG or develop a supported RAW file into RGB. Use **CR3 Sensor Data...** for measurements in native Bayer coordinates.
 
 ## Verify an import against a reference
 
