@@ -23,9 +23,14 @@ those files. This check identifies direct exposure at the listed tips.
 Earlier commits and provider-side archives need separate review.
 
 The maintainer confirmed that the original CR3 files are first-party captures
-and is open to retaining them in the published history. Review the image
-content and the embedded metadata together when deciding which originals to
-publish. Review the rights for derivative reference images and downloadable
+and accepts retaining camera serial numbers with the originals selected for
+publication. The numbers can corroborate the identity of the camera. Capture
+tests, manifests and file hashes document the capture procedure and the exact
+files. [Capture records](cleanroom/source-register.json)
+
+Review the image content and the embedded metadata together when deciding
+which originals to publish. Review the rights for derivative reference images
+and downloadable
 assets as well. A visual review of all 13 real-camera previews and 11 reference
 PNGs found indoor scenes and diagnostic exposures. In particular, the two G5 X Mark II
 detail captures include objects from the room. Review the originals at full
