@@ -70,6 +70,38 @@ class CrxWaveletTileTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void nativeLiftingMatchesCheckedLiftingAtTheEncodedCoefficientLimits() throws IOException {
+        int width = 26;
+        int height = 17;
+        for (boolean left : new boolean[]{false, true}) {
+            boolean right = !left;
+            var shapes = CrxWaveletTile.shapes(width, height, left, right);
+            var bands = new CrxWaveletTile.Band[shapes.length];
+            for (int i = 0; i < bands.length; i++) {
+                var shape = shapes[i];
+                int positive = i == 0 ? (1 << 20) - 1 : 1 << 26;
+                int negative = i == 0 ? -(1 << 20) : -(1 << 26);
+                int parity = i & 1;
+                bands[i] = new CrxWaveletTile.Band(shape.width(), shape.height(),
+                        row -> Arrays.setAll(row, x -> (x & 1) == parity ? positive : negative));
+            }
+            int[] expected = WaveletTestRows.collect(CrxWaveletTile.synthesize(bands, width, height, left, right));
+            assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesizeNative(bands, width, height, left, right)))
+                    .containsExactly(expected);
+        }
+    }
+
+    @Test
+    void checkedLiftingCanAverageTwoMaximumIntegers() throws IOException {
+        var bands = zeros(8, 8, false, false);
+        var approximation = bands[0];
+        bands[0] = new CrxWaveletTile.Band(approximation.width(), approximation.height(),
+                row -> Arrays.fill(row, Integer.MAX_VALUE));
+        assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesize(bands, 8, 8, false, false)))
+                .containsOnly(Integer.MAX_VALUE);
+    }
+
     private static CrxWaveletTile.Band[] zeros(int width, int height, boolean left, boolean right) {
         return Arrays.stream(CrxWaveletTile.shapes(width, height, left, right))
                 .map(s -> new CrxWaveletTile.Band(s.width(), s.height(), row -> Arrays.fill(row, 0)))
