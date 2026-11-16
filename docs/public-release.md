@@ -9,9 +9,9 @@ ExifTool metadata scan (1,480 tracked files, including 278 CR3, TIFF, PNG
 and JPEG files). The repository's 13 real-camera CR3 fixtures were sanitized
 in [commit 1401c547](https://github.com/carstenartur/Photographer/commit/1401c547ec).
 The earlier version of `samples/sample.cr3` in commit `3003597b` is still
-an ancestor's file on `main`. The earlier historical audit recorded camera,
-lens and creator fields. Closing the tracking issue did not remove those
-objects. [Original finding and scope](https://github.com/carstenartur/Photographer/issues/302).
+an ancestor's file on `main`. The earlier historical audit recorded camera body and internal serial numbers,
+lens serial numbers, and owner, artist and creator fields, including XMP creator
+metadata. Closing the tracking issue did not remove those objects. [Original finding and scope](https://github.com/carstenartur/Photographer/issues/302).
 
 A second check compared the 13 pre-sanitization Git blob IDs with the current
 trees of all 67 branches and five tags listed during the review. **42 branch
@@ -22,11 +22,12 @@ contains eight. A source archive downloaded from one of these tags includes
 those files. This check identifies direct exposure at the listed tips.
 Earlier commits and provider-side archives need separate review.
 
-These checks cover common credential formats and embedded metadata. The
-maintainer still needs to review visible subjects and redistribution rights
-for the photographs, derivative reference images and downloadable assets.
-A visual review of all 13 real-camera previews and 11 reference PNGs found
-indoor scenes and diagnostic exposures. In particular, the two G5 X Mark II
+The maintainer confirmed that the original CR3 files are first-party captures
+and is open to retaining them in the published history. Review the image
+content and the embedded metadata together when deciding which originals to
+publish. Review the rights for derivative reference images and downloadable
+assets as well. A visual review of all 13 real-camera previews and 11 reference
+PNGs found indoor scenes and diagnostic exposures. In particular, the two G5 X Mark II
 detail captures include objects from the room. Review the originals at full
 resolution when deciding which photographs to redistribute.
 The project-generated D14 pattern PDFs are tracked. Canon developer manuals
@@ -54,25 +55,33 @@ A passing automated scan is not permission to publish third-party material. Revi
 
 ## Fixture and evidence policy
 
-Public fixtures and generated evidence must not contain:
+Use sanitized copies for maintained test fixtures and generated evidence.
+Keep camera and lens serial numbers, GPS and location fields, and personal
+owner, artist and creator metadata out of those copies. Use synthetic metadata
+when a test needs those fields. Capture dates and technical exposure data may
+be retained when they are relevant to reproducible evidence and present no
+material privacy risk.
 
-- camera or lens serial numbers;
-- GPS coordinates or location fields;
-- owner, artist, creator or personal copyright metadata;
-- Wi-Fi credentials, authorization headers, cookies, API keys or tokens;
-- private Canon manuals, SDK files or material whose redistribution is not permitted;
-- unrelated personal images or identifiable private environments.
-
-Capture dates and technical exposure data may be retained when they are relevant to reproducible evidence and do not expose a material privacy risk. If sensitive metadata is required for a test, replace it with a synthetic fixture rather than allowlisting real personal data.
+Credentials and material without permission to redistribute, including
+restricted Canon manuals or SDK files, must be removed from the material being
+published. The maintainer can retain first-party originals in the Git history
+after reviewing their image content and metadata for publication.
 
 Use `scripts/sanitize_cr3_fixtures.py --write` only on controlled fixture copies or a dedicated maintenance branch. It neutralizes known identifying TIFF/MakerNote entries and XMP creator content without changing file length or BMFF/TIFF offsets. ExifTool and the complete test suite must verify the result before it is committed.
 
 ## Sensitive binary history
 
-Replacing a fixture in the current tree does **not** remove its earlier bytes from Git history. If `scripts/audit_historical_media.py` reports a reachable historical blob, repository visibility must remain private until one of these reviewed strategies is completed:
+Replacing a fixture in the current tree leaves earlier file versions reachable
+through Git history. Use the [historical media audit](../scripts/audit_historical_media.py)
+to review the paths and field names that would become public. The audit flags
+identifying metadata even in first-party images that the maintainer chooses to
+publish. Review those findings against the decision for the affected originals.
+A first-party original approved for publication can stay in the history.
 
-1. rewrite every public branch and tag so the sensitive blob is no longer reachable, then force-push during a declared maintenance window; or
-2. publish a new repository from a verified sanitized snapshot and retain the original repository privately.
+When a historical file or field should stay private, two strategies are available.
+
+1. Rewrite the affected refs so the file version is unreachable, then force-push during a declared maintenance window.
+2. Publish a new repository from a verified sanitized snapshot and retain the original repository privately.
 
 A history rewrite is intentionally not automated by normal CI. It changes commit IDs, invalidates open branch ancestry and requires all collaborators to re-clone or carefully rebase. Before rewriting:
 
@@ -84,7 +93,7 @@ A history rewrite is intentionally not automated by normal CI. It changes commit
 - coordinate deletion or rebasing of stale remote branches;
 - request server-side removal of cached sensitive objects where the hosting provider requires it.
 
-Changing visibility before that process is complete would expose the historical bytes even when the current files are clean.
+Changing visibility exposes reachable historical file versions even when the current files are sanitized.
 
 ### Rehearse a snapshot without changing a remote
 
@@ -166,10 +175,10 @@ For a release, add the exact version and release date to the release metadata or
 
 ## Visibility decision
 
-Changing repository visibility should happen only after:
+Before changing repository visibility, complete the following checks.
 
-- the current-tree, text-history and historical-media audits all pass;
-- any finding has been removed from the current tree and purged from every reachable public ref;
-- redistribution rights for committed binaries and documentation have been checked;
-- the README still describes experimental and hardware support boundaries accurately;
-- the security reporting channel is ready.
+- Review the audit results for the current tree, reachable text history and historical media.
+- Decide which first-party originals and metadata to publish. Remove credentials and material that must stay private from the refs and downloads exposed by publication.
+- Verify redistribution rights for committed binaries and documentation.
+- Check that the README describes experimental features and hardware support accurately.
+- Verify that the security reporting channel is ready.

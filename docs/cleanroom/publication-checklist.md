@@ -23,9 +23,8 @@ Apply this checklist to the exact source tree before a visibility change and to 
 
 ## Fixtures and privacy
 
-- [ ] Every public fixture is approved for publication.
-- [ ] Images contain no faces, addresses, documents, location data or other unintended private content.
-- [ ] EXIF/GPS and stable camera identifiers have been reviewed or removed where unnecessary.
+- [ ] Each fixture intended for public access has been reviewed for visible private content and identifying metadata.
+- [ ] For retained first-party originals, the publication decision covers both the image and the embedded metadata. [Historical fixture policy](../public-release.md#sensitive-binary-history)
 - [ ] Private fixtures are represented by hashes and redacted metadata rather than committed content.
 - [ ] G5 X Mark II and EOS R capture provenance is documented.
 
