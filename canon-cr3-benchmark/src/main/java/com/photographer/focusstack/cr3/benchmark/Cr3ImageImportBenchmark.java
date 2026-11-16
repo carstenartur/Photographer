@@ -18,6 +18,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -64,6 +65,25 @@ public class Cr3ImageImportBenchmark {
     public BufferedImage importSensorViaImageIo() throws IOException {
         CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
         param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+        return read(param);
+    }
+
+    /** A Bayer patch near the start of a tile plane. */
+    @Benchmark
+    public BufferedImage importSensorRegionViaImageIo() throws IOException {
+        return readRegion(Cr3DecodeOptions.rawSensor());
+    }
+
+    /** A developed patch in the output orientation. */
+    @Benchmark
+    public BufferedImage importProcessedRegionViaImageIo() throws IOException {
+        return readRegion(Cr3DecodeOptions.rawProcessed());
+    }
+
+    private BufferedImage readRegion(Cr3DecodeOptions options) throws IOException {
+        CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+        param.setDecodeOptions(options);
+        param.setSourceRegion(new Rectangle(32, 32, 64, 64));
         return read(param);
     }
 

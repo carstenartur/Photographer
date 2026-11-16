@@ -1,5 +1,7 @@
 package com.photographer.focusstack.cr3.imageio;
 
+import com.photographer.focusstack.cr3.container.Cr3Parser;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
 import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,6 +16,7 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -141,6 +144,94 @@ class CanonCr3ImageReaderTest {
                 param.setDestinationOffset(new Point(Integer.MIN_VALUE, 0));
                 assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IllegalArgumentException.class);
                 param.setDestinationOffset(new Point(Integer.MAX_VALUE, 0));
+                assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IllegalArgumentException.class);
+            } finally {
+                reader.dispose();
+            }
+        }
+
+        @Test
+        void subsampledBayerReadWritesIntoATranslatedDestination() throws Exception {
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
+                reader.setInput(input);
+                BufferedImage parent = new BufferedImage(7, 6, BufferedImage.TYPE_USHORT_GRAY);
+                short[] initial = new short[7 * 6];
+                Arrays.fill(initial, (short) 0xcdef);
+                parent.getRaster().setDataElements(0, 0, 7, 6, initial);
+                BufferedImage destination = parent.getSubimage(2, 1, 3, 4);
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawSensor());
+                param.setSourceSubsampling(2, 1, 1, 0);
+                param.setDestinationOffset(new Point(1, 1));
+                param.setDestination(destination);
+
+                assertThat(reader.read(0, param)).isSameAs(destination);
+                initial[2 * 7 + 3] = 8193;
+                initial[3 * 7 + 3] = 8194;
+                assertThat((short[]) parent.getRaster().getDataElements(0, 0, 7, 6, null))
+                        .containsExactly(initial);
+            } finally {
+                reader.dispose();
+            }
+        }
+
+        @Test
+        void processedRegionMapsOrientedSubsampledPixelsAndBandsIntoTheDestination() throws Exception {
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
+                reader.setInput(input);
+                reader.getImageMetadata(0);
+                var metadata = reader.getDecoder().getMetadata();
+                metadata.setActiveAreaLeft(1);
+                metadata.setActiveAreaRight(2);
+                metadata.setActiveAreaBottom(2);
+                metadata.setPerChannelBlackLevels(new int[]{1, 4096, 4000, 2048});
+                metadata.setWhiteBalanceMultipliers(new double[]{2, 1, 0.5});
+                metadata.setOrientation(6);
+
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().applyColorMatrix(false).applySrgbConversion(false));
+                BufferedImage full = reader.read(0, param);
+                assertThat(full.getWidth()).isEqualTo(2);
+                assertThat(full.getHeight()).isOne();
+                BufferedImage destination = new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB);
+                destination.setRGB(2, 1, 0x223344);
+                param.setSourceSubsampling(2, 1, 1, 0);
+                param.setSourceBands(new int[]{0});
+                param.setDestinationBands(new int[]{1});
+                param.setDestinationOffset(new Point(2, 1));
+                param.setDestination(destination);
+
+                assertThat(reader.read(0, param)).isSameAs(destination);
+                assertThat(destination.getRaster().getPixel(2, 1, (int[]) null))
+                        .containsExactly(0x22, full.getRaster().getSample(1, 0, 0), 0x44);
+                assertThat(destination.getRGB(1, 1)).isEqualTo(0xff000000);
+            } finally {
+                reader.dispose();
+            }
+        }
+
+        @Test
+        void rejectsAnEmptyProcessedRegionBeforeDecodingTheRawPayload() throws Exception {
+            byte[] cr3;
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3")) {
+                cr3 = fixture.readAllBytes();
+            }
+            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3))) {
+                int offset = Math.toIntExact(Cr3Parser.parse(input).tracks().getFirst().dataOffset());
+                Arrays.fill(cr3, offset, cr3.length, (byte) 0);
+            }
+
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3))) {
+                reader.setInput(input);
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
+                param.setSourceRegion(new Rectangle(2, 0, 1, 1));
+
                 assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IllegalArgumentException.class);
             } finally {
                 reader.dispose();

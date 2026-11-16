@@ -76,9 +76,9 @@ On Windows, use `"target/classes;target/dependency/*"` for the classpath.
 
 The native importer has been verified on 14-bit, four-plane V1 lossless RAW and three-level C-RAW recordings from the EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. Selecting an unsupported RAW profile can raise `Cr3Exception`. Requesting the camera preview is a separate choice. For quantitative work, keep the Bayer data or the original CR3. An RGB or preview PNG does not preserve the camera's original file or its complete metadata.
 
-`setInput(Path)` opens the input and the decoder closes it at the end of the block. If you supply an `ImageInputStream` instead, close the stream yourself. Use one decoder per concurrent import. `maxWorkers(2)` on a RAW options object limits that import to two workers, `1` selects sequential decoding and `0` uses the CPUs available to the JVM.
+`setInput(Path)` opens the input and the decoder closes it at the end of the block. If you supply an `ImageInputStream` instead, close the stream yourself. Use one decoder per concurrent import. `maxWorkers(2)` on a RAW options object limits that import to two workers, `1` selects sequential decoding and `0` selects workers from the available CPUs and tile planes. For full frames below 24 megapixels, automatic sensor decoding uses up to four workers. Larger frames can use more when tiles are independent.
 
-To retain only part of the Bayer mosaic, the following statements replace `decoder.decode(options)` inside the open decoder block. This example takes a 64 × 64 patch in full-sensor coordinates. The decoder reconstructs the compressed frame but allocates output storage for the selected samples.
+To retain only part of the Bayer mosaic, the following statements replace `decoder.decode(options)` inside the open decoder block. This example takes a 64 × 64 patch in full-sensor coordinates. The decoder allocates storage for the selected sites and reconstructs the relevant tile planes up to the last row needed by the patch.
 
 ```java
 var sensor = Cr3DecodeOptions.rawSensor();

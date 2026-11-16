@@ -3,30 +3,87 @@ package com.photographer.focusstack.cr3.raw.codec;
 import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicInteger;
 
-/** A Bayer position belongs to one worker across all tiles, including its optical-black rows. */
-record CrxTileDecoder(CrxHeader header, PlaneReader reader) implements CrxSensorDecoder {
+/** Decodes independent tile planes, preserving Bayer-position order for shared row accumulators. */
+record CrxTileDecoder(CrxHeader header, int width, int height, int tileWidth, PlaneReader reader)
+        implements CrxSensorDecoder {
+    // Small full-frame imports spend less time grouping writes by Bayer position.
+    private static final int AUTO_TILE_PARALLEL_PIXELS = 24_000_000;
+
     @FunctionalInterface
     interface PlaneReader {
-        void read(int tileIndex, CrxHeader.Plane plane, RowConsumer consumer) throws IOException, Cr3Exception;
+        void read(int tile, CrxHeader.Plane plane, int columns, int rows, RowConsumer consumer)
+                throws IOException, Cr3Exception;
     }
 
     @Override
     public void decodeRows(RowConsumer consumer) throws IOException, Cr3Exception {
-        decodePlanes(consumer, 0, 1);
+        decodePlanes(consumer, 0, 1, PlaneRowLimit.ALL_ROWS);
     }
 
     @Override
     public void decodeRows(RowConsumer consumer, int maxWorkers) throws IOException, Cr3Exception {
-        int workers = Cr3Workers.count(maxWorkers, 4);
+        decodeSelectedRows(consumer, maxWorkers, PlaneRowLimit.ALL_ROWS, false);
+    }
+
+    @Override
+    public void decodeSelectedRows(RowConsumer consumer, int maxWorkers, PlaneRowLimit limit,
+                                   boolean allowIndependentTiles) throws Cr3Exception, IOException {
+        boolean partial = limit != PlaneRowLimit.ALL_ROWS;
+        boolean useTileJobs = allowIndependentTiles
+                && (partial || maxWorkers > 0 || (long) width * height >= AUTO_TILE_PARALLEL_PIXELS);
+        int workers = Cr3Workers.count(maxWorkers, useTileJobs ? header.tiles().size() * 4 : 4);
+        if (useTileJobs && workers > 1 && (workers > 4 || partial)) {
+            decodeIndependentTiles(consumer, limit, workers);
+            return;
+        }
+        run(workers, worker -> decodePlanes(consumer, worker, workers, limit));
+    }
+
+    private void decodeIndependentTiles(RowConsumer consumer, PlaneRowLimit limit, int workers)
+            throws IOException, Cr3Exception {
+        var jobs = new ArrayList<PlaneJob>();
+        for (int tile = 0; tile < header.tiles().size(); tile++) {
+            int columns = columns(tile);
+            for (var plane : header.tiles().get(tile).planes()) {
+                int rows = selectedRows(limit, tile, plane, columns);
+                if (rows > 0) {
+                    jobs.add(new PlaneJob(tile, plane, columns, rows));
+                }
+            }
+        }
+        if (jobs.isEmpty()) {
+            return;
+        }
+        // Start larger streams first. Workers take another plane as soon as they finish.
+        jobs.sort(Comparator.comparingLong(PlaneJob::cost).reversed());
+        var next = new AtomicInteger();
+        run(Math.min(workers, jobs.size()), worker -> {
+            int index;
+            while ((index = next.getAndIncrement()) < jobs.size()) {
+                var job = jobs.get(index);
+                reader.read(job.tile, job.plane, job.columns, job.rows, consumer);
+            }
+        });
+    }
+
+    @FunctionalInterface
+    private interface DecodeWork {
+        void run(int worker) throws IOException, Cr3Exception;
+    }
+
+    private static void run(int workers, DecodeWork action) throws IOException, Cr3Exception {
         if (workers == 1) {
-            decodeRows(consumer);
+            action.run(0);
             return;
         }
         Exception[] failures = new Exception[workers];
         Cr3Workers.run(workers, worker -> {
             try {
-                decodePlanes(consumer, worker, workers);
+                action.run(worker);
             } catch (IOException | Cr3Exception e) {
                 failures[worker] = e;
             }
@@ -37,13 +94,37 @@ record CrxTileDecoder(CrxHeader header, PlaneReader reader) implements CrxSensor
         }
     }
 
-    private void decodePlanes(RowConsumer consumer, int worker, int workers) throws IOException, Cr3Exception {
+    private void decodePlanes(RowConsumer consumer, int worker, int workers, PlaneRowLimit limit)
+            throws IOException, Cr3Exception {
         for (int tile = 0; tile < header.tiles().size(); tile++) {
+            int columns = columns(tile);
             for (var plane : header.tiles().get(tile).planes()) {
                 if (plane.index() % workers == worker) {
-                    reader.read(tile, plane, consumer);
+                    int rows = selectedRows(limit, tile, plane, columns);
+                    if (rows > 0) {
+                        reader.read(tile, plane, columns, rows, consumer);
+                    }
                 }
             }
+        }
+    }
+
+    private int columns(int tile) {
+        return Math.min(tileWidth, width - tile * tileWidth) / 2;
+    }
+
+    private int selectedRows(PlaneRowLimit limit, int tile, CrxHeader.Plane plane, int columns) {
+        int rows = limit.rowsToRead(tile * tileWidth + (plane.index() & 1), plane.index() / 2,
+                columns, height / 2);
+        if (rows < 0 || rows > height / 2) {
+            throw new IllegalArgumentException("Invalid row limit for CRX tile plane");
+        }
+        return rows;
+    }
+
+    private record PlaneJob(int tile, CrxHeader.Plane plane, int columns, int rows) {
+        long cost() {
+            return plane.dataSize() * rows;
         }
     }
 }

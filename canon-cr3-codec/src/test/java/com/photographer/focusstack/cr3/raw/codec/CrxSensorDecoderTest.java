@@ -92,6 +92,57 @@ class CrxSensorDecoderTest {
     }
 
     @Test
+    void selectedPlanePrefixAvoidsUnrequestedPayload() throws Exception {
+        byte[] track = track();
+        track[HEADER + 8] = 1; // An invalid opening outside the selection.
+        // Each plane has a valid first row and no bytes for the second row.
+        var twoRows = new Cmp1Box((short) 1, 4, 4, 2, 4,
+                14, 4, 0, 0, 0, false, HEADER, false);
+        var decoder = CrxSensorDecoder.prepare(track, 4, 4, 14, V1, twoRows);
+        int[] output = new int[2];
+        decoder.decodeSelectedRows((x, y, row) -> output[x - 2] = row[0], 2,
+                (x, y, columns, rows) -> x >= 2 && y == 0 ? 1 : 0, true);
+        assertArrayEquals(new int[]{8194, 8195}, output);
+        assertThrows(Cr3Exception.class, () -> decoder.decodeRows((x, y, row) -> {}));
+    }
+
+    @Test
+    void independentTilesCanUseMoreThanFourWorkers() throws Exception {
+        assumeTrue(Runtime.getRuntime().availableProcessors() >= 8);
+        var decoder = CrxSensorDecoder.prepare(track(), 4, 2, 14, V1, CMP);
+        var active = new CountDownLatch(8);
+        int[] pixels = new int[8];
+        decoder.decodeSelectedRows((x, y, row) -> {
+            active.countDown();
+            try {
+                assertTrue(active.await(5, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new AssertionError(e);
+            }
+            pixels[4 * y + x] = row[0];
+        }, 8, CrxSensorDecoder.PlaneRowLimit.ALL_ROWS, true);
+        assertArrayEquals(new int[]{8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199}, pixels);
+    }
+
+    @Test
+    void selectedTilesOfOneBayerPhaseCanUseTwoWorkers() throws Exception {
+        assumeTrue(Runtime.getRuntime().availableProcessors() >= 2);
+        var decoder = CrxSensorDecoder.prepare(track(), 4, 2, 14, V1, CMP);
+        var active = new CountDownLatch(2);
+        int[] pixels = new int[2];
+        decoder.decodeSelectedRows((x, y, row) -> {
+            active.countDown();
+            try {
+                assertTrue(active.await(5, TimeUnit.SECONDS));
+            } catch (InterruptedException e) {
+                throw new AssertionError(e);
+            }
+            pixels[x / 2] = row[0];
+        }, 2, (x, y, columns, rows) -> (x & 1) == 0 && y == 0 ? rows : 0, true);
+        assertArrayEquals(new int[]{8192, 8194}, pixels);
+    }
+
+    @Test
     void existingDecoderLambdasCanServeTheNewOverload() throws Exception {
         CrxSensorDecoder custom = consumer -> consumer.write(0, 0, new int[]{77});
         assertEquals(77, pixels(custom, 4)[0]);

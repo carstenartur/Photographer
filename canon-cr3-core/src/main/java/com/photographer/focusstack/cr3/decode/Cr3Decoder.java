@@ -29,7 +29,9 @@ import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.ComponentSampleModel;
 import java.awt.image.DataBufferUShort;
+import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
@@ -173,7 +175,7 @@ public final class Cr3Decoder implements AutoCloseable {
         return switch (options.outputMode()) {
             case PREVIEW -> Cr3PreviewExtractor.extractPreview(input, container);
             case THUMBNAIL -> Cr3PreviewExtractor.extractThumbnail(input, container);
-            case RAW_PROCESSED -> decodeRawProcessed(options);
+            case RAW_PROCESSED -> decodeRawProcessedRegion(options, null);
             case RAW_LINEAR, RAW_SENSOR -> decodeRawRegion(options, null, 1, 1);
         };
     }
@@ -273,12 +275,33 @@ public final class Cr3Decoder implements AutoCloseable {
         }
     }
 
-    /** Decodes Bayer samples into the crop-sized array that also holds the eventual packed RGB pixels. */
-    private BufferedImage decodeRawProcessed(Cr3DecodeOptions options) throws Cr3Exception, IOException {
+    /** Returns the developed image bounds after applying the selected crop and EXIF orientation. */
+    public Rectangle getRawProcessedBounds(Cr3DecodeOptions options) throws Cr3Exception {
+        Rectangle area = processedArea(options, rawTrack());
+        return orientedBounds(area, orientation());
+    }
+
+    /**
+     * Develops a region in final, oriented image coordinates with the same colors as a full decode.
+     * A null region selects the complete output. Partial reads retain the Bayer neighbors and
+     * optical-black data needed to reproduce the full-frame development.
+     */
+    public BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion)
+            throws Cr3Exception, IOException {
         RawTrack track = rawTrack();
+        Rectangle fullArea = processedArea(options, track);
+        int orientation = orientation();
+        Rectangle bounds = orientedBounds(fullArea, orientation);
+        if (outputRegion != null && (outputRegion.isEmpty() || !bounds.contains(outputRegion))) {
+            throw new IllegalArgumentException("RGB region must be within the developed image");
+        }
+        boolean partial = outputRegion != null && !bounds.equals(outputRegion);
+        Rectangle region = partial
+                ? ExifOrientationTransformer.sourceRegion(outputRegion, fullArea.width, fullArea.height, orientation)
+                : new Rectangle(fullArea.width, fullArea.height);
+        Rectangle area = partial ? withDemosaicNeighbors(region, fullArea) : fullArea;
+
         CrxSensorDecoder sensor = prepareSensor(track);
-        Rectangle area = options.cropToActiveArea()
-                ? activeArea(track.width, track.height) : new Rectangle(track.width, track.height);
         int[] samples = new int[Math.multiplyExact(area.width, area.height)];
         var rawImage = new Cr3RawImage(area.width, area.height, samples, track.depth,
                 CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
@@ -286,14 +309,22 @@ public final class Cr3Decoder implements AutoCloseable {
         // Collect the left optical-black border for every sensor row, including rows outside the crop.
         // Even masked rows can set the minimum black level used for demosaic normalization.
         boolean experiment = options.pedestalStrategy() == Cr3DecodeOptions.PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH;
-        var ob = options.applyBlackLevel() && !experiment && metadata != null
-                ? ObBlackLevelEstimator.forSensor(track.width, track.height, metadata.activeAreaLeft()) : null;
-        sensor.decodeRows((x, y, row) -> {
+        int blackColumns = metadata == null ? 0 : metadata.activeAreaLeft();
+        var ob = options.applyBlackLevel() && !experiment
+                ? ObBlackLevelEstimator.forSensor(track.width, track.height, blackColumns) : null;
+        CrxSensorDecoder.RowConsumer write = (x, y, row) -> {
             if (ob != null) {
                 ob.addPlaneRow(x, y, row);
             }
             copyBayerRow(samples, area, x, y, row);
-        }, options.maxWorkers());
+        };
+        // With the masked columns in the first tile, no two tiles add to the same black-level sums.
+        boolean independentTiles = ob == null || blackColumns <= track.source.cmp1().tileWidth();
+        CrxSensorDecoder.PlaneRowLimit limit = partial
+                ? (x, y, columns, rows) -> ob != null && x < blackColumns
+                        ? rows : rowsToRead(area, 1, 1, x, y, columns, rows)
+                : CrxSensorDecoder.PlaneRowLimit.ALL_ROWS;
+        sensor.decodeSelectedRows(write, options.maxWorkers(), limit, independentTiles);
 
         int minBlackLevelSubtracted = 0;
         if (options.applyBlackLevel()) {
@@ -319,11 +350,37 @@ public final class Cr3Decoder implements AutoCloseable {
             SrgbConverter.process(rgb, options.maxWorkers());
         }
 
-        if (metadata != null && metadata.orientation() > 1) {
-            rgb = ExifOrientationTransformer.applyToOwnedImage(rgb, metadata.orientation());
+        if (partial) {
+            rgb = rgb.getSubimage(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
+                    region.width, region.height);
         }
+        return ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
+    }
 
-        return rgb;
+    private Rectangle processedArea(Cr3DecodeOptions options, RawTrack track) {
+        if (options.outputMode() != Cr3DecodeOptions.OutputMode.RAW_PROCESSED) {
+            throw new IllegalArgumentException("A processed RAW output mode is required");
+        }
+        return options.cropToActiveArea()
+                ? activeArea(track.width, track.height) : new Rectangle(track.width, track.height);
+    }
+
+    private int orientation() {
+        return metadata == null ? 1 : metadata.orientation();
+    }
+
+    private static Rectangle orientedBounds(Rectangle area, int orientation) {
+        int[] dimensions = ExifOrientationTransformer.outputDimensions(area.width, area.height, orientation);
+        return new Rectangle(dimensions[0], dimensions[1]);
+    }
+
+    private static Rectangle withDemosaicNeighbors(Rectangle region, Rectangle fullArea) {
+        // An even origin preserves the Bayer phase of the whole developed crop.
+        int left = Math.max(0, region.x - 1) & ~1;
+        int top = Math.max(0, region.y - 1) & ~1;
+        int right = Math.min(fullArea.width, region.x + region.width + 1);
+        int bottom = Math.min(fullArea.height, region.y + region.height + 1);
+        return new Rectangle(fullArea.x + left, fullArea.y + top, right - left, bottom - top);
     }
 
     /**
@@ -358,39 +415,77 @@ public final class Cr3Decoder implements AutoCloseable {
     /**
      * Decodes a window in the selected Bayer mode's zero-based output coordinates. The top-left
      * source site is always included. The next sites are separated by the supplied positive steps.
-     * Passing a null region selects the full output. Entropy and prediction traverse the full track,
-     * while only the requested sites occupy output storage.
+     * Passing a null region selects the full output. Partial reads decode the required tile-plane
+     * prefixes and allocate storage only for the requested sites.
      *
      * @throws IllegalArgumentException for a different output mode, invalid window or subsampling step
      */
     public BufferedImage decodeRawRegion(Cr3DecodeOptions options, Rectangle region, int xStep, int yStep)
             throws Cr3Exception, IOException {
         RawTrack track = rawTrack();
+        BayerWindow window = bayerWindow(options, track, region, xStep, yStep);
+        CrxSensorDecoder decoder = prepareSensor(track);
+        var output = new BufferedImage(window.width, window.height, BufferedImage.TYPE_USHORT_GRAY);
+        short[] pixels = ((DataBufferUShort) output.getRaster().getDataBuffer()).getData();
+        decodeBayerWindow(options, track, decoder, window, xStep, yStep, pixels, 0, window.width);
+        return output;
+    }
+
+    /**
+     * Decodes Bayer sites into a caller-owned, one-band unsigned-short raster with unit pixel
+     * stride and nonoverlapping rows. Destination coordinates are in the raster's coordinate system.
+     * If decoding fails, the raster may contain the sites written before the failure.
+     */
+    public void decodeRawRegionInto(Cr3DecodeOptions options, Rectangle region, int xStep, int yStep,
+                                    WritableRaster target, int destX, int destY)
+            throws Cr3Exception, IOException {
+        RawTrack track = rawTrack();
+        BayerWindow window = bayerWindow(options, track, region, xStep, yStep);
+        if (!(target.getDataBuffer() instanceof DataBufferUShort data) || data.getNumBanks() != 1
+                || !(target.getSampleModel() instanceof ComponentSampleModel layout)
+                || layout.getNumBands() != 1 || layout.getPixelStride() != 1 || layout.getBankIndices()[0] != 0
+                || layout.getScanlineStride() < layout.getWidth()
+                || !target.getBounds().contains(destX, destY, window.width, window.height)) {
+            throw new IllegalArgumentException("A compatible unsigned-short Bayer destination is required");
+        }
+        int offset = data.getOffset() + layout.getOffset(destX - target.getSampleModelTranslateX(),
+                destY - target.getSampleModelTranslateY());
+        decodeBayerWindow(options, track, prepareSensor(track), window, xStep, yStep, data.getData(),
+                offset, layout.getScanlineStride());
+    }
+
+    private record BayerWindow(Rectangle area, int width, int height, boolean full) {}
+
+    private BayerWindow bayerWindow(Cr3DecodeOptions options, RawTrack track, Rectangle region, int xStep, int yStep) {
         Rectangle area = rawArea(options, track);
         if (xStep <= 0 || yStep <= 0) {
             throw new IllegalArgumentException("RAW subsampling steps must be positive");
         }
+        Rectangle bounds = new Rectangle(area.width, area.height);
         if (region != null) {
-            if (!new Rectangle(area.width, area.height).contains(region) || region.isEmpty()) {
+            if (region.isEmpty() || !bounds.contains(region)) {
                 throw new IllegalArgumentException("RAW region must be within the selected image");
             }
             area.setBounds(area.x + region.x, area.y + region.y, region.width, region.height);
         }
-        CrxSensorDecoder decoder = prepareSensor(track);
-        boolean nativeCodes = options.outputMode() == Cr3DecodeOptions.OutputMode.RAW_SENSOR;
-        int outputWidth = Math.ceilDiv(area.width, xStep);
-        int outputHeight = Math.ceilDiv(area.height, yStep);
-        var output = new BufferedImage(outputWidth, outputHeight, BufferedImage.TYPE_USHORT_GRAY);
-        short[] pixels = ((DataBufferUShort) output.getRaster().getDataBuffer()).getData();
-        short[] levels = nativeCodes ? null : linearLevels(track.depth, options.applyBlackLevel());
+        return new BayerWindow(area, Math.ceilDiv(area.width, xStep), Math.ceilDiv(area.height, yStep),
+                (region == null || bounds.equals(region)) && xStep == 1 && yStep == 1);
+    }
 
-        decoder.decodeRows((x, y, row) -> writeSamples(pixels, levels, area, outputWidth, xStep, yStep, x, y, row),
-                options.maxWorkers());
-        return output;
+    private static void decodeBayerWindow(Cr3DecodeOptions options, RawTrack track, CrxSensorDecoder decoder,
+                                          BayerWindow window, int xStep, int yStep, short[] pixels,
+                                          int offset, int stride) throws Cr3Exception, IOException {
+        boolean nativeCodes = options.outputMode() == Cr3DecodeOptions.OutputMode.RAW_SENSOR;
+        short[] levels = nativeCodes ? null : linearLevels(track.depth, options.applyBlackLevel());
+        CrxSensorDecoder.PlaneRowLimit limit = window.full ? CrxSensorDecoder.PlaneRowLimit.ALL_ROWS
+                : (x, y, columns, rows) -> rowsToRead(window.area, xStep, yStep, x, y, columns, rows);
+        decoder.decodeSelectedRows((x, y, row) ->
+                        writeSamples(pixels, levels, window.area, window.width, offset, stride, xStep, yStep, x, y, row),
+                options.maxWorkers(), limit, true);
     }
 
     private static void writeSamples(short[] pixels, short[] levels, Rectangle area, int outputWidth,
-                                     int xStep, int yStep, int x, int y, int[] row) {
+                                     int offset, int stride, int xStep, int yStep, int x, int y, int[] row) {
         int relativeY = y - area.y;
         if (relativeY < 0 || relativeY >= area.height || relativeY % yStep != 0) {
             return;
@@ -413,10 +508,35 @@ public final class Cr3Decoder implements AutoCloseable {
         int destinationStep = oddStep ? 2 : 1;
         int sourceStep = oddStep ? xStep : xStep / 2;
         int source = (int) ((firstSite - x) / 2);
-        int destinationRow = (relativeY / yStep) * outputWidth;
+        int destinationRow = offset + (relativeY / yStep) * stride;
         for (int column = first; column < end; column += destinationStep, source += sourceStep) {
             pixels[destinationRow + column] = levels == null ? (short) row[source] : levels[row[source]];
         }
+    }
+
+    private static int rowsToRead(Rectangle area, int xStep, int yStep, int x, int y, int columns, int rows) {
+        if (lastSample(area.x, area.width, xStep, x, columns) < 0) {
+            return 0;
+        }
+        int lastY = lastSample(area.y, area.height, yStep, y, rows);
+        return lastY < 0 ? 0 : 1 + (lastY - y) / 2;
+    }
+
+    /** Last site common to the requested sampling grid and this tile plane's even or odd phase. */
+    private static int lastSample(int start, int length, int step, int planeStart, int planeLength) {
+        int first = Math.max(start, planeStart);
+        int end = Math.min(start + length - 1, planeStart + 2 * (planeLength - 1));
+        if (end < first) {
+            return -1;
+        }
+        int last = end - (end - start) % step;
+        if (((last - planeStart) & 1) != 0) {
+            if ((step & 1) == 0) {
+                return -1;
+            }
+            last -= step;
+        }
+        return last >= first ? last : -1;
     }
 
     private Rectangle rawArea(Cr3DecodeOptions options, RawTrack track) {

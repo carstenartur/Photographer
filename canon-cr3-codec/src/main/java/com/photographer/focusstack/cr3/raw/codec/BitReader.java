@@ -115,7 +115,7 @@ public final class BitReader {
 
     /** Reads a native Rice symbol in one reservoir shift when the entire code is buffered. */
     int readRice(int k, int escapeQuotient, int literalBits) throws IOException {
-        if (available < 32 && data.length - nextByte >= Integer.BYTES) {
+        if (available < 32 && data.length - nextByte >= Long.BYTES) {
             refill();
         }
         int quotient = Long.numberOfLeadingZeros(buffer);
@@ -130,12 +130,22 @@ public final class BitReader {
     }
 
     private void consume(int bits) {
-        buffer <<= bits;
+        // A Java long shift by 64 uses a shift distance of zero.
+        buffer = bits == Long.SIZE ? 0 : buffer << bits;
         available -= bits;
     }
 
     private void refill() throws IOException {
-        if (data.length - nextByte >= Integer.BYTES) {
+        int remaining = data.length - nextByte;
+        if (remaining >= Long.BYTES) {
+            // Only append whole bytes so nextByte still points to an unread byte.
+            int bytes = (Long.SIZE - available) / Byte.SIZE;
+            int filled = available + bytes * Byte.SIZE;
+            long word = data.longWord(nextByte) >>> available;
+            buffer |= word & (-1L << (Long.SIZE - filled));
+            nextByte += bytes;
+            available = filled;
+        } else if (remaining >= Integer.BYTES) {
             long word = Integer.toUnsignedLong(data.word(nextByte));
             buffer |= word << (32 - available);
             nextByte += Integer.BYTES;

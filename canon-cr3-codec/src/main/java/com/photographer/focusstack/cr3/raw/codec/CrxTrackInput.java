@@ -15,6 +15,8 @@ final class CrxTrackInput {
     private static final int READ_AHEAD = 32 * 1024;
     private static final VarHandle BIG_ENDIAN_INT =
             MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+    private static final VarHandle BIG_ENDIAN_LONG =
+            MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
 
     @FunctionalInterface
     private interface Reader {
@@ -128,6 +130,10 @@ final class CrxTrackInput {
 
         int word(int pos) throws IOException {
             return (int) BIG_ENDIAN_INT.get(data, index(pos, Integer.BYTES));
+        }
+
+        long longWord(int pos) throws IOException {
+            return (long) BIG_ENDIAN_LONG.get(data, index(pos, Long.BYTES));
         }
 
         private int index(int pos, int count) throws IOException {
