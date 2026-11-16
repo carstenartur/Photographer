@@ -46,4 +46,19 @@ class RawDecodeBudgetTest {
         }
         assertThrows(IOException.class, () -> budget.acquire(101, 1));
     }
+
+    @Test
+    void reservesDemosaicRowsForTheWorkerBudgetInEitherOrientation() {
+        int width = 12_000;
+        int height = 8_000;
+        int workers = 125;
+        long serial = RawDecodeBudget.estimateRawBytes(width, height, false, 1);
+        long parallel = RawDecodeBudget.estimateRawBytes(width, height, false, workers);
+        assertEquals(3L * (workers - 1) * width * Integer.BYTES, parallel - serial);
+        long landscape = RawDecodeBudget.estimateRawBytes(width, height, true, workers);
+        long portrait = RawDecodeBudget.estimateRawBytes(height, width, true, workers);
+        assertEquals(landscape, portrait);
+        assertEquals(RawDecodeBudget.estimateRawBytes(width, height, true, 1),
+                RawDecodeBudget.estimateRawBytes(width, height));
+    }
 }

@@ -30,7 +30,6 @@ import java.util.concurrent.Future;
 @Service
 public final class StackFileProcessor {
     private static final Logger log = LoggerFactory.getLogger(StackFileProcessor.class);
-    private static final int MAX_IN_FLIGHT = 4;
     private static final long MIB = 1L << 20;
     private final RawDecodeBudget budget;
 
@@ -91,14 +90,14 @@ public final class StackFileProcessor {
         long stackBytes = 8 * pixels + 8 * MIB;
         boolean hasRaw = inputs.stream().anyMatch(Input::raw);
         long frameBytes = inputs.stream().mapToLong(Input::estimatedBytes).max().orElseThrow();
-        int maxParallel = Math.min(budget.capacityWorkers(), Math.min(MAX_IN_FLIGHT, inputs.size()));
-        int preferredWorkers = Math.min(budget.capacityWorkers(), maxParallel * 4);
-        try (var lease = budget.acquire(stackBytes + frameBytes, stackBytes + maxParallel * frameBytes,
-                preferredWorkers)) {
+        int cpuBudget = budget.capacityWorkers();
+        int maxParallel = Math.min(cpuBudget, inputs.size());
+        long preferredFrameSlots = Math.min(maxParallel, (Long.MAX_VALUE - stackBytes) / frameBytes);
+        long preferredBytes = stackBytes + preferredFrameSlots * frameBytes;
+        try (var lease = budget.acquire(stackBytes + frameBytes, preferredBytes, hasRaw ? cpuBudget : maxParallel)) {
             int slotsByMemory = (int) ((lease.bytes() - stackBytes) / frameBytes);
             int parallel = Math.min(maxParallel, Math.min(lease.workers(), slotsByMemory));
-            int workers = lease.workers() / parallel;
-            Merged merged = mergeInOrder(inputs, parallel, workers);
+            Merged merged = mergeInOrder(inputs, parallel, lease.workers());
             var output = new ByteArrayOutputStream();
             if (!ImageIO.write(merged.image(), "png", output)) {
                 throw new IOException("No PNG writer available for the merged stack");
@@ -112,12 +111,12 @@ public final class StackFileProcessor {
         }
     }
 
-    private static Merged mergeInOrder(List<Input> inputs, int parallel, int workers) throws IOException {
+    private static Merged mergeInOrder(List<Input> inputs, int parallel, int workerBudget) throws IOException {
         var pending = new ArrayDeque<Future<BufferedImage>>(parallel);
         try (var tasks = Executors.newFixedThreadPool(parallel)) {
             try {
                 for (int i = 0; i < parallel; i++) {
-                    pending.addLast(submit(tasks, inputs.get(i), workers));
+                    pending.addLast(submit(tasks, inputs.get(i), workersForSlot(i, parallel, workerBudget)));
                 }
                 int next = parallel;
                 int current = 0;
@@ -140,6 +139,7 @@ public final class StackFileProcessor {
                     image = null;
                     // Combining a finished frame uses a worker slot freed by its decoder.
                     if (next < inputs.size()) {
+                        int workers = workersForSlot(next % parallel, parallel, workerBudget);
                         pending.addLast(submit(tasks, inputs.get(next++), workers));
                     }
                 }
@@ -152,6 +152,11 @@ public final class StackFileProcessor {
                 throw failure;
             }
         }
+    }
+
+    private static int workersForSlot(int slot, int slots, int budget) {
+        int share = budget / slots;
+        return slot < budget % slots ? share + 1 : share;
     }
 
     private static BufferedImage readIfAvailable(Future<BufferedImage> future, Input input) throws IOException {
@@ -207,14 +212,14 @@ public final class StackFileProcessor {
         }
     }
 
-    private static Input inspectRaw(OriginalFrame frame) throws IOException {
+    private Input inspectRaw(OriginalFrame frame) throws IOException {
         try (var decoder = new Cr3Decoder()) {
             decoder.setInput(frame.path());
             Dimension size = decoder.getRawProcessedBounds(Cr3DecodeOptions.rawProcessed()).getSize();
             var metadata = decoder.getMetadata();
             boolean orientationCopy = metadata != null && metadata.orientation() >= 2 && metadata.orientation() <= 8;
             return new Input(frame, size, true, true,
-                    RawDecodeBudget.estimateRawBytes(size.width, size.height, orientationCopy));
+                    RawDecodeBudget.estimateRawBytes(size.width, size.height, orientationCopy, budget.capacityWorkers()));
         } catch (Cr3Exception | EOFException unavailable) {
             throw new RawDecodeException(frame, unavailable);
         }

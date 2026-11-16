@@ -16,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -106,11 +108,13 @@ class CrxSensorDecoderTest {
         assertThrows(Cr3Exception.class, () -> decoder.decodeRows((x, y, row) -> {}));
     }
 
-    @Test
-    void independentTilesCanUseMoreThanFourWorkers() throws Exception {
-        assumeTrue(Runtime.getRuntime().availableProcessors() >= 8);
+    @ParameterizedTest
+    @ValueSource(ints = {0, 8})
+    void independentTilesCanUseTheAvailableProcessors(int maxWorkers) throws Exception {
+        int workers = Math.min(Runtime.getRuntime().availableProcessors(), 8);
+        assumeTrue(workers > 4);
         var decoder = CrxSensorDecoder.prepare(track(), 4, 2, 14, V1, CMP);
-        var active = new CountDownLatch(8);
+        var active = new CountDownLatch(workers);
         int[] pixels = new int[8];
         decoder.decodeSelectedRows((x, y, row) -> {
             active.countDown();
@@ -120,7 +124,7 @@ class CrxSensorDecoderTest {
                 throw new AssertionError(e);
             }
             pixels[4 * y + x] = row[0];
-        }, 8, CrxSensorDecoder.PlaneRowLimit.ALL_ROWS, true);
+        }, maxWorkers, CrxSensorDecoder.PlaneRowLimit.ALL_ROWS, true);
         assertArrayEquals(new int[]{8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199}, pixels);
     }
 

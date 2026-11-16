@@ -73,6 +73,16 @@ public final class BayerDemosaicer {
         return demosaicInPlace(rawImage, whiteLevel, 1);
     }
 
+    /** Estimates the sample storage of the temporary rows for a positive worker budget. */
+    public static long estimateInPlaceRowBytes(int width, int height, int workers) {
+        if (width < 1 || height < 1 || workers < 1) {
+            throw new IllegalArgumentException("Image dimensions and worker budget must be positive");
+        }
+        int stripes = Math.min(workers, Pixels.maxStripes(width, height));
+        // Each stripe has two working rows and each boundary adds a seam row.
+        return (3L * stripes - 1) * width * Integer.BYTES;
+    }
+
     /**
      * Demosaics in place, dividing large images into independently processed row stripes.
      *
