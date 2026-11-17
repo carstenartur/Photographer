@@ -6,5 +6,6 @@ public enum CameraWorkflowType {
     HDR_TIMELAPSE,
     FACE_ORBIT,
     ASTRO,
+    FRESNEL_CAPTURE,
     DIRECT_CONTROL
 }

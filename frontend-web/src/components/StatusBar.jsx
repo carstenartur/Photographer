@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { request } from '../api/auth';
 import { fetchSystemInfo } from '../api/systemApi';
 
 function formatUptime(seconds) {
@@ -12,6 +14,22 @@ function formatUptime(seconds) {
 
 export default function StatusBar() {
   const [info, setInfo] = useState(null);
+
+  const [fresnel, setFresnel] = useState('NOT_CONFIGURED');
+  useEffect(() => {
+    let mounted = true;
+    async function pollPairing() {
+      try {
+        const result = await request('/fresnel/status');
+        if (mounted) setFresnel(result.state);
+      } catch {
+        if (mounted) setFresnel(old => old === 'NOT_CONFIGURED' ? old : 'DISCONNECTED');
+      }
+    }
+    pollPairing();
+    const timer = setInterval(pollPairing, 10000);
+    return () => { mounted = false; clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -36,6 +54,7 @@ export default function StatusBar() {
 
   return (
     <footer className="status-bar">
+      {fresnel !== 'NOT_CONFIGURED' && <Link className="status-item" to="/integrations/fresnel">Fresnel · {fresnel}</Link>}
       <span className="status-item" title="Connected cameras">
         📷 {connectedCams.length > 0
           ? connectedCams.map(c => c.model || c.name).join(', ')

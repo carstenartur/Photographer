@@ -28,7 +28,9 @@ The pattern PDFs, manifest, intake checker and analysis primitives are available
 
 ## Fresnel hardware acceptance
 
-After the mock-camera bridge in [#314](https://github.com/carstenartur/Photographer/issues/314) works across both products, exercise one real paired session when the equipment is available. Record the model and firmware, lease and restoration behavior, and transfer integrity.
+- Once the [real-camera adapter](../TODO.md#capture-integrations) supports the body, record the camera model, firmware, transport, original settings and both application versions. Run a bounded session under one lease. Verify restoration and release on completion, cancel and connection loss.
+- For BOS, capture a reference and a disturbed condition with the operator confirming each change. For display photometric stereo, present each planned pattern on the physical display, record its hash and confirm it before triggering. Compare each source's length and SHA-256 on both hosts and check the corresponding Fresnel observation.
+- Interrupt a transfer and repeat the original trigger after reconnecting. Compare the camera's exposure count and saved originals to the planned steps. Record any uncertain exposure before the operator decides how to proceed.
 
 ## Public release decisions
 

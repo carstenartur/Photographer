@@ -2,6 +2,7 @@
 
 import argparse
 import base64
+import json
 from contextlib import contextmanager
 from io import BytesIO
 import os
@@ -27,6 +28,7 @@ def isolated_app(image, artifacts):
         'docker', 'run', '-d', '-p', '127.0.0.1::8080',
         '-e', 'FOCUSSTACK_SECURITY_ADMIN_PASSWORD',
         '-e', 'CAMERA_MOCK_ENABLED=true', '-e', 'FOCUSSTACK_CAMERA_MOCK_ENABLED=true',
+        '-e', 'FOCUSSTACK_FRESNEL_ENABLED=true', '-e', 'FOCUSSTACK_FRESNEL_TRUST_PRIVATE_NETWORK=true',
         image,
     ], text=True, env=env).strip()
     try:
@@ -83,6 +85,28 @@ def socket_headers(origin):
     return {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest',
             'Origin': origin, 'Upgrade': 'websocket', 'Connection': 'Upgrade',
             'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ=='}
+
+
+def check_fresnel_pairing(page, url, captures):
+    page.get_by_role('link', name='Fresnel', exact=True).click()
+    page.get_by_role('button', name='Create pairing code').click()
+    code = page.locator('.form-card [role=status] code').text_content()
+    page.get_by_role('button', name='Hide code').click()
+    service = url + '/api/v1/integrations/fresnel'
+    pair = urllib.request.Request(service + '/pair', headers={
+        'Content-Type': 'application/json', 'Idempotency-Key': 'browser-pair'}, data=json.dumps({
+            'pairingCode': code, 'fresnelInstanceId': 'optics-lab', 'fresnelDisplayName': 'Optics lab',
+            'fresnelApplicationVersion': '1.0', 'fresnelProtocolVersion': 1}).encode())
+    with urllib.request.urlopen(pair, timeout=10) as response:
+        bearer = json.load(response)['bearerToken']
+    health = urllib.request.Request(service + '/health', headers={'Authorization': 'Bearer ' + bearer})
+    with urllib.request.urlopen(health, timeout=10) as response:
+        assert json.load(response)['state'] == 'CONNECTED'
+    card = page.locator('section').filter(has=page.get_by_role('heading', name='Optics lab'))
+    expect(card.get_by_text('CONNECTED', exact=True)).to_be_visible(timeout=20000)
+    capture(page, captures, 'fresnel-pairing.png')
+    card.get_by_role('button', name='Revoke access').click()
+    expect(card.get_by_text('REVOKED', exact=True)).to_be_visible()
 
 
 def check_socket_boundary(page, url):
@@ -172,6 +196,8 @@ def exercise(page, url, password, captures):
     expect(page.get_by_text('COMPLETED', exact=True).first).to_be_visible(timeout=20_000)
     expect(page.get_by_role('heading', name='Brackets (1)', exact=True)).to_be_visible()
     expect(page.get_by_role('button', name='Generate Timelapse Video')).to_have_count(0)
+
+    check_fresnel_pairing(page, url, captures)
 
     page.set_viewport_size({'width': 390, 'height': 844})
     page.get_by_role('link', name='Cameras', exact=True).click()

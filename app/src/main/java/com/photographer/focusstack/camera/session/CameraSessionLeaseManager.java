@@ -6,6 +6,9 @@ public interface CameraSessionLeaseManager {
 
     CameraSessionLeaseMetrics metrics();
 
+    /** Snapshot for discovery. Acquisition remains the authority for access. */
+    default boolean isLeased(CameraLeaseKey key) { return false; }
+
     /** Blocks all subsequent acquisitions while existing handles may still close. */
     default void beginShutdown() {
         // Unmanaged/test implementations have no process-local lifecycle state.

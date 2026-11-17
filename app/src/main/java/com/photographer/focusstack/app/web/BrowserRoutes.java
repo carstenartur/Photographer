@@ -13,7 +13,7 @@ public class BrowserRoutes implements WebMvcConfigurer {
     public static final List<String> PATHS = List.of(
             "/cameras", "/jobs", "/jobs/{id}", "/gallery", "/hdr-timelapse", "/face-orbit",
             "/observer", "/observer/events", "/observer/events/{id}", "/observer/gallery",
-            "/observer/statistics", "/observer/settings", "/astro", "/plugins");
+            "/observer/statistics", "/observer/settings", "/astro", "/plugins", "/integrations/fresnel");
 
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
