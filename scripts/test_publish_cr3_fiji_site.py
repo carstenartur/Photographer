@@ -1,5 +1,7 @@
 import gzip
 import json
+import os
+import re
 import subprocess
 import io
 from functools import partial
@@ -14,6 +16,7 @@ import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
 import build_cr3_fiji_site as builder
+from publish_cr3_fiji_site import tagged_source
 from publish_cr3_fiji_site import ARTIFACTS, attach_archives, install, previous_archive, verify_served
 
 
@@ -34,6 +37,71 @@ def archive(root, version, timestamp):
     path = root / (timestamp + '.zip')
     path.write_bytes(temp.getvalue())
     return path
+
+
+class WorkflowRecoveryTest(unittest.TestCase):
+    workflow = (builder.ROOT / '.github/workflows/cr3-fiji-distribution.yml').read_text()
+
+    def test_selects_latest_nonexpired_retry_artifact_across_pages(self):
+        command = re.search(r'^ *artifact=\$\((.*)\)$', self.workflow, re.MULTILINE).group(1)
+        pages = [{'artifacts': [{'name': 'cr3-fiji-distribution-1', 'id': 11, 'expired': False}]},
+                 {'artifacts': [{'name': 'cr3-fiji-distribution-2', 'id': 22, 'expired': False},
+                                {'name': 'other', 'id': 44, 'expired': False},
+                                {'name': 'cr3-fiji-distribution-3', 'id': 33, 'expired': True}]}]
+        with tempfile.TemporaryDirectory() as temp:
+            gh = Path(temp, 'gh')
+            gh.write_text('#!/bin/sh\ncase " $* " in *" --jq "*|*" --template "*|*" --slurp "*) exit 2;; esac\n'
+                          'case " $* " in *" --paginate "*) cat;; *) exit 2;; esac\n')
+            gh.chmod(0o755)
+            for example, expected in [(pages, '22'), ([{'artifacts': []}], '')]:
+                result = subprocess.run(['bash', '-euo', 'pipefail', '-c', command], text=True, capture_output=True,
+                                        input='\n'.join(map(json.dumps, example)),
+                                        env={**os.environ, 'GH_REPO': 'owner/project', 'GITHUB_RUN_ID': '12',
+                                             'PATH': temp + os.pathsep + os.environ['PATH']})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), expected)
+
+    def test_manual_recovery_builds_and_attaches_from_resolved_release(self):
+        self.assertIn('refs/tags/$RELEASE_TAG^{commit}', self.workflow)
+        self.assertIn('inputs.release_tag || inputs.publish_existing_tag', self.workflow)
+        self.assertIn('ref: ${{ needs.source.outputs.sha }}', self.workflow)
+        self.assertIn('needs: [source, bundle]', self.workflow)
+        self.assertIn('needs: [source, attach]', self.workflow)
+        self.assertNotIn('if: ${{ !inputs.publish_existing_tag }}', self.workflow)
+
+
+class TaggedSourceTest(unittest.TestCase):
+    def test_off_main_tag_only_changes_maven_version_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
+
+            def commit(version, tag):
+                (root / 'pom.xml').write_text(f'<project><version>{version}</version><properties>'
+                                              f'<revision>{version}</revision></properties><scm><tag>{tag}</tag></scm></project>')
+                git('add', '.')
+                git('commit', '-qm', version)
+                return git('rev-parse', 'HEAD')
+
+            git('init', '-q', '-b', 'main')
+            git('config', 'user.email', 'release@example.invalid')
+            git('config', 'user.name', 'Release test')
+            historical = commit('0.1.5', 'HEAD')
+            git('tag', 'v0.1.5')
+            snapshot = commit('0.1.6-SNAPSHOT', 'HEAD')
+            git('update-ref', 'refs/remotes/origin/main', snapshot)
+            stable = commit('0.1.6', 'v0.1.6')
+            git('tag', '-a', 'v0.1.6', '-m', 'v0.1.6')
+            self.assertEqual(tagged_source(root, 'v0.1.5'), historical)
+            self.assertEqual(tagged_source(root, 'v0.1.6'), stable)
+            git('switch', '--detach', '-q', snapshot)
+            (root / 'unreviewed.py').write_text('additional code')
+            commit('0.1.7', 'v0.1.7')
+            git('tag', 'v0.1.7')
+            with self.assertRaisesRegex(ValueError, 'outside'):
+                tagged_source(root, 'v0.1.7')
 
 
 class BuildInputTest(unittest.TestCase):

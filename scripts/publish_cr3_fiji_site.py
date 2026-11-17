@@ -28,6 +28,42 @@ MARKER = 'version.txt'
 ANCILLARY = {MARKER, 'index.html', 'LICENSE.txt'}
 
 
+def tagged_source(root, tag):
+    """Accept a released main commit or its Maven-generated version-only child."""
+    import release_handoff as release
+
+    version = tag.removeprefix('v')
+    if tag != 'v' + version or not VERSION.fullmatch(version):
+        raise ValueError('Expected a stable release tag')
+    sha = release.git(root, 'rev-parse', '--verify', f'refs/tags/{tag}^{{commit}}')
+    if release.version_at(root, sha) != version:
+        raise ValueError('Tag and Maven version differ')
+    main = 'refs/remotes/origin/main'
+    ancestry = subprocess.run(['git', 'merge-base', '--is-ancestor', sha, main], cwd=root)
+    if ancestry.returncode == 0:
+        return sha
+    if ancestry.returncode != 1:
+        ancestry.check_returncode()
+    source = release.git(root, 'show', '-s', '--format=%P', sha)
+    if not re.fullmatch('[0-9a-f]{40}', source):
+        raise ValueError('A Maven release commit must have one parent')
+    release.git(root, 'merge-base', '--is-ancestor', source, main)
+    members = release.reactor_members(root, source)
+    snapshot = release.version_at(root, source)
+    if not snapshot.endswith('-SNAPSHOT'):
+        raise ValueError('Expected a snapshot source for the Maven release')
+    for line in release.git(root, 'diff', '--name-status', '--no-renames', source, sha).splitlines():
+        status, path = line.split('\t', 1)
+        if status != 'M' or path not in members:
+            raise ValueError('Release contains a change outside its reactor POMs: ' + path)
+        expected = release.projected_pom(root, source, path, snapshot, version, tag)
+        actual = release.git(root, 'show', sha + ':' + path)
+        options = dict(strip_text=True, with_comments=True)
+        if ET.canonicalize(expected, **options) != ET.canonicalize(actual, **options):
+            raise ValueError('Unexpected Maven release model: ' + path)
+    return sha
+
+
 def database_history(site):
     with gzip.open(site / 'db.xml.gz') as stream:
         db = ET.parse(stream)
@@ -180,6 +216,8 @@ def wait_until_served(site, base_url, tag):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
+    source_parser = commands.add_parser('tagged-source')
+    source_parser.add_argument('tag')
     publish = commands.add_parser('install')
     publish.add_argument('archive', type=Path)
     publish.add_argument('tag')
@@ -196,7 +234,9 @@ if __name__ == '__main__':
     attach.add_argument('tag')
     attach.add_argument('archives', type=Path)
     args = parser.parse_args()
-    if args.command == 'attach':
+    if args.command == 'tagged-source':
+        print(tagged_source(Path.cwd(), args.tag))
+    elif args.command == 'attach':
         attach_archives(args.repo, args.tag, args.archives)
     elif args.command == 'previous':
         previous_archive(args.site, args.archive)

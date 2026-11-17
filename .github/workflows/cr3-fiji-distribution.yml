@@ -14,7 +14,7 @@ on:
       publish_existing_tag:
         type: string
         required: false
-        description: 'Publish an existing release asset to Fiji Pages (vX.Y.Z). Leave empty to build only.'
+        description: 'Complete the Fiji distribution for an existing GitHub release (vX.Y.Z). Leave empty to build only.'
   pull_request:
     branches: [main]
     paths:
@@ -28,11 +28,50 @@ permissions:
   contents: read
 
 jobs:
+  source:
+    name: Resolve Fiji build source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      tag: ${{ steps.resolve.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || inputs.publish_existing_tag }}
+          EXPECTED_SHA: ${{ inputs.merged_sha }}
+        run: |
+          set -euo pipefail
+          sha="$GITHUB_SHA"
+          if [[ -n "$RELEASE_TAG" ]]; then
+            [[ "$GITHUB_REF" == refs/heads/main && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+            case "$GITHUB_WORKFLOW_REF" in
+              "$GITHUB_REPOSITORY/.github/workflows/deploy-release.yml@refs/heads/main")
+                [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] ;;
+              "$GITHUB_REPOSITORY/.github/workflows/cr3-fiji-distribution.yml@refs/heads/main")
+                [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && -z "$EXPECTED_SHA" ]] ;;
+              *) exit 1 ;;
+            esac
+            sha=$(python3 scripts/publish_cr3_fiji_site.py tagged-source "$RELEASE_TAG")
+            [[ -z "$EXPECTED_SHA" || "$sha" == "$EXPECTED_SHA" ]]
+            [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" == "$sha" ]]
+            gh release view "$RELEASE_TAG" --json isDraft,isPrerelease,tagName |
+              jq -e --arg tag "$RELEASE_TAG" '.tagName == $tag and (.isDraft or .isPrerelease | not)'
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
   bundle:
+    needs: source
     permissions:
       contents: read
       actions: read
-    if: ${{ !inputs.publish_existing_tag }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     outputs:
@@ -40,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.merged_sha || github.sha }}
+          ref: ${{ needs.source.outputs.sha }}
           persist-credentials: false
           fetch-depth: 0
 
@@ -54,13 +93,13 @@ jobs:
         run: python3 -m unittest discover -s scripts -p 'test_publish_cr3_fiji_site.py'
 
       - name: Reuse immutable Fiji archives on a release retry
-        if: inputs.release_tag != ''
+        if: needs.source.outputs.tag != ''
         id: previous
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          RELEASE_SHA: ${{ inputs.merged_sha }}
+          RELEASE_TAG: ${{ needs.source.outputs.tag }}
+          RELEASE_SHA: ${{ needs.source.outputs.sha }}
         run: |
           set -euo pipefail
           [[ "$GITHUB_REF" == refs/heads/main && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
@@ -68,7 +107,7 @@ jobs:
           archives=target/cr3-fiji-site
           mkdir -p "$archives"
           if [[ "$GITHUB_RUN_ATTEMPT" -gt 1 ]]; then
-            artifact=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" --paginate --slurp --jq '[.[] | .artifacts[] | select((.name // "" | startswith("cr3-fiji-distribution-")) and .expired == false)] | max_by(.id) | .id // empty')
+            artifact=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" --paginate | jq -sr '[.[] | .artifacts[] | select((.name // "" | startswith("cr3-fiji-distribution-")) and .expired == false)] | max_by(.id) | .id // empty')
             if [[ -n "$artifact" ]]; then
               gh api "repos/$GH_REPO/actions/artifacts/$artifact/zip" > "$RUNNER_TEMP/fiji-retry.zip"
               unzip -q "$RUNNER_TEMP/fiji-retry.zip" cr3-fiji-install.zip cr3-fiji-update-site.zip -d "$archives"
@@ -87,7 +126,7 @@ jobs:
           fi
 
       - name: Read the hosted update site at a specific Pages revision
-        if: inputs.release_tag != '' && steps.previous.outputs.reused != 'true'
+        if: needs.source.outputs.tag != '' && steps.previous.outputs.reused != 'true'
         uses: actions/checkout@v7
         with:
           ref: gh-pages
@@ -96,15 +135,14 @@ jobs:
           sparse-checkout: fiji/cr3
 
       - name: Load the preceding Fiji update site for a release
-        if: inputs.release_tag != '' && steps.previous.outputs.reused != 'true'
+        if: needs.source.outputs.tag != '' && steps.previous.outputs.reused != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          MERGED_SHA: ${{ inputs.merged_sha }}
+          RELEASE_TAG: ${{ needs.source.outputs.tag }}
+          MERGED_SHA: ${{ needs.source.outputs.sha }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF" == refs/heads/main && "$GITHUB_WORKFLOW_REF" == "$GH_REPO/.github/workflows/deploy-release.yml@refs/heads/main" ]]
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$(git rev-parse HEAD)" == "$MERGED_SHA" && "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$MERGED_SHA" ]]
           if [[ -f previous-pages/fiji/cr3/db.xml.gz ]]; then
@@ -165,15 +203,15 @@ jobs:
           retention-days: 7
 
   attach:
-    if: ${{ inputs.release_tag != '' }}
-    needs: bundle
+    if: ${{ needs.source.outputs.tag != '' }}
+    needs: [source, bundle]
     permissions:
       contents: write
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.merged_sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
@@ -185,8 +223,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
-          MERGED_SHA: ${{ inputs.merged_sha }}
+          RELEASE_TAG: ${{ needs.source.outputs.tag }}
+          MERGED_SHA: ${{ needs.source.outputs.sha }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$MERGED_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -195,18 +233,16 @@ jobs:
 
   publish-site:
     name: Publish the released Fiji update site
-    needs: attach
-    if: >-
-      ${{ !cancelled() && (needs.attach.result == 'success' ||
-          (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_existing_tag != '')) }}
+    needs: [source, attach]
+    if: needs.source.outputs.tag != ''
     permissions:
       contents: write
       pages: write
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      RELEASE_TAG: ${{ inputs.release_tag || inputs.publish_existing_tag }}
-      EXPECTED_SHA: ${{ inputs.merged_sha }}
+      RELEASE_TAG: ${{ needs.source.outputs.tag }}
+      EXPECTED_SHA: ${{ needs.source.outputs.sha }}
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v7
