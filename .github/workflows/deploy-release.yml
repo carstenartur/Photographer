@@ -3,173 +3,163 @@ name: Release Workflow
 on:
   workflow_dispatch:
     inputs:
-      next_development_version:
-        description: 'Next development version (optional, X.Y.Z-SNAPSHOT)'
-        required: false
+      release_version:
+        description: 'Release version (optional, defaults to the current version without -SNAPSHOT)'
         type: string
-        default: ''
-      next_version_increment:
-        description: 'Version increment if the version above is blank'
-        required: true
-        type: choice
-        default: patch
-        options:
-          - patch
-          - minor
-          - major
+      development_version:
+        description: 'Next development version (optional, defaults to the next patch SNAPSHOT)'
+        type: string
       dry_run:
-        description: 'Dry run (build and test only)'
-        required: false
-        type: boolean
-        default: true
-      also_publish_to_central:
-        description: 'Also publish the signed CR3 libraries to Maven Central on live resume'
-        required: false
+        description: 'Test the complete local Maven release without publishing'
         type: boolean
         default: false
-      resume_release_pr:
-        description: 'Merged release PR number (leave blank to prepare a release)'
-        required: false
-        type: string
-        default: ''
+  pull_request:
+    branches: [main]
+    types: [closed]
 
-permissions:
-  contents: write
-  actions: read
-  pull-requests: write
-  packages: write
+permissions: {}
 
 concurrency:
-  group: protected-release-handoff
+  group: >-
+    ${{ github.event_name == 'pull_request' && !(github.event.pull_request.merged && contains(github.event.pull_request.labels.*.name, 'release: publish')) && github.run_id || 'photographer-release' }}
   cancel-in-progress: false
 
-env:
-  GH_TOKEN: ${{ github.token }}
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/photographer/focusstack
-  DRY_RUN: ${{ inputs.dry_run }}
-
 jobs:
-  fiji:
-    needs: release
-    if: ${{ needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
-    permissions:
-      contents: write
-      pages: write
-    uses: ./.github/workflows/cr3-fiji-distribution.yml
-    with:
-      release_tag: ${{ needs.release.outputs.release_tag }}
-      merged_sha: ${{ needs.release.outputs.merged_sha }}
-
   release:
-    name: Build and Release
+    name: Prepare and perform Maven release
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.pull_request.merged &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.merge_commit_sha == github.sha &&
+        contains(github.event.pull_request.labels.*.name, 'release: publish')))
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: read
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     outputs:
-      verified_resume: ${{ steps.handoff.outputs.verified_resume }}
-      release_tag: v${{ steps.handoff.outputs.release }}
-      merged_sha: ${{ steps.handoff.outputs.merged }}
-
+      stable_sha: ${{ steps.maven.outputs.stable_sha }}
+      release_tag: ${{ steps.maven.outputs.release_tag }}
+      development_version: ${{ steps.maven.outputs.development_version }}
+      snapshot_branch: ${{ steps.maven.outputs.snapshot_branch }}
     steps:
-      - name: Checkout exact dispatched main control commit with full history
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v6
+      - uses: actions/setup-java@v6
         with:
-          java-version: '25'
           distribution: temurin
+          java-version: '25'
           cache: maven
-
-      # The repository helper derives consistent Maven project.version/revision,
-      # uses the existing version planner, and runs the full mvn -B clean verify.
-      # Preparation stops at R. Only an explicit verified resume may publish M.
-      - name: Prepare protected handoff or validate explicit merged release resume
-        id: handoff
+      - name: Prepare and perform the selected release
+        id: maven
         env:
-          EXACT_NEXT_VERSION: ${{ inputs.next_development_version }}
-          NEXT_VERSION_INCREMENT: ${{ inputs.next_version_increment }}
-          RESUME_RELEASE_PR: ${{ inputs.resume_release_pr }}
-        shell: bash
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          DEVELOPMENT_VERSION: ${{ inputs.development_version }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
         run: |
-          set -euo pipefail
-          if [[ -z "$RESUME_RELEASE_PR" ]]; then
-            python3 scripts/release_handoff.py prepare \
-              --next-development-version "$EXACT_NEXT_VERSION" \
-              --increment "$NEXT_VERSION_INCREMENT" \
-              --dry-run "$DRY_RUN"
-          else
-            python3 scripts/release_handoff.py resume \
-              --resume-release-pr "$RESUME_RELEASE_PR" \
-              --next-development-version "$EXACT_NEXT_VERSION" \
-              --dry-run "$DRY_RUN"
-          fi
+          options=(--release-version "$RELEASE_VERSION" --development-version "$DEVELOPMENT_VERSION")
+          if [[ "$DRY_RUN" == true ]]; then options+=(--dry-run); fi
+          python3 scripts/release_handoff.py "${options[@]}"
 
-      - name: Publish Maven repository, exact stable tag and application release
-        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/release_handoff.py publish \
-            --dry-run "$DRY_RUN"
-
-      - name: Log in to GitHub Container Registry
-        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
-        uses: docker/login-action@v4.8.0
+  snapshot:
+    name: Open next development PR
+    needs: release
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Open or reuse the snapshot PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.release_tag }}
+          DEVELOPMENT: ${{ needs.release.outputs.development_version }}
+          BRANCH: ${{ needs.release.outputs.snapshot_branch }}
+        run: |
+          echo "Snapshot branch: https://github.com/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/release_handoff.py --open-snapshot "$BRANCH" --release-version "${TAG#v}" --development-version "$DEVELOPMENT"
 
-      - name: Extract Docker metadata
-        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
+  docker:
+    needs: release
+    if: ${{ !inputs.dry_run }}
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+      STABLE_SHA: ${{ needs.release.outputs.stable_sha }}
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/photographer/focusstack
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.stable_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: docker/login-action@v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Check for an existing release image
+        id: image
+        run: python3 scripts/release_docker.py check
+      - uses: docker/metadata-action@v6
         id: meta
-        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=v${{ steps.handoff.outputs.release }}
-            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.handoff.outputs.release }}
-            type=semver,pattern={{major}},value=v${{ steps.handoff.outputs.release }}
-
-      - name: Recheck exact stable source and publication targets before image publication
-        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/release_handoff.py image-guard \
-            --dry-run "$DRY_RUN"
-
-      - name: Build and push Docker image from merged stable checkout
-        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
-        uses: docker/build-push-action@v7
+          flavor: latest=false
+          tags: type=semver,pattern={{version}},value=${{ env.RELEASE_TAG }}
+          labels: |
+            org.opencontainers.image.revision=${{ needs.release.outputs.stable_sha }}
+      - uses: docker/build-push-action@v7
+        id: build
+        if: steps.image.outputs.exists == 'false'
         with:
           context: .
           file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Verify the release image and update the applicable aliases
+        env:
+          EXPECTED_DIGEST: ${{ steps.build.outputs.digest || steps.image.outputs.digest }}
+        run: python3 scripts/release_docker.py promote
 
-      - name: Preserve maintenance responsibility and stage next snapshot handoff
-        if: ${{ steps.handoff.outputs.verified_resume == 'true' && !inputs.dry_run }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/release_handoff.py finish \
-            --dry-run "$DRY_RUN"
+  fiji:
+    needs: release
+    if: ${{ !inputs.dry_run }}
+    permissions:
+      actions: read
+      contents: write
+      pages: write
+    uses: ./.github/workflows/cr3-fiji-distribution.yml
+    with:
+      release_tag: ${{ needs.release.outputs.release_tag }}
+      merged_sha: ${{ needs.release.outputs.stable_sha }}
 
   central:
     needs: release
-    if: ${{ inputs.also_publish_to_central && needs.release.outputs.verified_resume == 'true' && !inputs.dry_run }}
+    if: ${{ !inputs.dry_run }}
     permissions:
       contents: read
     uses: ./.github/workflows/cr3-central-release.yml
     with:
       release_tag: ${{ needs.release.outputs.release_tag }}
-      merged_sha: ${{ needs.release.outputs.merged_sha }}
+      merged_sha: ${{ needs.release.outputs.stable_sha }}
     secrets:
       CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
       CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}

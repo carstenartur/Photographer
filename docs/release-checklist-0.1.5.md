@@ -1,6 +1,6 @@
 # Photographer 0.1.5 release procedure
 
-This runbook preserves the protected handoff procedure. The [0.1.5 release record](releases/0.1.5.md)
+This runbook preserves the procedure used for 0.1.5. For new releases, follow [Publish a release](developer/ci.md#publish-a-release). The [0.1.5 release record](releases/0.1.5.md)
 links the actual release source, CI, publication workflow and verified artifacts.
 The original qualification draft used `41d0460c76957717f67961c9d42328c50456ea7b`.
 Each release handoff qualifies its own source commit.

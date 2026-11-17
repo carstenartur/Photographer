@@ -10,6 +10,8 @@ readonly PRODUCT_MODULES="common-api,plugin-api,capture-core,storage,camera-ptp,
 
 python3 scripts/validate_release_workflow.py
 python3 scripts/test_release_handoff.py
+python3 scripts/test_release_docker.py
+python3 scripts/test_verify_central_release.py
 python3 scripts/test_cr3_repository.py
 python3 scripts/test_validate_vision_module_boundaries.py
 python3 scripts/validate_vision_module_boundaries.py .

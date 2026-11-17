@@ -1,8 +1,8 @@
 # CR3 Maven releases
 
-A regular Photographer release stages six CR3 libraries with Maven and publishes the resulting Maven directory to the project's `maven-repository` Git branch. Maven Central is an additional, explicit release option. The branch inherits Photographer's repository permissions.
+A regular Photographer release publishes six CR3 libraries to the project's `maven-repository` Git branch and to Maven Central. The Git branch inherits Photographer's repository permissions. Central serves the published coordinates to Maven consumers. [Start a release](developer/ci.md#publish-a-release)
 
-## Default Git-backed repository
+## Git-backed repository
 
 Run from the Photographer checkout with JDK 25, Maven 3.9.x, Git and Python 3. The first command performs the Maven file deployment alone. The second performs a fresh deployment, validates every payload, checksums and flattened POM, and resolves `cr3-imageio` and its five sibling libraries using an empty Maven consumer cache.
 
@@ -14,7 +14,7 @@ python3 scripts/cr3_repository.py 0.1.5
 
 Both commands produce `target/public-maven-repository/`. Ordinary dependency downloads use Maven's configured repositories. Neither command publishes remotely or needs a Central token or signing key. Select one publisher profile per build.
 
-The normal **Release Workflow** stages the repository during preparation and again at the verified merged commit. A live resume fast-forwards `maven-repository` using the existing checkout permissions, then creates the normal GitHub tag/application release. Each version's POM, binary, sources, Javadoc and checksums are immutable. An identical prior Maven release can be reused. A changed or partial version directory stops publication. GitHub Release remains the archival event for a configured Zenodo integration. Record an archive DOI only after the record exists.
+The **Release Workflow** stages the six libraries at the stable tag and fast-forwards `maven-repository`. Each version's POM, binary, sources, Javadoc and checksums are immutable. An identical prior Maven release can be reused. A changed or partial version directory stops publication. GitHub Release remains the archival event for a configured Zenodo integration. Record an archive DOI only after the record exists.
 
 ### Resolve a released version
 
@@ -32,7 +32,7 @@ mvn -B -f release/canon-cr3-consumer/pom.xml -Pphotographer-releases \
 
 The command copies the six resolved CR3 runtime JARs and their external dependencies to `release/canon-cr3-consumer/target/dependency/`. For a locally staged candidate, use `"-Dphotographer.repository.url=file://$PWD/target/public-maven-repository"`. The [standalone consumer POM](../release/canon-cr3-consumer/pom.xml) declares one dependency. Copy its `photographer-releases` profile into another consumer's POM or directly add that profile's repository entry under `<project><repositories>`.
 
-A distribution on a public HTTPS server can be consumed anonymously by passing its repository root as `photographer.repository.url`. For a public Photographer GitHub repository, that URL would be `https://raw.githubusercontent.com/carstenartur/Photographer/maven-repository/`. Private GitHub raw URLs do not provide anonymous access. For a version separately published to Maven Central, run the same consumer command without `-Pphotographer-releases` and without the repository URL.
+A distribution on a public HTTPS server can be consumed anonymously by passing its repository root as `photographer.repository.url`. For a public Photographer GitHub repository, that URL would be `https://raw.githubusercontent.com/carstenartur/Photographer/maven-repository/`. Private GitHub raw URLs do not provide anonymous access. For a version published to Maven Central, run the same consumer command without `-Pphotographer-releases` and without the repository URL.
 
 ## Public coordinates
 
@@ -125,9 +125,7 @@ Run from the tagged release checkout with a stable version already set in its PO
 
 Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
 
-To include Central in a verified live release, explicitly select `also_publish_to_central=true` in **Release Workflow**. It defaults to false. The optional **CR3 Maven Central** workflow also accepts a manual run on a stable `vX.Y.Z` tag with `validate` (upload for Portal approval) or `publish`. Both entry points verify the tag and source commit. Check any previous deployment before starting a separate run.
-
-For the first Central publication, you can release the tag and the Git-backed Maven repository through **Release Workflow**, then run **CR3 Maven Central** on that tag with `validate`. In the Portal, check the exact six coordinates and the `VALIDATED` status. Publish that deployment from the Portal to reuse the verified upload.
+The **Release Workflow** publishes to Central from its stable `vX.Y.Z` tag. To publish only the CR3 libraries for an existing release, run **CR3 Maven Central** on that tag. It verifies the checkout and deploys the signed bundle without changing Git refs or opening a snapshot PR. Select `validate` to upload for approval or `publish` to publish automatically. For a previously validated upload, open the existing deployment in the Portal, check the six coordinates and publish it there.
 
 Central operations use repository secrets `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` maps to the GPG plugin’s fingerprint variable.
 
@@ -175,4 +173,4 @@ The ImageIO dependency resolves the remaining supported runtime modules transiti
 
 The 0.1.5 archives resolve from the authorized Git-backed repository checkout. An independent consumer started with an empty Maven cache and retrieved all six POMs, runtime JARs, sources and Javadocs. Java 21 discovered the CR3 ImageIO provider from those dependencies. [Pinned Maven tree](https://github.com/carstenartur/Photographer/tree/9af70e857d3f138b2688f377e135e85b850f0c81) · [Checksums and release channels](releases/0.1.5.md#artifact-verification)
 
-For a future Central release, verify the Portal deployment and resolve the same version independently from Maven Central. [Publication and recovery procedure](release-checklist-0.1.5.md#holds-evidence-and-later-distribution)
+The 0.1.5 verification above covers the Git-backed channel. For a Central publication, record the Portal deployment and resolve the version independently. [Verify the published Central version](#verify-the-published-central-version)

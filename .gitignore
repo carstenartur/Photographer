@@ -9,6 +9,11 @@ hs_err_pid*
 replay_pid*
 # maven-shade-plugin output (generated each build)
 dependency-reduced-pom.xml
+# Maven Release Plugin preparation, rollback and dry-run files
+release.properties
+pom.xml.releaseBackup
+pom.xml.tag
+pom.xml.next
 
 # Maven wrapper
 !.mvn/wrapper/maven-wrapper.jar

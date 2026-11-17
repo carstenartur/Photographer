@@ -76,6 +76,20 @@ jobs:
           expected_commit=$(git rev-parse --verify "$source_commit^{commit}")
           [[ "$(git rev-parse HEAD)" == "$tagged_commit" && "$tagged_commit" == "$expected_commit" ]]
 
+      - name: Read the matching Git-backed distribution
+        uses: actions/checkout@v7
+        with:
+          ref: maven-repository
+          path: published-repository
+          persist-credentials: false
+          sparse-checkout: io/github/carstenartur
+
+      - name: Check the public coordinates before uploading
+        id: public
+        run: |
+          status=$(python3 scripts/verify_central_release.py "${RELEASE_TAG#v}" published-repository)
+          echo "state=$status" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -86,6 +100,7 @@ jobs:
           server-password: CENTRAL_PASSWORD
 
       - name: Deploy the signed public libraries
+        if: steps.public.outputs.state == 'absent'
         env:
           OPERATION: ${{ inputs.release_tag && 'publish' || inputs.operation }}
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
@@ -103,3 +118,9 @@ jobs:
           fi
           mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release \
             -Dcentral.skipUpload=false -Dgpg.signer=bc "${options[@]}" clean deploy
+
+      - name: Resolve and check the published JARs, POMs, sources and Javadocs
+        if: inputs.release_tag != '' || inputs.operation == 'publish' || steps.public.outputs.state == 'published'
+        run: |
+          python3 scripts/verify_central_release.py "${RELEASE_TAG#v}" published-repository --wait
+          echo "Verified all six public Maven Central libraries for $RELEASE_TAG and resolved a fresh Maven consumer." >> "$GITHUB_STEP_SUMMARY"
