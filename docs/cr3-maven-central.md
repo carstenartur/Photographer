@@ -2,6 +2,10 @@
 
 A regular Photographer release publishes six CR3 libraries to the project's `maven-repository` Git branch and to Maven Central. The Git branch inherits Photographer's repository permissions. Central serves the published coordinates to Maven consumers. [Start a release](developer/ci.md#publish-a-release)
 
+## Resolve a released version
+
+For Java 21 or newer, add `io.github.carstenartur:cr3-imageio:0.1.6` to your application's dependencies. Maven Central supplies this artifact and its five CR3 dependencies. The dependency snippets below also show direct access to the container parser. [Consumer examples](#consumer-examples) · [Photographer 0.1.6](releases/0.1.6.md)
+
 ## Git-backed repository
 
 Run from the Photographer checkout with JDK 25, Maven 3.9.x, Git and Python 3. The first command performs the Maven file deployment alone. The second performs a fresh deployment, validates every payload, checksums and flattened POM, and resolves `cr3-imageio` and its five sibling libraries using an empty Maven consumer cache.
@@ -16,7 +20,7 @@ Both commands produce `target/public-maven-repository/`. Ordinary dependency dow
 
 The **Release Workflow** stages the six libraries at the stable tag and fast-forwards `maven-repository`. Each version's POM, binary, sources, Javadoc and checksums are immutable. An identical prior Maven release can be reused. A changed or partial version directory stops publication. GitHub Release remains the archival event for a configured Zenodo integration. Record an archive DOI only after the record exists.
 
-### Resolve a released version
+### Resolve a version from the private Git branch
 
 Use your authorized Git access to clone the private distribution branch and select the exact version to verify. Maven reads that checkout through a file URL.
 
@@ -44,7 +48,7 @@ io.github.carstenartur
 
 The **CR3 ImageIO** library provides Java ImageIO readers and writers for Canon CR3 and uncompressed Bayer DNG. The [ImageIO guide](cr3/imageio.md) describes the supported layouts and write profiles.
 
-The release bundle contains these six artifacts. The examples using `0.1.5` select the verified Git-backed release. If you need the full-resolution `ImageIO.read(File)` default, use `0.1.6` or newer from a verified release channel. See the [migration note](cr3/imageio.md).
+The six artifacts below share version `0.1.6` on Maven Central. In this version `ImageIO.read(File)` develops the full-resolution RAW by default. The Git-backed example above selects the archived `0.1.5` release. [ImageIO migration note](cr3/imageio.md)
 
 | Artifact | Purpose |
 |---|---|
@@ -133,7 +137,7 @@ The release profile and credential names follow the project’s [jgit-storage-hi
 
 ### Verify the published Central version
 
-After the Portal reports `PUBLISHED`, resolve the exact version with a fresh Maven cache and Central enabled in your Maven settings. For example, after `0.1.6` has been published:
+From the Photographer checkout, resolve `0.1.6` using a fresh Maven cache and the default Central repository.
 
 ```bash
 mvn -B -f release/canon-cr3-consumer/pom.xml \
@@ -153,7 +157,7 @@ ImageIO integration:
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-imageio</artifactId>
-  <version>0.1.5</version>
+  <version>0.1.6</version>
 </dependency>
 ```
 
@@ -163,7 +167,7 @@ Low-level container access:
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-container</artifactId>
-  <version>0.1.5</version>
+  <version>0.1.6</version>
 </dependency>
 ```
 
@@ -173,4 +177,4 @@ The ImageIO dependency resolves the remaining supported runtime modules transiti
 
 The 0.1.5 archives resolve from the authorized Git-backed repository checkout. An independent consumer started with an empty Maven cache and retrieved all six POMs, runtime JARs, sources and Javadocs. Java 21 discovered the CR3 ImageIO provider from those dependencies. [Pinned Maven tree](https://github.com/carstenartur/Photographer/tree/9af70e857d3f138b2688f377e135e85b850f0c81) · [Checksums and release channels](releases/0.1.5.md#artifact-verification)
 
-The 0.1.5 verification above covers the Git-backed channel. For a Central publication, record the Portal deployment and resolve the version independently. [Verify the published Central version](#verify-the-published-central-version)
+[Verify 0.1.6 from Maven Central](#verify-the-published-central-version)

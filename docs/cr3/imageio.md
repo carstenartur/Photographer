@@ -20,14 +20,7 @@ A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW
 
 ## Maven setup
 
-Use JDK 21 or newer in the consuming application. For a checkout build, use JDK 25 and Maven 3.9+ in the Photographer repository. Install the CR3 libraries and print their version:
-
-```sh
-mvn -B -pl canon-cr3-imageio -am install -DskipTests
-mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
-```
-
-In a separate consumer project, replace `REPLACE_WITH_CR3_VERSION` with the printed revision or the exact version available from your configured release repository. Maven resolves the other five CR3 libraries and SLF4J transitively.
+Use JDK 21 or newer. Add the following dependency to your application. Maven resolves `cr3-imageio:0.1.6`, the other five CR3 libraries and SLF4J from Maven Central.
 
 ```xml
 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -38,7 +31,7 @@ In a separate consumer project, replace `REPLACE_WITH_CR3_VERSION` with the prin
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <cr3.version>REPLACE_WITH_CR3_VERSION</cr3.version>
+    <cr3.version>0.1.6</cr3.version>
   </properties>
   <dependencies>
     <dependency>
@@ -59,7 +52,14 @@ In a separate consumer project, replace `REPLACE_WITH_CR3_VERSION` with the prin
 </project>
 ```
 
-For a published version, follow the [Maven release guide](../cr3-maven-central.md#resolve-a-released-version) to configure the Git-backed repository or resolve a version verified on Maven Central.
+To test a local build instead, run the following commands in a Photographer checkout with JDK 25 and Maven 3.9+. Use the printed revision for `cr3.version` in your consumer POM.
+
+```sh
+mvn -B -pl canon-cr3-imageio -am install -DskipTests
+mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
+```
+
+[Verify the released Maven libraries](../cr3-maven-central.md#resolve-a-released-version)
 
 ### Optional SIMD color matrix on JDK 25
 
