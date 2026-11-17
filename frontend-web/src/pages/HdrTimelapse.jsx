@@ -66,6 +66,8 @@ export default function HdrTimelapse() {
         bracketCount: Number(form.bracketCount),
         evStep: Number(form.evStep),
         totalIntervals: Number(form.totalIntervals),
+        saveRaw: false,
+        tonemapEnabled: false,
       };
       const session = await createHdrSession(settings);
       setSessions((prev) => [session, ...prev]);
