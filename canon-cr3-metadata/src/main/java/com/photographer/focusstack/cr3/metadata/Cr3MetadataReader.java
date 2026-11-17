@@ -19,7 +19,6 @@ import java.util.Map;
  *   <li>CMT2 — EXIF IFD (ISO, exposure, aperture, focal length)</li>
  *   <li>CMT3 — Canon MakerNote (white balance, color temperature, shot info)</li>
  *   <li>CMT4 — GPS IFD (latitude, longitude, altitude)</li>
- *   <li>CTMD — recorded white balance and sensor calibration</li>
  * </ul>
  */
 public final class Cr3MetadataReader {
@@ -63,17 +62,6 @@ public final class Cr3MetadataReader {
         // Parse CMT boxes from moov
         if (container.moovBox() != null) {
             readCmtBoxes(input, container.moovBox(), metadata);
-        }
-
-        try {
-            Cr3ColorData color = Cr3ColorData.read(input, container);
-            metadata.setCaptureColorData(color);
-            double[] gains = color == null ? null : color.whiteBalanceMultipliers();
-            if (gains != null) {
-                metadata.setWhiteBalanceMultipliers(gains);
-            }
-        } catch (IOException e) {
-            LOG.warn("Could not read CR3 sensor calibration: {}", e.getMessage());
         }
 
         LOG.debug("Extracted metadata: {}", metadata);

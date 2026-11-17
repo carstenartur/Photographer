@@ -55,7 +55,7 @@ class RealSampleCr3Test {
         assertThat(tungsten).isNotNull();
         try (var decoder = new Cr3Decoder()) {
             decoder.setInput(Path.of(tungsten.toURI()));
-            assertThat(decoder.getMetadata().whiteBalanceMultipliers())
+            assertThat(decoder.prepareRawDevelopment(1).whiteBalance())
                     .containsExactly(1589.0 / 1024.0, 1.0, 2834.0 / 1024.0);
         }
     }

@@ -175,7 +175,7 @@ public class CanonCr3ImageReader extends ImageReader {
             Cr3Metadata meta = decoder.getMetadata();
             if (imageMetadata == null && meta != null) {
                 Cr3SensorCalibration calibration = Cr3SensorCalibration.from(
-                        decoder.getContainer(), meta.captureColorData());
+                        decoder.getContainer(), decoder.getCaptureColorData());
                 imageMetadata = new Cr3ImageMetadata(meta, calibration);
             }
             return imageMetadata;

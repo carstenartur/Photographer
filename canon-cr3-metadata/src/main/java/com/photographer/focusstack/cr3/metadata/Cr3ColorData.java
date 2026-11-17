@@ -11,7 +11,11 @@ import java.nio.ByteOrder;
 public record Cr3ColorData(int redGain, int greenRedGain, int greenBlueGain, int blueGain,
                            int redBlack, int greenRedBlack, int greenBlueBlack, int blueBlack, int white) {
 
-    static Cr3ColorData read(ImageInputStream input, Cr3Container container) throws IOException {
+    /**
+     * Reads capture calibration while preserving the stream position and byte order.
+     * Returns null when the capture has no supported ColorData layout.
+     */
+    public static Cr3ColorData read(ImageInputStream input, Cr3Container container) throws IOException {
         Cr3Track ctmd = null;
         for (Cr3Track track : container.tracks()) {
             if ("CTMD".equals(track.codecType())) {
@@ -21,7 +25,8 @@ public record Cr3ColorData(int redGain, int greenRedGain, int greenBlueGain, int
         return ctmd == null ? null : readColorData(input, ctmd);
     }
 
-    double[] whiteBalanceMultipliers() {
+    /** Returns red, green and blue gain ratios using the mean green gain, or null for invalid values. */
+    public double[] whiteBalanceMultipliers() {
         if (redGain <= 0 || greenRedGain <= 0 || greenBlueGain <= 0 || blueGain <= 0) {
             return null;
         }
