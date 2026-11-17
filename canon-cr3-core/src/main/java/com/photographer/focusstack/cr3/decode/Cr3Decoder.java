@@ -745,7 +745,7 @@ public final class Cr3Decoder implements AutoCloseable {
 
     /**
      * Resolves the best available white balance multipliers.
-     * Priority: MakerNote WB &gt; default daylight.
+     * Uses the recorded CTMD or MakerNote gains, with daylight values as fallback.
      */
     private double[] resolveWhiteBalance() {
         if (metadata != null && metadata.whiteBalanceMultipliers() != null) {

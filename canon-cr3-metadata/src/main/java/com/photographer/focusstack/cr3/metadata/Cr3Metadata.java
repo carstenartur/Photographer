@@ -13,6 +13,7 @@ package com.photographer.focusstack.cr3.metadata;
  *   <li>CMT2 — EXIF IFD: ISO, exposure, aperture, focal length</li>
  *   <li>CMT3 — Canon MakerNote: WB multipliers, shot info</li>
  *   <li>CMT4 — GPS IFD: latitude, longitude, altitude</li>
+ *   <li>CTMD — recorded white balance and sensor calibration</li>
  * </ul>
  */
 public final class Cr3Metadata {
@@ -46,14 +47,20 @@ public final class Cr3Metadata {
     private Double gpsAltitude;
     private String gpsTimestamp;
 
-    // White balance multipliers from CMT3 MakerNote [R, G, B]
+    // As-shot white balance multipliers [R, G, B]
     private double[] whiteBalanceMultipliers;
+    private Cr3ColorData captureColorData;
 
     // Per-channel black levels from MakerNote [R, Gr, Gb, B] or global
     private int[] perChannelBlackLevels;
 
     // Canon MakerNote raw data for advanced access
     private CanonMakerNoteData makerNoteData;
+
+    /** Returns the recorded CTMD calibration, or null when unavailable. */
+    public Cr3ColorData captureColorData() { return captureColorData; }
+
+    void setCaptureColorData(Cr3ColorData data) { this.captureColorData = data; }
 
     /** Returns the camera model name (e.g. "Canon PowerShot G5 X Mark II"). */
     public String cameraModel() { return cameraModel; }
@@ -218,7 +225,7 @@ public final class Cr3Metadata {
     public void setGpsTimestamp(String gpsTimestamp) { this.gpsTimestamp = gpsTimestamp; }
 
     /**
-     * Returns the white balance multipliers from Canon MakerNote, or {@code null}
+     * Returns the white balance multipliers from CTMD or the Canon MakerNote, or {@code null}
      * if not available. Array of 3 values: [R, G, B].
      */
     public double[] whiteBalanceMultipliers() { return whiteBalanceMultipliers; }

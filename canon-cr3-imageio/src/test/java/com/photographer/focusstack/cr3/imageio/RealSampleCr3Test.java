@@ -49,6 +49,17 @@ class RealSampleCr3Test {
                 "sample.cr3 not present — run Cr3SampleCaptureIT first (needs real camera)");
     }
 
+    @Test
+    void rawColorUsesRecordedTungstenWhiteBalance() throws Exception {
+        URL tungsten = RealSampleCr3Test.class.getResource("/samples/sample-wb-tungsten.cr3");
+        assertThat(tungsten).isNotNull();
+        try (var decoder = new Cr3Decoder()) {
+            decoder.setInput(Path.of(tungsten.toURI()));
+            assertThat(decoder.getMetadata().whiteBalanceMultipliers())
+                    .containsExactly(1589.0 / 1024.0, 1.0, 2834.0 / 1024.0);
+        }
+    }
+
     // ── Box structure ──────────────────────────────────────────────────────
 
     @Nested
