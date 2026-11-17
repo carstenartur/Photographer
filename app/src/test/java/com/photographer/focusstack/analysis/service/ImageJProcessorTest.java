@@ -2,12 +2,13 @@ package com.photographer.focusstack.analysis.service;
 
 import com.photographer.focusstack.common.analysis.SharpnessMap;
 import com.photographer.focusstack.cr3.Cr3Exception;
-import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
-import com.photographer.focusstack.cr3.decode.Cr3Decoder;
+import com.photographer.focusstack.cr3.container.Cr3Parser;
+import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import javax.imageio.ImageIO;
+import javax.imageio.stream.FileImageInputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -123,30 +124,31 @@ class ImageJProcessorTest {
     }
 
     @Test
-    void cr3SharpnessMapUsesTheRawPixelsBeyondTheEmbeddedPreview() throws IOException, Cr3Exception {
+    void cr3SharpnessMapFallsBackToTheEmbeddedPreviewWhenOverBudget() throws IOException, Cr3Exception {
         Path module = Path.of("canon-cr3-imageio");
         if (!Files.isDirectory(module)) {
             module = Path.of("..").resolve(module);
         }
         Path sample = module.resolve("src/test/resources/samples/sample.cr3");
-        int previewEdge;
-        try (var decoder = new Cr3Decoder()) {
-            decoder.setInput(sample);
-            var previewOptions = Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
-            BufferedImage preview = decoder.decode(previewOptions);
-            assertNotNull(preview);
-            previewEdge = Math.max(preview.getWidth(), preview.getHeight());
+        byte[] preview;
+        try (var input = new FileImageInputStream(sample.toFile())) {
+            preview = Cr3PreviewExtractor.extractPreviewBytes(input, Cr3Parser.parse(input));
         }
 
         byte[] raw = Files.readAllBytes(sample);
-        SharpnessMap map = processor.createSharpnessMap(raw, previewEdge);
+        int blockSize = 256;
+        SharpnessMap previewMap = processor.createSharpnessMap(preview, blockSize);
+        assertTrue(previewMap.width() > 0 && previewMap.height() > 0, "The embedded JPEG must be readable");
+        SharpnessMap rawMap = processor.createSharpnessMap(raw, blockSize);
+        assertTrue(rawMap.width() > previewMap.width() && rawMap.height() > previewMap.height(),
+                "RAW analysis should use a larger grid than the embedded preview");
 
-        assertTrue(map.width() > 1 || map.height() > 1,
-                "RAW analysis must span more pixels than the embedded camera preview");
         SharpnessMap constrained = new ImageJProcessor(new RawDecodeBudget(1, 1))
-                .createSharpnessMap(raw, previewEdge);
-        assertEquals(1, constrained.width(), "The embedded preview fits into one block");
-        assertEquals(1, constrained.height(), "The embedded preview fits into one block");
+                .createSharpnessMap(raw, blockSize);
+        assertEquals(previewMap.width(), constrained.width());
+        assertEquals(previewMap.height(), constrained.height());
+        assertArrayEquals(previewMap.scores(), constrained.scores());
+        assertEquals(previewMap.overallScore(), constrained.overallScore());
     }
 
     @Test
