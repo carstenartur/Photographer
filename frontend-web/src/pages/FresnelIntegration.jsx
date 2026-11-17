@@ -84,8 +84,19 @@ export default function FresnelIntegration() {
             <p>Paired {when(pairing.createdAt)} · Last authenticated request {when(pairing.lastSeenAt)}</p>
             <p>Scopes: {pairing.scopes.join(', ')}</p>
             {sessions.map(session => <div key={session.sessionId}>
+              <h4>{session.workflow === 'DISPLAY_PHOTOMETRIC_STEREO' ? 'Display photometric stereo' : 'Background-oriented schlieren'} · {session.experiment}</h4>
               <p>Camera {session.cameraProfileId} · {session.state} · {session.completedSteps}/{session.totalSteps} steps
                 {session.currentStepId && ' · ' + session.currentStepId}</p>
+              {session.effectiveSettings && <p>{session.effectiveSettings.format} · Exposure and focus unchanged</p>}
+              {session.state === 'RECOVERY_REQUIRED' && <p role="alert">Check the camera and its saved images before starting another exposure.</p>}
+              <details>
+                <summary>Capture steps</summary>
+                <ol>{session.steps?.map(step => <li key={step.stepId}>
+                  {step.stepId} · {step.state}
+                  {step.result?.asset && <div>{step.result.asset.byteLength} bytes · SHA-256 <code style={{ overflowWrap: 'anywhere' }}>{step.result.asset.sha256}</code></div>}
+                </li>)}</ol>
+                {session.lastMessageCode && <p>Last event: {session.lastMessageCode}</p>}
+              </details>
               <button className="btn" disabled={busy} onClick={() => change(
                 '/pairings/' + pairing.pairingId + '/sessions/' + session.sessionId + '/abort', 'POST')}>Abort capture</button>
             </div>)}

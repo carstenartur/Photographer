@@ -77,7 +77,9 @@ public class FresnelPairings {
         try { origin = URI.create(baseUrl == null ? "" : baseUrl); }
         catch (IllegalArgumentException e) { throw new FresnelProblem(400, "INVALID_REQUEST"); }
         if (origin.getHost() == null || origin.getUserInfo() != null || origin.getQuery() != null
-                || origin.getFragment() != null || !List.of("https", "http").contains(origin.getScheme())) {
+                || origin.getFragment() != null || !List.of("", "/").contains(origin.getPath())
+                || origin.getPort() == 0 || origin.getPort() > 65535
+                || !List.of("https", "http").contains(origin.getScheme())) {
             throw new FresnelProblem(400, "INVALID_REQUEST");
         }
         String code = secret();

@@ -51,6 +51,14 @@ class FresnelPairingsTest {
                 () -> again.whilePaired(pairing.pairingId(), () -> fail("revoked"))).code());
     }
 
+    @Test void pairingUsesAnExactServiceOrigin() {
+        var pairings = store();
+        for (String bad : List.of("https://example.org/path", "https://example.org:70001", "https://user@example.org")) {
+            assertEquals(400, assertThrows(FresnelProblem.class, () -> pairings.issue(bad, FresnelPairings.SCOPES)).status());
+        }
+        assertEquals("https://example.org:8443", pairings.issue("https://example.org:8443", FresnelPairings.SCOPES).baseUrl());
+    }
+
     @Test void failedTokensAreThrottledPerPeer() {
         var pairings = store();
         for (int i = 0; i < 16; i++) assertEquals(401, assertThrows(FresnelProblem.class,

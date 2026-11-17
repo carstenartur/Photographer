@@ -80,10 +80,13 @@ final class CaptureSession {
                 current == null || current.result == null || !current.verified ? null : current.result.asset));
     }
 
+    private Map<String,Object> effectiveSettings() {
+        return Map.of("format", plan.requestedSettings().preferredFormat(), "lockExposure", false, "lockFocus", false);
+    }
+
     Map<String,Object> created() {
-        var effective = Map.of("format", plan.requestedSettings().preferredFormat(), "lockExposure", false, "lockFocus", false);
         return Map.of("sessionId", id, "cameraProfileId", plan.cameraProfileId(),
-                "createdAt", createdAt, "effectiveSettings", effective);
+                "createdAt", createdAt, "effectiveSettings", effectiveSettings());
     }
 
     Step step(String stepId) {
@@ -105,6 +108,11 @@ final class CaptureSession {
         out.put("state", state);
         out.put("completedSteps", completed());
         out.put("totalSteps", steps.size());
+        out.put("experiment", plan.externalExperimentId());
+        out.put("workflow", plan.workflowType());
+        out.put("effectiveSettings", effectiveSettings());
+        out.put("steps", steps.stream().map(Step::status).toList());
+        if (!events.isEmpty()) out.put("lastMessageCode", events.getLast().messageCode());
         steps.stream().filter(step -> step.state != StepState.COMPLETED).findFirst()
                 .ifPresent(step -> out.put("currentStepId", step.stepId));
         return out;
