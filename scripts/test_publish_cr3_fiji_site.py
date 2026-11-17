@@ -174,12 +174,15 @@ class PublicationTest(unittest.TestCase):
             (site / 'version.txt').write_text('0.1.5-SNAPSHOT\n')
             (site / 'index.html').write_text('Subscribe here')
             (site / 'LICENSE.txt').write_text('Project license')
+            example = site / 'open-cr3-color.groovy'
+            example.write_bytes(b'// Fiji example\n')
             previous = root / 'previous.zip'
             previous_archive(site, previous)
             with ZipFile(previous) as old:
                 self.assertNotIn('index.html', old.namelist())
                 self.assertNotIn('version.txt', old.namelist())
                 self.assertNotIn('LICENSE.txt', old.namelist())
+                self.assertNotIn(example.name, old.namelist())
                 fresh = archive(root, '0.1.5', '20260201000000')
                 stable = root / 'release.zip'
                 with ZipFile(fresh) as current, ZipFile(stable, 'w') as z:
@@ -197,6 +200,11 @@ class PublicationTest(unittest.TestCase):
             self.assertEqual('Project license', (site / 'LICENSE.txt').read_text())
             self.assertEqual(14, len(list(site.glob('*/*.jar-*'))))
             install(stable, 'v0.1.5', root)
+            self.assertEqual(b'// Fiji example\n', example.read_bytes())
+            previous_jar = next((site / 'jars').glob('*-20260101000000'))
+            previous_jar.write_bytes(b'damaged')
+            with self.assertRaisesRegex(ValueError, 'immutable Fiji payload'):
+                install(stable, 'v0.1.5', root)
 
     def test_rejects_an_unexpected_archive_entry(self):
         with tempfile.TemporaryDirectory() as temp:

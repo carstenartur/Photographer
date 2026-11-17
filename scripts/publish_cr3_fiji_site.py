@@ -25,7 +25,6 @@ ARTIFACTS[PLUGIN] = 'cr3-imagej'
 VERSION = re.compile(r'(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)')
 STAMP = re.compile(r'[0-9]{14}')
 MARKER = 'version.txt'
-ANCILLARY = {MARKER, 'index.html', 'LICENSE.txt'}
 
 
 def tagged_source(root, tag):
@@ -135,7 +134,7 @@ def install(archive, tag, checkout):
                 raise ValueError('The new Fiji database forks the published history')
             for path in destination.rglob('*'):
                 relative = path.relative_to(destination)
-                if path.is_file() and relative.as_posix() not in ANCILLARY | {'db.xml.gz'}:
+                if relative.parts[0] in {'jars', 'plugins'} and path.is_file():
                     new = site / relative
                     if not new.is_file() or not filecmp.cmp(path, new, shallow=False):
                         raise ValueError('Missing or changed immutable Fiji payload: ' + str(path))
