@@ -5,6 +5,7 @@ import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.container.Cr3Track;
+import com.photographer.focusstack.cr3.metadata.Cr3ColorData;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.metadata.Cr3MetadataReader;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
@@ -63,6 +64,8 @@ public final class Cr3Decoder implements AutoCloseable {
     private ImageInputStream input;
     private Cr3Container container;
     private Cr3Metadata metadata;
+    private Cr3ColorData captureColorData;
+    private boolean captureColorDataRead;
     /**
      * Positional access to the same file handle as the owned input stream.
      * Null for streams supplied by the caller.
@@ -253,6 +256,8 @@ public final class Cr3Decoder implements AutoCloseable {
         this.input = null;
         this.container = null;
         this.metadata = null;
+        this.captureColorData = null;
+        this.captureColorDataRead = false;
     }
 
     /**
@@ -744,10 +749,33 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     /**
+     * Returns the recorded CTMD calibration for the current input, or null when unavailable.
+     * Resolves it on demand so geometry, preview and native sensor reads can skip CTMD.
+     */
+    public Cr3ColorData getCaptureColorData() {
+        if (input != null && !captureColorDataRead) {
+            try {
+                captureColorData = Cr3ColorData.read(input, container);
+            } catch (IOException e) {
+                LOG.warn("Could not read CR3 sensor calibration: {}", e.getMessage());
+            }
+            captureColorDataRead = true;
+        }
+        return captureColorData;
+    }
+
+    /**
      * Resolves the best available white balance multipliers.
-     * Priority: MakerNote WB &gt; default daylight.
+     * Uses the recorded CTMD or MakerNote gains, with daylight values as fallback.
      */
     private double[] resolveWhiteBalance() {
+        Cr3ColorData color = getCaptureColorData();
+        if (color != null) {
+            double[] captureGains = color.whiteBalanceMultipliers();
+            if (captureGains != null) {
+                return captureGains;
+            }
+        }
         if (metadata != null && metadata.whiteBalanceMultipliers() != null) {
             return metadata.whiteBalanceMultipliers();
         }
