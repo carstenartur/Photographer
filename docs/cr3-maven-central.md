@@ -125,7 +125,7 @@ Run from the tagged release checkout with a stable version already set in its PO
 
 Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
 
-The **Release Workflow** publishes to Central from its stable `vX.Y.Z` tag. To publish only the CR3 libraries for an existing release, run **CR3 Maven Central** on that tag. It verifies the checkout and deploys the signed bundle without changing Git refs or opening a snapshot PR. Select `validate` to upload for approval or `publish` to publish automatically. For a previously validated upload, open the existing deployment in the Portal, check the six coordinates and publish it there.
+The **Release Workflow** publishes to Central from its stable `vX.Y.Z` tag. To finish Central publication for an existing release with the current workflow, run **CR3 Maven Central** on `main`, set `existing_tag` to the published GitHub tag (for example `v0.1.6`), and choose `publish`. Running the workflow directly on a stable tag uses the workflow definition at that tag. It verifies the checkout and deploys the signed bundle without changing Git refs or opening a snapshot PR. Select `validate` to upload for approval or `publish` to publish automatically. For a previously validated upload, open the existing deployment in the Portal, check the six coordinates and publish it there.
 
 Central operations use repository secrets `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` maps to the GPG plugin’s fingerprint variable.
 

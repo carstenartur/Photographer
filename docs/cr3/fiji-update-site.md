@@ -100,4 +100,10 @@ The regular release workflow builds and tests the seven Fiji JARs on the verifie
 
 If an attachment step stops after uploading one ZIP, rerun the failed jobs in the original Actions run while its verified artifact is retained. The attach job downloads that pair, checks every already uploaded ZIP byte-for-byte and fills only missing assets. Rebuilding can change Fiji timestamps and JAR bytes; a mismatching upload is reported before any missing file is added.
 
-To recover a failed Pages publication, run **CR3 Fiji distribution** on **main** with `publish_existing_tag=vX.Y.Z` for the published stable GitHub release. This reuses its existing archive and accepts a byte-identical replay. Leaving the input empty runs the ordinary verification build.
+To complete the Fiji distribution for a published stable release, run **CR3 Fiji distribution** on **main** and set `publish_existing_tag` to its exact tag. For example, run:
+
+```sh
+gh workflow run cr3-fiji-distribution.yml --ref main -f publish_existing_tag=v0.1.6
+```
+
+The workflow resolves the existing tag to its source commit. If both ZIPs are present it reuses them. Otherwise it builds from the tagged sources and checks existing assets before filling missing downloads. It tests the installed plugin on Java 21, publishes the update site and verifies the anonymous downloads. An empty input runs only the verification build.
