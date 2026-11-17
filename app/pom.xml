@@ -142,12 +142,10 @@
         <dependency>
             <groupId>io.github.carstenartur</groupId>
             <artifactId>cr3-core</artifactId>
-            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>io.github.carstenartur</groupId>
             <artifactId>cr3-imageio</artifactId>
-            <version>${revision}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
