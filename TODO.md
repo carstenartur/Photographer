@@ -24,6 +24,7 @@ The [paired capture guide](docs/fresnel-capture.md) describes the implemented mo
 - Agree on explicit online pause, resume and operator reconciliation for an uncertain shutter with the Fresnel maintainers. Specify idempotency, lease reacquisition, setting restoration and event transitions, then exercise them across both services. Keep automatic retries fenced while the outcome is uncertain.
 - Specify and test optional SSE reconnection and RAW/preview negotiation in both products. Verify a reconnect from a durable event ID and independent source and preview hashes before advertising those capabilities.
 - Qualify a real-camera adapter for single-dispatch capture. Require a verified file/step association and safe exposure and focus restoration under lease. Gate formats and camera models on the [physical acceptance checklist](docs/manual-todo.md#fresnel-hardware-acceptance).
+- In the [display photometric stereo client](https://github.com/carstenartur/Fresnel/issues/141), bind each real display presentation to the exact raster digest, acknowledge that presentation before the shutter and cancel on presentation loss. The adapter already accepts and verifies the committed pattern identity.
 - Connect final experiment bundles and analysis in the [BOS](https://github.com/carstenartur/Fresnel/issues/140) and [display photometric stereo](https://github.com/carstenartur/Fresnel/issues/141) clients. Compare imported files with the manual-upload path using the same observations, roles and pattern hashes.
 
 ## Adding work

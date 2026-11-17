@@ -11,6 +11,10 @@ Photographer can run a sequence of externally triggered PNG exposures for a Fres
 
 ![Photographer showing a connected, scoped Fresnel pairing after its first authenticated request](screenshots/fresnel-pairing.webp)
 
+## Run a two-image BOS capture
+
+In Fresnel, open **Camera service** and sign in as the measurement operator. Select the paired mock camera and start a BOS capture. Confirm the reference condition, capture the first original, then confirm the disturbed condition and capture the second. Reopen the experiment under the same account to preview or download either verified PNG and its SHA-256. The Fresnel [provider guide](https://github.com/carstenartur/Fresnel/blob/main/docs/integrations/photographer-provider.md) describes retrying an interrupted step.
+
 ## Choose a reachable address
 
 | Deployment | Photographer base URL for Fresnel | Photographer setting |
