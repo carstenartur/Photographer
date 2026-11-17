@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.6-SNAPSHOT</version>
+        <version>0.1.6</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>canon-cr3-reference-testkit</artifactId>
-    <version>0.1.6-SNAPSHOT</version>
+    <version>0.1.6</version>
 
     <name>Canon CR3 - Reference Testkit</name>
     <description>Shared reference-image loading and quality metrics for CR3 tests and research</description>

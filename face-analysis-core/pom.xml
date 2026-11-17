@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.6-SNAPSHOT</version>
+        <version>0.1.6</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>face-analysis-core</artifactId>
-    <version>0.1.6-SNAPSHOT</version>
+    <version>0.1.6</version>
 
     <name>Focus Stack - Face Analysis Core</name>
     <description>Face analysis engine interface with mock adapter</description>
