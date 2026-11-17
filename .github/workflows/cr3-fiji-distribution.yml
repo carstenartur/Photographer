@@ -29,9 +29,14 @@ permissions:
 
 jobs:
   bundle:
+    permissions:
+      contents: read
+      actions: read
     if: ${{ !inputs.publish_existing_tag }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    outputs:
+      artifact_id: ${{ steps.archive.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,8 +53,41 @@ jobs:
       - name: Test update-site publication
         run: python3 -m unittest discover -s scripts -p 'test_publish_cr3_fiji_site.py'
 
+      - name: Reuse immutable Fiji archives on a release retry
+        if: inputs.release_tag != ''
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_SHA: ${{ inputs.merged_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/main && "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$(git rev-parse HEAD)" == "$RELEASE_SHA" && "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$RELEASE_SHA" ]]
+          archives=target/cr3-fiji-site
+          mkdir -p "$archives"
+          if [[ "$GITHUB_RUN_ATTEMPT" -gt 1 ]]; then
+            artifact=$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" --paginate --slurp --jq '[.[] | .artifacts[] | select((.name // "" | startswith("cr3-fiji-distribution-")) and .expired == false)] | max_by(.id) | .id // empty')
+            if [[ -n "$artifact" ]]; then
+              gh api "repos/$GH_REPO/actions/artifacts/$artifact/zip" > "$RUNNER_TEMP/fiji-retry.zip"
+              unzip -q "$RUNNER_TEMP/fiji-retry.zip" cr3-fiji-install.zip cr3-fiji-update-site.zip -d "$archives"
+            fi
+          fi
+          if [[ ! -f "$archives/cr3-fiji-update-site.zip" ]]; then
+            assets=$(gh release view "$RELEASE_TAG" --repo "$GH_REPO" --json assets --jq '.assets[].name')
+            if grep -Fxq cr3-fiji-install.zip <<< "$assets" && grep -Fxq cr3-fiji-update-site.zip <<< "$assets"; then
+              gh release download "$RELEASE_TAG" --repo "$GH_REPO" --pattern 'cr3-fiji-*.zip' --dir "$archives"
+            fi
+          fi
+          if [[ -f "$archives/cr3-fiji-update-site.zip" && -f "$archives/cr3-fiji-install.zip" ]]; then
+            echo 'reused=true' >> "$GITHUB_OUTPUT"
+          else
+            rmdir "$archives"
+          fi
+
       - name: Read the hosted update site at a specific Pages revision
-        if: ${{ inputs.release_tag != '' }}
+        if: inputs.release_tag != '' && steps.previous.outputs.reused != 'true'
         uses: actions/checkout@v7
         with:
           ref: gh-pages
@@ -58,7 +96,7 @@ jobs:
           sparse-checkout: fiji/cr3
 
       - name: Load the preceding Fiji update site for a release
-        if: ${{ inputs.release_tag != '' }}
+        if: inputs.release_tag != '' && steps.previous.outputs.reused != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -74,8 +112,10 @@ jobs:
             echo "FIJI_PREVIOUS_SITE=$RUNNER_TEMP/cr3-fiji-update-site.zip" >> "$GITHUB_ENV"
             exit 0
           fi
-          for tag in $(git tag --merged "$MERGED_SHA^" --list 'v[0-9]*' --sort=-v:refname); do
+          for tag in $(git tag --list 'v[0-9]*' --sort=-v:refname); do
             [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || continue
+            [[ "$tag" != "$RELEASE_TAG" ]] || continue
+            git merge-base --is-ancestor "$tag^" "$MERGED_SHA^" || continue
             git cat-file -e "$tag:.github/workflows/cr3-fiji-distribution.yml" 2>/dev/null || continue
             gh release download "$tag" --pattern cr3-fiji-update-site.zip --dir "$RUNNER_TEMP"
             echo "FIJI_PREVIOUS_SITE=$RUNNER_TEMP/cr3-fiji-update-site.zip" >> "$GITHUB_ENV"
@@ -92,6 +132,7 @@ jobs:
           rm fiji.zip
 
       - name: Build the Fiji installation and update-site archives
+        if: steps.previous.outputs.reused != 'true'
         run: >-
           mvn -B -ntp -pl cr3-imagej -am verify -Pfiji-update-site
           -Dfiji.directory="$RUNNER_TEMP/Fiji" -Djava.awt.headless=true
@@ -115,9 +156,10 @@ jobs:
           grep -Fx '5632x3710 16 bits 20894720 samples max=0' "$sample_dir/result.txt"
 
       - name: Save installation and update-site archives
+        id: archive
         uses: actions/upload-artifact@v7
         with:
-          name: cr3-fiji-distribution
+          name: cr3-fiji-distribution-${{ github.run_attempt }}
           path: target/cr3-fiji-site/*.zip
           if-no-files-found: error
           retention-days: 7
@@ -135,8 +177,9 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@v8
         with:
-          name: cr3-fiji-distribution
+          artifact-ids: ${{ needs.bundle.outputs.artifact_id }}
           path: archives
+          merge-multiple: true
 
       - name: Attach Fiji archives to the verified release
         env:
@@ -178,10 +221,12 @@ jobs:
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           sha=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
-          git merge-base --is-ancestor "$sha" origin/main
+          # Maven tags the version-only commit immediately following the selected main source.
+          # Historical releases tagged the main commit itself.
+          git merge-base --is-ancestor "$sha" origin/main || git merge-base --is-ancestor "$sha^" origin/main
           [[ -z "$EXPECTED_SHA" || "$sha" == "$EXPECTED_SHA" ]]
           [[ "$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq .sha)" == "$sha" ]]
-          version=$(git show "${sha}:pom.xml" | python3 -c 'import sys, xml.etree.ElementTree as E; print(E.parse(sys.stdin).findtext("{*}properties/{*}revision"))')
+          version=$(git show "${sha}:pom.xml" | python3 -c 'import sys, xml.etree.ElementTree as E; print(E.parse(sys.stdin).findtext("{*}version"))')
           [[ "v$version" == "$RELEASE_TAG" ]]
           gh release view "$RELEASE_TAG" --json isDraft,isPrerelease,tagName | jq -e --arg tag "$RELEASE_TAG" '.tagName == $tag and (.isDraft or .isPrerelease | not)'
           gh api "repos/$GH_REPO/pages" > "$RUNNER_TEMP/pages.json"

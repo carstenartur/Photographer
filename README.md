@@ -135,6 +135,7 @@ The scheduled Maven site publishes the test and coverage reports. CR3 benchmark 
 ## Documentation
 
 - [Developer Manual](docs/developer/index.md) — architecture, modules, testing, contributing and documentation authority
+- [Publish a release](docs/developer/ci.md#publish-a-release)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Public Release Checklist](docs/public-release.md)

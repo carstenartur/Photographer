@@ -49,11 +49,25 @@ bash scripts/verify-cr3-research.sh --full
 | [CR3 Research Integration](../../.github/workflows/cr3-research.yml) | Focused evidence profile for changes to the CR3 implementation, fixtures and evidence inputs | Full reference-backed profile on scheduled and manual runs. |
 | [CR3 Clean-room Evidence](../../.github/workflows/cleanroom-evidence.yml) | Validates the source register and retained reports, then builds a deterministic evidence archive on relevant changes | Same checks on relevant pushes to main or manual runs. |
 | [CR3 Fiji distribution](../../.github/workflows/cr3-fiji-distribution.yml) | Tests the importer and installation archives when the Fiji module or distribution inputs change | A live release attaches the verified ZIPs and updates the hosted site. Manual dispatch can verify a build or republish the archive of an existing stable tag. |
-| [Release Workflow](../../.github/workflows/deploy-release.yml) | The staged version PR goes through normal CI | Manual preparation on main stages the version change. Explicit resume on the merged stable commit builds and publishes the selected channels. |
+| [Release Workflow](../../.github/workflows/deploy-release.yml) | Merging a same-repository PR labelled `release: publish` into `main` starts a release. The next development version returns to `main` through a PR. | Maintainers can also start a release manually on `main` or preview it with `dry_run`. |
 
 For Markdown-only changes under `docs/` and to the root `README.md`, CI validates documentation links and ownership in the path classification job. It skips the Maven, frontend and Docker smoke jobs. The CR3 reference manifest is a build input. The other workflows apply their own path filters.
 
 Product CI owns the production unit and integration suite. The packaged-consumer workflow checks the Git-backed Maven repository and the signed Central bundle at the candidate version derived from the root Maven `revision`. It then stages the runtime artifacts with `-DskipTests` and tests their use in an independent Maven project on Java 21.
+
+## Publish a release
+
+Merge a same-repository pull request labelled `release: publish` into `main`, or open **Actions → Release Workflow → Run workflow**, select `main` and run with the defaults. You can also start it from the CLI.
+
+```bash
+gh workflow run deploy-release.yml --ref main
+```
+
+Both version fields can be left blank. For example, starting at `0.1.6-SNAPSHOT` produces tag `v0.1.6` and next development version `0.1.7-SNAPSHOT`. On manual runs, set `release_version` to override the stable version or `development_version` to override the next snapshot. Select `dry_run` to build and verify the candidate locally on the runner.
+
+The Maven Release Plugin's `release:prepare` goal versions the reactor, including the benchmark modules. Its `release:perform` goal checks out the stable tag and stages the six CR3 libraries. A live run publishes the application JAR and Fiji ZIPs to GitHub Releases, the image to GHCR, the Fiji update site to Pages and the libraries to the Git-backed Maven repository and Maven Central. [Maven publication and verification](../cr3-maven-central.md) · [Fiji release verification](../cr3/fiji-update-site.md)
+
+The workflow opens one PR to bring the next development snapshot back to `main`. If repository settings block automatic PR creation, open the comparison link in the snapshot job and create the PR from the prepared branch. Select **Approve workflows to run** if prompted, and merge after the required checks and reviews pass. You can rerun failed jobs from the original release run. [GitHub Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests)
 
 ## Private-repository Actions usage
 
