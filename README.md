@@ -1,12 +1,12 @@
 # Photographer (Focus Stack)
 
-[![CI](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
-[![Benchmark](https://github.com/carstenartur/Photographer/actions/workflows/cr3-benchmark.yml/badge.svg?branch=main)](https://carstenartur.github.io/Photographer/dev/bench/)
+[![CI status](https://img.shields.io/badge/CI-status-blue?logo=github)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
+[![CR3 benchmark history](https://img.shields.io/badge/CR3-benchmarks-blue)](https://carstenartur.github.io/Photographer/dev/bench/)
 [![Tests](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/tests/badge.json)](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
 [![Coverage](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/coverage/badge.json)](https://carstenartur.github.io/Photographer/coverage/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
-[![GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?style=flat-square)](https://github.com/carstenartur/Photographer/releases)
+[![Latest GitHub release](https://img.shields.io/badge/release-latest-blue?logo=github)](https://github.com/carstenartur/Photographer/releases/latest)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--1047--6381-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-1047-6381)
 
 Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automated focus stacking, timelapse, and AI-assisted image analysis. It connects to Canon cameras via CCAPI and USB/PTP, provides a React/Vite frontend, and is extensible through a ServiceLoader-based plugin architecture.
