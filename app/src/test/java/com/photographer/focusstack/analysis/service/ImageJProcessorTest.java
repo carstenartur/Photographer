@@ -1,6 +1,9 @@
 package com.photographer.focusstack.analysis.service;
 
 import com.photographer.focusstack.common.analysis.SharpnessMap;
+import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -120,15 +123,20 @@ class ImageJProcessorTest {
     }
 
     @Test
-    void cr3SharpnessMapUsesTheRawPixelsBeyondTheEmbeddedPreview() throws IOException {
+    void cr3SharpnessMapUsesTheRawPixelsBeyondTheEmbeddedPreview() throws IOException, Cr3Exception {
         Path module = Path.of("canon-cr3-imageio");
         if (!Files.isDirectory(module)) {
             module = Path.of("..").resolve(module);
         }
         Path sample = module.resolve("src/test/resources/samples/sample.cr3");
-        BufferedImage preview = ImageIO.read(sample.toFile());
-        assertNotNull(preview);
-        int previewEdge = Math.max(preview.getWidth(), preview.getHeight());
+        int previewEdge;
+        try (var decoder = new Cr3Decoder()) {
+            decoder.setInput(sample);
+            var previewOptions = Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
+            BufferedImage preview = decoder.decode(previewOptions);
+            assertNotNull(preview);
+            previewEdge = Math.max(preview.getWidth(), preview.getHeight());
+        }
 
         byte[] raw = Files.readAllBytes(sample);
         SharpnessMap map = processor.createSharpnessMap(raw, previewEdge);
