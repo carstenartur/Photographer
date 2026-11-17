@@ -31,6 +31,13 @@ public final class CameraLeaseKey {
         this.redactedId = fingerprint(canonicalOrigin);
     }
 
+    static CameraLeaseKey fromMockProfile(String id) {
+        if (id == null || id.isBlank()) {
+            throw new IllegalArgumentException("Mock camera profile ID is required");
+        }
+        return new CameraLeaseKey("mock:" + id);
+    }
+
     public static CameraLeaseKey fromCcapiProfile(CameraProfile profile) {
         Objects.requireNonNull(profile, "profile");
         if (profile.backendType() == null

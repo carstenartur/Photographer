@@ -123,6 +123,9 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
     }
 
     @Override
+    public boolean isLeased(CameraLeaseKey key) { return leases.containsKey(key); }
+
+    @Override
     public CameraSessionLeaseMetrics metrics() {
         return new CameraSessionLeaseMetrics(
                 leases.size(), conflicts.get(), staleRecoveries.get());

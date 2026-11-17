@@ -34,6 +34,9 @@ export default function Navbar() {
           <NavLink to="/astro">Astro</NavLink>
         </li>
         <li>
+          <NavLink to="/integrations/fresnel">Fresnel</NavLink>
+        </li>
+        <li>
           <NavLink to="/plugins">Plugins</NavLink>
         </li>
       </ul>

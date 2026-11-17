@@ -23,6 +23,7 @@ const ObserverGallery = lazy(() => import('./pages/ObserverGallery'));
 const ObserverStatistics = lazy(() => import('./pages/ObserverStatistics'));
 const ObserverSettings = lazy(() => import('./pages/ObserverSettings'));
 const AstroSessions = lazy(() => import('./pages/AstroSessions'));
+const FresnelIntegration = lazy(() => import('./pages/FresnelIntegration'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
 import './App.css';
 
@@ -48,6 +49,7 @@ function AuthenticatedApp() {
               <Route path="/observer/statistics" element={<ObserverStatistics />} />
               <Route path="/observer/settings" element={<ObserverSettings />} />
               <Route path="/astro" element={<AstroSessions />} />
+              <Route path="/integrations/fresnel" element={<FresnelIntegration />} />
               <Route path="/plugins" element={<PluginManager />} />
             </Routes>
           </Suspense>
