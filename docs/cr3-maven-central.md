@@ -84,10 +84,10 @@ The dedicated release reactor selects the six libraries. The container test fixt
 From the repository root, use JDK 25 and Maven 3.9.x. This command generates a temporary GnuPG key, builds the candidate in an isolated Maven repository and checks the **exact ZIP produced by Sonatype**. It needs Python 3, GnuPG and access to download the Maven build dependencies.
 
 ```bash
-bash scripts/run_cr3_central_preflight.sh 0.1.5
+bash scripts/run_cr3_central_preflight.sh
 ```
 
-The script verifies 24 payloads, their 96 checksums and their 24 detached signatures. It writes `target/cr3-central-preflight/central-bundle.zip`, its SHA-256 digest and the build log, then deletes the temporary keyring and repository. The same preflight runs in the CR3 Packaged Consumer workflow.
+The script derives the candidate version from the root POM's Maven `revision`. Pass a stable version such as `0.1.6` explicitly to preflight that version. The script verifies 24 payloads, their 96 checksums and their 24 detached signatures. It writes `target/cr3-central-preflight/central-bundle.zip`, its SHA-256 digest and the build log, then deletes the temporary keyring and repository. The CR3 Packaged Consumer workflow runs the same preflight for the checked-out candidate version.
 
 With your own signing key, build the bundle directly from Maven. Selecting `central-release` defaults to local bundling. Run Maven in its normal network mode. With `-o`, Maven skips Sonatype’s bundle goal even after all dependencies are cached.
 
@@ -97,6 +97,8 @@ mvn -B -ntp -f release/canon-cr3-public/pom.xml -Pcentral-release \
 ```
 
 Maven logs the bundle path. The default output location in this reactor is `canon-cr3-container/target/central-publishing/central-bundle.zip`. Build inputs use a fixed archive timestamp. Signing times and one-use keys naturally change the detached signatures.
+
+The preflight signs with a disposable key. Use the release key for a Portal deployment. Check the ZIP byte count and the organization's [Central publishing usage](https://central.sonatype.org/publish/maven-central-publishing-limits/) before submitting a release. The bundle includes only the six CR3 libraries and their publication files.
 
 ## Release credentials
 
@@ -125,9 +127,23 @@ Record the deployment ID Maven prints. If a run is interrupted after upload, che
 
 To include Central in a verified live release, explicitly select `also_publish_to_central=true` in **Release Workflow**. It defaults to false. The optional **CR3 Maven Central** workflow also accepts a manual run on a stable `vX.Y.Z` tag with `validate` (upload for Portal approval) or `publish`. Both entry points verify the tag and source commit. Check any previous deployment before starting a separate run.
 
+For the first Central publication, you can release the tag and the Git-backed Maven repository through **Release Workflow**, then run **CR3 Maven Central** on that tag with `validate`. In the Portal, check the exact six coordinates and the `VALIDATED` status. Publish that deployment from the Portal to reuse the verified upload.
+
 Central operations use repository secrets `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` maps to the GPG plugin’s fingerprint variable.
 
 The release profile and credential names follow the project’s [jgit-storage-hibernate release procedure](https://github.com/carstenartur/jgit-storage-hibernate/blob/540b847706f9d03ac286a21fefd432787e122671/docs/maven-central.md). See also the [Sonatype plugin documentation](https://central.sonatype.org/publish/publish-portal-maven/).
+
+### Verify the published Central version
+
+After the Portal reports `PUBLISHED`, resolve the exact version with a fresh Maven cache and Central enabled in your Maven settings. For example, after `0.1.6` has been published:
+
+```bash
+mvn -B -f release/canon-cr3-consumer/pom.xml \
+  "-Dmaven.repo.local=$(mktemp -d)" -Dcr3.version=0.1.6 \
+  org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies
+```
+
+Check that the consumer resolved all six CR3 JARs at the same version. Record the deployment ID and the published version in the release record.
 
 ## Consumer examples
 

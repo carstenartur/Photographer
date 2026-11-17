@@ -10,18 +10,13 @@ credentials or network upload. An ephemeral, unprotected GPG key signs every
 artifact; the keyring and isolated Maven repository are deleted after all
 bundle files, checksums and detached signatures are verified.
 
-The default version is 0.1.5. SNAPSHOT versions are rejected.
+By default, use the candidate version from the root Maven revision. An explicit
+version must be X.Y.Z.
 EOF
 }
 
 if [[ $# -gt 1 ]]; then
   usage >&2
-  exit 2
-fi
-
-version=${1:-0.1.5}
-if [[ -z "$version" || "$version" == *-SNAPSHOT ]]; then
-  echo "Release preflight requires a non-SNAPSHOT version, got: $version" >&2
   exit 2
 fi
 
@@ -34,6 +29,18 @@ done
 
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
+
+if [[ $# -eq 0 ]]; then
+  revision=$(mvn -B -ntp -N -q help:evaluate \
+    -Dexpression=revision -DforceStdout -Dstyle.color=never)
+  version=${revision%-SNAPSHOT}
+else
+  version=$1
+fi
+if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Release preflight requires an X.Y.Z version, got: $version" >&2
+  exit 2
+fi
 
 output_dir=$repo_root/target/cr3-central-preflight
 rm -rf "$output_dir"
