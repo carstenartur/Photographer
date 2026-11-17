@@ -149,6 +149,12 @@ class CcapiEndpointCatalogTest {
         assertTrue(catalog.findExactPath("/deviceinformation").isEmpty());
     }
 
+    static CcapiEndpointCatalog catalog(String baseUrl, Map<String, Object> versions) {
+        RestTemplate discovery = mock(RestTemplate.class);
+        when(discovery.getForObject(baseUrl + "/ccapi", Map.class)).thenReturn(versions);
+        return CcapiEndpointCatalog.discover(baseUrl, discovery);
+    }
+
     private static Map<String, Object> descriptor(String field, String endpoint,
                                                   boolean get, boolean post) {
         Map<String, Object> descriptor = new LinkedHashMap<>();

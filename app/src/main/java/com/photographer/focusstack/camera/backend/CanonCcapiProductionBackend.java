@@ -17,6 +17,7 @@ import com.photographer.focusstack.common.camera.NativeFocusBracketingCapabiliti
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingTransportException;
 import com.photographer.focusstack.common.camera.Operation;
 import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
 import com.photographer.focusstack.common.device.BatteryInfo;
@@ -38,9 +39,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.LIVE_VIEW_NOT_STARTED;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
 
 /** Production Canon CCAPI composition with one authoritative endpoint catalog. */
 final class CanonCcapiProductionBackend implements
@@ -51,7 +49,6 @@ final class CanonCcapiProductionBackend implements
         NativeFocusBracketingExecutionProvider,
         CameraMediaProvider {
 
-    private static final Set<String> EVENT_METHODS = Set.of("GET", "DELETE");
     private static final Set<HttpMethod> SCROLL_METHODS = Set.of(HttpMethod.GET, HttpMethod.DELETE);
     private static final String SCROLL_SUFFIX = "/shooting/liveview/scroll";
     private static final Pattern VERSION = Pattern.compile("(?:^|/)ver(\\d+)(?:/|$)");
@@ -88,14 +85,12 @@ final class CanonCcapiProductionBackend implements
                 profileId,
                 baseUrl,
                 restTemplate,
-                delegate::getDiscoveredEndpoints,
-                delegate::getDiscoveredEndpointMethods);
+                delegate::endpointCatalog);
         this.monitoringClient = new CanonCcapiMonitoringClient(
                 profileId,
                 baseUrl,
                 restTemplate,
-                delegate::getDiscoveredEndpoints,
-                delegate::getDiscoveredEndpointMethods);
+                delegate::endpointCatalog);
     }
 
     @Override
@@ -207,22 +202,8 @@ final class CanonCcapiProductionBackend implements
 
     @Override
     public CameraCapabilitySnapshot getCapabilitySnapshot() {
-        CameraCapabilitySnapshot base = delegate.getCapabilitySnapshot();
-        List<CameraCapabilitySnapshot.Capability> capabilities = new ArrayList<>();
-        boolean monitoringReplaced = false;
-        for (CameraCapabilitySnapshot.Capability capability : base.capabilities()) {
-            if ("event-monitoring".equals(capability.id())) {
-                capabilities.add(eventCapability(base, "event-monitoring", "/event/monitoring"));
-                monitoringReplaced = true;
-            } else {
-                capabilities.add(capability);
-            }
-        }
-        if (!monitoringReplaced) {
-            capabilities.add(eventCapability(base, "event-monitoring", "/event/monitoring"));
-        }
-        capabilities.add(eventCapability(
-                base, "event-polling-continuation", "/event/polling"));
+        CameraCapabilitySnapshot base = delegate.capabilitySnapshot(true);
+        List<CameraCapabilitySnapshot.Capability> capabilities = new ArrayList<>(base.capabilities());
         if (capabilities.stream().noneMatch(
                 capability -> "live-view-scroll".equals(capability.id()))) {
             capabilities.add(CcapiLiveViewCapabilities.scroll(base));
@@ -285,59 +266,25 @@ final class CanonCcapiProductionBackend implements
         }
     }
 
-    private static CameraCapabilitySnapshot.Capability eventCapability(
-            CameraCapabilitySnapshot snapshot,
-            String id,
-            String suffix) {
-        List<CameraCapabilitySnapshot.Endpoint> advertised = snapshot.advertisedEndpoints().stream()
-                .filter(candidate -> candidate.path().endsWith(suffix))
-                .toList();
-        if (advertised.isEmpty()) {
-            return new CameraCapabilitySnapshot.Capability(
-                    id, false, true, UNSUPPORTED,
-                    EVENT_METHODS, Set.of(), false, "ENDPOINT_NOT_ADVERTISED");
+    @Override
+    public EventMode preflightNativeFocusBracketingTransport() {
+        CcapiEndpointCatalog catalog = delegate.endpointCatalog();
+        CanonCcapiNativeSequenceTrigger.shutterEndpoint(catalog);
+        if (CcapiMediaOperation.CONTENTS.select(catalog).isEmpty()) {
+            throw new NativeFocusBracketingTransportException(
+                    NativeFocusBracketingTransportException.Reason.MEDIA_LISTING_UNAVAILABLE);
         }
-
-        CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()
-                .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)
-                .filter(candidate -> candidate.methods().containsAll(EVENT_METHODS))
-                .max(Comparator.comparingInt(
-                                (CameraCapabilitySnapshot.Endpoint endpoint) ->
-                                        endpointVersionNumber(endpoint))
-                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
-                .orElse(null);
-        if (compatible != null) {
-            return new CameraCapabilitySnapshot.Capability(
-                    id, true, true, AVAILABLE,
-                    EVENT_METHODS, compatible.methods(), true, null);
+        if (CcapiMediaOperation.MONITORING.select(catalog).isPresent()) {
+            return EventMode.MONITORING;
         }
-
-        CameraCapabilitySnapshot.Endpoint highest = advertised.stream()
-                .max(Comparator.comparingInt(
-                                (CameraCapabilitySnapshot.Endpoint endpoint) ->
-                                        endpointVersionNumber(endpoint))
-                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))
-                .orElseThrow();
-        if (!highest.methodMetadataKnown()) {
-            return new CameraCapabilitySnapshot.Capability(
-                    id, true, true, METHOD_METADATA_UNKNOWN,
-                    EVENT_METHODS, Set.of(), false, "METHOD_METADATA_NOT_ADVERTISED");
+        if (CcapiMediaOperation.POLLING_CONTINUATION.select(catalog).isPresent()) {
+            return EventMode.POLLING_CONTINUATION;
         }
-        return new CameraCapabilitySnapshot.Capability(
-                id, true, true, UNSUPPORTED,
-                EVENT_METHODS, highest.methods(), true, "METHOD_NOT_ADVERTISED");
-    }
-
-    private static int endpointVersionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
-        String version = endpoint.version();
-        if (version == null || !version.startsWith("ver")) {
-            return -1;
+        if (CcapiMediaOperation.POLLING.select(catalog).isPresent()) {
+            return EventMode.POLLING;
         }
-        try {
-            return Integer.parseInt(version.substring(3));
-        } catch (NumberFormatException exception) {
-            return -1;
-        }
+        throw new NativeFocusBracketingTransportException(
+                NativeFocusBracketingTransportException.Reason.EVENT_TRANSPORT_UNAVAILABLE);
     }
 
     @Override
@@ -348,6 +295,7 @@ final class CanonCcapiProductionBackend implements
     @Override
     public NativeFocusBracketingSession prepareNativeFocusBracketing(
             NativeFocusBracketingRequest request) {
+        preflightNativeFocusBracketingTransport();
         return new OwnedNativeSession(
                 this, delegate.prepareNativeFocusBracketing(request));
     }

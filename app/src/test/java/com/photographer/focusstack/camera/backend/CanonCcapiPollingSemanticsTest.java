@@ -3,15 +3,14 @@ package com.photographer.focusstack.camera.backend;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -47,8 +46,8 @@ class CanonCcapiPollingSemanticsTest {
                 "camera-profile",
                 baseUrl,
                 restTemplate,
-                () -> Map.of("/ccapi/ver100/event/polling", polling),
-                () -> Map.of("/ccapi/ver100/event/polling", Set.of(HttpMethod.GET)));
+                () -> CcapiEndpointCatalogTest.catalog(baseUrl, Map.of("ver100",
+                        List.of(Map.of("url", polling, "get", true)))));
 
         Optional<CameraMediaReference> result = client.awaitAddedMedia(
                 CameraMediaProvider.EventMode.POLLING,

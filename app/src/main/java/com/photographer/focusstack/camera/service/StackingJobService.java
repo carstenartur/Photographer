@@ -25,6 +25,7 @@ import com.photographer.focusstack.common.camera.CapturedImageFormat;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionResult;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingTransportException;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
 import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
@@ -495,13 +496,22 @@ public class StackingJobService {
         boolean nativeExecutable = false;
         String nativeMismatch = null;
 
-        if (backend instanceof NativeFocusBracketingExecutionProvider nativeProvider
+        if (requested != StackingCaptureStrategy.MANUAL
+                && backend instanceof NativeFocusBracketingExecutionProvider nativeProvider
                 && backend instanceof CameraMediaProvider
                 && nativeRequest != null) {
-            List<String> errors = nativeProvider.getNativeFocusBracketingCapabilities()
-                    .validate(nativeRequest);
-            nativeExecutable = errors.isEmpty();
-            nativeMismatch = errors.isEmpty() ? null : String.join("; ", errors);
+            try {
+                nativeProvider.preflightNativeFocusBracketingTransport();
+                List<String> errors = nativeProvider.getNativeFocusBracketingCapabilities()
+                        .validate(nativeRequest);
+                nativeExecutable = errors.isEmpty();
+                nativeMismatch = errors.isEmpty() ? null : String.join("; ", errors);
+            } catch (NativeFocusBracketingTransportException unavailable) {
+                if (requested == StackingCaptureStrategy.NATIVE) {
+                    throw unavailable;
+                }
+                nativeMismatch = unavailable.getMessage();
+            }
         } else if (requested != StackingCaptureStrategy.MANUAL) {
             nativeMismatch = "backend does not expose native execution and media transport";
         }
@@ -834,7 +844,9 @@ public class StackingJobService {
                     job, JobStatus.FAILED, Instant.now(), message, frames, metadata);
             repository.save(StackingJobEntity.fromRecord(failed));
         }
-        sendJobEvent(id, "ERROR", Map.of("message", message));
+        sendJobEvent(id, "ERROR", exception instanceof NativeFocusBracketingTransportException failure
+                ? Map.of("message", message, "reason", failure.reason().name())
+                : Map.of("message", message));
         sendJobLog(id, "ERROR", "Job failed: " + message);
     }
 

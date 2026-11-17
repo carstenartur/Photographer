@@ -100,8 +100,8 @@ class CanonCcapiBackendTest {
     }
 
     @Test
-    void discoverEndpoints_picksHighestVersion() {
-        // Override with two versions — should pick ver110
+    void legacyBaseBackendDiscoversTheHighestVersionRoot() {
+        // The legacy base class reads one version root. Production uses the all-version catalog.
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
                 .thenReturn(Map.of("ver100", "/ccapi/ver100", "ver110", "/ccapi/ver110"));
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi/ver110"), eq(List.class)))
@@ -109,7 +109,6 @@ class CanonCcapiBackendTest {
 
         backend.discoverEndpoints();
 
-        // Should have queried ver110, not ver100
         verify(restTemplate).getForObject(eq(BASE_URL + "/ccapi/ver110"), eq(List.class));
         assertNotNull(backend.findEndpoint("deviceinformation"));
     }

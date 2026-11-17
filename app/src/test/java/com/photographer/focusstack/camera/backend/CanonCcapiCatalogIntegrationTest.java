@@ -134,6 +134,20 @@ class CanonCcapiCatalogIntegrationTest {
     }
 
     @Test
+    void inheritedMediaAndPollingLookupsIgnoreNestedOperations() {
+        when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
+                .thenReturn(Map.of(
+                        "ver100", List.of("/ccapi/ver100/contents", "/ccapi/ver100/event/polling"),
+                        "ver140", List.of("/ccapi/ver140/vendor/contents", "/ccapi/ver140/vendor/contents/sd",
+                                "/ccapi/ver140/vendor/event/polling")));
+        CanonCcapiStatusBackend backend = new CanonCcapiStatusBackend(BASE_URL, restTemplate);
+
+        assertEquals(BASE_URL + "/ccapi/ver100/contents", backend.findEndpoint("contents"));
+        assertEquals(BASE_URL + "/ccapi/ver100/event/polling", backend.findEndpoint("event/polling"));
+        assertNull(backend.findEndpoint("contents/sd"));
+    }
+
+    @Test
     void methodMetadataIsAppliedWithoutSubstringHeuristics() {
         when(restTemplate.getForObject(eq(BASE_URL + "/ccapi"), eq(Map.class)))
                 .thenReturn(Map.of("ver110", List.of(descriptor(

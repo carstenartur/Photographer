@@ -60,7 +60,11 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
 
     @Override
     public CameraCapabilitySnapshot getCapabilitySnapshot() {
-        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create();
+        return capabilitySnapshot(false);
+    }
+
+    final CameraCapabilitySnapshot capabilitySnapshot(boolean extendedEvents) {
+        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create(extendedEvents);
     }
 
     @Override
@@ -284,12 +288,12 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     }
 
     private static String findGetEndpoint(CcapiEndpointCatalog catalog, String suffix) {
-        return catalog.findExactPath(suffix, HttpMethod.GET)
+        return catalog.findOperation(suffix, Set.of(HttpMethod.GET), true)
                 .map(CcapiEndpointCatalog.Endpoint::url)
                 .orElse(null);
     }
 
-    private CcapiEndpointCatalog endpointCatalog() {
+    final CcapiEndpointCatalog endpointCatalog() {
         CcapiEndpointCatalog current = endpointCatalog;
         if (current != null) {
             return current;

@@ -10,10 +10,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -36,17 +34,13 @@ final class CanonCcapiCapabilitySnapshotFactory {
             definition("battery-status", true, methods(HttpMethod.GET),
                     "/devicestatus/batterylist", "/devicestatus/battery"),
             definition("storage-status", true, methods(HttpMethod.GET), "/devicestatus/storage"),
-            definition("lens-status", true, methods(HttpMethod.GET), "/devicestatus/lens"),
+            new Definition("lens-status", List.of("/devicestatus/lens"), methods(HttpMethod.GET), true, false),
             definition("still-capture", true, methods(HttpMethod.POST),
                     "/shooting/control/shutterbutton/manual", "/shooting/control/shutterbutton"),
             definition("manual-focus-drive", true, methods(HttpMethod.POST),
                     "/shooting/control/drivefocus"),
             definition("live-view-control", true, methods(HttpMethod.POST), "/shooting/liveview"),
             definition("live-view-frame", true, methods(HttpMethod.GET), "/shooting/liveview/flip"),
-            definition("media-list-and-download", true, methods(HttpMethod.GET), "/contents"),
-            definition("event-polling", true, methods(HttpMethod.GET), "/event/polling"),
-            definition("event-monitoring", false, methods(HttpMethod.GET, HttpMethod.DELETE),
-                    "/event/monitoring"),
             definition("live-view-multipart", false, methods(HttpMethod.GET, HttpMethod.DELETE),
                     "/shooting/liveview/multipart"),
             definition("live-view-rtp", false, methods(HttpMethod.POST), "/shooting/liveview/rtp")
@@ -79,6 +73,11 @@ final class CanonCcapiCapabilitySnapshotFactory {
             return false;
         }
         String suffix = "/" + path.substring(version.end());
+        for (CcapiMediaOperation operation : CcapiMediaOperation.values()) {
+            if (suffix.equals(operation.path)) {
+                return true;
+            }
+        }
         return suffix.equals("/shooting/liveview/scroll")
                 || java.util.stream.Stream.concat(BASE_DEFINITIONS.stream(), NATIVE_BRACKETING_DEFINITIONS.stream())
                         .anyMatch(definition -> definition.suffixes().contains(suffix));
@@ -94,22 +93,28 @@ final class CanonCcapiCapabilitySnapshotFactory {
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
     }
 
-    CameraCapabilitySnapshot create() {
-        List<AdvertisedEndpoint> advertised = advertisedEndpoints();
-        Identity identity = readIdentity(advertised);
+    CameraCapabilitySnapshot create(boolean extendedEvents) {
+        CcapiEndpointCatalog catalog = backend.endpointCatalog();
+        Identity identity = readIdentity(catalog);
 
         List<Definition> definitions = new ArrayList<>(BASE_DEFINITIONS);
+        for (CcapiMediaOperation operation : CcapiMediaOperation.values()) {
+            if (operation != CcapiMediaOperation.POLLING_CONTINUATION || extendedEvents) {
+                definitions.add(new Definition(operation.capability, List.of(operation.path), operation.methods,
+                        operation != CcapiMediaOperation.MONITORING || extendedEvents, operation.allowUnknownMethods));
+            }
+        }
         boolean nativeBracketingImplemented = backend instanceof NativeFocusBracketingProvider;
         for (Definition definition : NATIVE_BRACKETING_DEFINITIONS) {
             definitions.add(new Definition(
                     definition.id(),
                     definition.suffixes(),
                     definition.requiredMethods(),
-                    nativeBracketingImplemented));
+                    nativeBracketingImplemented, false));
         }
 
         List<CapabilityResult> resolved = definitions.stream()
-                .map(definition -> resolve(definition, advertised))
+                .map(definition -> resolve(definition, catalog))
                 .toList();
         LensResult lensResult = readLens(resolved);
 
@@ -118,44 +123,22 @@ final class CanonCcapiCapabilitySnapshotFactory {
                         ? lensResult.capability()
                         : result.capability())
                 .toList();
-        List<CameraCapabilitySnapshot.Endpoint> endpoints = advertised.stream()
-                .map(AdvertisedEndpoint::diagnostic)
+        List<CameraCapabilitySnapshot.Endpoint> endpoints = catalog.endpoints().stream()
+                .map(endpoint -> new CameraCapabilitySnapshot.Endpoint(endpoint.version(), endpointPath(endpoint.url()),
+                        methodNames(endpoint.methods()), endpoint.methodMetadataKnown()))
                 .toList();
 
         return new CameraCapabilitySnapshot(
                 identity.model(),
                 identity.firmwareVersion(),
-                !advertised.isEmpty(),
+                !endpoints.isEmpty(),
                 capabilities,
                 endpoints,
                 lensResult.lens());
     }
 
-    private List<AdvertisedEndpoint> advertisedEndpoints() {
-        Map<String, String> urls = backend.getDiscoveredEndpoints();
-        Map<String, Set<HttpMethod>> methods = backend.getDiscoveredEndpointMethods();
-        List<AdvertisedEndpoint> result = new ArrayList<>();
-        for (Map.Entry<String, String> entry : urls.entrySet()) {
-            String path = endpointPath(entry.getValue());
-            Set<HttpMethod> advertisedMethods = methods.get(entry.getKey());
-            boolean metadataKnown = advertisedMethods != null;
-            result.add(new AdvertisedEndpoint(
-                    version(path),
-                    versionNumber(path),
-                    path,
-                    entry.getValue(),
-                    advertisedMethods == null ? Set.of() : advertisedMethods,
-                    metadataKnown));
-        }
-        result.sort(Comparator.comparingInt(AdvertisedEndpoint::versionNumber)
-                .thenComparing(AdvertisedEndpoint::path));
-        return List.copyOf(result);
-    }
-
-    private Identity readIdentity(List<AdvertisedEndpoint> endpoints) {
-        AdvertisedEndpoint endpoint = highestExact(endpoints, List.of("/deviceinformation"))
-                .filter(candidate -> !candidate.methodMetadataKnown()
-                        || candidate.methods().contains(HttpMethod.GET))
+    private Identity readIdentity(CcapiEndpointCatalog catalog) {
+        CcapiEndpointCatalog.Endpoint endpoint = catalog.findOperation("/deviceinformation", methods(HttpMethod.GET), true)
                 .orElse(null);
         if (endpoint == null) {
             return Identity.UNKNOWN;
@@ -207,10 +190,11 @@ final class CanonCcapiCapabilitySnapshotFactory {
 
     private static CapabilityResult resolve(
             Definition definition,
-            List<AdvertisedEndpoint> endpoints) {
-        AdvertisedEndpoint endpoint = CcapiEndpointCatalog.isLiveViewOperation(definition.suffixes().getFirst())
-                ? highestCompatibleLiveView(endpoints, definition)
-                : highestExact(endpoints, definition.suffixes()).orElse(null);
+            CcapiEndpointCatalog catalog) {
+        CcapiEndpointCatalog.Endpoint endpoint = bestEndpoint(catalog, definition.suffixes(),
+                definition.requiredMethods(), definition.allowUnknownMethods())
+                .or(() -> bestEndpoint(catalog, definition.suffixes(), Set.of(), true))
+                .orElse(null);
         if (endpoint == null) {
             return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(
                     definition.id(),
@@ -266,27 +250,12 @@ final class CanonCcapiCapabilitySnapshotFactory {
                 null), endpoint);
     }
 
-    private static AdvertisedEndpoint highestCompatibleLiveView(
-            List<AdvertisedEndpoint> endpoints, Definition definition) {
-        String operation = definition.suffixes().getFirst();
-        Comparator<AdvertisedEndpoint> order = Comparator
-                .comparing((AdvertisedEndpoint endpoint) -> !endpoint.methodMetadataKnown()
-                        || endpoint.methods().containsAll(definition.requiredMethods()))
-                .thenComparingInt(AdvertisedEndpoint::versionNumber)
-                .thenComparing(AdvertisedEndpoint::path);
-        return endpoints.stream()
-                .filter(endpoint -> CcapiEndpointCatalog.matchesOperation(endpoint.path(), operation))
-                .max(order)
-                .orElse(null);
-    }
-
-    private static Optional<AdvertisedEndpoint> highestExact(
-            List<AdvertisedEndpoint> endpoints,
-            List<String> suffixes) {
-        return endpoints.stream()
-                .filter(endpoint -> suffixes.stream().anyMatch(endpoint.path()::endsWith))
-                .max(Comparator.comparingInt(AdvertisedEndpoint::versionNumber)
-                        .thenComparing(AdvertisedEndpoint::path));
+    private static Optional<CcapiEndpointCatalog.Endpoint> bestEndpoint(
+            CcapiEndpointCatalog catalog, List<String> operations, Set<HttpMethod> methods, boolean allowUnknownMethods) {
+        return operations.stream()
+                .map(operation -> catalog.findOperation(operation, methods, allowUnknownMethods))
+                .flatMap(Optional::stream)
+                .max(CcapiEndpointCatalog.VERSION_ORDER);
     }
 
     private static Optional<CameraOperationException> operationFailure(Throwable failure) {
@@ -302,28 +271,11 @@ final class CanonCcapiCapabilitySnapshotFactory {
 
     private static String endpointPath(String value) {
         try {
-            String path = URI.create(value).getPath();
+            String path = URI.create(value).getRawPath();
             return path == null || path.isBlank() ? "/" : path;
         } catch (IllegalArgumentException exception) {
             int query = value.indexOf('?');
             return query >= 0 ? value.substring(0, query) : value;
-        }
-    }
-
-    private static String version(String path) {
-        Matcher matcher = VERSION_PATTERN.matcher(path);
-        return matcher.find() ? "ver" + matcher.group(1) : "unknown";
-    }
-
-    private static int versionNumber(String path) {
-        Matcher matcher = VERSION_PATTERN.matcher(path);
-        if (!matcher.find()) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(matcher.group(1));
-        } catch (NumberFormatException exception) {
-            return -1;
         }
     }
 
@@ -343,34 +295,21 @@ final class CanonCcapiCapabilitySnapshotFactory {
             boolean implemented,
             Set<HttpMethod> methods,
             String... suffixes) {
-        return new Definition(id, List.of(suffixes), methods, implemented);
+        return new Definition(id, List.of(suffixes), methods, implemented, true);
     }
 
     private record Definition(
             String id,
             List<String> suffixes,
             Set<HttpMethod> requiredMethods,
-            boolean implemented) {
+            boolean implemented,
+            boolean allowUnknownMethods) {
     }
 
     private record CapabilityResult(
             Definition definition,
             CameraCapabilitySnapshot.Capability capability,
-            AdvertisedEndpoint endpoint) {
-    }
-
-    private record AdvertisedEndpoint(
-            String version,
-            int versionNumber,
-            String path,
-            String url,
-            Set<HttpMethod> methods,
-            boolean methodMetadataKnown) {
-
-        private CameraCapabilitySnapshot.Endpoint diagnostic() {
-            return new CameraCapabilitySnapshot.Endpoint(
-                    version, path, methodNames(methods), methodMetadataKnown);
-        }
+            CcapiEndpointCatalog.Endpoint endpoint) {
     }
 
     private record LensResult(

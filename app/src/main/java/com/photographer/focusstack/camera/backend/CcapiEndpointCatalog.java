@@ -37,10 +37,14 @@ public final class CcapiEndpointCatalog {
 
     private final List<Endpoint> endpoints;
     private final String basePath;
+    private final URI origin;
+    static final Comparator<Endpoint> VERSION_ORDER =
+            Comparator.comparingInt(Endpoint::versionNumber).thenComparing(Endpoint::path);
 
     private CcapiEndpointCatalog(String baseUrl, List<Endpoint> endpoints) {
         this.endpoints = List.copyOf(endpoints);
         this.basePath = endpointPath(baseUrl);
+        this.origin = URI.create(baseUrl);
     }
 
     /** Discovers and normalizes the endpoint catalog using documented CCAPI roots. */
@@ -84,17 +88,54 @@ public final class CcapiEndpointCatalog {
         return findPath(suffix, method, false);
     }
 
-    /** A null method only checks whether an endpoint is advertised. */
+    /** Legacy short names retain suffix lookup. Media and event requests always name a complete operation. */
     Optional<Endpoint> findPath(String suffix, HttpMethod method, boolean matchWholeOperation) {
         String normalizedSuffix = normalizeSuffix(suffix);
+        if (matchWholeOperation || normalizedSuffix.equals(CcapiMediaOperation.CONTENTS.path)
+                || normalizedSuffix.equals("/contents/sd") || normalizedSuffix.equals(CcapiMediaOperation.POLLING.path)
+                || normalizedSuffix.equals(CcapiMediaOperation.MONITORING.path)) {
+            return findOperation(normalizedSuffix, method == null ? Set.of() : Set.of(method), true);
+        }
         return endpoints.stream()
-                .filter(endpoint -> matchWholeOperation
-                        ? matchesConfiguredOperation(endpoint.path(), normalizedSuffix)
-                        : matchesOperation(endpoint.path(), normalizedSuffix))
+                .filter(endpoint -> matchesOperation(endpoint.path(), normalizedSuffix))
                 .filter(endpoint -> method == null || !endpoint.methodMetadataKnown()
                         || endpoint.methods().contains(method))
-                .max(Comparator.comparingInt(Endpoint::versionNumber)
-                        .thenComparing(Endpoint::path));
+                .max(VERSION_ORDER);
+    }
+
+    /** Selects one whole versioned operation on the configured camera, using a single descriptor for all methods. */
+    Optional<Endpoint> findOperation(String operation, Set<HttpMethod> methods, boolean allowUnknownMethods) {
+        return endpoints.stream()
+                .filter(endpoint -> isCameraOperation(endpoint, operation))
+                .filter(endpoint -> endpoint.methodMetadataKnown()
+                        ? endpoint.methods().containsAll(methods) : allowUnknownMethods)
+                .max(VERSION_ORDER);
+    }
+
+    private boolean isCameraOperation(Endpoint endpoint, String operation) {
+        URI url;
+        try {
+            url = URI.create(endpoint.url());
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+        if (url.getHost() == null || !url.getHost().equalsIgnoreCase(origin.getHost())
+                || !origin.getScheme().equalsIgnoreCase(url.getScheme())
+                || port(url) != port(origin) || url.getRawUserInfo() != null
+                || url.getRawQuery() != null || url.getRawFragment() != null) {
+            return false;
+        }
+        String path = url.getRawPath();
+        return operation.equals(versionedOperation(path))
+                || !basePath.isEmpty() && path.startsWith(basePath + "/")
+                && operation.equals(versionedOperation(path.substring(basePath.length())));
+    }
+
+    private static int port(URI uri) {
+        if (uri.getPort() >= 0) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 
     /** One advertised endpoint with normalized transport metadata. */
@@ -292,13 +333,6 @@ public final class CcapiEndpointCatalog {
 
     private static boolean matchesWholeOperation(String path, String operation) {
         return path.equals(operation) || operation.equals(versionedOperation(path));
-    }
-
-    private boolean matchesConfiguredOperation(String path, String operation) {
-        String relativePath = path.startsWith("/") ? path : "/" + path;
-        return matchesWholeOperation(relativePath, operation)
-                || !basePath.isEmpty() && relativePath.startsWith(basePath + "/")
-                && matchesWholeOperation(relativePath.substring(basePath.length()), operation);
     }
 
     static String versionedOperation(String path) {

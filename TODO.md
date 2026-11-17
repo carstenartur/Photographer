@@ -8,8 +8,8 @@ This file is retained as a stable pointer for old links. Git history preserves t
 
 ### Camera and CCAPI
 
-- [#143](https://github.com/carstenartur/Photographer/issues/143) tracks exact media and event endpoint selection and matching capability diagnostics.
-- [#144](https://github.com/carstenartur/Photographer/issues/144) tracks checking the required shutter, media and event transport before native focus bracketing changes camera settings.
+The [capability guide](docs/ccapi-capabilities.md) describes endpoint and method selection. The [native focus-bracketing guide](docs/native-focus-bracketing.md) covers transport preflight and strategy selection. The remaining [model and firmware checks](docs/manual-todo.md#ccapi-hardware-evidence) and [native sequence acceptance](docs/manual-todo.md#native-focus-bracketing-on-hardware) require a connected camera.
+
 
 ### CR3 / CRX
 

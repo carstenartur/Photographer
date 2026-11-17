@@ -2,8 +2,6 @@ package com.photographer.focusstack.camera.strategy;
 
 import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.common.camera.CameraBackend;
-import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
-import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
 import com.photographer.focusstack.common.camera.CapturedImageFormat;
@@ -69,6 +67,7 @@ public final class NativeFocusBracketingExecutor {
             throw new IllegalArgumentException(
                     "camera backend does not implement media observation and transfer");
         }
+        CameraMediaProvider.EventMode eventMode = nativeProvider.preflightNativeFocusBracketingTransport();
         nativeProvider.getNativeFocusBracketingCapabilities().requireExecutable(request);
 
         LinkedHashMap<String, ObservedShot> observed = new LinkedHashMap<>();
@@ -77,15 +76,23 @@ public final class NativeFocusBracketingExecutor {
         boolean restorationComplete = false;
         boolean triggered = false;
 
+        Set<String> before;
+        try {
+            before = snapshotShotKeys(mediaProvider);
+        } catch (RuntimeException failure) {
+            boolean cancelled = failure instanceof CameraOperationException operation
+                    && operation.reason() == CameraOperationException.Reason.CANCELLED;
+            return new NativeFocusBracketingExecutionResult(request.numberOfShots(), List.of(), List.of(),
+                    cancelled ? CANCELLED : FAILED, safeFailure(failure), true);
+        }
+
         NativeFocusBracketingSession session = nativeProvider.prepareNativeFocusBracketing(request);
         try {
-            Set<String> before = snapshotShotKeys(mediaProvider);
             checkCancellation(cancellationRequested);
 
             nativeProvider.triggerNativeFocusBracketing(session);
             triggered = true;
 
-            CameraMediaProvider.EventMode eventMode = selectEventMode(backend);
             long deadline = deadline(timeout);
             while (true) {
                 checkCancellation(cancellationRequested);
@@ -284,26 +291,6 @@ public final class NativeFocusBracketingExecutor {
         private CameraMediaReference bestReference() {
             return selected == null ? orderedReferences().getFirst() : selected;
         }
-    }
-
-    private static CameraMediaProvider.EventMode selectEventMode(CameraBackend backend) {
-        if (backend instanceof CameraCapabilityProvider capabilityProvider) {
-            CameraCapabilitySnapshot snapshot = capabilityProvider.getCapabilitySnapshot();
-            if (available(snapshot, "event-monitoring")) {
-                return CameraMediaProvider.EventMode.MONITORING;
-            }
-            if (available(snapshot, "event-polling-continuation")) {
-                return CameraMediaProvider.EventMode.POLLING_CONTINUATION;
-            }
-        }
-        return CameraMediaProvider.EventMode.POLLING;
-    }
-
-    private static boolean available(CameraCapabilitySnapshot snapshot, String id) {
-        return snapshot.capabilities().stream()
-                .anyMatch(capability -> capability.id().equals(id)
-                        && capability.availability()
-                        == CameraCapabilitySnapshot.Availability.AVAILABLE);
     }
 
     private static Set<String> snapshotShotKeys(CameraMediaProvider mediaProvider) {

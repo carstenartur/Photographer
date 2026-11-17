@@ -10,6 +10,16 @@ package com.photographer.focusstack.common.camera;
 public interface NativeFocusBracketingExecutionProvider
         extends NativeFocusBracketingProvider {
 
+    /**
+     * Verifies the shutter, media listing and event transport without changing camera state.
+     * Returns the event mode to use for this sequence.
+     * @throws NativeFocusBracketingTransportException if a required operation is unavailable
+     */
+    default CameraMediaProvider.EventMode preflightNativeFocusBracketingTransport() {
+        throw new NativeFocusBracketingTransportException(
+                NativeFocusBracketingTransportException.Reason.TRANSPORT_UNVERIFIED);
+    }
+
     /** Triggers exactly one native sequence for the already prepared session. */
     void triggerNativeFocusBracketing(NativeFocusBracketingSession session);
 }

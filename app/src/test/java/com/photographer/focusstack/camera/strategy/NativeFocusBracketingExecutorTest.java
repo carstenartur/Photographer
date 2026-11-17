@@ -1,8 +1,6 @@
 package com.photographer.focusstack.camera.strategy;
 
 import com.photographer.focusstack.common.camera.CameraBackend;
-import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
-import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
@@ -23,7 +21,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionResult.CompletionState.CANCELLED;
@@ -143,6 +140,22 @@ class NativeFocusBracketingExecutorTest {
     }
 
     @Test
+    void failedInitialMediaListingLeavesNativeSettingsUntouched() {
+        FakeBackend backend = new FakeBackend(3, false);
+        backend.failListing = true;
+
+        NativeFocusBracketingExecutionResult result = new NativeFocusBracketingExecutor().execute(
+                backend, REQUEST, Duration.ofSeconds(1), () -> false, (media, reference) -> "unused");
+
+        assertEquals(FAILED, result.completionState());
+        assertTrue(result.partialFailureReason().contains("card unavailable"));
+        assertTrue(result.restorationComplete());
+        assertEquals(0, backend.prepareCount.get());
+        assertEquals(0, backend.triggerCount.get());
+        assertEquals(0, backend.closeCount.get());
+    }
+
+    @Test
     void incompleteRestorationIsAnExplicitTerminalFailure() {
         FakeBackend backend = new FakeBackend(3, true);
 
@@ -163,8 +176,7 @@ class NativeFocusBracketingExecutorTest {
     private static final class FakeBackend implements
             CameraBackend,
             NativeFocusBracketingExecutionProvider,
-            CameraMediaProvider,
-            CameraCapabilityProvider {
+            CameraMediaProvider {
 
         private final int generatedFrames;
         private final boolean failClose;
@@ -175,6 +187,7 @@ class NativeFocusBracketingExecutorTest {
         private final AtomicInteger eventCount = new AtomicInteger();
         private boolean delayedOldCompanion;
         private boolean triggered;
+        private boolean failListing;
 
         private FakeBackend(int generatedFrames, boolean failClose) {
             this(generatedFrames, failClose, false);
@@ -225,6 +238,9 @@ class NativeFocusBracketingExecutorTest {
 
         @Override
         public MediaPage listMedia(MediaQuery query) {
+            if (failListing) {
+                throw new IllegalStateException("card unavailable");
+            }
             if (!triggered) {
                 return new MediaPage(List.of(oldReference()), 1, false);
             }
@@ -265,15 +281,8 @@ class NativeFocusBracketingExecutorTest {
         }
 
         @Override
-        public CameraCapabilitySnapshot getCapabilitySnapshot() {
-            CameraCapabilitySnapshot.Capability monitoring =
-                    new CameraCapabilitySnapshot.Capability(
-                            "event-monitoring", true, true,
-                            CameraCapabilitySnapshot.Availability.AVAILABLE,
-                            Set.of("GET", "DELETE"), Set.of("GET", "DELETE"), true, null);
-            return new CameraCapabilitySnapshot(
-                    "Synthetic", "1.0", true,
-                    List.of(monitoring), List.of(), null);
+        public EventMode preflightNativeFocusBracketingTransport() {
+            return EventMode.MONITORING;
         }
 
         private static CameraMediaReference oldReference() {
