@@ -259,27 +259,32 @@ public class HdrTimelapseService {
                 for (CaptureFrame frame : bracketSet.frames()) {
                     try {
                         byte[] data = storage.readFile(sessionId, "frames/" + frame.fileName());
+                        if (data.length == 0) {
+                            break;
+                        }
                         bracketImages.add(data);
                     } catch (IOException e) {
-                        bracketImages.add(new byte[]{0});
+                        log.debug("No stored frame data for bracket {}", bracketSet.bracketSetId());
+                        break;
                     }
                     evOffsets.add(frame.exposureValue());
                 }
 
-                byte[] hdrResult = hdrProcessor.merge(bracketImages, evOffsets);
-                if (settings.tonemapEnabled() && hdrResult.length > 0) {
-                    hdrResult = tonemapper.tonemap(hdrResult, 2.2);
-                }
-
                 String hdrResultPath = null;
-                if (hdrResult.length > 0) {
-                    hdrResultPath = "brackets/hdr_" + bracketSet.bracketSetId() + ".jpg";
-                    try {
-                        storage.storeFile(sessionId, hdrResultPath, hdrResult);
-                    } catch (IOException e) {
-                        log.warn("Failed to store HDR result for bracket {}: {}",
-                                bracketSet.bracketSetId(), e.getMessage());
-                        hdrResultPath = null;
+                if (!bracketImages.isEmpty() && bracketImages.size() == bracketSet.frames().size()) {
+                    byte[] hdrResult = hdrProcessor.merge(bracketImages, evOffsets);
+                    if (settings.tonemapEnabled() && hdrResult.length > 0) {
+                        hdrResult = tonemapper.tonemap(hdrResult, 2.2);
+                    }
+                    if (hdrResult.length > 0) {
+                        String resultPath = "brackets/hdr_" + bracketSet.bracketSetId() + ".jpg";
+                        try {
+                            storage.storeFile(sessionId, resultPath, hdrResult);
+                            hdrResultPath = resultPath;
+                        } catch (IOException e) {
+                            log.warn("Failed to store HDR result for bracket {}: {}",
+                                    bracketSet.bracketSetId(), e.getMessage());
+                        }
                     }
                 }
 

@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react';
+import { getAllCameras } from '../api/cameraApi';
 import {
   createHdrSession,
   getHdrSession,
   startHdrSession,
   stopHdrSession,
   getHdrBrackets,
-  generateHdrVideo,
 } from '../api/hdrTimelapseApi';
 
 const DEFAULT_SETTINGS = {
+  cameraProfileId: '',
   intervalSeconds: 10,
   bracketCount: 3,
   evStep: 1.0,
   totalIntervals: 100,
-  saveRaw: false,
-  tonemapEnabled: true,
 };
 
 export default function HdrTimelapse() {
+  const [cameras, setCameras] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [form, setForm] = useState(DEFAULT_SETTINGS);
   const [showForm, setShowForm] = useState(false);
@@ -25,7 +25,12 @@ export default function HdrTimelapse() {
   const [brackets, setBrackets] = useState([]);
   const [error, setError] = useState(null);
   const [polling, setPolling] = useState(false);
-  const [generatingVideo, setGeneratingVideo] = useState(false);
+
+  useEffect(() => {
+    getAllCameras()
+      .then(setCameras)
+      .catch((err) => setError(`Camera profiles unavailable: ${err.message}`));
+  }, []);
 
   // Poll active session status
   useEffect(() => {
@@ -47,8 +52,8 @@ export default function HdrTimelapse() {
   }, [activeSession, polling]);
 
   function handleChange(e) {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   async function handleCreate(e) {
@@ -56,12 +61,13 @@ export default function HdrTimelapse() {
     setError(null);
     try {
       const settings = {
+        cameraProfileId: form.cameraProfileId,
         intervalSeconds: Number(form.intervalSeconds),
         bracketCount: Number(form.bracketCount),
         evStep: Number(form.evStep),
         totalIntervals: Number(form.totalIntervals),
-        saveRaw: form.saveRaw,
-        tonemapEnabled: form.tonemapEnabled,
+        saveRaw: false,
+        tonemapEnabled: false,
       };
       const session = await createHdrSession(settings);
       setSessions((prev) => [session, ...prev]);
@@ -97,29 +103,6 @@ export default function HdrTimelapse() {
     }
   }
 
-  async function handleGenerateVideo() {
-    if (!activeSession) return;
-    setError(null);
-    setGeneratingVideo(true);
-    try {
-      const blob = await generateHdrVideo(activeSession.sessionId, 24, 1920, 1080);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `hdr-timelapse-${activeSession.sessionId.substring(0, 8)}.mp4`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      setError(`Video generation failed: ${err.message}`);
-    } finally {
-      setGeneratingVideo(false);
-    }
-  }
-
   function selectSession(session) {
     setActiveSession(session);
     setBrackets([]);
@@ -140,11 +123,21 @@ export default function HdrTimelapse() {
         </button>
       </div>
 
+      <p>Capture sequences are experimental. EV steps are recorded as metadata. HDR merging and video export are under development.</p>
       {error && <p className="error">{error}</p>}
 
       {showForm && (
         <form className="form-card" onSubmit={handleCreate}>
           <h2>New HDR Timelapse Session</h2>
+          <label>
+            Camera Profile
+            <select name="cameraProfileId" required value={form.cameraProfileId} onChange={handleChange}>
+              <option value="">Select a camera profile</option>
+              {cameras.map((camera) => (
+                <option key={camera.id} value={camera.id}>{camera.name}</option>
+              ))}
+            </select>
+          </label>
           <label>
             Interval (seconds)
             <input name="intervalSeconds" type="number" min="1" value={form.intervalSeconds} onChange={handleChange} />
@@ -160,14 +153,6 @@ export default function HdrTimelapse() {
           <label>
             Total Intervals
             <input name="totalIntervals" type="number" min="1" value={form.totalIntervals} onChange={handleChange} />
-          </label>
-          <label className="checkbox-label">
-            <input name="saveRaw" type="checkbox" checked={form.saveRaw} onChange={handleChange} />
-            Save Raw Files
-          </label>
-          <label className="checkbox-label">
-            <input name="tonemapEnabled" type="checkbox" checked={form.tonemapEnabled} onChange={handleChange} />
-            Enable Tonemapping
           </label>
           <button type="submit" className="btn btn-primary">Create Session</button>
         </form>
@@ -194,15 +179,6 @@ export default function HdrTimelapse() {
             )}
             {activeSession.status === 'RUNNING' && (
               <button className="btn btn-danger" onClick={handleStop}>Stop</button>
-            )}
-            {(activeSession.status === 'COMPLETED' || activeSession.status === 'CANCELLED') && brackets.length > 0 && (
-              <button
-                className="btn btn-primary"
-                onClick={handleGenerateVideo}
-                disabled={generatingVideo}
-              >
-                {generatingVideo ? 'Generating Video…' : 'Generate Timelapse Video'}
-              </button>
             )}
           </div>
 

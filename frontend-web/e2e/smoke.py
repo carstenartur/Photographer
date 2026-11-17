@@ -3,11 +3,13 @@
 import argparse
 import base64
 from contextlib import contextmanager
+from io import BytesIO
 import os
 from pathlib import Path
 import re
 import secrets
 import subprocess
+from tempfile import TemporaryDirectory
 import time
 import urllib.request
 import zipfile
@@ -28,6 +30,7 @@ def isolated_app(image, artifacts):
         image,
     ], text=True, env=env).strip()
     try:
+        check_packaged_cr3_guide(container)
         address = subprocess.check_output(['docker', 'port', container, '8080/tcp'], text=True).strip()
         url = 'http://' + address
         deadline = time.monotonic() + 120
@@ -49,6 +52,19 @@ def isolated_app(image, artifacts):
         raise
     finally:
         subprocess.run(['docker', 'rm', '--force', '--volumes', container], check=True)
+
+
+def check_packaged_cr3_guide(container):
+    with TemporaryDirectory() as directory:
+        app_jar = Path(directory) / 'app.jar'
+        subprocess.run(['docker', 'cp', f'{container}:/app/app.jar', str(app_jar)], check=True)
+        with zipfile.ZipFile(app_jar) as application:
+            (imageio_jar,) = (name for name in application.namelist()
+                              if re.fullmatch(r'BOOT-INF/lib/cr3-imageio-.+\.jar', name))
+            with zipfile.ZipFile(BytesIO(application.read(imageio_jar))) as imageio:
+                guide = imageio.read('META-INF/cr3/imageio.md').decode('utf-8')
+                assert 'This product includes DNG technology under license by Adobe.' in guide
+                assert imageio.read('META-INF/cr3/import.md')
 
 
 def login(page, password):
@@ -146,11 +162,16 @@ def exercise(page, url, password, captures):
 
     page.get_by_role('link', name='HDR Timelapse').click()
     page.get_by_role('button', name='New Session').click()
+    page.get_by_label('Camera Profile').select_option(label='Mock studio camera')
     page.get_by_label('Total Intervals').fill('1')
     capture(page.locator('form'), captures, 'hdr-session.png')
     page.get_by_role('button', name='Create Session').click()
     expect(page.get_by_role('heading', name=re.compile('Session:'))).to_be_visible()
     expect(page.get_by_text('CREATED', exact=True).first).to_be_visible()
+    page.get_by_role('button', name='Start', exact=True).click()
+    expect(page.get_by_text('COMPLETED', exact=True).first).to_be_visible(timeout=20_000)
+    expect(page.get_by_role('heading', name='Brackets (1)', exact=True)).to_be_visible()
+    expect(page.get_by_role('button', name='Generate Timelapse Video')).to_have_count(0)
 
     page.set_viewport_size({'width': 390, 'height': 844})
     page.get_by_role('link', name='Cameras', exact=True).click()

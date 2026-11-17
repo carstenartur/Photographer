@@ -1,15 +1,16 @@
 # session-core
 
-Session orchestration for HDR Timelapse and Face Orbit features.
+Session orchestration for the experimental timed capture and face-orbit workflows.
 
 ## Purpose
 
-This module provides the service layer that orchestrates capture, processing,
-and result generation for both features.
+This module coordinates capture and delegates processing to injected adapters.
+The packaged application supplies mock HDR, tonemapping, video and face-profile
+adapters. Intended exposure offsets are recorded in the bracket metadata.
 
 ## Components
 
-- `HdrTimelapseService`: Manages HDR timelapse sessions (bracket capture, HDR merge, video generation)
+- `HdrTimelapseService`: Schedules repeated captures and delegates optional HDR processing and video encoding.
 - `FaceOrbitService`: Manages face orbit sessions (sequential capture, quality checks, 3D profile generation)
 - `SessionException`: Runtime exception for session errors
 

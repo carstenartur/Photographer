@@ -22,6 +22,7 @@ import java.util.Map;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -127,5 +128,17 @@ class HdrTimelapseControllerTest {
 
         mockMvc.perform(get("/api/hdr-timelapse/sess-1/brackets"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void productionMockEncoderDoesNotReturnAPlaceholderFile() throws Exception {
+        when(hdrTimelapseService.getVideoFormat()).thenReturn("mock");
+        when(hdrTimelapseService.getSession("sess-1")).thenReturn(SAMPLE_SESSION);
+
+        mockMvc.perform(post("/api/v1/hdr-timelapse/sess-1/video").with(csrf()))
+                .andExpect(status().isNotImplemented())
+                .andExpect(jsonPath("$.code").value("HDR_VIDEO_UNAVAILABLE"));
+
+        verify(hdrTimelapseService, never()).generateVideo("sess-1", 24, 1920, 1080);
     }
 }

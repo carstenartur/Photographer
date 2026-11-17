@@ -5,7 +5,7 @@ This module is standalone and can be used independently of the Focus Stack appli
 
 ## Features
 
-- Full PTP/IP and USB transport abstraction
+- USB PTP transport via usb4java, with a Windows Portable Devices fallback
 - Canon EOS vendor extensions (remote capture, live view, focus drive, property control)
 - Event-driven architecture with background event polling
 - `CameraBackend` adapter for integration with the Focus Stack app
@@ -23,10 +23,14 @@ This module is standalone and can be used independently of the Focus Stack appli
 ### Open a Canon camera over USB
 
 ```java
-PtpCamera camera = PtpCamera.openUsb();
-CameraCapabilities caps = camera.getCapabilities();
-byte[] jpeg = camera.capture();
-camera.close();
+import com.photographer.ptp.session.PtpCamera;
+
+try (var camera = PtpCamera.openUsb()) {
+    var capabilities = camera.getCapabilities();
+    var photo = camera.capture();
+    byte[] imageData = photo.data();
+    System.out.printf("%s: %d bytes (%s)%n", photo.fileName(), imageData.length, capabilities);
+}
 ```
 
 ### Mock transport for testing

@@ -74,6 +74,7 @@ COPY canon-cr3-processing/src canon-cr3-processing/src
 COPY canon-cr3-core/src canon-cr3-core/src
 COPY canon-cr3-imageio/src canon-cr3-imageio/src
 COPY canon-cr3-cli/src canon-cr3-cli/src
+COPY docs/cr3/imageio.md docs/cr3/import.md docs/cr3/
 COPY frontend-web/ frontend-web/
 COPY app/src app/src
 

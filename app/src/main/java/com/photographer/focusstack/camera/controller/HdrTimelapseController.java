@@ -13,6 +13,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -80,16 +81,23 @@ public class HdrTimelapseController {
 
     @PostMapping("/{sessionId}/video")
     @Operation(summary = "Generate timelapse video from captured brackets")
-    public ResponseEntity<byte[]> generateVideo(
+    public ResponseEntity<?> generateVideo(
             @PathVariable String sessionId,
             @RequestParam(defaultValue = "24") int fps,
             @RequestParam(defaultValue = "1920") int width,
             @RequestParam(defaultValue = "1080") int height) {
+        String format = service.getVideoFormat();
+        if ("mock".equals(format)) {
+            service.getSession(sessionId);
+            ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.NOT_IMPLEMENTED, "A video encoder is unavailable in this deployment.");
+            problem.setProperty("code", "HDR_VIDEO_UNAVAILABLE");
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(problem);
+        }
         byte[] video = service.generateVideo(sessionId, fps, width, height);
         if (video.length == 0) {
             return ResponseEntity.noContent().build();
         }
-        String format = service.getVideoFormat();
         String safeFormat = format != null ? format.replaceAll("[^a-zA-Z0-9]", "") : "";
         if (safeFormat.isEmpty()) {
             safeFormat = "mp4";

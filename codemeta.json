@@ -8,7 +8,6 @@
   "license": "https://spdx.org/licenses/MIT",
   "programmingLanguage": [
     "Java",
-    "TypeScript",
     "JavaScript"
   ],
   "runtimePlatform": [

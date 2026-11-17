@@ -60,10 +60,12 @@ the v1 contract. Its stable machine fields, HTTP status and sanitization rules m
 change compatibly within v1. Internal exception text, credentials, camera URLs, filesystem
 paths and provider payloads are not public contract fields.
 
-Image, ZIP, CSV/JSON export and generated-video endpoints use the same `/api/v1/**`
+Image, ZIP and CSV/JSON export endpoints use the same `/api/v1/**`
 version boundary as JSON endpoints. Their status codes, media types, content-disposition
 semantics and error responses are therefore versioned with REST. The compatibility alias
 serves the identical bytes from the same handler during the migration window.
+
+The experimental `POST /api/v1/hdr-timelapse/{sessionId}/video` route returns HTTP `501` with code `HDR_VIDEO_UNAVAILABLE` for an existing session when the configured encoder is the test adapter.
 
 ## Endpoints (port 8080)
 
