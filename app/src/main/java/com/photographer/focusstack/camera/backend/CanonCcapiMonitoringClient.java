@@ -13,12 +13,9 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,8 +28,6 @@ import java.util.regex.Pattern;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CAMERA_REJECTED;
-import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ENDPOINT_NOT_FOUND;
-import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
 
 /** Parses Canon's chunked binary monitoring frames with bounded memory and cancellation. */
 final class CanonCcapiMonitoringClient {
@@ -51,27 +46,24 @@ final class CanonCcapiMonitoringClient {
     private final String profileId;
     private final URI origin;
     private final RestTemplate restTemplate;
-    private final Supplier<Map<String, String>> endpointSupplier;
-    private final Supplier<Map<String, Set<HttpMethod>>> methodSupplier;
+    private final Supplier<CcapiEndpointCatalog> catalog;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     CanonCcapiMonitoringClient(
             String profileId,
             String baseUrl,
             RestTemplate restTemplate,
-            Supplier<Map<String, String>> endpointSupplier,
-            Supplier<Map<String, Set<HttpMethod>>> methodSupplier) {
+            Supplier<CcapiEndpointCatalog> catalog) {
         this.profileId = requireProfileId(profileId);
         this.origin = origin(URI.create(Objects.requireNonNull(baseUrl, "baseUrl")));
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
-        this.endpointSupplier = Objects.requireNonNull(endpointSupplier, "endpointSupplier");
-        this.methodSupplier = Objects.requireNonNull(methodSupplier, "methodSupplier");
+        this.catalog = Objects.requireNonNull(catalog, "catalog");
     }
 
     Optional<CameraMediaReference> awaitAddedMedia(Duration timeout) {
         validateTimeout(timeout);
         checkCancelled();
-        Endpoint endpoint = requiredEndpoint();
+        String endpoint = CcapiMediaOperation.MONITORING.requireUrl(catalog.get(), profileId);
         ExecutorService executor = Executors.newThreadPerTaskExecutor(
                 Thread.ofVirtual().name("ccapi-monitoring-", 0).factory());
         Future<Optional<CameraMediaReference>> future = executor.submit(
@@ -102,9 +94,9 @@ final class CanonCcapiMonitoringClient {
         }
     }
 
-    private Optional<CameraMediaReference> readMonitoring(Endpoint endpoint) {
+    private Optional<CameraMediaReference> readMonitoring(String endpoint) {
         Optional<CameraMediaReference> result = restTemplate.execute(
-                URI.create(endpoint.url()),
+                URI.create(endpoint),
                 HttpMethod.GET,
                 null,
                 response -> readFrames(response.getBody()));
@@ -207,44 +199,9 @@ final class CanonCcapiMonitoringClient {
                 storage(path), path, fileName, null, version(path)));
     }
 
-    private Endpoint requiredEndpoint() {
-        Map<String, String> endpoints = endpointSupplier.get();
-        Map<String, Set<HttpMethod>> methods = methodSupplier.get();
-        boolean advertised = endpoints.values().stream()
-                .map(this::resolveCameraValue)
-                .anyMatch(uri -> uri.getPath().endsWith("/event/monitoring"));
-        if (!advertised) {
-            throw new CameraOperationException(profileId, ENDPOINT_NOT_FOUND, 404);
-        }
-
-        return endpoints.entrySet().stream()
-                .map(entry -> endpoint(entry, methods))
-                .filter(candidate -> candidate.path().endsWith("/event/monitoring"))
-                .filter(candidate -> candidate.methodMetadataKnown()
-                        && candidate.methods().containsAll(
-                        Set.of(HttpMethod.GET, HttpMethod.DELETE)))
-                .max(Comparator.comparingInt(Endpoint::versionNumber)
-                        .thenComparing(Endpoint::path))
-                .orElseThrow(() -> new CameraOperationException(
-                        profileId, METHOD_NOT_ALLOWED, 405));
-    }
-
-    private Endpoint endpoint(
-            Map.Entry<String, String> entry,
-            Map<String, Set<HttpMethod>> methods) {
-        URI resolved = resolveCameraValue(entry.getValue());
-        Set<HttpMethod> advertisedMethods = methods.get(entry.getKey());
-        return new Endpoint(
-                resolved.getPath(),
-                resolved.toString(),
-                versionNumber(resolved.getPath()),
-                advertisedMethods == null ? Set.of() : Set.copyOf(advertisedMethods),
-                advertisedMethods != null);
-    }
-
-    private void cancelEvent(Endpoint endpoint) {
+    private void cancelEvent(String endpoint) {
         try {
-            restTemplate.delete(endpoint.url());
+            restTemplate.delete(endpoint);
         } catch (RuntimeException ignored) {
             // Best-effort protocol cancellation must not replace the original outcome.
         }
@@ -329,18 +286,6 @@ final class CanonCcapiMonitoringClient {
         return matcher.find() ? "ver" + matcher.group(1) : "unknown";
     }
 
-    private static int versionNumber(String path) {
-        Matcher matcher = VERSION_PATTERN.matcher(path);
-        if (!matcher.find()) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(matcher.group(1));
-        } catch (NumberFormatException exception) {
-            return -1;
-        }
-    }
-
     private void validateTimeout(Duration timeout) {
         Objects.requireNonNull(timeout, "timeout");
         if (timeout.isZero()
@@ -373,11 +318,4 @@ final class CanonCcapiMonitoringClient {
         return value;
     }
 
-    private record Endpoint(
-            String path,
-            String url,
-            int versionNumber,
-            Set<HttpMethod> methods,
-            boolean methodMetadataKnown) {
-    }
 }

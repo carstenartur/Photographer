@@ -17,7 +17,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,8 +37,6 @@ import java.util.regex.Pattern;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CAMERA_REJECTED;
-import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ENDPOINT_NOT_FOUND;
-import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
 
 /**
  * Version-aware, bounded CCAPI media and polling client.
@@ -63,28 +60,25 @@ final class CanonCcapiMediaClient {
     private final String profileId;
     private final URI origin;
     private final RestTemplate restTemplate;
-    private final Supplier<Map<String, String>> endpointSupplier;
-    private final Supplier<Map<String, Set<HttpMethod>>> methodSupplier;
+    private final Supplier<CcapiEndpointCatalog> catalog;
 
     CanonCcapiMediaClient(
             String profileId,
             String baseUrl,
             RestTemplate restTemplate,
-            Supplier<Map<String, String>> endpointSupplier,
-            Supplier<Map<String, Set<HttpMethod>>> methodSupplier) {
+            Supplier<CcapiEndpointCatalog> catalog) {
         this.profileId = requireProfileId(profileId);
         this.origin = origin(URI.create(Objects.requireNonNull(baseUrl, "baseUrl")));
         this.restTemplate = Objects.requireNonNull(restTemplate, "restTemplate");
-        this.endpointSupplier = Objects.requireNonNull(endpointSupplier, "endpointSupplier");
-        this.methodSupplier = Objects.requireNonNull(methodSupplier, "methodSupplier");
+        this.catalog = Objects.requireNonNull(catalog, "catalog");
     }
 
     CameraMediaProvider.MediaPage listMedia(CameraMediaProvider.MediaQuery query) {
         Objects.requireNonNull(query, "query");
         checkCancelled();
-        EndpointView contents = requiredEndpoint("/contents", HttpMethod.GET, false);
+        String contents = CcapiMediaOperation.CONTENTS.requireUrl(catalog.get(), profileId);
 
-        List<String> storages = listPaths(contents.url());
+        List<String> storages = listPaths(contents);
         List<DirectoryQuery> directories = new ArrayList<>();
         boolean directoryLimitReached = false;
 
@@ -185,10 +179,11 @@ final class CanonCcapiMediaClient {
         checkCancelled();
 
         boolean requiresDelete = mode == CameraMediaProvider.EventMode.POLLING_CONTINUATION;
-        EndpointView endpoint = requiredEndpoint("/event/polling", HttpMethod.GET, requiresDelete);
+        String endpoint = (requiresDelete ? CcapiMediaOperation.POLLING_CONTINUATION : CcapiMediaOperation.POLLING)
+                .requireUrl(catalog.get(), profileId);
         String requestUrl = requiresDelete
-                ? appendQuery(endpoint.url(), "continue=on")
-                : endpoint.url();
+                ? appendQuery(endpoint, "continue=on")
+                : endpoint;
         long deadline = System.nanoTime() + timeout.toNanos();
         ExecutorService executor = Executors.newThreadPerTaskExecutor(
                 Thread.ofVirtual().name("ccapi-event-", 0).factory());
@@ -330,9 +325,9 @@ final class CanonCcapiMediaClient {
         }
     }
 
-    private void cancelEvent(EndpointView endpoint) {
+    private void cancelEvent(String endpoint) {
         try {
-            restTemplate.delete(endpoint.url());
+            restTemplate.delete(endpoint);
         } catch (RuntimeException ignored) {
             // Cancellation is best-effort and must not replace the original result.
         }
@@ -351,45 +346,6 @@ final class CanonCcapiMediaClient {
             Thread.currentThread().interrupt();
             throw cancelled(exception);
         }
-    }
-
-    private EndpointView requiredEndpoint(
-            String suffix,
-            HttpMethod requiredMethod,
-            boolean requireDelete) {
-        Map<String, String> endpoints = endpointSupplier.get();
-        Map<String, Set<HttpMethod>> methods = methodSupplier.get();
-        List<EndpointView> candidates = endpoints.entrySet().stream()
-                .map(entry -> endpoint(entry, methods))
-                .filter(candidate -> candidate.path().endsWith(suffix))
-                .toList();
-        if (candidates.isEmpty()) {
-            throw new CameraOperationException(profileId, ENDPOINT_NOT_FOUND, 404);
-        }
-
-        return candidates.stream()
-                .filter(candidate -> !candidate.methodMetadataKnown()
-                        || candidate.methods().contains(requiredMethod))
-                .filter(candidate -> !requireDelete
-                        || candidate.methodMetadataKnown()
-                        && candidate.methods().contains(HttpMethod.DELETE))
-                .max(Comparator.comparingInt(EndpointView::versionNumber)
-                        .thenComparing(EndpointView::path))
-                .orElseThrow(() -> new CameraOperationException(
-                        profileId, METHOD_NOT_ALLOWED, 405));
-    }
-
-    private EndpointView endpoint(
-            Map.Entry<String, String> entry,
-            Map<String, Set<HttpMethod>> methods) {
-        URI resolved = resolveCameraValue(entry.getValue());
-        Set<HttpMethod> advertisedMethods = methods.get(entry.getKey());
-        return new EndpointView(
-                resolved.getPath(),
-                resolved.toString(),
-                versionNumber(resolved.getPath()),
-                advertisedMethods == null ? Set.of() : Set.copyOf(advertisedMethods),
-                advertisedMethods != null);
     }
 
     private String queryUrl(
@@ -562,18 +518,6 @@ final class CanonCcapiMediaClient {
         return matcher.find() ? "ver" + matcher.group(1) : "unknown";
     }
 
-    private static int versionNumber(String path) {
-        Matcher matcher = VERSION_PATTERN.matcher(path);
-        if (!matcher.find()) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(matcher.group(1));
-        } catch (NumberFormatException exception) {
-            return -1;
-        }
-    }
-
     private static int nonNegativeInt(Object value) {
         if (!(value instanceof Number number)) {
             return 0;
@@ -690,14 +634,6 @@ final class CanonCcapiMediaClient {
             String format,
             int contentsNumber,
             int pageNumber) {
-    }
-
-    private record EndpointView(
-            String path,
-            String url,
-            int versionNumber,
-            Set<HttpMethod> methods,
-            boolean methodMetadataKnown) {
     }
 
     private record BoundedBytes(byte[] data, boolean overflow) {

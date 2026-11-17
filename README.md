@@ -29,7 +29,7 @@ The application builds with JDK 25 and Maven 3.9+. The standalone CR3 libraries 
 ## Features
 
 **Capture**
-- Canon CCAPI camera control (live-view, focus stepping, remote shutter)
+- Live view, focus stepping and remote shutter release via Canon’s Camera Control API (CCAPI)
 - Mock camera backend for development and testing without hardware
 - PTP/USB camera backend (`camera-ptp`)
 

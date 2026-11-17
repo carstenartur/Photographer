@@ -30,7 +30,7 @@ and HTTP methods for capability selection.
 
 ## Legacy endpoint compatibility
 
-Live view matches the complete operation path under the advertised CCAPI version and selects the highest compatible endpoint. Native focus-bracketing settings also require a complete operation path with explicit methods. Some media, event and capability-diagnostic selectors still use suffix matching. [Issue #143](https://github.com/carstenartur/Photographer/issues/143) tracks hardening these selectors and aligning their diagnostic status. Legacy catalogs may omit method flags. The operations that accept these catalogs report unknown methods in the capability snapshot.
+The production backend keeps all advertised CCAPI versions. Media listing, event observation and capability diagnostics match the whole operation below the version root. Each operation uses the highest compatible version, so an older readable `/contents` can serve media when a newer version omits GET. Polling continuation and monitoring require GET and DELETE on the same endpoint. Plain media listing and one-shot polling also accept exact legacy entries without method flags. The snapshot reports these entries as `METHOD_METADATA_UNKNOWN`. Native focus-bracketing settings require explicit GET and PUT.
 
 A few inherited operations, such as basic device information and the regular shutter command, retain a fixed CCAPI v1.0 compatibility path when the selector finds no matching endpoint. A matching advertisement with known incompatible methods blocks that fallback.
 

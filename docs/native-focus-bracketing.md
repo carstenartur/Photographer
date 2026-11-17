@@ -4,15 +4,15 @@ Canon CCAPI can expose a camera-owned fixed focus-bracketing sequence in additio
 
 ## Strategy selection
 
-Every stacking request now selects one explicit `captureStrategy`:
+The `captureStrategy` request field selects how Photographer captures the stack.
 
 | Value | Behaviour |
 | --- | --- |
 | `MANUAL` | Uses the existing application-controlled capture/analyse/focus loop. This remains the backward-compatible default. |
-| `NATIVE` | Requests native execution and reports a terminal error when the settings or transport fail. |
-| `AUTO` | Selects native execution when the backend exposes native execution and media support and validates the requested settings. It records a fallback reason when those checks select the manual loop. |
+| `NATIVE` | Runs the fixed sequence when both settings and transport pass preflight. A missing operation fails the job before the first settings write. |
+| `AUTO` | Uses native execution when the same preflight succeeds. Otherwise the job selects the manual loop and records the fallback reason. |
 
-[Issue #144](https://github.com/carstenartur/Photographer/issues/144) tracks validating the advertised shutter, media and event operations before applying native camera settings.
+The Canon preflight checks the exact shutter-button POST, a usable contents listing, an added-media event operation and the requested setting values. A transport failure identifies the missing operation in the job’s stop reason or manual fallback detail. An explicit native job also emits the reason code in its error event.
 
 Example request parameters:
 
@@ -65,7 +65,7 @@ Reference examples are not universal camera limits. Production code derives supp
 - `NativeFocusBracketingCapabilities`: advertised base support, required integer ranges and optional features;
 - `NativeFocusBracketingRequest`: one fixed native sequence request;
 - `NativeFocusBracketingProvider`: transactional settings preparation;
-- `NativeFocusBracketingExecutionProvider`: exactly one trigger for a prepared session;
+- `NativeFocusBracketingExecutionProvider`: read-only transport preflight and one trigger for a prepared session;
 - `NativeFocusBracketingSession`: an `AutoCloseable` prepared-setting scope;
 - `NativeFocusBracketingExecutionResult`: expected count, observed media, ingested frame ids, completion state, partial-failure reason and restoration state;
 - `CameraMediaProvider`: bounded media snapshots, event observation and range-safe transfer.
@@ -101,11 +101,11 @@ The higher API version does not win unless it satisfies the required method cont
 
 ## Observation and ingestion
 
-The native executor snapshots known media before the shutter action. It then selects the best advertised observation mode:
+The native executor selects an advertised observation mode and reads the initial media listing before applying settings. It uses the first mode available in this order.
 
 1. binary monitoring when exact GET and DELETE are available;
 2. polling continuation when exact GET and DELETE are available;
-3. bounded one-shot polling otherwise.
+3. bounded one-shot polling at the exact polling endpoint when it allows GET. Older catalogs may omit method flags on this read and the contents listing.
 
 An event is only a wake-up hint. The executor refreshes the bounded media snapshot after each event and computes the difference from the pre-trigger state. It therefore does not assume one event or one HTTP response per generated frame.
 

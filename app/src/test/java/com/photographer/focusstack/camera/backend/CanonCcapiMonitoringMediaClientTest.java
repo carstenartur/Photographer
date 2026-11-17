@@ -2,7 +2,6 @@ package com.photographer.focusstack.camera.backend;
 
 import com.photographer.focusstack.camera.exception.CameraOperationException;
 import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
-import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -15,6 +14,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -131,9 +131,8 @@ class CanonCcapiMonitoringMediaClientTest {
                 "camera-profile",
                 BASE_URL,
                 restTemplate,
-                () -> Map.of("/ccapi/ver110/event/monitoring", MONITORING),
-                () -> Map.of("/ccapi/ver110/event/monitoring",
-                        Set.of(HttpMethod.GET, HttpMethod.DELETE)));
+                () -> CcapiEndpointCatalogTest.catalog(BASE_URL, Map.of("ver110",
+                        List.of(Map.of("url", MONITORING, "get", true, "delete", true)))));
     }
 
     private static byte[] frame(String json) {

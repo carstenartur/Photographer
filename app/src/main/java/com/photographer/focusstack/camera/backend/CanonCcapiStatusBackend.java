@@ -60,7 +60,11 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
 
     @Override
     public CameraCapabilitySnapshot getCapabilitySnapshot() {
-        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create();
+        return capabilitySnapshot(false);
+    }
+
+    final CameraCapabilitySnapshot capabilitySnapshot(boolean extendedEvents) {
+        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create(extendedEvents);
     }
 
     @Override
@@ -109,27 +113,33 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
      */
     @Override
     String findEndpoint(String suffix) {
-        CcapiEndpointCatalog catalog = endpointCatalog();
-        HttpMethod requiredMethod = requiredMethod(suffix);
-        if (requiredMethod != null) {
-            return catalog.findExactPath(suffix, requiredMethod)
-                    .map(CcapiEndpointCatalog.Endpoint::url)
-                    .orElse(null);
-        }
-        return catalog.findExactPath(suffix)
+        String operation = canonicalOperation(suffix);
+        HttpMethod method = requiredMethod(operation);
+        return endpointCatalog().findOperation(operation, method == null ? Set.of() : Set.of(method), true)
                 .map(CcapiEndpointCatalog.Endpoint::url)
                 .orElse(null);
+    }
+
+    private static String canonicalOperation(String suffix) {
+        String path = suffix.startsWith("/") ? suffix : "/" + suffix;
+        return switch (path) {
+            case "/shutterbutton", "/shutterbutton/manual" -> "/shooting/control" + path;
+            case "/liveview", "/liveview/flip" -> "/shooting" + path;
+            case "/battery", "/batterylist", "/storage", "/currentstorage" -> "/devicestatus" + path;
+            default -> path;
+        };
     }
 
     /** Applies advertised method metadata without guessing when metadata is absent. */
     @Override
     boolean endpointAllows(String suffix, HttpMethod method, boolean defaultValue) {
         CcapiEndpointCatalog catalog = endpointCatalog();
-        CcapiEndpointCatalog.Endpoint exact = catalog.findExactPath(suffix).orElse(null);
+        String operation = canonicalOperation(suffix);
+        CcapiEndpointCatalog.Endpoint exact = catalog.findOperation(operation, Set.of(), true).orElse(null);
         if (exact == null) {
             return defaultValue;
         }
-        CcapiEndpointCatalog.Endpoint compatible = catalog.findExactPath(suffix, method)
+        CcapiEndpointCatalog.Endpoint compatible = catalog.findOperation(operation, Set.of(method), true)
                 .orElse(null);
         if (compatible == null) {
             return false;
@@ -145,19 +155,19 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     @Override
     String resolveEndpoint(String suffix, String defaultPath) {
         String operation = CcapiEndpointCatalog.versionedOperation(defaultPath);
-        boolean matchWholeOperation = operation != null;
-        String operationOrSuffix = matchWholeOperation ? operation : suffix;
+        String operationOrSuffix = operation != null ? operation : canonicalOperation(suffix);
         CcapiEndpointCatalog catalog = endpointCatalog();
         HttpMethod requiredMethod = requiredMethod(operationOrSuffix);
 
         CcapiEndpointCatalog.Endpoint endpoint =
-                catalog.findPath(operationOrSuffix, requiredMethod, matchWholeOperation).orElse(null);
+                catalog.findOperation(operationOrSuffix, requiredMethod == null ? Set.of() : Set.of(requiredMethod), true)
+                        .orElse(null);
         if (endpoint != null) {
             return endpoint.url();
         }
 
         CcapiEndpointCatalog.Endpoint advertised =
-                catalog.findPath(operationOrSuffix, null, matchWholeOperation).orElse(null);
+                catalog.findOperation(operationOrSuffix, Set.of(), true).orElse(null);
         if (advertised != null && requiredMethod != null
                 && advertised.methodMetadataKnown()) {
             throw new CameraException("CCAPI endpoint " + advertised.path()
@@ -284,12 +294,12 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     }
 
     private static String findGetEndpoint(CcapiEndpointCatalog catalog, String suffix) {
-        return catalog.findExactPath(suffix, HttpMethod.GET)
+        return catalog.findOperation(suffix, Set.of(HttpMethod.GET), true)
                 .map(CcapiEndpointCatalog.Endpoint::url)
                 .orElse(null);
     }
 
-    private CcapiEndpointCatalog endpointCatalog() {
+    final CcapiEndpointCatalog endpointCatalog() {
         CcapiEndpointCatalog current = endpointCatalog;
         if (current != null) {
             return current;

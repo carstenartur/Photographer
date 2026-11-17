@@ -8,8 +8,6 @@ import com.photographer.focusstack.camera.entity.StackingJobEntity;
 import com.photographer.focusstack.camera.repository.StackingJobRepository;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.camera.CameraBackend;
-import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
-import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraMediaProvider;
 import com.photographer.focusstack.common.camera.CameraMediaReference;
@@ -22,6 +20,7 @@ import com.photographer.focusstack.common.camera.NativeFocusBracketingCapabiliti
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingTransportException;
 import com.photographer.focusstack.common.camera.Operation;
 import com.photographer.focusstack.common.model.CameraProfile;
 import com.photographer.focusstack.common.model.JobStatus;
@@ -31,6 +30,8 @@ import com.photographer.focusstack.common.model.StackingJob;
 import com.photographer.focusstack.common.model.StackingParameters;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
@@ -40,7 +41,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -122,6 +122,35 @@ class NativeStackingJobServiceTest {
         verify(manualBackend, never()).getInfo();
     }
 
+    @ParameterizedTest
+    @EnumSource(value = StackingCaptureStrategy.class, names = {"NATIVE", "AUTO"})
+    void incompleteTransportIsHandledBeforeNativeSettingsAndShutter(StackingCaptureStrategy strategy) {
+        NativeBackend backend = new NativeBackend();
+        backend.missingTransport = NativeFocusBracketingTransportException.Reason.EVENT_TRANSPORT_UNAVAILABLE;
+        StackingAdvisor advisor = mock(StackingAdvisor.class);
+        when(advisor.analyzeFrame(any(), any(), any(), any())).thenReturn(
+                new AnalysisResult("r", 0.5, 0.4, false, 0.0, 0.3, true));
+        Fixture fixture = fixture(backend, advisor);
+        var parameters = new StackingParameters(0, 1, 2, 0.01, false, QualityMode.BALANCED,
+                strategy, new NativeFocusBracketingRequest(2, 1, false, false, false));
+        var job = new StackingJob("incomplete-transport", "cam-1", JobStatus.RUNNING,
+                Instant.now(), null, parameters, List.of(), null);
+
+        fixture.service.executeStackingAsync(job);
+
+        assertEquals(0, backend.prepareCount.get());
+        assertEquals(0, backend.triggerCount.get());
+        if (strategy == StackingCaptureStrategy.NATIVE) {
+            assertEquals(0, backend.manualCount);
+            assertTrue(fixture.lastSaved(JobStatus.FAILED).stopReason().contains(backend.missingTransport.name()));
+        } else {
+            var metadata = fixture.lastSaved(JobStatus.COMPLETED).executionMetadata();
+            assertEquals(StackingCaptureStrategy.MANUAL, metadata.selectedStrategy());
+            assertTrue(metadata.detail().contains(backend.missingTransport.name()));
+            assertTrue(backend.manualCount > 0);
+        }
+    }
+
     private Fixture fixture(CameraBackend backend) {
         return fixture(backend, mock(StackingAdvisor.class));
     }
@@ -168,13 +197,14 @@ class NativeStackingJobServiceTest {
     private static final class NativeBackend implements
             CameraBackend,
             NativeFocusBracketingExecutionProvider,
-            CameraMediaProvider,
-            CameraCapabilityProvider {
+            CameraMediaProvider {
 
         private final AtomicInteger prepareCount = new AtomicInteger();
         private final AtomicInteger triggerCount = new AtomicInteger();
         private final AtomicInteger closeCount = new AtomicInteger();
         private boolean triggered;
+        private int manualCount;
+        private NativeFocusBracketingTransportException.Reason missingTransport;
 
         @Override
         public NativeFocusBracketingCapabilities getNativeFocusBracketingCapabilities() {
@@ -238,15 +268,11 @@ class NativeStackingJobServiceTest {
         }
 
         @Override
-        public CameraCapabilitySnapshot getCapabilitySnapshot() {
-            CameraCapabilitySnapshot.Capability monitoring =
-                    new CameraCapabilitySnapshot.Capability(
-                            "event-monitoring", true, true,
-                            CameraCapabilitySnapshot.Availability.AVAILABLE,
-                            Set.of("GET", "DELETE"), Set.of("GET", "DELETE"), true, null);
-            return new CameraCapabilitySnapshot(
-                    "Synthetic", "1.0", true,
-                    List.of(monitoring), List.of(), null);
+        public EventMode preflightNativeFocusBracketingTransport() {
+            if (missingTransport != null) {
+                throw new NativeFocusBracketingTransportException(missingTransport);
+            }
+            return EventMode.MONITORING;
         }
 
         private static CameraMediaReference old() {
@@ -276,12 +302,13 @@ class NativeStackingJobServiceTest {
 
         @Override
         public CaptureResult capture() {
-            throw new UnsupportedOperationException();
+            manualCount++;
+            return NativeStackingJobServiceTest.capture("manual-" + manualCount, manualCount);
         }
 
         @Override
         public void setFocus(FocusCommand command) {
-            throw new UnsupportedOperationException();
+            // The manual fallback uses a synthetic camera.
         }
 
         @Override

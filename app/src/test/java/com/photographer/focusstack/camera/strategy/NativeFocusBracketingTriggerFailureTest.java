@@ -55,6 +55,11 @@ class NativeFocusBracketingTriggerFailureTest {
         private int closeCount;
 
         @Override
+        public EventMode preflightNativeFocusBracketingTransport() {
+            return EventMode.POLLING;
+        }
+
+        @Override
         public NativeFocusBracketingCapabilities getNativeFocusBracketingCapabilities() {
             return new NativeFocusBracketingCapabilities(
                     true,

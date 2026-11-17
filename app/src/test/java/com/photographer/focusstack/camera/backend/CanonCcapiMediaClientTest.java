@@ -14,7 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.List;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CAMERA_REJECTED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
@@ -69,8 +69,7 @@ class CanonCcapiMediaClientTest {
 
         CameraMediaProvider.MediaPage page = client(
                 restTemplate,
-                Map.of(contents, contents),
-                Map.of(contents, Set.of(HttpMethod.GET)))
+                Map.of("ver100", List.of(Map.of("url", contents, "get", true))))
                 .listMedia(CameraMediaProvider.MediaQuery.bounded(10));
 
         assertEquals(2, page.items().size());
@@ -116,9 +115,7 @@ class CanonCcapiMediaClientTest {
 
         CameraMediaProvider.MediaPage page = client(
                 restTemplate,
-                Map.of(directoryPath.substring(0, directoryPath.indexOf("/card1")), contents),
-                Map.of(directoryPath.substring(0, directoryPath.indexOf("/card1")),
-                        Set.of(HttpMethod.GET)))
+                Map.of("ver140", List.of(Map.of("path", "/ccapi/ver140/contents", "get", true))))
                 .listMedia(CameraMediaProvider.MediaQuery.bounded(1));
 
         assertEquals(1, page.items().size());
@@ -142,8 +139,7 @@ class CanonCcapiMediaClientTest {
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
                 () -> client(restTemplate,
-                        Map.of(contents, contents),
-                        Map.of(contents, Set.of(HttpMethod.GET)))
+                        Map.of("ver100", List.of(Map.of("url", contents, "get", true))))
                         .listMedia(CameraMediaProvider.MediaQuery.bounded(10)));
 
         assertEquals(CAMERA_REJECTED, failure.reason());
@@ -162,8 +158,7 @@ class CanonCcapiMediaClientTest {
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
                 () -> client(restTemplate,
-                        Map.of(contents, contents),
-                        Map.of(contents, Set.of(HttpMethod.GET)))
+                        Map.of("ver100", List.of(Map.of("url", contents, "get", true))))
                         .listMedia(CameraMediaProvider.MediaQuery.bounded(10)));
 
         assertEquals(CAMERA_REJECTED, failure.reason());
@@ -185,7 +180,7 @@ class CanonCcapiMediaClientTest {
                         .body(new byte[]{4, 5, 6, 7}));
 
         CameraMediaProvider.MediaChunk chunk = client(
-                restTemplate, Map.of(), Map.of())
+                restTemplate, Map.of())
                 .downloadMedia(reference, 4, 4);
 
         assertEquals(4, chunk.offset());
@@ -207,7 +202,7 @@ class CanonCcapiMediaClientTest {
                         .body(new byte[]{4, 5, 6, 7}));
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
-                () -> client(restTemplate, Map.of(), Map.of())
+                () -> client(restTemplate, Map.of())
                         .downloadMedia(reference, 4, 4));
 
         assertEquals(CAMERA_REJECTED, failure.reason());
@@ -225,7 +220,7 @@ class CanonCcapiMediaClientTest {
                         new byte[]{0, 1, 2, 3}, MediaType.APPLICATION_OCTET_STREAM));
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
-                () -> client(restTemplate, Map.of(), Map.of())
+                () -> client(restTemplate, Map.of())
                         .downloadMedia(reference, 4, 4));
 
         assertEquals(CAMERA_REJECTED, failure.reason());
@@ -243,7 +238,7 @@ class CanonCcapiMediaClientTest {
                         new byte[]{0, 1, 2, 3, 4}, MediaType.APPLICATION_OCTET_STREAM));
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
-                () -> client(restTemplate, Map.of(), Map.of())
+                () -> client(restTemplate, Map.of())
                         .downloadMedia(reference, 0, 4));
 
         assertEquals(CAMERA_REJECTED, failure.reason());
@@ -264,8 +259,7 @@ class CanonCcapiMediaClientTest {
 
         Optional<CameraMediaReference> result = client(
                 restTemplate,
-                Map.of(polling, polling),
-                Map.of(polling, Set.of(HttpMethod.GET)))
+                Map.of("ver100", List.of(Map.of("url", polling, "get", true))))
                 .awaitAddedMedia(
                         CameraMediaProvider.EventMode.POLLING,
                         Duration.ofSeconds(1));
@@ -294,9 +288,7 @@ class CanonCcapiMediaClientTest {
 
         Optional<CameraMediaReference> result = client(
                 restTemplate,
-                Map.of("/ccapi/ver110/event/polling", polling),
-                Map.of("/ccapi/ver110/event/polling",
-                        Set.of(HttpMethod.GET, HttpMethod.DELETE)))
+                Map.of("ver110", List.of(Map.of("url", polling, "get", true, "delete", true))))
                 .awaitAddedMedia(
                         CameraMediaProvider.EventMode.POLLING_CONTINUATION,
                         Duration.ofSeconds(1));
@@ -313,8 +305,7 @@ class CanonCcapiMediaClientTest {
         CameraOperationException failure = assertThrows(CameraOperationException.class,
                 () -> client(
                         restTemplate,
-                        Map.of("/ccapi/ver110/event/polling", polling),
-                        Map.of("/ccapi/ver110/event/polling", Set.of(HttpMethod.GET)))
+                        Map.of("ver110", List.of(Map.of("url", polling, "get", true))))
                         .awaitAddedMedia(
                                 CameraMediaProvider.EventMode.POLLING_CONTINUATION,
                                 Duration.ofSeconds(1)));
@@ -328,7 +319,7 @@ class CanonCcapiMediaClientTest {
         Thread.currentThread().interrupt();
 
         CameraOperationException failure = assertThrows(CameraOperationException.class,
-                () -> client(restTemplate, Map.of(), Map.of())
+                () -> client(restTemplate, Map.of())
                         .awaitAddedMedia(
                                 CameraMediaProvider.EventMode.POLLING,
                                 Duration.ofSeconds(1)));
@@ -339,14 +330,9 @@ class CanonCcapiMediaClientTest {
 
     private static CanonCcapiMediaClient client(
             RestTemplate restTemplate,
-            Map<String, String> endpoints,
-            Map<String, Set<HttpMethod>> methods) {
-        return new CanonCcapiMediaClient(
-                "camera-profile",
-                BASE_URL,
-                restTemplate,
-                () -> endpoints,
-                () -> methods);
+            Map<String, Object> versions) {
+        return new CanonCcapiMediaClient("camera-profile", BASE_URL, restTemplate,
+                () -> CcapiEndpointCatalogTest.catalog(BASE_URL, versions));
     }
 
     private static CameraMediaReference reference(String path) {

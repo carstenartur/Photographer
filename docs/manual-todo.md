@@ -9,7 +9,7 @@ Use this checklist for work that needs access to physical equipment or a release
 - If the camera advertises Multipart or RTP, capture the exact operation and methods. For Multipart, keep a boundary-framed sample and a cancellation exchange. For RTP, keep a redacted session description and the observed start and stop behavior. Follow the [live-view guide](ccapi-live-view.md).
 - Exercise affected operations on any older camera or shooting mode before narrowing the fixed CCAPI v1.0 compatibility policy. Use the current production profile path and record the result by model and firmware.
 
-Apply the collector's redaction rules to these artifacts. Record the results of physical operations separately from the read-only snapshots. The collector and the former evidence checklist are documented in [#183](https://github.com/carstenartur/Photographer/issues/183). Software endpoint matching remains in [#143](https://github.com/carstenartur/Photographer/issues/143).
+Apply the collector's redaction rules to these artifacts. Record the results of physical operations separately from the read-only snapshots. The collector and the former evidence checklist are documented in [#183](https://github.com/carstenartur/Photographer/issues/183).
 
 ## Native focus bracketing on hardware
 
@@ -17,7 +17,7 @@ Apply the collector's redaction rules to these artifacts. Record the results of 
 - On a body that advertises the complete contract, run one bounded sequence. Record the shutter count, produced media or in-camera composition, complete or partial outcome, file integrity and restoration of the original settings. Check restoration on success and cancellation and, where practical, after an induced failure.
 - If the available bodies lack the full contract, record that result and confirm the `AUTO` manual fallback. Include the model, firmware, connection and shooting mode in the report.
 
-The [native-focus guide](native-focus-bracketing.md) describes the workflow and [#144](https://github.com/carstenartur/Photographer/issues/144) tracks the software preflight.
+The [native-focus guide](native-focus-bracketing.md) describes the workflow and its transport preflight.
 
 ## D14 capture series
 
