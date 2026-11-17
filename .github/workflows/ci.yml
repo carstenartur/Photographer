@@ -68,6 +68,16 @@ jobs:
           printf 'docs_only=%s\n' "$docs_only" >> "$GITHUB_OUTPUT"
           printf 'Documentation-only change: %s\n' "$docs_only"
 
+      - name: Check out the documentation and its link targets
+        if: ${{ steps.paths.outputs.docs_only == 'true' }}
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Validate documentation
+        if: ${{ steps.paths.outputs.docs_only == 'true' }}
+        run: python3 scripts/validate_documentation.py .
+
   java-verify:
     name: Maven verification
     needs: change-scope

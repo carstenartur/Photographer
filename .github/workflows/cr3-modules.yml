@@ -89,13 +89,24 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
 
+      - name: Resolve the CR3 release candidate version
+        run: |
+          revision=$(mvn -B -ntp -N -q help:evaluate \
+            -Dexpression=revision -DforceStdout -Dstyle.color=never)
+          version=${revision%-SNAPSHOT}
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "Expected an X.Y.Z release candidate, found Maven revision '$revision'" >&2
+            exit 1
+          }
+          printf 'CR3_RELEASE_VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+
       - name: Verify the independent Git-backed Maven release and consumer
         run: |
           python3 scripts/test_cr3_repository.py
-          python3 scripts/cr3_repository.py 0.1.5
+          python3 scripts/cr3_repository.py "$CR3_RELEASE_VERSION"
 
       - name: Build and validate signed public Central bundle
-        run: bash scripts/run_cr3_central_preflight.sh 0.1.5
+        run: bash scripts/run_cr3_central_preflight.sh "$CR3_RELEASE_VERSION"
 
       - name: Upload credential-free Central bundle
         uses: actions/upload-artifact@v7

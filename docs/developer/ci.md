@@ -51,9 +51,9 @@ bash scripts/verify-cr3-research.sh --full
 | [CR3 Fiji distribution](../../.github/workflows/cr3-fiji-distribution.yml) | Tests the importer and installation archives when the Fiji module or distribution inputs change | A live release attaches the verified ZIPs and updates the hosted site. Manual dispatch can verify a build or republish the archive of an existing stable tag. |
 | [Release Workflow](../../.github/workflows/deploy-release.yml) | The staged version PR goes through normal CI | Manual preparation on main stages the version change. Explicit resume on the merged stable commit builds and publishes the selected channels. |
 
-The CI path check skips Maven, frontend and Docker jobs for Markdown-only changes under `docs/` and to the root `README.md`. The CR3 reference manifest is a build input. The other workflows apply their own path filters.
+For Markdown-only changes under `docs/` and to the root `README.md`, CI validates documentation links and ownership in the path classification job. It skips the Maven, frontend and Docker smoke jobs. The CR3 reference manifest is a build input. The other workflows apply their own path filters.
 
-Product CI owns the production unit and integration suite. The packaged-consumer workflow stages the runtime artifacts with `-DskipTests` and tests their use in an independent Maven project.
+Product CI owns the production unit and integration suite. The packaged-consumer workflow checks the Git-backed Maven repository and the signed Central bundle at the candidate version derived from the root Maven `revision`. It then stages the runtime artifacts with `-DskipTests` and tests their use in an independent Maven project on Java 21.
 
 ## Private-repository Actions usage
 
