@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from time import monotonic, sleep
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
@@ -118,6 +119,22 @@ def artifact_hash(path):
 
 def gh(*args):
     return subprocess.check_output(['gh', *args], text=True).strip()
+
+
+def wait_for_main_ci(repo, source):
+    # A labelled merge starts this workflow alongside its push CI.
+    deadline = monotonic() + 3600
+    while True:
+        runs = json.loads(gh('run', 'list', '--repo', repo, '--workflow', 'ci.yml', '--event', 'push',
+                             '--branch', 'main', '--commit', source, '--limit', '1',
+                             '--json', 'status,conclusion,url,headSha'))
+        if runs and runs[0]['status'] == 'completed':
+            run = runs[0]
+            require(run['headSha'] == source and run['conclusion'] == 'success', 'Main CI did not pass: ' + run['url'])
+            print('Verified main CI:', run['url'])
+            return
+        require(monotonic() < deadline, 'Timed out waiting for CI on the selected main source')
+        sleep(20)
 
 
 def release_record(repo, tag):
@@ -236,6 +253,7 @@ def run(root, source, release_override, development_override, dry_run):
         # Atomic, non-forced refs. No release operation pushes main.
         refs = []
         if not remote_tag:
+            wait_for_main_ci(repo, source)
             require(remote_ref(root, 'refs/heads/main') == source, 'Main advanced before the first publication; dispatch again from its current head')
             refs.append(tag_ref + ':' + tag_ref)
         previous = existing_snapshot_pr(repo, branch) if remote_tag and not remote_branch else None
