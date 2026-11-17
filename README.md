@@ -75,7 +75,7 @@ Find the Maven modules, dependency layers and supported library interfaces in th
 
 Add `io.github.carstenartur:cr3-imageio:0.1.6` from Maven Central to a Java 21 or newer Maven application to develop a full-resolution color image from CR3 with `ImageIO.read(file)`. Use the reader parameters to select the camera’s embedded JPEG, linear Bayer or the original sensor codes. The standalone `cr3-core` decoder also accepts a file path directly.
 
-[ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
+[Run the minimal Maven example](docs/cr3/imageio.md#run-the-minimal-example) · [ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
 
 ## Run the web application
 

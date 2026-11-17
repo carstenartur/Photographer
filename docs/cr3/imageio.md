@@ -20,39 +20,37 @@ A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW
 
 ## Maven setup
 
-Use JDK 21 or newer. Add the following dependency to your application. Maven resolves `cr3-imageio:0.1.6`, the other five CR3 libraries and SLF4J from Maven Central.
+ImageIO comes with the JDK. A Java 21+ application needs one direct dependency. Maven resolves the decoder and its runtime dependencies from Maven Central.
 
 ```xml
-<project xmlns="http://maven.apache.org/POM/4.0.0">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>example</groupId>
-  <artifactId>read-cr3</artifactId>
-  <version>1.0</version>
-  <properties>
-    <maven.compiler.release>21</maven.compiler.release>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <cr3.version>0.1.6</cr3.version>
-  </properties>
-  <dependencies>
-    <dependency>
-      <groupId>io.github.carstenartur</groupId>
-      <artifactId>cr3-imageio</artifactId>
-      <version>${cr3.version}</version>
-    </dependency>
-  </dependencies>
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.1</version>
-      </plugin>
-    </plugins>
-  </build>
-</project>
+<dependency>
+  <groupId>io.github.carstenartur</groupId>
+  <artifactId>cr3-imageio</artifactId>
+  <version>0.1.6</version>
+</dependency>
 ```
 
-To test a local build instead, run the following commands in a Photographer checkout with JDK 25 and Maven 3.9+. Use the printed revision for `cr3.version` in your consumer POM.
+### Run the minimal example
+
+The standalone example consists of a [pom.xml](../../examples/cr3-imageio/pom.xml) and [SensorValues.java](../../examples/cr3-imageio/src/main/java/SensorValues.java). It reads the original Bayer samples with `readRaster(0, param)` and `rawSensor()`, then counts how many different values occur in the image.
+
+From `examples/cr3-imageio`, run it with Maven and a JDK 21 or newer. This command uses the [PowerShot G5 X Mark II sample](../../canon-cr3-imageio/src/test/resources/samples/sample.cr3) from the checkout. Replace its path to read your own photo.
+
+```sh
+mvn -q compile org.codehaus.mojo:exec-maven-plugin:3.6.4:java \
+  -Dexec.mainClass=SensorValues \
+  -Dexec.args=../../canon-cr3-imageio/src/test/resources/samples/sample.cr3
+```
+
+```text
+5632 x 3710 Bayer mosaic, 1584 distinct sensor values, maximum 3512
+```
+
+An 8-bit sample can represent 256 distinct values. This exposure uses 1,584 of the possible 16,384 codes of its 14-bit sensor data. Java stores each decoded code in an unsigned 16-bit raster sample.
+
+### Use a local build
+
+To test a local build instead, run the following commands in a Photographer checkout with JDK 25 and Maven 3.9+. Use the printed revision as the dependency version (the `cr3.version` property in the example POM).
 
 ```sh
 mvn -B -pl canon-cr3-imageio -am install -DskipTests
