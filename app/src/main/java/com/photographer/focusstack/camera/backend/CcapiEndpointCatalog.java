@@ -79,17 +79,23 @@ public final class CcapiEndpointCatalog {
      * {@code /devicestatus/storage}.
      */
     public Optional<Endpoint> findExactPath(String suffix) {
-        return findSuffix(suffix, null);
+        return findPath(suffix, null, false);
     }
 
     /** Same as {@link #findExactPath(String)}, additionally requiring a method when known. */
     public Optional<Endpoint> findExactPath(String suffix, HttpMethod method) {
         Objects.requireNonNull(method, "method");
-        return findSuffix(suffix, method);
+        return findPath(suffix, method, false);
     }
 
-    private Optional<Endpoint> findSuffix(String suffix, HttpMethod method) {
+    /** Legacy short names retain suffix lookup. Media and event requests always name a complete operation. */
+    Optional<Endpoint> findPath(String suffix, HttpMethod method, boolean matchWholeOperation) {
         String normalizedSuffix = normalizeSuffix(suffix);
+        if (matchWholeOperation || normalizedSuffix.equals(CcapiMediaOperation.CONTENTS.path)
+                || normalizedSuffix.equals("/contents/sd") || normalizedSuffix.equals(CcapiMediaOperation.POLLING.path)
+                || normalizedSuffix.equals(CcapiMediaOperation.MONITORING.path)) {
+            return findOperation(normalizedSuffix, method == null ? Set.of() : Set.of(method), true);
+        }
         return endpoints.stream()
                 .filter(endpoint -> matchesOperation(endpoint.path(), normalizedSuffix))
                 .filter(endpoint -> method == null || !endpoint.methodMetadataKnown()

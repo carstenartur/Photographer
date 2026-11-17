@@ -81,15 +81,9 @@ Example response:
 }
 ```
 
-## Deliberate non-goals of this slice
+## Connecting a discovered camera
 
-- no automatic profile creation or update;
-- no automatic connection attempt or digest authentication;
-- no background reachability monitor;
-- no claim that SSDP discovery is authoritative session state;
-- no changes to capture, live view, media or focus workflows.
-
-Those integrations must preserve the same explicit timeout, cancellation, redaction and capability rules and are tracked in issue #143.
+Discovery reports the cameras that replied to the scan. Select a camera and configure its profile to connect. The connected backend reads the camera's advertised operations and methods before selecting a transport. See the [CCAPI capability guide](ccapi-capabilities.md).
 
 ## Local verification
 
