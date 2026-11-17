@@ -11,7 +11,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | Install the CR3 libraries with Maven | [Maven release repositories](../cr3-maven-central.md#resolve-a-released-version) | Git-backed repository by default. Maven Central is optional. |
 | Inspect CR3 tracks or extract embedded preview/thumbnail JPEGs | [Container and metadata](decoder.md#stable-container-and-metadata-layers) | Stable public APIs |
 | Import a file with the Java decoder or export camera frames from Photographer | [CR3 file import](import.md) | Includes native sensor and developed RGB examples |
-| Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Stable preview, thumbnail, discovery and metadata; RAW controls experimental |
+| Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Default RAW color development on supported layouts, explicit preview, thumbnail and metadata |
 | Write a lossless CR3 from native sensor data | [CR3 camera-profile writer](imageio.md#write-a-lossless-cr3-using-a-camera-profile) | Four built-in profiles and their full Bayer mosaics |
 | Export a native sensor image and reopen it as a DNG | [Bayer DNG round trip](imageio.md#write-and-read-a-bayer-dng) | Uncompressed 16-bit Bayer mosaic with calibration |
 | Inspect sensor values in Fiji or ImageJ | [Fiji update site](fiji-update-site.md) · [Import and macro examples](../../cr3-imagej/README.md) | One unsigned 16-bit plane, full sensor coordinates |
@@ -63,12 +63,12 @@ The following do not depend on a correct sensor-RAW reconstruction:
 - embedded preview and thumbnail extraction;
 - structured CR3 metadata;
 - ImageIO SPI discovery;
-- default `ImageIO.read(file)` embedded-preview behavior;
+- `ImageIO.read(file)` develops the full-resolution color image for supported RAW layouts;
 - CLI inspection and embedded-JPEG extraction commands.
 
 ### Native sensor decoding
 
-Use `Cr3DecodeOptions.rawSensor()` for the native Bayer mosaic, including the optical-black margins. Use `rawLinear()` for the scaled Bayer output. The default ImageIO read selects the embedded JPEG. See the [ImageIO output modes](imageio.md) and [verified layouts](current-state.md).
+Use `Cr3DecodeOptions.rawSensor()` for the native Bayer mosaic, including the optical-black margins. Use `rawLinear()` for the scaled Bayer output. See the [ImageIO output modes](imageio.md) and [verified layouts](current-state.md).
 
 ## Documentation authority
 

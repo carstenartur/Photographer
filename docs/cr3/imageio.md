@@ -1,18 +1,20 @@
 # Read CR3 files with Java ImageIO
 
-Use `ImageIO.read(file)` for the photograph as rendered by the camera. It decodes the embedded JPEG preview. For RAW development or numerical measurements, open an explicit reader and select the required output.
+Use `ImageIO.read(file)` to develop the full-resolution color image from CR3 RAW or C-RAW. Open an explicit reader to select the embedded JPEG, get the original Bayer values, or configure RAW development.
 
 | Output | ImageIO call for image index `0` | Result |
 |---|---|---|
-| The camera preview | `ImageIO.read(file)` or `reader.read(0)` | Decoded embedded JPEG pixels. The preview has its own dimensions. |
+| RGB from RAW or C-RAW | `ImageIO.read(file)` or `reader.read(0)`. To configure development, pass a param with `rawProcessed()`. | Demosaiced 8-bit sRGB at the active-area resolution with EXIF orientation applied. |
+| The camera preview | `reader.read(0, param)` with `param.setPreviewOnly(true)` | Decoded embedded JPEG pixels at the camera preview's dimensions. |
 | A thumbnail | `reader.getNumThumbnails(0)`, then `reader.readThumbnail(0, 0)` if present | The separately embedded JPEG thumbnail. A CR3 can have none. |
-| RGB from RAW or C-RAW | `reader.read(0, param)` with `rawProcessed()` | Demosaiced RGB, 8 bits per channel, with EXIF orientation applied. |
 | A scaled Bayer mosaic | `reader.readRaster(0, null)` or `rawLinear()` | One unsigned 16-bit band, cropped to the active area with black-level adjustment by default. |
 | Native sensor codes | `reader.readRaster(0, param)` with `rawSensor()` | One unsigned 16-bit band in the camera's sample units, including optical-black margins. |
 | Exact JPEG file for export | [Copy the camera’s embedded JPEG unchanged](import.md#copy-the-cameras-embedded-jpeg-unchanged) | Original compressed bytes, including the camera’s JPEG encoding. |
 | Camera and capture information | `reader.getImageMetadata(0)` | Read-only native metadata, when available. |
 
-Preview, thumbnail and metadata access are stable APIs. Full-sensor values have been verified on the measured 14-bit, four-plane V1 lossless RAW and three-level C-RAW layouts. RGB development and RAW-specific parameters are experimental. An explicit RAW read reports an error if decoding fails. An application that can use a camera preview instead can handle the exception and request the preview explicitly. See the [decoder and supported layouts](decoder.md).
+**Upgrading from 0.1.5.** Starting with 0.1.6, the standard read develops RAW. Pass `setPreviewOnly(true)` to keep the camera-rendered JPEG behavior.
+
+A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW read. Applications can explicitly request the embedded JPEG when one is present. Full-sensor values have been verified on the measured 14-bit, four-plane V1 lossless RAW and three-level C-RAW layouts. See the [decoder and supported layouts](decoder.md).
 
 ## Maven setup
 
@@ -70,18 +72,28 @@ java --add-modules=jdk.incubator.vector \
   -jar canon-cr3-benchmark/target/benchmarks.jar Cr3RawProcessedBenchmark
 ```
 
-## Quick preview
+## Load the full-resolution color image
 
-Given a `java.io.File file`, read the preview in a method that can throw `IOException`.
+Given a `java.io.File file`, read the developed image in a method that can throw `IOException`.
 
 ```java
-var preview = javax.imageio.ImageIO.read(file);
-if (preview == null) {
+var image = javax.imageio.ImageIO.read(file);
+if (image == null) {
     throw new java.io.IOException("No installed ImageIO reader recognized " + file);
 }
 ```
 
-The JAR registers its reader through `META-INF/services/javax.imageio.spi.ImageReaderSpi`. Keep that entry when assembling a shaded JAR. The provider detects CR3 by inspecting the stream and also advertises the format name `cr3`, suffix `cr3`, and MIME type `image/x-canon-cr3`. A recognized file with a missing or unreadable preview can raise an `IOException`.
+The JAR registers its reader through `META-INF/services/javax.imageio.spi.ImageReaderSpi`. Keep that entry when assembling a shaded JAR. The provider detects CR3 by inspecting the stream and also advertises the format name `cr3`, suffix `cr3`, and MIME type `image/x-canon-cr3`.
+
+## Quick preview
+
+With a `CanonCr3ImageReader` opened as shown below, select the camera JPEG explicitly.
+
+```java
+var previewParam = reader.getDefaultReadParam();
+previewParam.setPreviewOnly(true);
+var preview = reader.read(0, previewParam);
+```
 
 ## Run a selected read mode
 
@@ -110,7 +122,10 @@ public class ReadCr3 {
                 reader.setInput(input);
                 var param = reader.getDefaultReadParam();
                 switch (args[1]) {
-                    case "preview" -> describe(reader.read(0));
+                    case "preview" -> {
+                        param.setPreviewOnly(true);
+                        describe(reader.read(0, param));
+                    }
                     case "thumbnail" -> {
                         if (reader.getNumThumbnails(0) > 0) {
                             describe(reader.readThumbnail(0, 0));
@@ -118,10 +133,7 @@ public class ReadCr3 {
                             System.out.println("No embedded thumbnail");
                         }
                     }
-                    case "rgb" -> {
-                        param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().maxWorkers(2));
-                        describe(reader.read(0, param));
-                    }
+                    case "rgb" -> describe(reader.read(0, param));
                     case "linear", "sensor", "patch" -> {
                         param.setDecodeOptions(args[1].equals("linear")
                                 ? Cr3DecodeOptions.rawLinear() : Cr3DecodeOptions.rawSensor());
@@ -188,7 +200,7 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 | `Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.THUMBNAIL)` | Selects the embedded thumbnail through `read(0, param)`. This also allows standard region and subsampling parameters on the thumbnail. |
 | `cropToActiveArea(boolean)`, `applyBlackLevel(boolean)` | Both default to `true` in `rawProcessed()` and `rawLinear()`. Disable both in linear mode to scale the full sensor mosaic to 16 bits. Native sensor mode always preserves full-sensor coordinates and unadjusted codes. |
 | `applyWhiteBalance(boolean)`, `applyColorMatrix(boolean)`, `applySrgbConversion(boolean)` | These three RGB processing stages are enabled by default in `rawProcessed()`. They can be disabled independently. JPEG and Bayer reads bypass these stages. |
-| `bitDepth(...)` | In 0.1.5, processed RGB is always 8 bits per channel, including when `BitDepth.SIXTEEN` is requested. Linear and sensor Bayer data always use unsigned 16-bit storage. |
+| `bitDepth(...)` | Processed RGB is always 8 bits per channel, including when `BitDepth.SIXTEEN` is requested. Linear and sensor Bayer data use unsigned 16-bit storage. |
 | `maxWorkers(int)` | Per-import upper limit for RAW stages. The default `0` uses the processors available to the JVM, `1` requests sequential processing, and a positive value caps parallelism within the shared worker pool. Negative values throw `IllegalArgumentException`. |
 
 `readRaster` always returns Bayer samples. A preview, thumbnail or processed-RGB option passed to `readRaster` selects the **linear** Bayer path, carrying over the crop, black-level and worker settings. Use `read` for JPEG or RGB pixels. Both Bayer modes also work with `read` if a `BufferedImage` is more convenient. In linear mode the adjustment subtracts the decoder's default pedestal, clamps at zero, and scales using the sensor's nominal maximum. Use `rawSensor()` to compare original values across exposures.
@@ -198,7 +210,8 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 - `param.setSourceRegion(rectangle)` uses the selected image's coordinates. With `rawSensor()`, (0, 0) is the sensor origin. For cropped `rawLinear()`, (0, 0) is the active-area origin. Processed RGB uses the EXIF-oriented output's coordinates.
 - `param.setSourceSubsampling(2, 2, 0, 0)` keeps every second row and column. On a Bayer mosaic this selects a single color-filter phase. The CRX decoder reads the required tile planes up to the last needed row, including the preceding rows that supply prediction state. Processed RGB develops the selected region with the neighbors needed for demosaicing and collects the optical-black levels used by full-frame processing. JPEG regions are selected from the decoded preview or thumbnail.
 - `read` supports destination images, destination types, destination offsets and band selection. For Bayer output, a supplied `TYPE_USHORT_GRAY` image receives samples directly at the requested physical offset. A failed decode can leave that destination partially filled. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
-- `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the preview. For RAW output geometry, inspect the returned image or raster. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
+- For repeated full-frame RGB reads, supply a dedicated `TYPE_INT_RGB` image with `setDestination(image)` and opt in with `setUseDestinationAsWorkspace(true)`. When the destination layout, orientation and read parameters allow it, development uses that image's storage directly. A failed read can leave it partially overwritten.
+- `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the default developed RAW image. Inspect the returned preview or Bayer raster for its own dimensions. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
 
 ## Write a lossless CR3 using a camera profile
 

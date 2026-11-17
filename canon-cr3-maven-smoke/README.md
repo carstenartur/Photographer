@@ -19,7 +19,7 @@ That external project verifies:
 - `cr3-metadata` reads camera and sensor metadata;
 - `cr3-codec` exposes its intended public bitstream API;
 - `cr3-imageio` is discovered through `ImageReaderSpi`;
-- `ImageIO.read(File)` returns the embedded preview;
+- `ImageIO.read(File)` returns a full-resolution color image from RAW and an explicit preview read retrieves the embedded JPEG;
 - an explicitly requested native Bayer raster returns LibRaw-verified sensor codes at subsampled coordinates and honors the logical raster origin;
 - the installed POMs contain the exact direct CR3 dependency graph documented in
   `docs/cr3-package-ownership.md`;

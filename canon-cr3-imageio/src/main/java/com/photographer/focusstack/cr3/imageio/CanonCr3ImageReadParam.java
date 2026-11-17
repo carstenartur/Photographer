@@ -9,7 +9,9 @@ import java.util.Objects;
  * Extended read parameters for Canon CR3 images.
  *
  * <p>Extends {@link ImageReadParam} with CR3-specific options like output mode
- * (preview vs. full RAW) and processing pipeline control.</p>
+ * and processing pipeline control. The default develops a full-resolution RAW
+ * color image. Use {@link #setPreviewOnly(boolean) setPreviewOnly(true)} for the
+ * camera's embedded JPEG.</p>
  *
  * <p><strong>API status:</strong> preview selection is supported for external
  * consumers. Full-RAW and processing controls are experimental while the CRX
@@ -18,14 +20,14 @@ import java.util.Objects;
  * <p>Usage:</p>
  * <pre>{@code
  * CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
- * param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
+ * param.setPreviewOnly(true);
  * ImageReader reader = ...;
  * BufferedImage image = reader.read(0, param);
  * }</pre>
  */
 public class CanonCr3ImageReadParam extends ImageReadParam {
 
-    private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.defaults();
+    private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.rawProcessed();
     private boolean previewOnly;
     private boolean useDestinationAsWorkspace;
 

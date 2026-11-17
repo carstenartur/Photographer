@@ -321,7 +321,9 @@ class RealSampleCr3Test {
                 reader.setInput(in);
 
                 assertThat(reader.getNumImages(true)).isEqualTo(1);
-                BufferedImage img = reader.read(0);
+                var param = reader.getDefaultReadParam();
+                param.setPreviewOnly(true);
+                BufferedImage img = reader.read(0, param);
                 assertThat(img).isNotNull();
                 assertThat(img.getWidth()).as("width").isEqualTo(1620);
                 assertThat(img.getHeight()).as("height").isEqualTo(1080);
@@ -346,12 +348,23 @@ class RealSampleCr3Test {
         }
 
         @Test
-        @DisplayName("ImageIO.read(File) works end-to-end on real CR3")
+        @DisplayName("ImageIO.read(File) develops full-resolution color from real CR3")
         void imageIoReadFile() throws Exception {
             BufferedImage img = ImageIO.read(sampleFile);
             assertThat(img).isNotNull();
-            assertThat(img.getWidth()).isEqualTo(1620);
-            assertThat(img.getHeight()).isEqualTo(1080);
+            assertThat(img.getType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
+            assertThat(img.getWidth()).isGreaterThan(1620);
+            assertThat(img.getHeight()).isGreaterThan(1080);
+            try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
+                var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+                try {
+                    reader.setInput(in);
+                    assertThat(img.getWidth()).isEqualTo(reader.getWidth(0));
+                    assertThat(img.getHeight()).isEqualTo(reader.getHeight(0));
+                } finally {
+                    reader.dispose();
+                }
+            }
         }
     }
 

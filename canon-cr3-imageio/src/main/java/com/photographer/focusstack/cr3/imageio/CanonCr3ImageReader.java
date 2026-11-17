@@ -1,8 +1,6 @@
 package com.photographer.focusstack.cr3.imageio;
 
 import com.photographer.focusstack.cr3.Cr3Exception;
-import com.photographer.focusstack.cr3.container.Cr3Container;
-import com.photographer.focusstack.cr3.container.Cr3Track;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions.OutputMode;
 import com.photographer.focusstack.cr3.decode.Cr3Decoder;
@@ -13,21 +11,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.IIOException;
-import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.ImageTypeSpecifier;
 import javax.imageio.metadata.IIOMetadata;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
-import javax.imageio.stream.MemoryCacheImageInputStream;
-import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
@@ -40,7 +34,8 @@ import java.util.List;
  *
  * <p>Image index mapping:</p>
  * <ul>
- *   <li>Index 0: Main image (JPEG preview by default, or full RAW if configured)</li>
+ *   <li>Index 0: Full-resolution color image developed from RAW by default.
+ *   Select {@link CanonCr3ImageReadParam#setPreviewOnly(boolean)} for the embedded JPEG.</li>
  * </ul>
  *
  * <p>Thumbnail support:</p>
@@ -53,10 +48,7 @@ public class CanonCr3ImageReader extends ImageReader {
     private static final Logger LOG = LoggerFactory.getLogger(CanonCr3ImageReader.class);
 
     private Cr3Decoder decoder;
-    private PreviewHeader previewHeader;
     private Cr3ImageMetadata imageMetadata;
-
-    private record PreviewHeader(Dimension dimensions, ImageTypeSpecifier type) {}
 
     /**
      * Constructs a new CR3 image reader.
@@ -71,7 +63,6 @@ public class CanonCr3ImageReader extends ImageReader {
     public void setInput(Object input, boolean seekForwardOnly, boolean ignoreMetadata) {
         super.setInput(input, seekForwardOnly, ignoreMetadata);
         this.decoder = null;
-        this.previewHeader = null;
         this.imageMetadata = null;
     }
 
@@ -83,38 +74,30 @@ public class CanonCr3ImageReader extends ImageReader {
 
     @Override
     public int getWidth(int imageIndex) throws IOException {
-        return previewDimensions(imageIndex).width;
+        return defaultImageBounds(imageIndex).width;
     }
 
     @Override
     public int getHeight(int imageIndex) throws IOException {
-        return previewDimensions(imageIndex).height;
+        return defaultImageBounds(imageIndex).height;
     }
 
-    private Dimension previewDimensions(int imageIndex) throws IOException {
+    private Rectangle defaultImageBounds(int imageIndex) throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
-        Cr3Container container = decoder.getContainer();
-        for (Cr3Track track : container.tracks()) {
-            if (track.type() == Cr3Track.TrackType.JPEG_PREVIEW) {
-                if (track.width() > 0 && track.height() > 0) {
-                    return new Dimension(track.width(), track.height());
-                }
-                return previewHeader().dimensions();
-            }
+        Cr3DecodeOptions options = Cr3DecodeOptions.rawProcessed();
+        try {
+            return decoder.getRawProcessedBounds(options);
+        } catch (Cr3Exception e) {
+            throw decodeError(options, e);
         }
-        var preview = container.prvwBox();
-        if (preview != null && preview.width() > 0 && preview.height() > 0) {
-            return new Dimension(preview.width(), preview.height());
-        }
-        return previewHeader().dimensions();
     }
 
     @Override
     public Iterator<ImageTypeSpecifier> getImageTypes(int imageIndex) throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
-        return destinationTypes(previewHeader().type()).iterator();
+        return List.of(ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB)).iterator();
     }
 
     private static List<ImageTypeSpecifier> destinationTypes(ImageTypeSpecifier decodedType) {
@@ -122,31 +105,6 @@ public class CanonCr3ImageReader extends ImageReader {
             return List.of(decodedType, ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
         }
         return List.of(decodedType);
-    }
-
-    // Query the same embedded JPEG as read(0). Sensor metadata describes a different image.
-    private PreviewHeader previewHeader() throws IOException {
-        if (previewHeader == null) {
-            byte[] jpeg;
-            try {
-                jpeg = Cr3PreviewExtractor.extractPreviewBytes((ImageInputStream) getInput(), decoder.getContainer());
-            } catch (Cr3Exception e) {
-                throw new IIOException("Could not locate CR3 preview", e);
-            }
-            Iterator<ImageReader> jpegReaders = ImageIO.getImageReadersByFormatName("JPEG");
-            if (!jpegReaders.hasNext()) {
-                throw new IIOException("No JPEG reader available for the CR3 preview");
-            }
-            ImageReader reader = jpegReaders.next();
-            try (var stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(jpeg))) {
-                reader.setInput(stream);
-                previewHeader = new PreviewHeader(new Dimension(reader.getWidth(0), reader.getHeight(0)),
-                        reader.getImageTypes(0).next());
-            } finally {
-                reader.dispose();
-            }
-        }
-        return previewHeader;
     }
 
     @Override
@@ -233,8 +191,12 @@ public class CanonCr3ImageReader extends ImageReader {
 
     @Override
     public BufferedImage read(int imageIndex, ImageReadParam param) throws IOException {
-        Cr3DecodeOptions options = param instanceof CanonCr3ImageReadParam cr3 && !cr3.isPreviewOnly()
-                ? cr3.getDecodeOptions() : Cr3DecodeOptions.defaults();
+        Cr3DecodeOptions options;
+        if (param instanceof CanonCr3ImageReadParam cr3) {
+            options = cr3.isPreviewOnly() ? Cr3DecodeOptions.defaults() : cr3.getDecodeOptions();
+        } else {
+            options = Cr3DecodeOptions.rawProcessed();
+        }
         if (param == null) {
             return decode(imageIndex, options);
         }
@@ -454,7 +416,6 @@ public class CanonCr3ImageReader extends ImageReader {
             decoder.reset();
             decoder = null;
         }
-        previewHeader = null;
         imageMetadata = null;
     }
 

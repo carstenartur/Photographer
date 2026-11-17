@@ -127,10 +127,12 @@ class CanonCr3ImageReaderSpiTest {
     class ReadParamTests {
 
         @Test
-        @DisplayName("default previewOnly should be false")
-        void defaultPreviewOnly() {
+        @DisplayName("Defaults select full RAW color development")
+        void defaultsSelectRawColorDevelopment() {
             CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
             assertThat(param.isPreviewOnly()).isFalse();
+            assertThat(param.getDecodeOptions().outputMode())
+                    .isEqualTo(Cr3DecodeOptions.OutputMode.RAW_PROCESSED);
         }
 
         @Test
@@ -147,10 +149,10 @@ class CanonCr3ImageReaderSpiTest {
         @DisplayName("setDecodeOptions should override decode options")
         void setDecodeOptions() {
             CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-            Cr3DecodeOptions options = Cr3DecodeOptions.rawProcessed();
+            Cr3DecodeOptions options = Cr3DecodeOptions.rawSensor();
             param.setDecodeOptions(options);
             assertThat(param.getDecodeOptions().outputMode())
-                    .isEqualTo(Cr3DecodeOptions.OutputMode.RAW_PROCESSED);
+                    .isEqualTo(Cr3DecodeOptions.OutputMode.RAW_SENSOR);
         }
     }
 

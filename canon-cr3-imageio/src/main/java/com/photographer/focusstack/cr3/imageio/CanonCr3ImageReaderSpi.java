@@ -11,7 +11,7 @@ import java.util.Locale;
 /**
  * Service provider for Canon CR3 image reading via {@code javax.imageio}.
  *
- * <p>This SPI enables transparent CR3 support through the standard ImageIO API:</p>
+ * <p>The standard ImageIO call develops a full-resolution color image from CR3 RAW data.</p>
  * <pre>{@code
  * BufferedImage image = ImageIO.read(new File("photo.cr3"));
  * }</pre>

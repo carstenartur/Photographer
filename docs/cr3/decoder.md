@@ -68,13 +68,15 @@ For a runnable Maven consumer that reads files by path, develops RGB or selects 
 
 | Mode | Status | Behavior |
 |---|---|---|
-| `PREVIEW` | Stable subset | Embedded JPEG preview; default and most reliable path |
+| `PREVIEW` | Stable subset | Embedded JPEG preview, the default for the standalone `Cr3Decoder` |
 | `THUMBNAIL` | Stable subset | Embedded JPEG thumbnail |
 | `RAW_LINEAR` | Verified for the RG4 lossless and RG5 C-RAW layouts | Linear Bayer mosaic without demosaic |
 | `RAW_SENSOR` | Verified on the same profiles | Unscaled sensor codes in one unsigned-short band, including optical-black margins |
 | `RAW_PROCESSED` | Experimental | RAW decode plus crop/demosaic/color processing |
 
 Factory shortcuts include `Cr3DecodeOptions.defaults()`, `rawLinear()`, `rawSensor()` and `rawProcessed()`.
+
+The [ImageIO adapter](imageio.md) uses `RAW_PROCESSED` for standard image reads.
 
 `experimentalPedestal(int)` and `EXPERIMENTAL_REFERENCE_MATCH` are research-only controls. They must not appear in production examples or compatibility promises.
 

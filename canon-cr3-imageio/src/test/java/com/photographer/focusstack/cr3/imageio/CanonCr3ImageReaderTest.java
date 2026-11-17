@@ -6,17 +6,22 @@ import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.ImageTypeSpecifier;
+import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Iterator;
 
@@ -33,49 +38,63 @@ class CanonCr3ImageReaderTest {
     class ReadTests {
 
         @Test
-        @DisplayName("read() with default params should return preview image")
-        void readDefaultPreview() throws Exception {
-            byte[] cr3Data = Cr3TestData.buildMinimalCr3WithJpeg();
-            var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3Data));
+        void defaultFileAndReaderCallsDevelopTheRawImage(@TempDir Path directory) throws Exception {
+            Path file = directory.resolve("four-sites.cr3");
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3")) {
+                Files.copy(fixture, file);
+            }
 
-            CanonCr3ImageReader reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
-            reader.setInput(input);
-
-            BufferedImage image = reader.read(0);
+            BufferedImage image = ImageIO.read(file.toFile());
             assertThat(image).isNotNull();
-            assertThat(image.getWidth()).isGreaterThan(0);
-            assertThat(image.getHeight()).isGreaterThan(0);
+            assertThat(image.getType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
+            assertThat(image.getWidth()).isEqualTo(2);
+            assertThat(image.getHeight()).isEqualTo(2);
 
-            reader.dispose();
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var input = new FileImageInputStream(file.toFile())) {
+                reader.setInput(input);
+                assertThat(reader.getWidth(0)).isEqualTo(image.getWidth());
+                assertThat(reader.getHeight(0)).isEqualTo(image.getHeight());
+                assertThat(reader.getImageTypes(0).next().getBufferedImageType()).isEqualTo(image.getType());
+                int[] expected = image.getRGB(0, 0, 2, 2, null, 0, 2);
+                assertThat(reader.read(0).getRGB(0, 0, 2, 2, null, 0, 2)).containsExactly(expected);
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
+                assertThat(reader.read(0, param).getRGB(0, 0, 2, 2, null, 0, 2)).containsExactly(expected);
+            } finally {
+                reader.dispose();
+            }
         }
 
         @Test
-        @DisplayName("read() with previewOnly=true should return preview image")
-        void readPreviewOnly() throws Exception {
-            byte[] cr3Data = Cr3TestData.buildMinimalCr3WithJpeg();
-            var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3Data));
+        void previewOnlyFileRequiresAnExplicitPreviewRead(@TempDir Path directory) throws Exception {
+            Path file = Files.write(directory.resolve("preview-only.cr3"), Cr3TestData.buildMinimalCr3WithJpeg());
+            assertThatThrownBy(() -> ImageIO.read(file.toFile()))
+                    .isInstanceOf(IIOException.class)
+                    .hasMessageContaining("RAW_PROCESSED");
 
-            CanonCr3ImageReader reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
-            reader.setInput(input);
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var input = new FileImageInputStream(file.toFile())) {
+                reader.setInput(input);
+                var param = reader.getDefaultReadParam();
+                param.setPreviewOnly(true);
 
-            CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
-            param.setPreviewOnly(true);
-
-            BufferedImage image = reader.read(0, param);
-            assertThat(image).isNotNull();
-            assertThat(image.getWidth()).isGreaterThan(0);
-            assertThat(image.getHeight()).isGreaterThan(0);
-
-            reader.dispose();
+                BufferedImage image = reader.read(0, param);
+                assertThat(image).isNotNull();
+                assertThat(image.getWidth()).isEqualTo(2);
+                assertThat(image.getHeight()).isEqualTo(2);
+            } finally {
+                reader.dispose();
+            }
         }
 
         @Test
         void standardReadParamMapsSamplesIntoTheSuppliedDestination() throws Exception {
-            byte[] cr3 = Cr3TestData.buildMinimalCr3WithJpeg();
             ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3))) {
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
                 reader.setInput(input);
-                BufferedImage preview = reader.read(0);
+                BufferedImage raw = reader.read(0);
                 BufferedImage destination = new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB);
                 destination.setRGB(2, 1, 0x223344);
                 ImageReadParam param = new ImageReadParam();
@@ -88,7 +107,7 @@ class CanonCr3ImageReaderTest {
 
                 assertThat(reader.read(0, param)).isSameAs(destination);
                 assertThat(destination.getRaster().getPixel(2, 1, (int[]) null))
-                        .containsExactly(0x22, preview.getRaster().getSample(1, 1, 2), 0x44);
+                        .containsExactly(0x22, raw.getRaster().getSample(1, 1, 2), 0x44);
                 assertThat(destination.getRGB(2, 2)).isEqualTo(0xff000000);
             } finally {
                 reader.dispose();
@@ -97,25 +116,25 @@ class CanonCr3ImageReaderTest {
 
         @Test
         void standardReadParamClipsNegativeOffsetsAndValidatesBands() throws Exception {
-            byte[] cr3 = Cr3TestData.buildMinimalCr3WithJpeg();
             ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3))) {
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
                 reader.setInput(input);
-                BufferedImage preview = reader.read(0);
+                BufferedImage raw = reader.read(0);
                 ImageReadParam param = reader.getDefaultReadParam();
                 param.setDestinationType(ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
                 param.setDestinationOffset(new Point(-1, 0));
                 BufferedImage right = reader.read(0, param);
                 assertThat(right.getType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
                 assertThat(right.getWidth()).isOne();
-                assertThat(right.getRGB(0, 1)).isEqualTo(preview.getRGB(1, 1));
+                assertThat(right.getRGB(0, 1)).isEqualTo(raw.getRGB(1, 1));
 
                 param.setDestinationOffset(new Point(0, 0));
                 param.setSourceRegion(new Rectangle(0, 0, 2, 1));
                 param.setSourceBands(new int[]{2, 0, 1});
                 param.setDestinationBands(new int[]{0, 1, 2});
                 BufferedImage remapped = reader.read(0, param);
-                int[] original = preview.getRaster().getPixel(1, 0, (int[]) null);
+                int[] original = raw.getRaster().getPixel(1, 0, (int[]) null);
                 assertThat(remapped.getRaster().getPixel(1, 0, (int[]) null))
                         .containsExactly(original[2], original[0], original[1]);
 
@@ -129,17 +148,17 @@ class CanonCr3ImageReaderTest {
 
         @Test
         void extremeSubsamplingAndDestinationOffsetsDoNotOverflow() throws Exception {
-            byte[] cr3 = Cr3TestData.buildMinimalCr3WithJpeg();
             ImageReader reader = ImageIO.getImageReadersBySuffix("cr3").next();
-            try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3))) {
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
                 reader.setInput(input);
-                BufferedImage preview = reader.read(0);
+                BufferedImage raw = reader.read(0);
                 ImageReadParam param = new ImageReadParam();
                 param.setSourceSubsampling(Integer.MAX_VALUE, Integer.MAX_VALUE, 0, 0);
                 BufferedImage onlyPixel = reader.read(0, param);
                 assertThat(onlyPixel.getWidth()).isOne();
                 assertThat(onlyPixel.getHeight()).isOne();
-                assertThat(onlyPixel.getRGB(0, 0)).isEqualTo(preview.getRGB(0, 0));
+                assertThat(onlyPixel.getRGB(0, 0)).isEqualTo(raw.getRGB(0, 0));
 
                 param.setSourceSubsampling(2, 2, 0, 0);
                 param.setDestinationOffset(new Point(Integer.MIN_VALUE, 0));
