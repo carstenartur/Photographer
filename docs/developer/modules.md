@@ -114,7 +114,7 @@ The six supported CR3 library artifacts use `io.github.carstenartur` coordinates
 - `cr3-core`;
 - `cr3-imageio`.
 
-The [Maven release guide](../cr3-maven-central.md) covers the default private Git-backed repository and the optional Maven Central channel. Verify the exact version in the selected channel with an empty Maven cache.
+The [Maven release guide](../cr3-maven-central.md) covers Maven Central coordinates for 0.1.6 and the private Git-backed repository. Verify the exact version in the selected channel with an empty Maven cache.
 
 ## Camera modules and adapters
 
