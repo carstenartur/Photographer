@@ -19,11 +19,9 @@ Start the application with the [quick start](quickstart.md). Open its web addres
 
 ![New Job form with a mock camera, the Fast preset, a limit of two frames and motion detection switched off](screenshots/new-job.webp)
 
-## Set up an HDR timelapse
+## Try an experimental timed capture
 
-Open **HDR Timelapse** and choose **New Session**. **Bracket Count** is the number of exposures in each bracket. **EV Step** sets their exposure spacing. **Interval (seconds)** and **Total Intervals** control how often and how many times to capture the bracket. The example below requests one interval with three exposures spaced one EV apart.
-
-![HDR session form configured for one interval, three exposures and an EV step of one](screenshots/hdr-session.webp)
+Open **HDR Timelapse**, choose **New Session** and select a **Camera Profile**. **Bracket Count** is the number of shots per interval. **EV Step** sets the intended exposure offsets recorded in the shot metadata. The prototype leaves the camera exposure settings as selected on the camera. **Interval (seconds)** and **Total Intervals** control the timing and number of capture intervals. Automatic exposure adjustment, HDR merging and video export are under development.
 
 Choose **Create Session** to review the session and its status. Choose **Start** in the session panel when you are ready to capture. Configuring a session and starting its capture are separate actions. See the [REST API guide](api.md) for programmatic access.
 

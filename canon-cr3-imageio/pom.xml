@@ -16,7 +16,7 @@
     <version>${revision}</version>
 
     <name>CR3 ImageIO</name>
-    <description>Java ImageIO provider for CR3 import and uncompressed 16-bit Bayer DNG reading and writing.</description>
+    <description>Java ImageIO provider for supported CR3 RAW and C-RAW reading, lossless CR3 writing with camera profiles, and uncompressed Bayer DNG reading and writing.</description>
     <url>https://github.com/carstenartur/Photographer</url>
 
     <scm>

@@ -1,4 +1,4 @@
-import { request, requestBlob } from './auth';
+import { request } from './auth';
 
 export function createHdrSession(settings) {
   return request('/hdr-timelapse', {
@@ -21,11 +21,4 @@ export function stopHdrSession(sessionId) {
 
 export function getHdrBrackets(sessionId) {
   return request(`/hdr-timelapse/${sessionId}/brackets`);
-}
-
-export function generateHdrVideo(sessionId, fps = 24, width = 1920, height = 1080) {
-  const query = new URLSearchParams({ fps, width, height });
-  return requestBlob(`/hdr-timelapse/${sessionId}/video?${query}`, {
-    method: 'POST',
-  });
 }

@@ -9,7 +9,7 @@
 [![Latest GitHub release](https://img.shields.io/badge/release-latest-blue?logo=github)](https://github.com/carstenartur/Photographer/releases/latest)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--1047--6381-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-1047-6381)
 
-Focus Stack is a modular Java 25 + Spring Boot 4 photography platform for automated focus stacking, timelapse, and AI-assisted image analysis. It connects to Canon cameras via CCAPI and USB/PTP, provides a React/Vite frontend, and is extensible through a ServiceLoader-based plugin architecture.
+Photographer controls compatible Canon cameras via CCAPI and USB/PTP. Its React web interface and Spring Boot backend support automated focus stacking, astrophotography sessions and AI-assisted wildlife observation, with extension points for camera backends, image analysis and vision providers. Standalone Java ImageIO libraries read supported CR3 RAW and C-RAW files and write lossless CR3 and uncompressed Bayer DNG.
 
 | What would you like to do? | Start here |
 |---|---|
@@ -36,10 +36,9 @@ The application builds with JDK 25 and Maven 3.9+. The standalone CR3 libraries 
 **Imaging & AI**
 - Adaptive focus-stacking capture with CR3 media ingestion
 - CR3 inspection and native Java decoding of 14-bit Canon V1 lossless RAW and three-level C-RAW ([supported cameras and measurements](docs/cr3/decoder.md))
-- HDR timelapse capture and merging
-- Face-orbit multi-angle capture sessions
-- Astro (long-exposure) session management
+- Astro capture, star registration and stacking
 - Wildlife observer with pluggable AI vision providers (Gemini, mock)
+- Experimental timed capture and face-orbit session prototypes
 
 **Plugins**
 - Runtime plugin loading via Java `ServiceLoader` — no framework required

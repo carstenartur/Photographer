@@ -44,7 +44,7 @@ io.github.carstenartur
 
 The **CR3 ImageIO** library provides Java ImageIO readers and writers for Canon CR3 and uncompressed Bayer DNG. The [ImageIO guide](cr3/imageio.md) describes the supported layouts and write profiles.
 
-The release bundle contains these six artifacts. The examples use version `0.1.5`.
+The release bundle contains these six artifacts. The examples using `0.1.5` select the verified Git-backed release. If you need the full-resolution `ImageIO.read(File)` default, use `0.1.6` or newer from a verified release channel. See the [migration note](cr3/imageio.md).
 
 | Artifact | Purpose |
 |---|---|

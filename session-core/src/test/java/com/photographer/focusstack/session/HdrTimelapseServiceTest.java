@@ -111,5 +111,6 @@ class HdrTimelapseServiceTest {
         List<BracketSet> brackets = service.getBrackets(session.sessionId());
 
         assertFalse(brackets.isEmpty());
+        assertNull(brackets.getFirst().hdrResultPath());
     }
 }
