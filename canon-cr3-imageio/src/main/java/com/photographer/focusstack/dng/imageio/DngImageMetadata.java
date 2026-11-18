@@ -218,7 +218,7 @@ public final class DngImageMetadata extends IIOMetadata {
     }
 
     @Override public IIOMetadataFormat getMetadataFormat(String name) {
-        return directory.getAsMetadata().getMetadataFormat(name);
+        return NATIVE_FORMAT_NAME.equals(name) ? DngImageReaderSpi.nativeFormat() : super.getMetadataFormat(name);
     }
 
     @Override public boolean isReadOnly() { return true; }

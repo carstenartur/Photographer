@@ -162,16 +162,7 @@ class EosRPipelineDiagnosticTest {
     @Test
     void diagnoseG5xIIPipelineStages() throws Exception {
         Files.createDirectories(OUTPUT_DIR);
-        List<File> samples = new ArrayList<>();
-        Path samplesDir = Path.of("src", "test", "resources", "samples");
-        if (Files.isDirectory(samplesDir)) {
-            try (DirectoryStream<Path> s = Files.newDirectoryStream(samplesDir, "g5x*.cr3")) {
-                for (Path p : s) samples.add(p.toFile());
-            }
-        }
-        assumeTrue(!samples.isEmpty(), "No g5x*.cr3 samples found");
-
-        File cr3File = samples.getFirst();
+        File cr3File = Path.of(getClass().getResource("/samples/sample.cr3").toURI()).toFile();
         String name = cr3File.getName().replace(".cr3", "");
         log.info("=== Diagnosing G5X II pipeline for {} (reference) ===", cr3File.getName());
 

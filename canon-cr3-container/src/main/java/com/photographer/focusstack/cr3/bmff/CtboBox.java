@@ -12,6 +12,20 @@ import java.util.List;
 public record CtboBox(List<CtboEntry> entries) {
 
     public static CtboBox parse(ImageInputStream input, IsoBox box) throws IOException {
+        return parse(input, box, 0);
+    }
+
+    /**
+     * Reads CR3-relative table addresses as positions in the containing stream.
+     * Entries with zero offset and zero size retain their zero offset.
+     *
+     * @param input stream containing the CR3 image
+     * @param box CTBO box whose payload contains the table
+     * @param origin absolute position of the first CR3 box in the stream, in bytes
+     * @return decoded table with the entry addresses resolved in the input stream
+     * @throws IOException if reading fails or an address cannot be represented
+     */
+    public static CtboBox parse(ImageInputStream input, IsoBox box, long origin) throws IOException {
         if (!"CTBO".equals(box.type())) {
             throw new IllegalArgumentException("Expected CTBO box, got: " + box.type());
         }
@@ -36,7 +50,15 @@ public record CtboBox(List<CtboEntry> entries) {
             int index = input.readInt();
             long offset = input.readLong();
             long size = input.readLong();
-            entries.add(new CtboEntry(index, offset, size));
+            if (origin < 0 || offset < 0) {
+                throw new IOException("CTBO offset exceeds the stream address range");
+            }
+            try {
+                long address = offset == 0 && size == 0 ? 0 : Math.addExact(origin, offset);
+                entries.add(new CtboEntry(index, address, size));
+            } catch (ArithmeticException ex) {
+                throw new IOException("CTBO offset exceeds the stream address range", ex);
+            }
         }
         return new CtboBox(Collections.unmodifiableList(entries));
     }

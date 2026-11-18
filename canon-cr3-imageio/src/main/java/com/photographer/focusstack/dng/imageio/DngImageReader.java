@@ -3,12 +3,12 @@ package com.photographer.focusstack.dng.imageio;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import javax.imageio.IIOException;
-import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.ImageTypeSpecifier;
@@ -64,19 +64,11 @@ public final class DngImageReader extends ImageReader {
         if (!getOriginatingProvider().canDecodeInput(stream)) {
             throw new IIOException("Expected an uncompressed unsigned 16-bit Bayer DNG in the first TIFF directory");
         }
-        var readers = ImageIO.getImageReadersByFormatName("TIFF");
-        while (readers.hasNext()) {
-            ImageReader candidate = readers.next();
-            if (candidate.getClass().getModule() == ImageReader.class.getModule()
-                    && candidate.getDefaultReadParam() instanceof TIFFImageReadParam) {
-                tiff = candidate;
-                break;
-            }
-            candidate.dispose();
-        }
-        if (tiff == null) {
+        var provider = DngImageReaderSpi.platformTiffProvider();
+        if (provider == null) {
             throw new IIOException("The Java TIFF reader is unavailable");
         }
+        tiff = provider.createReaderInstance();
 
         long start = stream.getStreamPosition();
         try {
@@ -159,18 +151,54 @@ public final class DngImageReader extends ImageReader {
     @Override
     public BufferedImage read(int imageIndex, ImageReadParam param) throws IOException {
         var dng = metadata(imageIndex);
+        if (param != null) {
+            BufferedImage target = param.getDestination();
+            int bands = target == null ? 1 : target.getSampleModel().getNumBands();
+            checkReadParamBandSettings(param, 1, bands);
+            int[] selection = param.getDestinationBands();
+            int band = selection == null ? 0 : selection[0];
+            if (target != null && (target.getSampleModel().getDataType() != DataBuffer.TYPE_USHORT
+                    || target.getSampleModel().getSampleSize(band) != 16)) {
+                throw new IIOException("Bayer samples require an unsigned 16-bit destination band");
+            }
+            if (target == null && param.getDestinationType() != null && !SENSOR_TYPE.equals(param.getDestinationType())) {
+                throw new IIOException("Destination type is incompatible with unsigned 16-bit Bayer samples");
+            }
+            if (target != null || !param.getDestinationOffset().equals(new Point())) {
+                return readIntoDestination(param, dng, target, band);
+            }
+        }
         var image = tiff.read(0, param);
         // The original CFA phase, crop and calibration describe only the full sensor geometry.
         if (param != null) {
             Rectangle source = param.getSourceRegion();
             var full = new Rectangle(dng.sensorWidth(), dng.sensorHeight());
-            if (param.getDestination() != null || (source != null && !full.intersection(source).equals(full))
-                    || param.getSourceXSubsampling() != 1 || param.getSourceYSubsampling() != 1
-                    || !param.getDestinationOffset().equals(new Point())) {
+            if ((source != null && !full.intersection(source).equals(full))
+                    || param.getSourceXSubsampling() != 1 || param.getSourceYSubsampling() != 1) {
                 return image;
             }
         }
         return DngImageMetadata.attach(image, dng);
+    }
+
+    private BufferedImage readIntoDestination(ImageReadParam param, DngImageMetadata dng, BufferedImage target, int band)
+            throws IOException {
+        // The platform TIFF reader can write an entire strip across a caller's ROI.
+        // Decode into a zero-origin window, then copy only the requested destination samples.
+        Rectangle source = new Rectangle();
+        Rectangle output = new Rectangle();
+        computeRegions(param, dng.sensorWidth(), dng.sensorHeight(), target, source, output);
+        var window = new ImageReadParam();
+        window.setSourceRegion(source);
+        window.setSourceSubsampling(param.getSourceXSubsampling(), param.getSourceYSubsampling(), 0, 0);
+        Raster decoded = tiff.read(0, window).getRaster();
+        if (target == null) {
+            target = SENSOR_TYPE.createBufferedImage(output.x + output.width, output.y + output.height);
+        }
+        var region = target.getRaster().createWritableChild(output.x, output.y, output.width, output.height,
+                0, 0, new int[]{band});
+        region.setRect(decoded);
+        return target;
     }
 
 }

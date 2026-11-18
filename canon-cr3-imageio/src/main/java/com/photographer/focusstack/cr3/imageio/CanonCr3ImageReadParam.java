@@ -28,7 +28,7 @@ import java.util.Objects;
 public class CanonCr3ImageReadParam extends ImageReadParam {
 
     private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.rawProcessed();
-    private boolean previewOnly;
+    private Cr3DecodeOptions previewOptions;
     private boolean useDestinationAsWorkspace;
 
     /**
@@ -40,7 +40,7 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      * @return the decode options
      */
     public Cr3DecodeOptions getDecodeOptions() {
-        return decodeOptions;
+        return previewOptions != null ? previewOptions : decodeOptions;
     }
 
     /**
@@ -54,6 +54,9 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      */
     public void setDecodeOptions(Cr3DecodeOptions options) {
         this.decodeOptions = Objects.requireNonNull(options, "Decode options must not be null");
+        if (isPreviewOnly()) {
+            previewOptions = options.copy().outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
+        }
     }
 
     /**
@@ -86,21 +89,20 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      * @return {@code true} if only the preview should be read
      */
     public boolean isPreviewOnly() {
-        return previewOnly;
+        return previewOptions != null;
     }
 
     /**
      * Sets whether only the embedded JPEG preview should be read.
      *
-     * <p>When set to {@code true}, the decode options are automatically
-     * configured to use {@link Cr3DecodeOptions.OutputMode#PREVIEW}.</p>
+     * <p>While enabled, the effective options are an independent preview copy.
+     * Disabling preview restores the latest options supplied by the caller.</p>
      *
      * @param previewOnly {@code true} to read only the preview
      */
     public void setPreviewOnly(boolean previewOnly) {
-        this.previewOnly = previewOnly;
-        if (previewOnly) {
-            this.decodeOptions = this.decodeOptions.outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
+        if (previewOnly != isPreviewOnly()) {
+            previewOptions = previewOnly ? decodeOptions.copy().outputMode(Cr3DecodeOptions.OutputMode.PREVIEW) : null;
         }
     }
 }

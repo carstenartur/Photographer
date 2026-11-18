@@ -76,9 +76,34 @@ public final class TiffIfdParser {
         record IntValue(int value) implements TagValue {}
         record LongValue(long value) implements TagValue {}
         record StringValue(String value) implements TagValue {}
-        record RationalValue(int numerator, int denominator) implements TagValue {
+        /**
+         * A TIFF rational stored as two raw 32-bit words.
+         *
+         * @param numerator raw numerator word
+         * @param denominator raw denominator word
+         * @param unsigned true for unsigned RATIONAL components, false for signed SRATIONAL components
+         */
+        record RationalValue(int numerator, int denominator, boolean unsigned) implements TagValue {
+            /**
+             * Constructs a rational from signed components.
+             *
+             * @param numerator signed numerator
+             * @param denominator signed denominator
+             */
+            public RationalValue(int numerator, int denominator) {
+                this(numerator, denominator, false);
+            }
+
+            long numeratorValue() {
+                return rationalComponent(numerator, unsigned);
+            }
+
+            long denominatorValue() {
+                return rationalComponent(denominator, unsigned);
+            }
+
             public double toDouble() {
-                return denominator != 0 ? (double) numerator / denominator : 0.0;
+                return denominator != 0 ? (double) numeratorValue() / denominatorValue() : 0.0;
             }
         }
         record IntArrayValue(int[] values) implements TagValue {}
@@ -92,8 +117,20 @@ public final class TiffIfdParser {
          *
          * @param numerators   array of numerator values
          * @param denominators array of denominator values (same length as numerators)
+         * @param unsigned true for TIFF RATIONAL words, false for SRATIONAL words
          */
-        record RationalArrayValue(int[] numerators, int[] denominators) implements TagValue {
+        record RationalArrayValue(int[] numerators, int[] denominators, boolean unsigned) implements TagValue {
+            /**
+             * Constructs rationals from signed components, pairing values by array index.
+             *
+             * @param numerators signed numerators
+             * @param denominators signed denominators, with the same length as the numerators
+             * @throws IllegalArgumentException if the arrays differ in length
+             */
+            public RationalArrayValue(int[] numerators, int[] denominators) {
+                this(numerators, denominators, false);
+            }
+
             /**
              * Compact constructor: validates that numerators and denominators have equal length
              * and makes defensive copies to ensure immutability.
@@ -126,9 +163,14 @@ public final class TiffIfdParser {
                     throw new IndexOutOfBoundsException(
                             "Index %d out of bounds for %d rationals".formatted(index, numerators.length));
                 }
-                return denominators[index] != 0 ? (double) numerators[index] / denominators[index] : 0.0;
+                long denominator = rationalComponent(denominators[index], unsigned);
+                return denominator != 0 ? (double) rationalComponent(numerators[index], unsigned) / denominator : 0.0;
             }
         }
+    }
+
+    private static long rationalComponent(int word, boolean unsigned) {
+        return unsigned ? Integer.toUnsignedLong(word) : word;
     }
 
     /**
@@ -303,59 +345,28 @@ public final class TiffIfdParser {
                 return null;
             }
 
-            case TYPE_RATIONAL -> {
+            case TYPE_RATIONAL, TYPE_SRATIONAL -> {
+                if (count > 20 || valueOrOffset + totalSize > boxDataSize) {
+                    return null;
+                }
+                input.seek(tiffBase + valueOrOffset);
+                boolean unsigned = dataType == TYPE_RATIONAL;
                 if (count == 1) {
-                    long ratOffset = tiffBase + valueOrOffset;
-                    if (ratOffset + 8 > tiffBase + boxDataSize) return null;
-                    input.seek(ratOffset);
-                    int num = input.readInt();
-                    int den = input.readInt();
-                    return new TagValue.RationalValue(num, den);
+                    return new TagValue.RationalValue(input.readInt(), input.readInt(), unsigned);
                 }
-                // Multi-RATIONAL: e.g. GPSTimeStamp (3 RATIONALs for HH, MM, SS)
-                if (count <= 20) {
-                    long ratOffset = tiffBase + valueOrOffset;
-                    if (ratOffset + count * 8 > tiffBase + boxDataSize) return null;
-                    input.seek(ratOffset);
-                    int[] nums = new int[(int) count];
-                    int[] dens = new int[(int) count];
-                    for (int i = 0; i < count; i++) {
-                        nums[i] = input.readInt();
-                        dens[i] = input.readInt();
-                    }
-                    return new TagValue.RationalArrayValue(nums, dens);
+                int[] numerators = new int[(int) count];
+                int[] denominators = new int[(int) count];
+                for (int i = 0; i < numerators.length; i++) {
+                    numerators[i] = input.readInt();
+                    denominators[i] = input.readInt();
                 }
-                return null;
-            }
-
-            case TYPE_SRATIONAL -> {
-                if (count == 1) {
-                    long ratOffset = tiffBase + valueOrOffset;
-                    if (ratOffset + 8 > tiffBase + boxDataSize) return null;
-                    input.seek(ratOffset);
-                    int num = input.readInt();
-                    int den = input.readInt();
-                    return new TagValue.RationalValue(num, den);
-                }
-                // Multi-SRATIONAL
-                if (count <= 20) {
-                    long ratOffset = tiffBase + valueOrOffset;
-                    if (ratOffset + count * 8 > tiffBase + boxDataSize) return null;
-                    input.seek(ratOffset);
-                    int[] nums = new int[(int) count];
-                    int[] dens = new int[(int) count];
-                    for (int i = 0; i < count; i++) {
-                        nums[i] = input.readInt();
-                        dens[i] = input.readInt();
-                    }
-                    return new TagValue.RationalArrayValue(nums, dens);
-                }
-                return null;
+                return new TagValue.RationalArrayValue(numerators, denominators, unsigned);
             }
 
             case TYPE_BYTE, TYPE_UNDEFINED -> {
                 if (count == 1) {
-                    return new TagValue.IntValue((int) (valueOrOffset & 0xFF));
+                    int shift = input.getByteOrder() == ByteOrder.BIG_ENDIAN ? 24 : 0;
+                    return new TagValue.IntValue((int) (valueOrOffset >>> shift) & 0xFF);
                 }
                 return null;
             }

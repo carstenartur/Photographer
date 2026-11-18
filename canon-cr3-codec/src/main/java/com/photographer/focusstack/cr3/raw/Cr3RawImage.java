@@ -1,14 +1,16 @@
 package com.photographer.focusstack.cr3.raw;
 
 /**
- * Represents decoded RAW sensor data from a CR3 file.
+ * Holds a mutable Bayer mosaic in native sensor units, in row-major order.
  *
- * <p>The raw data is stored as a 2D array of unsigned 14-bit values in Bayer
- * pattern layout. The pattern for Canon sensors is typically RGGB.</p>
+ * <p>The native decoder supplies unsigned 14-bit samples stored as {@code int} values.
+ * The extent depends on the producer. It can include optical-black margins or represent
+ * a crop prepared for development. A producer of a cropped image can carry the sensor
+ * origin separately for phase and calibration lookup.</p>
  *
- * <p>The data includes the full sensor area including optical black regions.
- * Use {@link com.photographer.focusstack.cr3.metadata.Cr3Metadata} active area
- * coordinates to crop to the visible image.</p>
+ * <p>The constructor retains the supplied sample array and {@link #data()} exposes that
+ * array. Processing may update it in place. Callers that need independent storage
+ * should copy the array.</p>
  */
 public final class Cr3RawImage {
 
@@ -35,7 +37,7 @@ public final class Cr3RawImage {
      *
      * @param width        image width in pixels
      * @param height       image height in pixels
-     * @param data         raw pixel data (row-major, one value per pixel)
+     * @param data         backing sample array, row-major with one value per sensor site
      * @param bitDepth     bit depth per pixel (for example, 14)
      * @param bayerPattern the Bayer color filter pattern
      */

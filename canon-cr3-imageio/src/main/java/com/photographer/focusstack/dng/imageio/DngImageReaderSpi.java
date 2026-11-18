@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.Locale;
 import javax.imageio.ImageReader;
 import javax.imageio.plugins.tiff.TIFFTag;
+import javax.imageio.metadata.IIOMetadataFormat;
+import javax.imageio.spi.IIORegistry;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.spi.ServiceRegistry;
 import javax.imageio.stream.ImageInputStream;
@@ -20,6 +22,32 @@ public final class DngImageReaderSpi extends ImageReaderSpi {
                 new String[]{"com.photographer.focusstack.dng.imageio.DngImageWriterSpi"},
                 false, null, null, null, null,
                 false, DngImageMetadata.NATIVE_FORMAT_NAME, null, null, null);
+    }
+
+    static ImageReaderSpi platformTiffProvider() {
+        var providers = IIORegistry.getDefaultInstance().getServiceProviders(ImageReaderSpi.class, true);
+        while (providers.hasNext()) {
+            var provider = providers.next();
+            if (provider.getClass().getModule() == ImageReader.class.getModule()
+                    && DngImageMetadata.NATIVE_FORMAT_NAME.equals(provider.getNativeImageMetadataFormatName())) {
+                return provider;
+            }
+        }
+        return null;
+    }
+
+    static IIOMetadataFormat nativeFormat() {
+        var provider = platformTiffProvider();
+        if (provider == null) {
+            throw new IllegalStateException("The Java TIFF reader is unavailable");
+        }
+        return provider.getImageMetadataFormat(DngImageMetadata.NATIVE_FORMAT_NAME);
+    }
+
+    @Override
+    public IIOMetadataFormat getImageMetadataFormat(String formatName) {
+        return DngImageMetadata.NATIVE_FORMAT_NAME.equals(formatName) ? nativeFormat()
+                : super.getImageMetadataFormat(formatName);
     }
 
     @Override
@@ -87,7 +115,7 @@ public final class DngImageReaderSpi extends ImageReaderSpi {
                 switch (tag) {
                     case 258 -> sixteenBits = number == 16;             // BitsPerSample
                     case 262 -> cfa = number == 32803;                  // PhotometricInterpretation
-                    case 259, 277, 339 -> {                             // Compression, SamplesPerPixel, SampleFormat
+                    case 259, 277, 339, 50711 -> {                      // Compression, SamplesPerPixel, SampleFormat, CFALayout
                         if (number != 1) return false;
                     }
                     default -> { }

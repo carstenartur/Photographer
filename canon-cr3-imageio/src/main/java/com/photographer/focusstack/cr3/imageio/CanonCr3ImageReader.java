@@ -20,6 +20,7 @@ import javax.imageio.stream.ImageInputStream;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
 import java.awt.image.WritableRaster;
 import java.io.IOException;
@@ -32,16 +33,15 @@ import java.util.List;
  * <p>This reader is a thin adapter around {@link Cr3Decoder}. The core decoding
  * logic lives in the {@code cr3-core} artifact.</p>
  *
- * <p>Image index mapping:</p>
- * <ul>
- *   <li>Index 0: Full-resolution color image developed from RAW by default.
- *   Select {@link CanonCr3ImageReadParam#setPreviewOnly(boolean)} for the embedded JPEG.</li>
- * </ul>
+ * <p>Image index 0 is the developed RGB image by default. Select
+ * {@link CanonCr3ImageReadParam#setPreviewOnly(boolean)} to read the embedded JPEG.
+ * Pass {@link Cr3DecodeOptions#rawSensor()} through
+ * {@link CanonCr3ImageReadParam#setDecodeOptions(Cr3DecodeOptions)} to read the
+ * native Bayer codes in a single unsigned-short band. Use
+ * {@link #getImageMetadata(int)} to retrieve the available sensor calibration.</p>
  *
- * <p>Thumbnail support:</p>
- * <ul>
- *   <li>Thumbnail 0 of image 0: Embedded JPEG thumbnail</li>
- * </ul>
+ * <p>Thumbnail index 0 of image 0 selects the embedded JPEG thumbnail.
+ * The caller owns the input stream and closes it after the reader is disposed.</p>
  */
 public class CanonCr3ImageReader extends ImageReader {
 
@@ -68,7 +68,9 @@ public class CanonCr3ImageReader extends ImageReader {
 
     @Override
     public int getNumImages(boolean allowSearch) throws IOException {
-        // CR3 files contain a single main image
+        if (getInput() == null || (allowSearch && isSeekForwardOnly())) {
+            throw new IllegalStateException("An input is required and searching must allow backward seeks");
+        }
         return 1;
     }
 
@@ -115,13 +117,17 @@ public class CanonCr3ImageReader extends ImageReader {
     @Override
     public ImageTypeSpecifier getRawImageType(int imageIndex) throws IOException {
         checkIndex(imageIndex);
+        if (getInput() == null) {
+            throw new IllegalStateException("No input set");
+        }
         // RAW data is unsigned 16-bit grayscale (Bayer pattern)
         return ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_USHORT_GRAY);
     }
 
     /**
-     * Reads a Bayer mosaic. The default is the core's scaled linear output.
-     * Select {@link Cr3DecodeOptions#rawSensor()} to read the original sensor codes.
+     * Reads a Bayer mosaic in sensor orientation. The default is scaled linear output.
+     * Select {@link Cr3DecodeOptions#rawSensor()} for unscaled native sensor codes,
+     * including the optical-black margins in a full raster read.
      */
     @Override
     public Raster readRaster(int imageIndex, ImageReadParam param) throws IOException {
@@ -264,7 +270,17 @@ public class CanonCr3ImageReader extends ImageReader {
         ensureParsed();
         ImageTypeSpecifier type = getRawImageType(imageIndex);
         BufferedImage supplied = param.getDestination();
-        checkReadParamBandSettings(param, 1, supplied == null ? 1 : supplied.getRaster().getNumBands());
+        if (supplied != null) {
+            var model = supplied.getSampleModel();
+            int[] bands = param.getDestinationBands();
+            checkReadParamBandSettings(param, 1, model.getNumBands());
+            int targetBand = bands == null ? 0 : bands[0];
+            if (model.getDataType() != DataBuffer.TYPE_USHORT || model.getSampleSize(targetBand) != 16) {
+                throw new IIOException("Bayer samples require an unsigned 16-bit destination band");
+            }
+        } else {
+            checkReadParamBandSettings(param, 1, 1);
+        }
         if (supplied == null && param.getDestinationType() != null && !type.equals(param.getDestinationType())) {
             throw new IIOException("Destination type is incompatible with unsigned 16-bit Bayer samples");
         }

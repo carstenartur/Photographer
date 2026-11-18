@@ -16,7 +16,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | Export a native sensor image and reopen it as a DNG | [Bayer DNG round trip](imageio.md#write-and-read-a-bayer-dng) | Uncompressed 16-bit Bayer mosaic with calibration |
 | Inspect sensor values in Fiji or ImageJ | [Fiji update site](fiji-update-site.md) · [Import and macro examples](../../cr3-imagej/README.md) | One unsigned 16-bit plane, full sensor coordinates |
 | Use the command-line tool | [CLI](cli.md) | Supported command surface with experimental decode commands identified |
-| Understand the decoder and processing pipeline | [Decoder and processing](decoder.md) | Mixed: stable container/metadata, experimental RAW, internal processing |
+| Follow the decoder from CRX sample to Bayer rows and RGB | [Native codec](decoder.md#native-codec-layer) · [Output modes](decoder.md#output-modes) | Stable container and metadata APIs, experimental RAW controls, internal processing |
 | Implement or verify a CR3 reader or writer | [CR3 and CRX format reference](format.md) | Measured byte and bit layouts, fixtures and implementation links |
 | See the exact research boundary | [Current state](current-state.md) | Maintained truth boundary |
 | See unresolved, rejected and evidence-acquisition work | [Open hypotheses](open-hypotheses.md) | Maintained research state |
@@ -63,12 +63,11 @@ The following do not depend on a correct sensor-RAW reconstruction:
 - embedded preview and thumbnail extraction;
 - structured CR3 metadata;
 - ImageIO SPI discovery;
-- `ImageIO.read(file)` develops the full-resolution color image for supported RAW layouts;
 - CLI inspection and embedded-JPEG extraction commands.
 
 ### Native sensor decoding
 
-Use `Cr3DecodeOptions.rawSensor()` for the native Bayer mosaic, including the optical-black margins. Use `rawLinear()` for the scaled Bayer output. See the [ImageIO output modes](imageio.md) and [verified layouts](current-state.md).
+Use `Cr3DecodeOptions.rawSensor()` for the native Bayer mosaic, including the optical-black margins. Use `rawLinear()` for the scaled Bayer output. `ImageIO.read(file)` develops the full-resolution color image on supported RAW layouts. See the [ImageIO output modes](imageio.md) and [verified layouts](current-state.md).
 
 ## Documentation authority
 

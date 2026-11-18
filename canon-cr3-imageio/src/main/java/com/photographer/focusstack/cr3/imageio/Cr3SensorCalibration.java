@@ -6,10 +6,31 @@ import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Track;
 import com.photographer.focusstack.cr3.metadata.Cr3ColorData;
 
-/** Geometry of the full RAW track and per-exposure calibration recorded by the camera. */
+/**
+ * Geometry of the full RAW track and per-exposure calibration recorded by the camera.
+ * These fields describe the native mosaic and accompany the sensor raster independently
+ * of the defaults selected for RGB development.
+ *
+ * @param compression full mosaic dimensions, sample depth and CFA arrangement from CMP1
+ * @param geometry sensor geometry from IAD1, or {@code null} when unavailable
+ * @param color recorded CTMD ColorData, or {@code null} when unavailable
+ */
 public record Cr3SensorCalibration(Cmp1Box compression, Iad1Box geometry, ColorData color) {
 
-    /** Canon ColorData values, in native sensor units and RGGB channel order. */
+    /**
+     * Canon ColorData values in RGGB metadata order. Gain fields are the recorded
+     * integer values. Black and white levels are in native sensor sample units.
+     *
+     * @param redGain red white-balance gain
+     * @param greenRedGain green gain on red rows
+     * @param greenBlueGain green gain on blue rows
+     * @param blueGain blue white-balance gain
+     * @param redBlack red black level
+     * @param greenRedBlack green black level on red rows
+     * @param greenBlueBlack green black level on blue rows
+     * @param blueBlack blue black level
+     * @param white white level
+     */
     public record ColorData(int redGain, int greenRedGain, int greenBlueGain, int blueGain,
                             int redBlack, int greenRedBlack, int greenBlueBlack, int blueBlack, int white) {
         private static ColorData from(Cr3ColorData data) {
