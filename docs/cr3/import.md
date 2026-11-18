@@ -10,7 +10,7 @@ Use JDK 21 or newer for the consuming application. Add this Maven Central depend
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-core</artifactId>
-  <version>0.1.6</version>
+  <version>0.1.7</version>
 </dependency>
 ```
 

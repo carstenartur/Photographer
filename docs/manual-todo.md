@@ -34,7 +34,6 @@ The pattern PDFs, manifest, intake checker and analysis primitives are available
 
 ## Public release decisions
 
-- After the next GitHub release, confirm that Zenodo has archived that release and assigned its DOI. Then update the README badges and DOI/citation links using the verified record; the repository is already visible in the Zenodo GitHub integration.
 - Decide which first-party originals and embedded metadata may appear in the published history and downloads. Record the decision in the [publication audit](public-release.md#visibility-decision).
 - Review redistribution rights and the applicable patent families for the intended distribution markets. Record the decisions in the [CR3 publication checklist](cleanroom/publication-checklist.md) and its linked review record.
 - Decide whether to publish the reviewed repository history or the reviewed clean snapshot. Confirm the chosen visibility and exposed assets.

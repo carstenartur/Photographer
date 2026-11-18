@@ -1,12 +1,14 @@
 # Photographer (Focus Stack)
 
-[![CI status](https://img.shields.io/badge/CI-status-blue?logo=github)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
+[![CI](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/carstenartur/Photographer/actions/workflows/ci.yml)
 [![CR3 benchmark history](https://img.shields.io/badge/CR3-benchmarks-blue)](https://carstenartur.github.io/Photographer/dev/bench/)
 [![Tests](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/tests/badge.json)](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
 [![Coverage](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/coverage/badge.json)](https://carstenartur.github.io/Photographer/coverage/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
-[![Latest GitHub release](https://img.shields.io/badge/release-latest-blue?logo=github)](https://github.com/carstenartur/Photographer/releases/latest)
+[![Latest GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?logo=github)](https://github.com/carstenartur/Photographer/releases/latest)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.carstenartur/cr3-imageio?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.carstenartur/cr3-imageio)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24334498.svg)](https://doi.org/10.5281/zenodo.24334498)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0005--1047--6381-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-1047-6381)
 
 Photographer controls compatible Canon cameras via CCAPI and USB/PTP. Its React web interface and Spring Boot backend support automated focus stacking, astrophotography sessions and AI-assisted wildlife observation, with extension points for camera backends, image analysis and vision providers. Standalone Java ImageIO libraries read supported CR3 RAW and C-RAW files and write lossless CR3 and uncompressed Bayer DNG.
@@ -20,7 +22,7 @@ Photographer controls compatible Canon cameras via CCAPI and USB/PTP. Its React 
 | Open a Bayer mosaic or a color image in Fiji | [Install the Fiji update site](docs/cr3/fiji-update-site.md) · [Import sensor data](cr3-imagej/README.md) · [Open a color image](docs/cr3/fiji-update-site.md#open-a-color-image) |
 | Inspect a CR3 or export a preview from the command line | [CLI commands](docs/cr3/cli.md) |
 | Review the CR3 reader and writer provenance | [Reviewer guide](docs/cleanroom/reviewer-guide.md) |
-| Find the stable release and check its downloads | [Photographer 0.1.6](docs/releases/0.1.6.md) |
+| Find the stable release and check its downloads | [Photographer 0.1.7](docs/releases/0.1.7.md) |
 | Build or extend Photographer | [Developer manual](docs/developer/index.md) · [Project verification](docs/developer/testing.md) |
 
 ![Mock camera profile showing the generated live view, battery level and camera settings](docs/screenshots/mock-camera.webp)
@@ -73,7 +75,7 @@ Find the Maven modules, dependency layers and supported library interfaces in th
 
 ## Import Canon CR3 files in Java
 
-Add `io.github.carstenartur:cr3-imageio:0.1.6` from Maven Central to a Java 21 or newer Maven application to develop a full-resolution color image from CR3 with `ImageIO.read(file)`. Use the reader parameters to select the camera’s embedded JPEG, linear Bayer or the original sensor codes. The standalone `cr3-core` decoder also accepts a file path directly.
+Add `io.github.carstenartur:cr3-imageio:0.1.7` from Maven Central to a Java 21 or newer Maven application to develop a full-resolution color image from CR3 with `ImageIO.read(file)`. Use the reader parameters to select the camera’s embedded JPEG, linear Bayer or the original sensor codes. The standalone `cr3-core` decoder also accepts a file path directly.
 
 [Run the minimal Maven example](docs/cr3/imageio.md#run-the-minimal-example) · [ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
 
@@ -157,7 +159,7 @@ Security vulnerabilities must be reported privately according to [SECURITY.md](S
 
 The primary author is [Carsten Hammer](https://orcid.org/0009-0005-1047-6381), ORCID [`0009-0005-1047-6381`](https://orcid.org/0009-0005-1047-6381).
 
-Use GitHub's **Cite this repository** function or the metadata in [`CITATION.cff`](CITATION.cff). Machine-readable metadata is also available in [`codemeta.json`](codemeta.json) and [`.zenodo.json`](.zenodo.json). A DOI will only be stated after a public release has actually been archived.
+Use GitHub's **Cite this repository** function or the metadata in [`CITATION.cff`](CITATION.cff). The project DOI [10.5281/zenodo.24334498](https://doi.org/10.5281/zenodo.24334498) represents all archived versions. For reproducible work, cite the version used; [Photographer 0.1.7](docs/releases/0.1.7.md#archive-and-citation) has DOI [10.5281/zenodo.24334499](https://doi.org/10.5281/zenodo.24334499). Machine-readable metadata is also available in [`codemeta.json`](codemeta.json) and [`.zenodo.json`](.zenodo.json).
 
 ## License
 

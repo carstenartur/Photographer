@@ -16,7 +16,7 @@ RAW development uses the as-shot white balance when the capture contains support
 
 **Upgrading from 0.1.5.** Starting with 0.1.6, the standard read develops RAW. Pass `setPreviewOnly(true)` to keep the camera-rendered JPEG behavior.
 
-The stream-origin, preview-toggle, Bayer destination validation and metadata schema behavior described below is available in the [current local build](#use-a-local-build).
+The stream-origin, preview-toggle, Bayer destination validation and metadata schema behavior described below is available starting with [0.1.7](../releases/0.1.7.md).
 
 A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW read. Applications can explicitly request the embedded JPEG when one is present. Full-sensor values have been verified on the measured 14-bit, four-plane V1 lossless RAW and three-level C-RAW layouts. See the [decoder and supported layouts](decoder.md).
 
@@ -28,7 +28,7 @@ ImageIO comes with the JDK. A Java 21+ application needs one direct dependency. 
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-imageio</artifactId>
-  <version>0.1.6</version>
+  <version>0.1.7</version>
 </dependency>
 ```
 

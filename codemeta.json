@@ -4,6 +4,7 @@
   "name": "Focus Stack (Photographer)",
   "description": "A modular Java and Spring Boot photography platform for automated focus stacking, timelapse, astrophotography workflows, Canon camera control, CR3 processing and AI-assisted image analysis.",
   "codeRepository": "https://github.com/carstenartur/Photographer",
+  "identifier": "https://doi.org/10.5281/zenodo.24334498",
   "issueTracker": "https://github.com/carstenartur/Photographer/issues",
   "license": "https://spdx.org/licenses/MIT",
   "programmingLanguage": [
