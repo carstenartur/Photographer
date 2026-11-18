@@ -43,7 +43,7 @@ bash scripts/verify-cr3-research.sh --full
 
 | Workflow | Pull requests | Main, scheduled and manual runs |
 |---|---|---|
-| [CI](../../.github/workflows/ci.yml) | Path classification, Java verification, frontend tests/lint/build and packaged browser smoke | Classifies pushes to main. Scheduled and manual runs also generate the Maven site and badges. |
+| [CI](../../.github/workflows/ci.yml) | Path classification, Java verification, frontend tests/lint/build and packaged browser smoke | Classifies pushes to main. Scheduled and manual runs also generate the Maven site, aggregate CPD report and badges. |
 | [CR3 Packaged Consumer](../../.github/workflows/cr3-modules.yml) | Packaged CR3 artifacts, installed-POM dependencies, isolated Java 21 consumer and Maven Central preflight on relevant changes | Same checks on relevant pushes to main or manual runs. |
 | [CR3 Benchmark History](../../.github/workflows/cr3-benchmark.yml) | Base/head JMH sentinel comparison on the same runner for relevant changes | Full JMH history on relevant pushes to main, weekly schedule and ordinary manual runs. |
 | [CR3 Research Integration](../../.github/workflows/cr3-research.yml) | Focused evidence profile for changes to the CR3 implementation, fixtures and evidence inputs | Full reference-backed profile on scheduled and manual runs. |
@@ -54,6 +54,16 @@ bash scripts/verify-cr3-research.sh --full
 For Markdown-only changes under `docs/` and to the root `README.md`, CI validates documentation links and ownership in the path classification job. It skips the Maven, frontend and Docker smoke jobs. The CR3 reference manifest is a build input. The other workflows apply their own path filters.
 
 Product CI owns the production unit and integration suite. The packaged-consumer workflow checks the Git-backed Maven repository and the signed Central bundle at the candidate version derived from the root Maven `revision`. It then stages the runtime artifacts with `-DskipTests` and tests their use in an independent Maven project on Java 21.
+
+The report job runs the [source-only CPD command](testing.md#duplicate-code-report-cpd)
+once for the full Java reactor and uploads its HTML assets, raw XML, badge and
+revision summary as `duplicate-code-report`. Successful reporting runs on `main`
+publish it to the `duplication/` directory on GitHub Pages after Java verification
+passes. Other Pages content, including benchmark history and the Fiji update site,
+is preserved. The job explicitly requests a Pages build after publication because
+commits made with `GITHUB_TOKEN` do not trigger that build automatically.
+Duplicate groups are a metric for review, not an additional build
+failure threshold; report-generation errors still fail the job.
 
 ## Publish a release
 

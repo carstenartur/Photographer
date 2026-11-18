@@ -16,6 +16,7 @@ python3 scripts/test_cr3_repository.py
 python3 scripts/test_validate_vision_module_boundaries.py
 python3 scripts/validate_vision_module_boundaries.py .
 python3 scripts/test_validate_documentation.py
+python3 scripts/test_prepare_cpd_report.py
 python3 scripts/validate_documentation.py .
 python3 scripts/test_audit_public_release.py
 python3 scripts/test_sanitize_cr3_fixtures.py

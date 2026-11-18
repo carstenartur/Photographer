@@ -4,12 +4,12 @@
 [![CR3 benchmark history](https://img.shields.io/badge/CR3-benchmarks-blue)](https://carstenartur.github.io/Photographer/dev/bench/)
 [![Tests](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/tests/badge.json)](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
 [![Coverage](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/coverage/badge.json)](https://carstenartur.github.io/Photographer/coverage/)
+[![CPD groups](https://img.shields.io/endpoint?url=https://carstenartur.github.io/Photographer/duplication/badge.json)](https://carstenartur.github.io/Photographer/duplication/cpd.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![SBOM](https://img.shields.io/badge/SBOM-CycloneDX-informational?logo=owasp&style=flat)](https://github.com/carstenartur/Photographer/dependency-graph/sbom)
 [![Latest GitHub release](https://img.shields.io/github/v/release/carstenartur/Photographer?logo=github)](https://github.com/carstenartur/Photographer/releases/latest)
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.carstenartur/cr3-imageio?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.carstenartur/cr3-imageio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24334498.svg)](https://doi.org/10.5281/zenodo.24334498)
-[![ORCID](https://img.shields.io/badge/ORCID-0009--0005--1047--6381-A6CE39?logo=orcid&logoColor=white)](https://orcid.org/0009-0005-1047-6381)
 
 Photographer controls compatible Canon cameras via CCAPI and USB/PTP. Its React web interface and Spring Boot backend support automated focus stacking, astrophotography sessions and AI-assisted wildlife observation, with extension points for camera backends, image analysis and vision providers. Standalone Java ImageIO libraries read supported CR3 RAW and C-RAW files and write lossless CR3 and uncompressed Bayer DNG.
 
@@ -129,10 +129,11 @@ Other compatible Canon cameras may work but are not officially verified. See [do
 
 ## Reports & Benchmarks
 
-The scheduled Maven site publishes the test and coverage reports. CR3 benchmark runs update the performance history for relevant changes on `main`.
+The scheduled Maven site publishes the test, coverage and duplicate-code reports. The CPD badge counts duplicate groups in production Java code across modules, using a minimum of 100 matching tokens. [Scope and local reproduction](docs/developer/testing.md#duplicate-code-report-cpd). CR3 benchmark runs update the performance history for relevant changes on `main`.
 
 - [Test Report](https://carstenartur.github.io/Photographer/tests/surefire-report.html)
 - [Coverage Report](https://carstenartur.github.io/Photographer/coverage/)
+- [Duplicate Code Report (CPD)](https://carstenartur.github.io/Photographer/duplication/cpd.html)
 - [JMH Benchmark History](https://carstenartur.github.io/Photographer/dev/bench/)
 
 ## Documentation
@@ -154,6 +155,10 @@ Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the
 Photographer uses a clean-room implementation of CR3 and CRX. The engineering record documents the technical references and tests. [CR3/CRX engineering record](docs/cleanroom/README.md)
 
 Security vulnerabilities must be reported privately according to [SECURITY.md](SECURITY.md).
+
+## AI-assisted development
+
+AI tools are used during development, including for code, documentation and tests. Project direction and release decisions remain with the maintainer. The [CR3/CRX engineering record](docs/cleanroom/README.md) documents the technical references, experiments and validation evidence behind the implementation.
 
 ## Citation and authorship
 

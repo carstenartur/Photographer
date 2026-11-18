@@ -18,6 +18,40 @@ Photographer uses layered, locally runnable verification. CI calls repository-ow
 | CR3 research tests | Failsafe / explicit test selection | Fixed-input scientific experiments and generated evidence. |
 | Benchmarks | JMH | Performance measurement with recorded environment and same-runner comparisons. |
 
+## Duplicate code report (CPD)
+
+Run the same source-only analysis used by the scheduled/manual CI report job:
+
+```bash
+mvn -B --no-transfer-progress -P reports pmd:aggregate-cpd
+python3 scripts/prepare_cpd_report.py \
+  --xml target/cpd.xml \
+  --report-dir target/duplication-report \
+  --output-dir target/cpd-site \
+  --revision "$(git rev-parse HEAD)"
+```
+
+Open `target/cpd-site/cpd.html` for the report, including the matching code blocks,
+file paths and line numbers. The directory also contains the raw `cpd.xml`,
+the Shields endpoint `badge.json` and `summary.json` with the analysed revision.
+The [published report](https://carstenartur.github.io/Photographer/duplication/cpd.html)
+is linked from the badge at the top of the project README.
+
+The `reports` profile pins Maven PMD Plugin 3.28.0. Its aggregate CPD goal compares
+production Java sources across the reactor with a minimum of **100 matching
+tokens**. Identifiers and literals retain their normal meaning during comparison.
+Conventional test source roots, the CR3 reference testkit and research module, and
+benchmark modules are excluded. Frontend JavaScript/TypeScript and generated build
+outputs are outside this Java source metric. Run the command at the repository
+root with the full reactor; `-N` or a restricted `-pl` selection changes its scope.
+It does not compile the application or run its tests.
+
+The badge reports **duplicate groups**, not files, occurrences or a percentage.
+A group can contain several occurrences. Findings are advisory and should be
+reviewed for useful refactorings; they do not fail the product build. Report
+generation errors fail the reporting job, and missing or malformed input cannot
+produce a misleading zero badge. A successful scan with no matches reports zero.
+
 ## Canonical product verification
 
 ```bash

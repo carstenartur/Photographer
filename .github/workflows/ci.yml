@@ -264,6 +264,7 @@ jobs:
     if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.java-verify.result != 'cancelled' }}
     permissions:
       contents: write
+      pages: write
     env:
       MAVEN_OPTS: '-Xmx2g'
     steps:
@@ -284,6 +285,23 @@ jobs:
         with:
           name: java-test-data
           path: .
+
+      - name: Generate aggregate duplicate-code report
+        run: |
+          mvn -B --no-transfer-progress -P reports pmd:aggregate-cpd
+          python3 scripts/prepare_cpd_report.py \
+            --xml target/cpd.xml \
+            --report-dir target/duplication-report \
+            --output-dir target/cpd-site \
+            --revision "$GITHUB_SHA"
+
+      - name: Upload duplicate-code report
+        uses: actions/upload-artifact@v7
+        with:
+          name: duplicate-code-report
+          path: target/cpd-site/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Generate Maven site and Surefire HTML report
         run: |
@@ -400,3 +418,21 @@ jobs:
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'Deploy JaCoCo coverage report ${{ github.sha }}'
+
+      - name: Deploy duplicate-code report to GitHub Pages
+        if: ${{ needs.java-verify.result == 'success' && github.ref == 'refs/heads/main' }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: target/cpd-site
+          destination_dir: duplication
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy CPD report ${{ github.sha }}'
+
+      - name: Request the Pages build
+        if: ${{ needs.java-verify.result == 'success' && github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent

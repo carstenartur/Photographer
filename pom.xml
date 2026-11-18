@@ -330,6 +330,35 @@
     </build>
 
     <profiles>
+        <!-- Source-only reports can run without compiling or testing the reactor. -->
+        <profile>
+            <id>reports</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-pmd-plugin</artifactId>
+                        <version>3.28.0</version>
+                        <inherited>false</inherited>
+                        <configuration>
+                            <minimumTokens>100</minimumTokens>
+                            <includeTests>false</includeTests>
+                            <skipEmptyReport>false</skipEmptyReport>
+                            <linkXRef>false</linkXRef>
+                            <outputDirectory>${project.build.directory}/duplication-report</outputDirectory>
+                            <!-- These compile roots contain test support, experiments and benchmarks. -->
+                            <excludeRoots>
+                                <excludeRoot>${project.basedir}/canon-cr3-reference-testkit</excludeRoot>
+                                <excludeRoot>${project.basedir}/canon-cr3-research</excludeRoot>
+                                <excludeRoot>${project.basedir}/canon-cr3-benchmark</excludeRoot>
+                                <excludeRoot>${project.basedir}/astro-core-benchmark</excludeRoot>
+                            </excludeRoots>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
         <profile>
             <id>fiji-update-site</id>
             <build>
