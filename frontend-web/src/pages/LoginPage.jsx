@@ -35,7 +35,6 @@ export default function LoginPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            autoFocus
             autoComplete="username"
           />
         </label>

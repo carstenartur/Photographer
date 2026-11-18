@@ -71,13 +71,11 @@ export default function JobList() {
     getAllCameras()
       .then((data) => {
         if (!cancelled) {
-          // eslint-disable-next-line no-console
           console.log('[JobList] loaded cameras:', data);
           setCameras(data || []);
         }
       })
       .catch((err) => {
-        // eslint-disable-next-line no-console
         console.error('[JobList] failed to load cameras:', err);
         if (!cancelled) setError(`Failed to load cameras: ${err.message}`);
       });
