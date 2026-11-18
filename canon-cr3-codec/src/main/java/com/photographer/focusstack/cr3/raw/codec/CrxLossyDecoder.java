@@ -24,7 +24,7 @@ public final class CrxLossyDecoder {
         return cmp1 != null && !cmp1.isLossless();
     }
 
-    /** Reconstructs the four signed transform planes and clips only after the final inverse lift. */
+    /** Reconstructs the signed transform planes and clips the final samples to the 14-bit sensor range. */
     public static Cr3RawImage decode(byte[] data, int width, int height, int bitDepth,
                                      CrxHeader.CodecVersion version, Cmp1Box cmp) throws Cr3Exception, IOException {
         return CrxPlaneAssembler.decodeImage(prepare(data == null ? null : CrxTrackInput.fromArray(data), width, height, bitDepth, version, cmp),
@@ -112,6 +112,7 @@ public final class CrxLossyDecoder {
         for (int b = 0; b < shapes.length; b++) {
             var band = plane.subbands().get(b);
             int start = Math.toIntExact(band.dataOffset());
+            // The declared size locates the next band. The entropy window excludes terminal padding.
             int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
             int bw = shapes[b].width(), bh = shapes[b].height();
             int factor = INVERSE_QUANTIZATION[band.quantValue()];

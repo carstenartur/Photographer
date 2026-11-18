@@ -56,7 +56,7 @@ public class Cr3ImageMetadata extends IIOMetadata {
         super(
                 false,                  // standardMetadataFormatSupported
                 NATIVE_FORMAT_NAME,     // nativeMetadataFormatName
-                null,                   // nativeMetadataFormatClassName (no IIOMetadataFormat impl)
+                Cr3MetadataFormat.class.getName(),
                 null,                   // extraMetadataFormatNames
                 null                    // extraMetadataFormatClassNames
         );

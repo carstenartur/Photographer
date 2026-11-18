@@ -6,22 +6,19 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Parser for the CRX bitstream header structure found at the start of mdat track data.
+ * Parses the tile, plane and subband directory at the start of a CRX sample.
  *
  * <p>The CRX bitstream is organized hierarchically:</p>
  * <ul>
- *   <li><b>Tile</b> (marker 0xff01/0xff11): One tile for small images,
- *       two tiles (left + right halves) for full-resolution images.</li>
- *   <li><b>Plane</b> (marker 0xff02/0xff12): Typically 4 planes (RGGB Bayer).</li>
- *   <li><b>Subband</b> (marker 0xff03/0xff13): 1 subband for lossless,
- *       10 subbands for lossy (3-level wavelet decomposition).</li>
+ *   <li><b>Tile</b> (marker 0xff01/0xff11), a spatial partition of the sensor.</li>
+ *   <li><b>Plane</b> (marker 0xff02/0xff12), one Bayer position in the native four-plane layouts.</li>
+ *   <li><b>Subband</b> (marker 0xff03/0xff13), an encoded stream within the plane.</li>
  * </ul>
  *
- * <p>For native sensor tracks, CMP1 supplies the header length and the first subband starts
- * immediately after it. The parser also accepts a directory with four terminal zero bytes.</p>
- *
- * <p>This is a cleanroom implementation based on published ISO BMFF and
- * Canon CR3 format documentation. No proprietary source code was used.</p>
+ * <p>For native sensor tracks, CMP1 supplies the directory length and therefore
+ * the start of the first subband, in bytes relative to the sample. Subsequent
+ * offsets follow the declared subband sizes in directory order. The codec's
+ * profile-specific reader validates these extents before reading entropy.</p>
  */
 public final class CrxHeader {
 
@@ -46,12 +43,12 @@ public final class CrxHeader {
     /**
      * Describes a subband within a plane.
      *
-     * @param index           subband index (0 for lossless LL; 0-9 for lossy wavelets)
-     * @param dataSize        size of the encoded subband data in bytes
+     * @param index           subband index (0 for native lossless, 0 through 9 for three-level C-RAW)
+     * @param dataSize        declared encoded size in bytes, including any declared terminal padding
      * @param supportsPartial whether partial decoding is flagged
-     * @param quantValue      quantization value (0 for lossless)
+     * @param quantValue      quantization field from the directory
      * @param paddingBytes    number of terminal padding bytes declared in the subband record
-     * @param dataOffset      absolute offset of the subband data within the CRX block
+     * @param dataOffset      byte offset of the subband relative to the start of the CRX sample
      */
     public record Subband(int index, long dataSize, boolean supportsPartial,
                           int quantValue, long dataOffset, int paddingBytes) {
@@ -62,10 +59,10 @@ public final class CrxHeader {
     }
 
     /**
-     * Describes a colour plane within a tile.
+     * Describes one position in a tile's Bayer grid.
      *
-     * @param index           plane index (0-3 for RGGB)
-     * @param dataSize        total encoded size for this plane
+     * @param index           position index in the 2 by 2 CFA grid for the native layouts
+     * @param dataSize        total encoded size for this plane in bytes
      * @param supportsPartial whether partial decoding is flagged
      * @param roundedBits     number of rounded bits
      * @param subbands        list of subbands in this plane
@@ -76,8 +73,8 @@ public final class CrxHeader {
     /**
      * Describes a tile (spatial partition of the image).
      *
-     * @param index    tile index (0 or 1; two tiles for big images)
-     * @param dataSize total encoded size for this tile
+     * @param index    tile index stored in the directory
+     * @param dataSize total encoded size for this tile in bytes
      * @param planes   list of planes in this tile
      */
     public record Tile(int index, long dataSize, List<Plane> planes) {}

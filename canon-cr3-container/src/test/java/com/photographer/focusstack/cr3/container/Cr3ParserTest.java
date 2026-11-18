@@ -20,6 +20,34 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class Cr3ParserTest {
 
+    @Test
+    void embeddedTableAndTrackAddressesReferToTheContainingStream() throws Exception {
+        byte[] ftyp = Cr3TestData.buildCr3FtypBox();
+        byte[] payload = ByteBuffer.allocate(24).putInt(1).putInt(1).putLong(1000L).putLong(12L).array();
+        byte[] moov = Cr3TestData.buildBox("moov", Cr3TestData.buildBox("CTBO", payload));
+        byte[] data = Cr3TestData.concat(ftyp, moov, Cr3TestData.buildBox("mdat", new byte[1024]));
+        byte[] header = new byte[23];
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(Cr3TestData.concat(header, data)))) {
+            input.seek(header.length);
+            input.flushBefore(header.length);
+            var parsed = Cr3Parser.parse(input);
+            assertThat(parsed.moovBox().offset()).isEqualTo(header.length + ftyp.length);
+            assertThat(parsed.ctboBox().entries().getFirst().offset()).isEqualTo(header.length + 1000L);
+        }
+
+        byte[] jpeg = Cr3TestData.buildMinimalCr3WithJpeg();
+        try (var zero = new MemoryCacheImageInputStream(new ByteArrayInputStream(jpeg));
+             var embedded = new MemoryCacheImageInputStream(new ByteArrayInputStream(Cr3TestData.concat(header, jpeg)))) {
+            var normalTrack = Cr3Parser.parse(zero).tracks().getFirst();
+            embedded.seek(header.length);
+            embedded.flushBefore(header.length);
+            var embeddedTrack = Cr3Parser.parse(embedded).tracks().getFirst();
+            assertThat(embeddedTrack.dataOffset()).isEqualTo(normalTrack.dataOffset() + header.length);
+            embedded.seek(embeddedTrack.dataOffset());
+            assertThat(embedded.readUnsignedShort()).isEqualTo(0xffd8);
+        }
+    }
+
     @Nested
     @DisplayName("CR3 file detection (isCr3)")
     class IsCr3Detection {

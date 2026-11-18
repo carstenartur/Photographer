@@ -2,7 +2,11 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
 
-/** Entropy and prediction for a 14-bit, single-subband lossless CRX plane. */
+/**
+ * Sequential predictor for a native lossless plane or the coarsest C-RAW approximation.
+ * Both layouts share the adaptive Rice and run rules. Sensor reconstruction validates
+ * unsigned samples, while approximation decoding retains signed coefficients for lifting.
+ */
 final class CrxNativeLosslessPlane {
     private static final int HALF_RANGE = 8192;
     private final BitReader bits;
@@ -87,7 +91,7 @@ final class CrxNativeLosslessPlane {
     private void readRow(int[] previousRow, int[] output, int width) throws IOException {
         int x = 0;
         int last = width - 1;
-        // Carry the last output and the previous-row neighbours across the interior loop.
+        // At the left edge, the missing left and above-left samples both start at above.
         int above = previousRow[0];
         int left = above;
         int aboveLeft = above;
@@ -107,6 +111,7 @@ final class CrxNativeLosslessPlane {
                 }
                 above = previousRow[x];
                 aboveRight = previousRow[x + 1];
+                // A run interrupted inside the row predicts its next sample from above.
                 prediction = above;
             } else {
                 prediction = CrxMedPredictor.med(left, above, aboveLeft);

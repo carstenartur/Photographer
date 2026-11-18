@@ -2,7 +2,11 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
 
-/** Adaptive Rice parameter and run-length state, local to one encoded CRX subband. */
+/**
+ * Adaptive Rice remainder width and run index for one encoded CRX subband.
+ * Both states carry across row boundaries. Copying a run can change the run index
+ * while leaving the Rice width unchanged.
+ */
 final class CrxEntropyState {
     static final int ESCAPE_QUOTIENT = 41;
     static final int LITERAL_BITS = 21;
@@ -35,7 +39,10 @@ final class CrxEntropyState {
         return bits.readRice(k, ESCAPE_QUOTIENT, LITERAL_BITS);
     }
 
-    /** The caller has already consumed the positive-run flag, which accounts for one copy. */
+    /**
+     * Extends the first copy signaled by the already consumed positive-run flag.
+     * The result is bounded by the number of sites remaining in the row.
+     */
     int readRunLength(int remaining) throws IOException {
         long copies = 1;
         while (copies < remaining) {

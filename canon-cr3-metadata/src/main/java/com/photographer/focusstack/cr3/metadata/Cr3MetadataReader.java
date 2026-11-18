@@ -160,7 +160,7 @@ public final class Cr3MetadataReader {
             if (tags.get(TiffIfdParser.TAG_EXPOSURE_TIME) instanceof TiffIfdParser.TagValue.RationalValue rv) {
                 metadata.setExposureTime(rv.toDouble());
                 if (rv.denominator() != 0) {
-                    metadata.setShutterSpeed(rv.numerator() + "/" + rv.denominator());
+                    metadata.setShutterSpeed(rv.numeratorValue() + "/" + rv.denominatorValue());
                 }
             }
         }

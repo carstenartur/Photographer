@@ -10,7 +10,11 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.Objects;
 
-/** Random access within one CRX track. Each active entropy stream keeps its own read-ahead window. */
+/**
+ * Random access to the selected CRX sample. The sample origin is a position in the backing input and
+ * window offsets are relative to that origin. Each active entropy stream owns its
+ * mutable read-ahead window. The caller owns the backing channel, stream or array.
+ */
 final class CrxTrackInput {
     private static final int READ_AHEAD = 32 * 1024;
     private static final VarHandle BIG_ENDIAN_INT =
@@ -95,7 +99,7 @@ final class CrxTrackInput {
         return bytes != null ? new Window(bytes, offset, count) : new Window(reader, start + offset, count, readAhead);
     }
 
-    /** Positions are relative to the slice. An array slice needs no copy or I/O. */
+    /** Positions are slice-relative. Array slices share storage and stream slices refill within their extent. */
     static final class Window {
         private final byte[] data;
         private final Reader reader;

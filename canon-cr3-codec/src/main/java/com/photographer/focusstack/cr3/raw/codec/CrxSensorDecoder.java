@@ -8,12 +8,17 @@ import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 
-/** A validated native CRX track that can reconstruct Bayer samples one tile-plane row at a time. */
+/**
+ * Internal bridge from a validated native CRX directory to tile-plane Bayer rows.
+ * Each decode owns its predictor and lifting state. The input backing the directory
+ * must stay available and unchanged until the decode returns.
+ */
 @FunctionalInterface
 public interface CrxSensorDecoder {
     /**
      * Receives unsigned sensor samples at (x, y), (x + 2, y), and so on.
-     * The row is read-only and valid only during this call.
+     * The row is borrowed, read-only and valid only during this call. With parallel
+     * decoding, callbacks for disjoint sensor positions may overlap.
      */
     @FunctionalInterface
     interface RowConsumer {
@@ -34,14 +39,21 @@ public interface CrxSensorDecoder {
         return prepare(track == null ? null : CrxTrackInput.fromArray(track), width, height, depth, version, cmp);
     }
 
-    /** Reads independent subbands on demand from an open, seekable stream owned by the caller. */
+    /**
+     * Reads independent subbands on demand from an open, seekable stream owned by the caller.
+     * The offset and length describe the sample's byte range in the supplied stream. Synchronized refills
+     * can move the stream cursor.
+     */
     static CrxSensorDecoder prepare(ImageInputStream input, long offset, int length, int width, int height,
                                     int depth, CrxHeader.CodecVersion version, Cmp1Box cmp)
             throws Cr3Exception, IOException {
         return prepare(CrxTrackInput.fromStream(input, offset, length), width, height, depth, version, cmp);
     }
 
-    /** Reads the track with positional I/O, leaving the caller's channel open and its cursor untouched. */
+    /**
+     * Reads the sample's byte range using positional I/O, leaving the caller's channel open
+     * and its cursor untouched.
+     */
     static CrxSensorDecoder prepare(FileChannel channel, long offset, int length, int width, int height,
                                     int depth, CrxHeader.CodecVersion version, Cmp1Box cmp)
             throws Cr3Exception, IOException {
@@ -74,6 +86,7 @@ public interface CrxSensorDecoder {
     /**
      * Reads requested plane prefixes, including rows needed for prediction. A zero limit
      * skips the plane. Native decoders validate the directory and the payload they read.
+     * The limit is in plane rows. Successive rows of a plane are two sensor rows apart.
      * Consumers that can write disjoint tiles concurrently may allow independent tiles.
      * Consumers must clip samples to their requested region. Other implementations can
      * decode the whole image.

@@ -30,10 +30,20 @@ public final class Cr3Parser {
 
     private Cr3Parser() {}
 
+    /**
+     * Parses the CR3 container from the stream's current position. Box, track and
+     * CTBO positions in the result address the supplied stream.
+     *
+     * @param input stream positioned at the first box of the CR3 image
+     * @return the parsed container and track descriptors
+     * @throws Cr3FormatException if the container lacks a required box or a CR3 brand
+     * @throws IOException if the container cannot be read
+     */
     public static Cr3Container parse(ImageInputStream input) throws Cr3FormatException, IOException {
         input.setByteOrder(ByteOrder.BIG_ENDIAN);
 
-        List<IsoBox> boxes = IsoBmffReader.readBoxes(input);
+        long origin = input.getStreamPosition();
+        List<IsoBox> boxes = IsoBmffReader.readBoxes(input, origin, input.length());
         if (boxes.isEmpty()) {
             throw new Cr3FormatException("No boxes found in file");
         }
@@ -82,7 +92,7 @@ public final class Cr3Parser {
 
         IsoBox ctboIso = moovBox.findDescendant("CTBO");
         if (ctboIso != null) {
-            try { ctboBox = CtboBox.parse(input, ctboIso); } catch (IOException | RuntimeException e) {
+            try { ctboBox = CtboBox.parse(input, ctboIso, origin); } catch (IOException | RuntimeException e) {
                 LOG.warn("Failed to parse CTBO box", e);
             }
         }
@@ -110,48 +120,61 @@ public final class Cr3Parser {
             }
         }
 
-        List<Cr3Track> tracks = parseTracks(input, moovBox, mdatBox, cctpBox);
+        List<Cr3Track> tracks = parseTracks(input, moovBox, mdatBox, cctpBox, origin);
 
         return new Cr3Container(ftypBox, moovBox, mdatBox, boxes, tracks,
                 cncvBox, cctpBox, ctboBox, thmbBox, prvwBox);
     }
 
+    /**
+     * Tests for a CR3 brand in the first box at the stream's current position.
+     * Restores the byte position, bit offset and byte order before returning.
+     *
+     * @param input stream positioned at the candidate file's first box
+     * @return true if the first box identifies a CR3 file
+     * @throws IOException if an I/O error prevents probing or restoring the stream
+     */
     public static boolean isCr3(ImageInputStream input) throws IOException {
-        input.setByteOrder(ByteOrder.BIG_ENDIAN);
-        input.seek(0);
-
-        if (input.length() >= 0 && input.length() < 12) {
-            return false;
-        }
-
+        long start = input.getStreamPosition();
+        ByteOrder order = input.getByteOrder();
+        input.mark();
         try {
-            long size = Integer.toUnsignedLong(input.readInt());
-            byte[] type = new byte[4];
-            input.readFully(type);
-            String typeStr = new String(type, java.nio.charset.StandardCharsets.US_ASCII);
-
-            if (!"ftyp".equals(typeStr)) {
+            input.setByteOrder(ByteOrder.BIG_ENDIAN);
+            long size = input.readUnsignedInt();
+            if (input.readInt() != 0x66747970) { // ftyp
                 return false;
             }
-
-            IsoBox ftypIsoBox = new IsoBox("ftyp", size, 0);
-            FtypBox ftypBox = FtypBox.parse(input, ftypIsoBox);
-            return ftypBox.isCr3();
+            boolean extended = size == 1;
+            if (extended) {
+                size = input.readLong();
+            }
+            long length = input.length();
+            if (!extended && size == 0 && length >= 0) {
+                size = length - start;
+            }
+            int headerSize = extended ? 16 : 8;
+            boolean unknownEnd = !extended && size == 0 && length < 0;
+            if (!unknownEnd && (size < headerSize + 8 || (length >= 0 && size > length - start))) {
+                return false;
+            }
+            IsoBox ftyp = new IsoBox("ftyp", size, start, List.of(), extended);
+            return FtypBox.parse(input, ftyp).isCr3();
         } catch (java.io.EOFException e) {
             return false;
         } finally {
-            input.seek(0);
+            input.setByteOrder(order);
+            input.reset();
         }
     }
 
     private static List<Cr3Track> parseTracks(ImageInputStream input, IsoBox moovBox, IsoBox mdatBox,
-                                               CctpBox cctpBox) throws IOException {
+                                               CctpBox cctpBox, long origin) throws IOException {
         List<Cr3Track> tracks = new ArrayList<>();
         int trackIndex = 0;
 
         for (IsoBox child : moovBox.children()) {
             if ("trak".equals(child.type())) {
-                Cr3Track track = parseTrack(input, child, trackIndex, mdatBox, cctpBox);
+                Cr3Track track = parseTrack(input, child, trackIndex, mdatBox, cctpBox, origin);
                 if (track != null) {
                     tracks.add(track);
                 }
@@ -163,7 +186,7 @@ public final class Cr3Parser {
     }
 
     private static Cr3Track parseTrack(ImageInputStream input, IsoBox trakBox, int index,
-                                        IsoBox mdatBox, CctpBox cctpBox) throws IOException {
+                                        IsoBox mdatBox, CctpBox cctpBox, long origin) throws IOException {
         IsoBox mdiaBox = trakBox.findChild("mdia");
         if (mdiaBox == null) { LOG.warn("Track {} has no mdia box", index); return null; }
 
@@ -222,7 +245,7 @@ public final class Cr3Parser {
             }
         }
 
-        // Chunk offset
+        // Project the first chunk offset and first sample size for the single-sample layout.
         long dataOffset = 0;
         IsoBox stcoBox = stblBox.findChild("stco");
         IsoBox co64Box = stblBox.findChild("co64");
@@ -236,7 +259,16 @@ public final class Cr3Parser {
             if (entryCount > 0) dataOffset = Integer.toUnsignedLong(input.readInt());
         }
 
-        // Sample size
+        if (dataOffset < 0) {
+            throw new IOException("CR3 chunk offset exceeds the stream address range");
+        }
+        if (dataOffset > 0) {
+            try {
+                dataOffset = Math.addExact(origin, dataOffset);
+            } catch (ArithmeticException ex) {
+                throw new IOException("CR3 chunk offset exceeds the stream address range", ex);
+            }
+        }
         long dataSize = 0;
         IsoBox stszBox = stblBox.findChild("stsz");
         if (stszBox != null) {

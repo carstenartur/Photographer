@@ -42,17 +42,17 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 /**
- * Main entry point for decoding Canon CR3 files.
+ * Decodes embedded images, Bayer mosaics and developed RGB from Canon CR3 files.
  *
- * <p>The decoder orchestrates parsing, metadata extraction, and image decoding.
- * It does not depend on {@code javax.imageio.ImageReader} — the ImageIO adapter
- * is a separate layer in the {@code cr3-imageio} artifact.</p>
+ * <p>The decoder parses container and metadata at input selection. RAW reads prepare
+ * the selected sample's bounded CRX directory and convert its tile-plane rows into
+ * the chosen output. The decoder's input and metadata are mutable. Use one decoder
+ * per concurrent import and keep its input open until the read completes.</p>
  *
  * <p>Usage:</p>
  * <pre>{@code
- * Cr3Decoder decoder = new Cr3Decoder();
- * try (ImageInputStream input = ImageIO.createImageInputStream(new File("photo.cr3"))) {
- *     decoder.setInput(input);
+ * try (var decoder = new Cr3Decoder()) {
+ *     decoder.setInput(Path.of("photo.cr3"));
  *     BufferedImage preview = decoder.decode(Cr3DecodeOptions.defaults());
  * }
  * }</pre>
@@ -99,11 +99,11 @@ public final class Cr3Decoder implements AutoCloseable {
     /**
      * Sets the input stream for decoding.
      *
-     * <p>The caller retains ownership of the supplied stream; {@link #reset} and
-     * {@link #close} will release the decoder's reference but will <em>not</em>
-     * close the stream.</p>
+     * <p>The caller owns the stream and closes it. {@link #reset} and {@link #close}
+     * release the decoder's reference. Parsing and sample reads can move the stream
+     * position. Reserve the stream for this decoder while a read is in progress.</p>
      *
-     * @param input the image input stream positioned at the start of the CR3 file
+     * @param input the image input stream positioned at the first box of the CR3 image
      * @throws IOException if an I/O error occurs during initial parsing
      * @throws Cr3Exception if the file is not a valid CR3 file
      */
@@ -282,7 +282,13 @@ public final class Cr3Decoder implements AutoCloseable {
         }
     }
 
-    /** Returns the developed image bounds after applying the selected crop and EXIF orientation. */
+    /**
+     * Returns the developed image bounds after applying the selected crop and EXIF orientation.
+     *
+     * @param options processed RAW options controlling the active-area crop
+     * @return zero-based bounds in the final image's coordinate system
+     * @throws Cr3Exception if the input has no usable RAW track
+     */
     public Rectangle getRawProcessedBounds(Cr3DecodeOptions options) throws Cr3Exception {
         Rectangle area = processedArea(options, rawTrack());
         return orientedBounds(area, orientation());
@@ -312,6 +318,14 @@ public final class Cr3Decoder implements AutoCloseable {
      * Develops a region in final, oriented image coordinates with the same colors as a full decode.
      * A null region selects the complete output. Partial reads retain the Bayer neighbors and
      * optical-black data needed to reproduce the full-frame development.
+     *
+     * @param options processed RAW options
+     * @param outputRegion rectangle within {@link #getRawProcessedBounds(Cr3DecodeOptions)}, or
+     *                     {@code null} for the complete image
+     * @return the developed image with a zero-based raster
+     * @throws IllegalArgumentException for an invalid region or a different output mode
+     * @throws Cr3Exception if RAW decoding fails
+     * @throws IOException if reading fails
      */
     public BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion)
             throws Cr3Exception, IOException {
@@ -479,7 +493,14 @@ public final class Cr3Decoder implements AutoCloseable {
         };
     }
 
-    /** Returns zero-based output bounds for RAW_LINEAR or RAW_SENSOR without reading the CRX payload. */
+    /**
+     * Returns zero-based output bounds for RAW_LINEAR or RAW_SENSOR without reading the CRX payload.
+     *
+     * @param options Bayer output options, including the active-area crop for RAW_LINEAR
+     * @return the bounds in which to specify a Bayer read region
+     * @throws IllegalArgumentException if the options select a different output mode
+     * @throws Cr3Exception if the input has no usable RAW track
+     */
     public Rectangle getRawBounds(Cr3DecodeOptions options) throws Cr3Exception {
         RawTrack track = rawTrack();
         Rectangle area = rawArea(options, track);
@@ -490,9 +511,17 @@ public final class Cr3Decoder implements AutoCloseable {
      * Decodes a window in the selected Bayer mode's zero-based output coordinates. The top-left
      * source site is always included. The next sites are separated by the supplied positive steps.
      * Passing a null region selects the full output. Partial reads decode the required tile-plane
-     * prefixes and allocate storage only for the requested sites.
+     * prefixes and allocate raster storage for the requested sites. The output
+     * keeps sensor orientation and the selected mode's sample units.
      *
+     * @param options native or scaled Bayer output options
+     * @param region rectangle within {@link #getRawBounds(Cr3DecodeOptions)}, or {@code null} for the full bounds
+     * @param xStep horizontal distance in source sites between retained samples
+     * @param yStep vertical distance in source sites between retained samples
+     * @return a zero-based, single-band unsigned-short Bayer image
      * @throws IllegalArgumentException for a different output mode, invalid window or subsampling step
+     * @throws Cr3Exception if RAW decoding fails
+     * @throws IOException if reading fails
      */
     public BufferedImage decodeRawRegion(Cr3DecodeOptions options, Rectangle region, int xStep, int yStep)
             throws Cr3Exception, IOException {
@@ -507,8 +536,20 @@ public final class Cr3Decoder implements AutoCloseable {
 
     /**
      * Decodes Bayer sites into a caller-owned, one-band unsigned-short raster with unit pixel
-     * stride and nonoverlapping rows. Destination coordinates are in the raster's coordinate system.
+     * stride, a single storage bank and nonoverlapping rows.
      * If decoding fails, the raster may contain the sites written before the failure.
+     *
+     * @param options native or scaled Bayer output options
+     * @param region rectangle within {@link #getRawBounds(Cr3DecodeOptions)}, or {@code null} for the full bounds
+     * @param xStep horizontal distance in source sites between retained samples
+     * @param yStep vertical distance in source sites between retained samples
+     * @param target destination raster that contains the complete subsampled output rectangle
+     * @param destX destination column of the first sample in the raster's coordinate system
+     * @param destY destination row of the first sample in the raster's coordinate system
+     * @throws IllegalArgumentException for an incompatible destination, invalid window or subsampling step,
+     *                                  or a different output mode
+     * @throws Cr3Exception if RAW decoding fails
+     * @throws IOException if reading fails
      */
     public void decodeRawRegionInto(Cr3DecodeOptions options, Rectangle region, int xStep, int yStep,
                                     WritableRaster target, int destX, int destY)
@@ -645,6 +686,7 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     private CrxSensorDecoder prepareSensor(RawTrack track) throws Cr3Exception, IOException {
+        // The container yields stream positions. The codec resolves its subbands within this sample.
         long offset = track.source.dataOffset();
         int length = (int) track.source.dataSize();
         if (ownedChannel != null) {

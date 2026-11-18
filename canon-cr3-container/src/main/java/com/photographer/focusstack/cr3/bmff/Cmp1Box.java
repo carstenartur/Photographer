@@ -4,7 +4,28 @@ import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
 
 /**
- * Parsed CMP1 (Compression Parameters 1) box — critical for CRX codec.
+ * CRX compression parameters from the CMP1 child of a CRAW sample entry.
+ *
+ * <p>Image and tile dimensions count sites in the Bayer mosaic. A four-plane tile
+ * has a grid at half the tile width and height for each position in the CFA pattern.
+ * Native decoding checks the measured profile against these fields before reading
+ * its entropy streams.</p>
+ *
+ * @param version version field stored in CMP1
+ * @param imageWidth full mosaic width in sensor sites
+ * @param imageHeight full mosaic height in sensor sites
+ * @param tileWidth nominal tile width in sensor sites
+ * @param tileHeight nominal tile height in sensor sites
+ * @param bitsPerSample native sensor sample depth
+ * @param numPlanes number of encoded planes per tile
+ * @param cfaLayout code for the color at each position in the 2 by 2 CFA grid
+ * @param encodingType codec encoding type
+ * @param waveletLevels number of wavelet levels, zero for the lossless layout
+ * @param multipleHTiles multiple-horizontal-tiles flag
+ * @param mdatHeaderSize byte count from the start of the CRX sample to the first entropy stream
+ * @param hasExtendedHeader whether the CMP1 extension flag is set
+ * @param extendedHeaderSize declared extension size when read
+ * @param medianBitDepth median bit depth from the extension when read
  */
 public record Cmp1Box(
         short version,

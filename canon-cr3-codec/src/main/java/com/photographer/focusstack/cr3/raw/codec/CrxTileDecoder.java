@@ -7,7 +7,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Decodes independent tile planes, preserving Bayer-position order for shared row accumulators. */
+/**
+ * Schedules complete tile-plane readers so each task keeps its own entropy and row state.
+ * When a consumer shares row accumulators across tiles, every tile of a given Bayer
+ * position runs on the same worker in directory order.
+ */
 record CrxTileDecoder(CrxHeader header, int width, int height, int tileWidth, PlaneReader reader)
         implements CrxSensorDecoder {
     private static final int BAYER_PHASES = 4;

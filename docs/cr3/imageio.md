@@ -16,6 +16,8 @@ RAW development uses the as-shot white balance when the capture contains support
 
 **Upgrading from 0.1.5.** Starting with 0.1.6, the standard read develops RAW. Pass `setPreviewOnly(true)` to keep the camera-rendered JPEG behavior.
 
+The stream-origin, preview-toggle, Bayer destination validation and metadata schema behavior described below is available in the [current local build](#use-a-local-build).
+
 A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW read. Applications can explicitly request the embedded JPEG when one is present. Full-sensor values have been verified on the measured 14-bit, four-plane V1 lossless RAW and three-level C-RAW layouts. See the [decoder and supported layouts](decoder.md).
 
 ## Maven setup
@@ -196,7 +198,7 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 
 | Setting | Effect |
 |---|---|
-| `param.setPreviewOnly(true)` | Forces the embedded JPEG for `read`. For another mode, use a fresh parameter and call `setDecodeOptions`. |
+| `param.setPreviewOnly(true)` | Selects the embedded JPEG for `read`. Setting it back to `false` restores the latest options supplied through `setDecodeOptions`. |
 | `Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.THUMBNAIL)` | Selects the embedded thumbnail through `read(0, param)`. This also allows standard region and subsampling parameters on the thumbnail. |
 | `cropToActiveArea(boolean)`, `applyBlackLevel(boolean)` | Both default to `true` in `rawProcessed()` and `rawLinear()`. Disable both in linear mode to scale the full sensor mosaic to 16 bits. Native sensor mode always preserves full-sensor coordinates and unadjusted codes. |
 | `applyWhiteBalance(boolean)`, `applyColorMatrix(boolean)`, `applySrgbConversion(boolean)` | These three RGB processing stages are enabled by default in `rawProcessed()`. They can be disabled independently. JPEG and Bayer reads bypass these stages. |
@@ -207,11 +209,12 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 
 ## Standard ImageIO regions and destinations
 
+- When supplying an `ImageInputStream`, position it at the first CR3 box before discovering or using the reader. The CR3 probe preserves the stream position and byte order.
 - `param.setSourceRegion(rectangle)` uses the selected image's coordinates. With `rawSensor()`, (0, 0) is the sensor origin. For cropped `rawLinear()`, (0, 0) is the active-area origin. Processed RGB uses the EXIF-oriented output's coordinates.
 - `param.setSourceSubsampling(2, 2, 0, 0)` keeps every second row and column. On a Bayer mosaic this selects a single color-filter phase. The CRX decoder reads the required tile planes up to the last needed row, including the preceding rows that supply prediction state. Processed RGB develops the selected region with the neighbors needed for demosaicing and collects the optical-black levels used by full-frame processing. JPEG regions are selected from the decoded preview or thumbnail.
-- `read` supports destination images, destination types, destination offsets and band selection. For Bayer output, a supplied `TYPE_USHORT_GRAY` image receives samples directly at the requested physical offset. A failed decode can leave that destination partially filled. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
+- `read` supports destination images, destination types, destination offsets and band selection. A supplied Bayer destination must have unsigned 16-bit storage for the selected band. The reader rejects an incompatible band before writing samples. A compatible `TYPE_USHORT_GRAY` image can receive samples directly at the requested physical offset. A failed decode can leave that destination partially filled. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
 - For repeated full-frame RGB reads, supply a dedicated `TYPE_INT_RGB` image with `setDestination(image)` and opt in with `setUseDestinationAsWorkspace(true)`. When the destination layout, orientation and read parameters allow it, development uses that image's storage directly. A failed read can leave it partially overwritten.
-- `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the default developed RAW image. Inspect the returned preview or Bayer raster for its own dimensions. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
+- `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the default developed RAW image. Inspect the returned preview or Bayer raster for its own dimensions. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)` and query its schema with `metadata.getMetadataFormat(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
 
 ## Write a lossless CR3 using a camera profile
 
@@ -337,6 +340,12 @@ and developed LinearRaw RGB DNGs are outside this reader's scope. Use
 `ImageIO.getImageReadersByFormatName("DNG")` to select the provider explicitly. Generic TIFF
 providers may also recognize the container. Re-export preserves supported calibration and sensor
 samples. The output does not embed the original CR3, JPEG preview, or proprietary MakerNotes.
+
+With an explicit DNG reader, `read(0, param)` supports a source region, subsampling and a
+destination offset. If you supply a destination image, select an unsigned 16-bit band.
+The reader writes the selected samples to the destination rectangle and preserves samples
+outside it. DNG metadata uses the platform TIFF schema, available through
+`metadata.getMetadataFormat(DngImageMetadata.NATIVE_FORMAT_NAME)`.
 
 This product includes DNG technology under license by Adobe. [Digital Negative specification and patent license](https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html)
 

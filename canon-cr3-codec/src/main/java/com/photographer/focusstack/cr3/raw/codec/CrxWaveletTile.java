@@ -2,7 +2,12 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
 
-/** Three-level integer 5/3 synthesis of a horizontally tiled CRX plane. */
+/**
+ * Three-level integer 5/3 synthesis of a signed, horizontally tiled CRX plane.
+ * Rows are pulled from coarse to fine, with horizontal lifting before vertical lifting
+ * at each level. The buffers retain only the source rows and reconstructed neighbors
+ * needed to produce the next output row.
+ */
 final class CrxWaveletTile {
     static final int MAX_BOUNDED_DETAIL_FACTOR = 64;
     private static final int LEVELS = 3;
@@ -20,9 +25,10 @@ final class CrxWaveletTile {
     private CrxWaveletTile() {}
 
     /**
-     * Physical entropy grids. The high-Y, low-X band has the same stored width as its
-     * LL sibling at the same scale. That LL row can include a trailing column needed
-     * to interleave both independently coded halves at the next, coarser scale.
+     * Physical entropy grids in directory order. The high-Y, low-X band's stored width
+     * follows the corresponding LL output at that scale. It can exceed the number of
+     * columns used for lifting. Decode the full row to preserve the next row's entropy
+     * context and byte position.
      */
     static Shape[] shapes(int width, int height, boolean hasLeftTile, boolean hasRightTile) {
         if (width <= 0 || height <= 0 || (long) width * height > Integer.MAX_VALUE) {
@@ -108,14 +114,18 @@ final class CrxWaveletTile {
     }
 
     private static void requireShape(Band band, int columns, int rows) {
-        // Some right halos store an additional column. Only the lifting support is used;
-        // row strides must always follow the physical entropy dimensions.
+        // A stored row can be wider than the lifting support at the right seam.
+        // Its stride follows the physical entropy grid.
         if (band.width < columns || band.height != rows) {
             throw new IllegalArgumentException("Wavelet band does not cover its synthesis region");
         }
     }
 
-    /** Reconstructs one contiguous row across both tile halos. */
+    /**
+     * Uses this tile's stored boundary support to emit one contiguous row.
+     * A leading high-pass sample shifts the detail origin and a trailing even sample
+     * can support the final odd site. At outer edges the closest available sample repeats.
+     */
     private record HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost,
                                   int width, boolean checked, int[] lowRow, int[] highRow) implements RowReader {
         HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost, int width, boolean checked) {

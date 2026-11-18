@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntConsumer;
 
-/** Shared CPU workers for independent CR3 decode and image processing tasks. */
+/** Internal CPU scheduler shared by CR3 decode and image processing stages. */
 public final class Cr3Workers {
     private Cr3Workers() {}
 
@@ -26,9 +26,10 @@ public final class Cr3Workers {
     }
 
     /**
-     * Runs each index in [0, taskCount) once. A single task runs on the caller.
+     * Runs each index in {@code [0, taskCount)} once. A single task runs on the caller.
      * Parallel calls share one CPU pool. All submitted tasks finish before the
-     * caller returns or observes an action's exception, including on interruption.
+     * caller returns or observes an action's exception. An interrupted caller still
+     * waits for submitted work and retains its interrupted status.
      */
     public static void run(int taskCount, IntConsumer action) {
         Objects.requireNonNull(action);

@@ -1,11 +1,11 @@
 package com.photographer.focusstack.cr3.imageio;
 
+import com.photographer.focusstack.cr3.container.Cr3Parser;
+
 import javax.imageio.ImageReader;
 import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
@@ -49,7 +49,7 @@ public class CanonCr3ImageReaderSpi extends ImageReaderSpi {
                 null,                      // extraStreamMetadataFormatClassNames
                 false,                     // supportsStandardImageMetadataFormat
                 Cr3ImageMetadata.NATIVE_FORMAT_NAME, // nativeImageMetadataFormatName
-                null,                      // nativeImageMetadataFormatClassName (no IIOMetadataFormat impl)
+                Cr3MetadataFormat.class.getName(),
                 null,                      // extraImageMetadataFormatNames
                 null                       // extraImageMetadataFormatClassNames
         );
@@ -57,36 +57,7 @@ public class CanonCr3ImageReaderSpi extends ImageReaderSpi {
 
     @Override
     public boolean canDecodeInput(Object source) throws IOException {
-        if (!(source instanceof ImageInputStream input)) {
-            return false;
-        }
-
-        input.setByteOrder(ByteOrder.BIG_ENDIAN);
-        input.mark();
-        try {
-            // CR3 files start with an ftyp box
-            if (input.length() >= 0 && input.length() < 12) {
-                return false;
-            }
-
-            long size = Integer.toUnsignedLong(input.readInt());
-            byte[] type = new byte[4];
-            input.readFully(type);
-            if (!"ftyp".equals(new String(type, StandardCharsets.US_ASCII))) {
-                return false;
-            }
-
-            // Parse the full ftyp box to check major brand + compatible brands
-            com.photographer.focusstack.cr3.bmff.IsoBox ftypIsoBox =
-                    new com.photographer.focusstack.cr3.bmff.IsoBox("ftyp", size, 0);
-            com.photographer.focusstack.cr3.bmff.FtypBox ftypBox =
-                    com.photographer.focusstack.cr3.bmff.FtypBox.parse(input, ftypIsoBox);
-            return ftypBox.isCr3();
-        } catch (IOException e) {
-            return false;
-        } finally {
-            input.reset();
-        }
+        return source instanceof ImageInputStream input && Cr3Parser.isCr3(input);
     }
 
     @Override

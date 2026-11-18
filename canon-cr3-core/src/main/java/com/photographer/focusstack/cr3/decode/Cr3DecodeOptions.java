@@ -16,6 +16,26 @@ package com.photographer.focusstack.cr3.decode;
 public final class Cr3DecodeOptions {
 
     /**
+     * Copies all current settings so each set can be changed independently.
+     *
+     * @return a new mutable options object
+     */
+    public Cr3DecodeOptions copy() {
+        var copy = new Cr3DecodeOptions();
+        copy.outputMode = outputMode;
+        copy.bitDepth = bitDepth;
+        copy.applyBlackLevel = applyBlackLevel;
+        copy.applyWhiteBalance = applyWhiteBalance;
+        copy.applyColorMatrix = applyColorMatrix;
+        copy.applySrgbConversion = applySrgbConversion;
+        copy.cropToActiveArea = cropToActiveArea;
+        copy.pedestalStrategy = pedestalStrategy;
+        copy.experimentalPedestalLevel = experimentalPedestalLevel;
+        copy.maxWorkers = maxWorkers;
+        return copy;
+    }
+
+    /**
      * Output mode for the decoder.
      */
     public enum OutputMode {
@@ -32,12 +52,14 @@ public final class Cr3DecodeOptions {
     }
 
     /**
-     * Output bit depth.
+     * Requested depth for developed RGB. The current development path produces
+     * eight bits per channel for either value. Both Bayer output modes use
+     * unsigned-short storage and keep their own sample scaling rules.
      */
     public enum BitDepth {
-        /** 8 bits per channel (standard sRGB). */
+        /** Default request for eight bits per channel. */
         EIGHT,
-        /** 16 bits per channel (for HDR / wide-gamut workflows). */
+        /** Sixteen-bit request retained for API compatibility. */
         SIXTEEN
     }
 
@@ -95,7 +117,13 @@ public final class Cr3DecodeOptions {
     /** Returns the output bit depth. Default is {@link BitDepth#EIGHT}. */
     public BitDepth bitDepth() { return bitDepth; }
 
-    /** Sets the output bit depth. */
+    /**
+     * Records the requested RGB output depth. See {@link BitDepth} for the
+     * effective depth of the current output modes.
+     *
+     * @param depth requested RGB depth
+     * @return these options
+     */
     public Cr3DecodeOptions bitDepth(BitDepth depth) {
         this.bitDepth = depth;
         return this;
