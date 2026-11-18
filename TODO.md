@@ -17,6 +17,10 @@ The [current decoder status](docs/cr3/current-state.md) links the measured lossl
 
 The [D14 capture checklist](docs/manual-todo.md#d14-capture-series) records the inputs needed to run the controlled spatial-code experiment.
 
+### Frontend dependencies
+
+The 2026-11-18 dependency audit still reports [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) in Picomatch 4.0.7, the latest version available at that check. The six reported package entries share this cause through the development-tool dependency graph; `npm audit --omit=dev` reports no findings. Once a corrected upstream version is available, update the lockfile, repeat both audits, and run frontend tests, lint and build.
+
 ### Capture integrations
 
 The [paired capture guide](docs/fresnel-capture.md) describes the implemented mock-camera sequence, polling, restart recovery and verified source transfer. The shared [Fresnel protocol work](https://github.com/carstenartur/Fresnel/issues/139) owns the wire contract.
