@@ -8,7 +8,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 
 | Need | Start here | Status |
 |---|---|---|
-| Install the CR3 libraries with Maven | [Maven release repositories](../cr3-maven-central.md#resolve-a-released-version) | Version 0.1.6 on Maven Central, with a separate Git-backed distribution. |
+| Install the CR3 libraries with Maven | [Maven release repositories](../cr3-maven-central.md#resolve-a-released-version) | Version 0.1.7 on Maven Central, with a separate Git-backed distribution. |
 | Inspect CR3 tracks or extract embedded preview/thumbnail JPEGs | [Container and metadata](decoder.md#stable-container-and-metadata-layers) | Stable public APIs |
 | Import a file with the Java decoder or export camera frames from Photographer | [CR3 file import](import.md) | Includes native sensor and developed RGB examples |
 | Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Default RAW color development on supported layouts, explicit preview, thumbnail and metadata |

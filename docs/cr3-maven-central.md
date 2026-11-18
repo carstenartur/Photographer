@@ -4,7 +4,7 @@ A regular Photographer release publishes six CR3 libraries to the project's `mav
 
 ## Resolve a released version
 
-For Java 21 or newer, add `io.github.carstenartur:cr3-imageio:0.1.6` to your application's dependencies. Maven Central supplies this artifact and its five CR3 dependencies. The dependency snippets below also show direct access to the container parser. [Consumer examples](#consumer-examples) · [Photographer 0.1.6](releases/0.1.6.md)
+For Java 21 or newer, add `io.github.carstenartur:cr3-imageio:0.1.7` to your application's dependencies. Maven Central supplies this artifact and its five CR3 dependencies. The dependency snippets below also show direct access to the container parser. [Consumer examples](#consumer-examples) · [Photographer 0.1.7](releases/0.1.7.md)
 
 ## Git-backed repository
 
@@ -48,7 +48,7 @@ io.github.carstenartur
 
 The **CR3 ImageIO** library provides Java ImageIO readers and writers for Canon CR3 and uncompressed Bayer DNG. The [ImageIO guide](cr3/imageio.md) describes the supported layouts and write profiles.
 
-The six artifacts below share version `0.1.6` on Maven Central. In this version `ImageIO.read(File)` develops the full-resolution RAW by default. The Git-backed example above selects the archived `0.1.5` release. [ImageIO migration note](cr3/imageio.md)
+The six artifacts below share version `0.1.7` on Maven Central. In this version `ImageIO.read(File)` develops the full-resolution RAW by default. The Git-backed example above selects the archived `0.1.5` release. [ImageIO migration note](cr3/imageio.md)
 
 | Artifact | Purpose |
 |---|---|
@@ -91,7 +91,7 @@ From the repository root, use JDK 25 and Maven 3.9.x. This command generates a t
 bash scripts/run_cr3_central_preflight.sh
 ```
 
-The script derives the candidate version from the root POM's Maven `revision`. Pass a stable version such as `0.1.6` explicitly to preflight that version. The script verifies 24 payloads, their 96 checksums and their 24 detached signatures. It writes `target/cr3-central-preflight/central-bundle.zip`, its SHA-256 digest and the build log, then deletes the temporary keyring and repository. The CR3 Packaged Consumer workflow runs the same preflight for the checked-out candidate version.
+The script derives the candidate version from the root POM's Maven `revision`. Pass a stable version such as `0.1.7` explicitly to preflight that version. The script verifies 24 payloads, their 96 checksums and their 24 detached signatures. It writes `target/cr3-central-preflight/central-bundle.zip`, its SHA-256 digest and the build log, then deletes the temporary keyring and repository. The CR3 Packaged Consumer workflow runs the same preflight for the checked-out candidate version.
 
 With your own signing key, build the bundle directly from Maven. Selecting `central-release` defaults to local bundling. Run Maven in its normal network mode. With `-o`, Maven skips Sonatype’s bundle goal even after all dependencies are cached.
 
@@ -129,7 +129,7 @@ Run from the tagged release checkout with a stable version already set in its PO
 
 Record the deployment ID Maven prints. If a run is interrupted after upload, check the existing deployment before retrying. A published version is immutable.
 
-The **Release Workflow** publishes to Central from its stable `vX.Y.Z` tag. To finish Central publication for an existing release with the current workflow, run **CR3 Maven Central** on `main`, set `existing_tag` to the published GitHub tag (for example `v0.1.6`), and choose `publish`. Running the workflow directly on a stable tag uses the workflow definition at that tag. It verifies the checkout and deploys the signed bundle without changing Git refs or opening a snapshot PR. Select `validate` to upload for approval or `publish` to publish automatically. For a previously validated upload, open the existing deployment in the Portal, check the six coordinates and publish it there.
+The **Release Workflow** publishes to Central from its stable `vX.Y.Z` tag. To finish Central publication for an existing release with the current workflow, run **CR3 Maven Central** on `main`, set `existing_tag` to the published GitHub tag (for example `v0.1.7`), and choose `publish`. Running the workflow directly on a stable tag uses the workflow definition at that tag. It verifies the checkout and deploys the signed bundle without changing Git refs or opening a snapshot PR. Select `validate` to upload for approval or `publish` to publish automatically. For a previously validated upload, open the existing deployment in the Portal, check the six coordinates and publish it there.
 
 Central operations use repository secrets `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `MAVEN_GPG_KEY` and, for an encrypted key, `MAVEN_GPG_PASSPHRASE`. The optional `MAVEN_GPG_FINGERPRINT` maps to the GPG plugin’s fingerprint variable.
 
@@ -137,11 +137,11 @@ The release profile and credential names follow the project’s [jgit-storage-hi
 
 ### Verify the published Central version
 
-From the Photographer checkout, resolve `0.1.6` using a fresh Maven cache and the default Central repository.
+From the Photographer checkout, resolve `0.1.7` using a fresh Maven cache and the default Central repository.
 
 ```bash
 mvn -B -f release/canon-cr3-consumer/pom.xml \
-  "-Dmaven.repo.local=$(mktemp -d)" -Dcr3.version=0.1.6 \
+  "-Dmaven.repo.local=$(mktemp -d)" -Dcr3.version=0.1.7 \
   org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies
 ```
 
@@ -157,7 +157,7 @@ ImageIO integration:
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-imageio</artifactId>
-  <version>0.1.6</version>
+  <version>0.1.7</version>
 </dependency>
 ```
 
@@ -167,7 +167,7 @@ Low-level container access:
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-container</artifactId>
-  <version>0.1.6</version>
+  <version>0.1.7</version>
 </dependency>
 ```
 
@@ -177,4 +177,4 @@ The ImageIO dependency resolves the remaining supported runtime modules transiti
 
 The 0.1.5 archives resolve from the authorized Git-backed repository checkout. An independent consumer started with an empty Maven cache and retrieved all six POMs, runtime JARs, sources and Javadocs. Java 21 discovered the CR3 ImageIO provider from those dependencies. [Pinned Maven tree](https://github.com/carstenartur/Photographer/tree/9af70e857d3f138b2688f377e135e85b850f0c81) · [Checksums and release channels](releases/0.1.5.md#artifact-verification)
 
-[Verify 0.1.6 from Maven Central](#verify-the-published-central-version)
+[Verify 0.1.7 from Maven Central](#verify-the-published-central-version)
