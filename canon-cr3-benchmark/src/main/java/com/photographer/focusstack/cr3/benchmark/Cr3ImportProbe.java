@@ -1,6 +1,7 @@
 package com.photographer.focusstack.cr3.benchmark;
 
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions.MemoryMode;
 import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReadParam;
 import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReader;
@@ -33,16 +34,20 @@ import java.util.Set;
  * comparisons, and fresh processes for first-import latency and attributable peak RSS.
  *
  * <p>Required option: {@code --input FILE}. Optional values are {@code --mode MODE},
- * {@code --warmup N}, {@code --iterations N}, {@code --workers N}, and
- * {@code --dump FILE}. Boolean flags are {@code --checksum} and {@code --gc-between}.
+ * {@code --warmup N}, {@code --iterations N}, {@code --workers N},
+ * {@code --memory-mode AUTO|LOW_MEMORY|FAST}, {@code --orientation 1..8}, and
+ * {@code --dump FILE}. Memory-mode values are case-insensitive.
+ * Boolean flags are {@code --checksum} and {@code --gc-between}.
  * The defaults are mode {@code default}, no warmup, one measured import, and an
- * automatic worker budget (zero).</p>
+ * automatic worker budget (zero), with automatic memory policy and camera orientation.</p>
  *
  * <p>The {@code default} mode calls {@link ImageIO#read(java.io.File)} and keeps
- * its normal options; nonzero {@code --workers} is rejected for this mode.
+ * its normal options; nonzero {@code --workers}, a nonautomatic memory policy,
+ * and orientation overrides are rejected for this mode.
  * {@code rgb8}, {@code rgb16}, and {@code rgb16linear} use an ImageIO reader with
  * explicit processing options. {@code sensor} uses the ImageIO sensor path,
- * while {@code sensor-path} opens the file directly through {@link Cr3Decoder}.</p>
+ * while {@code sensor-path} opens the file directly through {@link Cr3Decoder}.
+ * Both sensor modes preserve sensor orientation and reject orientation overrides.</p>
  */
 public final class Cr3ImportProbe {
     private static final com.sun.management.ThreadMXBean THREADS =
@@ -58,18 +63,13 @@ public final class Cr3ImportProbe {
         Map<String, String> arguments = parseArguments(argv);
         Path file = Path.of(arguments.get("--input"));
         String mode = arguments.getOrDefault("--mode", "default");
-        if (!Set.of("default", "rgb8", "rgb16", "rgb16linear", "sensor", "sensor-path").contains(mode)) {
-            throw new IllegalArgumentException("Unsupported --mode: " + mode
-                    + "; expected default, rgb8, rgb16, rgb16linear, sensor, or sensor-path");
-        }
         int warmup = integerOption(arguments, "--warmup", 0, 0);
         int iterations = integerOption(arguments, "--iterations", 1, 1);
         int workers = integerOption(arguments, "--workers", 0, 0);
+        MemoryMode memoryMode = memoryModeOption(arguments);
+        int orientationOverride = integerOption(arguments, "--orientation", 0, 1);
+        validateReadRequest(mode, workers, memoryMode, orientationOverride);
         boolean checksum = arguments.containsKey("--checksum");
-        if (mode.equals("default") && workers != 0) {
-            throw new IllegalArgumentException("--mode default requires --workers 0; "
-                    + "ImageIO.read(File) uses the reader's automatic worker budget");
-        }
 
         ImageIO.scanForPlugins();
         if (!mode.equals("sensor-path")) {
@@ -83,7 +83,7 @@ public final class Cr3ImportProbe {
             Map<Long, Long> before = allocated();
             long cpuStart = OS.getProcessCpuTime();
             long start = System.nanoTime();
-            BufferedImage image = read(file, mode, workers);
+            BufferedImage image = read(file, mode, workers, memoryMode, orientationOverride);
             long elapsed = System.nanoTime() - start;
             long cpu = OS.getProcessCpuTime() - cpuStart;
             long allocated = allocated().entrySet().stream()
@@ -98,12 +98,13 @@ public final class Cr3ImportProbe {
                 System.out.printf(Locale.ROOT,
                         "{\"engine\":\"Photographer\",\"input\":\"%s\",\"mode\":\"%s\","
                                 + "\"iteration\":%d,\"warmup\":%d,\"workers\":%d,\"available_processors\":%d,"
+                                + "\"requested_memory_mode\":\"%s\",\"orientation_override\":%d,"
                                 + "\"width\":%d,\"height\":%d,\"channels\":%d,\"bits\":%d,"
                                 + "\"total_ms\":%.6f,\"cpu_ms\":%.6f,\"allocated_bytes\":%d,"
                                 + "\"heap_used_bytes\":%d,\"maxrss_kb\":%d,"
                                 + "\"checksum_kind\":\"%s\",\"fnv1a64\":\"%016x\"}%n",
                         escape(file.toString()), mode, iteration, warmup, workers,
-                        Runtime.getRuntime().availableProcessors(),
+                        Runtime.getRuntime().availableProcessors(), memoryMode.name(), orientationOverride,
                         image.getWidth(), image.getHeight(), image.getRaster().getNumBands(),
                         image.getSampleModel().getSampleSize(0),
                         elapsed / 1e6, cpu / 1e6, allocated, heapUsed, maxRss,
@@ -161,7 +162,8 @@ public final class Cr3ImportProbe {
     }
 
     private static Map<String, String> parseArguments(String[] argv) {
-        Set<String> valued = Set.of("--input", "--mode", "--warmup", "--iterations", "--workers", "--dump");
+        Set<String> valued = Set.of("--input", "--mode", "--warmup", "--iterations", "--workers", "--dump",
+                "--memory-mode", "--orientation");
         Map<String, String> arguments = new HashMap<>();
         for (int i = 0; i < argv.length; i++) {
             String key = argv[i];
@@ -202,7 +204,48 @@ public final class Cr3ImportProbe {
         throw new IllegalArgumentException(key + " must be an integer >= " + minimum + ": " + value);
     }
 
+    private static MemoryMode memoryModeOption(Map<String, String> arguments) {
+        String value = arguments.getOrDefault("--memory-mode", "AUTO");
+        try {
+            return MemoryMode.valueOf(value.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("--memory-mode must be AUTO, LOW_MEMORY, or FAST: " + value,
+                    exception);
+        }
+    }
+
+    private static void validateReadRequest(String mode, int workers, MemoryMode memoryMode, int orientationOverride) {
+        if (mode == null || !Set.of("default", "rgb8", "rgb16", "rgb16linear", "sensor", "sensor-path").contains(mode)) {
+            throw new IllegalArgumentException("Unsupported --mode: " + mode
+                    + "; expected default, rgb8, rgb16, rgb16linear, sensor, or sensor-path");
+        }
+        if (workers < 0) {
+            throw new IllegalArgumentException("--workers must be an integer >= 0: " + workers);
+        }
+        if (memoryMode == null) {
+            throw new IllegalArgumentException("--memory-mode must be AUTO, LOW_MEMORY, or FAST");
+        }
+        if (orientationOverride < 0 || orientationOverride > 8) {
+            throw new IllegalArgumentException("--orientation must be an integer from 1 through 8 when specified: "
+                    + orientationOverride);
+        }
+        if (mode.equals("default") && (workers != 0 || memoryMode != MemoryMode.AUTO || orientationOverride != 0)) {
+            throw new IllegalArgumentException("--mode default requires --workers 0, --memory-mode AUTO, "
+                    + "and no --orientation override; ImageIO.read(File) uses the reader's normal options");
+        }
+        if (mode.startsWith("sensor") && orientationOverride != 0) {
+            throw new IllegalArgumentException("--mode " + mode
+                    + " preserves sensor orientation and does not support --orientation overrides");
+        }
+    }
+
     static BufferedImage read(Path file, String mode, int workers) throws Exception {
+        return read(file, mode, workers, MemoryMode.AUTO, 0);
+    }
+
+    static BufferedImage read(Path file, String mode, int workers, MemoryMode memoryMode, int orientationOverride)
+            throws Exception {
+        validateReadRequest(mode, workers, memoryMode, orientationOverride);
         if (mode.equals("default")) {
             BufferedImage image = ImageIO.read(file.toFile());
             if (image == null) {
@@ -212,7 +255,7 @@ public final class Cr3ImportProbe {
         }
         Cr3DecodeOptions options = mode.startsWith("sensor")
                 ? Cr3DecodeOptions.rawSensor() : Cr3DecodeOptions.rawProcessed();
-        options.maxWorkers(workers);
+        options.maxWorkers(workers).memoryMode(memoryMode);
         if (mode.startsWith("rgb16")) {
             options.bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN);
         }
@@ -238,6 +281,16 @@ public final class Cr3ImportProbe {
                 requirePhotographerReader(reader);
                 stream.seek(0);
                 reader.setInput(stream, false, false);
+                if (orientationOverride != 0) {
+                    var cr3 = (CanonCr3ImageReader) reader;
+                    cr3.getImageMetadata(0);
+                    var decoder = cr3.getDecoder();
+                    var metadata = decoder == null ? null : decoder.getMetadata();
+                    if (metadata == null) {
+                        throw new IOException("Cannot override orientation because CR3 metadata is unavailable");
+                    }
+                    metadata.setOrientation(orientationOverride);
+                }
                 var param = new CanonCr3ImageReadParam();
                 param.setDecodeOptions(options);
                 return reader.read(0, param);
