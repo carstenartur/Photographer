@@ -74,7 +74,7 @@ function Timing({ value }) {
   return Number.isFinite(value) ? Math.round(value) + ' ms' : '—';
 }
 
-export default function BirdTriggerPanel() {
+export default function BirdTriggerPanel({ onEventSaved }) {
   const [cameras, setCameras] = useState(null);
   const [cameraError, setCameraError] = useState(null);
   const [selectedCamera, setSelectedCamera] = useState('');
@@ -120,6 +120,11 @@ export default function BirdTriggerPanel() {
   }, [pending]);
 
   useEffect(() => () => command.current?.abort(), []);
+
+  const lastEventId = status?.lastEventId;
+  useEffect(() => {
+    if (lastEventId) onEventSaved?.(lastEventId);
+  }, [lastEventId, onEventSaved]);
 
   const running = status?.running === true;
   const armed = status?.armed === true;
@@ -213,8 +218,8 @@ export default function BirdTriggerPanel() {
             {status?.lastCaptureAt ? (
               <time dateTime={status.lastCaptureAt}>{new Date(status.lastCaptureAt).toLocaleString()}</time>
             ) : '—'}
-            {status?.lastEventId && (
-              <> <Link to={'/observer/events/' + encodeURIComponent(status.lastEventId)}>View observation</Link></>
+            {lastEventId && (
+              <> <Link to={'/observer/events/' + encodeURIComponent(lastEventId)}>View observation</Link></>
             )}
           </dd>
         </div>

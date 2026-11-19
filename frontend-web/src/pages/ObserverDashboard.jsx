@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { getRecentEvents, getSpeciesRanking, getStats, getStatus, getAiProviders } from '../api/observerApi';
 import EventCard from '../components/observer/EventCard';
 import SpeciesChart from '../components/observer/SpeciesChart';
-import ObserverStatusBadge from '../components/observer/ObserverStatusBadge';
 import BirdTriggerPanel from '../components/observer/BirdTriggerPanel';
 
 export default function ObserverDashboard() {
@@ -13,6 +12,7 @@ export default function ObserverDashboard() {
   const [status, setStatus] = useState(null);
   const [aiProviders, setAiProviders] = useState([]);
   const [error, setError] = useState(null);
+  const [lastEventId, setLastEventId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,22 +20,26 @@ export default function ObserverDashboard() {
       getRecentEvents(5),
       getSpeciesRanking(),
       getStats(),
-      getStatus(),
-      getAiProviders(),
-    ]).then(([evtResult, specResult, statsResult, statusResult, aiResult]) => {
+    ]).then(([evtResult, specResult, statsResult]) => {
       if (cancelled) return;
       if (evtResult.status === 'fulfilled') setEvents(evtResult.value || []);
       if (specResult.status === 'fulfilled') setSpecies(specResult.value || []);
       if (statsResult.status === 'fulfilled') setStats(statsResult.value);
-      if (statusResult.status === 'fulfilled') setStatus(statusResult.value);
-      if (aiResult.status === 'fulfilled') setAiProviders(aiResult.value || []);
-      if (
+      const unavailable =
         evtResult.status === 'rejected' &&
         specResult.status === 'rejected' &&
-        statsResult.status === 'rejected'
-      ) {
-        setError('Unable to connect to observer backend.');
-      }
+        statsResult.status === 'rejected';
+      setError(unavailable ? 'Unable to connect to observer backend.' : null);
+    });
+    return () => { cancelled = true; };
+  }, [lastEventId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([getStatus(), getAiProviders()]).then(([statusResult, aiResult]) => {
+      if (cancelled) return;
+      if (statusResult.status === 'fulfilled') setStatus(statusResult.value);
+      if (aiResult.status === 'fulfilled') setAiProviders(aiResult.value || []);
     });
     return () => { cancelled = true; };
   }, []);
@@ -44,12 +48,11 @@ export default function ObserverDashboard() {
     <div className="page">
       <div className="page-header">
         <h1>Wildlife Observer</h1>
-        <ObserverStatusBadge status={status} />
       </div>
 
       {error && <p className="error">{error}</p>}
 
-      <BirdTriggerPanel />
+      <BirdTriggerPanel onEventSaved={setLastEventId} />
 
       <section className="status-summary">
         <h2>Overview</h2>
@@ -65,14 +68,12 @@ export default function ObserverDashboard() {
             <p className="card-label">identified</p>
           </div>
           <div className="card">
-            <h3>Profile</h3>
+            <h3>Default profile</h3>
             <p className="card-value">{status?.defaultProfile ?? '—'}</p>
-            <p className="card-label">active profile</p>
           </div>
           <div className="card">
-            <h3>AI Provider</h3>
+            <h3>Default AI provider</h3>
             <p className="card-value">{status?.preferredAiProvider ?? '—'}</p>
-            <p className="card-label">classification engine</p>
           </div>
         </div>
       </section>

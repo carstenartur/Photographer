@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ObserverDashboard from '../../pages/ObserverDashboard';
@@ -55,7 +55,7 @@ function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status });
 }
 
-function mockServer({ initial = STOPPED, onStatus } = {}) {
+function mockServer({ initial = STOPPED, onStatus, onOverview } = {}) {
   let status = initial;
   const writes = [];
   const fetcher = vi.fn(async (url, options) => {
@@ -68,6 +68,7 @@ function mockServer({ initial = STOPPED, onStatus } = {}) {
       else status = { ...RUNNING, ...body };
       return json(status);
     }
+    if (onOverview) return onOverview(url);
     if (url === '/api/v1/observer/stats' || url === '/api/v1/observer/status') return json({});
     return json([]);
   });
@@ -86,6 +87,42 @@ afterEach(() => {
 });
 
 describe('Observer live bird controls', () => {
+  it('shows the live state and refreshes the dashboard once per saved observation', async () => {
+    vi.useFakeTimers();
+    const event = { id: 'bird-visit', state: 'COMPLETED', aiResult: { primaryLabel: 'bird' } };
+    let captured = false;
+    const { fetcher } = mockServer({
+      initial: { ...RUNNING, armed: true },
+      onStatus: (status) => json({ ...status, lastEventId: captured ? event.id : null }),
+      onOverview(url) {
+        if (url === '/api/v1/observer/status') {
+          return json({ enabled: false, defaultProfile: 'birdhouse', preferredAiProvider: 'mock' });
+        }
+        if (url === '/api/v1/observer/stats') return json({ totalEvents: captured ? 1 : 0, totalSpecies: 0 });
+        if (url === '/api/v1/observer/events?limit=5' && captured) return json([event]);
+        return json([]);
+      },
+    });
+    renderObserver();
+    await act(async () => {});
+
+    expect(screen.getByText('Automatic capture armed')).toBeInTheDocument();
+    expect(screen.queryByText('Inactive')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('heading', { name: 'Default profile' }).parentElement).getByText('birdhouse')).toBeInTheDocument();
+    expect(within(screen.getByRole('heading', { name: 'Default AI provider' }).parentElement).getByText('mock')).toBeInTheDocument();
+    const eventTotal = within(screen.getByRole('heading', { name: 'Events', exact: true }).parentElement);
+    expect(eventTotal.getByText('0')).toBeInTheDocument();
+
+    captured = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+
+    expect(eventTotal.getByText('1')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /bird/i })).toHaveAttribute('href', '/observer/events/bird-visit');
+    expect(fetcher.mock.calls.filter(([url]) => url === '/api/v1/observer/events?limit=5')).toHaveLength(2);
+    expect(fetcher.mock.calls.filter(([url]) => url === '/api/v1/observer/stats')).toHaveLength(2);
+    expect(fetcher.mock.calls.filter(([url]) => url === '/api/v1/observer/status')).toHaveLength(1);
+  });
+
   it('starts a selected camera in preview and requires an explicit action to arm capture', async () => {
     const { writes } = mockServer();
     renderObserver();
