@@ -4,7 +4,7 @@ import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
 import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessEncoder;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
@@ -24,8 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class Cr3CompactDevelopmentTest {
     @ParameterizedTest
-    @ValueSource(ints = {5, 7})
-    void rgb16MatchesPublicIntPreparationWithMaskedRowsOutsideTheCrop(int blackColumns) throws Exception {
+    @CsvSource({"5, FAST", "5, LOW_MEMORY", "7, FAST", "7, LOW_MEMORY"})
+    void rgb16MatchesPublicIntPreparationWithMaskedRowsOutsideTheCrop(
+            int blackColumns, Cr3DecodeOptions.MemoryMode memoryMode) throws Exception {
         byte[] cr3 = sensorFile(blackColumns);
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(cr3));
              var decoder = new Cr3Decoder()) {
@@ -52,7 +53,7 @@ class Cr3CompactDevelopmentTest {
 
                 for (boolean srgb : new boolean[]{false, true}) {
                     var options = Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
-                            .applySrgbConversion(srgb).maxWorkers(4);
+                            .applySrgbConversion(srgb).maxWorkers(4).memoryMode(memoryMode);
                     var expected = BayerDemosaicer.develop16(prepared.image(), prepared.blackLevel(),
                             prepared.sensorX(), prepared.sensorY(), prepared.whiteBalance(), prepared.whiteLevel(),
                             prepared.colorMatrix(), new Rectangle(prepared.image().width(), prepared.image().height()),

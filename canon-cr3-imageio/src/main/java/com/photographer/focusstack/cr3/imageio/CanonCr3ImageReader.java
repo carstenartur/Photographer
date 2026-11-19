@@ -165,7 +165,7 @@ public class CanonCr3ImageReader extends ImageReader {
             case RAW_SENSOR, RAW_LINEAR -> requested;
             case PREVIEW, THUMBNAIL, RAW_PROCESSED -> Cr3DecodeOptions.rawLinear()
                     .cropToActiveArea(requested.cropToActiveArea()).applyBlackLevel(requested.applyBlackLevel())
-                    .maxWorkers(requested.maxWorkers());
+                    .maxWorkers(requested.maxWorkers()).memoryMode(requested.memoryMode());
         };
     }
 

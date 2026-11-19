@@ -32,6 +32,7 @@ public final class Cr3DecodeOptions {
         copy.pedestalStrategy = pedestalStrategy;
         copy.experimentalPedestalLevel = experimentalPedestalLevel;
         copy.maxWorkers = maxWorkers;
+        copy.memoryMode = memoryMode;
         return copy;
     }
 
@@ -62,6 +63,16 @@ public final class Cr3DecodeOptions {
         SIXTEEN
     }
 
+    /** Memory/speed trade-off for RAW reads; image resolution and sample precision are unchanged. */
+    public enum MemoryMode {
+        /** Select compact, sequential processing when estimated heap headroom is tight. */
+        AUTO,
+        /** Always use compact, sequential processing and report the choice to stderr. */
+        LOW_MEMORY,
+        /** Retain normal parallel processing without automatic memory adaptation. */
+        FAST
+    }
+
     /** Strategy for resolving pedestal / black-level subtraction. */
     public enum PedestalStrategy {
         /** Use the decoder's default resolver (OB -> metadata -> fallback). */
@@ -86,6 +97,24 @@ public final class Cr3DecodeOptions {
     private PedestalStrategy pedestalStrategy = PedestalStrategy.DEFAULT;
     private int experimentalPedestalLevel = 0;
     private int maxWorkers;
+    private MemoryMode memoryMode = MemoryMode.AUTO;
+
+    /** Returns the RAW memory policy, automatic by default. */
+    public MemoryMode memoryMode() { return memoryMode; }
+
+    /**
+     * Selects the RAW memory policy for this read. Low-memory processing uses one worker
+     * and avoids full-frame orientation copies for owned RGB images. It may be slower.
+     * Automatic selection is based on a heap snapshot; concurrent allocations and the
+     * unavoidable final image storage can still exhaust memory. Preview reads are unaffected.
+     *
+     * @param mode memory policy (not null)
+     * @return these options
+     */
+    public Cr3DecodeOptions memoryMode(MemoryMode mode) {
+        memoryMode = java.util.Objects.requireNonNull(mode, "Memory mode must not be null");
+        return this;
+    }
 
     /** Maximum workers per RAW stage, or zero to use the processor count available to the JVM. */
     public int maxWorkers() { return maxWorkers; }

@@ -91,6 +91,58 @@ var patch = decoder.decodeRawRegion(sensor, region, 1, 1);
 int topLeft = patch.getRaster().getSample(0, 0, 0);
 ```
 
+## Limited heap (0.1.8-SNAPSHOT)
+
+RAW reads use `MemoryMode.AUTO` by default. Before allocating image storage, the
+decoder estimates the normal path's image and working buffers against the
+currently available Java heap, leaving a reserve for other allocations. When
+headroom is tight it uses one worker and compact processing of owned full-frame
+RGB images. Crop, orientation, calibration, resolution, color encoding and sample
+precision stay the same. Selecting this path writes one line beginning
+`CR3 low-memory:` to **stderr** for that read. Preview and thumbnail reads do not
+use this policy.
+
+For full RGB16 images, compact processing develops the unrotated image while
+reusing the Bayer storage as its green channel, then rearranges all channel
+samples in place. RGB8 similarly retains its packed pixel array. EXIF rotations
+that exchange the axes use one extra bit per pixel to track the rearrangement;
+flips and 180-degree rotation need constant extra space. The extra pass and
+sequential execution can increase import time. Partial RGB reads and Bayer reads
+reduce worker scratch but retain their existing output-storage layouts.
+
+| Complete output | Unavoidable pixel-array payload |
+| --- | ---: |
+| Unsigned-short Bayer | 2 bytes per pixel |
+| Packed RGB8 | 4 bytes per pixel |
+| Three-channel RGB16 | 6 bytes per pixel |
+
+These payloads exclude metadata, row buffers, JVM overhead and other images held
+by the application. For a full RGB16 image with a transposed EXIF orientation,
+compact processing reduces the principal simultaneous image storage from about
+8 to 6.125 bytes per pixel. Identity-oriented RGB16 already uses 6 bytes per
+pixel in the normal path; the additional saving there is limited to working
+buffers. The final output must still fit. Heap headroom is a snapshot, so
+concurrent imports, host allocations and caller-owned input-stream caches can
+still exhaust memory. The policy does not reserve heap or retry after an
+`OutOfMemoryError`.
+
+To explicitly select the memory trade-off with a local 0.1.8-SNAPSHOT build:
+
+```java
+var options = Cr3DecodeOptions.rawProcessed()
+        .bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
+        .memoryMode(Cr3DecodeOptions.MemoryMode.LOW_MEMORY);
+```
+
+`LOW_MEMORY` always chooses that path and reports it to stderr. `FAST` retains
+normal processing without automatic adaptation, useful for controlled
+comparisons. `AUTO` is suitable for ordinary imports. In ImageIO, set the same
+policy through `param.getDecodeOptions().memoryMode(...)`; it also carries
+through destination-type negotiation and `readRaster`. A caller's options and
+worker limit are preserved: any automatic reduction applies only to the current
+read. A compatible ImageIO destination type can reuse the already produced
+image, avoiding an additional complete pixel copy.
+
 ## Copy the camera's embedded JPEG unchanged
 
 Use this when you need the original compressed preview bytes. Decoding the preview and then writing it with a JPEG writer would encode it again. The following standalone program needs only `io.github.carstenartur:cr3-container` at the same version, which is also available through either dependency above.
