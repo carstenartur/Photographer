@@ -45,6 +45,7 @@ class CanonCr3DestinationTest {
                     assertSame(target, image);
                 }
                 assertEquals(type.getColorModel(), image.getColorModel());
+                assertEquals(type.getSampleModel(image.getWidth(), image.getHeight()), image.getSampleModel());
                 assertEquals(type.getSampleModel().getDataType(), image.getRaster().getDataBuffer().getDataType());
                 if (image.getRaster().getTransferType() == DataBuffer.TYPE_USHORT) {
                     // Known four-site development with fractional gains; see Cr3DecoderTest's numeric derivation.
@@ -57,6 +58,30 @@ class CanonCr3DestinationTest {
                     assertTrue(cr3.getDecodeOptions().applySrgbConversion());
                 }
             }
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @Test
+    void aDifferentRgb16DestinationLayoutStillReceivesAllSamples() throws Exception {
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(fourSites()))) {
+            reader.setInput(input);
+            var param = reader.getDefaultReadParam();
+            param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                    .applyBlackLevel(false).applyWhiteBalance(false).applyColorMatrix(false).applySrgbConversion(false));
+            var interleaved = ImageTypeSpecifier.createInterleaved(ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB),
+                    new int[]{0, 1, 2}, DataBuffer.TYPE_USHORT, false, false);
+            param.setDestinationType(interleaved);
+
+            BufferedImage image = reader.read(0, param);
+
+            assertEquals(interleaved.getSampleModel(2, 2), image.getSampleModel());
+            assertArrayEquals(new int[]{
+                    32770, 32770, 32778, 32770, 32774, 32778,
+                    32770, 32765, 32778, 32770, 32770, 32778},
+                    image.getRaster().getPixels(0, 0, 2, 2, (int[]) null));
         } finally {
             reader.dispose();
         }

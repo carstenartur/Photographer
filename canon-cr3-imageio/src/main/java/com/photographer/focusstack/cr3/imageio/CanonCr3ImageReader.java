@@ -309,9 +309,14 @@ public class CanonCr3ImageReader extends ImageReader {
         Rectangle destRegion = regions.destination();
         int[] sourceBands = param.getSourceBands();
         int[] destBands = param.getDestinationBands();
-        if (param.getDestination() == null && param.getDestinationType() == null
+        ImageTypeSpecifier requested = param.getDestinationType();
+        if (param.getDestination() == null
                 && sourceBands == null && destBands == null
-                && sourceRegion.equals(decoded.getRaster().getBounds()) && destRegion.equals(sourceRegion)) {
+                && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
+                && sourceRegion.equals(decoded.getRaster().getBounds()) && destRegion.equals(sourceRegion)
+                // Advertised types may use a 1x1 model; compare the layout at the decoded size.
+                && (requested == null || requested.getColorModel().equals(decoded.getColorModel())
+                && requested.getSampleModel(decoded.getWidth(), decoded.getHeight()).equals(decoded.getSampleModel()))) {
             return decoded;
         }
 
