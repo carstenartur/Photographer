@@ -29,7 +29,7 @@ The screenshot uses **Image › Adjust › Brightness/Contrast... › Set** with
 | **CR3 Color Image...** (development) | Three demosaiced, color-processed values per output pixel, quantized to 16 bits per channel. |
 | Camera JPEG (script) | The camera's rendered, 8-bit-per-channel preview, when present. |
 
-**Stable 0.1.7.** The [hosted Groovy example](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) for this release offers camera JPEG and 8-bit developed RGB.
+**Stable 0.1.7.** The [version 0.1.7 guide](https://github.com/carstenartur/Photographer/blob/v0.1.7/docs/cr3/fiji-update-site.md#open-a-color-image) contains the complete Groovy example for camera JPEG and 8-bit developed RGB. The [hosted script download](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) follows the version published on the update site.
 
 **Development builds.** Open the [16-bit Groovy example](../../cr3-imagej/examples/open-cr3-color.groovy) in Fiji's Script Editor and select **Groovy**. Run it, choose a CR3 and select **Develop RAW to 16-bit RGB** for the three-channel composite. Leave that option cleared to open the camera JPEG. The development update-site ZIP includes this script as `open-cr3-color.groovy` at the site root.
 

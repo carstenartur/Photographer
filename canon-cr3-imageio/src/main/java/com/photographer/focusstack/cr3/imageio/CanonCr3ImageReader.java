@@ -261,17 +261,23 @@ public class CanonCr3ImageReader extends ImageReader {
             return;
         }
         var model = supplied != null ? supplied.getSampleModel() : requested.getSampleModel();
+        var color = supplied != null ? supplied.getColorModel() : requested.getColorModel();
         checkReadParamBandSettings(param, 3, model.getNumBands());
         int[] bands = param.getDestinationBands();
-        for (int i = 0; i < (bands == null ? model.getNumBands() : bands.length); i++) {
-            if (model.getDataType() != DataBuffer.TYPE_USHORT || model.getSampleSize(bands == null ? i : bands[i]) != 16) {
-                throw new IIOException("Developed RGB requires unsigned 16-bit destination bands");
+        int count = bands == null ? model.getNumBands() : bands.length;
+        boolean fullRgb = count == 3 && (bands == null || color.getNumColorComponents() == 3);
+        for (int i = 0; i < count; i++) {
+            int band = bands == null ? i : bands[i];
+            if (model.getDataType() != DataBuffer.TYPE_USHORT || model.getSampleSize(band) != 16
+                    || band >= color.getNumComponents() || color.getComponentSize(band) != 16) {
+                throw new IIOException("Developed RGB requires unsigned 16-bit destination components");
+            }
+            if (bands != null && band >= color.getNumColorComponents()) {
+                fullRgb = false; // Explicit mapping into alpha also acts as a sample copy.
             }
         }
-        // A requested full RGB image must label its samples with the selected transfer curve.
-        if (supplied == null && bands == null && param.getSourceBands() == null
-                && !requested.getColorModel().getColorSpace().equals(
-                        (options.applySrgbConversion() ? SRGB16 : LINEAR_RGB16).getColorModel().getColorSpace())) {
+        var encoding = options.applySrgbConversion() ? SRGB16 : LINEAR_RGB16;
+        if (fullRgb && !color.getColorSpace().equals(encoding.getColorModel().getColorSpace())) {
             throw new IIOException("Destination color space is incompatible with the selected RGB encoding");
         }
     }

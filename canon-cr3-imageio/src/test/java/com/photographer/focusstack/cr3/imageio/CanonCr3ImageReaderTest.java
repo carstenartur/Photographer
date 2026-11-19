@@ -7,6 +7,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
@@ -17,8 +19,10 @@ import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.Transparency;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
@@ -326,6 +330,52 @@ class CanonCr3ImageReaderTest {
                         assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IIOException.class);
                         assertThat(target.getRaster().getPixels(0, 0, 2, 2, (int[]) null)).containsExactly(before);
                     }
+                }
+            } finally {
+                reader.dispose();
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void rejectsLinearTargetsForFullSrgbSamples(boolean suppliedImage) throws Exception {
+            var type = ImageTypeSpecifier.createBanded(ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB),
+                    new int[]{0, 1, 2}, new int[3], DataBuffer.TYPE_USHORT, false, false);
+            assertRejectedSrgbTarget(type, suppliedImage, null);
+            assertRejectedSrgbTarget(type, suppliedImage, new int[]{0, 1, 2});
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void rejectsEightSignificantBitsInSelectedUshortComponents(boolean suppliedImage) throws Exception {
+            var color = new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_sRGB),
+                    new int[]{16, 8, 16}, false, false, Transparency.OPAQUE, DataBuffer.TYPE_USHORT);
+            var type = new ImageTypeSpecifier(color, color.createCompatibleSampleModel(2, 2));
+            assertRejectedSrgbTarget(type, suppliedImage, new int[]{1});
+            assertRejectedSrgbTarget(type, suppliedImage, null);
+        }
+
+        private void assertRejectedSrgbTarget(ImageTypeSpecifier type, boolean suppliedImage, int[] selectedBands)
+                throws Exception {
+            var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+            try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
+                 var input = new MemoryCacheImageInputStream(fixture)) {
+                reader.setInput(input);
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN));
+                param.setSourceBands(selectedBands);
+                param.setDestinationBands(selectedBands);
+                var target = type.createBufferedImage(2, 2);
+                int[] before = {19, 47, 80, 33, 55, 77, 11, 34, 100, 3, 4, 5};
+                if (suppliedImage) {
+                    target.getRaster().setPixels(0, 0, 2, 2, before);
+                    param.setDestination(target);
+                } else {
+                    param.setDestinationType(type);
+                }
+                assertThatThrownBy(() -> reader.read(0, param)).isInstanceOf(IIOException.class);
+                if (suppliedImage) {
+                    assertThat(target.getRaster().getPixels(0, 0, 2, 2, (int[]) null)).containsExactly(before);
                 }
             } finally {
                 reader.dispose();
