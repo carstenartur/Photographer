@@ -2,6 +2,11 @@
 
 All ten headless imports passed on Java 21. The checks called `Cr3SensorImporter.open(Path)` and `Cr3ColorImporter.open(Path)` from the **installed 0.1.8-SNAPSHOT plugin**. The six CR3 libraries and the plugin JAR matched the seven entries in the install ZIP byte for byte. The candidate was built in documentation checkout `c09b70b`; its runtime source and package inputs match public commit `e370faa130ad33a611535fbff2fe4373ddd580a1`. [Source revision](https://github.com/carstenartur/Photographer/tree/e370faa130ad33a611535fbff2fe4373ddd580a1)
 
+The same ten cases also passed with the **published 0.1.8 release** installed
+from its GitHub ZIP. The released JARs, public update channel and preserved
+updater history were verified after publication. See
+[Published release verification](#published-release-verification) below.
+
 | Input | Sensor dimensions | Sensor FNV-1a-64 | Color dimensions | Color FNV-1a-64 |
 | --- | ---: | --- | ---: | --- |
 | PowerShot G5 X Mark II RAW | 5632 × 3710 | `bbb2c3b2ecb4e45b` | 5496 × 3668 | `482d0cb8385a95c5` |
@@ -73,3 +78,54 @@ The updater installed and verified seven JARs. Both candidate ZIPs contained
 identical current JAR bytes, and the update-site ZIP preserved all 28 historical
 JAR payloads and the preceding updater records. The seven previously current
 0.1.7 JAR entries became historical versions with unchanged checksums.
+
+## Published release verification
+
+After [0.1.8 was published](https://github.com/carstenartur/Photographer/releases/tag/v0.1.8),
+both Fiji ZIPs were downloaded anonymously and checked against their GitHub
+asset SHA-256 digests. The stable commit is
+[`20ca2d0`](https://github.com/carstenartur/Photographer/commit/20ca2d01ec07964abd076d80ae6d38fcc711c780);
+its parent is the verified release source `d027bdb`. Only the reactor POMs
+changed when Maven prepared the stable version.
+
+| Released archive | SHA-256 |
+| --- | --- |
+| `cr3-fiji-install.zip` | `6dd55d4fb19c5da50ab782c921e55746f74bdacf68b625f2ad8a11a143e5440f` |
+| `cr3-fiji-update-site.zip` | `3e849dc71059e7a3a05547f4c21dba17caaa24a9984dabf3892391a4fe1f7654` |
+
+The anonymous update-site downloads matched the archive byte for byte: the
+database, `version.txt` identifying `0.1.8`, all seven current JARs and the
+Groovy color example. All 28 JAR payloads from the preceding 0.1.7 site were
+preserved with their updater checksums and bytes unchanged. The new database
+contains 35 current and historical payloads in total.
+
+All **185 class files** across the released JARs are byte-identical to the
+candidate used for the menu and display checks above. Within the seven runtime
+JARs, only packaged guides and release metadata differ. The released install ZIP
+was applied to a separate Fiji installation, and `run_checks.py` passed all ten
+cases in fresh Java 21 JVMs. Dimensions and full-image fingerprints matched the
+table, and channel counts and sample depths matched the results described above.
+The two constrained-heap imports again
+emitted exactly one compact-mode message each, selecting one worker.
+
+The graphical checks used the candidate; the stable release was verified by
+these independent headless replays and the class-file comparison. The
+[release verification record](release-validation.json) contains the downloaded
+file digests, archive comparisons, runtime details and individual replay results.
+
+### Standalone Maven Central example
+
+The [standalone example](../imageio.md#run-the-minimal-example) was also built
+with its default `cr3.version=0.1.8` and an initially empty Maven cache. Maven
+3.9.11 on JDK 25 compiled the example for Java 21 and resolved all six released
+CR3 libraries from Maven Central. The six JARs and six POMs matched independent
+anonymous HTTPS downloads byte for byte. Running the example with `sample.cr3`
+on Java 21 returned exit code zero and the documented output:
+
+```text
+5632 x 3710 Bayer mosaic, 1584 distinct sensor values, maximum 3512
+```
+
+The `central_example` section of [the verification record](release-validation.json)
+contains the source and input digests, public artifact URLs and checksums, Maven
+repository identifiers, runtime and reproducible commands.

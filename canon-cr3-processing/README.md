@@ -29,7 +29,7 @@ and prevents image-quality changes from being mixed into codec experiments.
 
 The module split preserved the existing processing classes, their package names
 and the default eight-bit rendering behavior. The opt-in 16-bit RGB development
-path added in 0.1.8-SNAPSHOT keeps fractional values through the enabled processing
+path added in 0.1.8 keeps fractional values through the enabled processing
 stages and quantizes once into three unsigned-short planes. Its row buffers are
 bounded by image width and worker count, and it writes directly into the requested
 oriented output region. The color model describes sRGB or linear RGB according to

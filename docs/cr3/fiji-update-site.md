@@ -21,21 +21,21 @@ The screenshot uses **Image › Adjust › Brightness/Contrast... › Set** with
 
 ## Open a color image
 
-**Development (0.1.8-SNAPSHOT, planned for the next release).** Choose **File › Import › CR3 Color Image...** to develop a [supported RAW or C-RAW file](decoder.md). Fiji opens an RGB composite with three unsigned 16-bit channels. The importer crops to the active area, applies EXIF orientation and develops to sRGB. Each channel starts with the same 0–65535 display range. The rendering is experimental. For the camera's own rendering, choose the embedded JPEG in the script below.
+With **0.1.8 or later**, choose **File › Import › CR3 Color Image...** to develop a [supported RAW or C-RAW file](decoder.md). Fiji opens an RGB composite with three unsigned 16-bit channels. The importer crops to the active area, applies EXIF orientation and develops to sRGB. Each channel starts with the same 0–65535 display range. The rendering is experimental. For the camera's own rendering, choose the embedded JPEG in the script below.
 
 | Import | Pixel values |
 | --- | --- |
 | **CR3 Sensor Data...** | One original camera code per Bayer site, including margins. A 14-bit code of 2857 stays 2857 in the 16-bit plane. |
-| **CR3 Color Image...** (development) | Three demosaiced, color-processed values per output pixel, quantized to 16 bits per channel. |
+| **CR3 Color Image...** (0.1.8+) | Three demosaiced, color-processed values per output pixel, quantized to 16 bits per channel. |
 | Camera JPEG (script) | The camera's rendered, 8-bit-per-channel preview, when present. |
 
-**Stable 0.1.7.** The [version 0.1.7 guide](https://github.com/carstenartur/Photographer/blob/v0.1.7/docs/cr3/fiji-update-site.md#open-a-color-image) contains the complete Groovy example for camera JPEG and 8-bit developed RGB. The [hosted script download](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) follows the version published on the update site.
-
-**Development builds.** Open the [16-bit Groovy example](../../cr3-imagej/examples/open-cr3-color.groovy) in Fiji's Script Editor and select **Groovy**. Run it, choose a CR3 and select **Develop RAW to 16-bit RGB** for the three-channel composite. Leave that option cleared to open the camera JPEG. The development update-site ZIP includes this script as `open-cr3-color.groovy` at the site root.
+Open the [Groovy example](../../cr3-imagej/examples/open-cr3-color.groovy) in Fiji's Script Editor and select **Groovy**. Run it, choose a CR3 and select **Develop RAW to 16-bit RGB** for the three-channel composite. Leave that option cleared to open the camera JPEG. The update-site ZIP includes `open-cr3-color.groovy` at its root. The [hosted script](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) follows the version on the update site. For an installation pinned to 0.1.7, use the [0.1.7 JPEG and RGB8 script](https://github.com/carstenartur/Photographer/blob/v0.1.7/docs/cr3/fiji-update-site.md#open-a-color-image).
 
 For byte-preserving JPEG extraction in Java, use the [embedded-preview extractor](import.md#copy-the-cameras-embedded-jpeg-unchanged). The [ImageIO guide](imageio.md#read-parameters) describes the development controls.
 
-## Opening large captures in 0.1.8 development builds
+<a id="opening-large-captures-in-018-development-builds"></a>
+
+## Opening large captures
 
 Both RAW commands use automatic heap planning. When the normal path fits the estimate, the decoder uses it. With limited headroom, the sensor importer keeps its single dense 16-bit plane and reduces worker workspace; the RGB16 importer can also use compact development and in-place orientation. The worker limit follows the estimated budget. A line beginning `CR3 low-memory:` appears **once per compact read on standard error**. Launching Fiji from a terminal makes this diagnostic visible. If even the one-worker estimate exceeds the budget, the decoder attempts the smallest configuration with one worker. The estimate is advisory and the final image must still fit. Successful compact reads keep the full resolution and sample precision.
 
