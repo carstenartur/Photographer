@@ -1,0 +1,96 @@
+diff --git a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java
+index a2c35a5..d45a4b2 100644
+--- a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java
++++ b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java
+@@ -44,6 +44,7 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
+     public void read(int[] output) throws IOException {
+         // The left state belongs to this row. Above and aboveRight still belong to the previous row.
+         // The guard uses quantized coefficients even when dequantization maps them to zero.
++        boolean boundedFactor = factor <= CrxWaveletTile.MAX_BOUNDED_DETAIL_FACTOR;
+         int x = 0;
+         int k = state.k();
+         int left = 0;
+@@ -66,11 +67,18 @@ final class CrxWaveletDetail implements CrxWaveletTile.RowReader {
+             }
+             int symbol = (code >>> CrxEntropyState.RICE_WIDTH_BITS) + (guard ? 1 : 0);
+             int coefficient = (symbol >>> 1) ^ -(symbol & 1);
+-            long expanded = (long) coefficient * factor;
+-            if (expanded < Integer.MIN_VALUE || expanded > Integer.MAX_VALUE) {
+-                throw new IOException("CRX dequantized detail coefficient exceeds the signed integer range");
++            if (boundedFactor) {
++                // A Rice symbol is at most 21 bits, including the escape literal. The guard
++                // can add one, so signed mapping yields at most +/-2^20. Factors 0..64
++                // therefore produce at most +/-2^26, including both signed endpoints.
++                output[x] = coefficient * factor;
++            } else {
++                long expanded = (long) coefficient * factor;
++                if (expanded < Integer.MIN_VALUE || expanded > Integer.MAX_VALUE) {
++                    throw new IOException("CRX dequantized detail coefficient exceeds the signed integer range");
++                }
++                output[x] = (int) expanded;
+             }
+-            output[x] = (int) expanded;
+             k = code & CrxEntropyState.MAX_RICE_WIDTH;
+             if (k + 1 < (aboveRight & CrxEntropyState.MAX_RICE_WIDTH)) {
+                 k++;
+diff --git a/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetailTest.java b/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetailTest.java
+index eb1206f..611eee8 100644
+--- a/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetailTest.java
++++ b/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetailTest.java
+@@ -9,6 +9,47 @@ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.assertj.core.api.Assertions.assertThatThrownBy;
+ 
+ class CrxWaveletDetailTest {
++    // A zero run flag, 41 zero quotient bits plus its terminator, then a 21-bit literal.
++    // The guard adds one to that literal before signed mapping. The second coefficient is zero.
++    private static final byte[] POSITIVE_LIMIT = HexFormat.of().parseHex("00000000003fffff80");
++    private static final byte[] NEGATIVE_LIMIT = HexFormat.of().parseHex("00000000003ffffe80");
++
++    @Test
++    void dequantizesTheGuardedSignedCoefficientLimitsAcrossTheBoundedFactorRange() throws IOException {
++        int[][] cases = {{0, 0}, {1, 1048576}, {4, 4194304}, {63, 66060288}, {64, 67108864}};
++        for (int[] sample : cases) {
++            int factor = sample[0];
++            int expanded = sample[1];
++            assertThat(decode(POSITIVE_LIMIT, 0, POSITIVE_LIMIT.length, 2, 1, factor))
++                    .containsExactly(expanded, 0);
++            assertThat(decode(NEGATIVE_LIMIT, 0, NEGATIVE_LIMIT.length, 2, 1, factor))
++                    .containsExactly(-expanded, 0);
++        }
++        // Without a run flag the largest positive signed value is one smaller.
++        byte[] unguarded = HexFormat.of().parseHex("00000000007ffffc");
++        assertThat(decode(unguarded, 0, unguarded.length, 1, 1, 64)).containsExactly(67108800);
++    }
++
++    @Test
++    void largerFactorsKeepCheckedIntegerBoundariesAndRejectBothOverflowSigns() throws IOException {
++        assertThat(decode(POSITIVE_LIMIT, 0, POSITIVE_LIMIT.length, 2, 1, 65))
++                .containsExactly(68157440, 0);
++        assertThat(decode(NEGATIVE_LIMIT, 0, NEGATIVE_LIMIT.length, 2, 1, 65))
++                .containsExactly(-68157440, 0);
++        assertThat(decode(POSITIVE_LIMIT, 0, POSITIVE_LIMIT.length, 2, 1, 2047))
++                .containsExactly(2146435072, 0);
++        assertThat(decode(NEGATIVE_LIMIT, 0, NEGATIVE_LIMIT.length, 2, 1, 2048))
++                .containsExactly(Integer.MIN_VALUE, 0);
++        assertThat(decode(new byte[]{0x20}, 0, 1, 1, 1, Integer.MAX_VALUE)).containsExactly(Integer.MAX_VALUE);
++        assertThat(decode(new byte[]{0x40}, 0, 1, 1, 1, Integer.MAX_VALUE)).containsExactly(-Integer.MAX_VALUE);
++        assertThat(decode(new byte[]{(byte) 0x80}, 0, 1, 1, 1, Integer.MAX_VALUE)).containsExactly(0);
++
++        assertThatThrownBy(() -> decode(POSITIVE_LIMIT, 0, POSITIVE_LIMIT.length, 2, 1, 2048))
++                .isInstanceOf(IOException.class).hasMessageContaining("coefficient");
++        assertThatThrownBy(() -> decode(NEGATIVE_LIMIT, 0, NEGATIVE_LIMIT.length, 2, 1, 2049))
++                .isInstanceOf(IOException.class).hasMessageContaining("coefficient");
++    }
++
+     @Test
+     void readsRunsTheirInterruptionsAndSignedDetailCoefficients() throws IOException {
+         byte[] data = HexFormat.of().parseHex("ab841ccc52bcfe0671a0cd");
+@@ -41,6 +82,8 @@ class CrxWaveletDetailTest {
+                 .isInstanceOf(IOException.class);
+         assertThatThrownBy(() -> decode(data, 0, 1, Integer.MAX_VALUE, 10, 1))
+                 .isInstanceOf(IOException.class);
++        assertThatThrownBy(() -> decode(data, 0, data.length, 1, 1, -1))
++                .isInstanceOf(IOException.class).hasMessageContaining("factor");
+     }
+     private static int[] decode(byte[] data, int offset, int length, int width, int height, int factor)
+             throws IOException {

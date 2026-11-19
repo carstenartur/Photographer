@@ -82,6 +82,11 @@ This produces `canon-cr3-benchmark/target/benchmarks.jar`.
 
 ## Run
 
+For complete file imports with explicit memory-policy and EXIF-orientation
+controls, see the [public import probe](../scripts/benchmarks/README.md).
+The [adaptive-memory study](../docs/cr3/memory-2026-11-19/README.md) records
+equal-heap timing/RSS comparisons and separate constrained-heap checks.
+
 The runtime resolves CR3 fixtures in this order:
 
 1. `-Dsamples.dir=...` system property;
