@@ -148,6 +148,13 @@
             <artifactId>cr3-imageio</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.github.carstenartur</groupId>
+            <artifactId>cr3-container</artifactId>
+            <version>${revision}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>

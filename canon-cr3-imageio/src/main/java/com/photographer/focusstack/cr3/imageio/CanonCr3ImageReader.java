@@ -209,7 +209,7 @@ public class CanonCr3ImageReader extends ImageReader {
             return readBayerImage(imageIndex, options, param);
         }
         if (options.outputMode() == OutputMode.RAW_PROCESSED) {
-            return readProcessedImage(imageIndex, options, param);
+            return readProcessedImage(imageIndex, negotiateRgbDestination(options, param), param);
         }
         BufferedImage decoded = decode(imageIndex, options);
         ImageTypeSpecifier requested = param.getDestinationType();
@@ -221,18 +221,36 @@ public class CanonCr3ImageReader extends ImageReader {
         return copyImage(param, decoded, imageRegions(param, decoded.getWidth(), decoded.getHeight()));
     }
 
+    private static Cr3DecodeOptions negotiateRgbDestination(Cr3DecodeOptions options, ImageReadParam param) {
+        if ((param instanceof CanonCr3ImageReadParam cr3 && cr3.hasExplicitDecodeOptions())
+                || options.bitDepth() != Cr3DecodeOptions.BitDepth.EIGHT || !options.applySrgbConversion()) {
+            return options;
+        }
+        ImageTypeSpecifier target = param.getDestination() == null ? param.getDestinationType()
+                : ImageTypeSpecifier.createFromRenderedImage(param.getDestination());
+        if (target == null) {
+            return options;
+        }
+        var color = target.getColorModel();
+        boolean srgb = color.equals(SRGB16.getColorModel());
+        if (!srgb && !color.equals(LINEAR_RGB16.getColorModel())) {
+            return options;
+        }
+        // Destination selection affects this read only; mutable caller settings remain reusable.
+        return options.copy().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN).applySrgbConversion(srgb);
+    }
+
     private BufferedImage readProcessedImage(int imageIndex, Cr3DecodeOptions options, ImageReadParam param)
             throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
         try {
             boolean sixteen = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
-            if (sixteen) {
-                checkRgb16Destination(param, options);
-            } else if (param.getDestination() == null && param.getDestinationType() != null
+            if (!sixteen && param.getDestination() == null && param.getDestinationType() != null
                     && !RGB8.equals(param.getDestinationType())) {
                 throw new IIOException("Destination image type is incompatible with 8-bit RGB");
             }
+            checkRgbDestination(param, options);
             Rectangle bounds = decoder.getRawProcessedBounds(options);
             ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
             Rectangle source = regions.source();
@@ -254,7 +272,7 @@ public class CanonCr3ImageReader extends ImageReader {
         }
     }
 
-    private static void checkRgb16Destination(ImageReadParam param, Cr3DecodeOptions options) throws IIOException {
+    private static void checkRgbDestination(ImageReadParam param, Cr3DecodeOptions options) throws IIOException {
         BufferedImage supplied = param.getDestination();
         ImageTypeSpecifier requested = param.getDestinationType();
         if (supplied == null && requested == null) {
@@ -266,11 +284,14 @@ public class CanonCr3ImageReader extends ImageReader {
         int[] bands = param.getDestinationBands();
         int count = bands == null ? model.getNumBands() : bands.length;
         boolean fullRgb = count == 3 && (bands == null || color.getNumColorComponents() == 3);
+        boolean sixteen = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
+        int bits = sixteen ? 16 : 8;
         for (int i = 0; i < count; i++) {
             int band = bands == null ? i : bands[i];
-            if (model.getDataType() != DataBuffer.TYPE_USHORT || model.getSampleSize(band) != 16
-                    || band >= color.getNumComponents() || color.getComponentSize(band) != 16) {
-                throw new IIOException("Developed RGB requires unsigned 16-bit destination components");
+            if ((sixteen && model.getDataType() != DataBuffer.TYPE_USHORT) || model.getSampleSize(band) != bits
+                    || band >= color.getNumComponents() || color.getComponentSize(band) != bits) {
+                throw new IIOException("Developed RGB requires " + (sixteen ? "unsigned 16-bit" : "8-bit")
+                        + " destination components");
             }
             if (bands != null && band >= color.getNumColorComponents()) {
                 fullRgb = false; // Explicit mapping into alpha also acts as a sample copy.

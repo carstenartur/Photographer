@@ -19,6 +19,13 @@ on:
     branches: [main]
     paths:
       - 'cr3-imagej/**'
+      - 'canon-cr3-container/**'
+      - 'canon-cr3-metadata/**'
+      - 'canon-cr3-codec/**'
+      - 'canon-cr3-processing/**'
+      - 'canon-cr3-core/**'
+      - 'canon-cr3-imageio/**'
+      - 'pom.xml'
       - 'scripts/build_cr3_fiji_site.py'
       - 'scripts/publish_cr3_fiji_site.py'
       - 'scripts/test_publish_cr3_fiji_site.py'

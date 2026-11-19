@@ -29,6 +29,7 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
 
     private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.rawProcessed();
     private Cr3DecodeOptions previewOptions;
+    private boolean explicitDecodeOptions;
     private boolean useDestinationAsWorkspace;
 
     /**
@@ -36,6 +37,11 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      *
      * <p>Options that select full RAW decoding or experimental processing are not
      * yet stable public API.</p>
+     *
+     * <p>The returned options are mutable. A change to their output mode, depth or
+     * encoding is preserved when a destination is selected. With default eight-bit
+     * sRGB output, a compatible sixteen-bit RGB destination can select its depth
+     * and encoding without mutating these options.</p>
      *
      * @return the decode options
      */
@@ -49,14 +55,22 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      * <p>Preview mode is supported. Full RAW and experimental processing options
      * follow the maturity of the underlying CRX decoder and may change before 1.0.</p>
      *
+     * <p>Explicit options take precedence over destination-based RGB depth and encoding
+     * selection. An incompatible destination is rejected rather than changing these options.</p>
+     *
      * @param options the decode options (must not be null)
      * @throws NullPointerException if options is null
      */
     public void setDecodeOptions(Cr3DecodeOptions options) {
         this.decodeOptions = Objects.requireNonNull(options, "Decode options must not be null");
+        explicitDecodeOptions = true;
         if (isPreviewOnly()) {
             previewOptions = options.copy().outputMode(Cr3DecodeOptions.OutputMode.PREVIEW);
         }
+    }
+
+    boolean hasExplicitDecodeOptions() {
+        return explicitDecodeOptions;
     }
 
     /**
