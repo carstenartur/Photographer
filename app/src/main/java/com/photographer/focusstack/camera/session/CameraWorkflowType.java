@@ -7,5 +7,6 @@ public enum CameraWorkflowType {
     FACE_ORBIT,
     ASTRO,
     FRESNEL_CAPTURE,
-    DIRECT_CONTROL
+    DIRECT_CONTROL,
+    WILDLIFE_OBSERVER
 }

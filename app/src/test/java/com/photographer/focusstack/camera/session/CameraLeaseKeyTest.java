@@ -61,6 +61,18 @@ class CameraLeaseKeyTest {
     }
 
     @Test
+    void mapsUsbProfilesToOneKeyBecauseTheFactoryScansForTheFirstCamera() {
+        CameraProfile first = new CameraProfile(
+                "one", "USB camera one", "canon-usb", "", 10, 30, 0.1);
+        CameraProfile second = new CameraProfile(
+                "two", "USB camera two", "canon-usb", "unused-host", 10, 30, 0.1);
+        DefaultCameraLeaseIdentityProvider identities = new DefaultCameraLeaseIdentityProvider();
+
+        assertThat(identities.resolve(first)).hasValueSatisfying(
+                key -> assertThat(identities.resolve(second)).contains(key));
+    }
+
+    @Test
     void canonicalizesBracketedIpv6() {
         CameraLeaseKey expanded = CameraLeaseKey.fromCcapiLocation(
                 "http://[2001:0db8:0:0:0:0:0:1]:8080/ccapi");

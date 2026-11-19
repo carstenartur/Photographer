@@ -1,8 +1,9 @@
 package com.photographer.focusstack.app.controller;
 
 import com.photographer.focusstack.app.api.ApiPaths;
-import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.service.DirectCameraControlExecutor;
+import com.photographer.focusstack.camera.session.CameraSessionConflictException;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.model.CameraProfile;
@@ -29,11 +30,11 @@ public class SystemInfoController {
     private static final Logger log = LoggerFactory.getLogger(SystemInfoController.class);
 
     private final CameraProfileService profileService;
-    private final CameraBackendFactory backendFactory;
+    private final DirectCameraControlExecutor directControl;
 
-    public SystemInfoController(CameraProfileService profileService, CameraBackendFactory backendFactory) {
+    public SystemInfoController(CameraProfileService profileService, DirectCameraControlExecutor directControl) {
         this.profileService = profileService;
-        this.backendFactory = backendFactory;
+        this.directControl = directControl;
     }
 
     @GetMapping("/info")
@@ -71,13 +72,15 @@ public class SystemInfoController {
                 cam.put("name", profile.name());
                 cam.put("backendType", profile.backendType());
                 try {
-                    CameraBackend backend = backendFactory.getBackend(profile);
-                    CameraInfo cameraInfo = backend.getInfo();
+                    CameraInfo cameraInfo = directControl.withBackend(profile.id(), CameraBackend::getInfo);
                     cam.put("connected", true);
                     cam.put("model", cameraInfo.model());
                     cam.put("firmware", cameraInfo.firmwareVersion());
                 } catch (Exception e) {
                     cam.put("connected", false);
+                    if (e instanceof CameraSessionConflictException) {
+                        cam.put("busy", true);
+                    }
                     cam.put("error", e.getMessage());
                 }
                 cameras.add(cam);

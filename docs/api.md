@@ -1,5 +1,61 @@
 # REST API Reference
 
+## Local bird observer
+
+These authenticated endpoints operate the local bird trigger in the existing Observer.
+They have equivalent temporary `/api/observer/...` aliases under the version policy below.
+
+| Method | v1 path | Purpose |
+|---|---|---|
+| GET | `/api/v1/observer/live` | Atomic status and analysed preview with normalized full-frame detection boxes |
+| POST | `/api/v1/observer/live/start` | Start preview only; `armed: true` is rejected |
+| PUT | `/api/v1/observer/live/settings` | Update the current camera's settings and explicitly arm/disarm |
+| POST | `/api/v1/observer/live/stop` | Idempotently stop; may return `STOPPING` while a committed camera operation drains |
+| GET | `/api/v1/observer/events/{id}/image` | JPEG event preview, with legacy best-image fallback |
+| GET | `/api/v1/observer/events/{id}/original` | Unchanged original photo as an attachment, including RAW |
+
+Start/settings request:
+
+```json
+{
+  "cameraId": "your-camera-profile-id",
+  "armed": false,
+  "settings": {
+    "roi": {"x": 0, "y": 0, "width": 1, "height": 1, "label": "observation"},
+    "minConfidence": 0.5,
+    "minArea": 0.0025,
+    "intervalMs": 500,
+    "repeatSeconds": 5,
+    "absenceSeconds": 3
+  }
+}
+```
+
+Start may omit settings to use defaults. Settings updates require a full valid settings
+object and the same camera ID; stop before switching cameras. The stop request can be `{}`.
+Malformed/out-of-frame settings return 400. Invalid lifecycle transitions return 409.
+Camera startup/capability/lease errors can arrive asynchronously in the returned status;
+`running` and `phase` must be checked, not just the POST response code.
+
+Status fields are `running`, `armed`, `phase`, `cameraId`, `model`, `modelAvailable`,
+`modelError`, `settings`, `captureCount`, `framesAnalyzed`, `skippedFrames`, `frameAgeMs`,
+`inferenceMs`, `lastCaptureAt`, `lastEventId`, `error`, and `preview`. Phase is one of
+`STOPPED`, `STARTING`, `OBSERVING`, `CAPTURING`, `STOPPING`, or `ERROR`. Nullable timing and
+preview fields mean no corresponding measurement/image exists yet. `captureCount` counts
+returned captures; `lastEventId` is set only after photo storage and event persistence.
+
+The preview contains `sequence`, ISO `timestamp`, `width`, `height`, base64 JPEG
+`imageData` (without a data-URL prefix), and `boundingBoxes`. Boxes have normalized
+`x`, `y`, `width`, `height`, `label`, and `confidence`. Image and boxes refer to the same
+analysed frame. `inferenceMs` is provider execution time, not camera-to-shutter latency.
+
+Saved events retain the original in `bestImagePath`/`bestImageFileName`, a separate
+`previewImagePath`, and `previewSource` (`capture` or `live-view-at-trigger`).
+`aiResult.boundingBoxesJson` contains the trigger-frame boxes. Only the live-view fallback
+is the same image as those boxes; callers must not overlay them on a later photo.
+
+See [operation and limitations](developer/operations.md#local-bird-observer).
+
 ## Version contract
 
 The canonical public REST contract is **v1** under `/api/v1/**`. The React client,

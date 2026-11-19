@@ -43,6 +43,9 @@ public class AiResultEntity {
     @Column(columnDefinition = "TEXT")
     private String rawResponse;
 
+    @Column(columnDefinition = "TEXT")
+    private String boundingBoxesJson;
+
     private long durationMs;
 
     public AiResultEntity() {}
@@ -78,6 +81,9 @@ public class AiResultEntity {
 
     public String getRawResponse() { return rawResponse; }
     public void setRawResponse(String rawResponse) { this.rawResponse = rawResponse; }
+
+    public String getBoundingBoxesJson() { return boundingBoxesJson; }
+    public void setBoundingBoxesJson(String boundingBoxesJson) { this.boundingBoxesJson = boundingBoxesJson; }
 
     public long getDurationMs() { return durationMs; }
     public void setDurationMs(long durationMs) { this.durationMs = durationMs; }

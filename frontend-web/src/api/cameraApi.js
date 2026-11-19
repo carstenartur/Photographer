@@ -1,7 +1,7 @@
 import { request } from './auth';
 
-export function getAllCameras() {
-  return request('/cameras');
+export function getAllCameras(options) {
+  return request('/cameras', options);
 }
 
 export function getCamera(id) {

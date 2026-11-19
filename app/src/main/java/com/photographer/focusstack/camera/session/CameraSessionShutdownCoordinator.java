@@ -2,6 +2,7 @@ package com.photographer.focusstack.camera.session;
 
 import com.photographer.focusstack.astro.service.AstroModeService;
 import com.photographer.focusstack.camera.service.StackingJobService;
+import com.photographer.focusstack.observer.service.LocalBirdObserverService;
 import com.photographer.focusstack.session.FaceOrbitService;
 import com.photographer.focusstack.session.HdrTimelapseService;
 import jakarta.annotation.PreDestroy;
@@ -31,6 +32,7 @@ public final class CameraSessionShutdownCoordinator {
     private final HdrTimelapseService hdrTimelapse;
     private final FaceOrbitService faceOrbit;
     private final AstroModeService astroMode;
+    private final LocalBirdObserverService birdObserver;
     private final Duration timeout;
     private final Duration pollInterval;
     private final LongSupplier nanoTime;
@@ -44,9 +46,10 @@ public final class CameraSessionShutdownCoordinator {
   HdrTimelapseService hdrTimelapse,
   FaceOrbitService faceOrbit,
   AstroModeService astroMode,
+  LocalBirdObserverService birdObserver,
   @Value("${camera.session-lease.shutdown-timeout:PT30S}") Duration timeout,
   @Value("${camera.session-lease.shutdown-poll-interval:PT0.05S}") Duration pollInterval) {
-        this(leaseManager, stackingJobs, hdrTimelapse, faceOrbit, astroMode,
+        this(leaseManager, stackingJobs, hdrTimelapse, faceOrbit, astroMode, birdObserver,
       timeout, pollInterval, System::nanoTime,
       Thread::sleep);
     }
@@ -57,6 +60,7 @@ public final class CameraSessionShutdownCoordinator {
   HdrTimelapseService hdrTimelapse,
   FaceOrbitService faceOrbit,
   AstroModeService astroMode,
+  LocalBirdObserverService birdObserver,
   Duration timeout,
   Duration pollInterval,
   LongSupplier nanoTime,
@@ -66,6 +70,7 @@ public final class CameraSessionShutdownCoordinator {
         this.hdrTimelapse = Objects.requireNonNull(hdrTimelapse, "hdrTimelapse");
         this.faceOrbit = Objects.requireNonNull(faceOrbit, "faceOrbit");
         this.astroMode = Objects.requireNonNull(astroMode, "astroMode");
+        this.birdObserver = Objects.requireNonNull(birdObserver, "birdObserver");
         this.timeout = positive(timeout, "timeout");
         this.pollInterval = positive(pollInterval, "pollInterval");
         this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
@@ -86,6 +91,7 @@ public final class CameraSessionShutdownCoordinator {
         hdrTimelapse.requestCameraShutdown();
         faceOrbit.requestCameraShutdown();
         astroMode.requestCameraShutdown();
+        birdObserver.requestCameraShutdown();
 
         long deadline = Math.addExact(nanoTime.getAsLong(), timeout.toNanos());
         while (true) {
@@ -113,7 +119,8 @@ public final class CameraSessionShutdownCoordinator {
         return stackingJobs.activeCameraExecutions()
       + hdrTimelapse.activeCameraExecutions()
       + faceOrbit.activeCameraExecutions()
-      + astroMode.activeCameraExecutions();
+      + astroMode.activeCameraExecutions()
+      + birdObserver.activeCameraExecutions();
     }
 
     private static Duration positive(Duration value, String name) {

@@ -4,6 +4,7 @@ import { getRecentEvents, getSpeciesRanking, getStats, getStatus, getAiProviders
 import EventCard from '../components/observer/EventCard';
 import SpeciesChart from '../components/observer/SpeciesChart';
 import ObserverStatusBadge from '../components/observer/ObserverStatusBadge';
+import BirdTriggerPanel from '../components/observer/BirdTriggerPanel';
 
 export default function ObserverDashboard() {
   const [events, setEvents] = useState([]);
@@ -47,6 +48,8 @@ export default function ObserverDashboard() {
       </div>
 
       {error && <p className="error">{error}</p>}
+
+      <BirdTriggerPanel />
 
       <section className="status-summary">
         <h2>Overview</h2>

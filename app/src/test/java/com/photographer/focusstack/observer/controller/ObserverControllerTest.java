@@ -34,6 +34,30 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WithMockUser
 class ObserverControllerTest {
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path images;
+
+    @Test
+    void servesPreviewSeparatelyFromUnchangedRawOriginal() throws Exception {
+        byte[] raw = new byte[]{1, 2, 3, 4};
+        byte[] preview = new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff, (byte) 0xd9};
+        var originalPath = java.nio.file.Files.write(images.resolve("event.cr3"), raw);
+        var previewPath = java.nio.file.Files.write(images.resolve("event.preview.jpg"), preview);
+        var event = new ObservationEventEntity("media-event");
+        event.setBestImagePath(originalPath.toString());
+        event.setBestImageFileName("event.cr3");
+        event.setPreviewImagePath(previewPath.toString());
+        when(observerService.findEventById("media-event")).thenReturn(Optional.of(event));
+        mockMvc.perform(get("/api/v1/observer/events/media-event/image"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.IMAGE_JPEG))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(preview));
+        mockMvc.perform(get("/api/v1/observer/events/media-event/original"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Content-Disposition", "attachment; filename=\"event.cr3\""))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().bytes(raw));
+    }
+
     @Autowired
     private MockMvc mockMvc;
 

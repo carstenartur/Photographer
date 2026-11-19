@@ -5,14 +5,22 @@ import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.photographer.focusstack.camera.service.DirectCameraControlExecutor;
+import com.photographer.focusstack.camera.session.CameraLeaseRequest;
+import com.photographer.focusstack.camera.session.CameraSessionLease;
+import com.photographer.focusstack.camera.session.CameraWorkflowType;
+import com.photographer.focusstack.camera.session.DefaultCameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.InMemoryCameraSessionLeaseManager;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraInfo;
 import com.photographer.focusstack.common.camera.CameraState;
 import com.photographer.focusstack.common.camera.CaptureResult;
 import com.photographer.focusstack.common.camera.FocusCommand;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
 import com.photographer.focusstack.common.model.CameraProfile;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
@@ -21,6 +29,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.function.Consumer;
@@ -32,6 +41,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -155,6 +165,41 @@ class CameraControllerTest {
         mockMvc.perform(get("/api/cameras/cam-1/status"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.connected").value(true));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"info", "status", "capabilities", "liveview"})
+    void hardwareReadsReturnConflictWithoutResolvingAReservedCamera(String resource) throws Exception {
+        CameraProfile ccapiProfile = new CameraProfile(
+                "cam-1", "Test Camera", "canon-ccapi", "camera.example", 10, 30, 0.1);
+        var manager = new InMemoryCameraSessionLeaseManager(Duration.ofHours(6), 1024);
+        var identities = new DefaultCameraLeaseIdentityProvider();
+        var executor = new DirectCameraControlExecutor(
+                profileService, backendFactory, manager, identities, Duration.ofMinutes(5));
+
+        when(profileService.getProfile("cam-1")).thenReturn(ccapiProfile);
+        when(backendFactory.getBackend(ccapiProfile)).thenReturn(cameraBackend);
+        when(cameraBackend.getInfo()).thenReturn(
+                new CameraInfo("camera", "Test Camera", "EOS", "canon-ccapi", "camera.example", "1.0.0"));
+        when(cameraBackend.getState()).thenReturn(
+                new CameraState(true, 85, 10_000_000L, 0, "1/125", "f/8.0", "ISO 100", true));
+        when(cameraBackend.getLiveView()).thenReturn(new LiveViewFrame(
+                new byte[] {1}, 1, 1, Instant.EPOCH, "image/jpeg"));
+        when(directControl.withBackend(eq("cam-1"), any()))
+                .thenAnswer(invocation -> executor.withBackend("cam-1", invocation.getArgument(1)));
+
+        try (CameraSessionLease ignored = manager.acquire(new CameraLeaseRequest(
+                identities.resolve(ccapiProfile).orElseThrow(), CameraWorkflowType.WILDLIFE_OBSERVER,
+                "bird-run", "bird-owner", Duration.ofMinutes(15)))) {
+            mockMvc.perform(get("/api/v1/cameras/cam-1/{resource}", resource))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("CAMERA_SESSION_CONFLICT"))
+                    .andExpect(jsonPath("$.workflowType").value("WILDLIFE_OBSERVER"));
+            verifyNoInteractions(backendFactory, cameraBackend);
+        }
+
+        mockMvc.perform(get("/api/v1/cameras/cam-1/{resource}", resource))
+                .andExpect(status().isOk());
     }
 
     @Test

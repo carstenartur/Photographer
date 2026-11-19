@@ -22,6 +22,7 @@ import java.util.Objects;
  */
 public final class CameraLeaseKey {
     private static final HexFormat HEX = HexFormat.of();
+    static final CameraLeaseKey FIRST_CANON_USB_CAMERA = new CameraLeaseKey("canon-usb:first-device");
 
     private final String canonicalOrigin;
     private final String redactedId;

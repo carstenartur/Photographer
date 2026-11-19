@@ -53,12 +53,6 @@ public class CameraController {
         this.directControl = directControl;
     }
 
-    /** Read-only access remains on the existing cached backend boundary. */
-    private CameraBackend backendForRead(String profileId) {
-        CameraProfile profile = profileService.getProfile(profileId);
-        return backendFactory.getBackend(profile);
-    }
-
     @GetMapping
     @Operation(summary = "List camera profiles")
     public ResponseEntity<List<CameraProfile>> listProfiles() {
@@ -116,30 +110,29 @@ public class CameraController {
     @GetMapping("/{id}/info")
     @Operation(summary = "Get camera hardware information")
     public ResponseEntity<CameraInfo> getCameraInfo(@PathVariable String id) {
-        return ResponseEntity.ok(backendForRead(id).getInfo());
+        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::getInfo));
     }
 
     @GetMapping("/{id}/status")
     @Operation(summary = "Get camera status")
     public ResponseEntity<CameraState> getCameraStatus(@PathVariable String id) {
-        return ResponseEntity.ok(backendForRead(id).getState());
+        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::getState));
     }
 
     @GetMapping("/{id}/capabilities")
     @Operation(summary = "Get redacted camera capability diagnostics")
     public ResponseEntity<CameraCapabilitySnapshot> getCameraCapabilities(
             @PathVariable String id) {
-        CameraBackend backend = backendForRead(id);
-        CameraCapabilitySnapshot snapshot = backend instanceof CameraCapabilityProvider provider
-                ? provider.getCapabilitySnapshot()
-                : CameraCapabilitySnapshot.diagnosticsUnavailable(backend.getInfo());
-        return ResponseEntity.ok(snapshot);
+        return ResponseEntity.ok(directControl.withBackend(id,
+                backend -> backend instanceof CameraCapabilityProvider provider
+                        ? provider.getCapabilitySnapshot()
+                        : CameraCapabilitySnapshot.diagnosticsUnavailable(backend.getInfo())));
     }
 
     @GetMapping("/{id}/liveview")
     @Operation(summary = "Get latest live view frame")
     public ResponseEntity<LiveViewFrame> getLiveView(@PathVariable String id) {
-        return ResponseEntity.ok(backendForRead(id).getLiveView());
+        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::getLiveView));
     }
 
     @PostMapping("/{id}/capture")

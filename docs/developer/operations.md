@@ -2,6 +2,86 @@
 
 This chapter defines what must be recoverable from Git, what must be backed up privately and how to handle runtime data without turning a snapshot of one workstation into permanent project truth.
 
+## Local bird observer
+
+Open **Observer → Live bird detection** with a configured CCAPI or USB camera profile.
+The first implementation detects generic birds locally on the machine running the Java
+application. The browser displays controls and results; it does not run inference. No
+cloud AI account or API key is required. A supported camera must expose both live view
+and still-photo capture through its existing backend. A USB connection alone does not
+prove that a particular camera/firmware supports those operations.
+
+1. Aim the camera at a fixed feeder, nest entrance or perch and set exposure/focus for
+   that location. Start **Preview only**.
+2. Select the observation rectangle over the live picture, using mouse/touch or the
+   numeric region fields, and apply settings. Small birds benefit from a close region:
+   its actual pixels are cropped before the 416 × 416 model input is prepared.
+3. Check the boxes on fresh preview frames, then explicitly arm automatic capture.
+4. Use **Stop** to disarm and release the camera. Closing the browser does not stop the
+   server worker. A photo already committed to the camera may finish downloading before
+   `STOPPING` becomes `STOPPED`; its original is still saved.
+
+| Setting | Default | Valid range / meaning |
+|---|---|---|
+| Analysis interval | 500 ms | 200–5000 ms; target cadence, not a guaranteed camera frame rate |
+| Confidence threshold | 0.5 | 0.1–1; model score, not a calibrated probability |
+| Minimum bird area | 0.0025 | 0–1, relative to the selected region |
+| Repeat interval | 5 s | 0–3600 s; zero means once per confirmed visit |
+| Observed absence | 3 s | 1–60 s of valid empty observations before a new visit |
+
+Settings are in memory for the current application process. A fresh application starts
+stopped and unarmed. Changing settings or arming invalidates analysis that was already
+in flight. The initial mode has no species selection; **Bird (species not classified)**
+does not contribute a species to the ranking. This is a pretrained detector, not a model
+trained on the user's own feeding station. Accuracy and false positives should be
+assessed with that camera's actual scenes before leaving it armed.
+
+The worker processes one frame at a time and never queues old frames. Images older than
+five seconds by the backend's frame timestamp, repeated timestamps, identical encoded
+images, undecodable/partial images and failed inference do not count as absence. Some
+backends timestamp receipt rather than sensor exposure; this limit does not establish
+the sensor's capture time. A missing frame or capture blackout resets the absence
+interval, while preserving the current visit. Ten consecutive camera/image errors stop
+the run. Inference failures and capture/storage failures stop with an explicit error;
+ambiguous shutter failures are not retried automatically.
+
+One application worker owns one camera lease across preview and capture. Existing
+profile-based control/read routes respect that lease. The current USB backend selects
+the first Canon device, so USB profiles share one process-local lease identity. Use one
+profile for that device; per-device USB selection and physical-hardware validation are
+separate work. Folder profiles use the existing Observer Replay rather than this live
+trigger. Mock profiles are available for development and do not establish camera support.
+
+Original returned JPEG/RAW bytes are written unchanged to generated filenames under
+`./data/observer`. Event previews are separate JPEG files. For a RAW capture, the app first
+tries to extract its embedded preview; if that is unavailable, it uses the analysed live
+frame and labels it **Live-view image at trigger**. Detection boxes are only overlaid on
+that matching live image, not on a later photograph. Event details provide an authenticated
+**Download original** action. Bytes are kept out of the database; include this output
+directory and the database in backups. Existing event deletion/retention removes database
+records, not these original photo files, so manage photo retention separately.
+
+Optional application configuration:
+
+```yaml
+observer:
+  local-bird:
+    output-directory: ./data/observer
+    model-path: "" # empty uses the bundled, checksum-verified model
+```
+
+An explicit model path must contain a compatible YOLOX-Nano ONNX export with the same
+input/output contract. Missing/corrupt models and unavailable native runtime libraries
+are reported in the panel; there is no cloud fallback. Native inference requires an OS
+and CPU architecture supported by the bundled ONNX Runtime Java dependency. See
+[model provenance](../../ai-vision/src/main/resources/com/photographer/focusstack/ai/local/MODEL-NOTICE.md)
+and the [API contract](../api.md#local-bird-observer).
+
+Software tests cover real bird-model inference, crop/mapping, repeat/absence state,
+invalid/stale frames, stop during inference/capture, storage, authenticated endpoints
+and browser interactions. Real-camera shutter delay, focus behavior, live-view recovery,
+battery/thermal behavior and sustained field accuracy require a connected camera test.
+
 ## Recovery model
 
 A fresh Git checkout must be sufficient to recover:

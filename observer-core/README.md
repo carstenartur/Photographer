@@ -19,13 +19,14 @@ This module provides the pure-Java business logic for detecting and recording wi
 | `monitoring` | `SharpnessEvaluator`, `WindFilter` | Image-quality and false-positive filtering. |
 | `capture` | `CaptureOrchestrator`, `CaptureSeriesResult` | Burst and focus-bracketing capture sequences. |
 | `pipeline` | `ObserverPipeline`, `VisionProviderPort`, `ObservationEventListener` | End-to-end coordination and domain ports. |
+| `bird` | `BirdTriggerSettings`, `BirdTriggerPolicy` | Validated local-bird settings and confirmed-absence/visit/repeat decisions. |
 
 `com.photographer.focusstack.observer.events.BoundingBox` remains the shared value type used by `VisionResultData`, but its source ownership is in `common-api` so provider implementations can use the same FQN without depending on `observer-core`.
 
 ## Design principles
 
 - **No Spring dependency**: pure Java domain library.
-- **No provider dependency**: AI integration uses the observer-owned `VisionProviderPort`; concrete provider selection/adaptation belongs in `app`.
+- **No provider dependency**: the legacy pipeline uses `VisionProviderPort`; the local bird policy consumes presence decisions. Concrete provider selection and inference belong in `app`/`ai-vision`.
 - **Immutable value objects**: records are immutable; `ObservationEvent` uses a builder.
 - **Pluggable rules**: new rules do not require engine modification.
 - **Neutral shared values**: cross-layer contracts such as `BoundingBox` are supplied by `common-api`, not copied into provider modules.
