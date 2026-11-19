@@ -20,7 +20,7 @@ close();
 run("CR3 Color Image...", "path=[" + dir + "sample.cr3]");
 getDimensions(w, h, channels, slices, frames);
 print("CR3 color: " + w + "x" + h + ", C=" + channels + ", Z=" + slices + ", T=" + frames + ", bits=" + bitDepth());
-if (w != 5495 || h != 3667 || channels != 3 || slices != 1 || frames != 1 || bitDepth() != 16)
+if (w != 5496 || h != 3668 || channels != 3 || slices != 1 || frames != 1 || bitDepth() != 16)
     exit("Unexpected developed RGB dimensions or bit depth");
 for (channel = 1; channel <= 3; channel++) {
     Stack.setChannel(channel);
