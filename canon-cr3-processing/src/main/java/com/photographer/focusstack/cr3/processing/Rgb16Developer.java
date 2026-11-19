@@ -1,7 +1,6 @@
 package com.photographer.focusstack.cr3.processing;
 
 import com.photographer.focusstack.cr3.processing.BayerDemosaicer.PixelColor;
-import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import com.photographer.focusstack.cr3.raw.Cr3Workers;
 
 import java.awt.Rectangle;
@@ -15,10 +14,18 @@ import java.awt.image.Raster;
 import java.util.Arrays;
 
 /** Bilinear development using three normalized Bayer rows per worker. */
-record Rgb16Developer(Cr3RawImage image, BlackLevel black, int sensorX, int sensorY,
+record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sensorY,
                       double[] gains, int whiteLevel, double[][] matrix, boolean srgb) {
 
     BufferedImage develop(Rectangle region, int orientation, int maxWorkers) {
+        return develop(region, orientation, maxWorkers, false);
+    }
+
+    BufferedImage developOwned(Rectangle region, int orientation, int maxWorkers) {
+        return develop(region, orientation, maxWorkers, true);
+    }
+
+    private BufferedImage develop(Rectangle region, int orientation, int maxWorkers, boolean owned) {
         if (region.isEmpty() || !new Rectangle(image.width(), image.height()).contains(region)) {
             throw new IllegalArgumentException("RGB region must be within the Bayer image");
         }
@@ -31,24 +38,47 @@ record Rgb16Developer(Cr3RawImage image, BlackLevel black, int sensorX, int sens
         int[] size = ExifOrientationTransformer.outputDimensions(region.width, region.height, orientation);
         var space = ColorSpace.getInstance(srgb ? ColorSpace.CS_sRGB : ColorSpace.CS_LINEAR_RGB);
         var colorModel = new ComponentColorModel(space, false, false, Transparency.OPAQUE, DataBuffer.TYPE_USHORT);
-        var raster = Raster.createBandedRaster(DataBuffer.TYPE_USHORT, size[0], size[1], 3, null);
-        short[][] channels = ((DataBufferUShort) raster.getDataBuffer()).getBankData();
+        boolean reuse = owned && image.unsignedShorts() != null && orientation == 1
+                && region.equals(new Rectangle(image.width(), image.height()));
+        int sampleCount = Math.multiplyExact(size[0], size[1]);
+        short[][] channels = {new short[sampleCount],
+                reuse ? image.unsignedShorts() : new short[sampleCount], new short[sampleCount]};
+        var raster = Raster.createBandedRaster(new DataBufferUShort(channels, sampleCount),
+                size[0], size[1], size[0], new int[]{0, 1, 2}, new int[3], null);
         int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(region.width, region.height));
+
+        // In-place stores may replace a neighbor before an adjacent stripe reads it.
+        // Capture both sides of every boundary before any worker writes the green bank.
+        double[][][] seams = reuse && stripes > 1 ? new double[stripes - 1][2][image.width() + 2] : null;
+        if (seams != null) {
+            for (int stripe = 1; stripe < stripes; stripe++) {
+                int boundary = Pixels.stripeStart(stripe, image.height(), stripes);
+                correctRow(boundary - 1, seams[stripe - 1][0]);
+                correctRow(boundary, seams[stripe - 1][1]);
+            }
+        }
         Cr3Workers.run(stripes, stripe -> {
             int first = region.y + Pixels.stripeStart(stripe, region.height, stripes);
             int end = region.y + Pixels.stripeStart(stripe + 1, region.height, stripes);
-            developRows(channels, region, orientation, first, end);
+            double[] originalAbove = seams == null || stripe == 0 ? null : seams[stripe - 1][0];
+            double[] originalBelow = seams == null || stripe + 1 == stripes ? null : seams[stripe][1];
+            developRows(channels, region, orientation, first, end, originalAbove, originalBelow);
         });
         return new BufferedImage(colorModel, raster, false, null);
     }
 
-    private void developRows(short[][] channels, Rectangle region, int orientation, int first, int end) {
+    private void developRows(short[][] channels, Rectangle region, int orientation, int first, int end,
+                             double[] originalAbove, double[] originalBelow) {
         // A zero on either end lets the same sums handle borders. Divisors count only real neighbors.
         int rowLength = image.width() + 2;
         double[] above = new double[rowLength];
         double[] current = new double[rowLength];
         double[] below = new double[rowLength];
-        correctRow(first - 1, above);
+        if (originalAbove == null) {
+            correctRow(first - 1, above);
+        } else {
+            System.arraycopy(originalAbove, 0, above, 0, rowLength);
+        }
         correctRow(first, current);
 
         boolean transpose = orientation >= 5 && orientation <= 8;
@@ -60,7 +90,11 @@ record Rgb16Developer(Cr3RawImage image, BlackLevel black, int sensorX, int sens
             step = -step;
         }
         for (int y = first; y < end; y++) {
-            correctRow(y + 1, below);
+            if (y + 1 == end && originalBelow != null) {
+                System.arraycopy(originalBelow, 0, below, 0, rowLength);
+            } else {
+                correctRow(y + 1, below);
+            }
             int outputRow = flipY ? region.y + region.height - 1 - y : y - region.y;
             int destination = firstColumn + (transpose ? outputRow : outputRow * region.width);
             PixelColor even = color(0, y);
@@ -107,7 +141,7 @@ record Rgb16Developer(Cr3RawImage image, BlackLevel black, int sensorX, int sens
                 case BLUE -> gains[2];
             };
             for (int x = phase; x < image.width(); x += 2) {
-                double corrected = Math.max(0.0, (double) image.data()[offset + x] - pedestal);
+                double corrected = Math.max(0.0, (double) image.sample(offset + x) - pedestal);
                 row[x + 1] = corrected * scale / whiteLevel;
             }
         }
@@ -135,7 +169,10 @@ record Rgb16Developer(Cr3RawImage image, BlackLevel black, int sensorX, int sens
     }
 
     private short quantize(double linear) {
+        if (srgb) {
+            return Srgb16Encoder.encode(linear);
+        }
         double value = Math.clamp(linear, 0.0, 1.0);
-        return (short) Math.round(65535.0 * (srgb ? SrgbConverter.linearToSrgb(value) : value));
+        return (short) Math.round(65535.0 * value);
     }
 }

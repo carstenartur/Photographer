@@ -82,8 +82,79 @@ public final class BayerDemosaicer {
     public static BufferedImage develop16(Cr3RawImage image, BlackLevel blackLevel, int sensorX, int sensorY,
                                           double[] whiteBalance, int whiteLevel, double[][] matrix,
                                           Rectangle region, int orientation, boolean srgb, int maxWorkers) {
-        return new Rgb16Developer(image, blackLevel, sensorX, sensorY, whiteBalance, whiteLevel, matrix, srgb)
+        return new Rgb16Developer(BayerSamples.of(image), blackLevel, sensorX, sensorY,
+                whiteBalance, whiteLevel, matrix, srgb)
                 .develop(region, orientation, maxWorkers);
+    }
+
+    /**
+     * Develops native Bayer codes from compact unsigned-short storage into RGB16.
+     * Every array element is interpreted as an unsigned value from 0 to 65535, in
+     * sensor units. The array is borrowed read-only for this synchronous call; the
+     * caller must not modify it until the call returns. The result owns its storage.
+     * Black-level correction, gains and interpolation retain fractional values and
+     * highlight headroom until the final RGB channels are clamped and quantized.
+     *
+     * @param samples native Bayer codes in row-major order, left unmodified
+     * @param width positive mosaic width
+     * @param height positive mosaic height
+     * @param pattern crop-local Bayer layout
+     * @param blackLevel pedestal in sensor coordinates, or null to skip subtraction
+     * @param sensorX sensor column of the first Bayer sample
+     * @param sensorY sensor row of the first Bayer sample
+     * @param whiteBalance RGB gains, or null for unit gains
+     * @param whiteLevel normalization level after pedestal subtraction
+     * @param matrix camera-to-linear-RGB matrix, or null to keep camera RGB
+     * @param region requested rectangle within the mosaic, which includes its interpolation neighbors
+     * @param orientation EXIF orientation of the result
+     * @param srgb whether to apply the sRGB transfer function
+     * @param maxWorkers maximum workers, or zero for automatic selection
+     * @return oriented RGB image, quantized once to 0–65535 per channel
+     * @throws IllegalArgumentException if the dimensions do not match the sample count
+     */
+    public static BufferedImage develop16(short[] samples, int width, int height, Cr3RawImage.BayerPattern pattern,
+                                          BlackLevel blackLevel, int sensorX, int sensorY, double[] whiteBalance,
+                                          int whiteLevel, double[][] matrix, Rectangle region, int orientation,
+                                          boolean srgb, int maxWorkers) {
+        return new Rgb16Developer(BayerSamples.of(samples, width, height, pattern), blackLevel, sensorX, sensorY,
+                whiteBalance, whiteLevel, matrix, srgb).develop(region, orientation, maxWorkers);
+    }
+
+    /**
+     * Develops exclusively owned native Bayer storage, reusing it as the green RGB16
+     * bank when the region is the complete mosaic and the EXIF orientation is 1.
+     * Other regions and orientations leave the input unmodified and allocate separate
+     * output storage. Native codes are unsigned and use the same fractional processing
+     * and final quantization as the read-only {@code develop16} overload.
+     *
+     * <p>The caller must relinquish exclusive ownership of the array: it may be
+     * overwritten during this synchronous call and retained by the returned image.
+     * A failed development can leave partially processed samples. Use the read-only
+     * overload when the original Bayer values must be retained.</p>
+     *
+     * @param samples exclusively owned native Bayer codes in row-major order
+     * @param width positive mosaic width
+     * @param height positive mosaic height
+     * @param pattern crop-local Bayer layout
+     * @param blackLevel pedestal in sensor coordinates, or null to skip subtraction
+     * @param sensorX sensor column of the first Bayer sample
+     * @param sensorY sensor row of the first Bayer sample
+     * @param whiteBalance RGB gains, or null for unit gains
+     * @param whiteLevel normalization level after pedestal subtraction
+     * @param matrix camera-to-linear-RGB matrix, or null to keep camera RGB
+     * @param region requested rectangle within the mosaic, which includes its interpolation neighbors
+     * @param orientation EXIF orientation of the result
+     * @param srgb whether to apply the sRGB transfer function
+     * @param maxWorkers maximum workers, or zero for automatic selection
+     * @return oriented RGB image, possibly backed by the supplied native array
+     * @throws IllegalArgumentException if the dimensions do not match the sample count
+     */
+    public static BufferedImage develop16Owned(short[] samples, int width, int height, Cr3RawImage.BayerPattern pattern,
+                                               BlackLevel blackLevel, int sensorX, int sensorY, double[] whiteBalance,
+                                               int whiteLevel, double[][] matrix, Rectangle region, int orientation,
+                                               boolean srgb, int maxWorkers) {
+        return new Rgb16Developer(BayerSamples.of(samples, width, height, pattern), blackLevel, sensorX, sensorY,
+                whiteBalance, whiteLevel, matrix, srgb).developOwned(region, orientation, maxWorkers);
     }
 
     /**
