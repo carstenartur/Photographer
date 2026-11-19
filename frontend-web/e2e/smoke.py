@@ -139,7 +139,7 @@ def check_bird_observer(page, url, password, captures):
     expect(panel).to_be_visible()
     wait_for_bird_status(page, url, password, lambda status: status['phase'] == 'STOPPED',
                         'the packaged bird detector to initialize')
-    panel.get_by_label('Camera', exact=True).select_option(label='Mock studio camera')
+    panel.get_by_label('Camera').select_option(label='Mock studio camera')
     panel.get_by_label('Repeat interval (s)', exact=True).fill('0')
     expect(panel.get_by_role('button', name='Start preview', exact=True)).to_be_enabled(timeout=30000)
     panel.get_by_role('button', name='Start preview', exact=True).click()
