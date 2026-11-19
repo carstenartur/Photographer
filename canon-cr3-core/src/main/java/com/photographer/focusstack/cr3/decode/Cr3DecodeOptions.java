@@ -33,6 +33,7 @@ public final class Cr3DecodeOptions {
         copy.experimentalPedestalLevel = experimentalPedestalLevel;
         copy.maxWorkers = maxWorkers;
         copy.memoryMode = memoryMode;
+        copy.postDecodeMemoryBytes = postDecodeMemoryBytes;
         return copy;
     }
 
@@ -65,9 +66,9 @@ public final class Cr3DecodeOptions {
 
     /** Memory/speed trade-off for RAW reads; image resolution and sample precision are unchanged. */
     public enum MemoryMode {
-        /** Select compact, sequential processing when estimated heap headroom is tight. */
+        /** Select compact processing and adapt the worker limit when estimated heap headroom is tight. */
         AUTO,
-        /** Always use compact, sequential processing and report the choice to stderr. */
+        /** Always use compact processing, adapt the worker limit to estimated headroom and report it to stderr. */
         LOW_MEMORY,
         /** Retain normal parallel processing without automatic memory adaptation. */
         FAST
@@ -98,13 +99,16 @@ public final class Cr3DecodeOptions {
     private int experimentalPedestalLevel = 0;
     private int maxWorkers;
     private MemoryMode memoryMode = MemoryMode.AUTO;
+    private long postDecodeMemoryBytes;
 
     /** Returns the RAW memory policy, automatic by default. */
     public MemoryMode memoryMode() { return memoryMode; }
 
     /**
-     * Selects the RAW memory policy for this read. Low-memory processing uses one worker
-     * and avoids full-frame orientation copies for owned RGB images. It may be slower.
+     * Selects the RAW memory policy for this read. Low-memory processing avoids full-frame
+     * orientation copies for owned RGB images and selects a worker limit within the
+     * caller's CPU cap and estimated heap budget. When the one-worker estimate exceeds
+     * the budget, the decoder still attempts the read with one worker.
      * Automatic selection is based on a heap snapshot; concurrent allocations and the
      * unavoidable final image storage can still exhaust memory. Preview reads are unaffected.
      *
@@ -113,6 +117,27 @@ public final class Cr3DecodeOptions {
      */
     public Cr3DecodeOptions memoryMode(MemoryMode mode) {
         memoryMode = java.util.Objects.requireNonNull(mode, "Memory mode must not be null");
+        return this;
+    }
+
+    /** Additional bytes expected to coexist with the returned RAW image, zero by default. */
+    public long postDecodeMemoryBytes() { return postDecodeMemoryBytes; }
+
+    /**
+     * Estimates additional heap the caller will allocate while retaining the returned RAW image.
+     * For example, an adapter may copy samples to a differently sized destination after decoding.
+     * AUTO and LOW_MEMORY compare this later peak with the working peak during decoding.
+     * Existing caller-owned buffers are already reflected in the heap snapshot.
+     *
+     * @param bytes nonnegative estimated additional allocation after decoding
+     * @return these options
+     * @throws IllegalArgumentException if bytes is negative
+     */
+    public Cr3DecodeOptions postDecodeMemoryBytes(long bytes) {
+        if (bytes < 0) {
+            throw new IllegalArgumentException("postDecodeMemoryBytes must be non-negative");
+        }
+        postDecodeMemoryBytes = bytes;
         return this;
     }
 

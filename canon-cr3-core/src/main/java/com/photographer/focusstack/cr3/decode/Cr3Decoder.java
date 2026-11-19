@@ -5,6 +5,7 @@ import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.container.Cr3Track;
+import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.ImageBytes;
 import com.photographer.focusstack.cr3.metadata.Cr3ColorData;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.metadata.Cr3MetadataReader;
@@ -20,7 +21,6 @@ import com.photographer.focusstack.cr3.processing.ObBlackLevelEstimator;
 import com.photographer.focusstack.cr3.processing.SrgbConverter;
 import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
-import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
 import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
@@ -312,7 +312,8 @@ public final class Cr3Decoder implements AutoCloseable {
         Rectangle area = processedArea(options, track);
         int orientation = orientation();
         CrxSensorDecoder sensor = prepareSensor(track);
-        options = memoryOptions(options, track, 4L * area.width * area.height, area.width);
+        var imageBytes = ImageBytes.samples((long) area.width * area.height, Integer.BYTES);
+        options = memoryOptions(options, track, imageBytes, 0);
         var prepared = prepareRawDevelopment(track, options, area, false, null, sensor);
         double[][] matrix = prepared.colorMatrix();
         return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), area.x, area.y,
@@ -370,10 +371,8 @@ public final class Cr3Decoder implements AutoCloseable {
         CrxSensorDecoder sensor = prepareSensor(track);
         long areaSites = (long) area.width * area.height;
         long outputSites = (long) region.width * region.height;
-        long imageBytes = sixteenBit
-                ? 6L * outputSites + (partial || orientation != 1 ? 2L * areaSites : 0)
-                : (suppliedSamples == null ? 4L * areaSites : 0)
-                        + (orientation >= 5 && orientation <= 8 ? 4L * outputSites : 0);
+        var imageBytes = ImageBytes.rgb(sixteenBit, areaSites, outputSites, partial, orientation,
+                suppliedSamples != null);
         options = memoryOptions(options, track, imageBytes, area.width);
         boolean compact = options.memoryMode() == Cr3DecodeOptions.MemoryMode.LOW_MEMORY;
         var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples, sensor);
@@ -479,21 +478,11 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     private static Cr3DecodeOptions memoryOptions(Cr3DecodeOptions options, RawTrack track,
-                                                  long imageBytes, int processingWidth) {
-        // Directory/profile validation has already succeeded. The codec holds two predictor rows
-        // (RAW), or ten entropy windows and a bounded three-level row cascade (C-RAW), per worker.
-        int tileWidth = track.source.cmp1().tileWidth();
-        int columns = Math.min(track.width, tileWidth) / 2;
-        int workItems = (int) Math.min(Integer.MAX_VALUE, 4L * Math.ceilDiv(track.width, tileWidth));
-        int workers = Cr3Workers.count(options.maxWorkers(), workItems);
-        int processingWorkers = processingWidth == 0 ? 0 : Cr3Workers.count(options.maxWorkers(), track.height);
-        long codecScratch = CrxLossyDecoder.isLossy(track.source.cmp1())
-                ? 160L * 1024 + 64L * (columns + 16) : 32L * 1024 + 8L * columns;
-        // Conservative row/seam allowance, OB sums/levels and minor objects. This is a selection
-        // estimate, not a hard cap; no image-memory reservation is made across concurrent readers.
-        long scratch = workers * codecScratch + processingWorkers * 40L * (processingWidth + 2L)
-                + 32L * track.height + 1024 * 1024;
-        return Cr3MemoryPolicy.apply(options, imageBytes + scratch);
+                                                  ImageBytes imageBytes, int processingWidth) {
+        var cmp = track.source.cmp1();
+        var estimate = Cr3MemoryPolicy.Estimate.forTrack(imageBytes, track.width, track.height,
+                cmp.tileWidth(), CrxLossyDecoder.isLossy(cmp), processingWidth);
+        return Cr3MemoryPolicy.apply(options, estimate);
     }
 
     private Rectangle processedArea(Cr3DecodeOptions options, RawTrack track) {
@@ -579,7 +568,8 @@ public final class Cr3Decoder implements AutoCloseable {
         RawTrack track = rawTrack();
         BayerWindow window = bayerWindow(options, track, region, xStep, yStep);
         CrxSensorDecoder decoder = prepareSensor(track);
-        options = memoryOptions(options, track, 2L * window.width * window.height, 0);
+        var imageBytes = ImageBytes.samples((long) window.width * window.height, Short.BYTES);
+        options = memoryOptions(options, track, imageBytes, 0);
         var output = new BufferedImage(window.width, window.height, BufferedImage.TYPE_USHORT_GRAY);
         short[] pixels = ((DataBufferUShort) output.getRaster().getDataBuffer()).getData();
         decodeBayerWindow(options, track, decoder, window, xStep, yStep, pixels, 0, window.width);
@@ -618,7 +608,7 @@ public final class Cr3Decoder implements AutoCloseable {
         int offset = data.getOffset() + layout.getOffset(destX - target.getSampleModelTranslateX(),
                 destY - target.getSampleModelTranslateY());
         CrxSensorDecoder decoder = prepareSensor(track);
-        options = memoryOptions(options, track, 0, 0);
+        options = memoryOptions(options, track, ImageBytes.samples(0, Short.BYTES), 0);
         decodeBayerWindow(options, track, decoder, window, xStep, yStep, data.getData(),
                 offset, layout.getScanlineStride());
     }

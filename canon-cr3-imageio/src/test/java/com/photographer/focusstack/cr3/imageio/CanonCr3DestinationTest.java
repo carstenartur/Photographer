@@ -64,6 +64,59 @@ class CanonCr3DestinationTest {
     }
 
     @Test
+    void malformedFinalPlaneNeverWritesIntoACustomFactorysCallerHeldRaster() throws Exception {
+        byte[] bytes = fourSites();
+        // Keep the directory and first three planes intact, but damage the final plane's opening prefix.
+        Arrays.fill(bytes, bytes.length - 2, bytes.length, (byte) 0xff);
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+            reader.setInput(input);
+            var param = reader.getDefaultReadParam();
+            param.getDecodeOptions().maxWorkers(1);
+            var type = reader.getImageTypes(0).next();
+            var held = type.createBufferedImage(2, 2);
+            int[] before = {11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22};
+            held.getRaster().setPixels(0, 0, 2, 2, before);
+            var requested = new ImageTypeSpecifier(type.getColorModel(), type.getSampleModel()) {
+                @Override
+                public BufferedImage createBufferedImage(int width, int height) {
+                    return new BufferedImage(held.getColorModel(), held.getRaster(), false, null);
+                }
+            };
+            param.setDestinationType(requested);
+            assertThrows(IIOException.class, () -> reader.read(0, param));
+            assertArrayEquals(before, held.getRaster().getPixels(0, 0, 2, 2, (int[]) null));
+            assertNull(param.getDestination());
+            assertSame(requested, param.getDestinationType());
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @Test
+    void validatesTheRawDirectoryBeforeAllocatingAnAutomaticFallbackDestination() throws Exception {
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(damagedRaw()))) {
+            reader.setInput(input);
+            var param = reader.getDefaultReadParam();
+            param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN));
+            var interleaved = ImageTypeSpecifier.createInterleaved(ColorSpace.getInstance(ColorSpace.CS_sRGB),
+                    new int[]{0, 1, 2}, DataBuffer.TYPE_USHORT, false, false);
+            param.setDestinationType(new ImageTypeSpecifier(interleaved.getColorModel(), interleaved.getSampleModel()) {
+                @Override
+                public BufferedImage createBufferedImage(int width, int height) {
+                    throw new AssertionError("The CRX directory is malformed");
+                }
+            });
+
+            assertNotNull(assertThrows(IIOException.class, () -> reader.read(0, param)).getCause());
+            assertNull(param.getDestination());
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @Test
     void aDifferentRgb16DestinationLayoutStillReceivesAllSamples() throws Exception {
         var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(fourSites()))) {

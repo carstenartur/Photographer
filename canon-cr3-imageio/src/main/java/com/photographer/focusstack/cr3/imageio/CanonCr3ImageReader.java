@@ -165,7 +165,8 @@ public class CanonCr3ImageReader extends ImageReader {
             case RAW_SENSOR, RAW_LINEAR -> requested;
             case PREVIEW, THUMBNAIL, RAW_PROCESSED -> Cr3DecodeOptions.rawLinear()
                     .cropToActiveArea(requested.cropToActiveArea()).applyBlackLevel(requested.applyBlackLevel())
-                    .maxWorkers(requested.maxWorkers()).memoryMode(requested.memoryMode());
+                    .maxWorkers(requested.maxWorkers()).memoryMode(requested.memoryMode())
+                    .postDecodeMemoryBytes(requested.postDecodeMemoryBytes());
         };
     }
 
@@ -254,6 +255,20 @@ public class CanonCr3ImageReader extends ImageReader {
             Rectangle bounds = decoder.getRawProcessedBounds(options);
             ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
             Rectangle source = regions.source();
+            if (param.getDestination() == null && options.memoryMode() != Cr3DecodeOptions.MemoryMode.FAST) {
+                var developed = sixteen ? (options.applySrgbConversion() ? SRGB16 : LINEAR_RGB16) : RGB8;
+                ImageTypeSpecifier requested = param.getDestinationType();
+                Rectangle dest = regions.destination();
+                boolean direct = param.getSourceBands() == null && param.getDestinationBands() == null
+                        && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
+                        && dest.x == 0 && dest.y == 0 && dest.width == source.width && dest.height == source.height;
+                // The advertised INT_RGB has a 32-bit color model; core's packed RGB8 has a
+                // 24-bit model. Partial packed views can also retain their halo's row stride.
+                if (!direct || requested != null
+                        && !(sixteen && Cr3DestinationMemory.matches(requested, developed, source.width, source.height))) {
+                    options = Cr3DestinationMemory.forCopy(options, requested == null ? developed : requested, dest, 3);
+                }
+            }
             if (source.equals(bounds)) {
                 BufferedImage destination = param instanceof CanonCr3ImageReadParam cr3
                         && !sixteen && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
@@ -365,6 +380,11 @@ public class CanonCr3ImageReader extends ImageReader {
                 decoder.decodeRawRegionInto(options, regions.source(), xStep, yStep,
                         supplied.getRaster(), output.x, output.y);
                 return supplied;
+            }
+            if (supplied == null && (output.x != 0 || output.y != 0)
+                    && options.memoryMode() != Cr3DecodeOptions.MemoryMode.FAST) {
+                ImageTypeSpecifier requested = param.getDestinationType();
+                options = Cr3DestinationMemory.forCopy(options, requested == null ? type : requested, output, 1);
             }
             BufferedImage samples = decoder.decodeRawRegion(options, regions.source(), xStep, yStep);
             if (supplied == null && output.x == 0 && output.y == 0) {
