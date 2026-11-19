@@ -1,0 +1,778 @@
+{
+  "archives": [
+    {
+      "file": "measured-panels.tar.gz",
+      "bytes": 361942,
+      "sha256": "38671093fd5972c8c76d6180705e1a2d0b5d843137935fd7f9c90d70c2b2a25f",
+      "members_excluding_inventory": 1100
+    },
+    {
+      "file": "correctness.tar.gz",
+      "bytes": 238368,
+      "sha256": "457b37eced5c5b6ba3a43e4cc41157efad7ee2a17f9fda8185961b7261a909ed",
+      "members_excluding_inventory": 524
+    },
+    {
+      "file": "sources-and-patches.tar.gz",
+      "bytes": 76506,
+      "sha256": "26bedead92509017c9d46e13ac77b7a760214ee2e757db3d4fbd1c7a422e8949",
+      "members_excluding_inventory": 56
+    }
+  ],
+  "source_reconstruction": {
+    "public_base": "74812b83df3a226688c0f856c200e6fd3f1cd368",
+    "public_base_tree": "378f4fb680584429afb016c3158ec3321f5248e7",
+    "local_equivalent_base": "8a64f4a0664f47af4c31e19ca547e35820f40296",
+    "verification": "Applied each patch to its parent tree in a temporary index and checked git write-tree.",
+    "build": "mvn -Pbenchmarks -pl canon-cr3-benchmark -am -DskipTests clean package",
+    "rebuild_note": "Tree equality identifies sources. JAR digests identify the exact recorded binary.",
+    "patches": {
+      "raw-fusion": {
+        "source_commit": "ff7fac6f973a7d56fe0eb44ac9815326d0faf818",
+        "source_tree": "bbb5aa2f24e945594fe0a09a05f69b5497508192",
+        "patch": "patches/raw-fusion.patch",
+        "patch_sha256": "a32e7be2b051217307c6f98827d9604df4483a14e5dc83c058aca30689cf419d",
+        "apply_in_order_from_public_base": [
+          "patches/raw-fusion.patch"
+        ]
+      },
+      "detail-refill": {
+        "source_commit": "d69c3ca5ebad7a5ea8fd255a4a4b4bc7a9e5fecf",
+        "source_tree": "d99c8477197c71bbf87d3c9f3f7a671b383897f7",
+        "patch": "patches/detail-refill.patch",
+        "patch_sha256": "db6f8bb080d3c1a44aa55c713abf78e5c8138fbae79843c6008709fcd35c9bc1",
+        "apply_in_order_from_public_base": [
+          "patches/raw-fusion.patch",
+          "patches/detail-refill.patch"
+        ]
+      },
+      "grouped-runs": {
+        "source_commit": "00fc8c026ad9b77865f757da83367b5f8c3da0c7",
+        "source_tree": "1fbf4767ef0adcba89746308b0a470fa67fabe99",
+        "patch": "patches/grouped-runs.patch",
+        "patch_sha256": "18f8f810ea9a0cd98c1ba7e360f11db943ca8b34e78a51f440e8f2b1e5d7d271",
+        "apply_in_order_from_public_base": [
+          "patches/raw-fusion.patch",
+          "patches/detail-refill.patch",
+          "patches/grouped-runs.patch"
+        ]
+      },
+      "encoder": {
+        "source_commit": "e8e508d6490a4e00326c5a7e6f9780b3cf8781db",
+        "source_tree": "aa59daa27f11a722f6731e62e35608c679892943",
+        "patch": "patches/encoder.patch",
+        "patch_sha256": "f75a9f0395b3b56cbd449f7674b87474fdfe6e5cf1327ad0bb47c864a8579c9b",
+        "apply_in_order_from_public_base": [
+          "patches/encoder.patch"
+        ]
+      },
+      "rgb8-rows": {
+        "source_commit": "e1dff01d18a56e81ccb2b2a25b484439f194186b",
+        "source_tree": "a0d1a109e3aa60f97b9a10b46b770ac2b486c4d1",
+        "patch": "patches/rgb8-rows.patch",
+        "patch_sha256": "b4b8fcc450f159a23553a0ac72d323d2e04de50c6e85c33e12619d78bf96db16",
+        "apply_in_order_from_public_base": [
+          "patches/encoder.patch",
+          "patches/rgb8-rows.patch"
+        ]
+      },
+      "compact-workers": {
+        "source_commit": "d0344cb46e64aaef3324f346b17c1abbc615dc8e",
+        "source_tree": "58b7fb02c0242d168845235e6c4d483cb809a8f9",
+        "patch": "patches/compact-workers.patch",
+        "patch_sha256": "25f2a6b09a5ff84d4081c63d6ce0f5dfbf753a78763a182ccfa43949e15d8ed9",
+        "apply_in_order_from_public_base": [
+          "patches/compact-workers.patch"
+        ]
+      },
+      "final-runtime": {
+        "source_commit": "e956a5ad5f8aa03e637e2037dd0154534caadb33",
+        "source_tree": "c831fcf62b90da97dfeb64c2ef1c11d61aab9c37",
+        "patch": "patches/final-runtime.patch",
+        "patch_sha256": "e8b50b50aa38a5f7e486243ee988394f4ee63668c11ed1e5f8bc20e96d7e18f2",
+        "apply_in_order_from_public_base": [
+          "patches/final-runtime.patch"
+        ]
+      }
+    }
+  },
+  "helpers": {
+    "normal": {
+      "path": "probes/normal/Cr3ImportProbe.java",
+      "source_sha256": "36374da0d79df813b8e9c47e0212a085a8740f2ffcc2d6d39c1ad831a917accc",
+      "compiled_classes": {
+        "25": {
+          "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb",
+          "class_major": 69
+        },
+        "21": {
+          "sha256": "e2efa01689faaf200f2c318e9404c40b76477765167b4ed4c8c274948f7c914a",
+          "class_major": 65
+        }
+      }
+    },
+    "extended-measured": {
+      "path": "probes/extended-measured/Cr3ImportProbe.java",
+      "source_sha256": "f2e34987a770acc5f6e35c8d021cd6b8216cab5793d94086308aff104f13d1fa",
+      "compiled_classes": {
+        "25": {
+          "sha256": "2ceef1202ab7a1170c15899696018352caef0550c2dcb6c092eb8765e1e10994",
+          "class_major": 69
+        },
+        "21": {
+          "sha256": "b61f16c33db9e468a79870dbbb19a2405b68f7371ca8d45399f3a879a5bf2806",
+          "class_major": 65
+        }
+      }
+    },
+    "extended-repository": {
+      "source_sha256": "eaefdd3ff96f0b3c2f6c139ebcf379374fee62b3e3ee717984753b1fa0950c4a",
+      "source_commit": "e956a5ad5f8aa03e637e2037dd0154534caadb33",
+      "role": "Repository source with later malformed-orientation guard."
+    }
+  },
+  "final_build": {
+    "source_commit": "e956a5ad5f8aa03e637e2037dd0154534caadb33",
+    "source_tree": "c831fcf62b90da97dfeb64c2ef1c11d61aab9c37",
+    "jar": "/workspace/scratch/adce2cf98312/qa-next/final-benchmarks.jar",
+    "jar_sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6",
+    "build_command": "mvn -o -Pbenchmarks -pl canon-cr3-imageio,cr3-imagej,canon-cr3-cli,canon-cr3-benchmark -am clean verify",
+    "build_log": "final-reactor.log",
+    "build_log_sha256": "b94c0f7bad5c764c767aab8dfff2c15128b29db60b093ffb0b60a65674d92ce1",
+    "unit_and_integration_counts": [
+      {
+        "module": "canon-cr3-container",
+        "kind": "surefire-reports",
+        "tests": 132,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-metadata",
+        "kind": "surefire-reports",
+        "tests": 64,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-codec",
+        "kind": "surefire-reports",
+        "tests": 119,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-processing",
+        "kind": "surefire-reports",
+        "tests": 138,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 1
+      },
+      {
+        "module": "canon-cr3-processing",
+        "kind": "failsafe-reports",
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-core",
+        "kind": "surefire-reports",
+        "tests": 42,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-imageio",
+        "kind": "surefire-reports",
+        "tests": 209,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-imageio",
+        "kind": "failsafe-reports",
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "cr3-imagej",
+        "kind": "surefire-reports",
+        "tests": 7,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-cli",
+        "kind": "surefire-reports",
+        "tests": 17,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      {
+        "module": "canon-cr3-benchmark",
+        "kind": "surefire-reports",
+        "tests": 24,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    ],
+    "totals": {
+      "tests": 756,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    "multi_release": true,
+    "base_class_major": 65,
+    "optional_vector_class_major": 69
+  },
+  "measured_artifacts": {
+    "final-compact": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_final.py",
+        "bytes": 5760,
+        "sha256": "69a55b1de2739d7b83802bdfdfde814f6c3545f5c112f3ea54e27b8099560659"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-compact.json",
+        "bytes": 699,
+        "sha256": "fe13140998191afa7f9649d4733acfb78a26a5bfc50435a407e869b6ee9a3fac"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+        "bytes": 14384,
+        "sha256": "1a7e0b17c39003c75b457d686775ccb032e56fa9c8afe3c492d8eb3715e8951a"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/extended-probe21-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17807,
+        "sha256": "b61f16c33db9e468a79870dbbb19a2405b68f7371ca8d45399f3a879a5bf2806"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "final": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-benchmarks.jar",
+        "bytes": 3657978,
+        "sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6"
+      }
+    },
+    "final-java21": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_final.py",
+        "bytes": 5760,
+        "sha256": "69a55b1de2739d7b83802bdfdfde814f6c3545f5c112f3ea54e27b8099560659"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-java21.json",
+        "bytes": 588,
+        "sha256": "3d03cce9d2d6745010b48c97161c9d637f2bf132c6c78d52f8adbfaecbb2f9da"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+        "bytes": 14384,
+        "sha256": "1a7e0b17c39003c75b457d686775ccb032e56fa9c8afe3c492d8eb3715e8951a"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe21-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 15102,
+        "sha256": "e2efa01689faaf200f2c318e9404c40b76477765167b4ed4c8c274948f7c914a"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "final": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-benchmarks.jar",
+        "bytes": 3657978,
+        "sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6"
+      }
+    },
+    "final-one-cpu": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_final.py",
+        "bytes": 5760,
+        "sha256": "69a55b1de2739d7b83802bdfdfde814f6c3545f5c112f3ea54e27b8099560659"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-one-cpu.json",
+        "bytes": 610,
+        "sha256": "9ab53258b5df7dac2ecffe74155617064524af734054b7631a34b228fe8e3498"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+        "bytes": 14384,
+        "sha256": "1a7e0b17c39003c75b457d686775ccb032e56fa9c8afe3c492d8eb3715e8951a"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe21-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 15102,
+        "sha256": "e2efa01689faaf200f2c318e9404c40b76477765167b4ed4c8c274948f7c914a"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "final": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-benchmarks.jar",
+        "bytes": 3657978,
+        "sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6"
+      }
+    },
+    "final-vectors": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_final.py",
+        "bytes": 5760,
+        "sha256": "69a55b1de2739d7b83802bdfdfde814f6c3545f5c112f3ea54e27b8099560659"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-vectors.json",
+        "bytes": 653,
+        "sha256": "9574ecd6f481001bdbb6e821eea55ad70e2e03964f3aab3e3c92cfc5707d5983"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17814,
+        "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb"
+      },
+      "scalar": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-benchmarks.jar",
+        "bytes": 3657978,
+        "sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6"
+      },
+      "vectors": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/final-benchmarks.jar",
+        "bytes": 3657978,
+        "sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6"
+      }
+    },
+    "screen-encoder": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_panel.py",
+        "bytes": 5752,
+        "sha256": "744787a2c5d4b8cd29f6147200749c77f57cd6154c3edc7c7af53c867823cfdd"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/screen-encoder.json",
+        "bytes": 353,
+        "sha256": "64293fe2798b7f15cb67902d791c63ccda33e4769cb0039b5e769e852429d20d"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17814,
+        "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "encoder": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/encoder-benchmarks.jar",
+        "bytes": 3645920,
+        "sha256": "3383face71dd5872e91d0714b5f488303ab610e3a06f10212c58cb9660f364ef"
+      }
+    },
+    "screen-memory": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_panel.py",
+        "bytes": 5752,
+        "sha256": "744787a2c5d4b8cd29f6147200749c77f57cd6154c3edc7c7af53c867823cfdd"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/screen-memory.json",
+        "bytes": 592,
+        "sha256": "b58cfb087571d7b8fe6efe42eedfaf7b9d02054da2cf740c90ceb586fdc41236"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/extended-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 20981,
+        "sha256": "2ceef1202ab7a1170c15899696018352caef0550c2dcb6c092eb8765e1e10994"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "compact-workers": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/compact-workers-benchmarks.jar",
+        "bytes": 3649435,
+        "sha256": "1e4fa393115826279294a880834d52d4095d9f2ee22d9c500cc527795d8ec03b"
+      }
+    },
+    "screen-raw": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_panel.py",
+        "bytes": 5752,
+        "sha256": "744787a2c5d4b8cd29f6147200749c77f57cd6154c3edc7c7af53c867823cfdd"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/screen-raw.json",
+        "bytes": 453,
+        "sha256": "cd16d02e0f82b7a0c300d53362e7d538e82d7dca168d34dcfec70e892648cd37"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17814,
+        "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "raw-fusion": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/raw-fusion-benchmarks.jar",
+        "bytes": 3646155,
+        "sha256": "78de79b9e49505809031ec239e76e858eff20253cc5b6b1b579a961543e3a9e2"
+      }
+    },
+    "screen-refill": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_panel.py",
+        "bytes": 5752,
+        "sha256": "744787a2c5d4b8cd29f6147200749c77f57cd6154c3edc7c7af53c867823cfdd"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/screen-refill.json",
+        "bytes": 419,
+        "sha256": "aa94b0a71839dbc8440c27b287d9b0a124da48d43dd09acc1c74ae2cab688fb4"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17814,
+        "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb"
+      },
+      "raw-fusion": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/raw-fusion-benchmarks.jar",
+        "bytes": 3646155,
+        "sha256": "78de79b9e49505809031ec239e76e858eff20253cc5b6b1b579a961543e3a9e2"
+      },
+      "detail-refill": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/detail-refill-benchmarks.jar",
+        "bytes": 3646163,
+        "sha256": "1bd75dcd7e7736e79ff88f2424bd986afb54a29c07212f3c9e8dd97f8ad424ad"
+      }
+    },
+    "screen-rows": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_panel.py",
+        "bytes": 5752,
+        "sha256": "744787a2c5d4b8cd29f6147200749c77f57cd6154c3edc7c7af53c867823cfdd"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/screen-rows.json",
+        "bytes": 356,
+        "sha256": "b1f603c6e175e052aef13261fff03c1a35b76d6330250cf339ef267005cbe876"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17814,
+        "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb"
+      },
+      "baseline": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/final-benchmarks.jar",
+        "bytes": 3645872,
+        "sha256": "55c44c673b3a9dee8e32c0b05e8148fec39669a29c1f4e072374e2c93af2ec3e"
+      },
+      "rgb8-rows": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/rgb8-rows-benchmarks.jar",
+        "bytes": 3649502,
+        "sha256": "280a54aea6e6d303397257c43198bd0bc14bd9a18f82319a23012591e3e10cee"
+      }
+    },
+    "screen-runs": {
+      "driver": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/measure_panel.py",
+        "bytes": 5752,
+        "sha256": "744787a2c5d4b8cd29f6147200749c77f57cd6154c3edc7c7af53c867823cfdd"
+      },
+      "configuration": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/screen-runs.json",
+        "bytes": 421,
+        "sha256": "27b34c2ab9ce6fc5a3de6717bebc8b4d29312608c9df56144e415731ba37fd5a"
+      },
+      "common_runner": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/public_measurements.py",
+        "bytes": 17175,
+        "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+      },
+      "java": {
+        "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "bytes": 16264,
+        "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+      },
+      "probe": {
+        "path": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+        "bytes": 17814,
+        "sha256": "cdefef3596ca0d985e16bc613ab332d5d7910e89187ff3b8421efb7a05d0f7eb"
+      },
+      "detail-refill": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/detail-refill-benchmarks.jar",
+        "bytes": 3646163,
+        "sha256": "1bd75dcd7e7736e79ff88f2424bd986afb54a29c07212f3c9e8dd97f8ad424ad"
+      },
+      "grouped-runs": {
+        "path": "/workspace/scratch/adce2cf98312/qa-next/grouped-runs-benchmarks.jar",
+        "bytes": 3646573,
+        "sha256": "8021102e40061483f0c8a35c969cd26f72fae2842c232a025dfaae3f6632ff5d"
+      }
+    }
+  },
+  "build_configuration_followup": {
+    "measured_source": "e956a5ad5f8aa03e637e2037dd0154534caadb33",
+    "followup_source": "9998f220d875cfe1f1e70f06800c739dc7c65278",
+    "followup_tree": "95638b77aa2fe83de1c30f9633ba257c049a2833",
+    "changed_paths": [
+      ".github/workflows/cr3-research.yml",
+      "canon-cr3-processing/pom.xml"
+    ],
+    "reason": "Research-only selection compatibility and its CI path trigger; no runtime source changes.",
+    "validation_pending": false,
+    "rebuilt_jar_sha256": "5200b17fe6a0901a31b4edf7c2800be327a04fb97bc354a9362ca4135bf78419",
+    "measured_jar_sha256": "323e08e4820ead3dd739a3040acafd8723ecc0db48141f085dede2bbcaa814b6",
+    "runtime_entries_identical": true,
+    "runtime_entries_compared": 2080,
+    "differing_maven_metadata": [
+      "META-INF/maven/io.github.carstenartur/cr3-processing/pom.xml"
+    ],
+    "verification_command": "mvn -o -Pbenchmarks -pl canon-cr3-benchmark -am -DskipTests clean package",
+    "build_log_sha256": "0e2e623c6dff71ee18d7b73511ce6e7509f5151f5f1ed4a76afed53f1663a19e",
+    "ci": {
+      "head": "187d60c783e14ebc9226671de6b08f3f773776f7",
+      "research": {
+        "head": "187d60c783e14ebc9226671de6b08f3f773776f7",
+        "job_id": 135652225769,
+        "url": "https://github.com/carstenartur/Photographer/actions/runs/44550389063/job/135652225769",
+        "note": "Filtered GitHub job log excerpt; complete job remains at its API-provided run URL.",
+        "lines": [
+          "2026-11-19T15:04:06.5609676Z [INFO] Running com.photographer.focusstack.cr3.research.LosslessOpeningSamplesIT",
+          "2026-11-19T15:04:07.2807496Z [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.700 s -- in com.photographer.focusstack.cr3.research.LosslessOpeningSamplesIT",
+          "2026-11-19T15:04:07.2808640Z [INFO] Running com.photographer.focusstack.cr3.research.ExactBracketKDiscriminatorIT",
+          "2026-11-19T15:04:27.4841934Z [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 20.22 s -- in com.photographer.focusstack.cr3.research.ExactBracketKDiscriminatorIT",
+          "2026-11-19T15:04:27.4842904Z [INFO] Running com.photographer.focusstack.cr3.research.PatentRunModeIT",
+          "2026-11-19T15:04:30.6460420Z [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.170 s -- in com.photographer.focusstack.cr3.research.PatentRunModeIT",
+          "2026-11-19T15:04:31.6148691Z [INFO] BUILD SUCCESS"
+        ]
+      },
+      "ordinary_processing": {
+        "head": "187d60c783e14ebc9226671de6b08f3f773776f7",
+        "job_id": 135652374978,
+        "url": "https://github.com/carstenartur/Photographer/actions/runs/44550389142/job/135652374978",
+        "lines": [
+          "2026-11-19T15:04:28.0651710Z [INFO] Running com.photographer.focusstack.cr3.processing.PackagedColorMatrixIT",
+          "2026-11-19T15:04:28.9131059Z [INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.841 s -- in com.photographer.focusstack.cr3.processing.PackagedColorMatrixIT",
+          "2026-11-19T15:09:26.4160451Z [INFO] BUILD SUCCESS",
+          "2026-11-19T15:09:35.1824021Z [INFO] BUILD SUCCESS"
+        ]
+      }
+    }
+  },
+  "required_panels_missing": [],
+  "measured_process_counts": {
+    "final-compact": {
+      "planned": 24,
+      "recorded": 24,
+      "by_status": {
+        "ok": 24
+      },
+      "complete_success": true
+    },
+    "final-java21": {
+      "planned": 48,
+      "recorded": 48,
+      "by_status": {
+        "ok": 48
+      },
+      "complete_success": true
+    },
+    "final-one-cpu": {
+      "planned": 6,
+      "recorded": 6,
+      "by_status": {
+        "ok": 6
+      },
+      "complete_success": true
+    },
+    "final-vectors": {
+      "planned": 12,
+      "recorded": 12,
+      "by_status": {
+        "ok": 12
+      },
+      "complete_success": true
+    },
+    "screen-encoder": {
+      "planned": 12,
+      "recorded": 12,
+      "by_status": {
+        "ok": 12
+      },
+      "complete_success": true
+    },
+    "screen-memory": {
+      "planned": 24,
+      "recorded": 24,
+      "by_status": {
+        "ok": 24
+      },
+      "complete_success": true
+    },
+    "screen-raw": {
+      "planned": 24,
+      "recorded": 24,
+      "by_status": {
+        "ok": 24
+      },
+      "complete_success": true
+    },
+    "screen-refill": {
+      "planned": 24,
+      "recorded": 24,
+      "by_status": {
+        "ok": 24
+      },
+      "complete_success": true
+    },
+    "screen-rows": {
+      "planned": 12,
+      "recorded": 12,
+      "by_status": {
+        "ok": 12
+      },
+      "complete_success": true
+    },
+    "screen-runs": {
+      "planned": 24,
+      "recorded": 24,
+      "by_status": {
+        "ok": 24
+      },
+      "complete_success": true
+    }
+  },
+  "final_jar_observed_in": [
+    "final-compact",
+    "final-correctness",
+    "final-java21",
+    "final-one-cpu",
+    "final-vectors"
+  ],
+  "final_panels_without_final_jar": [],
+  "artifact_verification_issues": [],
+  "inputs": [
+    {
+      "sample": "sample.cr3",
+      "bytes": 22920507,
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    {
+      "sample": "eosr-iso-low.cr3",
+      "bytes": 40282915,
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    },
+    {
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "bytes": 11053010,
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+    },
+    {
+      "sample": "eos-m50-craw-4656.cr3",
+      "bytes": 14851567,
+      "sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594"
+    }
+  ],
+  "raw_evidence": "All available observations, outliers, failing process records, stdout, stderr and commands are retained. Missing/partial work is visible in plans and summaries."
+}

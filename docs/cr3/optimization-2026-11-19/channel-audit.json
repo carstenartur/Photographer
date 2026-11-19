@@ -1,0 +1,941 @@
+{
+  "fields_compared": [
+    "width",
+    "height",
+    "channels",
+    "bits",
+    "fnv1a64",
+    "checksum_kind"
+  ],
+  "method": "Read emitted channels explicitly. Original screen drivers used a missing bands key; probe independently validates every band's precision. Timed sampled hashes are excluded.",
+  "panels": {
+    "final-compact": {
+      "planned_processes": 8,
+      "recorded_processes": 8,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "1698da1b200e3abc",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "1698da1b200e3abc",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "rgb8",
+          "variants": {
+            "baseline": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "32b368d5bdb0f51a",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "32b368d5bdb0f51a",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "d6417403cab7ec9d",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "d6417403cab7ec9d",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "rgb8",
+          "variants": {
+            "baseline": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "97410531ecc87d9f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "97410531ecc87d9f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "final-correctness": {
+      "recorded_processes": 67,
+      "planned_processes": 67,
+      "full_reference_matches": 65,
+      "expected_oom_observed": 2,
+      "all_cases_verified": true,
+      "errors": []
+    },
+    "final-java21": {
+      "planned_processes": 16,
+      "recorded_processes": 16,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 0,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "533495a176fc121a",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "533495a176fc121a",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 0,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "482d0cb8385a95c5",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "482d0cb8385a95c5",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "ba1e15e786312378",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "ba1e15e786312378",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "5c286fbe36253461",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "5c286fbe36253461",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 3,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "fe7f1afca1efc8ff",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "fe7f1afca1efc8ff",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 3,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "a4bfda0cf5099990",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "a4bfda0cf5099990",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "final-one-cpu": {
+      "planned_processes": 2,
+      "recorded_processes": 2,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 1,
+          "input_index": 1,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "ba1e15e786312378",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "final": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "ba1e15e786312378",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "final-vectors": {
+      "planned_processes": 4,
+      "recorded_processes": 4,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "default",
+          "variants": {
+            "scalar": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "vectors": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "default",
+          "variants": {
+            "scalar": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "vectors": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "screen-encoder": {
+      "planned_processes": 4,
+      "recorded_processes": 4,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "ba1e15e786312378",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "encoder": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "ba1e15e786312378",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "5c286fbe36253461",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "encoder": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "5c286fbe36253461",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "screen-memory": {
+      "planned_processes": 8,
+      "recorded_processes": 8,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "1698da1b200e3abc",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "compact-workers": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "1698da1b200e3abc",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "rgb8",
+          "variants": {
+            "baseline": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "32b368d5bdb0f51a",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "compact-workers": {
+              "width": 4500,
+              "height": 6744,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "32b368d5bdb0f51a",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "rgb16",
+          "variants": {
+            "baseline": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "d6417403cab7ec9d",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "compact-workers": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 16,
+              "fnv1a64": "d6417403cab7ec9d",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "rgb8",
+          "variants": {
+            "baseline": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "97410531ecc87d9f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "compact-workers": {
+              "width": 3668,
+              "height": 5496,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "97410531ecc87d9f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "screen-raw": {
+      "planned_processes": 8,
+      "recorded_processes": 8,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 0,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "533495a176fc121a",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "raw-fusion": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "533495a176fc121a",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 0,
+          "mode": "sensor",
+          "variants": {
+            "baseline": {
+              "width": 5632,
+              "height": 3710,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "bbb2c3b2ecb4e45b",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "raw-fusion": {
+              "width": 5632,
+              "height": 3710,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "bbb2c3b2ecb4e45b",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "raw-fusion": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "sensor",
+          "variants": {
+            "baseline": {
+              "width": 6888,
+              "height": 4546,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "bfdafa4cdea7ee7c",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "raw-fusion": {
+              "width": 6888,
+              "height": 4546,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "bfdafa4cdea7ee7c",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "screen-refill": {
+      "planned_processes": 8,
+      "recorded_processes": 8,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "default",
+          "variants": {
+            "raw-fusion": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "detail-refill": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "sensor",
+          "variants": {
+            "raw-fusion": {
+              "width": 5632,
+              "height": 3710,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "a90bf97e45a21c71",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "detail-refill": {
+              "width": 5632,
+              "height": 3710,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "a90bf97e45a21c71",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 3,
+          "mode": "default",
+          "variants": {
+            "raw-fusion": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "fe7f1afca1efc8ff",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "detail-refill": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "fe7f1afca1efc8ff",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 3,
+          "mode": "sensor",
+          "variants": {
+            "raw-fusion": {
+              "width": 6288,
+              "height": 4056,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "9bfade480f63376f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "detail-refill": {
+              "width": 6288,
+              "height": 4056,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "9bfade480f63376f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "screen-rows": {
+      "planned_processes": 4,
+      "recorded_processes": 4,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 1,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "rgb8-rows": {
+              "width": 6744,
+              "height": 4500,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "4ec22e4a80bb1e4e",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "default",
+          "variants": {
+            "baseline": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "rgb8-rows": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    },
+    "screen-runs": {
+      "planned_processes": 8,
+      "recorded_processes": 8,
+      "all_pairs_verified": true,
+      "pairs": [
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "default",
+          "variants": {
+            "detail-refill": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "grouped-runs": {
+              "width": 5496,
+              "height": 3668,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "a53bb807df5d016f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 2,
+          "mode": "sensor",
+          "variants": {
+            "detail-refill": {
+              "width": 5632,
+              "height": 3710,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "a90bf97e45a21c71",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "grouped-runs": {
+              "width": 5632,
+              "height": 3710,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "a90bf97e45a21c71",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 3,
+          "mode": "default",
+          "variants": {
+            "detail-refill": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "fe7f1afca1efc8ff",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "grouped-runs": {
+              "width": 6024,
+              "height": 4020,
+              "channels": 3,
+              "bits": 8,
+              "fnv1a64": "fe7f1afca1efc8ff",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        },
+        {
+          "cpus": 4,
+          "input_index": 3,
+          "mode": "sensor",
+          "variants": {
+            "detail-refill": {
+              "width": 6288,
+              "height": 4056,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "9bfade480f63376f",
+              "checksum_kind": "full-u16le-or-u8"
+            },
+            "grouped-runs": {
+              "width": 6288,
+              "height": 4056,
+              "channels": 1,
+              "bits": 16,
+              "fnv1a64": "9bfade480f63376f",
+              "checksum_kind": "full-u16le-or-u8"
+            }
+          },
+          "complete_match": true
+        }
+      ],
+      "errors": []
+    }
+  }
+}
