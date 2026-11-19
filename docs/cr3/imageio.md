@@ -7,7 +7,7 @@ RAW development uses the as-shot white balance when the capture contains support
 | Output | ImageIO call for image index `0` | Result |
 |---|---|---|
 | RGB from RAW or C-RAW | `ImageIO.read(file)` or `reader.read(0)`. To configure development, pass a param with `rawProcessed()`. | Demosaiced 8-bit sRGB at the active-area resolution with EXIF orientation applied. |
-| 16-bit RGB from RAW (development) | `reader.read(0, param)` with `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` | Three unsigned 16-bit RGB bands in the same active-area, EXIF-oriented coordinates. |
+| 16-bit RGB from RAW or C-RAW (0.1.8+) | `reader.read(0, param)` with `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` | Three unsigned 16-bit RGB bands in the same active-area, EXIF-oriented coordinates. |
 | The camera preview | `reader.read(0, param)` with `param.setPreviewOnly(true)` | Decoded embedded JPEG pixels at the camera preview's dimensions. |
 | A thumbnail | `reader.getNumThumbnails(0)`, then `reader.readThumbnail(0, 0)` if present | The separately embedded JPEG thumbnail. A CR3 can have none. |
 | A scaled Bayer mosaic | `reader.readRaster(0, null)` or `rawLinear()` | One unsigned 16-bit band, cropped to the active area with black-level adjustment by default. |
@@ -17,7 +17,7 @@ RAW development uses the as-shot white balance when the capture contains support
 
 **Upgrading from 0.1.5.** Starting with 0.1.6, the standard read develops RAW. Pass `setPreviewOnly(true)` to keep the camera-rendered JPEG behavior.
 
-The 16-bit RGB option is implemented in the 0.1.8-SNAPSHOT source build and planned for the next release. Stable 0.1.7 develops 8-bit RGB even when `SIXTEEN` is selected.
+**Upgrading from 0.1.7.** With 0.1.8 or later, selecting `SIXTEEN` produces three unsigned 16-bit RGB bands. In 0.1.7 the same option produces 8-bit RGB. [0.1.8 changes and compatibility](../releases/0.1.8.md)
 
 The stream-origin, preview-toggle, Bayer destination validation and metadata schema behavior described below is available starting with [0.1.7](../releases/0.1.7.md).
 
@@ -25,13 +25,13 @@ A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW
 
 ## Maven setup
 
-ImageIO comes with the JDK. A Java 21+ application needs one direct dependency. Maven resolves the decoder and its runtime dependencies from Maven Central.
+ImageIO comes with the JDK. The API examples in this guide target CR3 0.1.8 and Java 21 or newer. Check the [release channel](../cr3-maven-central.md#resolve-a-released-version) for published availability, or use the [local build](#use-a-local-build) before publication. For the published release, this direct dependency resolves the decoder and its runtime dependencies from Maven Central:
 
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-imageio</artifactId>
-  <version>0.1.7</version>
+  <version>0.1.8</version>
 </dependency>
 ```
 
@@ -66,7 +66,7 @@ mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
 
 ### Optional SIMD color matrix on JDK 25
 
-Starting with 0.1.8-SNAPSHOT, the normal processing JAR includes the Java 25 Vector API implementation of the packed 8-bit RAW-to-RGB color matrix as a versioned class. Add `--add-modules=jdk.incubator.vector` to the JDK 25 application launch to enable it. The base classes remain compatible with Java 21. The same JAR uses the scalar path on other Java versions, with the module disabled, or when packed rows or 256-bit vectors are unavailable. RGB16 development uses its separate exact processing path.
+Starting with 0.1.8, the normal processing JAR includes the Java 25 Vector API implementation of the packed 8-bit RAW-to-RGB color matrix as a versioned class. Add `--add-modules=jdk.incubator.vector` to the JDK 25 application launch to enable it. The base classes remain compatible with Java 21. The same JAR uses the scalar path on other Java versions, with the module disabled, or when packed rows or 256-bit vectors are unavailable. RGB16 development uses its separate exact processing path.
 
 The normal JMH distribution also includes this implementation. Building requires JDK 25; `-Pcr3-vector` additionally runs processing unit tests with vectors enabled. Packaged-artifact integration tests exercise both enabled and disabled launches during `verify`.
 
@@ -141,7 +141,7 @@ public class ReadCr3 {
                         }
                     }
                     case "rgb" -> describe(reader.read(0, param));
-                    case "rgb16" -> { // Requires the 0.1.8-SNAPSHOT development build.
+                    case "rgb16" -> {
                         param.setDecodeOptions(Cr3DecodeOptions.rawProcessed()
                                 .bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN));
                         var rgb = reader.read(0, param).getRaster();
@@ -202,7 +202,7 @@ mvn compile org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-depende
 java -cp "target/classes:target/dependency/*" ReadCr3 "/path/to/photo.cr3" rgb
 ```
 
-On Windows, separate the classpath entries with a semicolon, as in `"target/classes;target/dependency/*"`. Replace `rgb` with `rgb16` (development), `preview`, `thumbnail`, `linear`, `sensor`, `patch` or `metadata`. The patch example samples a 64 × 64 rectangle starting at sensor position (160, 64). Use a separate reader and stream for each concurrent import.
+On Windows, separate the classpath entries with a semicolon, as in `"target/classes;target/dependency/*"`. Replace `rgb` with `rgb16`, `preview`, `thumbnail`, `linear`, `sensor`, `patch` or `metadata`. The patch example samples a 64 × 64 rectangle starting at sensor position (160, 64). Use a separate reader and stream for each concurrent import.
 
 ## Read parameters
 
@@ -214,7 +214,7 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 | `Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.THUMBNAIL)` | Selects the embedded thumbnail through `read(0, param)`. This also allows standard region and subsampling parameters on the thumbnail. |
 | `cropToActiveArea(boolean)`, `applyBlackLevel(boolean)` | Both default to `true` in `rawProcessed()` and `rawLinear()`. Disable both in linear mode to scale the full sensor mosaic to 16 bits. Native sensor mode always preserves full-sensor coordinates and unadjusted codes. |
 | `applyWhiteBalance(boolean)`, `applyColorMatrix(boolean)`, `applySrgbConversion(boolean)` | These three RGB processing stages are enabled by default in `rawProcessed()`. They can be disabled independently. JPEG and Bayer reads bypass these stages. |
-| `bitDepth(...)` | Processed RGB defaults to 8 bits per channel. With the development build, `BitDepth.SIXTEEN` retains precision through demosaicing and color processing, then quantizes to 0–65535 per channel. The default is sRGB. Add `applySrgbConversion(false)` for linear RGB. For either encoding, use `image.getRaster().getSample(x, y, band)` to read a full channel value. `getRGB` produces an 8-bit-per-channel display value. |
+| `bitDepth(...)` | Processed RGB defaults to 8 bits per channel. Starting with 0.1.8, `BitDepth.SIXTEEN` retains precision through demosaicing and color processing, then quantizes to 0–65535 per channel. The default is sRGB. Add `applySrgbConversion(false)` for linear RGB. For either encoding, use `image.getRaster().getSample(x, y, band)` to read a full channel value. `getRGB` produces an 8-bit-per-channel display value. |
 | `maxWorkers(int)` | Per-import upper limit for RAW stages. The default `0` uses the processors available to the JVM, `1` requests sequential processing, and a positive value caps parallelism within the shared worker pool. Negative values throw `IllegalArgumentException`. |
 
 `readRaster` always returns Bayer samples. A preview, thumbnail or processed-RGB option passed to `readRaster` selects the **linear** Bayer path, carrying over the crop, black-level and worker settings. Use `read` for JPEG or RGB pixels. Both Bayer modes also work with `read` if a `BufferedImage` is more convenient. In linear mode the adjustment subtracts the decoder's default pedestal, clamps at zero, and scales using the sensor's nominal maximum. Use `rawSensor()` to compare original values across exposures.
@@ -226,7 +226,7 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 - `param.setSourceSubsampling(2, 2, 0, 0)` keeps every second row and column. On a Bayer mosaic this selects a single color-filter phase. The CRX decoder reads the required tile planes up to the last needed row, including the preceding rows that supply prediction state. Processed RGB develops the selected region with the neighbors needed for demosaicing and collects the optical-black levels used by full-frame processing. JPEG regions are selected from the decoded preview or thumbnail.
 - `read` supports destination images, destination types, destination offsets and band selection. A supplied Bayer destination must have unsigned 16-bit storage for the selected band. The reader rejects an incompatible band before writing samples. A compatible `TYPE_USHORT_GRAY` image can receive samples directly at the requested physical offset. A failed decode can leave that destination partially filled. `readRaster` returns a new single-band raster and uses the destination offset as its logical origin. It ignores the destination image and destination type. Use `getMinX()` and `getMinY()` when reading a translated raster.
 - For 16-bit RGB, a destination must store 16 significant bits in every selected unsigned-short band, in both the raster and its color model. For example, set `setSourceBands(new int[]{1})` to copy green into a `TYPE_USHORT_GRAY` destination. A packed 8-bit RGB or 5/6/5-bit destination is rejected before writing. For a full RGB read, a supplied image or requested destination type must use the sRGB or linear RGB color space matching the processing options.
-- In the development build, selecting an advertised 16-bit RGB destination through a standard `ImageReadParam` also selects its depth and color encoding. This works with `setDestinationType` and `setDestination`. A default `CanonCr3ImageReadParam` behaves the same while its output remains RAW-processed, eight-bit sRGB. Other processing settings, including crop and worker limits, are retained. Calling `setDecodeOptions` makes those explicit options authoritative; changing the output mode, depth or encoding through the mutable `getDecodeOptions()` also preserves that choice. Conflicting RGB destinations are rejected before decoding. Destination negotiation leaves the caller's options unchanged.
+- Starting with 0.1.8, selecting an advertised 16-bit RGB destination through a standard `ImageReadParam` also selects its depth and color encoding. This works with `setDestinationType` and `setDestination`. A default `CanonCr3ImageReadParam` behaves the same while its output remains RAW-processed, eight-bit sRGB. Other processing settings, including crop and worker limits, are retained. Calling `setDecodeOptions` makes those explicit options authoritative; changing the output mode, depth or encoding through the mutable `getDecodeOptions()` also preserves that choice. Conflicting RGB destinations are rejected before decoding. Destination negotiation leaves the caller's options unchanged.
 - For repeated full-frame 8-bit RGB reads, supply a dedicated `TYPE_INT_RGB` image with `setDestination(image)` and opt in with `setUseDestinationAsWorkspace(true)`. When the destination layout, orientation and read parameters allow it, development uses that image's storage directly. A failed read can leave it partially overwritten.
 - `reader.getWidth(0)`, `getHeight(0)` and the first entry from `getImageTypes(0)` describe the default developed RAW image. Inspect the returned preview or Bayer raster for its own dimensions. The metadata tree also exposes sensor and visible dimensions, orientation and capture information. Access it with `metadata.getAsTree(Cr3ImageMetadata.NATIVE_FORMAT_NAME)` and query its schema with `metadata.getMetadataFormat(Cr3ImageMetadata.NATIVE_FORMAT_NAME)`. GPS and crop nodes depend on the file.
 

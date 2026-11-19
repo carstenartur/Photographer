@@ -181,9 +181,16 @@ CR3 tests are split with the production modules:
 - experimental codec behavior in `cr3-codec`;
 - image processing in `cr3-processing`;
 - decoder orchestration and camera-profile writing in `cr3-core`;
-- ImageIO reader, writer and reference-backed integration in `cr3-imageio`.
+- ImageIO reader, writer and reference-backed integration in `cr3-imageio`;
+- ImageJ sensor and RGB16 stack adaptation in `cr3-imagej`.
 
 The stable container/metadata/ImageIO tests and experimental decoder tests must remain distinguishable. A green preview test is not evidence of correct sensor RAW reconstruction.
+
+### ImageJ and Fiji importers
+
+From the repository root, run `mvn -pl cr3-imagej -am test` with JDK 25. The sensor test exercises the registered menu command, compares every G5 X Mark II mosaic sample with the reference TIFF and checks calibration properties. The color tests compare the three unsigned-short planes with the core decoder, check channel order and display ranges, and assert that dense banks retain their array identity while strided crops copy the correct samples. Missing inputs exercise the headless error path.
+
+To check the installed layout, use an extracted Fiji distribution and run the updater profile. It stages the plugin under `plugins/` and six CR3 runtime JARs under `jars/`, then checks installation through the updater. The distribution workflow also opens both commands from an installed ZIP in a Java 21 Fiji process. Its batch macro compares the full sensor plane with the reference TIFF, checks the color stack dimensions and probes each channel for values between expanded 8-bit levels. This exercises the host class path and menu registration. [Build the Fiji archives](../cr3/fiji-update-site.md#build-both-archives) · [Batch macro](../../cr3-imagej/src/it/verify-fiji-import.ijm) · [Distribution workflow and launcher command](../../.github/workflows/cr3-fiji-distribution.yml) · [Installed-plugin full-output, limited-heap and graphical QA](../cr3/fiji-qa-2026-11-19/README.md)
 
 ## Reference testkit and generated evidence
 

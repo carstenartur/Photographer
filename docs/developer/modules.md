@@ -98,10 +98,24 @@ cr3-container
 container + metadata + codec + processing
   └─ cr3-core
        ├─ cr3-imageio
+       │    └─ cr3-imagej (ImageJ/Fiji host adapter)
        └─ canon-cr3-cli
 ```
 
 The actual POM graph has some direct dependencies in addition to this simplified path. `cr3-core` is the facade over all four lower-level runtime modules, and `cr3-imageio` directly declares the runtime modules it needs.
+
+### ImageJ adapter
+
+`cr3-imagej` depends on `cr3-imageio`. Fiji supplies the ImageJ 1.x API and SLF4J. Each importer creates the Photographer reader through `CanonCr3ImageReaderSpi`, owns a `FileImageInputStream`, reads image index 0, closes the stream and disposes the reader. The caller owns the resulting image. The following contracts describe the 0.1.8 development build.
+
+| Headless entry point | Decode options and result |
+| --- | --- |
+| `Cr3SensorImporter.open(Path)` | `Cr3DecodeOptions.rawSensor()` returns the entire Bayer mosaic. `ShortProcessor` adopts the packed unsigned-short grayscale raster. The `ImagePlus` carries available calibration as properties and ignores ImageJ global calibration. |
+| `Cr3ColorImporter.open(Path)` | `Cr3DecodeOptions.rawProcessed().bitDepth(SIXTEEN)` develops the active area to oriented sRGB. `CompositeImage` has three 16-bit channels in R, G, B order, one slice and one frame. Each channel's initial display range is 0–65535. |
+
+**Ownership.** The color adapter can give ImageJ the decoded banks because it exclusively owns the source raster. It adopts three distinct unsigned-short banks in raster band order when each array contains exactly one tightly packed plane with zero offsets. For a valid strided or interleaved raster it copies the samples into three new planes using one row of scratch. It rejects an incompatible band count, transfer type or sample depth. The arrays stay live with the ImageJ stack after the reader closes. Rendering a composite can also allocate a packed display image. The 6 bytes per output pixel for RGB16 cover only the three retained sample planes.
+
+**Options and errors.** Both menu commands use `AUTO` and an automatic worker budget. Java clients that need `maxWorkers(int)`, explicit `LOW_MEMORY` or `FAST`, a region or a destination can select them through `CanonCr3ImageReadParam` and its decode options. The planner considers decoder buffers and known ImageIO destinations. Later ImageJ rendering and other host allocations consume additional heap. An `open(Path)` call propagates file and decode failures as `IOException`. The menu handler reports an `IOException` or `IllegalArgumentException` with the file path through `IJ.error`. Canceling the chooser returns without opening an image. [ImageIO parameters](../cr3/imageio.md#read-parameters) · [RAW heap policy](../cr3/import.md#limited-heap-018-snapshot) · [ImageJ verification](testing.md#imagej-and-fiji-importers)
 
 ### Public Maven coordinates
 
@@ -114,7 +128,7 @@ The six supported CR3 library artifacts use `io.github.carstenartur` coordinates
 - `cr3-core`;
 - `cr3-imageio`.
 
-The [Maven release guide](../cr3-maven-central.md) covers Maven Central coordinates for 0.1.7 and the private Git-backed repository. Verify the exact version in the selected channel with an empty Maven cache.
+The [Maven release guide](../cr3-maven-central.md) covers Maven Central coordinates for 0.1.7 and the Git-backed repository. Verify the exact version in the selected channel with an empty Maven cache.
 
 ## Camera modules and adapters
 

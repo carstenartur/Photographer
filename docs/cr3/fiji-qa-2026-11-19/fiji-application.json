@@ -1,0 +1,66 @@
+{
+  "runtime": "Eclipse Temurin 21.0.13.1+2, Linux x64",
+  "runtime_archive": {
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13.1%2B2/OpenJDK21U-jre_x64_linux_hotspot_21.0.13.1_2.tar.gz",
+    "sha256": "18f44fab9065217f3ba61d0eef8a7b5f3c3713aa7293001b0d4ac10ede3850f0",
+    "bytes": 52190567
+  },
+  "max_heap_mib": 1024,
+  "fiji": "ImageJ 2.18.0 / ImageJ 1.54p; pinned Fiji Latest 20261112-1517",
+  "macro": {
+    "repository_path": "cr3-imagej/src/it/verify-fiji-import.ijm",
+    "sha256": "7209678734f059a4b67f77f93812b775065ff515bcac95dbed01839e115f678f",
+    "exit_code": 0,
+    "result": "5632x3710 16 bits 20894720 samples max=0",
+    "color_dimensions": [
+      5496,
+      3668
+    ],
+    "color_channels": 3,
+    "color_slices": 1,
+    "color_frames": 1,
+    "color_bit_depth": 16,
+    "fine_sample_counts": [
+      28,
+      60,
+      28
+    ],
+    "inputs": [
+      {
+        "repository_path": "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+        "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+      },
+      {
+        "repository_path": "canon-cr3-imageio/src/test/resources/samples/sample.reference.tiff",
+        "sha256": "83a2a0f236c4dd0b282901ec7b91386751314a5b8aee4e5f5c15d378b7d47ff1"
+      }
+    ]
+  },
+  "visual": {
+    "input": "canon-cr3-imageio/src/test/resources/samples/sample-tele.cr3",
+    "sha256": "3454f0d88f01681307992369fca7d7f2b9b69ae3027186679b4614273ddb0554",
+    "dimensions": [
+      5496,
+      3668
+    ],
+    "channel_count": 3,
+    "bit_depth": 16,
+    "composite": true,
+    "green_channel_disabled_and_restored": true
+  },
+  "maven_verification": {
+    "surefire": 711,
+    "failsafe": 4,
+    "passed": 714,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0
+  },
+  "update_site": {
+    "candidate_sha256": "298fb1259603561ca134ea3f2ebff670b42b09bb97389ed6305669ae26031fbc",
+    "previous_tag": "v0.1.7",
+    "previous_sha256": "55657ece8160cc4f68d113ae8b08900828c10d8917cd95451062b0e7228368d7",
+    "historical_jar_payloads_preserved": 28,
+    "previous_current_jar_entries_retained": 7
+  }
+}

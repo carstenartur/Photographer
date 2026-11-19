@@ -40,6 +40,14 @@ int green = image.getStack().getProcessor(2).get(100, 200);
 
 ImageJ macros can call `run("CR3 Color Image...", "path=[/data/capture.cr3]");`.
 
+## Memory use in 0.1.8 development builds
+
+Both RAW menu commands use the decoder's `AUTO` memory policy. If the normal read exceeds its estimated Java heap budget, the decoder selects compact processing with an adapted worker limit. The sensor importer retains the same dense unsigned-short plane; its fallback reduces worker workspace. The RGB16 importer can also use compact development and in-place orientation. One line beginning `CR3 low-memory:` on standard error reports the limit for the read. The estimate is advisory: if even one worker exceeds the budget, the decoder still attempts that smallest configuration. Sensor codes, RGB16 precision, dimensions and orientation follow the same rules in either mode.
+
+A sensor image keeps one unsigned-short plane (2 bytes per sensor site). For a normal full RGB16 read, the ImageJ stack adopts the decoder's three channel arrays (6 bytes per developed pixel). For example, the 5,496 × 3,668 G5 X Mark II color result retains about 115 MiB of pixel arrays. Codec workspaces, open images and ImageJ's composite display can require additional heap. Calling `open(Path)` lets a headless caller measure the planes without opening a window. See the [adapter ownership contract](../docs/developer/modules.md#imagej-adapter) and [reproducible full-file ImageIO measurements](../docs/cr3/optimization-2026-11-19/README.md).
+
+Fiji runs these commands on Java 21 or later. Building the plugin from source requires JDK 25. The optional Java 25 vector backend accelerates the packed **RGB8** color matrix. The color menu uses the RGB16 pipeline and the sensor menu reads Bayer codes, so both work without a vector module flag.
+
 ## Verify an import against a reference
 
 On the Fiji distribution of 12 November 2026 (ImageJ 2.18.0/1.54p and Java 21), the PowerShot G5 X Mark II sample matched all 20,894,720 LibRaw reference values and the EOS R ISO-low sample matched all 31,312,848. To repeat the comparison, choose the CR3 and its corresponding full-sensor TIFF.
