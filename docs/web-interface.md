@@ -21,7 +21,9 @@ Start the application with the [quick start](quickstart.md). Open its web addres
 
 ## Photograph birds at a fixed location
 
-The local bird observer watches the live view and requests a full photograph when it detects a bird. It runs on the application host and needs no cloud API key. Use a configured Canon CCAPI or USB profile whose camera supports both live view and capture. A fixed feeder, nest entrance or perch is a useful first setup: choose exposure and focus for that location before starting.
+The local bird observer analyses the live view on the application host. When explicitly armed, it requests a full photograph after detecting a qualifying bird. It needs no cloud API key. Use a configured Canon CCAPI or USB profile whose camera supports both live view and capture. A fixed feeder, nest entrance or perch is a useful first setup: choose exposure and focus for that location before starting.
+
+The screenshots below use the built-in **Mock** camera, which generates a static colour pattern without birds. **Duplicate camera frame; waiting for a new image** is expected after the first analysis of this unchanged image. The mock camera demonstrates the controls without producing automatic bird-triggered photographs.
 
 ### Preview and select the observation region
 
@@ -31,11 +33,19 @@ The local bird observer watches the live view and requests a full photograph whe
 
 The detector receives the selected region's actual pixels. The camera still takes a full photograph with its current framing; the region does not crop the saved original. Keep the likely landing position inside the region and leave enough space for the bird to move.
 
+![Bird observer in preview-only mode with a selected region over the mock camera image and zero captures](screenshots/bird-preview.png)
+
+*Preview only. The cyan dashed rectangle marks the selected observation region, covering the central 80% of the image's width and height in this example. The initial region is the full frame.*
+
 ### Enable automatic capture
 
-Choose **Arm automatic capture** after checking the preview. **Mode: Automatic capture armed** confirms that a qualifying bird can trigger the camera. The model currently identifies generic birds; it does not distinguish an Eisvogel from an Amsel or fill the species ranking.
+Choose **Arm automatic capture** after checking the preview. **Mode: Automatic capture armed** confirms that a qualifying bird can trigger the camera. The model currently identifies generic birds; it does not distinguish a kingfisher from a blackbird or fill the species ranking.
 
 The initial settings analyse approximately every 500 ms, require a confidence score of 0.5 and a bird area of 0.0025 of the selected region, repeat photographs every five seconds, and reset a visit after three seconds of valid observations without a bird. **Repeat interval (s) = 0** takes one photograph per visit. These are adjustable starting values; the confidence is a model score and the analysis interval is not a measured shutter delay. See [all settings and frame-handling rules](developer/operations.md#local-bird-observer).
+
+![Bird observer armed for automatic capture, with the disarm control visible and no captures from the static mock image](screenshots/bird-armed.png)
+
+*Automatic capture armed. This example sets **Repeat interval (s)** to **0** for one photograph per visit; the initial value is five seconds.*
 
 ### Open a photograph and stop observation
 
@@ -43,7 +53,11 @@ After a capture, choose **View observation** beside **Last capture**, or open an
 
 Choose **Disarm automatic capture** to continue watching without photographs. Choose **Stop observer** to finish and release the camera. A photo already triggered may finish saving while the phase reads **Stopping**. Wait for **Stopped** before starting another camera workflow. Closing the browser leaves an armed observer running; an application restart starts it stopped and unarmed, and the current settings are not yet stored as a reusable location profile.
 
-The built-in mock camera can demonstrate these controls using its generated colour pattern. It contains no bird and does not produce automatic bird-triggered captures. Its unchanged image is correctly reported as a duplicate after the first analysis. Field accuracy, autofocus and timing need a [test with the actual camera](manual-todo.md#local-bird-observer-on-hardware).
+![Stopped bird observer in idle mode, with Start preview available and the last preview and region still visible](screenshots/bird-stopped.png)
+
+*Stopped and idle: **Start preview** is available again. The last analysed frame, observation region and counters remain visible; no further frames are processed.*
+
+Field accuracy, autofocus and timing need a [test with the actual camera](manual-todo.md#local-bird-observer-on-hardware).
 
 ## Try an experimental timed capture
 
@@ -52,3 +66,5 @@ Open **HDR Timelapse**, choose **New Session** and select a **Camera Profile**. 
 Choose **Create Session** to review the session and its status. Choose **Start** in the session panel when you are ready to capture. Configuring a session and starting its capture are separate actions. See the [REST API guide](api.md) for programmatic access.
 
 The screenshots were captured in Chromium from the packaged application, using an in-memory database and the project's Java mock camera.
+
+The bird-observer screenshots come from the [successful packaged browser test on `24a6dc3`](https://github.com/carstenartur/Photographer/actions/runs/44620623339). See the [browser test instructions](../frontend-web/e2e/README.md) to reproduce them.
