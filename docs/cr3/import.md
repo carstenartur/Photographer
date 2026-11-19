@@ -4,13 +4,13 @@ Use `cr3-core` to open a local CR3 file, inspect camera metadata, or choose exac
 
 ## Maven
 
-Use JDK 21 or newer for the consuming application. Add this Maven Central dependency inside the consumer POM's `<dependencies>` element. Maven resolves the container, metadata, codec and processing modules transitively. A consumer that already declares `cr3-imageio` also receives `cr3-core` transitively.
+The API examples in this guide target CR3 0.1.8. Use JDK 21 or newer for the consuming application and check the [release channel](../cr3-maven-central.md#resolve-a-released-version) for published availability. For the published release, add this dependency inside the consumer POM's `<dependencies>` element. Maven resolves the container, metadata, codec and processing modules transitively. A consumer that already declares `cr3-imageio` also receives `cr3-core` transitively.
 
 ```xml
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-core</artifactId>
-  <version>0.1.7</version>
+  <version>0.1.8</version>
 </dependency>
 ```
 
@@ -72,11 +72,11 @@ On Windows, use `"target/classes;target/dependency/*"` for the classpath.
 | --- | --- |
 | `preview` | The JPEG rendered by the camera, decoded to pixels and written as PNG in this example. Its resolution depends on the file. |
 | `rgb` | An 8-bit RGB image developed from the RAW track. The default processing applies active-area cropping, demosaicing, camera color processing and orientation. |
-| `rgb16` (0.1.8-SNAPSHOT) | Developed RGB with three unsigned 16-bit channels. Processing uses the same crop and orientation as `rgb`. The default encoding is sRGB. Add `applySrgbConversion(false)` for linear RGB. |
+| `rgb16` (0.1.8+) | Developed RGB with three unsigned 16-bit channels. Processing uses the same crop and orientation as `rgb`. The default encoding is sRGB. Add `applySrgbConversion(false)` for linear RGB. |
 | `linear` | A single-band Bayer mosaic, cropped to the active area and black-level corrected by default, scaled to 16 bits. |
 | `sensor` | The reconstructed sensor codes, including optical-black margins, in the original sensor coordinates. No scaling, cropping or orientation transform. |
 
-For `rgb16`, use a local **0.1.8-SNAPSHOT** build until the next release. In stable 0.1.7 the same request produces 8-bit RGB. Access the developed green value at (x, y) with `image.getRaster().getSample(x, y, 1)`. Its 16-bit range represents demosaiced and processed color. The `sensor` mode stores the camera's original sample depth in a single unsigned 16-bit band. Color reproduction remains experimental.
+For `rgb16`, use 0.1.8 or newer. In 0.1.7 the same request produces 8-bit RGB. Access the developed green value at (x, y) with `image.getRaster().getSample(x, y, 1)`. Its 16-bit range represents demosaiced and processed color. The `sensor` mode stores the camera's original sample depth in a single unsigned 16-bit band. Color reproduction remains experimental.
 
 The native importer has been verified on 14-bit, four-plane V1 lossless RAW and three-level C-RAW recordings from the EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. Selecting an unsupported RAW profile can raise `Cr3Exception`. Requesting the camera preview is a separate choice. For quantitative work, keep the Bayer data or the original CR3. An RGB or preview PNG does not preserve the camera's original file or its complete metadata.
 
@@ -91,7 +91,9 @@ var patch = decoder.decodeRawRegion(sensor, region, 1, 1);
 int topLeft = patch.getRaster().getSample(0, 0, 0);
 ```
 
-## Limited heap (0.1.8-SNAPSHOT)
+<a id="limited-heap-018-snapshot"></a>
+
+## Limited heap
 
 RAW reads use `MemoryMode.AUTO` by default. Before allocating image storage, the
 decoder estimates the normal path's image and working buffers against the
@@ -131,7 +133,7 @@ concurrent imports, host allocations and caller-owned input-stream caches can
 still exhaust memory. The policy does not reserve heap or retry after an
 `OutOfMemoryError`.
 
-To explicitly select the memory trade-off with a local 0.1.8-SNAPSHOT build:
+To explicitly select compact processing with 0.1.8 or later, set `LOW_MEMORY`.
 
 ```java
 var options = Cr3DecodeOptions.rawProcessed()
