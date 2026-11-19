@@ -23,7 +23,7 @@
     <properties>
         <jmh.version>1.37</jmh.version>
         <uberjar.name>benchmarks</uberjar.name>
-        <benchmark.multiRelease>false</benchmark.multiRelease>
+        <benchmark.multiRelease>true</benchmark.multiRelease>
     </properties>
 
     <dependencies>
@@ -130,12 +130,4 @@
             </plugin>
         </plugins>
     </build>
-    <profiles>
-        <profile>
-            <id>cr3-vector</id>
-            <properties>
-                <benchmark.multiRelease>true</benchmark.multiRelease>
-            </properties>
-        </profile>
-    </profiles>
 </project>

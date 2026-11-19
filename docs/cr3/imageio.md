@@ -66,12 +66,12 @@ mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
 
 ### Optional SIMD color matrix on JDK 25
 
-Build with `-Pcr3-vector` to include the Java Vector API implementation of the packed 8-bit RAW-to-RGB color matrix. Add `--add-modules=jdk.incubator.vector` to the JDK 25 application launch to enable it. The same processing JAR uses the scalar path on JDK 21, with the module disabled, or when packed rows or 256-bit vectors are unavailable.
+Starting with 0.1.8-SNAPSHOT, the normal processing JAR includes the Java 25 Vector API implementation of the packed 8-bit RAW-to-RGB color matrix as a versioned class. Add `--add-modules=jdk.incubator.vector` to the JDK 25 application launch to enable it. The base classes remain compatible with Java 21. The same JAR uses the scalar path on other Java versions, with the module disabled, or when packed rows or 256-bit vectors are unavailable. RGB16 development uses its separate exact processing path.
 
-The JMH distribution can include the same implementation.
+The normal JMH distribution also includes this implementation. Building requires JDK 25; `-Pcr3-vector` additionally runs processing unit tests with vectors enabled. Packaged-artifact integration tests exercise both enabled and disabled launches during `verify`.
 
 ```sh
-mvn -B -Pbenchmarks,cr3-vector -pl canon-cr3-benchmark -am -DskipTests package
+mvn -B -Pbenchmarks -pl canon-cr3-benchmark -am -DskipTests package
 java --add-modules=jdk.incubator.vector \
   -Dsamples.dir=canon-cr3-imageio/src/test/resources/samples \
   -jar canon-cr3-benchmark/target/benchmarks.jar Cr3RawProcessedBenchmark
