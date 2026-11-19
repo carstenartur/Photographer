@@ -96,19 +96,24 @@ int topLeft = patch.getRaster().getSample(0, 0, 0);
 RAW reads use `MemoryMode.AUTO` by default. Before allocating image storage, the
 decoder estimates the normal path's image and working buffers against the
 currently available Java heap, leaving a reserve for other allocations. When
-headroom is tight it uses one worker and compact processing of owned full-frame
-RGB images. Crop, orientation, calibration, resolution, color encoding and sample
-precision stay the same. Selecting this path writes one line beginning
-`CR3 low-memory:` to **stderr** for that read. Preview and thumbnail reads do not
-use this policy.
+headroom is tight, it selects compact processing for owned full-frame RGB images.
+It then chooses the largest worker limit that fits the estimated compact image,
+codec windows and processing rows within the remaining budget. The limit respects
+`maxWorkers`, available processors and the work a stage can divide. Each stage
+may use fewer workers. If the smallest estimate exceeds the budget, the decoder
+still attempts the read with one worker. Crop, orientation, calibration, resolution,
+color encoding and sample precision stay the same. Each compact read reports its
+worker limit in one line beginning `CR3 low-memory:` on **stderr**. Preview and
+thumbnail reads bypass this policy.
 
 For full RGB16 images, compact processing develops the unrotated image while
 reusing the Bayer storage as its green channel, then rearranges all channel
 samples in place. RGB8 similarly retains its packed pixel array. EXIF rotations
 that exchange the axes use one extra bit per pixel to track the rearrangement;
-flips and 180-degree rotation need constant extra space. The extra pass and
-sequential execution can increase import time. Partial RGB reads and Bayer reads
-reduce worker scratch but retain their existing output-storage layouts.
+flips and 180-degree rotation need constant extra space. The extra orientation
+pass and a lower worker limit can increase import time. Partial RGB reads budget for the Bayer
+region with interpolation neighbors and any separately allocated output pixels.
+Bayer reads retain their single-band layout. Both use the same worker policy.
 
 | Complete output | Unavoidable pixel-array payload |
 | --- | ---: |
@@ -140,8 +145,15 @@ comparisons. `AUTO` is suitable for ordinary imports. In ImageIO, set the same
 policy through `param.getDecodeOptions().memoryMode(...)`; it also carries
 through destination-type negotiation and `readRaster`. A caller's options and
 worker limit are preserved: any automatic reduction applies only to the current
-read. A compatible ImageIO destination type can reuse the already produced
-image, avoiding an additional complete pixel copy.
+read. ImageIO can return the developed image directly for a matching RGB16
+destination type. If the layout, offset, subsampling or band mapping requires a
+separate automatic destination, ImageIO budgets for the decoded pixels, destination
+and copy row that will coexist after development. The core compares that later peak
+with the peak during decoding. ImageIO creates the target after successful
+development, so it can reclaim the earlier Bayer and orientation buffers before
+copying. A custom factory, an unknown sample model or a sparse bank layout with
+unpredictable array overhead can trigger the one-worker compact path. Applications performing their own subsequent
+copy can estimate additional live bytes through `postDecodeMemoryBytes(long)`.
 
 ## Copy the camera's embedded JPEG unchanged
 

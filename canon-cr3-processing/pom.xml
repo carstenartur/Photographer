@@ -143,6 +143,20 @@
 
     <profiles>
         <profile>
+            <id>cr3-research-it</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <!-- Focused research selections name tests in the downstream research module. -->
+                            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
             <id>cr3-vector</id>
             <properties>
                 <argLine>--add-modules=jdk.incubator.vector</argLine>
