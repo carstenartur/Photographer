@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "scope": "Black-box benchmark client, no decoder source consultation",
+  "librawVersion": "LibRaw 0.21.4-Release; public-header 0.21.4-Release; capabilities 128",
+  "dnglabVersion": "dnglab 0.8.0",
+  "compiler": "gcc (Debian 14.2.0-19) 14.2.0",
+  "files": [
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+      "bytes": 17448128,
+      "sha256": "d45334659d008b010966f56c3a472677f510a1775d78debd45f5078612ac0683"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-dev_0.21.4-2+deb13u1_amd64.deb",
+      "bytes": 442740,
+      "sha256": "97ea8e87714d409d542395dc5fbc9f928adc84d0280fd05ff47814aaa253c7ff"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw23t64_0.21.4-2+deb13u1_amd64.deb",
+      "bytes": 390848,
+      "sha256": "60ee4b595c2304531ff280f9c6f2d4a4371fa23878ba9504d0a15d3271307961"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/lib/x86_64-linux-gnu/libraw_r.so.23.0.0",
+      "bytes": 1174928,
+      "sha256": "d7f9c71246a262895cc27c42f7447dbd5107867a8f74875299975ede0246d523"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/lib/x86_64-linux-gnu/libraw.so.23.0.0",
+      "bytes": 1174928,
+      "sha256": "2568b8084dc8110c33812f93e3f8c5b297218032765b7b78aacd69985c35e264"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+      "bytes": 22096,
+      "sha256": "3bc0ada7e6bca3f9c8ba831ca4ead59e41964879689d22b077741e2653e20c73"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/include/libraw/libraw_alloc.h",
+      "bytes": 3131,
+      "sha256": "37bd73b2a133ac7df778e0a02ed87aa20c86f85299f5ff0474521d2d29bdeb5a"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/include/libraw/libraw_const.h",
+      "bytes": 25145,
+      "sha256": "f20697e3a49d75e138460cfab0274caeb68bac261c3ac79a821417758f753ab4"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/include/libraw/libraw_datastream.h",
+      "bytes": 10832,
+      "sha256": "79fb4f9fb4aca08cac0fc36899b3eb89ad3bb807d76c72949951e28dcd5fa1f8"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/include/libraw/libraw_internal.h",
+      "bytes": 10718,
+      "sha256": "7c7d8a6abd51642868903f4567475ca97d5bb876259a2e1643ff9f0bcc706b11"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/include/libraw/libraw_types.h",
+      "bytes": 33142,
+      "sha256": "d83c7b9c7a8ea035b12f1d7b70f8ed686bae360da5b56c3fdf48dac397b6402d"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/include/libraw/libraw_version.h",
+      "bytes": 2467,
+      "sha256": "9e2697188fc090d4276b61f1409b7d6b2f84bb69a47d6e0598fd95985b4e2386"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/reference-tools/libraw_bench.c",
+      "bytes": 12836,
+      "sha256": "b12f0259192a36b64db37f48eefb4bb5301c8195a53b174a30c6931985add14b"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/reference-tools/build-libraw-bench.sh",
+      "bytes": 489,
+      "sha256": "dea3002d4739f004309f3162d0b812284bc7ae549cc413cbb1b13828f4e1d5a6"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/reference-tools/pnm_digest.py",
+      "bytes": 2768,
+      "sha256": "91e24177c283a998746e39f0a3ae7cb7cc900884d20f9cf563034d6d52ee381f"
+    }
+  ],
+  "sources": [
+    "https://github.com/dnglab/dnglab/releases/download/v0.8.0/dnglab_linux_x64",
+    "https://deb.debian.org/debian/pool/main/libr/libraw/libraw-dev_0.21.4-2+deb13u1_amd64.deb",
+    "https://deb.debian.org/debian/pool/main/libr/libraw/libraw23t64_0.21.4-2+deb13u1_amd64.deb",
+    "https://www.libraw.org/docs/API-C.html",
+    "https://www.libraw.org/docs/API-datastruct.html",
+    "https://www.libraw.org/docs/API-CXX.html",
+    "https://www.libraw.org/docs/API-notes.html"
+  ]
+}

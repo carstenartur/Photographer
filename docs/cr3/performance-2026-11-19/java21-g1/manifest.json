@@ -1,0 +1,106 @@
+{
+  "created_utc": "2026-11-19T07:50:40.080+00:00",
+  "runner": {
+    "path": "/workspace/scratch/adce2cf98312/qa-work/java21_measurements.py",
+    "bytes": 17141,
+    "sha256": "f4a8457a2ccbccd03c35e68eccc7bbdfa428767ea00ee6c49da1220ac468a663"
+  },
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "configuration": {
+    "stage": [
+      "final"
+    ],
+    "cpus": [
+      4
+    ],
+    "input_index": [
+      0,
+      1
+    ],
+    "modes": [
+      "rgb16linear",
+      "rgb16"
+    ],
+    "forks": 3,
+    "warmup": 3,
+    "iterations": 5,
+    "timeout_seconds": 600,
+    "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+    "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+    "baseline_jar": "/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+    "optimized16_jar": "/workspace/scratch/adce2cf98312/qa-work/optimized16-benchmarks.jar",
+    "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+    "final_jar": "/workspace/scratch/adce2cf98312/qa-work/final16-benchmarks.jar",
+    "java": "/usr/bin/java",
+    "probe_classes": "/workspace/scratch/adce2cf98312/qa-work/public-probe-java21-classes",
+    "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+    "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+    "output": "qa-work/java21-final",
+    "plan_only": false
+  },
+  "inputs": [
+    {
+      "sample": "sample.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+      "bytes": 22920507,
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+      "index": 0,
+      "observed_sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    {
+      "sample": "eosr-iso-low.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+      "bytes": 40282915,
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+      "index": 1,
+      "observed_sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    }
+  ],
+  "artifacts": {
+    "baseline": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+      "bytes": 3604294,
+      "sha256": "5a53a39669229e99e04a3c892bdd5f6f0343039f0406de2f0951dec095a1781a"
+    },
+    "optimized16-reference": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/optimized16-benchmarks.jar",
+      "bytes": 3633228,
+      "sha256": "2157411593f29ccce65188f455d73e7bd601fba3a57230beff9409e2e9d3e96d"
+    },
+    "rgb8-only": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+      "bytes": 3604897,
+      "sha256": "dd919ae41cc87f2a4fa1b64a31a7e02a4e555e851b836602067d9c76f1935434"
+    },
+    "final": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/final16-benchmarks.jar",
+      "bytes": 3633926,
+      "sha256": "c8ccdde4c48cfc94874fcb3ac3313282ba8913c77c85f1be0121a7fbc5b016ca"
+    },
+    "temporary_probe": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/public-probe-java21-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+      "bytes": 13364,
+      "sha256": "c0a02c0926fcb3ad98112242e48792c12decfc805ebbffbbc05ae53c62da1daf"
+    },
+    "java": {
+      "path": "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+      "bytes": 14384,
+      "sha256": "1a7e0b17c39003c75b457d686775ccb032e56fa9c8afe3c492d8eb3715e8951a"
+    }
+  },
+  "jvm_flags": [
+    "-Xms24m",
+    "-Xmx768m",
+    "-XX:+UseG1GC"
+  ],
+  "explicit_gc_between_java_imports": true,
+  "java_workers": "Probe default 0; ActiveProcessorCount and taskset cap available CPUs",
+  "affinity": "taskset -c 0-(cpus-1), matching the existing runners",
+  "probe_class": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+  "checksum": "Existing sampled checksum; no --checksum or --dump",
+  "inherited_runtime_environment": {},
+  "planned_processes": 24,
+  "planned_decodes": 192,
+  "order": "Stages rgb8/final/libraw; fork/CPU/input/mode; Java variants alternate AB/BA/AB"
+}

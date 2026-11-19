@@ -255,6 +255,24 @@
         "docs/cr3/open-hypotheses.md"
       ],
       "integrity": null
+    },
+    {
+      "id": "SRC-017",
+      "class": "black-box-reference",
+      "title": "LibRaw 0.21.4 binary import reference and public C API configuration",
+      "citation": "LibRaw 0.21.4-Release for Linux x86-64, Debian binary packages libraw23t64 and libraw-dev 0.21.4-2+deb13u1; a first-party client compiled against the matching public C API declarations. Runtime package: https://deb.debian.org/debian/pool/main/libr/libraw/libraw23t64_0.21.4-2+deb13u1_amd64.deb . Development package: https://deb.debian.org/debian/pool/main/libr/libraw/libraw-dev_0.21.4-2+deb13u1_amd64.deb . Published binary-package checksums were checked through https://packages.debian.org/trixie/amd64/libraw23t64/download and https://packages.debian.org/de/trixie/amd64/libraw-dev/download . Official public API documentation used to configure calls, ownership and rendering options: https://www.libraw.org/docs/API-C.html , https://www.libraw.org/docs/API-datastruct.html , https://www.libraw.org/docs/API-CXX.html and https://www.libraw.org/docs/API-notes.html . Current website documentation was cross-checked against the installed 0.21.4 public declarations; it is not represented as a frozen 0.21.4 documentation snapshot. This binary profile is separate from SRC-009 (rawpy 0.27.0 / LibRaw 0.22.1).",
+      "verifiedDate": "2026-11-19",
+      "permittedUse": "Execute the checked LibRaw binary as a black box to obtain full native sensor samples, metadata, observable errors/warnings and explicitly configured RGB8/RGB16 reference outputs; bind every observation to original-input and complete-output hashes. Use the official public C/C++ API documentation and matching installed public ABI declarations only to build and configure the first-party client, including raw-pitch access, consumer-owned materialization and context cleanup. Compare complete import latency and process memory only with declared input, CPU, startup/cache, output geometry, transfer/quality, ownership and serialization boundaries. No product runtime dependency or external implementation derivation is introduced by this reference use.",
+      "prohibitedUse": "Consulting, translating or incorporating third-party decoder implementation source, disassembly, decompiled code, internal algorithm snippets or constants of unverified origin; deriving CRX bitstream semantics from public API declarations or treating an external decoder rejection as a format specification. Do not conflate this 0.21.4 profile with SRC-009, treat differing developed RGB/crop policies as native-sensor failures, or present borrowed-output/CLI-serialization/startup measurements as equivalent complete owned API imports. Do not infer support or performance for unmeasured cameras, profiles, runtimes or inputs.",
+      "repositoryEvidence": [
+        "docs/cr3/performance-2026-11-19/comparison-setup.md",
+        "docs/cr3/performance-2026-11-19/reference-tools/tool-manifest.json",
+        "docs/cr3/performance-2026-11-19/native-reference-verification.json"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "Checked tool manifest: 01cab81c08df4931de25cbb9d5d0e65451680a0fa4e9ecea0a3921d0ba130fb3. Debian runtime package: 60ee4b595c2304531ff280f9c6f2d4a4371fa23878ba9504d0a15d3271307961; Debian development package: 97ea8e87714d409d542395dc5fbc9f928adc84d0280fd05ff47814aaa253c7ff. Loaded thread-safe libraw_r.so.23.0.0: d7f9c71246a262895cc27c42f7447dbd5107867a8f74875299975ede0246d523; first-party libraw-bench executable: 3bc0ada7e6bca3f9c8ba831ca4ead59e41964879689d22b077741e2653e20c73; client source: b12f0259192a36b64db37f48eefb4bb5301c8195a53b174a30c6931985add14b. The manifest also records build-script and public-header hashes; comparison-setup records public API option/ownership choices and dynamic-library resolution. Four-input full-native reference report JSON: f4759c73c563a02d191e44e49b6f494515239c298aa53c92b2d4ccb6f7cff0d9, binding original CR3 hashes to dimensions, full canonical u16le SHA-256, PGM-file hashes and full FNV values. The mutable public API web pages are cited, not claimed to be content-hash pinned."
+      }
     }
   ]
 }

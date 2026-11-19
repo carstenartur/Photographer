@@ -1,0 +1,10 @@
+{
+  "path": "/workspace/scratch/adce2cf98312/qa-work/final16-benchmarks.jar",
+  "sha256": "c8ccdde4c48cfc94874fcb3ac3313282ba8913c77c85f1be0121a7fbc5b016ca",
+  "bytes": 3633926,
+  "source_commit": "819011cfd9a05af6b4124fdcc5a6643bdf99fd18",
+  "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+  "probe_class_sha256": "490ff45dc1feab705e40cc3b09faad1e2bcaa9bcd13818c363a26b0e032ccab7",
+  "probe_source_sha256": "d7ffd2a7b0074190019aba9f6ea4bc378be33b335b5c66fc6ad82345f5149f6b",
+  "product_tree_matches_runtime_pr": "4efa4dbc784a947c1abe67aff7df8e7600855b9b"
+}

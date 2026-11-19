@@ -1,0 +1,525 @@
+{
+  "schema_version": 2,
+  "hash_algorithm": "sha256",
+  "scope": "Complete CR3 QA and performance evidence, including all successful measurements, the rejected RGB8 experiment, exact optimization outputs, and investigated crop CI outcomes.",
+  "manifest_policy": "Every other file in this directory is inventoried; this manifest excludes itself. Compressed raw JSON has separate uncompressed bindings.",
+  "runtime_bindings": {
+    "baseline": "83a687e7680405b96e0ce35b82802b1f03a3d764",
+    "pixel_preserving_optimization": "9b82827af545e062cf495b9d7f3a6db7b07da469",
+    "separate_inclusive_crop_fix": "1c73cd29a36e429f0217044d884be8f2b0543911"
+  },
+  "source_register_binding": {
+    "source_id": "SRC-017",
+    "original_tool_manifest_preserved": true,
+    "tool_manifest_sha256": "01cab81c08df4931de25cbb9d5d0e65451680a0fa4e9ecea0a3921d0ba130fb3",
+    "repository_evidence": [
+      "docs/cr3/performance-2026-11-19/comparison-setup.md",
+      "docs/cr3/performance-2026-11-19/reference-tools/tool-manifest.json",
+      "docs/cr3/performance-2026-11-19/native-reference-verification.json"
+    ]
+  },
+  "measurement_process_counts": {
+    "java25": 192,
+    "libraw-native": 24,
+    "libraw-color": 72,
+    "java21-g1": 24,
+    "cli-native": 72,
+    "first-import": 24,
+    "rgb8-experiment": 48
+  },
+  "main_successful_processes": 408,
+  "rejected_experiment_successful_processes": 48,
+  "excluded_java21_setup_failures": "java21-preflight-failure.json",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 15879,
+      "sha256": "6be2c13f732a45848ffca2ddde8375bbc03e06c64a3881d146890b8b06de2ffe"
+    },
+    {
+      "path": "baseline-output-hashes.json",
+      "bytes": 26853,
+      "sha256": "9198f465c8b1f7da1aa97055e772a3bb3a483cc5ab26252a243719aa9150d9b7"
+    },
+    {
+      "path": "ci-crop/README.md",
+      "bytes": 4182,
+      "sha256": "39ee266e0c2f8750b81321d0c8b6bbc03d149fc22b8d884d58e9bef0492c1db3"
+    },
+    {
+      "path": "ci-crop/all-green.json",
+      "bytes": 7434,
+      "sha256": "438075fd0179bb69b26fcf04b9afcda1568a60d3808bbf2045e1e47a405411b2"
+    },
+    {
+      "path": "ci-crop/final-green/base.json",
+      "bytes": 7408,
+      "sha256": "e53b07b82d15fbeda10e7d62ee5a1ce073f3e1b043d327106ab65c268f826cef"
+    },
+    {
+      "path": "ci-crop/final-green/comparison.json",
+      "bytes": 2084,
+      "sha256": "bad17f8a3d9c46324f7de3807e0c36ec6343ba08bee8dc7b1e77f61b7281d2ab"
+    },
+    {
+      "path": "ci-crop/final-green/comparison.md",
+      "bytes": 807,
+      "sha256": "cf6a67bb9c5ce7b8588e09afe0f9aa6c13d563f0bf1f8504c36d643fe0533a4a"
+    },
+    {
+      "path": "ci-crop/final-green/environment.txt",
+      "bytes": 4425,
+      "sha256": "6fffcd6f8339931792c48d24b7b5da235c9a63e6fc5b8fa9b9b45f0533240137"
+    },
+    {
+      "path": "ci-crop/final-green/head.json",
+      "bytes": 7420,
+      "sha256": "91087a91e9e75930f0a3644b505b969ad6a90e7a0f8ee017e39272644e862e16"
+    },
+    {
+      "path": "ci-crop/first-green/base.json",
+      "bytes": 7427,
+      "sha256": "5f6dd6b3acc4aed2f590483c64c05c8f5327bacc347fb223f9d689125bb1f29c"
+    },
+    {
+      "path": "ci-crop/first-green/comparison.json",
+      "bytes": 2090,
+      "sha256": "43ba8b041caaa3d5c7f1503342920ae5a155bb33da307cb8d541de0d124ff818"
+    },
+    {
+      "path": "ci-crop/first-green/comparison.md",
+      "bytes": 808,
+      "sha256": "d6682646c95e6dc15edc8bdef7a13f7d15322e876f71f5c27e84c44ace8a5b87"
+    },
+    {
+      "path": "ci-crop/first-green/environment.txt",
+      "bytes": 4425,
+      "sha256": "474a5ef8c1d19a5edf91f46decab773f6ce69cb2edafb8a08daf5d6c50bc302a"
+    },
+    {
+      "path": "ci-crop/first-green/head.json",
+      "bytes": 7446,
+      "sha256": "16e00cec9d08f33677fbf37fb7c3d190ba73aaabbcbd0466d2e62dfff25179c5"
+    },
+    {
+      "path": "ci-crop/first-red/base.json",
+      "bytes": 7338,
+      "sha256": "8eb87640c35b1afd46d15c90e370be5fd420e9b6b897411a743c45eec33c9018"
+    },
+    {
+      "path": "ci-crop/first-red/comparison.json",
+      "bytes": 2090,
+      "sha256": "d51ce03b216ac735b1bd2dd071bf660bf568f9a1aab1b8d2effbeeb643576c00"
+    },
+    {
+      "path": "ci-crop/first-red/comparison.md",
+      "bytes": 812,
+      "sha256": "aec9e3acca26a4f18f4235690d279eb8f4352c473e223878895bd72296c648b5"
+    },
+    {
+      "path": "ci-crop/first-red/environment.txt",
+      "bytes": 4191,
+      "sha256": "bba6653560d533421eca42f08ea6fdbbd08db35cb5a9e7c8b5dad63d9e90ffba"
+    },
+    {
+      "path": "ci-crop/first-red/head.json",
+      "bytes": 7423,
+      "sha256": "b9a18541df74951f30cee7dd2715bd0e1321513a87ab06ad642f80a68e6e038a"
+    },
+    {
+      "path": "ci-crop/local-reverse/base.json",
+      "bytes": 2082,
+      "sha256": "edc8a13634c5e52ca488a86cbfebcfcb8e84658dc825854ee6f68f0ade2e1902"
+    },
+    {
+      "path": "ci-crop/local-reverse/comparison.json",
+      "bytes": 596,
+      "sha256": "8305deecd313d9dbfe3c8f4e726cc2b0d1a8c87694f95d0afb9e4704b62b9dda"
+    },
+    {
+      "path": "ci-crop/local-reverse/comparison.md",
+      "bytes": 562,
+      "sha256": "8777abf94e483b36d4e4484aa8603dd5bbc80ff44d04ac063825a23a29d40d4b"
+    },
+    {
+      "path": "ci-crop/local-reverse/environment.txt",
+      "bytes": 1119,
+      "sha256": "76251b077b00f1219194d59bbe88a41820eef84859c9d41132646386b0684f20"
+    },
+    {
+      "path": "ci-crop/local-reverse/head.json",
+      "bytes": 2171,
+      "sha256": "e61b09023ec9034a1c717b35f9f0cc9ef938bcf7bec387603efe91635bd9bf3a"
+    },
+    {
+      "path": "ci-crop/retry-build-429.json",
+      "bytes": 1350,
+      "sha256": "92c734a44bca558662dcd18ed731ac1ba6b7e9d58d73703999834375b2602887"
+    },
+    {
+      "path": "cli-native/manifest.json",
+      "bytes": 5247,
+      "sha256": "86966ede8f4bfb5f6168c0f811d27878913d16d650115a71453e100a7e7b21db"
+    },
+    {
+      "path": "cli-native/nonempty-stderr.json",
+      "bytes": 11493,
+      "sha256": "8d15665bbae9c60e5f4c96f4c6e9607eaeb6239b0cd727abb4aa1bde35958ebf"
+    },
+    {
+      "path": "cli-native/records.json",
+      "bytes": 60390,
+      "sha256": "eed10ff2951ffceca64e35a06fa2bc7675231f798e8a5be43bf63d8b942a0771"
+    },
+    {
+      "path": "cli-native/summary.json",
+      "bytes": 6411,
+      "sha256": "247ef07a1d83c3cdc9c073eef16b5964dffed465adaa30f5a9a7508018631e0c"
+    },
+    {
+      "path": "comparison-setup.md",
+      "bytes": 10502,
+      "sha256": "bf4acf662599b26fc3cb5e1480cdda1cdd975e3e7779801da4ae68e4377f8104"
+    },
+    {
+      "path": "cr3-rgb16-performance.png",
+      "bytes": 260394,
+      "sha256": "e6ab3a1e646b1f84fb71de0a5c5153b1ce1b3d7a730f26bdef8bfc80a8e21b56"
+    },
+    {
+      "path": "cr3-rgb16-performance.svg",
+      "bytes": 28127,
+      "sha256": "50eba25f3a02fd1f9f7dc98099249ccdf45d1716cb416b10a5ca1186acf06e75"
+    },
+    {
+      "path": "crop-module-counts.json",
+      "bytes": 1549,
+      "sha256": "2397eff4f089938de1143b209c9c378cacdf248a87e02727342561edac1b7c44"
+    },
+    {
+      "path": "crop-red-counts.json",
+      "bytes": 491,
+      "sha256": "30c87357ea7b2e7678f99298b879ebe3cc03871ae4e5bbd0135daabe77ec2994"
+    },
+    {
+      "path": "crop-reference-histogram.json",
+      "bytes": 1358,
+      "sha256": "b3b31a9b134621c61af1e73f75ae5367f6eb7c516d5719d33741c264dfffd88a"
+    },
+    {
+      "path": "environment.json",
+      "bytes": 3151,
+      "sha256": "cd125305aaf36d0e366cae8f22ea09074d8011b5686485ccafff67206e7291ac"
+    },
+    {
+      "path": "extra-output-hashes.json",
+      "bytes": 2017,
+      "sha256": "01098e287b677b6b4a1bedf1249820664db34777ebfd93856dbc481b00693a0e"
+    },
+    {
+      "path": "final16-benchmark-manifest.json",
+      "bytes": 583,
+      "sha256": "ceaa7b3b81a8da7996ab46bd74b7e42ef2c46754a2cdaf10329a214eddb74f9b"
+    },
+    {
+      "path": "first-import/manifest.json",
+      "bytes": 2270,
+      "sha256": "71a1a5c7f411812fe5d58c1e3e3311386cb21ff8c64781512d8eec83df8053b5"
+    },
+    {
+      "path": "first-import/nonempty-stderr.json",
+      "bytes": 5583,
+      "sha256": "b393fed7934168a40294d4c689cbb733f640dc28d7b05ac4df077f2d500ddffe"
+    },
+    {
+      "path": "first-import/records.json",
+      "bytes": 44287,
+      "sha256": "9f1f8a958c30c005280e4512d3948f89fb0ca0a1eb5e9571ddd3c8b142b7651f"
+    },
+    {
+      "path": "first-import/summary.json",
+      "bytes": 2305,
+      "sha256": "931882507ee0ce9435756aca3eaa4cb3b5e7b6f508d17d688486394075ed1fd7"
+    },
+    {
+      "path": "gamma-java21-interpreter.txt",
+      "bytes": 264,
+      "sha256": "408ff70cd5f974faed40de0d8025e34285883cc07abe50bf96bbd21bf1b4a345"
+    },
+    {
+      "path": "gamma-java21-jit.txt",
+      "bytes": 264,
+      "sha256": "408ff70cd5f974faed40de0d8025e34285883cc07abe50bf96bbd21bf1b4a345"
+    },
+    {
+      "path": "hardened-probe-validation.json",
+      "bytes": 1047,
+      "sha256": "e4adc24d03a279809ec8e143f30846f33e2a1516a2b1a66ceebe3eedfffc03a6"
+    },
+    {
+      "path": "java21-g1/manifest.json",
+      "bytes": 4284,
+      "sha256": "5c6f52589d05bc07dcd5666918d6ddca9ae9f3080e1dc009b8246e0f5fbba576"
+    },
+    {
+      "path": "java21-g1/observations.csv",
+      "bytes": 34810,
+      "sha256": "4c2d0063e1a03a5ccee0716a726bb7da4fc5f515c72e85ddc7a07103e866b482"
+    },
+    {
+      "path": "java21-g1/raw-data-binding.json",
+      "bytes": 229,
+      "sha256": "7b6aabf7b3681a256cd5f7cd68e1a99bc1889cf93293874b7164953b8d4d0904"
+    },
+    {
+      "path": "java21-g1/results.json.gz",
+      "bytes": 6481,
+      "sha256": "a98673e4d13d27d5d3cf52fdd65717605e5a5754ab468b60a4c941397ecc8e12"
+    },
+    {
+      "path": "java21-g1/summary.csv",
+      "bytes": 961,
+      "sha256": "13ff6203e0308c8a8e97c4f47ca1db883f4da2d8ad93e385297c4b9c9e7f739d"
+    },
+    {
+      "path": "java21-g1/summary.json",
+      "bytes": 8055,
+      "sha256": "9e51d38fa9b1b0e0be30a466a6fd8bb4467fa7f52a4219aba3dd998eee899f70"
+    },
+    {
+      "path": "java21-helper-binding.json",
+      "bytes": 630,
+      "sha256": "9b56e67ec41daf40dd38bac84112251b65a72004b174ea6dd3749eea72cc05a3"
+    },
+    {
+      "path": "java21-preflight-failure.json",
+      "bytes": 512,
+      "sha256": "d0ca1f11a5478753027951a2323b30b98011e9a2db7ecd1cf979b27787af0491"
+    },
+    {
+      "path": "java25/manifest.json",
+      "bytes": 7323,
+      "sha256": "bf5fa4a18e414e70e4880f57b9d7e9812dcda3a919a336ec0f3d31a43e0a6926"
+    },
+    {
+      "path": "java25/observations.csv",
+      "bytes": 292265,
+      "sha256": "97d96b0fe4c90776850f3dcbb2a7e45829eeff46e214d27da74ddd82a0121365"
+    },
+    {
+      "path": "java25/raw-data-binding.json",
+      "bytes": 230,
+      "sha256": "7144db05cca26524fb7745d4fe721f8e8ff407a869b8ce974c87305551f415df"
+    },
+    {
+      "path": "java25/results.json.gz",
+      "bytes": 43790,
+      "sha256": "d8566f821ddb4dc31b5db13ddf3ad1e5e0ad1a65db4ce247bcea6ec9e4064ab9"
+    },
+    {
+      "path": "java25/summary.csv",
+      "bytes": 7319,
+      "sha256": "201f27ec34fd9c0baab726ddc4b35149a416796e248171f14e16fb7219988e1b"
+    },
+    {
+      "path": "java25/summary.json",
+      "bytes": 61492,
+      "sha256": "50a83a12b2b43e791cee5063abfe5fb9d87d53998a567d50c95a28c1083d4ca7"
+    },
+    {
+      "path": "libraw-color/manifest.json",
+      "bytes": 6760,
+      "sha256": "5dd56e1e61cf2ad7b195377289b90718b70cc5b5e6f6324f03d53a0690967287"
+    },
+    {
+      "path": "libraw-color/observations.csv",
+      "bytes": 134104,
+      "sha256": "c9a5831cfa97604af15cdca288a843235a6c9bb0fd94121ff1c3b26a2c08c1d4"
+    },
+    {
+      "path": "libraw-color/raw-data-binding.json",
+      "bytes": 229,
+      "sha256": "b188fe92bbfff2f04a2294a272625ad6bfa8f03ec70a1fa4bf1d6ea140f34da7"
+    },
+    {
+      "path": "libraw-color/results.json.gz",
+      "bytes": 26902,
+      "sha256": "fd54eebd4447c8ab1c0337ecd3b4ee599c36fd85c068cace9b154f402744ac44"
+    },
+    {
+      "path": "libraw-color/summary.csv",
+      "bytes": 2451,
+      "sha256": "a51b19921451aa328f2832e5bad71865ef8acfef2fb833072f9f137ff9fe170d"
+    },
+    {
+      "path": "libraw-color/summary.json",
+      "bytes": 30825,
+      "sha256": "049f5d2ecbc9bbe827c213b38acfd4854fb646ba25239a639416d2950fee35bc"
+    },
+    {
+      "path": "libraw-native/manifest.json",
+      "bytes": 6724,
+      "sha256": "1ae1871ba12746349419698d2528812028e53b55ce399e2ba29dee57cbf57add"
+    },
+    {
+      "path": "libraw-native/observations.csv",
+      "bytes": 44435,
+      "sha256": "a8a884d60d30318b1ed38b87989ab2a65231c46fd9ec1b16bdd04b86980e1dd4"
+    },
+    {
+      "path": "libraw-native/raw-data-binding.json",
+      "bytes": 229,
+      "sha256": "e69d06acf70f87b1f79f8c6597aeec12af3b8dfc511b7cd2888485e40f45a23f"
+    },
+    {
+      "path": "libraw-native/results.json.gz",
+      "bytes": 8181,
+      "sha256": "aeb9e42962bf6e9659a68dc88c1d658a36c776ec0b957062322b9ad0315a607a"
+    },
+    {
+      "path": "libraw-native/summary.csv",
+      "bytes": 907,
+      "sha256": "8ed76e26311f05ae708f7ee324a85ce6c0632376ac9cc36329efa39ab2b49cce"
+    },
+    {
+      "path": "libraw-native/summary.json",
+      "bytes": 10392,
+      "sha256": "cc03231ca05289bfe32ef72ddd52d202f65e6889bd38a5ce3ff488fb77ff5f88"
+    },
+    {
+      "path": "low-heap-results.json",
+      "bytes": 7957,
+      "sha256": "80d50dea1fb9c0d8be0eecd3f72fbf3843fb21f2bef545d72e99efa691b052a3"
+    },
+    {
+      "path": "measurement-sources/Cr3ImportProbe.java",
+      "bytes": 12799,
+      "sha256": "d7ffd2a7b0074190019aba9f6ea4bc378be33b335b5c66fc6ad82345f5149f6b"
+    },
+    {
+      "path": "measurement-sources/README.md",
+      "bytes": 8527,
+      "sha256": "5084d137d9a7cb3eeb69bd38db2848e625acf92ea47e4aa43053d2a4f38ebb60"
+    },
+    {
+      "path": "measurement-sources/cli_measurements.py",
+      "bytes": 6483,
+      "sha256": "5c678d0eb82ee3f9f042296b05b8c6ce1f12a213cc96ed6cbef2c609e7de6631"
+    },
+    {
+      "path": "measurement-sources/extra-input.json",
+      "bytes": 2026,
+      "sha256": "3a0b6389401d52df607447015a33e890f5b947470dd7554ec31820c1dbeec6d2"
+    },
+    {
+      "path": "measurement-sources/first_import_measurements.py",
+      "bytes": 6663,
+      "sha256": "099a4e8b9791e24ba7a11aa4599f0d39ec13aa7954fcd82cb4e2cf0e7fbe29e1"
+    },
+    {
+      "path": "measurement-sources/inputs.json",
+      "bytes": 948,
+      "sha256": "515d4584f010cccdcdfd1a5a478348433dd8ae2483d49a4e6a32c172478ac32b"
+    },
+    {
+      "path": "measurement-sources/java21_measurements.py",
+      "bytes": 17141,
+      "sha256": "f4a8457a2ccbccd03c35e68eccc7bbdfa428767ea00ee6c49da1220ac468a663"
+    },
+    {
+      "path": "measurement-sources/legacy-rgb8/Cr3ImportProbe.java",
+      "bytes": 6707,
+      "sha256": "8c4bb2802132f13ed07c6f84bf59c53e730b7036b3aebff30661ad336d1b39e8"
+    },
+    {
+      "path": "measurement-sources/legacy-rgb8/final_measurements.py",
+      "bytes": 17038,
+      "sha256": "ea7f18765b04049fdb5e97f8c69d016092e3c34aed0a213248d95d8d38c9e6f4"
+    },
+    {
+      "path": "measurement-sources/legacy-rgb8/provenance.json",
+      "bytes": 828,
+      "sha256": "da08ed19746a16cca447f9233a439c3911da97f5c2c18676c250c1ae4d46d0bc"
+    },
+    {
+      "path": "measurement-sources/libraw_bench.c",
+      "bytes": 12836,
+      "sha256": "b12f0259192a36b64db37f48eefb4bb5301c8195a53b174a30c6931985add14b"
+    },
+    {
+      "path": "measurement-sources/public_measurements.py",
+      "bytes": 17175,
+      "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+    },
+    {
+      "path": "measurement-sources/render-performance-figure.py",
+      "bytes": 14047,
+      "sha256": "eb8324e82b014c98c4e056679e2c223e65823a3f8192a3b8bfae0011e6d01931"
+    },
+    {
+      "path": "native-reference-verification.json",
+      "bytes": 24760,
+      "sha256": "f4759c73c563a02d191e44e49b6f494515239c298aa53c92b2d4ccb6f7cff0d9"
+    },
+    {
+      "path": "optimization-verification.json",
+      "bytes": 631,
+      "sha256": "6adea6aa5d273faf22f70485a317ed0051acdf117fd0ba96ff9b418688f9325e"
+    },
+    {
+      "path": "optimized-output-hashes.json",
+      "bytes": 26853,
+      "sha256": "9198f465c8b1f7da1aa97055e772a3bb3a483cc5ab26252a243719aa9150d9b7"
+    },
+    {
+      "path": "qa-summary.md",
+      "bytes": 8678,
+      "sha256": "439168f73cb8f98e45c5efb021bbc4f7c43fbaa827b5ba738eec70dcd2f241ca"
+    },
+    {
+      "path": "reference-tools/tool-manifest.json",
+      "bytes": 4039,
+      "sha256": "01cab81c08df4931de25cbb9d5d0e65451680a0fa4e9ecea0a3921d0ba130fb3"
+    },
+    {
+      "path": "rgb8-decision.md",
+      "bytes": 1887,
+      "sha256": "d636089f011652a9bc476a2d49c623f6be726108ed20031c54ca2b11c87b51cc"
+    },
+    {
+      "path": "rgb8-experiment/manifest.json",
+      "bytes": 6872,
+      "sha256": "75928720194d1726b044200f325fb481ed46818f4331da91334c50e6aec42349"
+    },
+    {
+      "path": "rgb8-experiment/observations.csv",
+      "bytes": 71696,
+      "sha256": "087355446b0d53743bde11ac6ae2ab828d2f2179226e0c409f0cd155ecd1b1c0"
+    },
+    {
+      "path": "rgb8-experiment/raw-data-binding.json",
+      "bytes": 229,
+      "sha256": "3b2de33126ae6b659c6114379f08e6f62e5b58bdaccaf4781439278629a4ae51"
+    },
+    {
+      "path": "rgb8-experiment/results.json.gz",
+      "bytes": 12179,
+      "sha256": "135c2f811eaa5e156c8e229b35e416fd89a6672ade9caf0c0a8c95ebc0dbdb4e"
+    },
+    {
+      "path": "rgb8-experiment/summary.csv",
+      "bytes": 1964,
+      "sha256": "6fe37bbf106a7b581b82d27b1c590d2f9c2359115ac88090c0468961afb1eb5d"
+    },
+    {
+      "path": "rgb8-experiment/summary.json",
+      "bytes": 15715,
+      "sha256": "fbebfd8d57b88671510200d0f2d16901763dd1d730962df21e87822d31322719"
+    },
+    {
+      "path": "rgb8-rejected.patch",
+      "bytes": 14423,
+      "sha256": "9ec20f26d79e221a0463718562b84b6d1ca2e9129f409d49a3afff699ae283ab"
+    }
+  ]
+}

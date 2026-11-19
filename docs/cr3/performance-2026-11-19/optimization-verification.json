@@ -1,0 +1,13 @@
+{
+  "runtime_pr": 423,
+  "remote_head": "4efa4dbc784a947c1abe67aff7df8e7600855b9b",
+  "merged_commit": "9b82827af545e062cf495b9d7f3a6db7b07da469",
+  "verification_jar_sha256": "c8ccdde4c48cfc94874fcb3ac3313282ba8913c77c85f1be0121a7fbc5b016ca",
+  "baseline_jar_sha256": "5a53a39669229e99e04a3c892bdd5f6f0343039f0406de2f0951dec095a1781a",
+  "output_count": 56,
+  "numeric_samples": 3178855094,
+  "outputs_equal": true,
+  "source_geometry": "Before the separate inclusive-IAD1 endpoint fix; identical source/output geometry in each optimization pair",
+  "input_count": 14,
+  "additional_output_manifest": "extra-output-hashes.json"
+}

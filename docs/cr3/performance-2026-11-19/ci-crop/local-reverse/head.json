@@ -1,0 +1,68 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 3,
+        "jvm" : "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "jvmArgs" : [
+            "-Djava.awt.headless=true",
+            "-Dsamples.dir=/tmp/cr3-jmh-worktree-bytmdaj6/revision/canon-cr3-imageio/src/test/resources/samples"
+        ],
+        "jdkVersion" : "25.0.5.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5.1+2-LTS",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 3,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "sample" : "sample.cr3"
+        },
+        "primaryMetric" : {
+            "score" : 332.9477034351852,
+            "scoreError" : 38.16989350891258,
+            "scoreConfidence" : [
+                294.7778099262726,
+                371.1175969440978
+            ],
+            "scorePercentiles" : {
+                "0.0" : 287.1839025,
+                "50.0" : 342.4150486666667,
+                "90.0" : 355.33724766666666,
+                "95.0" : 355.33724766666666,
+                "99.0" : 355.33724766666666,
+                "99.9" : 355.33724766666666,
+                "99.99" : 355.33724766666666,
+                "99.999" : 355.33724766666666,
+                "99.9999" : 355.33724766666666,
+                "100.0" : 355.33724766666666
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    287.1839025,
+                    354.260715,
+                    348.50399066666665
+                ],
+                [
+                    313.1394215,
+                    317.3702375,
+                    335.04681075
+                ],
+                [
+                    343.27195666666665,
+                    342.4150486666667,
+                    355.33724766666666
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

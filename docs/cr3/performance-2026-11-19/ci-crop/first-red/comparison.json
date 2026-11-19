@@ -1,0 +1,75 @@
+{
+  "comparisons": [
+    {
+      "base_score": 2.363416221598085,
+      "benchmark": "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse",
+      "change_percent": 3.0785641262957464,
+      "confidence_available": true,
+      "confidence_intervals_overlap": true,
+      "head_score": 2.436175505551258,
+      "params": [
+        [
+          "sample",
+          "sample.cr3"
+        ]
+      ],
+      "ratio": 1.0307856412629575,
+      "score_unit": "ms/op",
+      "verdict": "STABLE"
+    },
+    {
+      "base_score": 0.024342653854090318,
+      "benchmark": "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata",
+      "change_percent": -1.6734419976090154,
+      "confidence_available": true,
+      "confidence_intervals_overlap": true,
+      "head_score": 0.02393529366116338,
+      "params": [
+        [
+          "sample",
+          "sample.cr3"
+        ]
+      ],
+      "ratio": 0.9832655800239098,
+      "score_unit": "ms/op",
+      "verdict": "STABLE"
+    },
+    {
+      "base_score": 16.29426138172043,
+      "benchmark": "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview",
+      "change_percent": -0.615082006754275,
+      "confidence_available": true,
+      "confidence_intervals_overlap": true,
+      "head_score": 16.194038311827956,
+      "params": [
+        [
+          "sample",
+          "sample.cr3"
+        ]
+      ],
+      "ratio": 0.9938491799324572,
+      "score_unit": "ms/op",
+      "verdict": "STABLE"
+    },
+    {
+      "base_score": 245.77836106666666,
+      "benchmark": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode",
+      "change_percent": 29.111210112021425,
+      "confidence_available": true,
+      "confidence_intervals_overlap": false,
+      "head_score": 317.32741616666664,
+      "params": [
+        [
+          "sample",
+          "sample.cr3"
+        ]
+      ],
+      "ratio": 1.2911121011202142,
+      "score_unit": "ms/op",
+      "verdict": "REGRESSION"
+    }
+  ],
+  "confirmedRegressions": 1,
+  "noisyWarnings": 0,
+  "thresholdRatio": 1.15
+}

@@ -1,0 +1,283 @@
+diff --git a/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java b/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
+index 297eb24..affaed6 100644
+--- a/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
++++ b/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
+@@ -380,11 +380,15 @@ public final class Cr3Decoder implements AutoCloseable {
+         }
+         BufferedImage rgb = BayerDemosaicer.demosaicInPlace(prepared.image(), prepared.whiteLevel(),
+                 options.maxWorkers());
+-        if (prepared.colorMatrix() != null) {
+-            ColorMatrixProcessor.process(rgb, prepared.colorMatrix(), options.maxWorkers());
+-        }
+-        if (options.applySrgbConversion()) {
+-            SrgbConverter.process(rgb, options.maxWorkers());
++        if (prepared.colorMatrix() != null && options.applySrgbConversion()) {
++            ColorMatrixProcessor.processAndConvertToSrgb(rgb, prepared.colorMatrix(), options.maxWorkers());
++        } else {
++            if (prepared.colorMatrix() != null) {
++                ColorMatrixProcessor.process(rgb, prepared.colorMatrix(), options.maxWorkers());
++            }
++            if (options.applySrgbConversion()) {
++                SrgbConverter.process(rgb, options.maxWorkers());
++            }
+         }
+         if (partial) {
+             rgb = rgb.getSubimage(localRegion.x, localRegion.y, localRegion.width, localRegion.height);
+diff --git a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/ColorMatrixProcessor.java b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/ColorMatrixProcessor.java
+index cfb21c5..54471e8 100644
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/ColorMatrixProcessor.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/ColorMatrixProcessor.java
+@@ -56,6 +56,53 @@ public final class ColorMatrixProcessor {
+         }
+     }
+ 
++    /**
++     * Applies the existing eight-bit matrix and sRGB gamma passes in place.
++     *
++     * @param image the RGB image to modify
++     * @param matrix 3×3 color correction matrix
++     */
++    public static void processAndConvertToSrgb(BufferedImage image, double[][] matrix) {
++        processAndConvertToSrgb(image, matrix, 1);
++    }
++
++    /**
++     * Combines scalar matrix and gamma processing on disjoint packed RGB pixels.
++     * The matrix is truncated and clipped before the existing eight-bit gamma
++     * lookup. Other rasters retain both color-model round trips, and an available
++     * vector matrix kernel retains its separate gamma pass.
++     *
++     * @param image the RGB image to modify
++     * @param matrix 3×3 color correction matrix
++     * @param maxWorkers maximum number of workers, or zero for automatic selection
++     */
++    public static void processAndConvertToSrgb(BufferedImage image, double[][] matrix, int maxWorkers) {
++        if (matrix.length != 3 || matrix[0].length != 3) {
++            throw new IllegalArgumentException("Color matrix must be 3x3");
++        }
++
++        int width = image.getWidth();
++        Pixels.Packed packed = Pixels.packed(image);
++        if (packed == null || packed.stride() < width) {
++            // A storage/color-model round trip can change the matrix result.
++            // Aliased rows also require the original order of complete passes.
++            process(image, matrix, maxWorkers);
++            SrgbConverter.process(image, maxWorkers);
++            return;
++        }
++        if (processWithVectors(image, matrix, maxWorkers)) {
++            SrgbConverter.process(image, maxWorkers);
++            return;
++        }
++
++        LOG.debug("Applying 3x3 color matrix and sRGB gamma to {}x{} image", width, image.getHeight());
++        Pixels.transformPacked(packed, width, image.getHeight(), maxWorkers, (pixels, offset) -> {
++            for (int i = offset; i < offset + width; i++) {
++                pixels[i] = SrgbConverter.applyGamma(applyMatrix(pixels[i], matrix));
++            }
++        });
++    }
++
+     static boolean processWithVectors(BufferedImage image, double[][] matrix, int maxWorkers) {
+         VectorKernel kernel = VectorSupport.KERNEL;
+         return kernel != null && kernel.process(image, matrix, maxWorkers);
+diff --git a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/SrgbConverter.java b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/SrgbConverter.java
+index ec574c2..dca1702 100644
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/SrgbConverter.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/SrgbConverter.java
+@@ -59,12 +59,14 @@ public final class SrgbConverter {
+     public static void process(BufferedImage image, int maxWorkers) {
+         LOG.debug("Applying sRGB gamma to {}x{} image", image.getWidth(), image.getHeight());
+ 
+-        Pixels.transform(image, maxWorkers, rgb -> {
+-            int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
+-            int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
+-            int b = GAMMA_LUT[rgb & 0xFF];
+-            return (r << 16) | (g << 8) | b;
+-        });
++        Pixels.transform(image, maxWorkers, SrgbConverter::applyGamma);
++    }
++
++    static int applyGamma(int rgb) {
++        int r = GAMMA_LUT[(rgb >> 16) & 0xFF];
++        int g = GAMMA_LUT[(rgb >> 8) & 0xFF];
++        int b = GAMMA_LUT[rgb & 0xFF];
++        return (r << 16) | (g << 8) | b;
+     }
+ 
+     /**
+diff --git a/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/ColorMatrixSrgbTest.java b/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/ColorMatrixSrgbTest.java
+new file mode 100644
+index 0000000..e6cad01
+--- /dev/null
++++ b/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/ColorMatrixSrgbTest.java
+@@ -0,0 +1,169 @@
++package com.photographer.focusstack.cr3.processing;
++
++import org.junit.jupiter.api.Test;
++
++import java.awt.color.ColorSpace;
++import java.awt.image.BufferedImage;
++import java.awt.image.DataBuffer;
++import java.awt.image.DataBufferByte;
++import java.awt.image.DataBufferInt;
++import java.awt.image.DirectColorModel;
++import java.awt.image.Raster;
++import java.util.SplittableRandom;
++import java.util.function.Supplier;
++
++import static org.junit.jupiter.api.Assertions.assertArrayEquals;
++import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertNotNull;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++
++/** Keep the intermediate matrix quantization and raster round trips of the public APIs. */
++class ColorMatrixSrgbTest {
++    private static final int WIDTH = 47;
++    private static final int HEIGHT = 29;
++    private static final double[][] IDENTITY = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
++    private static final double[][][] MATRICES = {
++            IDENTITY,
++            {{0.5, 0, 0}, {0, -1, 0}, {0, 0, 100}},
++            {{1.1250000000000002, -0.12499999999999999, 0.0001},
++                    {Double.MIN_VALUE, Math.nextDown(1.0), -0.0125}, {-0.75, 1.5, 0.8}},
++            {{Double.NaN, 0, 0}, {Double.POSITIVE_INFINITY, 0, 0},
++                    {Double.MAX_VALUE, -Double.MAX_VALUE, 0}},
++            {{1, 0, 0}, {0, 0, 1, 42}, {0, 1, 0}}
++    };
++
++    @Test
++    void matchesSeparatePassesForPackedParentsAndSubimages() {
++        for (int type : new int[]{BufferedImage.TYPE_INT_RGB, BufferedImage.TYPE_INT_ARGB}) {
++            checkMatrices(() -> new BufferedImage(WIDTH, HEIGHT, type), "type=" + type);
++        }
++        checkMatrices(() -> packedImage(WIDTH, HEIGHT, WIDTH + 7, ColorSpace.CS_sRGB),
++                "padded sRGB with buffer offset");
++    }
++
++    @Test
++    void retainsIntermediateRasterConversionsForGeneralColorModels() {
++        for (int type : new int[]{BufferedImage.TYPE_3BYTE_BGR, BufferedImage.TYPE_INT_ARGB_PRE,
++                BufferedImage.TYPE_INT_BGR}) {
++            checkMatrices(() -> new BufferedImage(WIDTH, HEIGHT, type), "fallback type=" + type);
++        }
++        checkMatrices(() -> packedImage(WIDTH, HEIGHT, WIDTH + 7, ColorSpace.CS_LINEAR_RGB),
++                "packed linear color model");
++    }
++
++    @Test
++    void retainsCompletePassOrderingForOverlappingPackedRows() {
++        assertNotNull(Pixels.packed(packedImage(WIDTH, HEIGHT, WIDTH - 11, ColorSpace.CS_sRGB)),
++                "The overlapping-row fixture must exercise the packed path");
++        checkMatrices(() -> packedImage(WIDTH, HEIGHT, WIDTH - 11, ColorSpace.CS_sRGB),
++                "overlapping packed rows");
++    }
++
++    @Test
++    void matchesSeparatePassesAcrossParallelStripesAndScalarTails() {
++        // A cropped width not divisible by four also exercises the optional vector tail.
++        assertMatchesSeparatePasses(
++                () -> new BufferedImage(1037, 523, BufferedImage.TYPE_INT_ARGB),
++                true, MATRICES[2], 3, "parallel ARGB crop");
++    }
++
++    @Test
++    void truncatesAndClipsMatrixBeforeGammaAndClearsTheStoredAlpha() {
++        var image = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
++        int[] storage = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
++        storage[0] = 0xff030305;
++
++        ColorMatrixProcessor.processAndConvertToSrgb(image, MATRICES[1]);
++
++        // Matrix: (1.5, -3, 500) -> int/clamp (1, 0, 255) -> gamma (13, 0, 255).
++        // Both existing passes discard the upper eight bits; retain that storage contract.
++        assertEquals(0x000d00ff, storage[0]);
++    }
++
++    @Test
++    void rejectsNegativeWorkerLimitAndInvalidMatrixBeforeWriting() {
++        var image = new BufferedImage(7, 5, BufferedImage.TYPE_INT_ARGB);
++        seed(image);
++        int[] before = ((DataBufferInt) image.getRaster().getDataBuffer()).getData().clone();
++
++        assertThrows(IllegalArgumentException.class,
++                () -> ColorMatrixProcessor.processAndConvertToSrgb(image, IDENTITY, -1));
++        assertArrayEquals(before, ((DataBufferInt) image.getRaster().getDataBuffer()).getData());
++        assertThrows(IllegalArgumentException.class,
++                () -> ColorMatrixProcessor.processAndConvertToSrgb(image, new double[][]{{1, 0}, {0, 1}}, 1));
++        assertArrayEquals(before, ((DataBufferInt) image.getRaster().getDataBuffer()).getData());
++    }
++
++    private static void checkMatrices(Supplier<BufferedImage> factory, String description) {
++        for (int matrix = 0; matrix < MATRICES.length; matrix++) {
++            assertMatchesSeparatePasses(factory, false, MATRICES[matrix], 1,
++                    description + ", full, matrix=" + matrix);
++            assertMatchesSeparatePasses(factory, true, MATRICES[matrix], 0,
++                    description + ", crop, matrix=" + matrix);
++        }
++    }
++
++    private static void assertMatchesSeparatePasses(Supplier<BufferedImage> factory, boolean crop,
++                                                    double[][] matrix, int workers, String description) {
++        BufferedImage expected = factory.get();
++        BufferedImage actual = factory.get();
++        seed(expected);
++        seed(actual);
++        BufferedImage expectedRegion = region(expected, crop);
++        BufferedImage actualRegion = region(actual, crop);
++
++        ColorMatrixProcessor.process(expectedRegion, matrix, workers);
++        SrgbConverter.process(expectedRegion, workers);
++        ColorMatrixProcessor.processAndConvertToSrgb(actualRegion, matrix, workers);
++
++        int width = expected.getWidth();
++        int height = expected.getHeight();
++        assertArrayEquals(expected.getRGB(0, 0, width, height, null, 0, width),
++                actual.getRGB(0, 0, width, height, null, 0, width), description);
++        assertStorageEquals(expected.getRaster().getDataBuffer(), actual.getRaster().getDataBuffer(), description);
++    }
++
++    private static BufferedImage region(BufferedImage image, boolean crop) {
++        return crop ? image.getSubimage(3, 2, image.getWidth() - 6, image.getHeight() - 4) : image;
++    }
++
++    private static BufferedImage packedImage(int width, int height, int stride, int colorSpace) {
++        int offset = 5;
++        int[] storage = new int[offset + (height - 1) * stride + width + 7];
++        var buffer = new DataBufferInt(storage, storage.length - offset, offset);
++        int[] masks = {0xff0000, 0xff00, 0xff};
++        var raster = Raster.createPackedRaster(buffer, width, height, stride, masks, null);
++        var model = new DirectColorModel(ColorSpace.getInstance(colorSpace), 24,
++                masks[0], masks[1], masks[2], 0, false, DataBuffer.TYPE_INT);
++        return new BufferedImage(model, raster, false, null);
++    }
++
++    private static void seed(BufferedImage image) {
++        var random = new SplittableRandom(0xa53b27d4);
++        DataBuffer storage = image.getRaster().getDataBuffer();
++        for (int bank = 0; bank < storage.getNumBanks(); bank++) {
++            for (int i = 0; i < storage.getSize(); i++) {
++                storage.setElem(bank, i, random.nextInt());
++            }
++        }
++        for (int y = 0; y < image.getHeight(); y++) {
++            for (int x = 0; x < image.getWidth(); x++) {
++                image.setRGB(x, y, random.nextInt());
++            }
++        }
++    }
++
++    private static void assertStorageEquals(DataBuffer expected, DataBuffer actual, String description) {
++        assertEquals(expected.getNumBanks(), actual.getNumBanks(), description);
++        for (int bank = 0; bank < expected.getNumBanks(); bank++) {
++            if (expected instanceof DataBufferInt ei && actual instanceof DataBufferInt ai) {
++                // Includes alpha, leading offsets, row padding and untouched parent pixels.
++                assertArrayEquals(ei.getData(bank), ai.getData(bank), description);
++            } else if (expected instanceof DataBufferByte eb && actual instanceof DataBufferByte ab) {
++                assertArrayEquals(eb.getData(bank), ab.getData(bank), description);
++            } else {
++                throw new AssertionError("Unhandled test buffer type: " + expected.getClass());
++            }
++        }
++    }
++}

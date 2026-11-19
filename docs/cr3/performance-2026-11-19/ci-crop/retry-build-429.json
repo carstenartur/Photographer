@@ -1,0 +1,15 @@
+{
+  "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+  "run_id": 44482790433,
+  "job_id": 135422468971,
+  "attempt": 2,
+  "url": "https://github.com/carstenartur/Photographer/actions/runs/44482790433/job/135422468971",
+  "cause": "HTTP429 resolving Maven shade plugin POM3.6.2 while building first benchmark ref; no new JMH measurement results.",
+  "log_excerpt": [
+    "2026-11-19T08:00:43.1598577Z [WARNING] Could not transfer metadata /.meta/prefixes.txt from/to central (https://repo.maven.apache.org/maven2): HTTP Status: 429",
+    "2026-11-19T08:01:19.1110347Z [ERROR] Plugin org.apache.maven.plugins:maven-shade-plugin:3.6.2 or one of its dependencies could not be resolved:",
+    "2026-11-19T08:01:19.1111974Z [ERROR] \tThe following artifacts could not be resolved: org.apache.maven.plugins:maven-shade-plugin:pom:3.6.2 (absent): Could not transfer artifact org.apache.maven.plugins:maven-shade-plugin:pom:3.6.2 from/to central (https://repo.maven.apache.org/maven2): HTTP Status: 429",
+    "2026-11-19T08:01:19.2161619Z JMH two-ref comparison failed: Command '['mvn', '-B', '--no-transfer-progress', '-DskipTests', '-P', 'benchmarks', '-pl', 'canon-cr3-benchmark', '-am', 'package', '-Djava.awt.headless=true']' returned non-zero exit status 1.",
+    "2026-11-19T08:01:19.2254664Z ##[error]Process completed with exit code 2."
+  ]
+}

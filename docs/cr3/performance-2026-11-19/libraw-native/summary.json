@@ -1,0 +1,485 @@
+{
+  "updated_utc": "2026-11-19T07:32:31.697+00:00",
+  "planned_processes": 24,
+  "completed_processes": 24,
+  "groups": [
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 0,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.852,
+        "unpack_ms": 226.093,
+        "process_ms": 0.0,
+        "materialize_ms": 23.475,
+        "close_ms": 1.665,
+        "total_ms": 248.938,
+        "cpu_ms": 248.943
+      },
+      "process_medians": {
+        "open_ms": [
+          0.62,
+          0.852,
+          0.89
+        ],
+        "unpack_ms": [
+          223.3,
+          226.093,
+          227.819
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          23.475,
+          18.495,
+          25.084
+        ],
+        "close_ms": [
+          1.665,
+          1.34,
+          1.98
+        ],
+        "total_ms": [
+          248.938,
+          245.454,
+          255.827
+        ],
+        "cpu_ms": [
+          248.943,
+          245.442,
+          255.833
+        ]
+      },
+      "median_process_peak_rss_kb": 85992,
+      "max_process_peak_rss_kb": 86024
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 1,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.589,
+        "unpack_ms": 333.277,
+        "process_ms": 0.0,
+        "materialize_ms": 35.591,
+        "close_ms": 2.207,
+        "total_ms": 371.533,
+        "cpu_ms": 371.531
+      },
+      "process_medians": {
+        "open_ms": [
+          0.567,
+          0.589,
+          1.296
+        ],
+        "unpack_ms": [
+          333.277,
+          324.483,
+          434.692
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          35.591,
+          32.827,
+          45.242
+        ],
+        "close_ms": [
+          2.097,
+          2.207,
+          3.357
+        ],
+        "total_ms": [
+          371.533,
+          360.562,
+          484.055
+        ],
+        "cpu_ms": [
+          371.531,
+          360.503,
+          484.055
+        ]
+      },
+      "median_process_peak_rss_kb": 126780,
+      "max_process_peak_rss_kb": 126808
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 2,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.39,
+        "unpack_ms": 166.054,
+        "process_ms": 0.0,
+        "materialize_ms": 20.619,
+        "close_ms": 1.222,
+        "total_ms": 190.607,
+        "cpu_ms": 190.612
+      },
+      "process_medians": {
+        "open_ms": [
+          0.39,
+          0.399,
+          0.359
+        ],
+        "unpack_ms": [
+          165.836,
+          166.054,
+          182.994
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          20.619,
+          19.132,
+          21.373
+        ],
+        "close_ms": [
+          1.222,
+          1.216,
+          1.596
+        ],
+        "total_ms": [
+          190.607,
+          186.698,
+          213.259
+        ],
+        "cpu_ms": [
+          190.612,
+          186.703,
+          213.251
+        ]
+      },
+      "median_process_peak_rss_kb": 85516,
+      "max_process_peak_rss_kb": 85516
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 3,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.366,
+        "unpack_ms": 301.526,
+        "process_ms": 0.0,
+        "materialize_ms": 27.498,
+        "close_ms": 1.943,
+        "total_ms": 331.512,
+        "cpu_ms": 331.518
+      },
+      "process_medians": {
+        "open_ms": [
+          0.352,
+          0.366,
+          1.078
+        ],
+        "unpack_ms": [
+          292.655,
+          301.526,
+          492.791
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          25.842,
+          27.498,
+          65.918
+        ],
+        "close_ms": [
+          1.943,
+          1.741,
+          2.897
+        ],
+        "total_ms": [
+          323.402,
+          331.512,
+          548.48
+        ],
+        "cpu_ms": [
+          323.409,
+          331.518,
+          548.462
+        ]
+      },
+      "median_process_peak_rss_kb": 103576,
+      "max_process_peak_rss_kb": 103580
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 0,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.392,
+        "unpack_ms": 97.948,
+        "process_ms": 0.0,
+        "materialize_ms": 22.145,
+        "close_ms": 1.324,
+        "total_ms": 117.34,
+        "cpu_ms": 416.405
+      },
+      "process_medians": {
+        "open_ms": [
+          0.392,
+          0.382,
+          0.593
+        ],
+        "unpack_ms": [
+          97.948,
+          93.568,
+          100.179
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          19.591,
+          22.145,
+          62.897
+        ],
+        "close_ms": [
+          1.205,
+          1.324,
+          2.013
+        ],
+        "total_ms": [
+          117.34,
+          116.227,
+          166.952
+        ],
+        "cpu_ms": [
+          416.405,
+          409.109,
+          462.013
+        ]
+      },
+      "median_process_peak_rss_kb": 85920,
+      "max_process_peak_rss_kb": 86076
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 1,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.501,
+        "unpack_ms": 137.23,
+        "process_ms": 0.0,
+        "materialize_ms": 35.105,
+        "close_ms": 1.768,
+        "total_ms": 176.422,
+        "cpu_ms": 596.867
+      },
+      "process_medians": {
+        "open_ms": [
+          0.477,
+          0.517,
+          0.501
+        ],
+        "unpack_ms": [
+          136.362,
+          140.954,
+          137.23
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          33.768,
+          35.105,
+          36.647
+        ],
+        "close_ms": [
+          1.661,
+          1.768,
+          2.471
+        ],
+        "total_ms": [
+          169.824,
+          177.832,
+          176.422
+        ],
+        "cpu_ms": [
+          587.925,
+          605.938,
+          596.867
+        ]
+      },
+      "median_process_peak_rss_kb": 126768,
+      "max_process_peak_rss_kb": 126796
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 2,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.331,
+        "unpack_ms": 75.905,
+        "process_ms": 0.0,
+        "materialize_ms": 22.942,
+        "close_ms": 1.197,
+        "total_ms": 100.625,
+        "cpu_ms": 336.422
+      },
+      "process_medians": {
+        "open_ms": [
+          0.331,
+          0.38,
+          0.331
+        ],
+        "unpack_ms": [
+          71.608,
+          81.774,
+          75.905
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          19.366,
+          22.942,
+          23.382
+        ],
+        "close_ms": [
+          1.049,
+          1.471,
+          1.197
+        ],
+        "total_ms": [
+          92.713,
+          107.356,
+          100.625
+        ],
+        "cpu_ms": [
+          314.784,
+          350.303,
+          336.422
+        ]
+      },
+      "median_process_peak_rss_kb": 85800,
+      "max_process_peak_rss_kb": 85816
+    },
+    {
+      "stage": "libraw",
+      "variant": "libraw",
+      "input_index": 3,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "open_ms": 0.318,
+        "unpack_ms": 123.583,
+        "process_ms": 0.0,
+        "materialize_ms": 25.279,
+        "close_ms": 1.434,
+        "total_ms": 152.47,
+        "cpu_ms": 530.318
+      },
+      "process_medians": {
+        "open_ms": [
+          0.293,
+          0.318,
+          1.201
+        ],
+        "unpack_ms": [
+          122.768,
+          123.583,
+          127.646
+        ],
+        "process_ms": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "materialize_ms": [
+          24.753,
+          25.279,
+          28.334
+        ],
+        "close_ms": [
+          1.273,
+          1.434,
+          1.749
+        ],
+        "total_ms": [
+          149.034,
+          152.47,
+          156.622
+        ],
+        "cpu_ms": [
+          521.795,
+          530.318,
+          543.68
+        ]
+      },
+      "median_process_peak_rss_kb": 103872,
+      "max_process_peak_rss_kb": 103916
+    }
+  ],
+  "notes": [
+    "Each successful process contributes one median; iterations are not pooled across forks.",
+    "RSS is process-lifetime high-water: use each process maximum, then aggregate those maxima.",
+    "LibRaw is a separate workload group, not a claim of pixel-equivalent RGB output.",
+    "Sampled checksums are retained diagnostics, not cross-engine equivalence proofs."
+  ]
+}

@@ -1,0 +1,220 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.photographer.focusstack.cr3.benchmark.Cr3BoxParseBenchmark.parse",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/usr/lib/jvm/temurin-25-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Djava.awt.headless=true",
+            "-Dsamples.dir=/tmp/cr3-jmh-worktree-ge2gje3e/revision/canon-cr3-imageio/src/test/resources/samples"
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 3,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "sample" : "sample.cr3"
+        },
+        "primaryMetric" : {
+            "score" : 2.332854805326973,
+            "scoreError" : 0.03920585571725909,
+            "scoreConfidence" : [
+                2.2936489496097137,
+                2.372060661044232
+            ],
+            "scorePercentiles" : {
+                "0.0" : 2.3304975441860467,
+                "50.0" : 2.333362083916084,
+                "90.0" : 2.334704787878788,
+                "95.0" : 2.334704787878788,
+                "99.0" : 2.334704787878788,
+                "99.9" : 2.334704787878788,
+                "99.99" : 2.334704787878788,
+                "99.999" : 2.334704787878788,
+                "99.9999" : 2.334704787878788,
+                "100.0" : 2.334704787878788
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    2.333362083916084,
+                    2.3304975441860467,
+                    2.334704787878788
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.photographer.focusstack.cr3.benchmark.Cr3MetadataBenchmark.readMetadata",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/usr/lib/jvm/temurin-25-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Djava.awt.headless=true",
+            "-Dsamples.dir=/tmp/cr3-jmh-worktree-ge2gje3e/revision/canon-cr3-imageio/src/test/resources/samples"
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 3,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "sample" : "sample.cr3"
+        },
+        "primaryMetric" : {
+            "score" : 0.020070628806340262,
+            "scoreError" : 0.0015838056112775286,
+            "scoreConfidence" : [
+                0.018486823195062733,
+                0.02165443441761779
+            ],
+            "scorePercentiles" : {
+                "0.0" : 0.019973494747773296,
+                "50.0" : 0.020097739957801668,
+                "90.0" : 0.02014065171344582,
+                "95.0" : 0.02014065171344582,
+                "99.0" : 0.02014065171344582,
+                "99.9" : 0.02014065171344582,
+                "99.99" : 0.02014065171344582,
+                "99.999" : 0.02014065171344582,
+                "99.9999" : 0.02014065171344582,
+                "100.0" : 0.02014065171344582
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    0.019973494747773296,
+                    0.02014065171344582,
+                    0.020097739957801668
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.photographer.focusstack.cr3.benchmark.Cr3PreviewExtractBenchmark.extractPreview",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/usr/lib/jvm/temurin-25-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Djava.awt.headless=true",
+            "-Dsamples.dir=/tmp/cr3-jmh-worktree-ge2gje3e/revision/canon-cr3-imageio/src/test/resources/samples"
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 3,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "sample" : "sample.cr3"
+        },
+        "primaryMetric" : {
+            "score" : 10.687150201082494,
+            "scoreError" : 1.0729631080052338,
+            "scoreConfidence" : [
+                9.614187093077259,
+                11.760113309087728
+            ],
+            "scorePercentiles" : {
+                "0.0" : 10.633784294736842,
+                "50.0" : 10.677460127659575,
+                "90.0" : 10.750206180851064,
+                "95.0" : 10.750206180851064,
+                "99.0" : 10.750206180851064,
+                "99.9" : 10.750206180851064,
+                "99.99" : 10.750206180851064,
+                "99.999" : 10.750206180851064,
+                "99.9999" : 10.750206180851064,
+                "100.0" : 10.750206180851064
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    10.750206180851064,
+                    10.677460127659575,
+                    10.633784294736842
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/usr/lib/jvm/temurin-25-jdk-amd64/bin/java",
+        "jvmArgs" : [
+            "-Djava.awt.headless=true",
+            "-Dsamples.dir=/tmp/cr3-jmh-worktree-ge2gje3e/revision/canon-cr3-imageio/src/test/resources/samples"
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 2,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 3,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "sample" : "sample.cr3"
+        },
+        "primaryMetric" : {
+            "score" : 249.45211641666666,
+            "scoreError" : 21.467932572914766,
+            "scoreConfidence" : [
+                227.98418384375188,
+                270.9200489895814
+            ],
+            "scorePercentiles" : {
+                "0.0" : 248.1387672,
+                "50.0" : 249.8070818,
+                "90.0" : 250.41050025,
+                "95.0" : 250.41050025,
+                "99.0" : 250.41050025,
+                "99.9" : 250.41050025,
+                "99.99" : 250.41050025,
+                "99.999" : 250.41050025,
+                "99.9999" : 250.41050025,
+                "100.0" : 250.41050025
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    250.41050025,
+                    249.8070818,
+                    248.1387672
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+
