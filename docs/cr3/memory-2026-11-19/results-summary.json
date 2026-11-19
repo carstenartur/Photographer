@@ -1,0 +1,5040 @@
+{
+  "comparison_convention": "change_percent = 100 * (compared/reference - 1); positive time is slower, negative memory is lower",
+  "correctness": {
+    "fingerprint_kind": "Full numeric FNV-1a64; widths, heights, bands and bit depths also compared",
+    "full_fingerprint_pairs": 28,
+    "heap_rescues": [
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "G1",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "52687e198ee9b749",
+        "heap_mib": 144,
+        "height": 5496,
+        "input": "G5 X II RAW",
+        "input_index": 0,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 3668
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "Serial",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "52687e198ee9b749",
+        "heap_mib": 144,
+        "height": 5496,
+        "input": "G5 X II RAW",
+        "input_index": 0,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 3668
+      },
+      {
+        "bits": 8,
+        "channels": 3,
+        "collector": "Serial",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "6f07b241169224b6",
+        "heap_mib": 128,
+        "height": 5496,
+        "input": "G5 X II RAW",
+        "input_index": 0,
+        "mode": "rgb8",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 3668
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "G1",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "1698da1b200e3abc",
+        "heap_mib": 208,
+        "height": 6744,
+        "input": "EOS R RAW",
+        "input_index": 1,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 4500
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "Serial",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "1698da1b200e3abc",
+        "heap_mib": 224,
+        "height": 6744,
+        "input": "EOS R RAW",
+        "input_index": 1,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 4500
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "G1",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "d6417403cab7ec9d",
+        "heap_mib": 144,
+        "height": 5496,
+        "input": "G5 X II C-RAW",
+        "input_index": 2,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 3668
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "Serial",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "d6417403cab7ec9d",
+        "heap_mib": 144,
+        "height": 5496,
+        "input": "G5 X II C-RAW",
+        "input_index": 2,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 3668
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "G1",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "6ac26c871e79c6a4",
+        "heap_mib": 176,
+        "height": 6024,
+        "input": "EOS M50 C-RAW",
+        "input_index": 3,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 4020
+      },
+      {
+        "bits": 16,
+        "channels": 3,
+        "collector": "Serial",
+        "fast_control_exit_code": 1,
+        "fnv1a64": "6ac26c871e79c6a4",
+        "heap_mib": 184,
+        "height": 6024,
+        "input": "EOS M50 C-RAW",
+        "input_index": 3,
+        "mode": "rgb16",
+        "orientation": 6,
+        "warning_count": 1,
+        "width": 4020
+      }
+    ],
+    "notes": [
+      "Caps are successful demonstrations, not minimum heaps.",
+      "Both failed AUTO attempts remain byte-for-byte in the archive.",
+      "Correctness timing fields are incidental and excluded from performance comparisons.",
+      "FAST controls use the same frozen final runtime, not an older release.",
+      "Warnings count only CR3 low-memory messages; separate SLF4J diagnostics are retained."
+    ],
+    "numeric_samples_both_variants": 3613005728,
+    "numeric_samples_per_variant": 1806502864,
+    "oom_failures": 11,
+    "processes": 76,
+    "retained_auto_failures": [
+      {
+        "collector": "Serial",
+        "first_project_frame": "at com.photographer.focusstack.cr3.decode.Cr3Decoder.prepareRawDevelopment(Cr3Decoder.java:443)",
+        "heap_mib": 96,
+        "input": "G5 X II RAW",
+        "input_index": 0,
+        "mode": "rgb8",
+        "orientation": 6,
+        "stderr_member": "correctness/056-i0-rgb8-AUTO-o6-m96.stderr",
+        "warning_count": 1
+      },
+      {
+        "collector": "Serial",
+        "first_project_frame": "at com.photographer.focusstack.cr3.processing.Rgb16Developer.develop(Rgb16Developer.java:45)",
+        "heap_mib": 208,
+        "input": "EOS R RAW",
+        "input_index": 1,
+        "mode": "rgb16",
+        "orientation": 6,
+        "stderr_member": "low-heap/004-i1-rgb16-AUTO-o6-m208.stderr",
+        "warning_count": 1
+      }
+    ],
+    "sources": {
+      "correctness": {
+        "failed": 1,
+        "processes": 57,
+        "successful": 56
+      },
+      "low-heap": {
+        "failed": 3,
+        "processes": 5,
+        "successful": 2
+      },
+      "low-heap-continuation": {
+        "failed": 7,
+        "processes": 14,
+        "successful": 7
+      }
+    },
+    "successful": 65,
+    "warning_counts": [
+      {
+        "exit_code": 0,
+        "policy": "AUTO",
+        "processes": 9,
+        "warning_count": 1
+      },
+      {
+        "exit_code": 1,
+        "policy": "AUTO",
+        "processes": 2,
+        "warning_count": 1
+      },
+      {
+        "exit_code": 0,
+        "policy": "FAST",
+        "processes": 28,
+        "warning_count": 0
+      },
+      {
+        "exit_code": 1,
+        "policy": "FAST",
+        "processes": 9,
+        "warning_count": 0
+      },
+      {
+        "exit_code": 0,
+        "policy": "LOW_MEMORY",
+        "processes": 28,
+        "warning_count": 1
+      }
+    ]
+  },
+  "measured_panels": {
+    "default-control-measurements": {
+      "comparisons": [
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 9.80777545844802e-06,
+              "compared": 81567944,
+              "ratio": 1.0000000980777546,
+              "reference": 81567936
+            },
+            "cpu_ms": {
+              "change_percent": 7.526881720430101,
+              "compared": 1000.0,
+              "ratio": 1.075268817204301,
+              "reference": 930.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.0027355037601761722,
+              "compared": 83935648,
+              "ratio": 1.0000273550376018,
+              "reference": 83933352
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.6663249615581734,
+              "compared": 143.8359375,
+              "ratio": 0.9933367503844183,
+              "reference": 144.80078125
+            },
+            "total_ms": {
+              "change_percent": 16.18970454899038,
+              "compared": 312.555844,
+              "ratio": 1.1618970454899038,
+              "reference": 269.004767
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 6.53085792112762e-06,
+              "compared": 122495400,
+              "ratio": 1.0000000653085792,
+              "reference": 122495392
+            },
+            "cpu_ms": {
+              "change_percent": 0.0,
+              "compared": 1470.0,
+              "ratio": 1.0,
+              "reference": 1470.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.0018002413732842726,
+              "compared": 124874392,
+              "ratio": 1.0000180024137328,
+              "reference": 124872144
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 0.4740747039690518,
+              "compared": 184.6171875,
+              "ratio": 1.0047407470396905,
+              "reference": 183.74609375
+            },
+            "total_ms": {
+              "change_percent": -5.829738566441323,
+              "compared": 434.046306,
+              "ratio": 0.9417026143355868,
+              "reference": 460.916535
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 9.633710895684544e-06,
+              "compared": 83041736,
+              "ratio": 1.000000096337109,
+              "reference": 83041728
+            },
+            "cpu_ms": {
+              "change_percent": -2.409638554216864,
+              "compared": 810.0,
+              "ratio": 0.9759036144578314,
+              "reference": 830.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 1.7467298820454724,
+              "compared": 86881728,
+              "ratio": 1.0174672988204547,
+              "reference": 85390192
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 100.9052998310811,
+              "compared": 297.33984375,
+              "ratio": 2.009052998310811,
+              "reference": 148.0
+            },
+            "total_ms": {
+              "change_percent": 0.18706390123943706,
+              "compared": 252.507268,
+              "ratio": 1.0018706390123944,
+              "reference": 252.0358
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 8.033919862704408e-06,
+              "compared": 99577800,
+              "ratio": 1.0000000803391986,
+              "reference": 99577792
+            },
+            "cpu_ms": {
+              "change_percent": -7.14285714285714,
+              "compared": 1170.0,
+              "ratio": 0.9285714285714286,
+              "reference": 1260.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.01208483965496887,
+              "compared": 101933592,
+              "ratio": 0.9998791516034503,
+              "reference": 101945912
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 1.2956897994310435,
+              "compared": 165.51953125,
+              "ratio": 1.0129568979943104,
+              "reference": 163.40234375
+            },
+            "total_ms": {
+              "change_percent": -7.486917509361179,
+              "compared": 350.762021,
+              "ratio": 0.9251308249063882,
+              "reference": 379.148561
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        }
+      ],
+      "configuration": {
+        "baseline_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "cpus": [
+          4
+        ],
+        "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+        "final_jar": "qa-memory/final-benchmarks.jar",
+        "forks": 3,
+        "input_index": null,
+        "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+        "iterations": 5,
+        "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+        "modes": [
+          "default"
+        ],
+        "optimized16_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "output": "qa-memory/default-control-measurements",
+        "plan_only": false,
+        "probe_classes": "qa-memory/normal-probe-classes",
+        "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+        "stage": [
+          "final"
+        ],
+        "timeout_seconds": 600,
+        "warmup": 3
+      },
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 81567936,
+            "cpu_ms": 930.0,
+            "heap_used_bytes": 83933352,
+            "total_ms": 269.004767
+          },
+          "median_process_peak_rss_kb": 148276,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              81567936,
+              81567936,
+              81567936
+            ],
+            "cpu_ms": [
+              1130.0,
+              870.0,
+              930.0
+            ],
+            "heap_used_bytes": [
+              83933352,
+              83933352,
+              83933352
+            ],
+            "total_ms": [
+              344.824226,
+              249.112888,
+              269.004767
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            84580960,
+            84580960,
+            84580960
+          ],
+          "process_peak_rss_kb": [
+            147248,
+            152720,
+            148276
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 122495392,
+            "cpu_ms": 1470.0,
+            "heap_used_bytes": 124872144,
+            "total_ms": 460.916535
+          },
+          "median_process_peak_rss_kb": 188156,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              122495392,
+              122495392,
+              122495392
+            ],
+            "cpu_ms": [
+              1440.0,
+              1480.0,
+              1470.0
+            ],
+            "heap_used_bytes": [
+              124872456,
+              124872144,
+              124872144
+            ],
+            "total_ms": [
+              431.012529,
+              460.916535,
+              460.954405
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125941480,
+            125941168,
+            125941168
+          ],
+          "process_peak_rss_kb": [
+            186888,
+            189448,
+            188156
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 83041728,
+            "cpu_ms": 830.0,
+            "heap_used_bytes": 85390192,
+            "total_ms": 252.0358
+          },
+          "median_process_peak_rss_kb": 151552,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              83041728,
+              83041728,
+              83041728
+            ],
+            "cpu_ms": [
+              830.0,
+              890.0,
+              830.0
+            ],
+            "heap_used_bytes": [
+              85388096,
+              85390192,
+              85397016
+            ],
+            "total_ms": [
+              252.0358,
+              274.427956,
+              245.86587
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            85753208,
+            85785456,
+            85787064
+          ],
+          "process_peak_rss_kb": [
+            151552,
+            150052,
+            152396
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 99577792,
+            "cpu_ms": 1260.0,
+            "heap_used_bytes": 101945912,
+            "total_ms": 379.148561
+          },
+          "median_process_peak_rss_kb": 167324,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              99577792,
+              99577792,
+              99577792
+            ],
+            "cpu_ms": [
+              1160.0,
+              1260.0,
+              1310.0
+            ],
+            "heap_used_bytes": [
+              103894440,
+              101945912,
+              101929696
+            ],
+            "total_ms": [
+              343.02848,
+              379.148561,
+              380.901041
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            201014504,
+            102426200,
+            102376944
+          ],
+          "process_peak_rss_kb": [
+            354608,
+            167324,
+            165388
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 81567944,
+            "cpu_ms": 1000.0,
+            "heap_used_bytes": 83935648,
+            "total_ms": 312.555844
+          },
+          "median_process_peak_rss_kb": 147288,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              81567944,
+              81567944,
+              81567944
+            ],
+            "cpu_ms": [
+              990.0,
+              1060.0,
+              1000.0
+            ],
+            "heap_used_bytes": [
+              83935912,
+              83935648,
+              83935600
+            ],
+            "total_ms": [
+              317.220949,
+              312.555844,
+              307.738383
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            84583520,
+            84583208,
+            84583208
+          ],
+          "process_peak_rss_kb": [
+            148460,
+            144316,
+            147288
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 122495400,
+            "cpu_ms": 1470.0,
+            "heap_used_bytes": 124874392,
+            "total_ms": 434.046306
+          },
+          "median_process_peak_rss_kb": 189048,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              122495400,
+              122495400,
+              122495400
+            ],
+            "cpu_ms": [
+              1390.0,
+              1530.0,
+              1470.0
+            ],
+            "heap_used_bytes": [
+              124874392,
+              124874704,
+              124874344
+            ],
+            "total_ms": [
+              414.578978,
+              483.62754,
+              434.046306
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125943416,
+            125943728,
+            125943368
+          ],
+          "process_peak_rss_kb": [
+            189048,
+            189116,
+            186144
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 83041736,
+            "cpu_ms": 810.0,
+            "heap_used_bytes": 86881728,
+            "total_ms": 252.507268
+          },
+          "median_process_peak_rss_kb": 304476,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              83041736,
+              83041736,
+              83041736
+            ],
+            "cpu_ms": [
+              810.0,
+              850.0,
+              810.0
+            ],
+            "heap_used_bytes": [
+              86881728,
+              85394512,
+              86885456
+            ],
+            "total_ms": [
+              249.765919,
+              264.410543,
+              252.507268
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            167790664,
+            85783416,
+            167795448
+          ],
+          "process_peak_rss_kb": [
+            307760,
+            152064,
+            304476
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 99577800,
+            "cpu_ms": 1170.0,
+            "heap_used_bytes": 101933592,
+            "total_ms": 350.762021
+          },
+          "median_process_peak_rss_kb": 169492,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              99577800,
+              99577800,
+              99577800
+            ],
+            "cpu_ms": [
+              1170.0,
+              1170.0,
+              1230.0
+            ],
+            "heap_used_bytes": [
+              101947984,
+              101933592,
+              101922608
+            ],
+            "total_ms": [
+              350.762021,
+              332.905051,
+              353.648977
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            102427848,
+            102445376,
+            102445840
+          ],
+          "process_peak_rss_kb": [
+            169492,
+            166944,
+            170688
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        }
+      ],
+      "planned_decodes": 192,
+      "processes": 24,
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 24
+    },
+    "default-craw-rss-confirmation": {
+      "comparisons": [
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 9.633710895684544e-06,
+              "compared": 83041736,
+              "ratio": 1.000000096337109,
+              "reference": 83041728
+            },
+            "cpu_ms": {
+              "change_percent": 0.0,
+              "compared": 830.0,
+              "ratio": 1.0,
+              "reference": 830.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.0053491781423442575,
+              "compared": 85391728,
+              "ratio": 0.9999465082185766,
+              "reference": 85396296
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.7595986830166157,
+              "compared": 149.53125,
+              "ratio": 0.9924040131698338,
+              "reference": 150.67578125
+            },
+            "total_ms": {
+              "change_percent": -2.617353009321366,
+              "compared": 253.362653,
+              "ratio": 0.9738264699067863,
+              "reference": 260.17228
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        }
+      ],
+      "configuration": {
+        "baseline_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "cpus": [
+          4
+        ],
+        "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+        "final_jar": "qa-memory/final-benchmarks.jar",
+        "forks": 5,
+        "input_index": [
+          2
+        ],
+        "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+        "iterations": 5,
+        "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+        "modes": [
+          "default"
+        ],
+        "optimized16_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "output": "qa-memory/default-craw-rss-confirmation",
+        "plan_only": false,
+        "probe_classes": "qa-memory/normal-probe-classes",
+        "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+        "stage": [
+          "final"
+        ],
+        "timeout_seconds": 600,
+        "warmup": 3
+      },
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 83041728,
+            "cpu_ms": 830.0,
+            "heap_used_bytes": 85396296,
+            "total_ms": 260.17228
+          },
+          "median_process_peak_rss_kb": 154292,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              83041728,
+              83041728,
+              83041728,
+              83041728,
+              83041728
+            ],
+            "cpu_ms": [
+              820.0,
+              810.0,
+              860.0,
+              830.0,
+              830.0
+            ],
+            "heap_used_bytes": [
+              85384296,
+              85400920,
+              85404760,
+              85394736,
+              85396296
+            ],
+            "total_ms": [
+              267.55955,
+              258.448949,
+              269.508602,
+              256.999083,
+              260.17228
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            85778960,
+            85753848,
+            85753832,
+            85755968,
+            85747920
+          ],
+          "process_peak_rss_kb": [
+            154492,
+            152008,
+            152784,
+            155352,
+            154292
+          ],
+          "processes": 5,
+          "stage": "final",
+          "successful_processes": 5,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 83041736,
+            "cpu_ms": 830.0,
+            "heap_used_bytes": 85391728,
+            "total_ms": 253.362653
+          },
+          "median_process_peak_rss_kb": 153120,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              83041736,
+              83041736,
+              83041736,
+              83041736,
+              83041736
+            ],
+            "cpu_ms": [
+              840.0,
+              840.0,
+              830.0,
+              820.0,
+              810.0
+            ],
+            "heap_used_bytes": [
+              85388760,
+              85389920,
+              85404488,
+              85391728,
+              85402432
+            ],
+            "total_ms": [
+              257.659801,
+              255.836652,
+              250.696758,
+              253.362653,
+              250.971483
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            85762400,
+            85741744,
+            85797864,
+            85758072,
+            85793480
+          ],
+          "process_peak_rss_kb": [
+            153120,
+            147620,
+            153376,
+            154560,
+            152408
+          ],
+          "processes": 5,
+          "stage": "final",
+          "successful_processes": 5,
+          "variant": "final"
+        }
+      ],
+      "interpretation": "The initial high final-variant RSS/heap excursions did not recur in these five follow-up processes. Their cause was not isolated, and this result does not establish a universal RAM bound. Time values in this panel are retained diagnostics for the RSS investigation.",
+      "planned_decodes": 80,
+      "processes": 10,
+      "purpose": "Targeted RSS confirmation after the original default-control panel showed a G5 X II C-RAW process-peak RSS increase and transient larger post-import heap observations. Five fresh forks retain the original three-warmup/five-measured-import protocol. The original panel remains unchanged and the two panels are not pooled. The allocation control differed by only eight bytes per import; the cause of the heap/RSS excursions is unresolved. Output fingerprints and allocation totals alone do not establish a collector diagnosis or extra per-import pixel work.",
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 10
+    },
+    "default-g5-confirmation": {
+      "comparisons": [
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 9.80777545844802e-06,
+              "compared": 81567944.0,
+              "ratio": 1.0000000980777546,
+              "reference": 81567936.0
+            },
+            "cpu_ms": {
+              "change_percent": 1.041666666666674,
+              "compared": 970.0,
+              "ratio": 1.0104166666666667,
+              "reference": 960.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.0025305580371393077,
+              "compared": 83936180.0,
+              "ratio": 1.0000253055803714,
+              "reference": 83934056.0
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.6075301040701753,
+              "compared": 142.51171875,
+              "ratio": 0.9939246989592982,
+              "reference": 143.3828125
+            },
+            "total_ms": {
+              "change_percent": 0.7785153021467872,
+              "compared": 280.81151550000004,
+              "ratio": 1.0077851530214679,
+              "reference": 278.642243
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        }
+      ],
+      "configuration": {
+        "baseline_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "cpus": [
+          4
+        ],
+        "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+        "final_jar": "qa-memory/final-benchmarks.jar",
+        "forks": 5,
+        "input_index": [
+          0
+        ],
+        "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+        "iterations": 12,
+        "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+        "modes": [
+          "default"
+        ],
+        "optimized16_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "output": "qa-memory/default-g5-confirmation",
+        "plan_only": false,
+        "probe_classes": "qa-memory/normal-probe-classes",
+        "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+        "stage": [
+          "final"
+        ],
+        "timeout_seconds": 600,
+        "warmup": 8
+      },
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 81567936.0,
+            "cpu_ms": 960.0,
+            "heap_used_bytes": 83934056.0,
+            "total_ms": 278.642243
+          },
+          "median_process_peak_rss_kb": 146824,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              81567936.0,
+              81567936.0,
+              81567936.0,
+              81567936.0,
+              81567936.0
+            ],
+            "cpu_ms": [
+              950.0,
+              960.0,
+              1010.0,
+              925.0,
+              970.0
+            ],
+            "heap_used_bytes": [
+              83934136.0,
+              83934128.0,
+              83934056.0,
+              83933932.0,
+              83933932.0
+            ],
+            "total_ms": [
+              278.642243,
+              273.1710215,
+              291.336388,
+              267.921609,
+              284.8225225
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            84071688,
+            84071456,
+            84071704,
+            84071800,
+            84071704
+          ],
+          "process_peak_rss_kb": [
+            147780,
+            146824,
+            144648,
+            148392,
+            144948
+          ],
+          "processes": 5,
+          "stage": "final",
+          "successful_processes": 5,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 81567944.0,
+            "cpu_ms": 970.0,
+            "heap_used_bytes": 83936180.0,
+            "total_ms": 280.81151550000004
+          },
+          "median_process_peak_rss_kb": 145932,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              81567944.0,
+              81567936.0,
+              81567936.0,
+              81567944.0,
+              81567944.0
+            ],
+            "cpu_ms": [
+              970.0,
+              1000.0,
+              930.0,
+              970.0,
+              960.0
+            ],
+            "heap_used_bytes": [
+              83936136.0,
+              83936240.0,
+              83936156.0,
+              83936180.0,
+              83936304.0
+            ],
+            "total_ms": [
+              280.81151550000004,
+              292.83441849999997,
+              268.1430555,
+              285.8387535,
+              280.05357849999996
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            84073952,
+            84073904,
+            84073952,
+            84073952,
+            84074048
+          ],
+          "process_peak_rss_kb": [
+            144600,
+            145084,
+            149852,
+            148172,
+            145932
+          ],
+          "processes": 5,
+          "stage": "final",
+          "successful_processes": 5,
+          "variant": "final"
+        }
+      ],
+      "planned_decodes": 200,
+      "processes": 10,
+      "purpose": "Targeted confirmation after the original three-fork default-control panel showed a G5 RAW slowdown. This five-fork panel uses eight warmups and twelve measured imports per process. The original panel and all its forks remain retained; the two protocols are not pooled.",
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 10
+    },
+    "destination-measurements": {
+      "comparisons": [
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -49.71315882827797,
+              "compared": 122419312,
+              "ratio": 0.5028684117172203,
+              "reference": 243442040
+            },
+            "cpu_ms": {
+              "change_percent": -10.81081081081081,
+              "compared": 1650.0,
+              "ratio": 0.8918918918918919,
+              "reference": 1850.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -49.01969805643568,
+              "compared": 124988704,
+              "ratio": 0.5098030194356432,
+              "reference": 245170584
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -34.80472213149176,
+              "compared": 218.3125,
+              "ratio": 0.6519527786850824,
+              "reference": 334.859375
+            },
+            "total_ms": {
+              "change_percent": -34.59312065431287,
+              "compared": 480.128829,
+              "ratio": 0.6540687934568713,
+              "reference": 734.064725
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -49.77061605888452,
+              "compared": 183848912,
+              "ratio": 0.5022938394111548,
+              "reference": 366018648
+            },
+            "cpu_ms": {
+              "change_percent": -12.589928057553957,
+              "compared": 2430.0,
+              "ratio": 0.8741007194244604,
+              "reference": 2780.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -49.29122358390239,
+              "compared": 186357520,
+              "ratio": 0.5070877641609761,
+              "reference": 367505456
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -37.127610054528525,
+              "compared": 295.4609375,
+              "ratio": 0.6287238994547147,
+              "reference": 469.9375
+            },
+            "total_ms": {
+              "change_percent": -28.61916663192119,
+              "compared": 720.423743,
+              "ratio": 0.7138083336807881,
+              "reference": 1009.267767
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -49.41400766611119,
+              "compared": 123893104,
+              "ratio": 0.5058599233388881,
+              "reference": 244915832
+            },
+            "cpu_ms": {
+              "change_percent": -12.418300653594772,
+              "compared": 1340.0,
+              "ratio": 0.8758169934640523,
+              "reference": 1530.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -49.024095115613285,
+              "compared": 124968328,
+              "ratio": 0.5097590488438671,
+              "reference": 245151760
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -33.63615481796256,
+              "compared": 225.71484375,
+              "ratio": 0.6636384518203744,
+              "reference": 340.1171875
+            },
+            "total_ms": {
+              "change_percent": -30.961558765423113,
+              "compared": 400.478435,
+              "ratio": 0.6903844123457689,
+              "reference": 580.080355
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -49.45159111197614,
+              "compared": 148596272,
+              "ratio": 0.5054840888802385,
+              "reference": 293968248
+            },
+            "cpu_ms": {
+              "change_percent": -11.934156378600825,
+              "compared": 2140.0,
+              "ratio": 0.8806584362139918,
+              "reference": 2430.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -49.13619713289875,
+              "compared": 149535080,
+              "ratio": 0.5086380286710125,
+              "reference": 293991152
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -35.050764208487664,
+              "compared": 254.13671875,
+              "ratio": 0.6494923579151234,
+              "reference": 391.28515625
+            },
+            "total_ms": {
+              "change_percent": -30.5606742119499,
+              "compared": 605.195658,
+              "ratio": 0.694393257880501,
+              "reference": 871.545988
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        }
+      ],
+      "configuration": {
+        "baseline_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "cpus": [
+          4
+        ],
+        "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+        "final_jar": "qa-memory/final-benchmarks.jar",
+        "forks": 3,
+        "input_index": null,
+        "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+        "iterations": 5,
+        "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+        "modes": [
+          "rgb16"
+        ],
+        "optimized16_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "output": "qa-memory/destination-measurements",
+        "plan_only": false,
+        "probe_classes": "qa-memory/destination-probe-classes",
+        "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3DestinationProbe",
+        "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+        "stage": [
+          "final"
+        ],
+        "timeout_seconds": 600,
+        "warmup": 3
+      },
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 243442040,
+            "cpu_ms": 1850.0,
+            "heap_used_bytes": 245170584,
+            "total_ms": 734.064725
+          },
+          "median_process_peak_rss_kb": 342896,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              243442040,
+              243442040,
+              243442040
+            ],
+            "cpu_ms": [
+              1920.0,
+              1850.0,
+              1800.0
+            ],
+            "heap_used_bytes": [
+              245170584,
+              245170584,
+              245170896
+            ],
+            "total_ms": [
+              803.563012,
+              734.064725,
+              609.01271
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            246192416,
+            246192416,
+            246192728
+          ],
+          "process_peak_rss_kb": [
+            342896,
+            346408,
+            341760
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 366018648,
+            "cpu_ms": 2780.0,
+            "heap_used_bytes": 367505456,
+            "total_ms": 1009.267767
+          },
+          "median_process_peak_rss_kb": 481216,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              366018648,
+              366018648,
+              366018648
+            ],
+            "cpu_ms": [
+              2720.0,
+              2780.0,
+              2800.0
+            ],
+            "heap_used_bytes": [
+              367505456,
+              367505456,
+              367505456
+            ],
+            "total_ms": [
+              955.047368,
+              1009.267767,
+              1018.815242
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            369049152,
+            369049152,
+            369049152
+          ],
+          "process_peak_rss_kb": [
+            479748,
+            481216,
+            482820
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 244915832,
+            "cpu_ms": 1530.0,
+            "heap_used_bytes": 245151760,
+            "total_ms": 580.080355
+          },
+          "median_process_peak_rss_kb": 348280,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              244915832,
+              244915832,
+              244915832
+            ],
+            "cpu_ms": [
+              1520.0,
+              1570.0,
+              1530.0
+            ],
+            "heap_used_bytes": [
+              245151736,
+              245151760,
+              245151776
+            ],
+            "total_ms": [
+              555.350898,
+              580.080355,
+              583.278786
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            246165832,
+            246166240,
+            246166456
+          ],
+          "process_peak_rss_kb": [
+            349020,
+            348280,
+            344280
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 293968248,
+            "cpu_ms": 2430.0,
+            "heap_used_bytes": 293991152,
+            "total_ms": 871.545988
+          },
+          "median_process_peak_rss_kb": 400676,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              293968248,
+              293968248,
+              293968248
+            ],
+            "cpu_ms": [
+              2450.0,
+              2230.0,
+              2430.0
+            ],
+            "heap_used_bytes": [
+              293991464,
+              293991152,
+              293991152
+            ],
+            "total_ms": [
+              871.545988,
+              765.337663,
+              932.054437
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            295215392,
+            295215064,
+            295215120
+          ],
+          "process_peak_rss_kb": [
+            401488,
+            399552,
+            400676
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 122419312,
+            "cpu_ms": 1650.0,
+            "heap_used_bytes": 124988704,
+            "total_ms": 480.128829
+          },
+          "median_process_peak_rss_kb": 223552,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              122419312,
+              122419312,
+              122419312
+            ],
+            "cpu_ms": [
+              1650.0,
+              1670.0,
+              1620.0
+            ],
+            "heap_used_bytes": [
+              124988656,
+              124989016,
+              124988704
+            ],
+            "total_ms": [
+              480.128829,
+              495.562281,
+              473.516678
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125287960,
+            125288320,
+            125288008
+          ],
+          "process_peak_rss_kb": [
+            223552,
+            224080,
+            221948
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 183848912,
+            "cpu_ms": 2430.0,
+            "heap_used_bytes": 186357520,
+            "total_ms": 720.423743
+          },
+          "median_process_peak_rss_kb": 302552,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              183848912,
+              183848912,
+              183848912
+            ],
+            "cpu_ms": [
+              2480.0,
+              2380.0,
+              2430.0
+            ],
+            "heap_used_bytes": [
+              186357472,
+              186357520,
+              186357520
+            ],
+            "total_ms": [
+              720.423743,
+              703.795721,
+              720.968143
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            186907048,
+            186907096,
+            186907096
+          ],
+          "process_peak_rss_kb": [
+            300664,
+            302772,
+            302552
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 123893104,
+            "cpu_ms": 1340.0,
+            "heap_used_bytes": 124968328,
+            "total_ms": 400.478435
+          },
+          "median_process_peak_rss_kb": 231132,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              123893104,
+              123893104,
+              123893104
+            ],
+            "cpu_ms": [
+              1390.0,
+              1330.0,
+              1340.0
+            ],
+            "heap_used_bytes": [
+              124968360,
+              124968248,
+              124968328
+            ],
+            "total_ms": [
+              424.60216,
+              400.478435,
+              400.141901
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125422648,
+            125422128,
+            125422496
+          ],
+          "process_peak_rss_kb": [
+            230000,
+            233212,
+            231132
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 148596272,
+            "cpu_ms": 2140.0,
+            "heap_used_bytes": 149535080,
+            "total_ms": 605.195658
+          },
+          "median_process_peak_rss_kb": 260236,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              148596272,
+              148596272,
+              148596272
+            ],
+            "cpu_ms": [
+              2140.0,
+              2160.0,
+              1960.0
+            ],
+            "heap_used_bytes": [
+              149535744,
+              149535080,
+              149535016
+            ],
+            "total_ms": [
+              621.733456,
+              605.195658,
+              560.506436
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            150102112,
+            150100168,
+            150100352
+          ],
+          "process_peak_rss_kb": [
+            264288,
+            260236,
+            256136
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        }
+      ],
+      "planned_decodes": 192,
+      "processes": 24,
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 24
+    },
+    "memory-mode-measurements": {
+      "comparisons": [
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -23.508472869608333,
+              "compared": 124278752,
+              "ratio": 0.7649152713039167,
+              "reference": 162473880
+            },
+            "cpu_ms": {
+              "change_percent": -18.534482758620683,
+              "compared": 1890.0,
+              "ratio": 0.8146551724137931,
+              "reference": 2320.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -23.170919012290792,
+              "compared": 126856208,
+              "ratio": 0.7682908098770921,
+              "reference": 165114832
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -15.230576099944038,
+              "compared": 218.93359375,
+              "ratio": 0.8476942390005596,
+              "reference": 258.26953125
+            },
+            "total_ms": {
+              "change_percent": 164.79344439943193,
+              "compared": 1842.320143,
+              "ratio": 2.6479344439943193,
+              "reference": 695.75746
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -48.2828428795341,
+              "compared": 83888456,
+              "ratio": 0.517171571204659,
+              "reference": 162206240
+            },
+            "cpu_ms": {
+              "change_percent": -1.9230769230769273,
+              "compared": 1020.0,
+              "ratio": 0.9807692307692307,
+              "reference": 1040.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -47.40179594571007,
+              "compared": 86230392,
+              "ratio": 0.5259820405428993,
+              "reference": 163941704
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -34.72478758773549,
+              "compared": 144.94921875,
+              "ratio": 0.652752124122645,
+              "reference": 222.05859375
+            },
+            "total_ms": {
+              "change_percent": 168.42991331799112,
+              "compared": 1000.057554,
+              "ratio": 2.6842991331799113,
+              "reference": 372.558163
+            }
+          },
+          "mode": "rgb8",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -23.498701094074992,
+              "compared": 186832176,
+              "ratio": 0.7650129890592501,
+              "reference": 244220920
+            },
+            "cpu_ms": {
+              "change_percent": -4.597701149425292,
+              "compared": 3320.0,
+              "ratio": 0.9540229885057471,
+              "reference": 3480.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -23.327326616453792,
+              "compared": 189258232,
+              "ratio": 0.7667267338354621,
+              "reference": 246839224
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -15.65356767810756,
+              "compared": 298.0625,
+              "ratio": 0.8434643232189244,
+              "reference": 353.37890625
+            },
+            "total_ms": {
+              "change_percent": 226.5426582397223,
+              "compared": 3270.74447,
+              "ratio": 3.265426582397223,
+              "reference": 1001.628543
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -48.318748956899896,
+              "compared": 126044568,
+              "ratio": 0.5168125104310011,
+              "reference": 243888384
+            },
+            "cpu_ms": {
+              "change_percent": -5.952380952380953,
+              "compared": 1580.0,
+              "ratio": 0.9404761904761905,
+              "reference": 1680.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -47.746080243677426,
+              "compared": 128298280,
+              "ratio": 0.5225391975632258,
+              "reference": 245528528
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -38.79157900171673,
+              "compared": 185.234375,
+              "ratio": 0.6120842099828327,
+              "reference": 302.62890625
+            },
+            "total_ms": {
+              "change_percent": 144.87910591505283,
+              "compared": 1563.026682,
+              "ratio": 2.4487910591505284,
+              "reference": 638.285033
+            }
+          },
+          "mode": "rgb8",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -23.297145689266017,
+              "compared": 125752544,
+              "ratio": 0.7670285431073398,
+              "reference": 163947672
+            },
+            "cpu_ms": {
+              "change_percent": -21.658986175115203,
+              "compared": 1700.0,
+              "ratio": 0.783410138248848,
+              "reference": 2170.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -23.172343702096544,
+              "compared": 126840672,
+              "ratio": 0.7682765629790346,
+              "reference": 165097672
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -14.850433653902883,
+              "compared": 225.5,
+              "ratio": 0.8514956634609712,
+              "reference": 264.828125
+            },
+            "total_ms": {
+              "change_percent": 165.76119023373113,
+              "compared": 1689.110069,
+              "ratio": 2.6576119023373113,
+              "reference": 635.574392
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -47.84807620920728,
+              "compared": 85362248,
+              "ratio": 0.5215192379079272,
+              "reference": 163679960
+            },
+            "cpu_ms": {
+              "change_percent": -10.63829787234043,
+              "compared": 840.0,
+              "ratio": 0.8936170212765957,
+              "reference": 940.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -46.499035124795455,
+              "compared": 87704136,
+              "ratio": 0.5350096487520455,
+              "reference": 163930008
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -33.57969647603532,
+              "compared": 151.30078125,
+              "ratio": 0.6642030352396467,
+              "reference": 227.79296875
+            },
+            "total_ms": {
+              "change_percent": 129.4157048715864,
+              "compared": 830.718445,
+              "ratio": 2.294157048715864,
+              "reference": 362.101821
+            }
+          },
+          "mode": "rgb8",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -23.299964724981926,
+              "compared": 150899496,
+              "ratio": 0.7670003527501807,
+              "reference": 196739800
+            },
+            "cpu_ms": {
+              "change_percent": -12.5,
+              "compared": 2520.0,
+              "ratio": 0.875,
+              "reference": 2880.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -23.26885681979811,
+              "compared": 151759432,
+              "ratio": 0.7673114318020189,
+              "reference": 197780752
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -14.84174117339947,
+              "compared": 254.859375,
+              "ratio": 0.8515825882660053,
+              "reference": 299.27734375
+            },
+            "total_ms": {
+              "change_percent": 209.9733663994552,
+              "compared": 2517.735154,
+              "ratio": 3.099733663994552,
+              "reference": 812.242414
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "FAST"
+        },
+        {
+          "compared_variant": "LOW_MEMORY",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": -47.88025157134352,
+              "compared": 102386448,
+              "ratio": 0.5211974842865648,
+              "reference": 196444632
+            },
+            "cpu_ms": {
+              "change_percent": -11.678832116788318,
+              "compared": 1210.0,
+              "ratio": 0.8832116788321168,
+              "reference": 1370.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -46.750345918326566,
+              "compared": 104658736,
+              "ratio": 0.5324965408167344,
+              "reference": 196543504
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -37.20312290077475,
+              "compared": 164.32421875,
+              "ratio": 0.6279687709922525,
+              "reference": 261.67578125
+            },
+            "total_ms": {
+              "change_percent": 133.0330689898342,
+              "compared": 1196.303452,
+              "ratio": 2.330330689898342,
+              "reference": 513.362098
+            }
+          },
+          "mode": "rgb8",
+          "reference_variant": "FAST"
+        }
+      ],
+      "configuration": {
+        "cpus": [
+          4
+        ],
+        "forks": 3,
+        "input_index": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "input_manifest": "qa-memory/inputs.json",
+        "iterations": 5,
+        "jar": "qa-memory/final-benchmarks.jar",
+        "java": "rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "modes": [
+          "rgb8",
+          "rgb16"
+        ],
+        "orientation": 6,
+        "output": "qa-memory/memory-mode-measurements",
+        "probe_classes": "qa-memory/extended-probe-classes",
+        "timeout_seconds": 600,
+        "warmup": 3
+      },
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 162473880,
+            "cpu_ms": 2320.0,
+            "heap_used_bytes": 165114832,
+            "total_ms": 695.75746
+          },
+          "median_process_peak_rss_kb": 264468,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              162473880,
+              162473880,
+              162473880
+            ],
+            "cpu_ms": [
+              2320.0,
+              2450.0,
+              2280.0
+            ],
+            "heap_used_bytes": [
+              165114744,
+              165114832,
+              165114840
+            ],
+            "total_ms": [
+              660.299977,
+              695.75746,
+              737.486057
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            165804456,
+            165804448,
+            165804456
+          ],
+          "process_peak_rss_kb": [
+            264468,
+            264544,
+            260108
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 162206240,
+            "cpu_ms": 1040.0,
+            "heap_used_bytes": 163941704,
+            "total_ms": 372.558163
+          },
+          "median_process_peak_rss_kb": 227388,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              162206240,
+              162206168,
+              162206240
+            ],
+            "cpu_ms": [
+              1010.0,
+              1150.0,
+              1040.0
+            ],
+            "heap_used_bytes": [
+              163941704,
+              163941680,
+              163941704
+            ],
+            "total_ms": [
+              348.540959,
+              419.675605,
+              372.558163
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            165022080,
+            165022056,
+            165022080
+          ],
+          "process_peak_rss_kb": [
+            227388,
+            226436,
+            229512
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 244220920,
+            "cpu_ms": 3480.0,
+            "heap_used_bytes": 246839224,
+            "total_ms": 1001.628543
+          },
+          "median_process_peak_rss_kb": 361860,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              244220920,
+              244220920,
+              244220920
+            ],
+            "cpu_ms": [
+              3800.0,
+              3430.0,
+              3480.0
+            ],
+            "heap_used_bytes": [
+              246839224,
+              246839176,
+              246839368
+            ],
+            "total_ms": [
+              1072.396197,
+              960.95746,
+              1001.628543
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            247918448,
+            247918400,
+            247918448
+          ],
+          "process_peak_rss_kb": [
+            360824,
+            362748,
+            361860
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 243888384,
+            "cpu_ms": 1680.0,
+            "heap_used_bytes": 245528528,
+            "total_ms": 638.285033
+          },
+          "median_process_peak_rss_kb": 309892,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              243888384,
+              243888312,
+              243888384
+            ],
+            "cpu_ms": [
+              1680.0,
+              1680.0,
+              1720.0
+            ],
+            "heap_used_bytes": [
+              245528408,
+              245528528,
+              245528552
+            ],
+            "total_ms": [
+              624.164706,
+              638.285033,
+              650.197889
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            247158112,
+            247158088,
+            247158112
+          ],
+          "process_peak_rss_kb": [
+            309892,
+            306844,
+            310328
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 163947672,
+            "cpu_ms": 2170.0,
+            "heap_used_bytes": 165097672,
+            "total_ms": 635.574392
+          },
+          "median_process_peak_rss_kb": 271184,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              163947672,
+              163947672,
+              163947672
+            ],
+            "cpu_ms": [
+              2220.0,
+              2110.0,
+              2170.0
+            ],
+            "heap_used_bytes": [
+              165097672,
+              165099672,
+              165097568
+            ],
+            "total_ms": [
+              635.725397,
+              614.011786,
+              635.574392
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            165782928,
+            165784688,
+            165781992
+          ],
+          "process_peak_rss_kb": [
+            270476,
+            271444,
+            271184
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 163679960,
+            "cpu_ms": 940.0,
+            "heap_used_bytes": 163930008,
+            "total_ms": 362.101821
+          },
+          "median_process_peak_rss_kb": 233260,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              163680032,
+              163679960,
+              163679960
+            ],
+            "cpu_ms": [
+              950.0,
+              930.0,
+              940.0
+            ],
+            "heap_used_bytes": [
+              163930032,
+              163929912,
+              163930008
+            ],
+            "total_ms": [
+              367.37772,
+              344.458463,
+              362.101821
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            165009816,
+            165009792,
+            165009792
+          ],
+          "process_peak_rss_kb": [
+            233260,
+            235776,
+            231028
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 196739800,
+            "cpu_ms": 2880.0,
+            "heap_used_bytes": 197780752,
+            "total_ms": 812.242414
+          },
+          "median_process_peak_rss_kb": 306460,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              196739800,
+              196739800,
+              196739800
+            ],
+            "cpu_ms": [
+              3100.0,
+              2880.0,
+              2770.0
+            ],
+            "heap_used_bytes": [
+              197780752,
+              197780744,
+              197780800
+            ],
+            "total_ms": [
+              853.56338,
+              812.242414,
+              771.011752
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            198613320,
+            198613312,
+            198613720
+          ],
+          "process_peak_rss_kb": [
+            306460,
+            303124,
+            306728
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 196444632,
+            "cpu_ms": 1370.0,
+            "heap_used_bytes": 196543504,
+            "total_ms": 513.362098
+          },
+          "median_process_peak_rss_kb": 267956,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              196444632,
+              196444704,
+              196444632
+            ],
+            "cpu_ms": [
+              1450.0,
+              1370.0,
+              1260.0
+            ],
+            "heap_used_bytes": [
+              196543480,
+              196543504,
+              196543688
+            ],
+            "total_ms": [
+              543.699309,
+              513.362098,
+              445.081679
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            197841440,
+            197841464,
+            197841552
+          ],
+          "process_peak_rss_kb": [
+            267956,
+            263764,
+            269220
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "FAST"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 124278752,
+            "cpu_ms": 1890.0,
+            "heap_used_bytes": 126856208,
+            "total_ms": 1842.320143
+          },
+          "median_process_peak_rss_kb": 224188,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              124278752,
+              124278752,
+              124278752
+            ],
+            "cpu_ms": [
+              1950.0,
+              1840.0,
+              1890.0
+            ],
+            "heap_used_bytes": [
+              126856208,
+              126856256,
+              126856208
+            ],
+            "total_ms": [
+              1943.588178,
+              1842.320143,
+              1836.923373
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            127234664,
+            127234664,
+            127234664
+          ],
+          "process_peak_rss_kb": [
+            224188,
+            224760,
+            220852
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 83888456,
+            "cpu_ms": 1020.0,
+            "heap_used_bytes": 86230392,
+            "total_ms": 1000.057554
+          },
+          "median_process_peak_rss_kb": 148428,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              83888456,
+              83888456,
+              83888456
+            ],
+            "cpu_ms": [
+              910.0,
+              1020.0,
+              1020.0
+            ],
+            "heap_used_bytes": [
+              86230392,
+              86230344,
+              86230392
+            ],
+            "total_ms": [
+              898.099232,
+              1017.470185,
+              1000.057554
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            86624880,
+            86624832,
+            86624880
+          ],
+          "process_peak_rss_kb": [
+            148428,
+            147708,
+            150820
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 186832176,
+            "cpu_ms": 3320.0,
+            "heap_used_bytes": 189258232,
+            "total_ms": 3270.74447
+          },
+          "median_process_peak_rss_kb": 305216,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              186832176,
+              186832176,
+              186832176
+            ],
+            "cpu_ms": [
+              3170.0,
+              3320.0,
+              3420.0
+            ],
+            "heap_used_bytes": [
+              189258232,
+              189258232,
+              189258232
+            ],
+            "total_ms": [
+              3150.555711,
+              3270.74447,
+              3421.318085
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            189978584,
+            189978584,
+            189978584
+          ],
+          "process_peak_rss_kb": [
+            306668,
+            305216,
+            304548
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 126044568,
+            "cpu_ms": 1580.0,
+            "heap_used_bytes": 128298280,
+            "total_ms": 1563.026682
+          },
+          "median_process_peak_rss_kb": 189680,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              126044568,
+              126044568,
+              126044568
+            ],
+            "cpu_ms": [
+              1650.0,
+              1580.0,
+              1460.0
+            ],
+            "heap_used_bytes": [
+              128298280,
+              128298280,
+              128298280
+            ],
+            "total_ms": [
+              1574.32744,
+              1563.026682,
+              1449.338399
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            128358152,
+            128358152,
+            128358152
+          ],
+          "process_peak_rss_kb": [
+            190184,
+            189680,
+            189040
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 125752544,
+            "cpu_ms": 1700.0,
+            "heap_used_bytes": 126840672,
+            "total_ms": 1689.110069
+          },
+          "median_process_peak_rss_kb": 230912,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              125752544,
+              125752544,
+              125752544
+            ],
+            "cpu_ms": [
+              1680.0,
+              1700.0,
+              1800.0
+            ],
+            "heap_used_bytes": [
+              126840672,
+              126840672,
+              126840672
+            ],
+            "total_ms": [
+              1671.124907,
+              1689.110069,
+              1799.687743
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            127217832,
+            127217712,
+            127217712
+          ],
+          "process_peak_rss_kb": [
+            233400,
+            230572,
+            230912
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 85362248,
+            "cpu_ms": 840.0,
+            "heap_used_bytes": 87704136,
+            "total_ms": 830.718445
+          },
+          "median_process_peak_rss_kb": 154932,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              85362248,
+              85362248,
+              85362248
+            ],
+            "cpu_ms": [
+              900.0,
+              840.0,
+              840.0
+            ],
+            "heap_used_bytes": [
+              87704056,
+              87704136,
+              87704136
+            ],
+            "total_ms": [
+              898.638058,
+              830.718445,
+              818.407284
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            87704288,
+            87704320,
+            87704320
+          ],
+          "process_peak_rss_kb": [
+            154084,
+            154932,
+            157876
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 150899496,
+            "cpu_ms": 2520.0,
+            "heap_used_bytes": 151759432,
+            "total_ms": 2517.735154
+          },
+          "median_process_peak_rss_kb": 260976,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              150899496,
+              150899496,
+              150899496
+            ],
+            "cpu_ms": [
+              2680.0,
+              2520.0,
+              2410.0
+            ],
+            "heap_used_bytes": [
+              151759432,
+              151759432,
+              151759432
+            ],
+            "total_ms": [
+              2654.319302,
+              2517.735154,
+              2397.993127
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            152327720,
+            152327720,
+            152327720
+          ],
+          "process_peak_rss_kb": [
+            260976,
+            267888,
+            258988
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 102386448,
+            "cpu_ms": 1210.0,
+            "heap_used_bytes": 104658736,
+            "total_ms": 1196.303452
+          },
+          "median_process_peak_rss_kb": 168268,
+          "mode": "rgb8",
+          "process_medians": {
+            "allocated_bytes": [
+              102386448,
+              102386448,
+              102386448
+            ],
+            "cpu_ms": [
+              1220.0,
+              1210.0,
+              1100.0
+            ],
+            "heap_used_bytes": [
+              104658736,
+              104658736,
+              104658896
+            ],
+            "total_ms": [
+              1201.346599,
+              1196.303452,
+              1091.052264
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            104824360,
+            104824360,
+            104824360
+          ],
+          "process_peak_rss_kb": [
+            166996,
+            168268,
+            171440
+          ],
+          "processes": 3,
+          "stage": "memory",
+          "successful_processes": 3,
+          "variant": "LOW_MEMORY"
+        }
+      ],
+      "planned_decodes": 384,
+      "processes": 48,
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 48
+    }
+  },
+  "publication_date": "2026-11-19",
+  "rejected_experiments": {
+    "detail-screen": {
+      "comparisons": [
+        {
+          "compared_variant": "final",
+          "cpus": 1,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 0.0,
+              "compared": 43813256,
+              "ratio": 1.0,
+              "reference": 43813256
+            },
+            "cpu_ms": {
+              "change_percent": -4.761904761904767,
+              "compared": 200.0,
+              "ratio": 0.9523809523809523,
+              "reference": 210.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.00012150299201207915,
+              "compared": 46089344,
+              "ratio": 0.9999987849700799,
+              "reference": 46089400
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.27278502298120344,
+              "compared": 104.25,
+              "ratio": 0.997272149770188,
+              "reference": 104.53515625
+            },
+            "total_ms": {
+              "change_percent": -2.4203250551086186,
+              "compared": 203.977791,
+              "ratio": 0.9757967494489138,
+              "reference": 209.03717
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 0.0,
+              "compared": 43814336,
+              "ratio": 1.0,
+              "reference": 43814336
+            },
+            "cpu_ms": {
+              "change_percent": 5.882352941176472,
+              "compared": 360.0,
+              "ratio": 1.0588235294117647,
+              "reference": 340.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.01734231076002679,
+              "compared": 46260320,
+              "ratio": 0.9998265768923997,
+              "reference": 46268344
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 3.4948550046772775,
+              "compared": 108.04296875,
+              "ratio": 1.0349485500467728,
+              "reference": 104.39453125
+            },
+            "total_ms": {
+              "change_percent": 7.653292713354665,
+              "compared": 127.501284,
+              "ratio": 1.0765329271335466,
+              "reference": 118.436957
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 1,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 0.0,
+              "compared": 53305240,
+              "ratio": 1.0,
+              "reference": 53305240
+            },
+            "cpu_ms": {
+              "change_percent": 0.0,
+              "compared": 380.0,
+              "ratio": 1.0,
+              "reference": 380.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.0006620918042155033,
+              "compared": 55581048,
+              "ratio": 0.9999933790819578,
+              "reference": 55581416
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.16961802021846495,
+              "compared": 114.953125,
+              "ratio": 0.9983038197978154,
+              "reference": 115.1484375
+            },
+            "total_ms": {
+              "change_percent": 0.22026723052506192,
+              "compared": 384.16326,
+              "ratio": 1.0022026723052506,
+              "reference": 383.318934
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 0.0,
+              "compared": 53306320,
+              "ratio": 1.0,
+              "reference": 53306320
+            },
+            "cpu_ms": {
+              "change_percent": -7.692307692307687,
+              "compared": 600.0,
+              "ratio": 0.9230769230769231,
+              "reference": 650.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.009791793730262732,
+              "compared": 55725584,
+              "ratio": 1.0000979179373026,
+              "reference": 55720128
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 0.19680442976750534,
+              "compared": 117.3359375,
+              "ratio": 1.001968044297675,
+              "reference": 117.10546875
+            },
+            "total_ms": {
+              "change_percent": -16.860497288425936,
+              "compared": 181.225062,
+              "ratio": 0.8313950271157406,
+              "reference": 217.977082
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        }
+      ],
+      "configuration": {
+        "baseline_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "cpus": [
+          1,
+          4
+        ],
+        "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+        "final_jar": "qa-memory/detail-benchmarks.jar",
+        "forks": 3,
+        "input_index": [
+          2,
+          3
+        ],
+        "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+        "iterations": 5,
+        "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+        "modes": [
+          "sensor"
+        ],
+        "optimized16_jar": "qa-memory/baseline-3f7312c-benchmarks.jar",
+        "output": "qa-memory/detail-screen",
+        "plan_only": false,
+        "probe_classes": "qa-memory/normal-probe-classes",
+        "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+        "stage": [
+          "final"
+        ],
+        "timeout_seconds": 600,
+        "warmup": 3
+      },
+      "disposition": "Not integrated",
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 1,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 43813256,
+            "cpu_ms": 210.0,
+            "heap_used_bytes": 46089400,
+            "total_ms": 209.03717
+          },
+          "median_process_peak_rss_kb": 107044,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              43813256,
+              43813256,
+              43813256
+            ],
+            "cpu_ms": [
+              210.0,
+              210.0,
+              210.0
+            ],
+            "heap_used_bytes": [
+              46089088,
+              46089400,
+              46089400
+            ],
+            "total_ms": [
+              209.03717,
+              215.769164,
+              202.91611
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            46277792,
+            46278104,
+            46278104
+          ],
+          "process_peak_rss_kb": [
+            106168,
+            107956,
+            107044
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 43814336,
+            "cpu_ms": 340.0,
+            "heap_used_bytes": 46268344,
+            "total_ms": 118.436957
+          },
+          "median_process_peak_rss_kb": 106900,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              43814336,
+              43814336,
+              43814336
+            ],
+            "cpu_ms": [
+              340.0,
+              470.0,
+              340.0
+            ],
+            "heap_used_bytes": [
+              46260736,
+              46268344,
+              46271568
+            ],
+            "total_ms": [
+              118.436957,
+              187.93583,
+              116.828358
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            46554504,
+            46594936,
+            46545760
+          ],
+          "process_peak_rss_kb": [
+            112428,
+            106900,
+            106092
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 1,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 53305240,
+            "cpu_ms": 380.0,
+            "heap_used_bytes": 55581416,
+            "total_ms": 383.318934
+          },
+          "median_process_peak_rss_kb": 117912,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              53305240,
+              53305240,
+              53305240
+            ],
+            "cpu_ms": [
+              620.0,
+              380.0,
+              360.0
+            ],
+            "heap_used_bytes": [
+              55581152,
+              55581416,
+              55581416
+            ],
+            "total_ms": [
+              624.624612,
+              383.318934,
+              379.6453
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            55581336,
+            55581464,
+            55581464
+          ],
+          "process_peak_rss_kb": [
+            118032,
+            117268,
+            117912
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 53306320,
+            "cpu_ms": 650.0,
+            "heap_used_bytes": 55720128,
+            "total_ms": 217.977082
+          },
+          "median_process_peak_rss_kb": 119916,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              53306320,
+              53306320,
+              53306320
+            ],
+            "cpu_ms": [
+              650.0,
+              650.0,
+              660.0
+            ],
+            "heap_used_bytes": [
+              55720128,
+              55717800,
+              55723080
+            ],
+            "total_ms": [
+              235.45042,
+              199.059521,
+              217.977082
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            56086856,
+            56119704,
+            56118448
+          ],
+          "process_peak_rss_kb": [
+            120156,
+            119916,
+            118748
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 1,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 43813256,
+            "cpu_ms": 200.0,
+            "heap_used_bytes": 46089344,
+            "total_ms": 203.977791
+          },
+          "median_process_peak_rss_kb": 106752,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              43813256,
+              43813256,
+              43813256
+            ],
+            "cpu_ms": [
+              200.0,
+              210.0,
+              200.0
+            ],
+            "heap_used_bytes": [
+              46089344,
+              46089344,
+              46089344
+            ],
+            "total_ms": [
+              202.450531,
+              212.156905,
+              203.977791
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            46278048,
+            46278048,
+            46278048
+          ],
+          "process_peak_rss_kb": [
+            105784,
+            107340,
+            106752
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 43814336,
+            "cpu_ms": 360.0,
+            "heap_used_bytes": 46260320,
+            "total_ms": 127.501284
+          },
+          "median_process_peak_rss_kb": 110636,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              43814336,
+              43814336,
+              43814336
+            ],
+            "cpu_ms": [
+              360.0,
+              400.0,
+              310.0
+            ],
+            "heap_used_bytes": [
+              46260320,
+              46261624,
+              46248048
+            ],
+            "total_ms": [
+              127.501284,
+              133.595208,
+              99.398233
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            46552416,
+            46541920,
+            46536920
+          ],
+          "process_peak_rss_kb": [
+            112248,
+            107516,
+            110636
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 1,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 53305240,
+            "cpu_ms": 380.0,
+            "heap_used_bytes": 55581048,
+            "total_ms": 384.16326
+          },
+          "median_process_peak_rss_kb": 117712,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              53305240,
+              53305240,
+              53305240
+            ],
+            "cpu_ms": [
+              470.0,
+              380.0,
+              360.0
+            ],
+            "heap_used_bytes": [
+              55581048,
+              55581048,
+              55581096
+            ],
+            "total_ms": [
+              459.962027,
+              384.16326,
+              363.510433
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            55581096,
+            55581096,
+            55581520
+          ],
+          "process_peak_rss_kb": [
+            118112,
+            117712,
+            115316
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 53306320,
+            "cpu_ms": 600.0,
+            "heap_used_bytes": 55725584,
+            "total_ms": 181.225062
+          },
+          "median_process_peak_rss_kb": 120152,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              53306320,
+              53306320,
+              53306320
+            ],
+            "cpu_ms": [
+              600.0,
+              790.0,
+              560.0
+            ],
+            "heap_used_bytes": [
+              55725584,
+              55732064,
+              55724744
+            ],
+            "total_ms": [
+              181.225062,
+              268.287884,
+              162.79757
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            56088120,
+            56124768,
+            56192496
+          ],
+          "process_peak_rss_kb": [
+            121640,
+            115716,
+            120152
+          ],
+          "processes": 3,
+          "stage": "final",
+          "successful_processes": 3,
+          "variant": "final"
+        }
+      ],
+      "planned_decodes": 192,
+      "processes": 24,
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 24
+    },
+    "scheduling-screen": {
+      "comparisons": [
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 5.884665268407474e-05,
+              "compared": 81567984,
+              "ratio": 1.0000005884665268,
+              "reference": 81567936
+            },
+            "cpu_ms": {
+              "change_percent": -10.999999999999998,
+              "compared": 890.0,
+              "ratio": 0.89,
+              "reference": 1000.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.004184265921058916,
+              "compared": 83936992,
+              "ratio": 1.0000418426592106,
+              "reference": 83933480
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 0.4720994702604786,
+              "compared": 142.98828125,
+              "ratio": 1.0047209947026048,
+              "reference": 142.31640625
+            },
+            "total_ms": {
+              "change_percent": -4.317113500521518,
+              "compared": 262.609816,
+              "ratio": 0.9568288649947848,
+              "reference": 274.458501
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 3.920959212866393e-05,
+              "compared": 122419072,
+              "ratio": 1.0000003920959213,
+              "reference": 122419024
+            },
+            "cpu_ms": {
+              "change_percent": 4.827586206896561,
+              "compared": 1520.0,
+              "ratio": 1.0482758620689656,
+              "reference": 1450.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.0026819401987454583,
+              "compared": 124987496,
+              "ratio": 1.0000268194019875,
+              "reference": 124984144
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 0.8383255077626162,
+              "compared": 218.95703125,
+              "ratio": 1.0083832550776262,
+              "reference": 217.13671875
+            },
+            "total_ms": {
+              "change_percent": 3.401287087456195,
+              "compared": 448.264172,
+              "ratio": 1.034012870874562,
+              "reference": 433.518948
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 0.00011336651697391176,
+              "compared": 42340592,
+              "ratio": 1.0000011336651697,
+              "reference": 42340544
+            },
+            "cpu_ms": {
+              "change_percent": 0.0,
+              "compared": 430.0,
+              "ratio": 1.0,
+              "reference": 430.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.01096885149871607,
+              "compared": 44786264,
+              "ratio": 1.0001096885149872,
+              "reference": 44781352
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 0.18351489594314874,
+              "compared": 100.2265625,
+              "ratio": 1.0018351489594315,
+              "reference": 100.04296875
+            },
+            "total_ms": {
+              "change_percent": -11.135948549346287,
+              "compared": 121.063322,
+              "ratio": 0.8886405145065371,
+              "reference": 136.234304
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 3.9185147460152336e-05,
+              "compared": 122495440,
+              "ratio": 1.0000003918514746,
+              "reference": 122495392
+            },
+            "cpu_ms": {
+              "change_percent": -5.714285714285716,
+              "compared": 1320.0,
+              "ratio": 0.9428571428571428,
+              "reference": 1400.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.002818880399635404,
+              "compared": 124875792,
+              "ratio": 1.0000281888039964,
+              "reference": 124872272
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.20147894116385734,
+              "compared": 181.87890625,
+              "ratio": 0.9979852105883614,
+              "reference": 182.24609375
+            },
+            "total_ms": {
+              "change_percent": -10.452326456460014,
+              "compared": 372.30755,
+              "ratio": 0.8954767354353999,
+              "reference": 415.764626
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 2.6108435813299025e-05,
+              "compared": 183848672,
+              "ratio": 1.0000002610843581,
+              "reference": 183848624
+            },
+            "cpu_ms": {
+              "change_percent": 7.52212389380531,
+              "compared": 2430.0,
+              "ratio": 1.075221238938053,
+              "reference": 2260.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.0019661599826692466,
+              "compared": 186356760,
+              "ratio": 1.0000196615998267,
+              "reference": 186353096
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 1.6701990109436071,
+              "compared": 297.9453125,
+              "ratio": 1.016701990109436,
+              "reference": 293.05078125
+            },
+            "total_ms": {
+              "change_percent": 9.691920565946255,
+              "compared": 714.463978,
+              "ratio": 1.0969192056594625,
+              "reference": 651.336921
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 7.586783317137247e-05,
+              "compared": 63267968,
+              "ratio": 1.0000007586783317,
+              "reference": 63267920
+            },
+            "cpu_ms": {
+              "change_percent": 1.5625,
+              "compared": 650.0,
+              "ratio": 1.015625,
+              "reference": 640.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.007477738200978301,
+              "compared": 65693224,
+              "ratio": 1.0000747773820098,
+              "reference": 65688312
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -0.1426672286890862,
+              "compared": 120.30078125,
+              "ratio": 0.9985733277131091,
+              "reference": 120.47265625
+            },
+            "total_ms": {
+              "change_percent": 6.222346692838676,
+              "compared": 198.537129,
+              "ratio": 1.0622234669283868,
+              "reference": 186.90712
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 5.7802265396311725e-05,
+              "compared": 83041776,
+              "ratio": 1.000000578022654,
+              "reference": 83041728
+            },
+            "cpu_ms": {
+              "change_percent": 3.750000000000009,
+              "compared": 830.0,
+              "ratio": 1.0375,
+              "reference": 800.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.006445453336922924,
+              "compared": 85399032,
+              "ratio": 1.0000644545333692,
+              "reference": 85393528
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 2.337860201213582,
+              "compared": 152.18359375,
+              "ratio": 1.0233786020121358,
+              "reference": 148.70703125
+            },
+            "total_ms": {
+              "change_percent": -3.614139869971933,
+              "compared": 240.296358,
+              "ratio": 0.9638586013002807,
+              "reference": 249.306649
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 3.8743166519417116e-05,
+              "compared": 123892864,
+              "ratio": 1.0000003874316652,
+              "reference": 123892816
+            },
+            "cpu_ms": {
+              "change_percent": 0.0,
+              "compared": 1270.0,
+              "ratio": 1.0,
+              "reference": 1270.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.0026120266541918014,
+              "compared": 124963704,
+              "ratio": 1.000026120266542,
+              "reference": 124960440
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -1.9535045107564208,
+              "compared": 220.7578125,
+              "ratio": 0.9804649548924358,
+              "reference": 225.15625
+            },
+            "total_ms": {
+              "change_percent": -0.1968898330906521,
+              "compared": 382.779645,
+              "ratio": 0.9980311016690935,
+              "reference": 383.534786
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 0.00010955318368033318,
+              "compared": 43814384,
+              "ratio": 1.0000010955318368,
+              "reference": 43814336
+            },
+            "cpu_ms": {
+              "change_percent": 6.666666666666665,
+              "compared": 320.0,
+              "ratio": 1.0666666666666667,
+              "reference": 300.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.051732055616104944,
+              "compared": 46245248,
+              "ratio": 0.999482679443839,
+              "reference": 46269184
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": 6.718685523502277,
+              "compared": 111.125,
+              "ratio": 1.0671868552350228,
+              "reference": 104.12890625
+            },
+            "total_ms": {
+              "change_percent": -4.715984845659438,
+              "compared": 93.558576,
+              "ratio": 0.9528401515434056,
+              "reference": 98.189162
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 4.820351910961307e-05,
+              "compared": 99577840,
+              "ratio": 1.000000482035191,
+              "reference": 99577792
+            },
+            "cpu_ms": {
+              "change_percent": -0.8000000000000007,
+              "compared": 1240.0,
+              "ratio": 0.992,
+              "reference": 1250.0
+            },
+            "heap_used_bytes": {
+              "change_percent": -0.00674159807737551,
+              "compared": 101927416,
+              "ratio": 0.9999325840192262,
+              "reference": 101934288
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -3.8020390824129113,
+              "compared": 159.22265625,
+              "ratio": 0.9619796091758709,
+              "reference": 165.515625
+            },
+            "total_ms": {
+              "change_percent": 5.659043548958187,
+              "compared": 384.435203,
+              "ratio": 1.0565904354895819,
+              "reference": 363.845053
+            }
+          },
+          "mode": "default",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 3.2302353480950785e-05,
+              "compared": 148596032,
+              "ratio": 1.0000003230235348,
+              "reference": 148595984
+            },
+            "cpu_ms": {
+              "change_percent": -5.288461538461542,
+              "compared": 1970.0,
+              "ratio": 0.9471153846153846,
+              "reference": 2080.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.002027722877384619,
+              "compared": 149530368,
+              "ratio": 1.0000202772287738,
+              "reference": 149527336
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -1.747450353028046,
+              "compared": 249.50390625,
+              "ratio": 0.9825254964697195,
+              "reference": 253.94140625
+            },
+            "total_ms": {
+              "change_percent": -8.90671139017597,
+              "compared": 563.205651,
+              "ratio": 0.9109328860982403,
+              "reference": 618.273486
+            }
+          },
+          "mode": "rgb16",
+          "reference_variant": "baseline"
+        },
+        {
+          "compared_variant": "final",
+          "cpus": 4,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "metrics": {
+            "allocated_bytes": {
+              "change_percent": 9.004560810321749e-05,
+              "compared": 53306368,
+              "ratio": 1.000000900456081,
+              "reference": 53306320
+            },
+            "cpu_ms": {
+              "change_percent": 0.0,
+              "compared": 550.0,
+              "ratio": 1.0,
+              "reference": 550.0
+            },
+            "heap_used_bytes": {
+              "change_percent": 0.013094551130410359,
+              "compared": 55725128,
+              "ratio": 1.000130945511304,
+              "reference": 55717832
+            },
+            "median_process_peak_rss_mib": {
+              "change_percent": -4.240353030956568,
+              "compared": 112.73828125,
+              "ratio": 0.9575964696904343,
+              "reference": 117.73046875
+            },
+            "total_ms": {
+              "change_percent": 5.312626432481937,
+              "compared": 160.245013,
+              "ratio": 1.0531262643248194,
+              "reference": 152.161254
+            }
+          },
+          "mode": "sensor",
+          "reference_variant": "baseline"
+        }
+      ],
+      "configuration": {
+        "baseline_jar": "/workspace/scratch/adce2cf98312/qa-memory/baseline-3f7312c-benchmarks.jar",
+        "cpus": [
+          4
+        ],
+        "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+        "final_jar": "/workspace/scratch/adce2cf98312/qa-memory/scheduling-benchmarks.jar",
+        "forks": 1,
+        "input_index": null,
+        "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+        "iterations": 5,
+        "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+        "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+        "modes": [
+          "sensor",
+          "default",
+          "rgb16"
+        ],
+        "optimized16_jar": "/workspace/scratch/adce2cf98312/qa-memory/baseline-3f7312c-benchmarks.jar",
+        "output": "/workspace/scratch/adce2cf98312/qa-memory/scheduling-screen",
+        "plan_only": false,
+        "probe_classes": "/workspace/scratch/adce2cf98312/qa-memory/normal-probe-classes",
+        "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+        "stage": [
+          "final"
+        ],
+        "timeout_seconds": 600,
+        "warmup": 3
+      },
+      "disposition": "Not integrated",
+      "failed_processes": 0,
+      "groups": [
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 81567936,
+            "cpu_ms": 1000.0,
+            "heap_used_bytes": 83933480,
+            "total_ms": 274.458501
+          },
+          "median_process_peak_rss_kb": 145732,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              81567936
+            ],
+            "cpu_ms": [
+              1000.0
+            ],
+            "heap_used_bytes": [
+              83933480
+            ],
+            "total_ms": [
+              274.458501
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            84581088
+          ],
+          "process_peak_rss_kb": [
+            145732
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 122419024,
+            "cpu_ms": 1450.0,
+            "heap_used_bytes": 124984144,
+            "total_ms": 433.518948
+          },
+          "median_process_peak_rss_kb": 222348,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              122419024
+            ],
+            "cpu_ms": [
+              1450.0
+            ],
+            "heap_used_bytes": [
+              124984144
+            ],
+            "total_ms": [
+              433.518948
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125283448
+          ],
+          "process_peak_rss_kb": [
+            222348
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 42340544,
+            "cpu_ms": 430.0,
+            "heap_used_bytes": 44781352,
+            "total_ms": 136.234304
+          },
+          "median_process_peak_rss_kb": 102444,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              42340544
+            ],
+            "cpu_ms": [
+              430.0
+            ],
+            "heap_used_bytes": [
+              44781352
+            ],
+            "total_ms": [
+              136.234304
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            45183968
+          ],
+          "process_peak_rss_kb": [
+            102444
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 122495392,
+            "cpu_ms": 1400.0,
+            "heap_used_bytes": 124872272,
+            "total_ms": 415.764626
+          },
+          "median_process_peak_rss_kb": 186620,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              122495392
+            ],
+            "cpu_ms": [
+              1400.0
+            ],
+            "heap_used_bytes": [
+              124872272
+            ],
+            "total_ms": [
+              415.764626
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125941296
+          ],
+          "process_peak_rss_kb": [
+            186620
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 183848624,
+            "cpu_ms": 2260.0,
+            "heap_used_bytes": 186353096,
+            "total_ms": 651.336921
+          },
+          "median_process_peak_rss_kb": 300084,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              183848624
+            ],
+            "cpu_ms": [
+              2260.0
+            ],
+            "heap_used_bytes": [
+              186353096
+            ],
+            "total_ms": [
+              651.336921
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            186902672
+          ],
+          "process_peak_rss_kb": [
+            300084
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 63267920,
+            "cpu_ms": 640.0,
+            "heap_used_bytes": 65688312,
+            "total_ms": 186.90712
+          },
+          "median_process_peak_rss_kb": 123364,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              63267920
+            ],
+            "cpu_ms": [
+              640.0
+            ],
+            "heap_used_bytes": [
+              65688312
+            ],
+            "total_ms": [
+              186.90712
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            66366248
+          ],
+          "process_peak_rss_kb": [
+            123364
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 83041728,
+            "cpu_ms": 800.0,
+            "heap_used_bytes": 85393528,
+            "total_ms": 249.306649
+          },
+          "median_process_peak_rss_kb": 152276,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              83041728
+            ],
+            "cpu_ms": [
+              800.0
+            ],
+            "heap_used_bytes": [
+              85393528
+            ],
+            "total_ms": [
+              249.306649
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            85778320
+          ],
+          "process_peak_rss_kb": [
+            152276
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 123892816,
+            "cpu_ms": 1270.0,
+            "heap_used_bytes": 124960440,
+            "total_ms": 383.534786
+          },
+          "median_process_peak_rss_kb": 230560,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              123892816
+            ],
+            "cpu_ms": [
+              1270.0
+            ],
+            "heap_used_bytes": [
+              124960440
+            ],
+            "total_ms": [
+              383.534786
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125414504
+          ],
+          "process_peak_rss_kb": [
+            230560
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 43814336,
+            "cpu_ms": 300.0,
+            "heap_used_bytes": 46269184,
+            "total_ms": 98.189162
+          },
+          "median_process_peak_rss_kb": 106628,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              43814336
+            ],
+            "cpu_ms": [
+              300.0
+            ],
+            "heap_used_bytes": [
+              46269184
+            ],
+            "total_ms": [
+              98.189162
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            46535256
+          ],
+          "process_peak_rss_kb": [
+            106628
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 99577792,
+            "cpu_ms": 1250.0,
+            "heap_used_bytes": 101934288,
+            "total_ms": 363.845053
+          },
+          "median_process_peak_rss_kb": 169488,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              99577792
+            ],
+            "cpu_ms": [
+              1250.0
+            ],
+            "heap_used_bytes": [
+              101934288
+            ],
+            "total_ms": [
+              363.845053
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            102402216
+          ],
+          "process_peak_rss_kb": [
+            169488
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 148595984,
+            "cpu_ms": 2080.0,
+            "heap_used_bytes": 149527336,
+            "total_ms": 618.273486
+          },
+          "median_process_peak_rss_kb": 260036,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              148595984
+            ],
+            "cpu_ms": [
+              2080.0
+            ],
+            "heap_used_bytes": [
+              149527336
+            ],
+            "total_ms": [
+              618.273486
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            150093360
+          ],
+          "process_peak_rss_kb": [
+            260036
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 53306320,
+            "cpu_ms": 550.0,
+            "heap_used_bytes": 55717832,
+            "total_ms": 152.161254
+          },
+          "median_process_peak_rss_kb": 120556,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              53306320
+            ],
+            "cpu_ms": [
+              550.0
+            ],
+            "heap_used_bytes": [
+              55717832
+            ],
+            "total_ms": [
+              152.161254
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            56119664
+          ],
+          "process_peak_rss_kb": [
+            120556
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "baseline"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 81567984,
+            "cpu_ms": 890.0,
+            "heap_used_bytes": 83936992,
+            "total_ms": 262.609816
+          },
+          "median_process_peak_rss_kb": 146420,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              81567984
+            ],
+            "cpu_ms": [
+              890.0
+            ],
+            "heap_used_bytes": [
+              83936992
+            ],
+            "total_ms": [
+              262.609816
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            84584600
+          ],
+          "process_peak_rss_kb": [
+            146420
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 122419072,
+            "cpu_ms": 1520.0,
+            "heap_used_bytes": 124987496,
+            "total_ms": 448.264172
+          },
+          "median_process_peak_rss_kb": 224212,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              122419072
+            ],
+            "cpu_ms": [
+              1520.0
+            ],
+            "heap_used_bytes": [
+              124987496
+            ],
+            "total_ms": [
+              448.264172
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125286808
+          ],
+          "process_peak_rss_kb": [
+            224212
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II RAW",
+          "input_index": 0,
+          "median_of_process_medians": {
+            "allocated_bytes": 42340592,
+            "cpu_ms": 430.0,
+            "heap_used_bytes": 44786264,
+            "total_ms": 121.063322
+          },
+          "median_process_peak_rss_kb": 102632,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              42340592
+            ],
+            "cpu_ms": [
+              430.0
+            ],
+            "heap_used_bytes": [
+              44786264
+            ],
+            "total_ms": [
+              121.063322
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            45188880
+          ],
+          "process_peak_rss_kb": [
+            102632
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 122495440,
+            "cpu_ms": 1320.0,
+            "heap_used_bytes": 124875792,
+            "total_ms": 372.30755
+          },
+          "median_process_peak_rss_kb": 186244,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              122495440
+            ],
+            "cpu_ms": [
+              1320.0
+            ],
+            "heap_used_bytes": [
+              124875792
+            ],
+            "total_ms": [
+              372.30755
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125944808
+          ],
+          "process_peak_rss_kb": [
+            186244
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 183848672,
+            "cpu_ms": 2430.0,
+            "heap_used_bytes": 186356760,
+            "total_ms": 714.463978
+          },
+          "median_process_peak_rss_kb": 305096,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              183848672
+            ],
+            "cpu_ms": [
+              2430.0
+            ],
+            "heap_used_bytes": [
+              186356760
+            ],
+            "total_ms": [
+              714.463978
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            186906336
+          ],
+          "process_peak_rss_kb": [
+            305096
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS R RAW",
+          "input_index": 1,
+          "median_of_process_medians": {
+            "allocated_bytes": 63267968,
+            "cpu_ms": 650.0,
+            "heap_used_bytes": 65693224,
+            "total_ms": 198.537129
+          },
+          "median_process_peak_rss_kb": 123188,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              63267968
+            ],
+            "cpu_ms": [
+              650.0
+            ],
+            "heap_used_bytes": [
+              65693224
+            ],
+            "total_ms": [
+              198.537129
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            66371160
+          ],
+          "process_peak_rss_kb": [
+            123188
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 83041776,
+            "cpu_ms": 830.0,
+            "heap_used_bytes": 85399032,
+            "total_ms": 240.296358
+          },
+          "median_process_peak_rss_kb": 155836,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              83041776
+            ],
+            "cpu_ms": [
+              830.0
+            ],
+            "heap_used_bytes": [
+              85399032
+            ],
+            "total_ms": [
+              240.296358
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            85814296
+          ],
+          "process_peak_rss_kb": [
+            155836
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 123892864,
+            "cpu_ms": 1270.0,
+            "heap_used_bytes": 124963704,
+            "total_ms": 382.779645
+          },
+          "median_process_peak_rss_kb": 226056,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              123892864
+            ],
+            "cpu_ms": [
+              1270.0
+            ],
+            "heap_used_bytes": [
+              124963704
+            ],
+            "total_ms": [
+              382.779645
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            125418072
+          ],
+          "process_peak_rss_kb": [
+            226056
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "G5 X II C-RAW",
+          "input_index": 2,
+          "median_of_process_medians": {
+            "allocated_bytes": 43814384,
+            "cpu_ms": 320.0,
+            "heap_used_bytes": 46245248,
+            "total_ms": 93.558576
+          },
+          "median_process_peak_rss_kb": 113792,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              43814384
+            ],
+            "cpu_ms": [
+              320.0
+            ],
+            "heap_used_bytes": [
+              46245248
+            ],
+            "total_ms": [
+              93.558576
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            46547528
+          ],
+          "process_peak_rss_kb": [
+            113792
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 99577840,
+            "cpu_ms": 1240.0,
+            "heap_used_bytes": 101927416,
+            "total_ms": 384.435203
+          },
+          "median_process_peak_rss_kb": 163044,
+          "mode": "default",
+          "process_medians": {
+            "allocated_bytes": [
+              99577840
+            ],
+            "cpu_ms": [
+              1240.0
+            ],
+            "heap_used_bytes": [
+              101927416
+            ],
+            "total_ms": [
+              384.435203
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            102436784
+          ],
+          "process_peak_rss_kb": [
+            163044
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 148596032,
+            "cpu_ms": 1970.0,
+            "heap_used_bytes": 149530368,
+            "total_ms": 563.205651
+          },
+          "median_process_peak_rss_kb": 255492,
+          "mode": "rgb16",
+          "process_medians": {
+            "allocated_bytes": [
+              148596032
+            ],
+            "cpu_ms": [
+              1970.0
+            ],
+            "heap_used_bytes": [
+              149530368
+            ],
+            "total_ms": [
+              563.205651
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            150095128
+          ],
+          "process_peak_rss_kb": [
+            255492
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        },
+        {
+          "cpus": 4,
+          "failed_processes": 0,
+          "input": "EOS M50 C-RAW",
+          "input_index": 3,
+          "median_of_process_medians": {
+            "allocated_bytes": 53306368,
+            "cpu_ms": 550.0,
+            "heap_used_bytes": 55725128,
+            "total_ms": 160.245013
+          },
+          "median_process_peak_rss_kb": 115444,
+          "mode": "sensor",
+          "process_medians": {
+            "allocated_bytes": [
+              53306368
+            ],
+            "cpu_ms": [
+              550.0
+            ],
+            "heap_used_bytes": [
+              55725128
+            ],
+            "total_ms": [
+              160.245013
+            ]
+          },
+          "process_peak_measured_heap_used_bytes": [
+            56038400
+          ],
+          "process_peak_rss_kb": [
+            115444
+          ],
+          "processes": 1,
+          "stage": "final",
+          "successful_processes": 1,
+          "variant": "final"
+        }
+      ],
+      "planned_decodes": 192,
+      "processes": 24,
+      "sampling": "Median of process medians; each process peak RSS includes warmups and VM overhead",
+      "successful_processes": 24
+    }
+  },
+  "schema_version": 1
+}

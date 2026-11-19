@@ -16,6 +16,12 @@ because it intentionally changes developed dimensions and boundary pixels.
 [source-based reproduction](cr3/performance-2026-11-19/comparison-setup.md)
 make the complete-file study reproducible alongside the JMH regression gates.
 
+The subsequent [adaptive-memory and ImageIO-copy study](cr3/memory-2026-11-19/README.md)
+uses the corrected crop as its baseline. It checks automatic low-heap imports,
+full numeric equivalence, compact-rotation trade-offs, and compatible-destination
+copy elimination. Rejected scheduling and arithmetic experiments remain in its
+evidence. Its timing tables are separate from the earlier external-engine study.
+
 ## Full RAW focus stacks
 
 The Photographer benchmark measures a stack from opening the originals through writing the PNG. The CPU series in the history develops three copies of the repository's EOS R fixture. To measure a captured stack, pass a directory of CR3 originals whose filenames sort in acquisition order.

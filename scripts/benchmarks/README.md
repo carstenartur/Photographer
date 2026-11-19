@@ -51,6 +51,33 @@ budget to control that mode. The probe checks the ImageIO provider before its
 loop and validates output bands/precision afterward. Use its isolated benchmark
 classpath, not an unrelated application's collection of ImageIO plugins.
 
+`--memory-mode AUTO|LOW_MEMORY|FAST` selects the explicit modes' heap policy;
+the default is `AUTO`. `--orientation 1` through `--orientation 8` overrides the
+camera EXIF orientation for an explicit RGB import. Omit it to retain camera
+metadata. Sensor modes reject orientation overrides because their output remains
+in sensor coordinates. The `default` mode rejects a nonautomatic memory policy
+or any orientation override, so it still measures the actual `ImageIO.read(File)`
+call. JSON records `requested_memory_mode` and `orientation_override` (zero when
+omitted); these fields do not claim to expose the effective automatic decision.
+
+For a controlled comparison of compact rotation with the normal path, run the
+following twice in fresh processes, changing `FAST` to `LOW_MEMORY` and keeping
+the input, heap, processor budget, JVM and other arguments identical:
+
+```bash
+java -Xms24m -Xmx768m -XX:+UseSerialGC -XX:ActiveProcessorCount=4 \
+  -cp canon-cr3-benchmark/target/benchmarks.jar \
+  com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe \
+  --input canon-cr3-imageio/src/test/resources/samples/sample.cr3 \
+  --mode rgb16 --memory-mode FAST --orientation 6 \
+  --warmup 3 --iterations 5 --gc-between
+```
+
+`LOW_MEMORY` emits one `CR3 low-memory:` warning to stderr for every RAW read,
+including warmups. Preserve stderr with the measurement. The
+[adaptive-memory study](../../docs/cr3/memory-2026-11-19/README.md) separates
+constrained-heap success checks from timing and RSS comparisons at equal heap.
+
 Each JSON line is one measured import after the requested warmups. `total_ms`
 includes opening, parsing, decoding, development, owned output and input cleanup.
 Plugin scanning, provider preflight, optional GC, statistics, hashing and output

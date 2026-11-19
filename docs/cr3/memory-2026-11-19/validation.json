@@ -1,0 +1,303 @@
+{
+  "ci_snapshots": {
+    "426": {
+      "final_snapshot": true,
+      "note": "Historical snapshot; merge state at observation is not a statement of current PR state",
+      "observed_at": "2026-11-19T11:26:52.211Z",
+      "pr_at_observation": {
+        "base": "3f7312c679a7deca1ec831103c8eff5fbb814634",
+        "branch": "perf/cr3-imageio-destination-memory",
+        "head": "1b559c2e1a565517adf0ff1fd57490abe6173e0c",
+        "mergeable": true,
+        "mergeableState": "clean",
+        "merged": false,
+        "number": 426,
+        "state": "open",
+        "url": "https://github.com/carstenartur/Photographer/pull/426"
+      },
+      "snapshot_member": "ci-426/final-snapshot.json",
+      "workflows": [
+        {
+          "conclusion": "success",
+          "head": "1b559c2e1a565517adf0ff1fd57490abe6173e0c",
+          "name": "CR3 Fiji distribution",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44513070279"
+        },
+        {
+          "conclusion": "success",
+          "head": "1b559c2e1a565517adf0ff1fd57490abe6173e0c",
+          "name": "CR3 Packaged Consumer",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44513069716"
+        },
+        {
+          "conclusion": "success",
+          "head": "1b559c2e1a565517adf0ff1fd57490abe6173e0c",
+          "name": "CR3 Benchmark History",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44513069650"
+        },
+        {
+          "conclusion": "success",
+          "head": "1b559c2e1a565517adf0ff1fd57490abe6173e0c",
+          "name": "CI",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44513069677"
+        },
+        {
+          "conclusion": "success",
+          "head": "1b559c2e1a565517adf0ff1fd57490abe6173e0c",
+          "name": "Automatic Dependency Submission (Maven)",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44513060477"
+        }
+      ]
+    },
+    "427": {
+      "final_snapshot": true,
+      "note": "Historical snapshot; merge state at observation is not a statement of current PR state",
+      "observed_at": "2026-11-19T11:43:49.924Z",
+      "pr_at_observation": {
+        "base": "264ae80ce88c2b51f35a24dba83b2f3cb5c21fcb",
+        "branch": "perf/cr3-adaptive-memory",
+        "head": "26a020291c759e64ee1effef38c544d828219856",
+        "headTree": "19d41ab3bb089992f902c780401083402065445b",
+        "mergeTestHead": "28a7aa1bea5f8572f9b7184f165bf32fa8f93770",
+        "mergeable": true,
+        "mergeableState": "clean",
+        "merged": false,
+        "number": 427,
+        "state": "open",
+        "url": "https://github.com/carstenartur/Photographer/pull/427"
+      },
+      "snapshot_member": "ci-427/final-snapshot.json",
+      "workflows": [
+        {
+          "conclusion": "success",
+          "head": "26a020291c759e64ee1effef38c544d828219856",
+          "name": "CR3 Research Integration",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44515027825"
+        },
+        {
+          "conclusion": "success",
+          "head": "26a020291c759e64ee1effef38c544d828219856",
+          "name": "CR3 Benchmark History",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44515027784"
+        },
+        {
+          "conclusion": "success",
+          "head": "26a020291c759e64ee1effef38c544d828219856",
+          "name": "CR3 Fiji distribution",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44515027867"
+        },
+        {
+          "conclusion": "success",
+          "head": "26a020291c759e64ee1effef38c544d828219856",
+          "name": "CR3 Packaged Consumer",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44515027913"
+        },
+        {
+          "conclusion": "success",
+          "head": "26a020291c759e64ee1effef38c544d828219856",
+          "name": "CI",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44515027854"
+        },
+        {
+          "conclusion": "success",
+          "head": "26a020291c759e64ee1effef38c544d828219856",
+          "name": "Automatic Dependency Submission (Maven)",
+          "status": "completed",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44515020620"
+        }
+      ]
+    },
+    "428": {
+      "final_snapshot": false,
+      "note": "Historical snapshot; merge state at observation is not a statement of current PR state",
+      "observed_at": "2026-11-19T11:44:56.143Z",
+      "pr_at_observation": {
+        "base": "14fafdc3fbc3dd25793b94c63096cd6abb8d770a",
+        "branch": "test/cr3-memory-probe-controls",
+        "head": "3cd7f322b8d421aca5d8d2e139fa7d13707d0c5e",
+        "mergeTestHead": "8739acf4e873a17e20efeeb3054240caab5029db",
+        "number": 428
+      },
+      "snapshot_member": "ci-428/initial-snapshot.json",
+      "workflows": [
+        {
+          "conclusion": null,
+          "head": "3cd7f322b8d421aca5d8d2e139fa7d13707d0c5e",
+          "name": "CR3 Benchmark History",
+          "status": "in_progress",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44517493567"
+        },
+        {
+          "conclusion": null,
+          "head": "3cd7f322b8d421aca5d8d2e139fa7d13707d0c5e",
+          "name": "CR3 Packaged Consumer",
+          "status": "in_progress",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44517493742"
+        },
+        {
+          "conclusion": null,
+          "head": "3cd7f322b8d421aca5d8d2e139fa7d13707d0c5e",
+          "name": "CI",
+          "status": "in_progress",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44517493927"
+        },
+        {
+          "conclusion": null,
+          "head": "3cd7f322b8d421aca5d8d2e139fa7d13707d0c5e",
+          "name": "Automatic Dependency Submission (Maven)",
+          "status": "in_progress",
+          "url": "https://github.com/carstenartur/Photographer/actions/runs/44517458399"
+        }
+      ]
+    }
+  },
+  "evidence_checks": {
+    "all_required_panels_complete": true,
+    "full_fingerprint_pairs": 28,
+    "measurement_aggregates_recomputed": true,
+    "original_auto_failures_preserved": 2,
+    "panel_counts": {
+      "default-control-measurements": {
+        "failed_processes": 0,
+        "processes": 24,
+        "successful_processes": 24
+      },
+      "default-craw-rss-confirmation": {
+        "failed_processes": 0,
+        "processes": 10,
+        "successful_processes": 10
+      },
+      "default-g5-confirmation": {
+        "failed_processes": 0,
+        "processes": 10,
+        "successful_processes": 10
+      },
+      "destination-measurements": {
+        "failed_processes": 0,
+        "processes": 24,
+        "successful_processes": 24
+      },
+      "detail-screen": {
+        "failed_processes": 0,
+        "processes": 24,
+        "successful_processes": 24
+      },
+      "memory-mode-measurements": {
+        "failed_processes": 0,
+        "processes": 48,
+        "successful_processes": 48
+      },
+      "scheduling-screen": {
+        "failed_processes": 0,
+        "processes": 24,
+        "successful_processes": 24
+      }
+    },
+    "recorded_process_outputs_match": true
+  },
+  "integration_gate": {
+    "counts": [
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-container",
+        "skipped": 0,
+        "tests": 132
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-metadata",
+        "skipped": 0,
+        "tests": 64
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-codec",
+        "skipped": 0,
+        "tests": 119
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-processing",
+        "skipped": 1,
+        "tests": 137
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-core",
+        "skipped": 0,
+        "tests": 37
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-imageio",
+        "skipped": 0,
+        "tests": 206
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "cr3-imagej",
+        "skipped": 0,
+        "tests": 7
+      },
+      {
+        "errors": 0,
+        "failures": 0,
+        "module": "canon-cr3-cli",
+        "skipped": 0,
+        "tests": 17
+      }
+    ],
+    "included_in_719": {
+      "dng_round_trip_cases": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 2
+      },
+      "packaged_imageio_case": {
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0,
+        "tests": 1
+      }
+    },
+    "source_base": "3f7312c",
+    "total": {
+      "errors": 0,
+      "failures": 0,
+      "skipped": 1,
+      "tests": 719
+    }
+  },
+  "schema_version": 1,
+  "scope": [
+    "Retained evidence is inspected; no test, build or decode is executed by this packager.",
+    "Two DNG round-trip cases and one packaged ImageIO case are included in 719, not added again.",
+    "The 24-case final helper gate is separate from the 719-case integration gate."
+  ],
+  "separate_final_helper_gate": {
+    "errors": 0,
+    "failures": 0,
+    "note": "Includes later null-decoder regression; frozen measurement helper had 23 green cases",
+    "public_pr_head": "3cd7f322b8d421aca5d8d2e139fa7d13707d0c5e",
+    "skipped": 0,
+    "tests": 24
+  }
+}

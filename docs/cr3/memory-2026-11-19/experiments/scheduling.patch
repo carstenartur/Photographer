@@ -1,0 +1,71 @@
+diff --git a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxTileDecoder.java b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxTileDecoder.java
+index 1fbad58..bb848cf 100644
+--- a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxTileDecoder.java
++++ b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxTileDecoder.java
+@@ -35,10 +35,9 @@ record CrxTileDecoder(CrxHeader header, int width, int height, int tileWidth, Pl
+     @Override
+     public void decodeSelectedRows(RowConsumer consumer, int maxWorkers, PlaneRowLimit limit,
+                                    boolean allowIndependentTiles) throws Cr3Exception, IOException {
+-        boolean partial = limit != PlaneRowLimit.ALL_ROWS;
+         int workItems = allowIndependentTiles ? header.tiles().size() * BAYER_PHASES : BAYER_PHASES;
+         int workers = Cr3Workers.count(maxWorkers, workItems);
+-        if (allowIndependentTiles && workers > 1 && (workers > BAYER_PHASES || partial)) {
++        if (allowIndependentTiles && workers > 1) {
+             decodeIndependentTiles(consumer, limit, workers);
+             return;
+         }
+diff --git a/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxSensorDecoderTest.java b/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxSensorDecoderTest.java
+index b762bce..ac61184 100644
+--- a/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxSensorDecoderTest.java
++++ b/canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxSensorDecoderTest.java
+@@ -39,6 +39,9 @@ class CrxSensorDecoderTest {
+             order.clear();
+             decoder.decodeRows(record, 1);
+             assertEquals(List.of(5, 0, 4, 1, 3, 6, 2, 7), order);
++            order.clear();
++            decoder.decodeSelectedRows(record, 1, CrxSensorDecoder.PlaneRowLimit.ALL_ROWS, true);
++            assertEquals(List.of(5, 0, 4, 1, 3, 6, 2, 7), order);
+             for (int workers : new int[]{0, 2, 3, 4}) {
+                 assertArrayEquals(new int[]{8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199},
+                         pixels(decoder, workers));
+@@ -90,6 +93,10 @@ class CrxSensorDecoderTest {
+         for (int workers : new int[]{1, 4}) {
+             var failure = assertThrows(Cr3Exception.class, () -> pixels(decoder, workers));
+             assertInstanceOf(IOException.class, failure.getCause());
++            var independentFailure = assertThrows(Cr3Exception.class,
++                    () -> decoder.decodeSelectedRows((x, y, row) -> {}, workers,
++                            CrxSensorDecoder.PlaneRowLimit.ALL_ROWS, true));
++            assertInstanceOf(IOException.class, independentFailure.getCause());
+         }
+     }
+ 
+@@ -128,6 +135,29 @@ class CrxSensorDecoderTest {
+         assertArrayEquals(new int[]{8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199}, pixels);
+     }
+ 
++    @ParameterizedTest
++    @ValueSource(ints = {2, 3, 4})
++    void freeWorkersCanDecodeAnotherTileWhileTheSameBayerPhaseIsBusy(int workers) throws Exception {
++        assumeTrue(Runtime.getRuntime().availableProcessors() >= workers);
++        var decoder = CrxSensorDecoder.prepare(track(), 4, 2, 14, V1, CMP);
++        var secondTileStarted = new CountDownLatch(1);
++        int[] pixels = new int[8];
++        decoder.decodeSelectedRows((x, y, row) -> {
++            if (x == 0 && y == 0) {
++                try {
++                    assertTrue(secondTileStarted.await(5, TimeUnit.SECONDS),
++                            "A free worker must be able to decode an independent tile of the busy Bayer phase");
++                } catch (InterruptedException e) {
++                    throw new AssertionError(e);
++                }
++            } else if (x == 2 && y == 0) {
++                secondTileStarted.countDown();
++            }
++            pixels[4 * y + x] = row[0];
++        }, workers, CrxSensorDecoder.PlaneRowLimit.ALL_ROWS, true);
++        assertArrayEquals(new int[]{8192, 8193, 8194, 8195, 8196, 8197, 8198, 8199}, pixels);
++    }
++
+     @Test
+     void selectedTilesOfOneBayerPhaseCanUseTwoWorkers() throws Exception {
+         assumeTrue(Runtime.getRuntime().availableProcessors() >= 2);
