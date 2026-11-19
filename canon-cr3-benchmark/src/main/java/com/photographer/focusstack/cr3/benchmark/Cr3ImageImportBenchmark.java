@@ -60,6 +60,23 @@ public class Cr3ImageImportBenchmark {
         return read(param);
     }
 
+    /** Full-precision RGB16, including the final sRGB transfer and unsigned-short output. */
+    @Benchmark
+    public BufferedImage importProcessedRgb16ViaImageIo() throws IOException {
+        CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+        param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN));
+        return read(param);
+    }
+
+    /** Same RGB16 development without the transfer function, to isolate its full-import cost. */
+    @Benchmark
+    public BufferedImage importLinearRgb16ViaImageIo() throws IOException {
+        CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();
+        param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                .applySrgbConversion(false));
+        return read(param);
+    }
+
     /** Raw Bayer codes, including the full sensor margins, through the public reader. */
     @Benchmark
     public BufferedImage importSensorViaImageIo() throws IOException {

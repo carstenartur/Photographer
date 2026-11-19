@@ -307,11 +307,13 @@ public final class Cr3Decoder implements AutoCloseable {
     public Cr3PreparedRaw prepareRawDevelopment(int maxWorkers) throws Cr3Exception, IOException {
         var options = Cr3DecodeOptions.rawProcessed().maxWorkers(maxWorkers);
         RawTrack track = rawTrack();
-        var prepared = prepareRawDevelopment(track, options, processedArea(options, track), false, orientation(), null);
+        Rectangle area = processedArea(options, track);
+        int orientation = orientation();
+        var prepared = prepareRawDevelopment(track, options, area, false, null);
         double[][] matrix = prepared.colorMatrix();
-        return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), prepared.sensorX(), prepared.sensorY(),
+        return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), area.x, area.y,
                 prepared.whiteBalance().clone(), prepared.whiteLevel(),
-                new double[][] {matrix[0].clone(), matrix[1].clone(), matrix[2].clone()}, prepared.orientation());
+                new double[][] {matrix[0].clone(), matrix[1].clone(), matrix[2].clone()}, orientation);
     }
 
     /**
@@ -361,12 +363,13 @@ public final class Cr3Decoder implements AutoCloseable {
         boolean sixteenBit = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
         int[] suppliedSamples = sixteenBit || partial || (orientation >= 5 && orientation <= 8)
                 ? null : reusableRgbSamples(destination, area);
-        var prepared = prepareRawDevelopment(track, options, area, partial, orientation, suppliedSamples);
+        var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples);
 
         Rectangle localRegion = new Rectangle(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
                 region.width, region.height);
         if (sixteenBit) {
-            return BayerDemosaicer.develop16(prepared.image(), prepared.blackLevel(), area.x, area.y,
+            return BayerDemosaicer.develop16Owned(prepared.compactSamples(), area.width, area.height,
+                    CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()), prepared.blackLevel(), area.x, area.y,
                     prepared.whiteBalance(), prepared.whiteLevel(), prepared.colorMatrix(), localRegion,
                     orientation, options.applySrgbConversion(), options.maxWorkers());
         }
@@ -411,12 +414,19 @@ public final class Cr3Decoder implements AutoCloseable {
         return samples.length == (long) area.width * area.height ? samples : null;
     }
 
-    private Cr3PreparedRaw prepareRawDevelopment(RawTrack track, Cr3DecodeOptions options, Rectangle area,
-                                                  boolean partial, int orientation, int[] suppliedSamples)
+    /** RGB8 keeps an int image; RGB16 keeps compact native codes. The calibration is shared. */
+    private record PreparedDevelopment(Cr3RawImage image, short[] compactSamples, BlackLevel blackLevel,
+                                       double[] whiteBalance, int whiteLevel, double[][] colorMatrix) {}
+
+    private PreparedDevelopment prepareRawDevelopment(RawTrack track, Cr3DecodeOptions options, Rectangle area,
+                                                      boolean partial, int[] suppliedSamples)
             throws Cr3Exception, IOException {
         CrxSensorDecoder sensor = prepareSensor(track);
-        int[] samples = suppliedSamples == null ? new int[Math.multiplyExact(area.width, area.height)] : suppliedSamples;
-        var rawImage = new Cr3RawImage(area.width, area.height, samples, track.depth,
+        int sampleCount = Math.multiplyExact(area.width, area.height);
+        boolean compact = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
+        short[] compactSamples = compact ? new short[sampleCount] : null;
+        int[] samples = compact ? null : suppliedSamples == null ? new int[sampleCount] : suppliedSamples;
+        var rawImage = compact ? null : new Cr3RawImage(area.width, area.height, samples, track.depth,
                 CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
 
         // Collect the left optical-black border for every sensor row, including rows outside the crop.
@@ -429,7 +439,7 @@ public final class Cr3Decoder implements AutoCloseable {
             if (ob != null) {
                 ob.addPlaneRow(x, y, row);
             }
-            copyBayerRow(samples, area, x, y, row);
+            copyBayerRow(samples, compactSamples, area, x, y, row);
         };
         // With the masked columns in the first tile, no two tiles add to the same black-level sums.
         boolean independentTiles = ob == null || blackColumns <= track.source.cmp1().tileWidth();
@@ -447,10 +457,10 @@ public final class Cr3Decoder implements AutoCloseable {
             minBlackLevelSubtracted = effectiveMinBlackLevel(black);
         }
 
-        int whiteLevel = Math.max(1, rawImage.maxValue() - minBlackLevelSubtracted);
+        int whiteLevel = Math.max(1, ((1 << track.depth) - 1) - minBlackLevelSubtracted);
         double[] whiteBalance = options.applyWhiteBalance() ? resolveWhiteBalance() : null;
         double[][] colorMatrix = options.applyColorMatrix() ? resolveColorMatrix() : null;
-        return new Cr3PreparedRaw(rawImage, black, area.x, area.y, whiteBalance, whiteLevel, colorMatrix, orientation);
+        return new PreparedDevelopment(rawImage, compactSamples, black, whiteBalance, whiteLevel, colorMatrix);
     }
 
     private Rectangle processedArea(Cr3DecodeOptions options, RawTrack track) {
@@ -688,7 +698,7 @@ public final class Cr3Decoder implements AutoCloseable {
         CrxSensorDecoder sensor = prepareSensor(track);
         var area = new Rectangle(track.width, track.height);
         int[] samples = new int[Math.multiplyExact(track.width, track.height)];
-        sensor.decodeRows((x, y, row) -> copyBayerRow(samples, area, x, y, row), 0);
+        sensor.decodeRows((x, y, row) -> copyBayerRow(samples, null, area, x, y, row), 0);
         return new Cr3RawImage(track.width, track.height, samples, track.depth,
                 CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()));
     }
@@ -765,7 +775,8 @@ public final class Cr3Decoder implements AutoCloseable {
         return new Rectangle(width, height);
     }
 
-    private static void copyBayerRow(int[] destination, Rectangle area, int x, int y, int[] row) {
+    private static void copyBayerRow(int[] destination, short[] compactDestination, Rectangle area,
+                                     int x, int y, int[] row) {
         int relativeY = y - area.y;
         if (relativeY < 0 || relativeY >= area.height) {
             return;
@@ -774,8 +785,15 @@ public final class Cr3Decoder implements AutoCloseable {
         int first = Math.max(0, Math.ceilDiv(area.x - x, 2));
         int end = Math.min(row.length, Math.ceilDiv(area.x + area.width - x, 2));
         int dest = relativeY * area.width + (x + 2 * first - area.x);
-        for (int i = first; i < end; i++, dest += 2) {
-            destination[dest] = row[i];
+        if (compactDestination != null) {
+            // Native decoders validate or clamp the emitted sensor codes before this copy.
+            for (int i = first; i < end; i++, dest += 2) {
+                compactDestination[dest] = (short) row[i];
+            }
+        } else {
+            for (int i = first; i < end; i++, dest += 2) {
+                destination[dest] = row[i];
+            }
         }
     }
 
