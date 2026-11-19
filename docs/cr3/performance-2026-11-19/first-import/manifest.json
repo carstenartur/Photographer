@@ -1,0 +1,54 @@
+{
+  "created_utc": "2026-11-19T07:55:52.773+00:00",
+  "inputs": [
+    {
+      "sample": "sample.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+      "bytes": 22920507,
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    {
+      "sample": "eosr-iso-low.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+      "bytes": 40282915,
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    }
+  ],
+  "forks": 3,
+  "artifacts": {
+    "baseline": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+      "bytes": 3604294,
+      "sha256": "5a53a39669229e99e04a3c892bdd5f6f0343039f0406de2f0951dec095a1781a"
+    },
+    "optimized": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/final16-benchmarks.jar",
+      "bytes": 3633926,
+      "sha256": "c8ccdde4c48cfc94874fcb3ac3313282ba8913c77c85f1be0121a7fbc5b016ca"
+    }
+  },
+  "java": {
+    "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+    "bytes": 16264,
+    "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+  },
+  "runner": {
+    "path": "/workspace/scratch/adce2cf98312/qa-work/first_import_measurements.py",
+    "bytes": 6663,
+    "sha256": "099a4e8b9791e24ba7a11aa4599f0d39ec13aa7954fcd82cb4e2cf0e7fbe29e1"
+  },
+  "probe": {
+    "path": "/workspace/scratch/adce2cf98312/qa-work/public-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+    "bytes": 15808,
+    "sha256": "490ff45dc1feab705e40cc3b09faad1e2bcaa9bcd13818c363a26b0e032ccab7"
+  },
+  "planned_processes": 24,
+  "notes": [
+    "No warmup, no explicit GC and one import per fresh JVM.",
+    "Input hash reads warm the filesystem cache; this is not cold-storage latency.",
+    "First API time excludes plugin scan and output/statistics.",
+    "Whole probe process includes JVM/plugin startup, instrumentation, sampled hash and JSON.",
+    "Peak RSS is each child process ru_maxrss, in KiB on this Linux host.",
+    "AB/BA/AB variant order within each input/CPU/fork."
+  ]
+}

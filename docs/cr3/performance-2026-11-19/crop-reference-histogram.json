@@ -1,0 +1,68 @@
+{
+  "reference": "canon-cr3-imageio/src/test/resources/samples/sample.reference.tiff",
+  "reference_sha256": "83a2a0f236c4dd0b282901ec7b91386751314a5b8aee4e5f5c15d378b7d47ff1",
+  "registered_reference_tool": "rawpy 0.27.0 / LibRaw 0.22.1; existing TIFF only, no new RAW decode",
+  "calculation": "Read unsigned native TIFF sites; max(sample-512,0)*65535//16383; 16 bins indexed by value>>12. Computed in independent Python/Pillow/NumPy code, without Photographer decoder.",
+  "results": [
+    {
+      "name": "old_half_open",
+      "half_open_bounds": [
+        120,
+        28,
+        5615,
+        3695
+      ],
+      "width": 5495,
+      "height": 3667,
+      "sites": 20150165,
+      "histogram_16_bins": [
+        0,
+        11927041,
+        8223124,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "inclusive_iad1_normalized",
+      "half_open_bounds": [
+        120,
+        28,
+        5616,
+        3696
+      ],
+      "width": 5496,
+      "height": 3668,
+      "sites": 20159328,
+      "histogram_16_bins": [
+        0,
+        11935391,
+        8223937,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

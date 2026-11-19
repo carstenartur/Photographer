@@ -1,0 +1,20 @@
+[
+  {
+    "sample": "sample.cr3",
+    "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+    "bytes": 22920507,
+    "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+  },
+  {
+    "sample": "eosr-iso-low.cr3",
+    "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+    "bytes": 40282915,
+    "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+  },
+  {
+    "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+    "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+    "bytes": 11053010,
+    "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+  }
+]

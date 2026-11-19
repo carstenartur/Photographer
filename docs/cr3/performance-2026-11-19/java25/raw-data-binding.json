@@ -1,0 +1,6 @@
+{
+  "uncompressed_results_sha256": "298e91dc2f9d5fc53eece5512afdcceaf674f9e5b2f7dc1e72bc91afe6396440",
+  "processes": 192,
+  "measured_imports": 960,
+  "compression": "gzip; decompression reproduces original results.json bytes"
+}

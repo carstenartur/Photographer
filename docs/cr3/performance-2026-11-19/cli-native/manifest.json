@@ -1,0 +1,147 @@
+{
+  "created_utc": "2026-11-19T07:54:53.960+00:00",
+  "runner": {
+    "path": "/workspace/scratch/adce2cf98312/qa-work/cli_measurements.py",
+    "bytes": 6483,
+    "sha256": "5c678d0eb82ee3f9f042296b05b8c6ce1f12a213cc96ed6cbef2c609e7de6631"
+  },
+  "inputs": [
+    {
+      "sample": "sample.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+      "bytes": 22920507,
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    {
+      "sample": "eosr-iso-low.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+      "bytes": 40282915,
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    },
+    {
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "bytes": 11053010,
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+    },
+    {
+      "sample": "eos-m50-craw-4656.cr3",
+      "path": "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+      "bytes": 14851567,
+      "sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "public_id": 4656,
+      "camera": "EOS M50",
+      "compression": "C-RAW",
+      "group": "holdout",
+      "url": "https://raw.pixls.us/getfile.php/4656/nice/Canon%20-%20EOS%20M50%20-%203:2.CR3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "registry": "/workspace/scratch/adce2cf98312/photographer-qa-performance/scripts/research/public-crx/craw-sensors.tsv",
+      "expected_input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "input_pin_matches": true,
+      "registered_dnglab_pgm_sha256": "8cf48a03bad4c80242e3a9993039de696a1a207688b1024a8b122d5a90109b3f",
+      "download_policy": "HTTPS only, verified TLS, HTTPS-only redirects",
+      "observed_metadata": {
+        "source": "DNGLab 0.8.0 analyze --meta --json",
+        "make": "Canon",
+        "model": "EOS M50",
+        "raw_width": 6288,
+        "raw_height": 4056,
+        "decoded_storage_bits": 16,
+        "active_area": {
+          "p": {
+            "x": 264,
+            "y": 36
+          },
+          "d": {
+            "w": 6022,
+            "h": 4018
+          }
+        },
+        "crop_area": {
+          "p": {
+            "x": 276,
+            "y": 48
+          },
+          "d": {
+            "w": 6000,
+            "h": 4000
+          }
+        },
+        "orientation": 1,
+        "iso": 100,
+        "exposure_time": "1/5",
+        "fnumber": "35/10",
+        "focal_length": "18/1",
+        "lens_model": "EF-M 18-150mm f/3.5-6.3 IS STM",
+        "black_levels": {
+          "levels": [
+            "510/1",
+            "511/1",
+            "511/1",
+            "511/1"
+          ],
+          "cpp": 1,
+          "width": 2,
+          "height": 2
+        },
+        "white_levels": [
+          11892
+        ],
+        "white_balance": [
+          1.078125,
+          1.0,
+          1.8994141,
+          null
+        ]
+      },
+      "native_sensor_u16le_sha256": "94182070598aa7c84cab9ce21b44379480c8a882365843979913a5534347d150",
+      "native_reference_engines_match": true,
+      "dnglab_pgm_pin_matches": true
+    }
+  ],
+  "artifacts": {
+    "jar": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/final16-benchmarks.jar",
+      "bytes": 3633926,
+      "sha256": "c8ccdde4c48cfc94874fcb3ac3313282ba8913c77c85f1be0121a7fbc5b016ca"
+    },
+    "java": {
+      "path": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+      "bytes": 16264,
+      "sha256": "119be7dc09c11c805f4face21d268d4b05f807a56d5c6fca1956fc35f6d2c35b"
+    },
+    "libraw": {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+      "bytes": 22096,
+      "sha256": "3bc0ada7e6bca3f9c8ba831ca4ead59e41964879689d22b077741e2653e20c73"
+    },
+    "dnglab": {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+      "bytes": 17448128,
+      "sha256": "d45334659d008b010966f56c3a472677f510a1775d78debd45f5078612ac0683"
+    },
+    "probe": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/public-probe-classes/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class",
+      "bytes": 15808,
+      "sha256": "490ff45dc1feab705e40cc3b09faad1e2bcaa9bcd13818c363a26b0e032ccab7"
+    }
+  },
+  "forks": 3,
+  "cpus": [
+    1,
+    4
+  ],
+  "planned_processes": 72,
+  "environment_policy": {
+    "OMP_NUM_THREADS": "cpus",
+    "OMP_THREAD_LIMIT": "cpus",
+    "OMP_DYNAMIC": "FALSE",
+    "RAYON_NUM_THREADS": "cpus"
+  },
+  "notes": [
+    "Fresh process; full native sensor decode and PGM serialization to /dev/null.",
+    "Whole-process wall time includes startup, sampled Java/C diagnostics and shutdown.",
+    "Each child peak RSS is ru_maxrss in KiB on this Linux host.",
+    "Engine order rotates each fork; input SHA-256 reads warm the filesystem cache."
+  ]
+}

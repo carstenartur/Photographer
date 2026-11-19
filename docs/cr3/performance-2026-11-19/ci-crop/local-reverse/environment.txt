@@ -1,0 +1,29 @@
+timestamp=2026-11-19T07:57:30.976388+00:00
+base_ref=9b82827af545e062cf495b9d7f3a6db7b07da469
+base_sha=9b82827af545e062cf495b9d7f3a6db7b07da469
+head_ref=fb0bad87cd3902237b7871a24ed7db4353f45dab
+head_sha=fb0bad87cd3902237b7871a24ed7db4353f45dab
+forks=3
+run_order=head,base
+platform=Linux-6.18.57-x86_64-with-glibc2.41
+machine=x86_64
+processor=unknown
+cpu_count=9
+runner_image=local
+runner_image_version=local
+event=local
+
+## CPU
+lscpu: failed to determine number of CPUs: /sys/devices/system/cpu/possible: No such file or directory
+
+## Java
+openjdk version "25.0.5.1" 2026-11-17 LTS
+OpenJDK Runtime Environment Temurin-25.0.5.1+2 (build 25.0.5.1+2-LTS)
+OpenJDK 64-Bit Server VM Temurin-25.0.5.1+2 (build 25.0.5.1+2-LTS, mixed mode, sharing)
+
+## Maven
+Apache Maven 3.9.11 (3e54c93a704957b63ee3494413a2b544fd3d825b)
+Maven home: /workspace/scratch/adce2cf98312/rgb16-tools/apache-maven-3.9.11
+Java version: 25.0.5.1, vendor: Eclipse Adoptium, runtime: /workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2
+Default locale: en, platform encoding: UTF-8
+OS name: "linux", version: "6.18.57", arch: "amd64", family: "unix"

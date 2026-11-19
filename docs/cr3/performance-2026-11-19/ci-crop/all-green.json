@@ -1,0 +1,198 @@
+{
+  "checked_at": "2026-11-19T08:05:27.691Z",
+  "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+  "tree_sha": "51b841c8bfc396a18f60fd97427fd7e0e39ab793",
+  "gate_complete": true,
+  "workflow_count": 6,
+  "check_count": 14,
+  "successful_checks": 11,
+  "expected_skips": [
+    {
+      "id": 135421324936,
+      "name": "Scheduled Maven Site & Badges",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510/job/135421324936"
+    },
+    {
+      "id": 135420167486,
+      "name": "attach",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402/job/135420167486"
+    },
+    {
+      "id": 135420167467,
+      "name": "Publish the released Fiji update site",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402/job/135420167467"
+    }
+  ],
+  "checks": [
+    {
+      "id": 135424040934,
+      "name": "Calibrate unchanged CR3 sentinels",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790433/job/135424040934"
+    },
+    {
+      "id": 135424038285,
+      "name": "JMH Benchmarks (Canon CR3)",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790433/job/135424038285"
+    },
+    {
+      "id": 135421324936,
+      "name": "Scheduled Maven Site & Badges",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510/job/135421324936"
+    },
+    {
+      "id": 135421322746,
+      "name": "Docker Build Smoke Test",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510/job/135421322746"
+    },
+    {
+      "id": 135420167486,
+      "name": "attach",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402/job/135420167486"
+    },
+    {
+      "id": 135420167467,
+      "name": "Publish the released Fiji update site",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402/job/135420167467"
+    },
+    {
+      "id": 135418987895,
+      "name": "bundle",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402/job/135418987895"
+    },
+    {
+      "id": 135418912627,
+      "name": "Maven verification",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510/job/135418912627"
+    },
+    {
+      "id": 135418912489,
+      "name": "Frontend Test, Lint & Build",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510/job/135418912489"
+    },
+    {
+      "id": 135418870490,
+      "name": "Detect documentation-only changes",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510/job/135418870490"
+    },
+    {
+      "id": 135418825274,
+      "name": "CR3 research integration tests",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790446/job/135418825274"
+    },
+    {
+      "id": 135418824971,
+      "name": "CR3 external Maven consumer and Central bundle",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790477/job/135418824971"
+    },
+    {
+      "id": 135418824488,
+      "name": "Resolve Fiji build source",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402/job/135418824488"
+    },
+    {
+      "id": 135418813484,
+      "name": "submit-maven",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482785080/job/135418813484"
+    }
+  ],
+  "workflows": [
+    {
+      "id": 44482790446,
+      "name": "CR3 Research Integration",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790446"
+    },
+    {
+      "id": 44482790477,
+      "name": "CR3 Packaged Consumer",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790477"
+    },
+    {
+      "id": 44482790402,
+      "name": "CR3 Fiji distribution",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790402"
+    },
+    {
+      "id": 44482790510,
+      "name": "CI",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790510"
+    },
+    {
+      "id": 44482790433,
+      "name": "CR3 Benchmark History",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 3,
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482790433"
+    },
+    {
+      "id": 44482785080,
+      "name": "Automatic Dependency Submission (Maven)",
+      "head_sha": "fb0bad87cd3902237b7871a24ed7db4353f45dab",
+      "status": "completed",
+      "conclusion": "success",
+      "run_attempt": 1,
+      "html_url": "https://github.com/carstenartur/Photographer/actions/runs/44482785080"
+    }
+  ],
+  "skip_explanation": "Fiji attach and publish-site require a release tag; Scheduled Maven Site & Badges runs only on schedule/workflow_dispatch. Calibration scope job succeeded, but its measurement steps were skipped because the calibration script was unchanged.",
+  "no_external_mutations_by_qa_agent": true
+}

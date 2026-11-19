@@ -1,0 +1,24 @@
+{
+  "comparisons": [
+    {
+      "base_score": 321.1702811296296,
+      "benchmark": "com.photographer.focusstack.cr3.benchmark.CrxLosslessDecodeBenchmark.decode",
+      "change_percent": 3.6670336570780115,
+      "confidence_available": true,
+      "confidence_intervals_overlap": true,
+      "head_score": 332.9477034351852,
+      "params": [
+        [
+          "sample",
+          "sample.cr3"
+        ]
+      ],
+      "ratio": 1.0366703365707801,
+      "score_unit": "ms/op",
+      "verdict": "STABLE"
+    }
+  ],
+  "confirmedRegressions": 0,
+  "noisyWarnings": 0,
+  "thresholdRatio": 1.15
+}

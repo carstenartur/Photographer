@@ -2,6 +2,20 @@
 
 CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
+## Complete-import QA and comparison on 2026-11-19
+
+The [four-file QA and performance report](cr3/performance-2026-11-19/README.md)
+compares the pixel-preserving RGB16 optimization with its baseline, LibRaw
+0.21.4 and DNGLab 0.8.0. It retains full `ImageIO.read(File)` RGB8 controls,
+native and RGB16 paths, Java 21/G1 sensitivity, first-import and serialized CLI
+boundaries, allocation/RSS evidence, exact input/output hashes and all repeated
+observations. The later inclusive-IAD1 crop correction is identified separately
+because it intentionally changes developed dimensions and boundary pixels.
+
+[Public Java/C probes](../scripts/benchmarks/README.md) and
+[source-based reproduction](cr3/performance-2026-11-19/comparison-setup.md)
+make the complete-file study reproducible alongside the JMH regression gates.
+
 ## Full RAW focus stacks
 
 The Photographer benchmark measures a stack from opening the originals through writing the PNG. The CPU series in the history develops three copies of the repository's EOS R fixture. To measure a captured stack, pass a directory of CR3 originals whose filenames sort in acquisition order.

@@ -1,0 +1,13 @@
+{
+  "original_helper": {
+    "sha256": "490ff45dc1feab705e40cc3b09faad1e2bcaa9bcd13818c363a26b0e032ccab7",
+    "major_version": 69
+  },
+  "java21_helper": {
+    "sha256": "c0a02c0926fcb3ad98112242e48792c12decfc805ebbffbbc05ae53c62da1daf",
+    "major_version": 65
+  },
+  "equal_ignoring_classfile_version": false,
+  "source_sha256": "d7ffd2a7b0074190019aba9f6ea4bc378be33b335b5c66fc6ad82345f5149f6b",
+  "note": "Initial 24 Java21 launches rejected the Java25-compiled helper before importing. Same frozen source recompiled with javac --release21 into a separate directory; production jars and original measured class unchanged."
+}

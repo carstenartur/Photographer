@@ -1,0 +1,19 @@
+{
+  "final_measurements.py": {
+    "bytes": 17038,
+    "sha256": "ea7f18765b04049fdb5e97f8c69d016092e3c34aed0a213248d95d8d38c9e6f4"
+  },
+  "Cr3ImportProbe.java": {
+    "bytes": 6707,
+    "sha256": "8c4bb2802132f13ed07c6f84bf59c53e730b7036b3aebff30661ad336d1b39e8"
+  },
+  "measured_class": {
+    "sha256": "10661aa49a9776305058265a93be55dbd8bbae633ecc33e8eaa1b4a23f37db13",
+    "major_version": 65,
+    "manifest_sha256_matches": true,
+    "binary_included": false
+  },
+  "runner_matches_recorded_manifest": true,
+  "source_scope": "Retained default-package Java source for source-based reproduction. The original run manifest pinned the compiled class, not this Java source; the source digest above is recorded when archiving and is not a prior source-to-class proof.",
+  "timing_group": "../../rgb8-experiment/manifest.json"
+}

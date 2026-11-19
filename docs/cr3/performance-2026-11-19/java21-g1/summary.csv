@@ -1,0 +1,9 @@
+stage,variant,input_index,sample,mode,cpus,successful_processes,failed_processes,total_ms,cpu_ms,allocated_bytes,heap_used_bytes,median_process_peak_rss_kb,max_process_peak_rss_kb
+final,baseline,0,sample.cr3,rgb16linear,4,3,0,468.782696,1550.0,202703784,205988896,262604,268424
+final,final,0,sample.cr3,rgb16linear,4,3,0,409.729741,1440.0,122367176,126296528,184984,185264
+final,baseline,0,sample.cr3,rgb16,4,3,0,972.46522,3460.0,202703784,205989864,263212,264312
+final,final,0,sample.cr3,rgb16,4,3,0,472.551968,1670.0,122367176,127478344,187048,188656
+final,baseline,1,eosr-iso-low.cr3,rgb16linear,4,3,0,693.225097,2360.0,304807368,306728784,365624,365788
+final,final,1,eosr-iso-low.cr3,rgb16linear,4,3,0,649.672027,2250.0,183784296,185098632,245980,251952
+final,baseline,1,eosr-iso-low.cr3,rgb16,4,3,0,1444.707289,5240.0,304807368,306730344,369636,369812
+final,final,1,eosr-iso-low.cr3,rgb16,4,3,0,723.856966,2570.0,183784296,187325064,251160,256080

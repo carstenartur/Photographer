@@ -1,0 +1,23 @@
+[
+  {
+    "name": "com.photographer.focusstack.cr3.bmff.Iad1BoxTest",
+    "tests": "19",
+    "failures": "5",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "com.photographer.focusstack.cr3.metadata.Cr3ActiveAreaMetadataTest",
+    "tests": "11",
+    "failures": "7",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "name": "com.photographer.focusstack.cr3.imageio.Cr3InclusiveActiveAreaTest",
+    "tests": "5",
+    "failures": "2",
+    "errors": "0",
+    "skipped": "0"
+  }
+]

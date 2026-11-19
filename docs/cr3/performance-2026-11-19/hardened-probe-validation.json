@@ -1,0 +1,58 @@
+[
+  {
+    "case": "default",
+    "exit_code": 0,
+    "bits": 8,
+    "channels": 3,
+    "fnv1a64": "9b8f9e9d1e5f2a85"
+  },
+  {
+    "case": "rgb8",
+    "exit_code": 0,
+    "bits": 8,
+    "channels": 3,
+    "fnv1a64": "9b8f9e9d1e5f2a85"
+  },
+  {
+    "case": "rgb16",
+    "exit_code": 0,
+    "bits": 16,
+    "channels": 3,
+    "fnv1a64": "b1cf2d3123d011dc"
+  },
+  {
+    "case": "rgb16linear",
+    "exit_code": 0,
+    "bits": 16,
+    "channels": 3,
+    "fnv1a64": "63706bf67cd6570e"
+  },
+  {
+    "case": "sensor",
+    "exit_code": 0,
+    "bits": 16,
+    "channels": 1,
+    "fnv1a64": "b46861fe845a2ea0"
+  },
+  {
+    "case": "sensor-path",
+    "exit_code": 0,
+    "bits": 16,
+    "channels": 1,
+    "fnv1a64": "b46861fe845a2ea0"
+  },
+  {
+    "case": "reject PNG default",
+    "exit_code": 1,
+    "message": "Wrong provider rejected before measurement"
+  },
+  {
+    "case": "reject PNG rgb16",
+    "exit_code": 1,
+    "message": "Wrong provider rejected before measurement"
+  },
+  {
+    "case": "reject default explicit workers",
+    "exit_code": 1
+  }
+]

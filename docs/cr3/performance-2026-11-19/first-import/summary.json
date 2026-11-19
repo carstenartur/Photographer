@@ -1,0 +1,90 @@
+[
+  {
+    "input_index": 0,
+    "sample": "sample.cr3",
+    "cpus": 1,
+    "variant": "baseline",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 2834.117534,
+    "median_process_wall_ms": 3152.88403500017,
+    "median_process_peak_rss_kb": 259876
+  },
+  {
+    "input_index": 0,
+    "sample": "sample.cr3",
+    "cpus": 1,
+    "variant": "optimized",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 1560.553774,
+    "median_process_wall_ms": 1788.7329529985436,
+    "median_process_peak_rss_kb": 182144
+  },
+  {
+    "input_index": 0,
+    "sample": "sample.cr3",
+    "cpus": 4,
+    "variant": "baseline",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 1442.566292,
+    "median_process_wall_ms": 1608.2474949998868,
+    "median_process_peak_rss_kb": 261720
+  },
+  {
+    "input_index": 0,
+    "sample": "sample.cr3",
+    "cpus": 4,
+    "variant": "optimized",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 924.573597,
+    "median_process_wall_ms": 1098.5109510002076,
+    "median_process_peak_rss_kb": 183156
+  },
+  {
+    "input_index": 1,
+    "sample": "eosr-iso-low.cr3",
+    "cpus": 1,
+    "variant": "baseline",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 4172.06995,
+    "median_process_wall_ms": 4390.481319000173,
+    "median_process_peak_rss_kb": 360008
+  },
+  {
+    "input_index": 1,
+    "sample": "eosr-iso-low.cr3",
+    "cpus": 1,
+    "variant": "optimized",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 2144.102191,
+    "median_process_wall_ms": 2374.9938539986033,
+    "median_process_peak_rss_kb": 241412
+  },
+  {
+    "input_index": 1,
+    "sample": "eosr-iso-low.cr3",
+    "cpus": 4,
+    "variant": "baseline",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 2125.03456,
+    "median_process_wall_ms": 2387.9643679993023,
+    "median_process_peak_rss_kb": 362044
+  },
+  {
+    "input_index": 1,
+    "sample": "eosr-iso-low.cr3",
+    "cpus": 4,
+    "variant": "optimized",
+    "attempted_forks": 3,
+    "successful_forks": 3,
+    "median_first_api_ms": 1196.189139,
+    "median_process_wall_ms": 1339.5526259992039,
+    "median_process_peak_rss_kb": 243008
+  }
+]

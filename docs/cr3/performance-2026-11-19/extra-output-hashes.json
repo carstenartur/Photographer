@@ -1,0 +1,58 @@
+[
+  {
+    "mode": "sensor",
+    "sample": "eos-m50-craw-4656.cr3",
+    "input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+    "fnv1a64": "9bfade480f63376f",
+    "width": 6288,
+    "height": 4056,
+    "channels": 1,
+    "bits": 16,
+    "maximum": 65535,
+    "canonical_sample_order": "u16le",
+    "samples_sha256": "94182070598aa7c84cab9ce21b44379480c8a882365843979913a5534347d150",
+    "file_sha256": "e3965dd3bcac93c28cedd0e90fd41df4a4d2fdfe785db8f888f94d7cb968193b"
+  },
+  {
+    "mode": "default",
+    "sample": "eos-m50-craw-4656.cr3",
+    "input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+    "fnv1a64": "040a369fb3fcd8ad",
+    "width": 6023,
+    "height": 4019,
+    "channels": 3,
+    "bits": 8,
+    "maximum": 255,
+    "canonical_sample_order": "u8",
+    "samples_sha256": "0aeadc4bd3557fae9ff8910933e5acacd519c26384ecc1b615bead95e85e0a21",
+    "file_sha256": "f42dc5b5ecab4a423e5948003692f1d8853485632ffec82e3add79879bf99622"
+  },
+  {
+    "mode": "rgb16linear",
+    "sample": "eos-m50-craw-4656.cr3",
+    "input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+    "fnv1a64": "27d158316f1811e8",
+    "width": 6023,
+    "height": 4019,
+    "channels": 3,
+    "bits": 16,
+    "maximum": 65535,
+    "canonical_sample_order": "u16le",
+    "samples_sha256": "9a8142ff622fe592051eee760b00616f22667a99e9b11a32d61df6cb809009f0",
+    "file_sha256": "936369a99b774b266f1c26d6aefb019cf4759c699592aca6064177d7b07875d4"
+  },
+  {
+    "mode": "rgb16",
+    "sample": "eos-m50-craw-4656.cr3",
+    "input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+    "fnv1a64": "ae85a950bd541140",
+    "width": 6023,
+    "height": 4019,
+    "channels": 3,
+    "bits": 16,
+    "maximum": 65535,
+    "canonical_sample_order": "u16le",
+    "samples_sha256": "2bed95b064ba8cc4092b59185837f752d1623855c15913680b6a459eac695ddc",
+    "file_sha256": "c9fd24e4c199f45bb0c6d6747e6430a3e719d01f2e7496e2ee2a877f41f57f70"
+  }
+]

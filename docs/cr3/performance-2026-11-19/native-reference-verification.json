@@ -1,0 +1,596 @@
+{
+  "schema_version": 1,
+  "scope": "Full native uncropped Bayer sensor verification; no image development or timing comparison",
+  "baseline_commit": "83a687e7680405b96e0ce35b82802b1f03a3d764",
+  "libraw_version": "0.21.4-Release",
+  "dnglab_version": "0.8.0",
+  "thread_limits": {
+    "OMP_NUM_THREADS": "1",
+    "OMP_THREAD_LIMIT": "1",
+    "OMP_DYNAMIC": "FALSE",
+    "RAYON_NUM_THREADS": "1"
+  },
+  "Photographer_active_processors": 4,
+  "timing_policy": "Other validation ran concurrently. Timing/resource fields exist only in raw diagnostics and are excluded from this report.",
+  "canonicalization": "PGM big-endian unsigned 16-bit samples converted to u16le without scaling; complete payload SHA-256 excludes headers",
+  "cleanroom_scope": "Only first-party code, registered binary tools, observable metadata/output and pinned inputs; no third-party decoder source",
+  "tool_provenance": [
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+      "sha256": "3bc0ada7e6bca3f9c8ba831ca4ead59e41964879689d22b077741e2653e20c73",
+      "matches_setup_pin": true
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+      "sha256": "d45334659d008b010966f56c3a472677f510a1775d78debd45f5078612ac0683",
+      "matches_setup_pin": true
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-0.21.4/usr/lib/x86_64-linux-gnu/libraw_r.so.23.0.0",
+      "sha256": "d7f9c71246a262895cc27c42f7447dbd5107867a8f74875299975ede0246d523",
+      "matches_setup_pin": true
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+      "sha256": "5a53a39669229e99e04a3c892bdd5f6f0343039f0406de2f0951dec095a1781a"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/probe-classes/Cr3ImportProbe.class",
+      "sha256": "10661aa49a9776305058265a93be55dbd8bbae633ecc33e8eaa1b4a23f37db13"
+    },
+    {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/reference-tools/pnm_digest.py",
+      "sha256": "91e24177c283a998746e39f0a3ae7cb7cc900884d20f9cf563034d6d52ee381f"
+    }
+  ],
+  "input_count": 4,
+  "sensor_sites_per_engine": 98606416,
+  "all_native_samples_match": true,
+  "results": [
+    {
+      "input": {
+        "sample": "sample.cr3",
+        "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+        "bytes": 22920507,
+        "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+      },
+      "verified_input_sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+      "input_pin_matches": true,
+      "Photographer": {
+        "sample": "sample.cr3",
+        "input_sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "mode": "sensor",
+        "fnv1a64": "bbb2c3b2ecb4e45b",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "7d7de1ce88a3cf9905e153089767a858b37928e78c2fc01a64eb18d10217e6b6",
+        "file_sha256": "23a7d6c48954e61d79876bbf97508cb64aa693ff2060d5017f307cb30f9276ce",
+        "evidence_source": "/workspace/scratch/adce2cf98312/qa-work/native-reference/photographer-existing-baselines.json",
+        "reused_verified_baseline_record": true
+      },
+      "LibRaw": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/sample-libraw.pgm",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "7d7de1ce88a3cf9905e153089767a858b37928e78c2fc01a64eb18d10217e6b6",
+        "file_sha256": "23a7d6c48954e61d79876bbf97508cb64aa693ff2060d5017f307cb30f9276ce",
+        "observation": {
+          "engine": "LibRaw",
+          "version": "0.21.4-Release",
+          "input": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "mode": "sensor",
+          "width": 5632,
+          "height": 3710,
+          "channels": 1,
+          "bits": 16,
+          "raw_width": 5632,
+          "raw_height": 3710,
+          "visible_width": 5536,
+          "visible_height": 3692,
+          "left_margin": 96,
+          "top_margin": 18,
+          "source_flip": 0,
+          "warnings": 0,
+          "checksum_kind": "full-u16le-or-u8",
+          "fnv1a64": "bbb2c3b2ecb4e45b"
+        },
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+          "--input",
+          "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "sensor",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--checksum",
+          "--dump",
+          "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/sample-libraw.pgm"
+        ],
+        "stdout": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/sample-libraw.jsonl",
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/sample-libraw.stderr",
+        "pgm_header": "P5\n5632 3710\n65535\n",
+        "pgm_payload_bytes": 41789440
+      },
+      "DNGLab": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/sample-dnglab.pgm",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "7d7de1ce88a3cf9905e153089767a858b37928e78c2fc01a64eb18d10217e6b6",
+        "file_sha256": "b6a792a080720f302c00ecd6d40b4f067d0b619ad92cb31cbccc853a7e4263c7",
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+          "analyze",
+          "--raw-pixel",
+          "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3"
+        ],
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/sample-dnglab.stderr",
+        "pgm_header": "P5 5632 3710 65535\n",
+        "pgm_payload_bytes": 41789440
+      },
+      "comparisons_against_Photographer": {
+        "LibRaw": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": true,
+          "full_fnv1a64_matches": true
+        },
+        "DNGLab": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": false
+        }
+      },
+      "all_native_samples_match": true
+    },
+    {
+      "input": {
+        "sample": "eosr-iso-low.cr3",
+        "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+        "bytes": 40282915,
+        "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "verified_input_sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+      "input_pin_matches": true,
+      "Photographer": {
+        "sample": "eosr-iso-low.cr3",
+        "input_sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+        "mode": "sensor",
+        "fnv1a64": "bfdafa4cdea7ee7c",
+        "width": 6888,
+        "height": 4546,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "4e041b9659ac65780ba839e3d64196768603a54dde2e48b114291915b4c45e98",
+        "file_sha256": "bef10b106418cf20907a68463f15100edd14865a9d8154b5d97788959682f85e",
+        "evidence_source": "/workspace/scratch/adce2cf98312/qa-work/native-reference/photographer-existing-baselines.json",
+        "reused_verified_baseline_record": true
+      },
+      "LibRaw": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eosr-iso-low-libraw.pgm",
+        "width": 6888,
+        "height": 4546,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "4e041b9659ac65780ba839e3d64196768603a54dde2e48b114291915b4c45e98",
+        "file_sha256": "bef10b106418cf20907a68463f15100edd14865a9d8154b5d97788959682f85e",
+        "observation": {
+          "engine": "LibRaw",
+          "version": "0.21.4-Release",
+          "input": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "mode": "sensor",
+          "width": 6888,
+          "height": 4546,
+          "channels": 1,
+          "bits": 16,
+          "raw_width": 6888,
+          "raw_height": 4546,
+          "visible_width": 6742,
+          "visible_height": 4498,
+          "left_margin": 146,
+          "top_margin": 48,
+          "source_flip": 0,
+          "warnings": 0,
+          "checksum_kind": "full-u16le-or-u8",
+          "fnv1a64": "bfdafa4cdea7ee7c"
+        },
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+          "--input",
+          "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "sensor",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--checksum",
+          "--dump",
+          "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eosr-iso-low-libraw.pgm"
+        ],
+        "stdout": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eosr-iso-low-libraw.jsonl",
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eosr-iso-low-libraw.stderr",
+        "pgm_header": "P5\n6888 4546\n65535\n",
+        "pgm_payload_bytes": 62625696
+      },
+      "DNGLab": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eosr-iso-low-dnglab.pgm",
+        "width": 6888,
+        "height": 4546,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "4e041b9659ac65780ba839e3d64196768603a54dde2e48b114291915b4c45e98",
+        "file_sha256": "e56d1e34d5c70dbc22b0f9c1c82a455aaefa42c605e7290ce1c70f686d4d4813",
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+          "analyze",
+          "--raw-pixel",
+          "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3"
+        ],
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eosr-iso-low-dnglab.stderr",
+        "pgm_header": "P5 6888 4546 65535\n",
+        "pgm_payload_bytes": 62625696
+      },
+      "comparisons_against_Photographer": {
+        "LibRaw": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": true,
+          "full_fnv1a64_matches": true
+        },
+        "DNGLab": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": false
+        }
+      },
+      "all_native_samples_match": true
+    },
+    {
+      "input": {
+        "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+        "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+        "bytes": 11053010,
+        "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+      },
+      "verified_input_sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c",
+      "input_pin_matches": true,
+      "Photographer": {
+        "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+        "input_sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c",
+        "mode": "sensor",
+        "fnv1a64": "a90bf97e45a21c71",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "8b3dcfa11c8c067fa035da6c8c41db51b68a28ee278014c60bc644ae62c8d793",
+        "file_sha256": "36084b240b96891b84ae964a8b93811e80c5d93032422ea32c63354bcc350ed9",
+        "evidence_source": "/workspace/scratch/adce2cf98312/qa-work/native-reference/photographer-existing-baselines.json",
+        "reused_verified_baseline_record": true
+      },
+      "LibRaw": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/g5xm2-detail-iso1600-libraw.pgm",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "8b3dcfa11c8c067fa035da6c8c41db51b68a28ee278014c60bc644ae62c8d793",
+        "file_sha256": "36084b240b96891b84ae964a8b93811e80c5d93032422ea32c63354bcc350ed9",
+        "observation": {
+          "engine": "LibRaw",
+          "version": "0.21.4-Release",
+          "input": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+          "mode": "sensor",
+          "width": 5632,
+          "height": 3710,
+          "channels": 1,
+          "bits": 16,
+          "raw_width": 5632,
+          "raw_height": 3710,
+          "visible_width": 5536,
+          "visible_height": 3692,
+          "left_margin": 96,
+          "top_margin": 18,
+          "source_flip": 0,
+          "warnings": 0,
+          "checksum_kind": "full-u16le-or-u8",
+          "fnv1a64": "a90bf97e45a21c71"
+        },
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+          "--input",
+          "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+          "--mode",
+          "sensor",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--checksum",
+          "--dump",
+          "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/g5xm2-detail-iso1600-libraw.pgm"
+        ],
+        "stdout": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/g5xm2-detail-iso1600-libraw.jsonl",
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/g5xm2-detail-iso1600-libraw.stderr",
+        "pgm_header": "P5\n5632 3710\n65535\n",
+        "pgm_payload_bytes": 41789440
+      },
+      "DNGLab": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/g5xm2-detail-iso1600-dnglab.pgm",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "8b3dcfa11c8c067fa035da6c8c41db51b68a28ee278014c60bc644ae62c8d793",
+        "file_sha256": "7324aaf607d259db1b7a482a0cd9e1e6034ed01f7b4556b49d88ffa01dfd6934",
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+          "analyze",
+          "--raw-pixel",
+          "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3"
+        ],
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/g5xm2-detail-iso1600-dnglab.stderr",
+        "pgm_header": "P5 5632 3710 65535\n",
+        "pgm_payload_bytes": 41789440
+      },
+      "comparisons_against_Photographer": {
+        "LibRaw": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": true,
+          "full_fnv1a64_matches": true
+        },
+        "DNGLab": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": false
+        }
+      },
+      "all_native_samples_match": true
+    },
+    {
+      "input": {
+        "sample": "eos-m50-craw-4656.cr3",
+        "path": "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+        "bytes": 14851567,
+        "sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+        "public_id": 4656,
+        "camera": "EOS M50",
+        "compression": "C-RAW",
+        "group": "holdout",
+        "url": "https://raw.pixls.us/getfile.php/4656/nice/Canon%20-%20EOS%20M50%20-%203:2.CR3",
+        "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "registry": "/workspace/scratch/adce2cf98312/photographer-qa-performance/scripts/research/public-crx/craw-sensors.tsv",
+        "expected_input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+        "input_pin_matches": true,
+        "registered_dnglab_pgm_sha256": "8cf48a03bad4c80242e3a9993039de696a1a207688b1024a8b122d5a90109b3f",
+        "download_policy": "HTTPS only, verified TLS, HTTPS-only redirects",
+        "observed_metadata": {
+          "source": "DNGLab 0.8.0 analyze --meta --json",
+          "make": "Canon",
+          "model": "EOS M50",
+          "raw_width": 6288,
+          "raw_height": 4056,
+          "decoded_storage_bits": 16,
+          "active_area": {
+            "p": {
+              "x": 264,
+              "y": 36
+            },
+            "d": {
+              "w": 6022,
+              "h": 4018
+            }
+          },
+          "crop_area": {
+            "p": {
+              "x": 276,
+              "y": 48
+            },
+            "d": {
+              "w": 6000,
+              "h": 4000
+            }
+          },
+          "orientation": 1,
+          "iso": 100,
+          "exposure_time": "1/5",
+          "fnumber": "35/10",
+          "focal_length": "18/1",
+          "lens_model": "EF-M 18-150mm f/3.5-6.3 IS STM",
+          "black_levels": {
+            "levels": [
+              "510/1",
+              "511/1",
+              "511/1",
+              "511/1"
+            ],
+            "cpp": 1,
+            "width": 2,
+            "height": 2
+          },
+          "white_levels": [
+            11892
+          ],
+          "white_balance": [
+            1.078125,
+            1.0,
+            1.8994141,
+            null
+          ]
+        }
+      },
+      "verified_input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "input_pin_matches": true,
+      "Photographer": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eos-m50-craw-4656-photographer.pgm",
+        "width": 6288,
+        "height": 4056,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "94182070598aa7c84cab9ce21b44379480c8a882365843979913a5534347d150",
+        "file_sha256": "e3965dd3bcac93c28cedd0e90fd41df4a4d2fdfe785db8f888f94d7cb968193b",
+        "fnv1a64": "9bfade480f63376f",
+        "observation": {
+          "engine": "Photographer",
+          "input": "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+          "mode": "sensor",
+          "workers": 0,
+          "available_processors": 4,
+          "width": 6288,
+          "height": 4056,
+          "channels": 1,
+          "bits": 16,
+          "checksum_kind": "full-u16le-or-u8",
+          "fnv1a64": "9bfade480f63376f"
+        },
+        "command": [
+          "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+          "-Xms24m",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/adce2cf98312/qa-work/probe-classes:/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+          "Cr3ImportProbe",
+          "--input",
+          "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+          "--mode",
+          "sensor",
+          "--checksum",
+          "--dump",
+          "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eos-m50-craw-4656-photographer.pgm"
+        ],
+        "stdout": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eos-m50-craw-4656-photographer.log",
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eos-m50-craw-4656-photographer.stderr",
+        "reused_verified_baseline_record": false
+      },
+      "LibRaw": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eos-m50-craw-4656-libraw.pgm",
+        "width": 6288,
+        "height": 4056,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "94182070598aa7c84cab9ce21b44379480c8a882365843979913a5534347d150",
+        "file_sha256": "e3965dd3bcac93c28cedd0e90fd41df4a4d2fdfe785db8f888f94d7cb968193b",
+        "observation": {
+          "engine": "LibRaw",
+          "version": "0.21.4-Release",
+          "input": "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+          "mode": "sensor",
+          "width": 6288,
+          "height": 4056,
+          "channels": 1,
+          "bits": 16,
+          "raw_width": 6288,
+          "raw_height": 4056,
+          "visible_width": 6024,
+          "visible_height": 4020,
+          "left_margin": 264,
+          "top_margin": 36,
+          "source_flip": 0,
+          "warnings": 0,
+          "checksum_kind": "full-u16le-or-u8",
+          "fnv1a64": "9bfade480f63376f"
+        },
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+          "--input",
+          "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+          "--mode",
+          "sensor",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--checksum",
+          "--dump",
+          "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eos-m50-craw-4656-libraw.pgm"
+        ],
+        "stdout": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eos-m50-craw-4656-libraw.jsonl",
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eos-m50-craw-4656-libraw.stderr",
+        "pgm_header": "P5\n6288 4056\n65535\n",
+        "pgm_payload_bytes": 51008256
+      },
+      "DNGLab": {
+        "path": "/workspace/scratch/adce2cf98312/qa-work/native-reference/dumps/eos-m50-craw-4656-dnglab.pgm",
+        "width": 6288,
+        "height": 4056,
+        "channels": 1,
+        "bits": 16,
+        "maximum": 65535,
+        "canonical_sample_order": "u16le",
+        "samples_sha256": "94182070598aa7c84cab9ce21b44379480c8a882365843979913a5534347d150",
+        "file_sha256": "8cf48a03bad4c80242e3a9993039de696a1a207688b1024a8b122d5a90109b3f",
+        "command": [
+          "/workspace/scratch/adce2cf98312/qa-tools/dnglab-0.8.0",
+          "analyze",
+          "--raw-pixel",
+          "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3"
+        ],
+        "stderr": "/workspace/scratch/adce2cf98312/qa-work/native-reference/logs/eos-m50-craw-4656-dnglab.stderr",
+        "pgm_header": "P5 6288 4056 65535\n",
+        "pgm_payload_bytes": 51008256
+      },
+      "comparisons_against_Photographer": {
+        "LibRaw": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": true,
+          "full_fnv1a64_matches": true
+        },
+        "DNGLab": {
+          "dimensions_match": true,
+          "storage_matches": true,
+          "canonical_u16le_sha256_matches": true,
+          "pgm_file_sha256_matches": false
+        }
+      },
+      "all_native_samples_match": true,
+      "registered_dnglab_pgm_pin_matches": true
+    }
+  ],
+  "diagnostics": {
+    "libraw_warning_bits": "0 for all four inputs",
+    "dnglab": "sample.cr3 and the G5 X Mark II detail file emitted lens-database lookup warnings; native output hashes still match",
+    "Photographer": "New M50 invocation emitted only SLF4J no-provider notices",
+    "pgm_file_hashes": "LibRaw and Photographer file hashes match. DNGLab uses a different valid PGM header; canonical payload hashes match for all inputs."
+  }
+}

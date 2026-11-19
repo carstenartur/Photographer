@@ -1,0 +1,84 @@
+{
+  "command": "mvn -B -ntp -pl canon-cr3-cli,cr3-imagej -am verify",
+  "exit_code": 0,
+  "runs": [
+    {
+      "module": "cr3-container",
+      "runner": "surefire",
+      "tests": 132,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "cr3-metadata",
+      "runner": "surefire",
+      "tests": 64,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "cr3-codec",
+      "runner": "surefire",
+      "tests": 119,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "cr3-processing",
+      "runner": "surefire",
+      "tests": 131,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1
+    },
+    {
+      "module": "cr3-core",
+      "runner": "surefire",
+      "tests": 29,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "cr3-imageio",
+      "runner": "surefire",
+      "tests": 198,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "cr3-imageio",
+      "runner": "failsafe",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "cr3-imagej",
+      "runner": "surefire",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "canon-cr3-cli",
+      "runner": "surefire",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "totals": {
+    "tests": 700,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  }
+}

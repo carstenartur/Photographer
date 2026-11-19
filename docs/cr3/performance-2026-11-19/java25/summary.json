@@ -1,0 +1,2637 @@
+{
+  "updated_utc": "2026-11-19T07:18:00.812+00:00",
+  "planned_processes": 192,
+  "completed_processes": 192,
+  "groups": [
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 303.858552,
+        "cpu_ms": 310.0,
+        "allocated_bytes": 42339408,
+        "heap_used_bytes": 44540408
+      },
+      "process_medians": {
+        "total_ms": [
+          361.88299,
+          303.858552,
+          279.071235
+        ],
+        "cpu_ms": [
+          360.0,
+          310.0,
+          280.0
+        ],
+        "allocated_bytes": [
+          42339408,
+          42339408,
+          42339408
+        ],
+        "heap_used_bytes": [
+          44540408,
+          44540720,
+          44540408
+        ]
+      },
+      "median_process_peak_rss_kb": 100876,
+      "max_process_peak_rss_kb": 100880
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 343.22073,
+        "cpu_ms": 350.0,
+        "allocated_bytes": 42339408,
+        "heap_used_bytes": 44541368
+      },
+      "process_medians": {
+        "total_ms": [
+          380.853668,
+          306.018022,
+          343.22073
+        ],
+        "cpu_ms": [
+          380.0,
+          300.0,
+          350.0
+        ],
+        "allocated_bytes": [
+          42339408,
+          42339408,
+          42339408
+        ],
+        "heap_used_bytes": [
+          44541632,
+          44541368,
+          44541368
+        ]
+      },
+      "median_process_peak_rss_kb": 101156,
+      "max_process_peak_rss_kb": 101392
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 619.752252,
+        "cpu_ms": 620.0,
+        "allocated_bytes": 81330552,
+        "heap_used_bytes": 83665552
+      },
+      "process_medians": {
+        "total_ms": [
+          625.823331,
+          619.752252,
+          521.150534
+        ],
+        "cpu_ms": [
+          630.0,
+          620.0,
+          520.0
+        ],
+        "allocated_bytes": [
+          81330552,
+          81330552,
+          81330552
+        ],
+        "heap_used_bytes": [
+          83665600,
+          83665288,
+          83665552
+        ]
+      },
+      "median_process_peak_rss_kb": 143548,
+      "max_process_peak_rss_kb": 146044
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 565.346944,
+        "cpu_ms": 560.0,
+        "allocated_bytes": 81330552,
+        "heap_used_bytes": 83667080
+      },
+      "process_medians": {
+        "total_ms": [
+          618.572893,
+          554.796851,
+          565.346944
+        ],
+        "cpu_ms": [
+          620.0,
+          560.0,
+          550.0
+        ],
+        "allocated_bytes": [
+          81330552,
+          81330552,
+          81330552
+        ],
+        "heap_used_bytes": [
+          83667080,
+          83667080,
+          83667080
+        ]
+      },
+      "median_process_peak_rss_kb": 143452,
+      "max_process_peak_rss_kb": 146116
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 967.088934,
+        "cpu_ms": 970.0,
+        "allocated_bytes": 202303080,
+        "heap_used_bytes": 204069920
+      },
+      "process_medians": {
+        "total_ms": [
+          967.088934,
+          991.515421,
+          955.593871
+        ],
+        "cpu_ms": [
+          970.0,
+          990.0,
+          940.0
+        ],
+        "allocated_bytes": [
+          202303080,
+          202303080,
+          202303080
+        ],
+        "heap_used_bytes": [
+          204069920,
+          204069920,
+          204069920
+        ]
+      },
+      "median_process_peak_rss_kb": 337128,
+      "max_process_peak_rss_kb": 340832
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 996.182017,
+        "cpu_ms": 980.0,
+        "allocated_bytes": 121702416,
+        "heap_used_bytes": 123471480
+      },
+      "process_medians": {
+        "total_ms": [
+          1027.994679,
+          982.845163,
+          996.182017
+        ],
+        "cpu_ms": [
+          1020.0,
+          970.0,
+          980.0
+        ],
+        "allocated_bytes": [
+          121702416,
+          121702416,
+          121702416
+        ],
+        "heap_used_bytes": [
+          123471480,
+          123471480,
+          123471480
+        ]
+      },
+      "median_process_peak_rss_kb": 218292,
+      "max_process_peak_rss_kb": 218672
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 2371.245438,
+        "cpu_ms": 2350.0,
+        "allocated_bytes": 202303080,
+        "heap_used_bytes": 204071472
+      },
+      "process_medians": {
+        "total_ms": [
+          2333.41388,
+          2466.587145,
+          2371.245438
+        ],
+        "cpu_ms": [
+          2320.0,
+          2450.0,
+          2350.0
+        ],
+        "allocated_bytes": [
+          202303080,
+          202303080,
+          202303080
+        ],
+        "heap_used_bytes": [
+          204071472,
+          204071472,
+          204071392
+        ]
+      },
+      "median_process_peak_rss_kb": 340048,
+      "max_process_peak_rss_kb": 340476
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1039.739429,
+        "cpu_ms": 1030.0,
+        "allocated_bytes": 121702416,
+        "heap_used_bytes": 124129304
+      },
+      "process_medians": {
+        "total_ms": [
+          1039.739429,
+          1047.647993,
+          940.884356
+        ],
+        "cpu_ms": [
+          1030.0,
+          1040.0,
+          940.0
+        ],
+        "allocated_bytes": [
+          121702416,
+          121702416,
+          121702416
+        ],
+        "heap_used_bytes": [
+          124129304,
+          124128992,
+          124129304
+        ]
+      },
+      "median_process_peak_rss_kb": 220308,
+      "max_process_peak_rss_kb": 222900
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 487.676662,
+        "cpu_ms": 480.0,
+        "allocated_bytes": 63266784,
+        "heap_used_bytes": 65543800
+      },
+      "process_medians": {
+        "total_ms": [
+          494.50157,
+          487.676662,
+          461.139923
+        ],
+        "cpu_ms": [
+          490.0,
+          480.0,
+          460.0
+        ],
+        "allocated_bytes": [
+          63266784,
+          63266784,
+          63266784
+        ],
+        "heap_used_bytes": [
+          65543488,
+          65543800,
+          65543984
+        ]
+      },
+      "median_process_peak_rss_kb": 122024,
+      "max_process_peak_rss_kb": 122036
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 472.618631,
+        "cpu_ms": 480.0,
+        "allocated_bytes": 63266784,
+        "heap_used_bytes": 65544760
+      },
+      "process_medians": {
+        "total_ms": [
+          479.522505,
+          472.618631,
+          449.895597
+        ],
+        "cpu_ms": [
+          480.0,
+          480.0,
+          450.0
+        ],
+        "allocated_bytes": [
+          63266784,
+          63266784,
+          63266784
+        ],
+        "heap_used_bytes": [
+          65544760,
+          65544944,
+          65544760
+        ]
+      },
+      "median_process_peak_rss_kb": 121760,
+      "max_process_peak_rss_kb": 121916
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 961.191799,
+        "cpu_ms": 940.0,
+        "allocated_bytes": 122204760,
+        "heap_used_bytes": 124451616
+      },
+      "process_medians": {
+        "total_ms": [
+          961.191799,
+          892.606004,
+          966.167229
+        ],
+        "cpu_ms": [
+          970.0,
+          870.0,
+          940.0
+        ],
+        "allocated_bytes": [
+          122204760,
+          122204760,
+          122204760
+        ],
+        "heap_used_bytes": [
+          124451616,
+          124451664,
+          124451568
+        ]
+      },
+      "median_process_peak_rss_kb": 184720,
+      "max_process_peak_rss_kb": 185492
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 892.682202,
+        "cpu_ms": 890.0,
+        "allocated_bytes": 122204760,
+        "heap_used_bytes": 124453096
+      },
+      "process_medians": {
+        "total_ms": [
+          866.50936,
+          904.69071,
+          892.682202
+        ],
+        "cpu_ms": [
+          860.0,
+          900.0,
+          890.0
+        ],
+        "allocated_bytes": [
+          122204760,
+          122204760,
+          122204760
+        ],
+        "heap_used_bytes": [
+          124453096,
+          124453096,
+          124453096
+        ]
+      },
+      "median_process_peak_rss_kb": 186720,
+      "max_process_peak_rss_kb": 187008
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1556.198882,
+        "cpu_ms": 1560.0,
+        "allocated_bytes": 304316808,
+        "heap_used_bytes": 306066824
+      },
+      "process_medians": {
+        "total_ms": [
+          1556.198882,
+          1787.455406,
+          1517.181121
+        ],
+        "cpu_ms": [
+          1560.0,
+          1780.0,
+          1500.0
+        ],
+        "allocated_bytes": [
+          304316808,
+          304316808,
+          304316808
+        ],
+        "heap_used_bytes": [
+          306067136,
+          306066824,
+          306066824
+        ]
+      },
+      "median_process_peak_rss_kb": 479996,
+      "max_process_peak_rss_kb": 480376
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1493.688435,
+        "cpu_ms": 1490.0,
+        "allocated_bytes": 182969776,
+        "heap_used_bytes": 184722216
+      },
+      "process_medians": {
+        "total_ms": [
+          1493.688435,
+          1500.281661,
+          1493.527782
+        ],
+        "cpu_ms": [
+          1490.0,
+          1500.0,
+          1480.0
+        ],
+        "allocated_bytes": [
+          182969776,
+          182969776,
+          182969776
+        ],
+        "heap_used_bytes": [
+          184722216,
+          184722448,
+          184722216
+        ]
+      },
+      "median_process_peak_rss_kb": 301128,
+      "max_process_peak_rss_kb": 301404
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 3491.741189,
+        "cpu_ms": 3490.0,
+        "allocated_bytes": 304316808,
+        "heap_used_bytes": 306068688
+      },
+      "process_medians": {
+        "total_ms": [
+          3491.741189,
+          3413.380366,
+          3560.391695
+        ],
+        "cpu_ms": [
+          3490.0,
+          3410.0,
+          3540.0
+        ],
+        "allocated_bytes": [
+          304316808,
+          304316808,
+          304316808
+        ],
+        "heap_used_bytes": [
+          306068376,
+          306068688,
+          306068688
+        ]
+      },
+      "median_process_peak_rss_kb": 486612,
+      "max_process_peak_rss_kb": 486880
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1614.823844,
+        "cpu_ms": 1600.0,
+        "allocated_bytes": 182969776,
+        "heap_used_bytes": 185380032
+      },
+      "process_medians": {
+        "total_ms": [
+          1552.426762,
+          1751.688184,
+          1614.823844
+        ],
+        "cpu_ms": [
+          1540.0,
+          1740.0,
+          1600.0
+        ],
+        "allocated_bytes": [
+          182969776,
+          182969776,
+          182969776
+        ],
+        "heap_used_bytes": [
+          185380032,
+          185379720,
+          185380032
+        ]
+      },
+      "median_process_peak_rss_kb": 300792,
+      "max_process_peak_rss_kb": 302736
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 216.281649,
+        "cpu_ms": 220.0,
+        "allocated_bytes": 43813200,
+        "heap_used_bytes": 46086728
+      },
+      "process_medians": {
+        "total_ms": [
+          219.424647,
+          212.009066,
+          216.281649
+        ],
+        "cpu_ms": [
+          220.0,
+          210.0,
+          220.0
+        ],
+        "allocated_bytes": [
+          43813200,
+          43813200,
+          43813200
+        ],
+        "heap_used_bytes": [
+          46086728,
+          46087040,
+          46086728
+        ]
+      },
+      "median_process_peak_rss_kb": 107452,
+      "max_process_peak_rss_kb": 109176
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 214.882406,
+        "cpu_ms": 220.0,
+        "allocated_bytes": 43813200,
+        "heap_used_bytes": 46087688
+      },
+      "process_medians": {
+        "total_ms": [
+          214.882406,
+          211.128749,
+          239.642544
+        ],
+        "cpu_ms": [
+          220.0,
+          210.0,
+          240.0
+        ],
+        "allocated_bytes": [
+          43813200,
+          43813200,
+          43813200
+        ],
+        "heap_used_bytes": [
+          46087688,
+          46087688,
+          46087688
+        ]
+      },
+      "median_process_peak_rss_kb": 107740,
+      "max_process_peak_rss_kb": 109196
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 456.348926,
+        "cpu_ms": 450.0,
+        "allocated_bytes": 82804344,
+        "heap_used_bytes": 85131488
+      },
+      "process_medians": {
+        "total_ms": [
+          526.15427,
+          456.348926,
+          438.404081
+        ],
+        "cpu_ms": [
+          520.0,
+          450.0,
+          440.0
+        ],
+        "allocated_bytes": [
+          82804344,
+          82804344,
+          82804344
+        ],
+        "heap_used_bytes": [
+          85131488,
+          85131488,
+          85131800
+        ]
+      },
+      "median_process_peak_rss_kb": 147140,
+      "max_process_peak_rss_kb": 147576
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 469.961432,
+        "cpu_ms": 470.0,
+        "allocated_bytes": 82804344,
+        "heap_used_bytes": 85133280
+      },
+      "process_medians": {
+        "total_ms": [
+          474.894321,
+          469.961432,
+          467.411236
+        ],
+        "cpu_ms": [
+          470.0,
+          470.0,
+          460.0
+        ],
+        "allocated_bytes": [
+          82804344,
+          82804344,
+          82804344
+        ],
+        "heap_used_bytes": [
+          85133280,
+          85133280,
+          85133280
+        ]
+      },
+      "median_process_peak_rss_kb": 148248,
+      "max_process_peak_rss_kb": 148708
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 947.69061,
+        "cpu_ms": 940.0,
+        "allocated_bytes": 203776872,
+        "heap_used_bytes": 204051112
+      },
+      "process_medians": {
+        "total_ms": [
+          948.525214,
+          947.69061,
+          844.506495
+        ],
+        "cpu_ms": [
+          940.0,
+          940.0,
+          840.0
+        ],
+        "allocated_bytes": [
+          203776872,
+          203776872,
+          203776872
+        ],
+        "heap_used_bytes": [
+          204051112,
+          204051424,
+          204051112
+        ]
+      },
+      "median_process_peak_rss_kb": 342024,
+      "max_process_peak_rss_kb": 342092
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 806.25778,
+        "cpu_ms": 810.0,
+        "allocated_bytes": 123176208,
+        "heap_used_bytes": 123452784
+      },
+      "process_medians": {
+        "total_ms": [
+          804.606513,
+          806.25778,
+          820.118414
+        ],
+        "cpu_ms": [
+          800.0,
+          810.0,
+          820.0
+        ],
+        "allocated_bytes": [
+          123176208,
+          123176208,
+          123176208
+        ],
+        "heap_used_bytes": [
+          123452472,
+          123452784,
+          123452784
+        ]
+      },
+      "median_process_peak_rss_kb": 223692,
+      "max_process_peak_rss_kb": 225560
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 2336.11658,
+        "cpu_ms": 2330.0,
+        "allocated_bytes": 203776872,
+        "heap_used_bytes": 204052976
+      },
+      "process_medians": {
+        "total_ms": [
+          2405.231381,
+          2336.11658,
+          2295.298132
+        ],
+        "cpu_ms": [
+          2390.0,
+          2330.0,
+          2280.0
+        ],
+        "allocated_bytes": [
+          203776872,
+          203776872,
+          203776872
+        ],
+        "heap_used_bytes": [
+          204052976,
+          204052976,
+          204052976
+        ]
+      },
+      "median_process_peak_rss_kb": 342928,
+      "max_process_peak_rss_kb": 343528
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 822.052566,
+        "cpu_ms": 830.0,
+        "allocated_bytes": 123176208,
+        "heap_used_bytes": 124110600
+      },
+      "process_medians": {
+        "total_ms": [
+          832.860368,
+          813.648,
+          822.052566
+        ],
+        "cpu_ms": [
+          830.0,
+          800.0,
+          830.0
+        ],
+        "allocated_bytes": [
+          123176208,
+          123176208,
+          123176208
+        ],
+        "heap_used_bytes": [
+          124110600,
+          124110600,
+          124110288
+        ]
+      },
+      "median_process_peak_rss_kb": 224004,
+      "max_process_peak_rss_kb": 224136
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 363.233531,
+        "cpu_ms": 360.0,
+        "allocated_bytes": 53305184,
+        "heap_used_bytes": 55578920
+      },
+      "process_medians": {
+        "total_ms": [
+          363.233531,
+          359.850168,
+          368.171185
+        ],
+        "cpu_ms": [
+          360.0,
+          360.0,
+          370.0
+        ],
+        "allocated_bytes": [
+          53305184,
+          53305184,
+          53305184
+        ],
+        "heap_used_bytes": [
+          55578744,
+          55578920,
+          55579104
+        ]
+      },
+      "median_process_peak_rss_kb": 118048,
+      "max_process_peak_rss_kb": 118172
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "sensor",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 358.02264,
+        "cpu_ms": 360.0,
+        "allocated_bytes": 53305184,
+        "heap_used_bytes": 55580016
+      },
+      "process_medians": {
+        "total_ms": [
+          412.153206,
+          358.02264,
+          356.888254
+        ],
+        "cpu_ms": [
+          410.0,
+          360.0,
+          350.0
+        ],
+        "allocated_bytes": [
+          53305184,
+          53305184,
+          53305184
+        ],
+        "heap_used_bytes": [
+          55580064,
+          55580016,
+          55579752
+        ]
+      },
+      "median_process_peak_rss_kb": 117072,
+      "max_process_peak_rss_kb": 118772
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 726.397966,
+        "cpu_ms": 720.0,
+        "allocated_bytes": 99317880,
+        "heap_used_bytes": 101576552
+      },
+      "process_medians": {
+        "total_ms": [
+          699.298438,
+          818.666621,
+          726.397966
+        ],
+        "cpu_ms": [
+          690.0,
+          820.0,
+          720.0
+        ],
+        "allocated_bytes": [
+          99317880,
+          99317880,
+          99317880
+        ],
+        "heap_used_bytes": [
+          101576552,
+          101576552,
+          101576552
+        ]
+      },
+      "median_process_peak_rss_kb": 164964,
+      "max_process_peak_rss_kb": 165260
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "default",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 678.680632,
+        "cpu_ms": 680.0,
+        "allocated_bytes": 99317880,
+        "heap_used_bytes": 101578032
+      },
+      "process_medians": {
+        "total_ms": [
+          678.680632,
+          659.387508,
+          688.457909
+        ],
+        "cpu_ms": [
+          680.0,
+          660.0,
+          680.0
+        ],
+        "allocated_bytes": [
+          99317880,
+          99317880,
+          99317880
+        ],
+        "heap_used_bytes": [
+          101578032,
+          101578032,
+          101578032
+        ]
+      },
+      "median_process_peak_rss_kb": 164828,
+      "max_process_peak_rss_kb": 165200
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1285.017708,
+        "cpu_ms": 1270.0,
+        "allocated_bytes": 244636488,
+        "heap_used_bytes": 244818456
+      },
+      "process_medians": {
+        "total_ms": [
+          1374.190955,
+          1128.093885,
+          1285.017708
+        ],
+        "cpu_ms": [
+          1380.0,
+          1130.0,
+          1270.0
+        ],
+        "allocated_bytes": [
+          244636488,
+          244636488,
+          244636488
+        ],
+        "heap_used_bytes": [
+          244818456,
+          244818144,
+          244818456
+        ]
+      },
+      "median_process_peak_rss_kb": 399544,
+      "max_process_peak_rss_kb": 399644
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "rgb16linear",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1101.314442,
+        "cpu_ms": 1060.0,
+        "allocated_bytes": 147810736,
+        "heap_used_bytes": 147994672
+      },
+      "process_medians": {
+        "total_ms": [
+          1034.107496,
+          1101.314442,
+          1128.448074
+        ],
+        "cpu_ms": [
+          1040.0,
+          1060.0,
+          1120.0
+        ],
+        "allocated_bytes": [
+          147810736,
+          147810736,
+          147810736
+        ],
+        "heap_used_bytes": [
+          147994672,
+          147994360,
+          147994672
+        ]
+      },
+      "median_process_peak_rss_kb": 258428,
+      "max_process_peak_rss_kb": 258624
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 2839.531449,
+        "cpu_ms": 2820.0,
+        "allocated_bytes": 244636488,
+        "heap_used_bytes": 244819704
+      },
+      "process_medians": {
+        "total_ms": [
+          2839.531449,
+          2828.440645,
+          2942.619499
+        ],
+        "cpu_ms": [
+          2820.0,
+          2800.0,
+          2910.0
+        ],
+        "allocated_bytes": [
+          244636488,
+          244636488,
+          244636488
+        ],
+        "heap_used_bytes": [
+          244819704,
+          244819704,
+          244820224
+        ]
+      },
+      "median_process_peak_rss_kb": 403932,
+      "max_process_peak_rss_kb": 403968
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "rgb16",
+      "cpus": 1,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1222.801002,
+        "cpu_ms": 1230.0,
+        "allocated_bytes": 147810736,
+        "heap_used_bytes": 148652496
+      },
+      "process_medians": {
+        "total_ms": [
+          1205.395711,
+          1222.801002,
+          1552.803555
+        ],
+        "cpu_ms": [
+          1200.0,
+          1230.0,
+          1540.0
+        ],
+        "allocated_bytes": [
+          147810736,
+          147810736,
+          147810736
+        ],
+        "heap_used_bytes": [
+          148652496,
+          148652496,
+          148652184
+        ]
+      },
+      "median_process_peak_rss_kb": 258332,
+      "max_process_peak_rss_kb": 258492
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 133.648968,
+        "cpu_ms": 470.0,
+        "allocated_bytes": 42340488,
+        "heap_used_bytes": 44778864
+      },
+      "process_medians": {
+        "total_ms": [
+          136.513512,
+          133.648968,
+          126.875231
+        ],
+        "cpu_ms": [
+          480.0,
+          470.0,
+          440.0
+        ],
+        "allocated_bytes": [
+          42340488,
+          42340488,
+          42340488
+        ],
+        "heap_used_bytes": [
+          44778864,
+          44778864,
+          44778864
+        ]
+      },
+      "median_process_peak_rss_kb": 102324,
+      "max_process_peak_rss_kb": 102408
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 139.15101,
+        "cpu_ms": 450.0,
+        "allocated_bytes": 42340488,
+        "heap_used_bytes": 44779824
+      },
+      "process_medians": {
+        "total_ms": [
+          138.396083,
+          139.15101,
+          145.156464
+        ],
+        "cpu_ms": [
+          450.0,
+          450.0,
+          530.0
+        ],
+        "allocated_bytes": [
+          42340488,
+          42340488,
+          42340488
+        ],
+        "heap_used_bytes": [
+          44779824,
+          44779824,
+          44779824
+        ]
+      },
+      "median_process_peak_rss_kb": 102492,
+      "max_process_peak_rss_kb": 102528
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 303.435555,
+        "cpu_ms": 970.0,
+        "allocated_bytes": 81531232,
+        "heap_used_bytes": 83893824
+      },
+      "process_medians": {
+        "total_ms": [
+          296.937396,
+          303.435555,
+          311.245983
+        ],
+        "cpu_ms": [
+          970.0,
+          1020.0,
+          970.0
+        ],
+        "allocated_bytes": [
+          81531232,
+          81531232,
+          81531232
+        ],
+        "heap_used_bytes": [
+          83893824,
+          83893824,
+          83893824
+        ]
+      },
+      "median_process_peak_rss_kb": 160000,
+      "max_process_peak_rss_kb": 160768
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 293.608061,
+        "cpu_ms": 1000.0,
+        "allocated_bytes": 81531232,
+        "heap_used_bytes": 83895304
+      },
+      "process_medians": {
+        "total_ms": [
+          263.170108,
+          350.134662,
+          293.608061
+        ],
+        "cpu_ms": [
+          860.0,
+          1110.0,
+          1000.0
+        ],
+        "allocated_bytes": [
+          81531232,
+          81531232,
+          81531232
+        ],
+        "heap_used_bytes": [
+          83895304,
+          83895304,
+          83895304
+        ]
+      },
+      "median_process_peak_rss_kb": 157772,
+      "max_process_peak_rss_kb": 160948
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 441.873817,
+        "cpu_ms": 1500.0,
+        "allocated_bytes": 202700472,
+        "heap_used_bytes": 204671296
+      },
+      "process_medians": {
+        "total_ms": [
+          428.190368,
+          469.793797,
+          441.873817
+        ],
+        "cpu_ms": [
+          1390.0,
+          1500.0,
+          1520.0
+        ],
+        "allocated_bytes": [
+          202700472,
+          202700472,
+          202700472
+        ],
+        "heap_used_bytes": [
+          204671608,
+          204671248,
+          204671296
+        ]
+      },
+      "median_process_peak_rss_kb": 340892,
+      "max_process_peak_rss_kb": 341456
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 417.065785,
+        "cpu_ms": 1400.0,
+        "allocated_bytes": 122363864,
+        "heap_used_bytes": 124269704
+      },
+      "process_medians": {
+        "total_ms": [
+          387.53378,
+          417.065785,
+          422.073771
+        ],
+        "cpu_ms": [
+          1350.0,
+          1400.0,
+          1400.0
+        ],
+        "allocated_bytes": [
+          122363864,
+          122363864,
+          122363864
+        ],
+        "heap_used_bytes": [
+          124269808,
+          124269704,
+          124269704
+        ]
+      },
+      "median_process_peak_rss_kb": 222776,
+      "max_process_peak_rss_kb": 224088
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 928.153899,
+        "cpu_ms": 3270.0,
+        "allocated_bytes": 202700472,
+        "heap_used_bytes": 204672848
+      },
+      "process_medians": {
+        "total_ms": [
+          940.047028,
+          928.153899,
+          909.26953
+        ],
+        "cpu_ms": [
+          3290.0,
+          3270.0,
+          3230.0
+        ],
+        "allocated_bytes": [
+          202700472,
+          202700472,
+          202700472
+        ],
+        "heap_used_bytes": [
+          204672848,
+          204672848,
+          204672848
+        ]
+      },
+      "median_process_peak_rss_kb": 337504,
+      "max_process_peak_rss_kb": 337580
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 454.573516,
+        "cpu_ms": 1540.0,
+        "allocated_bytes": 122363864,
+        "heap_used_bytes": 124927528
+      },
+      "process_medians": {
+        "total_ms": [
+          454.573516,
+          458.847823,
+          448.74052
+        ],
+        "cpu_ms": [
+          1540.0,
+          1580.0,
+          1520.0
+        ],
+        "allocated_bytes": [
+          122363864,
+          122363864,
+          122363864
+        ],
+        "heap_used_bytes": [
+          124927528,
+          124927528,
+          124927528
+        ]
+      },
+      "median_process_peak_rss_kb": 222588,
+      "max_process_peak_rss_kb": 223680
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 203.831145,
+        "cpu_ms": 690.0,
+        "allocated_bytes": 63267864,
+        "heap_used_bytes": 65685824
+      },
+      "process_medians": {
+        "total_ms": [
+          203.831145,
+          191.56963,
+          209.636863
+        ],
+        "cpu_ms": [
+          690.0,
+          650.0,
+          730.0
+        ],
+        "allocated_bytes": [
+          63267864,
+          63267864,
+          63267864
+        ],
+        "heap_used_bytes": [
+          65685824,
+          65685824,
+          65685824
+        ]
+      },
+      "median_process_peak_rss_kb": 122588,
+      "max_process_peak_rss_kb": 123764
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 192.621544,
+        "cpu_ms": 660.0,
+        "allocated_bytes": 63267864,
+        "heap_used_bytes": 65686784
+      },
+      "process_medians": {
+        "total_ms": [
+          194.410776,
+          192.621544,
+          191.803718
+        ],
+        "cpu_ms": [
+          660.0,
+          660.0,
+          660.0
+        ],
+        "allocated_bytes": [
+          63267864,
+          63267864,
+          63267864
+        ],
+        "heap_used_bytes": [
+          65686784,
+          65686784,
+          65686784
+        ]
+      },
+      "median_process_peak_rss_kb": 122452,
+      "max_process_peak_rss_kb": 123308
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 450.577129,
+        "cpu_ms": 1480.0,
+        "allocated_bytes": 122450368,
+        "heap_used_bytes": 124824296
+      },
+      "process_medians": {
+        "total_ms": [
+          450.577129,
+          427.842535,
+          796.720031
+        ],
+        "cpu_ms": [
+          1480.0,
+          1450.0,
+          2210.0
+        ],
+        "allocated_bytes": [
+          122450368,
+          122450368,
+          122450368
+        ],
+        "heap_used_bytes": [
+          124824296,
+          124824296,
+          124824248
+        ]
+      },
+      "median_process_peak_rss_kb": 198940,
+      "max_process_peak_rss_kb": 199248
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 495.863614,
+        "cpu_ms": 1590.0,
+        "allocated_bytes": 122450368,
+        "heap_used_bytes": 124825776
+      },
+      "process_medians": {
+        "total_ms": [
+          495.863614,
+          426.760422,
+          790.098258
+        ],
+        "cpu_ms": [
+          1590.0,
+          1450.0,
+          2200.0
+        ],
+        "allocated_bytes": [
+          122450368,
+          122450368,
+          122450368
+        ],
+        "heap_used_bytes": [
+          124825776,
+          124825776,
+          124825776
+        ]
+      },
+      "median_process_peak_rss_kb": 187900,
+      "max_process_peak_rss_kb": 189488
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 721.316078,
+        "cpu_ms": 2240.0,
+        "allocated_bytes": 304804056,
+        "heap_used_bytes": 306730040
+      },
+      "process_medians": {
+        "total_ms": [
+          663.79738,
+          721.316078,
+          722.276475
+        ],
+        "cpu_ms": [
+          2170.0,
+          2240.0,
+          2360.0
+        ],
+        "allocated_bytes": [
+          304804056,
+          304804056,
+          304804056
+        ],
+        "heap_used_bytes": [
+          306730040,
+          306730040,
+          306734584
+        ]
+      },
+      "median_process_peak_rss_kb": 482396,
+      "max_process_peak_rss_kb": 482672
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 621.991763,
+        "cpu_ms": 2160.0,
+        "allocated_bytes": 183780984,
+        "heap_used_bytes": 185626184
+      },
+      "process_medians": {
+        "total_ms": [
+          621.991763,
+          618.065572,
+          671.386208
+        ],
+        "cpu_ms": [
+          2160.0,
+          2130.0,
+          2200.0
+        ],
+        "allocated_bytes": [
+          183780984,
+          183780984,
+          183780984
+        ],
+        "heap_used_bytes": [
+          185626184,
+          185626136,
+          185626184
+        ]
+      },
+      "median_process_peak_rss_kb": 304224,
+      "max_process_peak_rss_kb": 304840
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1456.195756,
+        "cpu_ms": 5180.0,
+        "allocated_bytes": 304804056,
+        "heap_used_bytes": 306735824
+      },
+      "process_medians": {
+        "total_ms": [
+          1409.747245,
+          1840.900645,
+          1456.195756
+        ],
+        "cpu_ms": [
+          4940.0,
+          5840.0,
+          5180.0
+        ],
+        "allocated_bytes": [
+          304804056,
+          304804056,
+          304804056
+        ],
+        "heap_used_bytes": [
+          306735824,
+          306735824,
+          306735824
+        ]
+      },
+      "median_process_peak_rss_kb": 481848,
+      "max_process_peak_rss_kb": 482176
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 737.246945,
+        "cpu_ms": 2420.0,
+        "allocated_bytes": 183780984,
+        "heap_used_bytes": 186284000
+      },
+      "process_medians": {
+        "total_ms": [
+          737.246945,
+          713.431063,
+          741.451862
+        ],
+        "cpu_ms": [
+          2420.0,
+          2420.0,
+          2540.0
+        ],
+        "allocated_bytes": [
+          183780984,
+          183780984,
+          183780984
+        ],
+        "heap_used_bytes": [
+          186284000,
+          186284000,
+          186284000
+        ]
+      },
+      "median_process_peak_rss_kb": 302084,
+      "max_process_peak_rss_kb": 305004
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 104.009555,
+        "cpu_ms": 320.0,
+        "allocated_bytes": 43814280,
+        "heap_used_bytes": 46289768
+      },
+      "process_medians": {
+        "total_ms": [
+          102.204969,
+          104.009555,
+          104.842288
+        ],
+        "cpu_ms": [
+          320.0,
+          310.0,
+          320.0
+        ],
+        "allocated_bytes": [
+          43814280,
+          43814280,
+          43814280
+        ],
+        "heap_used_bytes": [
+          46290560,
+          46289768,
+          46259208
+        ]
+      },
+      "median_process_peak_rss_kb": 111424,
+      "max_process_peak_rss_kb": 111708
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 102.003861,
+        "cpu_ms": 310.0,
+        "allocated_bytes": 43814280,
+        "heap_used_bytes": 46257488
+      },
+      "process_medians": {
+        "total_ms": [
+          98.72854,
+          102.003861,
+          119.271248
+        ],
+        "cpu_ms": [
+          300.0,
+          310.0,
+          320.0
+        ],
+        "allocated_bytes": [
+          43814280,
+          43814280,
+          43814280
+        ],
+        "heap_used_bytes": [
+          46257488,
+          46230872,
+          46295368
+        ]
+      },
+      "median_process_peak_rss_kb": 110844,
+      "max_process_peak_rss_kb": 111404
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 282.945964,
+        "cpu_ms": 860.0,
+        "allocated_bytes": 83005024,
+        "heap_used_bytes": 85349504
+      },
+      "process_medians": {
+        "total_ms": [
+          254.34493,
+          282.945964,
+          286.469615
+        ],
+        "cpu_ms": [
+          840.0,
+          900.0,
+          860.0
+        ],
+        "allocated_bytes": [
+          83005024,
+          83005024,
+          83005024
+        ],
+        "heap_used_bytes": [
+          85349504,
+          85354032,
+          85347744
+        ]
+      },
+      "median_process_peak_rss_kb": 160168,
+      "max_process_peak_rss_kb": 160264
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 262.143631,
+        "cpu_ms": 840.0,
+        "allocated_bytes": 83005024,
+        "heap_used_bytes": 85362408
+      },
+      "process_medians": {
+        "total_ms": [
+          265.599434,
+          262.143631,
+          255.021306
+        ],
+        "cpu_ms": [
+          840.0,
+          850.0,
+          820.0
+        ],
+        "allocated_bytes": [
+          83005024,
+          83005024,
+          83005024
+        ],
+        "heap_used_bytes": [
+          85362408,
+          85369648,
+          85347240
+        ]
+      },
+      "median_process_peak_rss_kb": 162836,
+      "max_process_peak_rss_kb": 164004
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 424.092219,
+        "cpu_ms": 1300.0,
+        "allocated_bytes": 204174264,
+        "heap_used_bytes": 204659672
+      },
+      "process_medians": {
+        "total_ms": [
+          415.299269,
+          424.092219,
+          428.85939
+        ],
+        "cpu_ms": [
+          1260.0,
+          1300.0,
+          1320.0
+        ],
+        "allocated_bytes": [
+          204174264,
+          204174264,
+          204174264
+        ],
+        "heap_used_bytes": [
+          204659672,
+          204659896,
+          204659552
+        ]
+      },
+      "median_process_peak_rss_kb": 347068,
+      "max_process_peak_rss_kb": 348748
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 379.916835,
+        "cpu_ms": 1280.0,
+        "allocated_bytes": 123837656,
+        "heap_used_bytes": 124245952
+      },
+      "process_medians": {
+        "total_ms": [
+          358.4282,
+          399.427882,
+          379.916835
+        ],
+        "cpu_ms": [
+          1210.0,
+          1330.0,
+          1280.0
+        ],
+        "allocated_bytes": [
+          123837656,
+          123837656,
+          123837656
+        ],
+        "heap_used_bytes": [
+          124245872,
+          124246240,
+          124245952
+        ]
+      },
+      "median_process_peak_rss_kb": 228696,
+      "max_process_peak_rss_kb": 229872
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 2,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 941.998156,
+        "cpu_ms": 3260.0,
+        "allocated_bytes": 204174264,
+        "heap_used_bytes": 204661112
+      },
+      "process_medians": {
+        "total_ms": [
+          929.317699,
+          942.492258,
+          941.998156
+        ],
+        "cpu_ms": [
+          3220.0,
+          3260.0,
+          3310.0
+        ],
+        "allocated_bytes": [
+          204174264,
+          204174264,
+          204174264
+        ],
+        "heap_used_bytes": [
+          204661112,
+          204661096,
+          204661448
+        ]
+      },
+      "median_process_peak_rss_kb": 346884,
+      "max_process_peak_rss_kb": 349128
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 2,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 413.918257,
+        "cpu_ms": 1360.0,
+        "allocated_bytes": 123837656,
+        "heap_used_bytes": 124903792
+      },
+      "process_medians": {
+        "total_ms": [
+          402.602253,
+          413.918257,
+          432.766874
+        ],
+        "cpu_ms": [
+          1320.0,
+          1360.0,
+          1420.0
+        ],
+        "allocated_bytes": [
+          123837656,
+          123837656,
+          123837656
+        ],
+        "heap_used_bytes": [
+          124903696,
+          124903792,
+          124903800
+        ]
+      },
+      "median_process_peak_rss_kb": 230240,
+      "max_process_peak_rss_kb": 232484
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 170.36355,
+        "cpu_ms": 600.0,
+        "allocated_bytes": 53306264,
+        "heap_used_bytes": 55728488
+      },
+      "process_medians": {
+        "total_ms": [
+          160.892025,
+          170.36355,
+          224.587777
+        ],
+        "cpu_ms": [
+          570.0,
+          600.0,
+          700.0
+        ],
+        "allocated_bytes": [
+          53306264,
+          53306264,
+          53306264
+        ],
+        "heap_used_bytes": [
+          55717464,
+          55733072,
+          55728488
+        ]
+      },
+      "median_process_peak_rss_kb": 120472,
+      "max_process_peak_rss_kb": 120740
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "sensor",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 182.827435,
+        "cpu_ms": 630.0,
+        "allocated_bytes": 53306264,
+        "heap_used_bytes": 55720032
+      },
+      "process_medians": {
+        "total_ms": [
+          169.346563,
+          182.827435,
+          272.763322
+        ],
+        "cpu_ms": [
+          570.0,
+          630.0,
+          790.0
+        ],
+        "allocated_bytes": [
+          53306264,
+          53306264,
+          53306264
+        ],
+        "heap_used_bytes": [
+          55739024,
+          55717624,
+          55720032
+        ]
+      },
+      "median_process_peak_rss_kb": 116608,
+      "max_process_peak_rss_kb": 119448
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 363.465934,
+        "cpu_ms": 1250.0,
+        "allocated_bytes": 99537568,
+        "heap_used_bytes": 101882216
+      },
+      "process_medians": {
+        "total_ms": [
+          335.578408,
+          363.465934,
+          461.565465
+        ],
+        "cpu_ms": [
+          1150.0,
+          1250.0,
+          1460.0
+        ],
+        "allocated_bytes": [
+          99537568,
+          99537568,
+          99537568
+        ],
+        "heap_used_bytes": [
+          101904488,
+          101875488,
+          101882216
+        ]
+      },
+      "median_process_peak_rss_kb": 175308,
+      "max_process_peak_rss_kb": 179868
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "default",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 351.095633,
+        "cpu_ms": 1230.0,
+        "allocated_bytes": 99537568,
+        "heap_used_bytes": 101887824
+      },
+      "process_medians": {
+        "total_ms": [
+          351.095633,
+          347.007603,
+          433.925556
+        ],
+        "cpu_ms": [
+          1230.0,
+          1160.0,
+          1430.0
+        ],
+        "allocated_bytes": [
+          99537568,
+          99537568,
+          99537568
+        ],
+        "heap_used_bytes": [
+          101887824,
+          101878648,
+          101919528
+        ]
+      },
+      "median_process_peak_rss_kb": 174372,
+      "max_process_peak_rss_kb": 180908
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 575.473185,
+        "cpu_ms": 1800.0,
+        "allocated_bytes": 245071896,
+        "heap_used_bytes": 245421528
+      },
+      "process_medians": {
+        "total_ms": [
+          528.344821,
+          582.267451,
+          575.473185
+        ],
+        "cpu_ms": [
+          1750.0,
+          1810.0,
+          1800.0
+        ],
+        "allocated_bytes": [
+          245071896,
+          245071896,
+          245071896
+        ],
+        "heap_used_bytes": [
+          245421536,
+          245421504,
+          245421528
+        ]
+      },
+      "median_process_peak_rss_kb": 406932,
+      "max_process_peak_rss_kb": 407484
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 524.934552,
+        "cpu_ms": 1770.0,
+        "allocated_bytes": 148535544,
+        "heap_used_bytes": 148807400
+      },
+      "process_medians": {
+        "total_ms": [
+          477.612544,
+          547.633633,
+          524.934552
+        ],
+        "cpu_ms": [
+          1680.0,
+          1810.0,
+          1770.0
+        ],
+        "allocated_bytes": [
+          148535544,
+          148535544,
+          148535544
+        ],
+        "heap_used_bytes": [
+          148807400,
+          148807408,
+          148807296
+        ]
+      },
+      "median_process_peak_rss_kb": 256156,
+      "max_process_peak_rss_kb": 260740
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 3,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1177.610889,
+        "cpu_ms": 4180.0,
+        "allocated_bytes": 245071896,
+        "heap_used_bytes": 245423400
+      },
+      "process_medians": {
+        "total_ms": [
+          1108.79877,
+          1177.610889,
+          1239.294657
+        ],
+        "cpu_ms": [
+          4010.0,
+          4180.0,
+          4370.0
+        ],
+        "allocated_bytes": [
+          245071896,
+          245071896,
+          245071896
+        ],
+        "heap_used_bytes": [
+          245423128,
+          245423400,
+          245423616
+        ]
+      },
+      "median_process_peak_rss_kb": 400048,
+      "max_process_peak_rss_kb": 402608
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 3,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "eos-m50-craw-4656.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 606.317734,
+        "cpu_ms": 2130.0,
+        "allocated_bytes": 148535544,
+        "heap_used_bytes": 149465592
+      },
+      "process_medians": {
+        "total_ms": [
+          577.257294,
+          606.317734,
+          666.698628
+        ],
+        "cpu_ms": [
+          2030.0,
+          2130.0,
+          2240.0
+        ],
+        "allocated_bytes": [
+          148535544,
+          148535544,
+          148535544
+        ],
+        "heap_used_bytes": [
+          149465592,
+          149465560,
+          149465712
+        ]
+      },
+      "median_process_peak_rss_kb": 261816,
+      "max_process_peak_rss_kb": 266500
+    }
+  ],
+  "notes": [
+    "Each successful process contributes one median; iterations are not pooled across forks.",
+    "RSS is process-lifetime high-water: use each process maximum, then aggregate those maxima.",
+    "LibRaw is a separate workload group, not a claim of pixel-equivalent RGB output.",
+    "Sampled checksums are retained diagnostics, not cross-engine equivalence proofs."
+  ]
+}

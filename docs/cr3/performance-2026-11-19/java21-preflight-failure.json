@@ -1,0 +1,10 @@
+{
+  "attempted_processes": 24,
+  "imports_started": 0,
+  "timing_observations": 0,
+  "cause": "UnsupportedClassVersionError: main timing helper had class-file69 (Java25); Java21 accepts at most65.",
+  "unchanged_production_jars": true,
+  "corrective_action": "Recompiled the same archived source with javac --release21 to a separate helper directory; retained the original class and all original measurements.",
+  "successful_group": "java21-g1/manifest.json",
+  "helper_binding": "java21-helper-binding.json"
+}

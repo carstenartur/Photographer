@@ -1,0 +1,341 @@
+{
+  "updated_utc": "2026-11-19T07:53:27.195+00:00",
+  "planned_processes": 24,
+  "completed_processes": 24,
+  "groups": [
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 468.782696,
+        "cpu_ms": 1550.0,
+        "allocated_bytes": 202703784,
+        "heap_used_bytes": 205988896
+      },
+      "process_medians": {
+        "total_ms": [
+          470.471917,
+          444.213372,
+          468.782696
+        ],
+        "cpu_ms": [
+          1590.0,
+          1490.0,
+          1550.0
+        ],
+        "allocated_bytes": [
+          202703784,
+          202703784,
+          202703752
+        ],
+        "heap_used_bytes": [
+          205990392,
+          205988464,
+          205988896
+        ]
+      },
+      "median_process_peak_rss_kb": 262604,
+      "max_process_peak_rss_kb": 268424
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 409.729741,
+        "cpu_ms": 1440.0,
+        "allocated_bytes": 122367176,
+        "heap_used_bytes": 126296528
+      },
+      "process_medians": {
+        "total_ms": [
+          417.928976,
+          407.358917,
+          409.729741
+        ],
+        "cpu_ms": [
+          1480.0,
+          1440.0,
+          1440.0
+        ],
+        "allocated_bytes": [
+          122367176,
+          122367144,
+          122367176
+        ],
+        "heap_used_bytes": [
+          126298944,
+          126296064,
+          126296528
+        ]
+      },
+      "median_process_peak_rss_kb": 184984,
+      "max_process_peak_rss_kb": 185264
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 0,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 972.46522,
+        "cpu_ms": 3460.0,
+        "allocated_bytes": 202703784,
+        "heap_used_bytes": 205989864
+      },
+      "process_medians": {
+        "total_ms": [
+          970.988901,
+          973.380165,
+          972.46522
+        ],
+        "cpu_ms": [
+          3460.0,
+          3470.0,
+          3410.0
+        ],
+        "allocated_bytes": [
+          202703752,
+          202703784,
+          202703784
+        ],
+        "heap_used_bytes": [
+          205989248,
+          205989920,
+          205989864
+        ]
+      },
+      "median_process_peak_rss_kb": 263212,
+      "max_process_peak_rss_kb": 264312
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 0,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "sample.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 472.551968,
+        "cpu_ms": 1670.0,
+        "allocated_bytes": 122367176,
+        "heap_used_bytes": 127478344
+      },
+      "process_medians": {
+        "total_ms": [
+          490.490055,
+          455.968158,
+          472.551968
+        ],
+        "cpu_ms": [
+          1710.0,
+          1590.0,
+          1670.0
+        ],
+        "allocated_bytes": [
+          122367176,
+          122367176,
+          122367176
+        ],
+        "heap_used_bytes": [
+          127477864,
+          127478648,
+          127478344
+        ]
+      },
+      "median_process_peak_rss_kb": 187048,
+      "max_process_peak_rss_kb": 188656
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 693.225097,
+        "cpu_ms": 2360.0,
+        "allocated_bytes": 304807368,
+        "heap_used_bytes": 306728784
+      },
+      "process_medians": {
+        "total_ms": [
+          722.462375,
+          693.225097,
+          691.570776
+        ],
+        "cpu_ms": [
+          2420.0,
+          2350.0,
+          2360.0
+        ],
+        "allocated_bytes": [
+          304807368,
+          304807368,
+          304807368
+        ],
+        "heap_used_bytes": [
+          306727368,
+          306728784,
+          306729152
+        ]
+      },
+      "median_process_peak_rss_kb": 365624,
+      "max_process_peak_rss_kb": 365788
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "rgb16linear",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 649.672027,
+        "cpu_ms": 2250.0,
+        "allocated_bytes": 183784296,
+        "heap_used_bytes": 185098632
+      },
+      "process_medians": {
+        "total_ms": [
+          694.254946,
+          643.740314,
+          649.672027
+        ],
+        "cpu_ms": [
+          2320.0,
+          2250.0,
+          2240.0
+        ],
+        "allocated_bytes": [
+          183784296,
+          183784296,
+          183784296
+        ],
+        "heap_used_bytes": [
+          185097936,
+          186146944,
+          185098632
+        ]
+      },
+      "median_process_peak_rss_kb": 245980,
+      "max_process_peak_rss_kb": 251952
+    },
+    {
+      "stage": "final",
+      "variant": "baseline",
+      "input_index": 1,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 1444.707289,
+        "cpu_ms": 5240.0,
+        "allocated_bytes": 304807368,
+        "heap_used_bytes": 306730344
+      },
+      "process_medians": {
+        "total_ms": [
+          1413.900929,
+          1444.707289,
+          1462.142315
+        ],
+        "cpu_ms": [
+          5130.0,
+          5240.0,
+          5260.0
+        ],
+        "allocated_bytes": [
+          304807368,
+          304807368,
+          304807368
+        ],
+        "heap_used_bytes": [
+          306730344,
+          306730344,
+          306730168
+        ]
+      },
+      "median_process_peak_rss_kb": 369636,
+      "max_process_peak_rss_kb": 369812
+    },
+    {
+      "stage": "final",
+      "variant": "final",
+      "input_index": 1,
+      "mode": "rgb16",
+      "cpus": 4,
+      "sample": "eosr-iso-low.cr3",
+      "completed_processes": 3,
+      "successful_processes": 3,
+      "failed_processes": 0,
+      "median_of_process_medians": {
+        "total_ms": 723.856966,
+        "cpu_ms": 2570.0,
+        "allocated_bytes": 183784296,
+        "heap_used_bytes": 187325064
+      },
+      "process_medians": {
+        "total_ms": [
+          712.023597,
+          723.856966,
+          743.109527
+        ],
+        "cpu_ms": [
+          2570.0,
+          2550.0,
+          2580.0
+        ],
+        "allocated_bytes": [
+          183784296,
+          183784296,
+          183784296
+        ],
+        "heap_used_bytes": [
+          187331000,
+          186279704,
+          187325064
+        ]
+      },
+      "median_process_peak_rss_kb": 251160,
+      "max_process_peak_rss_kb": 256080
+    }
+  ],
+  "notes": [
+    "Each successful process contributes one median; iterations are not pooled across forks.",
+    "RSS is process-lifetime high-water: use each process maximum, then aggregate those maxima.",
+    "LibRaw is a separate workload group, not a claim of pixel-equivalent RGB output.",
+    "Sampled checksums are retained diagnostics, not cross-engine equivalence proofs."
+  ]
+}

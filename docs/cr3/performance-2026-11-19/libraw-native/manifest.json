@@ -1,0 +1,177 @@
+{
+  "created_utc": "2026-11-19T07:31:42.932+00:00",
+  "runner": {
+    "path": "/workspace/scratch/adce2cf98312/qa-work/public_measurements.py",
+    "bytes": 17175,
+    "sha256": "d885ff841a934bfb8c122b401400855d40ff2b126059c2a94f1a4e1f8b329745"
+  },
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "configuration": {
+    "stage": [
+      "libraw"
+    ],
+    "cpus": [
+      1,
+      4
+    ],
+    "input_index": null,
+    "modes": [
+      "sensor"
+    ],
+    "forks": 3,
+    "warmup": 3,
+    "iterations": 5,
+    "timeout_seconds": 600,
+    "input_manifest": "/workspace/scratch/adce2cf98312/qa-work/inputs.json",
+    "extra_input": "/workspace/scratch/adce2cf98312/qa-work/extra-input.json",
+    "baseline_jar": "/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+    "optimized16_jar": "/workspace/scratch/adce2cf98312/qa-work/optimized16-benchmarks.jar",
+    "rgb8_jar": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+    "final_jar": null,
+    "java": "/workspace/scratch/adce2cf98312/rgb16-tools/jdk-25.0.5.1+2/bin/java",
+    "probe_classes": "/workspace/scratch/adce2cf98312/qa-work/public-probe-classes",
+    "probe_main": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+    "libraw": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+    "output": "qa-work/libraw-sensor-final",
+    "plan_only": false
+  },
+  "inputs": [
+    {
+      "sample": "sample.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+      "bytes": 22920507,
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+      "index": 0,
+      "observed_sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    {
+      "sample": "eosr-iso-low.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+      "bytes": 40282915,
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+      "index": 1,
+      "observed_sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    },
+    {
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "path": "/workspace/scratch/adce2cf98312/photographer-qa-performance/canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "bytes": 11053010,
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c",
+      "index": 2,
+      "observed_sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+    },
+    {
+      "sample": "eos-m50-craw-4656.cr3",
+      "path": "/workspace/scratch/adce2cf98312/qa-work/inputs/eos-m50-craw-4656.cr3",
+      "bytes": 14851567,
+      "sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "public_id": 4656,
+      "camera": "EOS M50",
+      "compression": "C-RAW",
+      "group": "holdout",
+      "url": "https://raw.pixls.us/getfile.php/4656/nice/Canon%20-%20EOS%20M50%20-%203:2.CR3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "registry": "/workspace/scratch/adce2cf98312/photographer-qa-performance/scripts/research/public-crx/craw-sensors.tsv",
+      "expected_input_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "input_pin_matches": true,
+      "registered_dnglab_pgm_sha256": "8cf48a03bad4c80242e3a9993039de696a1a207688b1024a8b122d5a90109b3f",
+      "download_policy": "HTTPS only, verified TLS, HTTPS-only redirects",
+      "observed_metadata": {
+        "source": "DNGLab 0.8.0 analyze --meta --json",
+        "make": "Canon",
+        "model": "EOS M50",
+        "raw_width": 6288,
+        "raw_height": 4056,
+        "decoded_storage_bits": 16,
+        "active_area": {
+          "p": {
+            "x": 264,
+            "y": 36
+          },
+          "d": {
+            "w": 6022,
+            "h": 4018
+          }
+        },
+        "crop_area": {
+          "p": {
+            "x": 276,
+            "y": 48
+          },
+          "d": {
+            "w": 6000,
+            "h": 4000
+          }
+        },
+        "orientation": 1,
+        "iso": 100,
+        "exposure_time": "1/5",
+        "fnumber": "35/10",
+        "focal_length": "18/1",
+        "lens_model": "EF-M 18-150mm f/3.5-6.3 IS STM",
+        "black_levels": {
+          "levels": [
+            "510/1",
+            "511/1",
+            "511/1",
+            "511/1"
+          ],
+          "cpp": 1,
+          "width": 2,
+          "height": 2
+        },
+        "white_levels": [
+          11892
+        ],
+        "white_balance": [
+          1.078125,
+          1.0,
+          1.8994141,
+          null
+        ]
+      },
+      "native_sensor_u16le_sha256": "94182070598aa7c84cab9ce21b44379480c8a882365843979913a5534347d150",
+      "native_reference_engines_match": true,
+      "dnglab_pgm_pin_matches": true,
+      "index": 3,
+      "observed_sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594"
+    }
+  ],
+  "artifacts": {
+    "baseline": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/baseline-83a687e-benchmarks.jar",
+      "bytes": 3604294,
+      "sha256": "5a53a39669229e99e04a3c892bdd5f6f0343039f0406de2f0951dec095a1781a"
+    },
+    "optimized16-reference": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/optimized16-benchmarks.jar",
+      "bytes": 3633228,
+      "sha256": "2157411593f29ccce65188f455d73e7bd601fba3a57230beff9409e2e9d3e96d"
+    },
+    "rgb8-only": {
+      "path": "/workspace/scratch/adce2cf98312/qa-work/rgb8-only-benchmarks.jar",
+      "bytes": 3604897,
+      "sha256": "dd919ae41cc87f2a4fa1b64a31a7e02a4e555e851b836602067d9c76f1935434"
+    },
+    "libraw_client": {
+      "path": "/workspace/scratch/adce2cf98312/qa-tools/libraw-bench",
+      "bytes": 22096,
+      "sha256": "3bc0ada7e6bca3f9c8ba831ca4ead59e41964879689d22b077741e2653e20c73"
+    }
+  },
+  "jvm_flags": [
+    "-Xms24m",
+    "-Xmx768m",
+    "-XX:+UseSerialGC"
+  ],
+  "explicit_gc_between_java_imports": true,
+  "java_workers": "Probe default 0; ActiveProcessorCount and taskset cap available CPUs",
+  "affinity": "taskset -c 0-(cpus-1), matching the existing runners",
+  "probe_class": "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+  "checksum": "Existing sampled checksum; no --checksum or --dump",
+  "inherited_runtime_environment": {},
+  "planned_processes": 24,
+  "planned_decodes": 192,
+  "order": "Stages rgb8/final/libraw; fork/CPU/input/mode; Java variants alternate AB/BA/AB"
+}
