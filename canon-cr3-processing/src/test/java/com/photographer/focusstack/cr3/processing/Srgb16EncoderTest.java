@@ -53,6 +53,29 @@ class Srgb16EncoderTest {
         }
     }
 
+    @Test
+    void preservesBothSidesOfTheGuardAroundEveryReferenceTransition() {
+        int[] offsets = {-33, -32, -31, -1, 0, 1, 31, 32, 33};
+        long below = 0;
+        for (int code = 1; code <= 65535; code++) {
+            // Locate the transition from the forward transfer alone, independently of the inverse table.
+            long above = Double.doubleToRawLongBits(1.0);
+            while (above - below > 1) {
+                long middle = below + (above - below) / 2;
+                double encoded = SrgbConverter.linearToSrgb(Double.longBitsToDouble(middle));
+                if (Math.round(65535.0 * encoded) < code) {
+                    below = middle;
+                } else {
+                    above = middle;
+                }
+            }
+            for (int offset : offsets) {
+                assertSameCode(Double.longBitsToDouble(above + offset));
+            }
+            below = above;
+        }
+    }
+
     private static void assertSameCode(double linear) {
         int expected = (int) Math.round(65535.0 * SrgbConverter.linearToSrgb(Math.clamp(linear, 0.0, 1.0)));
         int actual = Srgb16Encoder.encode(linear) & 0xffff;
