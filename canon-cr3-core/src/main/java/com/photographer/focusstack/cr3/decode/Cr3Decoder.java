@@ -20,8 +20,10 @@ import com.photographer.focusstack.cr3.processing.ObBlackLevelEstimator;
 import com.photographer.focusstack.cr3.processing.SrgbConverter;
 import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
+import com.photographer.focusstack.cr3.raw.Cr3Workers;
 import com.photographer.focusstack.cr3.raw.codec.CrxHeader;
 import com.photographer.focusstack.cr3.raw.codec.CrxLosslessRawDecoder;
+import com.photographer.focusstack.cr3.raw.codec.CrxLossyDecoder;
 import com.photographer.focusstack.cr3.raw.codec.CrxSensorDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -309,7 +311,9 @@ public final class Cr3Decoder implements AutoCloseable {
         RawTrack track = rawTrack();
         Rectangle area = processedArea(options, track);
         int orientation = orientation();
-        var prepared = prepareRawDevelopment(track, options, area, false, null);
+        CrxSensorDecoder sensor = prepareSensor(track);
+        options = memoryOptions(options, track, 4L * area.width * area.height, area.width);
+        var prepared = prepareRawDevelopment(track, options, area, false, null, sensor);
         double[][] matrix = prepared.colorMatrix();
         return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), area.x, area.y,
                 prepared.whiteBalance().clone(), prepared.whiteLevel(),
@@ -363,15 +367,25 @@ public final class Cr3Decoder implements AutoCloseable {
         boolean sixteenBit = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
         int[] suppliedSamples = sixteenBit || partial || (orientation >= 5 && orientation <= 8)
                 ? null : reusableRgbSamples(destination, area);
-        var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples);
+        CrxSensorDecoder sensor = prepareSensor(track);
+        long areaSites = (long) area.width * area.height;
+        long outputSites = (long) region.width * region.height;
+        long imageBytes = sixteenBit
+                ? 6L * outputSites + (partial || orientation != 1 ? 2L * areaSites : 0)
+                : (suppliedSamples == null ? 4L * areaSites : 0)
+                        + (orientation >= 5 && orientation <= 8 ? 4L * outputSites : 0);
+        options = memoryOptions(options, track, imageBytes, area.width);
+        boolean compact = options.memoryMode() == Cr3DecodeOptions.MemoryMode.LOW_MEMORY;
+        var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples, sensor);
 
         Rectangle localRegion = new Rectangle(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
                 region.width, region.height);
         if (sixteenBit) {
-            return BayerDemosaicer.develop16Owned(prepared.compactSamples(), area.width, area.height,
+            BufferedImage rgb = BayerDemosaicer.develop16Owned(prepared.compactSamples(), area.width, area.height,
                     CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()), prepared.blackLevel(), area.x, area.y,
                     prepared.whiteBalance(), prepared.whiteLevel(), prepared.colorMatrix(), localRegion,
-                    orientation, options.applySrgbConversion(), options.maxWorkers());
+                    compact && !partial ? 1 : orientation, options.applySrgbConversion(), options.maxWorkers());
+            return compact && !partial ? ExifOrientationTransformer.applyToOwnedImageCompact(rgb, orientation) : rgb;
         }
 
         // White balance and interpolation retain their crop-local Bayer phase.
@@ -392,7 +406,9 @@ public final class Cr3Decoder implements AutoCloseable {
         if (partial) {
             rgb = rgb.getSubimage(localRegion.x, localRegion.y, localRegion.width, localRegion.height);
         }
-        BufferedImage oriented = ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
+        BufferedImage oriented = compact && !partial
+                ? ExifOrientationTransformer.applyToOwnedImageCompact(rgb, orientation)
+                : ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
         return suppliedSamples == null ? oriented : destination;
     }
 
@@ -419,9 +435,8 @@ public final class Cr3Decoder implements AutoCloseable {
                                        double[] whiteBalance, int whiteLevel, double[][] colorMatrix) {}
 
     private PreparedDevelopment prepareRawDevelopment(RawTrack track, Cr3DecodeOptions options, Rectangle area,
-                                                      boolean partial, int[] suppliedSamples)
+                                                      boolean partial, int[] suppliedSamples, CrxSensorDecoder sensor)
             throws Cr3Exception, IOException {
-        CrxSensorDecoder sensor = prepareSensor(track);
         int sampleCount = Math.multiplyExact(area.width, area.height);
         boolean compact = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
         short[] compactSamples = compact ? new short[sampleCount] : null;
@@ -461,6 +476,24 @@ public final class Cr3Decoder implements AutoCloseable {
         double[] whiteBalance = options.applyWhiteBalance() ? resolveWhiteBalance() : null;
         double[][] colorMatrix = options.applyColorMatrix() ? resolveColorMatrix() : null;
         return new PreparedDevelopment(rawImage, compactSamples, black, whiteBalance, whiteLevel, colorMatrix);
+    }
+
+    private static Cr3DecodeOptions memoryOptions(Cr3DecodeOptions options, RawTrack track,
+                                                  long imageBytes, int processingWidth) {
+        // Directory/profile validation has already succeeded. The codec holds two predictor rows
+        // (RAW), or ten entropy windows and a bounded three-level row cascade (C-RAW), per worker.
+        int tileWidth = track.source.cmp1().tileWidth();
+        int columns = Math.min(track.width, tileWidth) / 2;
+        int workItems = (int) Math.min(Integer.MAX_VALUE, 4L * Math.ceilDiv(track.width, tileWidth));
+        int workers = Cr3Workers.count(options.maxWorkers(), workItems);
+        int processingWorkers = processingWidth == 0 ? 0 : Cr3Workers.count(options.maxWorkers(), track.height);
+        long codecScratch = CrxLossyDecoder.isLossy(track.source.cmp1())
+                ? 160L * 1024 + 64L * (columns + 16) : 32L * 1024 + 8L * columns;
+        // Conservative row/seam allowance, OB sums/levels and minor objects. This is a selection
+        // estimate, not a hard cap; no image-memory reservation is made across concurrent readers.
+        long scratch = workers * codecScratch + processingWorkers * 40L * (processingWidth + 2L)
+                + 32L * track.height + 1024 * 1024;
+        return Cr3MemoryPolicy.apply(options, imageBytes + scratch);
     }
 
     private Rectangle processedArea(Cr3DecodeOptions options, RawTrack track) {
@@ -546,6 +579,7 @@ public final class Cr3Decoder implements AutoCloseable {
         RawTrack track = rawTrack();
         BayerWindow window = bayerWindow(options, track, region, xStep, yStep);
         CrxSensorDecoder decoder = prepareSensor(track);
+        options = memoryOptions(options, track, 2L * window.width * window.height, 0);
         var output = new BufferedImage(window.width, window.height, BufferedImage.TYPE_USHORT_GRAY);
         short[] pixels = ((DataBufferUShort) output.getRaster().getDataBuffer()).getData();
         decodeBayerWindow(options, track, decoder, window, xStep, yStep, pixels, 0, window.width);
@@ -583,7 +617,9 @@ public final class Cr3Decoder implements AutoCloseable {
         }
         int offset = data.getOffset() + layout.getOffset(destX - target.getSampleModelTranslateX(),
                 destY - target.getSampleModelTranslateY());
-        decodeBayerWindow(options, track, prepareSensor(track), window, xStep, yStep, data.getData(),
+        CrxSensorDecoder decoder = prepareSensor(track);
+        options = memoryOptions(options, track, 0, 0);
+        decodeBayerWindow(options, track, decoder, window, xStep, yStep, data.getData(),
                 offset, layout.getScanlineStride());
     }
 

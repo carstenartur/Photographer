@@ -4,8 +4,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.Rectangle;
+import java.awt.image.BandedSampleModel;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.awt.image.DataBufferUShort;
+import java.awt.image.Raster;
+import java.awt.image.SinglePixelPackedSampleModel;
+import java.util.BitSet;
 
 /**
  * Applies EXIF orientation transformations to an image.
@@ -136,6 +141,151 @@ public final class ExifOrientationTransformer {
             }
         }
         return image;
+    }
+
+    /**
+     * Orients exclusively owned dense RGB storage without allocating another image-sized pixel array.
+     * Packed sRGB integer images and three-bank unsigned-short RGB16 images retain their original
+     * arrays. Flips and 180-degree rotation use constant scratch space; axis-swapping orientations
+     * use one visited bit per pixel and return a new raster over the same arrays.
+     *
+     * <p>Compact storage must have zero offsets, no row padding, and exactly one image's samples
+     * in each distinct bank. Other layouts, including subimages and aliased banks, delegate to
+     * {@link #applyToOwnedImage} and may allocate a separate image. Identity and invalid EXIF
+     * orientations return the original image unchanged.</p>
+     *
+     * <p>The caller relinquishes exclusive ownership of the pixels. Use only the returned image:
+     * the original raster has obsolete dimensions when the axes are exchanged. A failed
+     * transformation can leave partially rearranged pixels.</p>
+     *
+     * @param image exclusively owned input image
+     * @param orientation EXIF orientation (1-8)
+     * @return oriented image, sharing the original pixel arrays for supported dense layouts
+     */
+    public static BufferedImage applyToOwnedImageCompact(BufferedImage image, int orientation) {
+        if (orientation <= 1 || orientation > 8) {
+            return image;
+        }
+        DensePixels pixels = densePixels(image);
+        if (pixels == null) {
+            return applyToOwnedImage(image, orientation);
+        }
+        int width = image.getWidth();
+        int height = image.getHeight();
+        // densePixels verifies that this product fits an array index before any mutation.
+        int count = Math.multiplyExact(width, height);
+        if (orientation == 2) {
+            for (int y = 0; y < height; y++) {
+                int row = y * width;
+                for (int x = 0; x < width / 2; x++) {
+                    pixels.swap(row + x, row + width - 1 - x);
+                }
+            }
+        } else if (orientation == 3) {
+            for (int i = 0; i < count / 2; i++) {
+                pixels.swap(i, count - 1 - i);
+            }
+        } else if (orientation == 4) {
+            for (int y = 0; y < height / 2; y++) {
+                int top = y * width;
+                int bottom = (height - 1 - y) * width;
+                for (int x = 0; x < width; x++) {
+                    pixels.swap(top + x, bottom + x);
+                }
+            }
+        } else {
+            var output = pixels.transposedImage(image);
+            var visited = new BitSet(count);
+            boolean reverseX = reversesX(orientation);
+            boolean reverseY = reversesY(orientation);
+            for (int first = visited.nextClearBit(0); first < count; first = visited.nextClearBit(first + 1)) {
+                visited.set(first);
+                int next = transposedIndex(first, width, height, reverseX, reverseY);
+                // Swapping against the first site rotates the entire cycle in source-to-destination order.
+                // All channels move together, so one visited set suffices for RGB16 as well as packed RGB.
+                while (next != first) {
+                    pixels.swap(first, next);
+                    visited.set(next);
+                    next = transposedIndex(next, width, height, reverseX, reverseY);
+                }
+            }
+            return output;
+        }
+        return image;
+    }
+
+    private static int transposedIndex(int source, int width, int height, boolean reverseX, boolean reverseY) {
+        int x = source % width;
+        int y = source / width;
+        int column = reverseX ? width - 1 - x : x;
+        int row = reverseY ? height - 1 - y : y;
+        return (int) ((long) column * height + row);
+    }
+
+    private static DensePixels densePixels(BufferedImage image) {
+        long count = (long) image.getWidth() * image.getHeight();
+        var raster = image.getRaster();
+        var buffer = raster.getDataBuffer();
+        if (image.getClass() != BufferedImage.class || count > Integer.MAX_VALUE
+                || raster.getSampleModelTranslateX() != 0 || raster.getSampleModelTranslateY() != 0
+                || buffer.getOffset() != 0 || buffer.getSize() != count) {
+            return null;
+        }
+        var packed = Pixels.packed(image);
+        if (packed != null && buffer.getNumBanks() == 1 && packed.offset() == 0
+                && packed.stride() == image.getWidth() && packed.data().length == count) {
+            return new DensePixels(packed.data(), null);
+        }
+        if (!(buffer instanceof DataBufferUShort shorts) || shorts.getNumBanks() != 3
+                || !(raster.getSampleModel() instanceof BandedSampleModel layout)
+                || layout.getNumBands() != 3 || layout.getScanlineStride() != image.getWidth()
+                || image.getColorModel().getNumComponents() != 3) {
+            return null;
+        }
+        int[] indices = layout.getBankIndices();
+        int[] bandOffsets = layout.getBandOffsets();
+        int[] dataOffsets = shorts.getOffsets();
+        short[][] banks = shorts.getBankData();
+        for (int band = 0; band < 3; band++) {
+            if (indices[band] < 0 || indices[band] >= 3 || bandOffsets[band] != 0
+                    || dataOffsets[band] != 0 || banks[band].length != count
+                    || image.getColorModel().getComponentSize(band) != 16) {
+                return null;
+            }
+            for (int previous = 0; previous < band; previous++) {
+                if (indices[previous] == indices[band] || banks[previous] == banks[band]) {
+                    return null;
+                }
+            }
+        }
+        return new DensePixels(null, banks);
+    }
+
+    private record DensePixels(int[] packed, short[][] banks) {
+        void swap(int first, int second) {
+            if (packed != null) {
+                ExifOrientationTransformer.swap(packed, first, second);
+            } else {
+                for (short[] bank : banks) {
+                    short value = bank[first];
+                    bank[first] = bank[second];
+                    bank[second] = value;
+                }
+            }
+        }
+
+        BufferedImage transposedImage(BufferedImage image) {
+            var source = image.getRaster();
+            var buffer = source.getDataBuffer();
+            int width = image.getHeight();
+            int height = image.getWidth();
+            var raster = packed != null
+                    ? Raster.createPackedRaster(buffer, width, height, width,
+                            ((SinglePixelPackedSampleModel) source.getSampleModel()).getBitMasks(), null)
+                    : Raster.createBandedRaster(buffer, width, height, width,
+                            ((BandedSampleModel) source.getSampleModel()).getBankIndices(), new int[3], null);
+            return new BufferedImage(image.getColorModel(), raster, image.isAlphaPremultiplied(), null);
+        }
     }
 
     private static void reverseRow(int[] data, int rowStart, int width) {
