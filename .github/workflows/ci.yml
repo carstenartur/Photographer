@@ -60,7 +60,7 @@ jobs:
               case "$path" in
                 # This Markdown file is a reference manifest consumed by CI.
                 docs/cr3-reference-manifest.md) docs_only=false; break ;;
-                docs/*.md|README.md) ;;
+                docs/*.md|docs/screenshots/*.png|docs/screenshots/*.webp|README.md) ;;
                 *) docs_only=false; break ;;
               esac
             done < "$changed_paths"
@@ -224,6 +224,21 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verify existing volume ownership remains compatible
+        shell: bash
+        run: |
+          legacy_identity=$(docker run --rm --entrypoint /bin/sh eclipse-temurin:25-jre-alpine -ec '
+            apk add --no-cache fontconfig freetype ttf-dejavu libusb >/dev/null
+            addgroup -S appgroup
+            adduser -S appuser -G appgroup
+            printf "%s:%s" "$(id -u appuser)" "$(id -g appuser)"
+          ')
+          runtime_identity=$(docker run --rm --entrypoint /bin/sh focusstack:test -ec '
+            printf "%s:%s" "$(id -u)" "$(id -g)"
+          ')
+          printf 'Previous runtime: %s; current runtime: %s\n' "$legacy_identity" "$runtime_identity"
+          test "$legacy_identity" = "$runtime_identity"
+
       - name: Install browser smoke runtime
         run: |
           python3 -m venv target/browser-venv
@@ -233,11 +248,8 @@ jobs:
       - name: Exercise packaged application in Chromium
         shell: bash
         run: |
-          capture_args=()
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
-            capture_args=(--captures target/browser-guide)
-          fi
-          target/browser-venv/bin/python frontend-web/e2e/smoke.py --image focusstack:test "${capture_args[@]}"
+          target/browser-venv/bin/python frontend-web/e2e/smoke.py \
+            --image focusstack:test --captures target/browser-guide
 
       - name: Upload browser failure diagnostics
         if: failure()
@@ -249,7 +261,7 @@ jobs:
           retention-days: 3
 
       - name: Upload guide screenshots
-        if: success() && github.event_name == 'workflow_dispatch'
+        if: success()
         uses: actions/upload-artifact@v7
         with:
           name: browser-guide

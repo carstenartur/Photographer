@@ -4,6 +4,8 @@ This chapter defines what must be recoverable from Git, what must be backed up p
 
 ## Local bird observer
 
+The [user walkthrough](../web-interface.md#photograph-birds-at-a-fixed-location) follows preview, region selection, automatic capture and original-photo download.
+
 Open **Observer → Live bird detection** with a configured CCAPI or USB camera profile.
 The first implementation detects generic birds locally on the machine running the Java
 application. The browser displays controls and results; it does not run inference. No
@@ -12,12 +14,12 @@ and still-photo capture through its existing backend. A USB connection alone doe
 prove that a particular camera/firmware supports those operations.
 
 1. Aim the camera at a fixed feeder, nest entrance or perch and set exposure/focus for
-   that location. Start **Preview only**.
+   that location. Choose **Start preview** and check that the mode reads **Preview only**.
 2. Select the observation rectangle over the live picture, using mouse/touch or the
    numeric region fields, and apply settings. Small birds benefit from a close region:
    its actual pixels are cropped before the 416 × 416 model input is prepared.
 3. Check the boxes on fresh preview frames, then explicitly arm automatic capture.
-4. Use **Stop** to disarm and release the camera. Closing the browser does not stop the
+4. Use **Stop observer** to disarm and release the camera. Closing the browser does not stop the
    server worker. A photo already committed to the camera may finish downloading before
    `STOPPING` becomes `STOPPED`; its original is still saved.
 
@@ -58,7 +60,8 @@ tries to extract its embedded preview; if that is unavailable, it uses the analy
 frame and labels it **Live-view image at trigger**. Detection boxes are only overlaid on
 that matching live image, not on a later photograph. Event details provide an authenticated
 **Download original** action. Bytes are kept out of the database; include this output
-directory and the database in backups. Existing event deletion/retention removes database
+directory and the database in backups. Docker Compose mounts this directory as the
+`observer-storage` named volume. Existing event deletion/retention removes database
 records, not these original photo files, so manage photo retention separately.
 
 Optional application configuration:
@@ -142,6 +145,7 @@ The application stores operational data outside Git:
 
 - PostgreSQL data in the `postgres-data` Compose volume;
 - captured/imported images in the `image-storage` volume or configured filesystem path;
+- local bird originals and previews in the `observer-storage` volume or configured output directory;
 - Hibernate Search/Lucene indexes in the configured search-index volume/path;
 - runtime plugin JARs in the configured plugins directory;
 - provider-specific transient data and logs.

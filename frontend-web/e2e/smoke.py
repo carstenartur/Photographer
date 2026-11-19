@@ -109,6 +109,127 @@ def check_fresnel_pairing(page, url, captures):
     expect(card.get_by_text('REVOKED', exact=True)).to_be_visible()
 
 
+def authenticated_json(page, url, password, path):
+    authorization = base64.b64encode(('admin:' + password).encode()).decode()
+    reply = page.request.get(url + '/api/v1' + path, headers={
+        'Authorization': 'Basic ' + authorization, 'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'})
+    assert reply.status == 200, f'{path} returned HTTP {reply.status}'
+    return reply.json()
+
+
+def wait_for_bird_status(page, url, password, condition, description):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        status = authenticated_json(page, url, password, '/observer/live')
+        assert status['modelAvailable'], status.get('modelError')
+        assert status['phase'] != 'ERROR', status.get('error')
+        if condition(status):
+            return status
+        page.wait_for_timeout(100)
+    # Exclude the base64 preview from assertion output and CI logs.
+    details = {key: value for key, value in status.items() if key != 'preview'}
+    raise AssertionError(f'Timed out waiting for {description}: {details}')
+
+
+def check_bird_observer(page, url, password, captures):
+    events_before = authenticated_json(page, url, password, '/observer/stats')['totalEvents']
+    page.get_by_role('link', name='Observer', exact=True).click()
+    panel = page.get_by_role('region', name='Live bird detection', exact=True)
+    expect(panel).to_be_visible()
+    wait_for_bird_status(page, url, password, lambda status: status['phase'] == 'STOPPED',
+                        'the packaged bird detector to initialize')
+    panel.get_by_label('Camera', exact=True).select_option(label='Mock studio camera')
+    panel.get_by_label('Repeat interval (s)', exact=True).fill('0')
+    expect(panel.get_by_role('button', name='Start preview', exact=True)).to_be_enabled(timeout=30000)
+    panel.get_by_role('button', name='Start preview', exact=True).click()
+    first = wait_for_bird_status(page, url, password,
+                                lambda status: status['framesAnalyzed'] >= 1 and status['preview'],
+                                'the first analysed mock frame')
+    assert first['running'] and not first['armed'] and first['captureCount'] == 0
+    preview = panel.get_by_role('img', name='Latest analysed camera frame', exact=True)
+    expect(preview).to_be_visible()
+    expect(preview).to_have_js_property('complete', True)
+    assert preview.evaluate('(image) => image.naturalWidth > 0')
+
+    # Exercise the actual pointer interaction, then refine the drawn region using
+    # its coordinate fields. These are UI actions, not injected API responses.
+    panel.get_by_role('button', name='Draw region', exact=True).click()
+    frame = panel.locator('.bird-trigger-frame')
+    frame.scroll_into_view_if_needed()
+    bounds = frame.bounding_box()
+    assert bounds is not None
+    page.mouse.move(bounds['x'] + bounds['width'] * 0.1, bounds['y'] + bounds['height'] * 0.1)
+    page.mouse.down()
+    page.mouse.move(bounds['x'] + bounds['width'] * 0.9, bounds['y'] + bounds['height'] * 0.9, steps=5)
+    page.mouse.up()
+    expect(panel.get_by_role('button', name='Draw region', exact=True)).to_be_visible()
+    for label, expected in [('Left', 0.1), ('Top', 0.1), ('Width', 0.8), ('Height', 0.8)]:
+        field = panel.get_by_label(label, exact=True)
+        assert abs(float(field.input_value()) - expected) < 0.01, label
+        field.fill(str(expected))
+    panel.get_by_role('button', name='Apply settings', exact=True).click()
+    wait_for_bird_status(page, url, password,
+                        lambda status: all(status['settings']['roi'][key] == value for key, value in
+                                           {'x': 0.1, 'y': 0.1, 'width': 0.8, 'height': 0.8}.items()),
+                        'the selected observation region to reach the backend')
+
+    # The built-in mock returns identical image bytes until focus changes. Restart
+    # preview to analyse the selected crop; never bypass duplicate-frame checks.
+    panel.get_by_role('button', name='Stop observer', exact=True).click()
+    wait_for_bird_status(page, url, password, lambda status: status['phase'] == 'STOPPED',
+                        'the initial preview to stop')
+    expect(panel.get_by_role('button', name='Start preview', exact=True)).to_be_enabled()
+    panel.get_by_role('button', name='Start preview', exact=True).click()
+    preview_status = wait_for_bird_status(
+        page, url, password,
+        lambda status: status['framesAnalyzed'] >= 1 and status['skippedFrames'] >= 2,
+        'an analysed crop followed by duplicate mock frames')
+    assert preview_status['running'] and not preview_status['armed']
+    assert preview_status['captureCount'] == 0
+    assert preview_status['preview']['boundingBoxes'] == []
+    assert authenticated_json(page, url, password, '/observer/stats')['totalEvents'] == events_before
+    expect(panel.get_by_text('Preview only', exact=True)).to_be_visible()
+    expect(panel.locator('.observer-region-outline')).to_be_visible()
+    expect(preview).to_be_visible()
+    expect(preview).to_have_js_property('complete', True)
+    assert preview.evaluate('(image) => image.naturalWidth > 0')
+    capture(panel, captures, 'bird-preview.png')
+
+    panel.get_by_role('button', name='Arm automatic capture', exact=True).click()
+    armed_baseline = wait_for_bird_status(page, url, password, lambda status: status['armed'],
+                                          'automatic capture to arm')
+    armed = wait_for_bird_status(
+        page, url, password,
+        lambda status: status['armed'] and status['skippedFrames'] >= armed_baseline['skippedFrames'] + 2,
+        'automatic capture to remain armed through duplicate mock frames')
+    assert armed['running'] and armed['captureCount'] == 0 and armed.get('lastEventId') is None
+    expect(panel.get_by_text('Automatic capture armed', exact=True)).to_be_visible()
+    capture(panel, captures, 'bird-armed.png')
+
+    panel.get_by_role('button', name='Disarm automatic capture', exact=True).click()
+    wait_for_bird_status(page, url, password, lambda status: status['running'] and not status['armed'],
+                        'automatic capture to disarm')
+    expect(panel.get_by_text('Preview only', exact=True)).to_be_visible()
+    panel.get_by_role('button', name='Stop observer', exact=True).click()
+    stopped = wait_for_bird_status(page, url, password,
+                                  lambda status: status['phase'] == 'STOPPED' and not status['running'],
+                                  'the observer to stop')
+    assert not stopped['armed'] and stopped['captureCount'] == 0
+    expect(panel.get_by_text('Stopped', exact=True)).to_be_visible()
+    expect(panel.get_by_text('Idle', exact=True)).to_be_visible()
+    # Observe one further real UI poll after stop, so a still-running worker cannot
+    # pass merely because a transient stop response was rendered.
+    with page.expect_response(lambda response: response.request.method == 'GET'
+                              and response.url == url + '/api/v1/observer/live') as next_poll:
+        pass
+    after_stop = next_poll.value.json()
+    for key in ['running', 'armed', 'phase', 'framesAnalyzed', 'skippedFrames', 'captureCount']:
+        assert after_stop[key] == stopped[key], key
+    assert authenticated_json(page, url, password, '/observer/stats')['totalEvents'] == events_before
+    capture(panel, captures, 'bird-stopped.png')
+
+
 def check_socket_boundary(page, url):
     headers = {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
     # The socket grant alone cannot authorize ordinary REST reads or another origin's upgrade.
@@ -198,6 +319,7 @@ def exercise(page, url, password, captures):
     expect(page.get_by_role('button', name='Generate Timelapse Video')).to_have_count(0)
 
     check_fresnel_pairing(page, url, captures)
+    check_bird_observer(page, url, password, captures)
 
     page.set_viewport_size({'width': 390, 'height': 844})
     page.get_by_role('link', name='Cameras', exact=True).click()
