@@ -57,7 +57,11 @@ public final class ExifOrientationTransformer {
         boolean transpose = orientation >= 5;
         boolean reverseLine = reversesX(orientation);
         boolean reverseRows = reversesY(orientation);
-        var output = new BufferedImage(transpose ? height : width, transpose ? width : height, image.getType());
+        int outputWidth = transpose ? height : width;
+        int outputHeight = transpose ? width : height;
+        var model = image.getColorModel();
+        var output = new BufferedImage(model, image.getRaster().createCompatibleWritableRaster(outputWidth, outputHeight),
+                image.isAlphaPremultiplied(), null);
         var packed = Pixels.packed(image);
         if (packed != null) {
             int[] dst = ((DataBufferInt) output.getRaster().getDataBuffer()).getData();
@@ -82,11 +86,13 @@ public final class ExifOrientationTransformer {
                 }
             }
         } else {
+            Object pixel = null;
             for (int y = 0; y < height; y++) {
                 int row = reverseRows ? height - 1 - y : y;
                 for (int x = 0; x < width; x++) {
                     int col = reverseLine ? width - 1 - x : x;
-                    output.setRGB(transpose ? row : col, transpose ? col : row, image.getRGB(x, y));
+                    pixel = image.getRaster().getDataElements(x, y, pixel);
+                    output.getRaster().setDataElements(transpose ? row : col, transpose ? col : row, pixel);
                 }
             }
         }
@@ -171,11 +177,11 @@ public final class ExifOrientationTransformer {
                 reversesY(orientation) ? height - y - h : y, w, h);
     }
 
-    private static boolean reversesX(int orientation) {
+    static boolean reversesX(int orientation) {
         return orientation == 2 || orientation == 3 || orientation == 7 || orientation == 8;
     }
 
-    private static boolean reversesY(int orientation) {
+    static boolean reversesY(int orientation) {
         return orientation == 3 || orientation == 4 || orientation == 6 || orientation == 7;
     }
 }

@@ -13,8 +13,8 @@
     <groupId>io.github.carstenartur</groupId>
     <artifactId>cr3-imagej</artifactId>
     <version>${revision}</version>
-    <name>Canon CR3 sensor importer for ImageJ</name>
-    <description>Imports the full Canon CR3 sensor mosaic as an unsigned 16-bit ImageJ image.</description>
+    <name>Canon CR3 importer for ImageJ</name>
+    <description>Imports native Canon CR3 Bayer samples and developed 16-bit RGB composites into ImageJ.</description>
 
     <properties>
         <java.version>${cr3.java.version}</java.version>

@@ -69,7 +69,7 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
     }
 
     /**
-     * Allows compatible, caller-owned full-frame RGB destinations to be used as
+     * Allows compatible, caller-owned full-frame 8-bit RGB destinations to be used as
      * RAW working storage. Development can overwrite the previous contents even
      * if the read fails. Use this for a buffer reserved for image processing.
      *

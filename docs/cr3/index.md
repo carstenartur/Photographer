@@ -15,6 +15,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | Write a lossless CR3 from native sensor data | [CR3 camera-profile writer](imageio.md#write-a-lossless-cr3-using-a-camera-profile) | Four built-in profiles and their full Bayer mosaics |
 | Export a native sensor image and reopen it as a DNG | [Bayer DNG round trip](imageio.md#write-and-read-a-bayer-dng) | Uncompressed 16-bit Bayer mosaic with calibration |
 | Inspect sensor values in Fiji or ImageJ | [Fiji update site](fiji-update-site.md) · [Import and macro examples](../../cr3-imagej/README.md) | One unsigned 16-bit plane, full sensor coordinates |
+| Develop a 16-bit color image in Fiji or Java | [Fiji color import](fiji-update-site.md) · [ImageIO options](imageio.md) | Three 16-bit RGB channels in 0.1.8-SNAPSHOT; experimental color rendering |
 | Use the command-line tool | [CLI](cli.md) | Supported command surface with experimental decode commands identified |
 | Follow the decoder from CRX sample to Bayer rows and RGB | [Native codec](decoder.md#native-codec-layer) · [Output modes](decoder.md#output-modes) | Stable container and metadata APIs, experimental RAW controls, internal processing |
 | Implement or verify a CR3 reader or writer | [CR3 and CRX format reference](format.md) | Measured byte and bit layouts, fixtures and implementation links |

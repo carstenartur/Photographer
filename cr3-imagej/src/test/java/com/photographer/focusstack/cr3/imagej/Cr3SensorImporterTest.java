@@ -48,10 +48,10 @@ class Cr3SensorImporterTest {
         String className;
         try (InputStream config = getClass().getResourceAsStream("/plugins.config")) {
             assertNotNull(config, "ImageJ menu configuration");
-            String entry = new String(config.readAllBytes(), StandardCharsets.UTF_8).trim();
             String registration = "File>Import, \"CR3 Sensor Data...\", ";
-            assertTrue(entry.startsWith(registration), entry);
-            className = entry.substring(registration.length());
+            className = new String(config.readAllBytes(), StandardCharsets.UTF_8).lines()
+                    .filter(line -> line.startsWith(registration))
+                    .map(line -> line.substring(registration.length())).findFirst().orElseThrow();
         }
 
         boolean previousMode = Interpreter.batchMode;

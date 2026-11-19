@@ -27,9 +27,13 @@ and prevents image-quality changes from being mixed into codec experiments.
 
 ## Compatibility contract
 
-The extraction is structural only. Existing processing classes retain their package
-names and behavior. The module split must not change pedestal selection, pixel
-values, demosaicing, color conversion, crop geometry or orientation results.
+The module split preserved the existing processing classes, their package names
+and the default eight-bit rendering behavior. The opt-in 16-bit RGB development
+path added in 0.1.8-SNAPSHOT keeps fractional values through the enabled processing
+stages and quantizes once into three unsigned-short planes. Its row buffers are
+bounded by image width and worker count, and it writes directly into the requested
+oriented output region. The color model describes sRGB or linear RGB according to
+the selected transfer function. Native Bayer decoding is unaffected.
 
 ## Build
 

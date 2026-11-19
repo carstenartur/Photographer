@@ -52,14 +52,13 @@ public final class Cr3DecodeOptions {
     }
 
     /**
-     * Requested depth for developed RGB. The current development path produces
-     * eight bits per channel for either value. Both Bayer output modes use
+     * Requested depth for developed RGB. Both Bayer output modes use
      * unsigned-short storage and keep their own sample scaling rules.
      */
     public enum BitDepth {
         /** Default request for eight bits per channel. */
         EIGHT,
-        /** Sixteen-bit request retained for API compatibility. */
+        /** Unsigned 16-bit RGB channels, quantized after demosaicing and color processing. */
         SIXTEEN
     }
 

@@ -24,6 +24,7 @@ LICENSE_ENTRY = "META-INF/cr3/LICENSE"
 SITE_NAME = "Canon CR3"
 SITE_ARCHIVE = "cr3-fiji-update-site.zip"
 INSTALL_ARCHIVE = "cr3-fiji-install.zip"
+COLOR_EXAMPLE = "open-cr3-color.groovy"
 
 
 def write_db(directory, records):
@@ -82,7 +83,7 @@ def restore_previous(archive, site, filenames):
         if "db.xml.gz" not in names or len(names) != len(set(names)):
             raise ValueError(f"Invalid previous site archive: {archive}")
         for name in names:
-            if name != "db.xml.gz":
+            if name not in {"db.xml.gz", COLOR_EXAMPLE}:
                 path, separator, stamp = name.rpartition("-")
                 if not separator or path not in filenames or not re.fullmatch(r"[0-9]{14}", stamp):
                     raise ValueError(f"Unexpected path in previous CR3 site: {name}")
@@ -197,6 +198,8 @@ def assemble(fiji, inputs, output, previous, work, license_notice):
         installed = {line.split("\t", 1)[0] for line in listing.splitlines() if "\t(INSTALLED)\t" in line}
         if installed != set(inputs):
             raise ValueError(f"Updater did not recognize the expected installed files:\n{listing}")
+    # Keep the downloadable example tied to the same source version as the JARs.
+    shutil.copyfile(MODULE / "examples" / COLOR_EXAMPLE, site / COLOR_EXAMPLE)
     zip_files(result / SITE_ARCHIVE, {p.relative_to(site).as_posix(): p for p in site.rglob("*") if p.is_file()})
     zip_files(result / INSTALL_ARCHIVE, {name: consumer / name for name in inputs})
     if not output.exists():
@@ -208,7 +211,7 @@ def assemble(fiji, inputs, output, previous, work, license_notice):
         destination = output / "site" / payload.relative_to(site)
         destination.parent.mkdir(parents=True, exist_ok=True)
         payload.replace(destination)
-    for name in (SITE_ARCHIVE, INSTALL_ARCHIVE, "site/db.xml.gz"):
+    for name in (SITE_ARCHIVE, INSTALL_ARCHIVE, "site/" + COLOR_EXAMPLE, "site/db.xml.gz"):
         (result / name).replace(output / name)
 
 

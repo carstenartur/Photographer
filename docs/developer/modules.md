@@ -27,7 +27,7 @@ The root Maven reactor is the authoritative module list. This chapter classifies
 | `canon-cr3-reference-testkit` | Shared reference loading, metrics and deterministic evidence writers | Internal test/research infrastructure; not a supported runtime dependency. |
 | `canon-cr3-research` | Research experiments and report generators | Research-only; not a product library. |
 | `cr3-imageio` | Java ImageIO services for CR3 reading, lossless CR3 writing and uncompressed Bayer DNG reading and writing | Supported and experimental entry points are listed in the [ImageIO guide](../cr3/imageio.md). |
-| `cr3-imagej` | Full-sensor Bayer importer for ImageJ and Fiji | [Fiji update site and offline installation](../cr3/fiji-update-site.md). |
+| `cr3-imagej` | Native Bayer and 16-bit color importers for ImageJ and Fiji | [Fiji update site, version availability and offline installation](../cr3/fiji-update-site.md). |
 | `canon-cr3-maven-smoke` | Isolated Maven consumer and architecture-boundary validation | Build/test infrastructure only. |
 | `canon-cr3-cli` | CR3 inspection and experimental decode command line | User-facing tool/distribution; not required as an application library dependency. |
 | `frontend-web` | React/Vite frontend | Product UI; packaged into `app` for production. |

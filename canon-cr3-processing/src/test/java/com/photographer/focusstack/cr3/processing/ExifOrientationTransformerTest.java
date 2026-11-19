@@ -5,8 +5,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import javax.imageio.ImageTypeSpecifier;
 import java.awt.Rectangle;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -14,6 +17,32 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests for {@link ExifOrientationTransformer}.
  */
 class ExifOrientationTransformerTest {
+
+    @Test
+    void preservesSixteenBitSamplesAndTheirColorModelWhenOrientingABandedView() {
+        var type = ImageTypeSpecifier.createBanded(ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB),
+                new int[]{0, 1, 2}, new int[3], DataBuffer.TYPE_USHORT, false, false);
+        int[][] order = {
+                {1, 2, 3, 4, 5, 6}, {3, 2, 1, 6, 5, 4},
+                {6, 5, 4, 3, 2, 1}, {4, 5, 6, 1, 2, 3},
+                {1, 4, 2, 5, 3, 6}, {4, 1, 5, 2, 6, 3},
+                {6, 3, 5, 2, 4, 1}, {3, 6, 2, 5, 1, 4}
+        };
+        for (int orientation = 1; orientation <= 8; orientation++) {
+            var parent = type.createBufferedImage(5, 4);
+            var view = parent.getSubimage(1, 1, 3, 2);
+            for (int i = 0; i < 6; i++) {
+                view.getRaster().setPixel(i % 3, i / 3, new int[]{i + 1, 1001 + i, 65001 + i});
+            }
+            var result = ExifOrientationTransformer.applyToOwnedImage(view, orientation);
+            assertThat(result.getColorModel()).isEqualTo(view.getColorModel());
+            for (int i = 0; i < 6; i++) {
+                int n = order[orientation - 1][i];
+                assertThat(result.getRaster().getPixel(i % result.getWidth(), i / result.getWidth(), (int[]) null))
+                        .containsExactly(n, 1000 + n, 65000 + n);
+            }
+        }
+    }
 
     @Test
     void sourceRectangleReproducesEveryOrientedWindow() {
