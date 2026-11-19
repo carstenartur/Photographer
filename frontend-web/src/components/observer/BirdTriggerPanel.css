@@ -1,0 +1,135 @@
+.bird-trigger-status {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.6rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.8rem 1rem;
+  background: #f1f5f9;
+  border-radius: 6px;
+}
+
+.bird-trigger-status dt,
+.bird-trigger-controls p {
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.bird-trigger-status dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bird-trigger-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.bird-trigger-frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #1e293b;
+}
+
+.bird-trigger-frame-drawing {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.bird-trigger-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bird-trigger-preview-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  aspect-ratio: 3 / 2;
+  padding: 1rem;
+  background: #1e293b;
+  border-radius: 6px;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.bird-trigger-preview-actions,
+.bird-trigger-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.bird-trigger-controls {
+  padding: 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.bird-trigger-controls fieldset {
+  min-width: 0;
+  margin: 0.8rem 0 0;
+  padding: 0.65rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+}
+
+.bird-trigger-controls legend {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.bird-trigger-controls label {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.bird-trigger-controls input,
+.bird-trigger-controls select {
+  display: block;
+  width: 100%;
+  margin-top: 0.2rem;
+  padding: 0.4rem;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.bird-trigger-controls p {
+  margin: 0 0 0.5rem;
+}
+
+.bird-trigger-controls .bird-trigger-fields + p {
+  margin: 0.65rem 0 0;
+}
+
+.bird-trigger-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.bird-trigger-fields + button {
+  margin-top: 0.55rem;
+}
+
+.bird-trigger button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@media (max-width: 800px) {
+  .bird-trigger-layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -3,9 +3,14 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getEvent, deleteEvent } from '../api/observerApi';
 import AiResultPanel from '../components/observer/AiResultPanel';
 import EventTimeline from '../components/observer/EventTimeline';
+import ObservationEventImages from '../components/observer/ObservationEventImages';
 
 export default function ObserverEventDetail() {
   const { id } = useParams();
+  return <ObserverEvent key={id} id={id} />;
+}
+
+function ObserverEvent({ id }) {
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [error, setError] = useState(null);
@@ -13,12 +18,12 @@ export default function ObserverEventDetail() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    getEvent(id)
-      .then((data) => { if (!cancelled) setEvent(data); })
-      .catch((err) => { if (!cancelled) setError(`Failed to load event: ${err.message}`); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    const controller = new AbortController();
+    getEvent(id, controller.signal)
+      .then((data) => { if (!controller.signal.aborted) setEvent(data); })
+      .catch((err) => { if (!controller.signal.aborted) setError(`Failed to load event: ${err.message}`); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, [id]);
 
   function handleDelete() {
@@ -53,6 +58,8 @@ export default function ObserverEventDetail() {
       </div>
 
       <EventTimeline currentState={event.state} />
+
+      <ObservationEventImages event={event} />
 
       <div className="form-card" style={{ marginTop: '1.5rem' }}>
         <h2>Event Information</h2>
@@ -95,7 +102,7 @@ export default function ObserverEventDetail() {
           </div>
           {event.bestImageFileName && (
             <div className="detail-item">
-              <span className="detail-label">Best Image</span>
+              <span className="detail-label">{event.previewImagePath ? 'Original file' : 'Best Image'}</span>
               <span className="detail-value">{event.bestImageFileName}</span>
             </div>
           )}

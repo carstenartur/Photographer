@@ -10,7 +10,11 @@ import com.photographer.focusstack.observer.service.ReplayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -427,7 +431,8 @@ public class ObserverController {
         if (found.isEmpty()) {
             return ResponseEntity.<byte[]>notFound().build();
         }
-        String pathStr = found.get().getBestImagePath();
+        String pathStr = found.get().getPreviewImagePath() != null
+                ? found.get().getPreviewImagePath() : found.get().getBestImagePath();
         if (pathStr == null || pathStr.isBlank()) {
             return ResponseEntity.<byte[]>notFound().build();
         }
@@ -444,6 +449,23 @@ public class ObserverController {
         } catch (java.io.IOException e) {
             return ResponseEntity.<byte[]>notFound().build();
         }
+    }
+
+    /** Downloads the unchanged original, including RAW when provided by the camera. */
+    @GetMapping("/events/{id}/original")
+    @Operation(summary = "Download the original photo for an observer event")
+    public ResponseEntity<Resource> getEventOriginal(@PathVariable String id) {
+        var found = observerService.findEventById(id);
+        if (found.isEmpty() || found.get().getBestImagePath() == null) return ResponseEntity.notFound().build();
+        String storedPath = found.get().getBestImagePath();
+        if (storedPath.isBlank() || storedPath.contains("..")) return ResponseEntity.badRequest().build();
+        Path path = Path.of(storedPath);
+        if (!java.nio.file.Files.isRegularFile(path)) return ResponseEntity.notFound().build();
+        var resource = new FileSystemResource(path);
+        String fileName = path.getFileName().toString().replaceAll("[\\r\\n]", "_");
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(fileName).build().toString())
+                .body(resource);
     }
 
     /** Derives a {@link MediaType} from the file extension. Defaults to JPEG. */

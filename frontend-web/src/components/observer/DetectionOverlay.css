@@ -1,0 +1,32 @@
+.observer-detection-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.observer-region-outline,
+.observer-detection-box {
+  position: absolute;
+  box-shadow: 0 0 2px #0f172a;
+}
+
+.observer-region-outline {
+  border: 2px dashed #67e8f9;
+}
+
+.observer-detection-box {
+  border: 2px solid #a3e635;
+}
+
+.observer-detection-box > span {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.1rem 0.25rem;
+  background: #365314;
+  color: #fff;
+  font-size: 0.75rem;
+}

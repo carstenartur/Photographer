@@ -22,14 +22,17 @@ export default function AiResultPanel({ aiResult }) {
   const alternatives = aiResult.alternativeLabelsJson
     ? aiResult.alternativeLabelsJson.split(',').filter(Boolean)
     : [];
+  const genericBird = aiResult.primaryLabel?.trim().toLowerCase() === 'bird';
 
   return (
     <div className="ai-result-panel">
-      <h3>AI Classification</h3>
+      <h3>{genericBird ? 'AI Detection' : 'AI Classification'}</h3>
       <div className="ai-result-grid">
         <div className="ai-result-item">
-          <span className="ai-result-label">Species</span>
-          <span className="ai-result-value ai-result-primary">{aiResult.primaryLabel || '—'}</span>
+          <span className="ai-result-label">{genericBird ? 'Detection' : 'Species'}</span>
+          <span className="ai-result-value ai-result-primary">
+            {genericBird ? 'Bird (species not classified)' : aiResult.primaryLabel || '—'}
+          </span>
         </div>
         <div className="ai-result-item">
           <span className="ai-result-label">Confidence</span>

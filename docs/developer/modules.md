@@ -16,8 +16,8 @@ The root Maven reactor is the authoritative module list. This chapter classifies
 | `face-analysis-core` | Face-analysis contract and implementations | Domain library. |
 | `face-profile-core` | Multi-view face-profile generation | Domain library composed with face analysis. |
 | `session-core` | HDR timelapse and face-orbit orchestration | Framework-light workflow library. |
-| `observer-core` | Wildlife-observer state machine, rules, domain vision port and capture orchestration | Framework-light workflow library; no concrete AI provider dependency. |
-| `ai-vision` | Gemini/mock provider implementations, prompts, parsing and AI permission/privacy gates | Provider implementation library using neutral `common-api` contracts; no `observer-core` dependency. |
+| `observer-core` | Wildlife-observer state machine, rules, bird visit/repeat policy, domain vision port and capture orchestration | Framework-light workflow library; no concrete AI provider dependency. |
+| `ai-vision` | Local ONNX bird detector, Gemini/mock providers, prompts, parsing and AI permission/privacy gates | Provider implementation library using neutral `common-api` contracts; no `observer-core` dependency. |
 | `astro-core` | Star detection, registration, stacking and focus-related astro logic | Domain library. |
 | `cr3-container` | CR3 ISO BMFF parsing and embedded JPEG access | Candidate public runtime library under `io.github.carstenartur`. |
 | `cr3-metadata` | EXIF, MakerNote, CTMD and sensor/active-area metadata | Candidate public runtime library. |

@@ -44,6 +44,8 @@ public class ObservationEventEntity {
 
     private String bestImagePath;
     private String bestImageFileName;
+    private String previewImagePath;
+    private String previewSource;
 
     @OneToOne(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true)
     private AiResultEntity aiResult;
@@ -83,6 +85,12 @@ public class ObservationEventEntity {
 
     public String getBestImageFileName() { return bestImageFileName; }
     public void setBestImageFileName(String bestImageFileName) { this.bestImageFileName = bestImageFileName; }
+
+    public String getPreviewImagePath() { return previewImagePath; }
+    public void setPreviewImagePath(String previewImagePath) { this.previewImagePath = previewImagePath; }
+
+    public String getPreviewSource() { return previewSource; }
+    public void setPreviewSource(String previewSource) { this.previewSource = previewSource; }
 
     public AiResultEntity getAiResult() { return aiResult; }
     public void setAiResult(AiResultEntity aiResult) { this.aiResult = aiResult; }

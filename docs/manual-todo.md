@@ -11,6 +11,12 @@ Use this checklist for work that needs access to physical equipment or a release
 
 Apply the collector's redaction rules to these artifacts. Record the results of physical operations separately from the read-only snapshots. The collector and the former evidence checklist are documented in [#183](https://github.com/carstenartur/Photographer/issues/183).
 
+## Local bird observer on hardware
+
+- Run the [local bird walkthrough](web-interface.md#photograph-birds-at-a-fixed-location) with each intended body, firmware and transport. Record the fixed location, focal length, focus/exposure mode and application commit. Measure the time from the first usable bird frame through shutter request, saved original and fresh live view after capture.
+- Test preview-only mode, explicit arming, one photo per visit, repeated captures and stop during an in-progress photo. Check original-file integrity and that another camera workflow can start after the observer releases its lease.
+- Observe ordinary background movement and empty frames as well as actual birds. Record missed visits and false triggers, especially at the chosen region boundary or in poor light. Check a longer session for connection recovery, available storage, battery and temperature behavior.
+
 ## Native focus bracketing on hardware
 
 - Use each redacted capability snapshot to check whether the camera advertises the native settings, shutter and media/event transport for a full sequence.
@@ -34,6 +40,7 @@ The pattern PDFs, manifest, intake checker and analysis primitives are available
 
 ## Public release decisions
 
+- Confirm the redistribution terms of the bundled pretrained weights before publishing a release that includes them. The [model notice](../ai-vision/src/main/resources/com/photographer/focusstack/ai/local/MODEL-NOTICE.md) records the specific upstream clarification request. This is separate from MIT/Apache source-license compatibility.
 - Decide which first-party originals and embedded metadata may appear in the published history and downloads. Record the decision in the [publication audit](public-release.md#visibility-decision).
 - Review redistribution rights and the applicable patent families for the intended distribution markets. Record the decisions in the [CR3 publication checklist](cleanroom/publication-checklist.md) and its linked review record.
 - Decide whether to publish the reviewed repository history or the reviewed clean snapshot. Confirm the chosen visibility and exposed assets.

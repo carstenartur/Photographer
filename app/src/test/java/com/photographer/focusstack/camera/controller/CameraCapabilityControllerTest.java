@@ -5,6 +5,8 @@ import com.photographer.focusstack.camera.backend.CameraBackendFactory;
 import com.photographer.focusstack.camera.search.SearchService;
 import com.photographer.focusstack.camera.service.CameraProfileService;
 import com.photographer.focusstack.camera.service.DirectCameraControlExecutor;
+import com.photographer.focusstack.camera.session.DefaultCameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.InMemoryCameraSessionLeaseManager;
 import com.photographer.focusstack.common.camera.CameraBackend;
 import com.photographer.focusstack.common.camera.CameraCapabilityProvider;
 import com.photographer.focusstack.common.camera.CameraCapabilitySnapshot;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,6 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(CameraController.class)
 @WithMockUser
+@Import({DirectCameraControlExecutor.class, DefaultCameraLeaseIdentityProvider.class,
+        InMemoryCameraSessionLeaseManager.class})
 class CameraCapabilityControllerTest {
 
     private static final CameraProfile PROFILE =
@@ -48,9 +53,6 @@ class CameraCapabilityControllerTest {
 
     @MockitoBean
     private SearchService searchService;
-
-    @MockitoBean
-    private DirectCameraControlExecutor directControl;
 
     @MockitoBean
     private UserRepository userRepository;

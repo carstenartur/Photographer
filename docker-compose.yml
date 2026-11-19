@@ -37,6 +37,7 @@ services:
     volumes:
       - image-storage:/app/images
       - search-index:/app/data/search-index
+      - observer-storage:/app/data/observer
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,6 +54,7 @@ volumes:
   postgres-data:
   image-storage:
   search-index:
+  observer-storage:
 
 networks:
   focusstack:

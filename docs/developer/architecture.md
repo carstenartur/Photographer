@@ -116,7 +116,15 @@ Only one logical workflow may own a physical CCAPI camera at a time. Session lea
 
 `session-core` composes longer workflows, including HDR timelapse and face-orbit sessions. It depends on capture, storage and the specialized image/video/face contracts it orchestrates. It does not own Spring scheduling or HTTP concerns.
 
-`common-api` owns the provider-neutral `VisionProvider`, context/result/capability records and shared `BoundingBox` compatibility type. `plugin-api` exposes external provider SPIs, `observer-core` owns observer-domain ports and event semantics, and `ai-vision` contains concrete Gemini/mock provider implementations. All three depend downward on the neutral contracts rather than on each other.
+`common-api` owns the provider-neutral `VisionProvider`, context/result/capability records and shared `BoundingBox` compatibility type. `plugin-api` exposes external provider SPIs, `observer-core` owns observer-domain ports and event semantics, and `ai-vision` contains concrete local ONNX/Gemini/mock provider implementations. All three depend downward on the neutral contracts rather than on each other.
+
+### Local bird trigger
+
+`LocalBirdObserverService` in `app` owns one camera worker and its camera-session lease. It fetches one live image, validates its freshness, crops decoded pixels to the selected region, calls `LocalBirdVisionProvider`, and consults `BirdTriggerPolicy` before committing a photo. There is no frame queue or prerequisite motion detector. The published preview and full-frame normalized boxes are one immutable snapshot of the analysed image.
+
+The ONNX CPU session and pinned YOLOX-Nano weights live in `ai-vision`; no inference request is sent to a remote provider. `observer-core` owns validated settings and visit/repeat state only. `app` composes camera access, generation checks for changed settings, stop/shutdown, file storage and the existing observation-event repository. `ProcessingCaptureProvider.capture` preserves a returned RAW original when the backend supports it; otherwise the ordinary capture result is retained unchanged. Event JPEG previews are separate files. A fallback live image is explicitly marked `live-view-at-trigger`, never represented as a developed RAW photo.
+
+The initial classifier means generic `bird`, with species unknown. Such events do not create species-ranking entries. See [operation and settings](operations.md#local-bird-observer) and [model provenance](../../ai-vision/src/main/resources/com/photographer/focusstack/ai/local/MODEL-NOTICE.md).
 
 `astro-core`, `hdr-core`, `video-core`, `face-analysis-core` and `face-profile-core` contain focused, framework-light algorithms or ports. Mock implementations are intentional test/development seams and are not evidence of production integration with every external processor.
 

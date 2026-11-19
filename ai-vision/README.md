@@ -4,7 +4,7 @@ Provider implementations and provider-local support code for the neutral vision 
 
 ## Purpose
 
-This module contains Gemini, mock and composition-oriented vision-provider implementations. It does not own the public provider port and does not depend on observer-domain types.
+This module contains Gemini, local bird detection, mock and composition-oriented vision-provider implementations. The `common-api` module owns the public provider port and shared value types.
 
 The neutral contracts remain under the unchanged package `com.photographer.focusstack.ai` but are compiled from `common-api`:
 
@@ -36,6 +36,7 @@ Observer workflows continue to own `VisionProviderPort` and `VisionResultData` i
 | `mock.MockVisionProvider` | Deterministic test/development provider. |
 | `gemini.GeminiVisionProvider` | Google Gemini API implementation with bounded request/retry behavior. |
 | `gemini.GeminiResponseParser` | Strictly parses Gemini JSON responses into the shared `VisionResult`. |
+| `local.LocalBirdVisionProvider` | CPU inference for the generic bird class using bundled YOLOX-Nano weights. |
 | `permission.AIGateway` | Local privacy/permission gate that fails before provider contact. |
 
 ## Configuration
@@ -55,6 +56,12 @@ VisionProvider provider = new GeminiVisionProvider(config);
 ```
 
 `timeoutSeconds` bounds every individual HTTP request. `maxRetries` is additionally clamped by the Gemini implementation to at most five retries, so misconfiguration cannot create an unbounded loop.
+
+## Local bird detection
+
+`LocalBirdVisionProvider` loads its bundled YOLOX-Nano model on first use and keeps one CPU session until closed. No network, API credentials or GPU are required. A `Path` constructor accepts a compatible local ONNX model up to 64 MiB. The pinned ONNX Runtime JAR contains native CPU libraries for Linux x64 and Arm64, macOS Arm64, and Windows x64. [Model provenance and tensor contract](src/main/resources/com/photographer/focusstack/ai/local/MODEL-NOTICE.md)
+
+The provider accepts JPEG and PNG up to 16 MiB encoded, 8,192 pixels along either axis and 16,777,216 decoded pixels. It reports normalized `bird` boxes in the coordinate space of the input image and returns `none` when no box reaches the provider score floor of 0.01. Workflows can apply a higher confidence threshold and map cropped inputs to their full frame. An unreadable image, unavailable model, malformed tensor or interrupted call produces a typed failure. The provider classifies birds as a generic object class.
 
 ## Failure semantics
 
@@ -120,6 +127,7 @@ Observer classification is optional enrichment. Once the provider’s bounded tr
 
 - `common-api` — neutral provider contracts and shared value types;
 - Jackson Databind — provider response parsing;
+- ONNX Runtime CPU — local bird inference;
 - SLF4J — logging facade.
 
 `ai-vision` must not depend on `observer-core`. The executable boundary check is:

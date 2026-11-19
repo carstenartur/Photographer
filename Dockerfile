@@ -87,11 +87,16 @@ RUN --mount=type=cache,target=/root/.m2 \
         -Dmaven.wagon.http.retryHandler.count=5 \
         -Daether.connector.http.retryHandler.count=5
 
-# Stage 2: Runtime — slim JRE with fonts for ImageJ headless mode
-FROM eclipse-temurin:25-jre-alpine
+# Stage 2: Runtime — glibc JRE for ONNX Runtime, with ImageJ fonts and USB support
+FROM eclipse-temurin:25-jre-noble
 
-RUN apk add --no-cache fontconfig freetype ttf-dejavu libusb \
-    && addgroup -S appgroup && adduser -S appuser -G appgroup
+# Preserve the previous Alpine appuser IDs so existing volumes remain writable.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        fontconfig libfreetype6 fonts-dejavu libusb-1.0-0 libstdc++6 wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system --gid 101 --non-unique appgroup \
+    && useradd --system --uid 100 --gid appgroup --create-home --shell /usr/sbin/nologin appuser
 
 WORKDIR /app
 
@@ -100,7 +105,7 @@ COPY --from=build /app/LICENSE LICENSE
 
 # Pre-create volume mount-points so they inherit appuser ownership
 # when Docker initializes empty named volumes.
-RUN mkdir -p /app/data/search-index /app/images /app/plugins \
+RUN mkdir -p /app/data/search-index /app/data/observer /app/images /app/plugins \
     && chown -R appuser:appgroup /app
 USER appuser
 

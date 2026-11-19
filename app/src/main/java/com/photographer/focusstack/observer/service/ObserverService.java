@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -27,11 +28,13 @@ public class ObserverService implements ObservationEventListener {
 
     private final ObservationEventRepository eventRepository;
     private final SpeciesRecordRepository speciesRepository;
+    private final ObjectMapper json;
 
     public ObserverService(ObservationEventRepository eventRepository,
-                           SpeciesRecordRepository speciesRepository) {
+                           SpeciesRecordRepository speciesRepository, ObjectMapper json) {
         this.eventRepository = eventRepository;
         this.speciesRepository = speciesRepository;
+        this.json = json;
     }
 
     @Override
@@ -45,7 +48,8 @@ public class ObserverService implements ObservationEventListener {
         eventRepository.save(entity);
 
         if (event.aiResult() != null && event.aiResult().failureKind() == VisionFailureKind.NONE
-                && !"none".equals(event.aiResult().primaryLabel())) {
+                && !"none".equals(event.aiResult().primaryLabel())
+                && !"bird".equalsIgnoreCase(event.aiResult().primaryLabel())) {
             updateSpeciesRecord(event.aiResult());
         }
     }
@@ -180,6 +184,20 @@ public class ObserverService implements ObservationEventListener {
         entity.setMode(event.mode());
         entity.setCameraId(event.cameraId());
         entity.setTriggerReason(event.triggerReason());
+        if (event.roi() != null) entity.setRoiJson(json.writeValueAsString(event.roi()));
+        if (event.images() != null) {
+            event.images().stream()
+                    .filter(image -> event.bestImageId() != null
+                            ? event.bestImageId().equals(image.id()) : image.isBestShot())
+                    .findFirst().ifPresent(image -> {
+                        entity.setBestImagePath(image.filePath());
+                        entity.setBestImageFileName(image.fileName());
+                    });
+        }
+        if (event.metadata() != null) {
+            entity.setPreviewImagePath(event.metadata().get("previewPath"));
+            entity.setPreviewSource(event.metadata().get("previewSource"));
+        }
 
         if (event.aiResult() != null) {
             AiResultEntity aiEntity = toAiEntity(event.aiResult(), entity);
@@ -202,6 +220,8 @@ public class ObserverService implements ObservationEventListener {
         entity.setConfidence(result.confidence());
         entity.setSummary(result.summary());
         entity.setRawResponse(result.rawResponse());
+        entity.setBoundingBoxesJson(json.writeValueAsString(
+                result.boundingBoxes() == null ? List.of() : result.boundingBoxes()));
         entity.setDurationMs(result.durationMs());
         return entity;
     }

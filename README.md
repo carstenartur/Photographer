@@ -16,6 +16,7 @@ Photographer controls compatible Canon cameras via CCAPI and USB/PTP. Its React 
 | What would you like to do? | Start here |
 |---|---|
 | Control a camera or try a focus stack without hardware | [Start the web application](docs/quickstart.md) · [Illustrated walkthrough](docs/web-interface.md) |
+| Photograph a bird arriving at a feeder or perch | [Set up local bird detection](docs/web-interface.md#photograph-birds-at-a-fixed-location) · [Settings and operating limits](docs/developer/operations.md#local-bird-observer) |
 | Pair Fresnel and capture a measurement with a mock camera | [Pairing, capture and recovery](docs/fresnel-capture.md) |
 | Read CR3 or write lossless CR3 and Bayer DNG in Java | [ImageIO dependency and working examples](docs/cr3/imageio.md) · [Supported RAW layouts](docs/cr3/decoder.md) |
 | Understand the CR3 container and CRX bitstream | [CR3 and CRX format reference](docs/cr3/format.md) · [CR3 / CRX manual](docs/cr3/index.md) |
@@ -40,7 +41,8 @@ The application builds with JDK 25 and Maven 3.9+. The standalone CR3 libraries 
 - Adaptive focus-stacking capture with CR3 media ingestion
 - CR3 inspection and native Java decoding of 14-bit Canon V1 lossless RAW and three-level C-RAW ([supported cameras and measurements](docs/cr3/decoder.md))
 - Astro capture, star registration and stacking
-- Wildlife observer with pluggable AI vision providers (Gemini, mock)
+- Local bird detection in camera live view, with a selectable observation region and automatic photo capture
+- Wildlife observer with pluggable AI vision providers (local YOLOX-Nano, Gemini, mock)
 - Experimental timed capture and face-orbit session prototypes
 
 **Plugins**
@@ -115,10 +117,11 @@ The `ai-vision` module provides a `VisionProvider` interface that decouples the 
 
 - **`MockVisionProvider`** — returns pre-configured results; suitable for development and CI.
 - **`GeminiVisionProvider`** — calls the Google Gemini API; requires `GEMINI_API_KEY`.
+- **`LocalBirdVisionProvider`** — runs the bundled YOLOX-Nano model on the application host. The **Observer → Live bird detection** panel uses it to detect generic birds before capture, without a cloud account or API key. Species selection is not yet implemented.
 
-Configure `OBSERVER_AI_PROVIDER=gemini` and `GEMINI_API_KEY` for the Observer workflow. Pass these variables into the application container when using Compose.
+Configure `OBSERVER_AI_PROVIDER=gemini` and `GEMINI_API_KEY` for the existing Observer classification pipeline. Pass these variables into the application container when using Compose. The local live trigger uses `LocalBirdVisionProvider` and records its bird result directly; it does not invoke Gemini after capture.
 
-See [`ai-vision/README.md`](ai-vision/README.md) for full configuration details.
+See [`ai-vision/README.md`](ai-vision/README.md) for full configuration details and the [model notice](ai-vision/src/main/resources/com/photographer/focusstack/ai/local/MODEL-NOTICE.md) for provenance and the outstanding upstream clarification about pretrained weights.
 
 ## Hardware-backed camera evidence
 

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.Locale;
 import java.util.Optional;
 
-/** Maps CCAPI origins and, when paired capture is enabled, local mock camera profiles. */
+/** Maps CCAPI origins, Canon USB discovery, and local mock profiles when paired capture is enabled. */
 @Component
 public final class DefaultCameraLeaseIdentityProvider implements CameraLeaseIdentityProvider {
     private final boolean managedMocks;
@@ -28,6 +28,10 @@ public final class DefaultCameraLeaseIdentityProvider implements CameraLeaseIden
             return Optional.empty();
         }
         String type = profile.backendType().trim().toLowerCase(Locale.ROOT);
+        if ("canon-usb".equals(type)) {
+            // The backend scans for the first Canon device. Profiles have no USB device selector.
+            return Optional.of(CameraLeaseKey.FIRST_CANON_USB_CAMERA);
+        }
         if (managedMocks && "mock".equals(type)) {
             return Optional.of(CameraLeaseKey.fromMockProfile(profile.id()));
         }

@@ -1,0 +1,33 @@
+.observation-images {
+  margin-top: 1.5rem;
+}
+
+.observation-image {
+  max-width: 60rem;
+  margin: 0 0 0.75rem;
+}
+
+.observation-image-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #1e293b;
+}
+
+.observation-image-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.observation-image figcaption,
+.observation-trigger-detections {
+  margin: 0.4rem 0 0.75rem;
+  color: #475569;
+  font-size: 0.875rem;
+}
+
+.observation-trigger-detections ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}

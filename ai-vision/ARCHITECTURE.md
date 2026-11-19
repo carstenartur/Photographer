@@ -4,7 +4,7 @@
 
 `ai-vision` contains concrete AI provider implementations and provider-local support code. The neutral `VisionProvider`, `VisionContext`, `VisionResult` and `ProviderCapabilities` contracts are owned by `common-api` under their existing Java package names.
 
-The module depends on `common-api`, Jackson and SLF4J. It has no Spring or `observer-core` dependency.
+The module depends on `common-api`, Jackson, ONNX Runtime CPU and SLF4J. It has no Spring or `observer-core` dependency.
 
 ```text
 common-api contracts
@@ -33,6 +33,7 @@ The contract is compiled from `common-api`; this module implements it.
 | Class | Description |
 |---|---|
 | `GeminiVisionProvider` | Production provider using the Gemini REST API. |
+| `LocalBirdVisionProvider` | Generic bird detection through a single reusable on-device CPU session. |
 | `MockVisionProvider` | Deterministic testing/development provider. |
 | `TwoStageVisionProvider` | Provider composition for staged analysis. |
 

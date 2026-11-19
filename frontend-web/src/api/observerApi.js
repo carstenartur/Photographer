@@ -12,8 +12,16 @@ export function getRecentEvents(limit = 20) {
  * Fetch a single observation event by ID.
  * @param {string} id - Event UUID
  */
-export function getEvent(id) {
-  return request(`/observer/events/${encodeURIComponent(id)}`);
+export function getEvent(id, signal) {
+  return request(`/observer/events/${encodeURIComponent(id)}`, { signal });
+}
+
+export function getEventPreview(id, signal) {
+  return requestBlob(`/observer/events/${encodeURIComponent(id)}/image`, { signal });
+}
+
+export function getEventOriginal(id, signal) {
+  return requestBlob(`/observer/events/${encodeURIComponent(id)}/original`, { signal });
 }
 
 /**
@@ -53,6 +61,26 @@ export function getStats() {
  */
 export function getStatus() {
   return request('/observer/status');
+}
+
+export function getLiveObserverStatus(signal) {
+  return request('/observer/live', { signal, cache: 'no-store' });
+}
+
+export function startLiveObserver(config, signal) {
+  return request('/observer/live/start', {
+    method: 'POST', body: JSON.stringify(config), signal,
+  });
+}
+
+export function updateLiveObserverSettings(config, signal) {
+  return request('/observer/live/settings', {
+    method: 'PUT', body: JSON.stringify(config), signal,
+  });
+}
+
+export function stopLiveObserver(signal) {
+  return request('/observer/live/stop', { method: 'POST', body: '{}', signal });
 }
 
 /**

@@ -39,6 +39,31 @@ class ObserverServiceIT extends AbstractPostgresIntegrationTest {
     private ObserverService observerService;
 
     @Test
+    void localBirdMediaAndRegionRoundTripWithoutCreatingSpecies() {
+        String id = UUID.randomUUID().toString();
+        Instant now = Instant.now();
+        observerService.onEventCompleted(new ObservationEvent.Builder()
+                .id(id).timestamp(now).completedAt(now).state(EventState.COMPLETED).mode("wildlife")
+                .cameraId("perch").triggerReason("local-bird")
+                .roi(new com.photographer.focusstack.observer.events.RegionOfInterest(.25, .25, .5, .5, "perch"))
+                .images(List.of(new com.photographer.focusstack.observer.events.CapturedImage(id,
+                        id + ".cr3", "/photos/" + id + ".cr3", now, 1000, 0, true, Map.of())))
+                .bestImageId(id)
+                .metadata(Map.of("previewPath", "/photos/" + id + ".preview.jpg", "previewSource", "capture"))
+                .aiResult(new VisionResultData("local-bird", "yolox-nano-0.1.1rc0", "object_detection",
+                        "bird", List.of(), .9, "Species not classified",
+                        List.of(new com.photographer.focusstack.observer.events.BoundingBox(.3, .3, .2, .2, "bird", .9)),
+                        null, 10)).build());
+        var stored = observerService.findEventById(id).orElseThrow();
+        assertEquals("/photos/" + id + ".cr3", stored.getBestImagePath());
+        assertEquals("/photos/" + id + ".preview.jpg", stored.getPreviewImagePath());
+        assertEquals("capture", stored.getPreviewSource());
+        assertTrue(stored.getRoiJson().contains("perch"));
+        assertTrue(stored.getAiResult().getBoundingBoxesJson().contains("bird"));
+        assertTrue(observerService.findSpeciesByName("bird").isEmpty());
+    }
+
+    @Test
     void outageIsPersistedWithoutCreatingASpecies() {
         String id = UUID.randomUUID().toString();
         long before = observerService.getClassificationFailures().getOrDefault("TIMEOUT", 0L);
