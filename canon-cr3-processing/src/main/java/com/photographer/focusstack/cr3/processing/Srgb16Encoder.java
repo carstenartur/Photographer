@@ -33,6 +33,10 @@ final class Srgb16Encoder {
         // Interpolation only proposes a code. Compare the original, continuous
         // input with the actual output-rounding boundaries; never quantize it first.
         long bits = Double.doubleToRawLongBits(linear);
+        if (bits - Tables.BOUNDARIES[code] > BOUNDARY_GUARD_ULPS
+                && Tables.BOUNDARIES[code + 1] - bits > BOUNDARY_GUARD_ULPS) {
+            return (short) code;
+        }
         while (bits < Tables.BOUNDARIES[code]) {
             code--;
         }
