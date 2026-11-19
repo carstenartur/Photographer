@@ -35,6 +35,14 @@ The screenshot uses **Image › Adjust › Brightness/Contrast... › Set** with
 
 For byte-preserving JPEG extraction in Java, use the [embedded-preview extractor](import.md#copy-the-cameras-embedded-jpeg-unchanged). The [ImageIO guide](imageio.md#read-parameters) describes the development controls.
 
+## Opening large captures in 0.1.8 development builds
+
+Both RAW commands use automatic heap planning. When the normal path fits the estimate, the decoder uses it. With limited headroom, the sensor importer keeps its single dense 16-bit plane and reduces worker workspace; the RGB16 importer can also use compact development and in-place orientation. The worker limit follows the estimated budget. A line beginning `CR3 low-memory:` appears **once per compact read on standard error**. Launching Fiji from a terminal makes this diagnostic visible. If even the one-worker estimate exceeds the budget, the decoder attempts the smallest configuration with one worker. The estimate is advisory and the final image must still fit. Successful compact reads keep the full resolution and sample precision.
+
+The sensor window retains one 16-bit plane. The color window normally takes ownership of the three decoded 16-bit RGB planes. Fiji still needs heap to render the composite and keep other open images. If memory runs short, close images you no longer need or increase Fiji's maximum memory and restart. Java 21 supports both commands. The optional Java 25 vector path applies to packed RGB8 ImageIO reads, outside the sensor and RGB16 menu paths.
+
+The [complete-import measurements](optimization-2026-11-19/README.md) time fresh ImageIO reads and report the corresponding JVM memory measurements. Opening and drawing the Fiji window is a separate host operation. The [installed-plugin QA](fiji-qa-2026-11-19/README.md) checks complete sensor and RGB16 outputs, constrained-heap imports, both menu commands and the interactive composite display.
+
 ## Install from the ZIP
 
 Close Fiji. Extract `cr3-fiji-install.zip` into the Fiji application directory that contains `jars/` and `plugins/`. On macOS, open **Show Package Contents** to locate those folders. Merge the two directories with their existing counterparts. Restart Fiji and choose **File › Import › CR3 Sensor Data...**.
@@ -61,7 +69,7 @@ Use Maven 3.9.x, JDK 25, Python 3 and a Fiji installation with the ImageJ 2.x up
 mvn -pl cr3-imagej -am verify -Pfiji-update-site -Dfiji.directory=/path/to/Fiji
 ```
 
-The profile obtains the release-version CR3 libraries through Maven. Fiji's updater stages the timestamped files, discovers their dependencies and builds the database. A second local installation downloads all seven files, compares their bytes with the site and checks their updater status. Find the site tree and both ZIPs in `target/cr3-fiji-site/`.
+The profile stages the six CR3 runtime libraries at the plugin's Maven version. Fiji's updater stages the timestamped files, discovers their dependencies and builds the database. A second local installation downloads all seven files, compares their bytes with the site and checks their updater status. Find the site tree and both ZIPs in `target/cr3-fiji-site/`.
 
 For the next release, reuse that output directory to extend its history. From a clean checkout, set `FIJI_PREVIOUS_SITE` to the previous release's **cr3-fiji-update-site.zip** before running Maven. Use `-Dfiji.site.output=/new/path` to choose a different output. For static hosting, copy the entire resulting `site/` tree, including old timestamped payloads, and replace `db.xml.gz` last. Contributors can also share the ZIP privately and use the local-server instructions above.
 

@@ -4,6 +4,8 @@ This is the maintained entry point for Photographer’s independent Java librari
 
 The native Java RAW import supports the measured 14-bit, four-plane V1 configurations for the Canon EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. The full-frame acceptance panel covers 15 lossless RAW files and six three-level C-RAW files, including two project-owned PowerShot captures. [Lossless measurements](../cr3-results/2026-11-14-crx-native/README.md) · [C-RAW measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
 
+The [0.1.8 development release notes](../releases/0.1.8.md) cover RGB16 import in Java and Fiji, the active-area crop correction, and RAW heap planning.
+
 ## Choose the path you need
 
 | Need | Start here | Status |
@@ -40,7 +42,7 @@ The native Java RAW import supports the measured 14-bit, four-plane V1 configura
 | `io.github.carstenartur:cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
 | `io.github.carstenartur:cr3-core` | Decoder facade and camera-profile writer | Stable preview and thumbnail paths. Native decoding and lossless writing cover the measured profiles. |
 | `io.github.carstenartur:cr3-imageio` | Java ImageIO CR3 and Bayer DNG readers and writers | Stable preview and metadata access, profile-specific RAW import |
-| `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer importer for ImageJ 1.x and Fiji | Distributed as a Fiji plugin |
+| `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer import and, in the 0.1.8 development source, an RGB16 composite importer | Distributed as a Fiji plugin |
 | `com.photographer.focusstack:canon-cr3-cli` | Inspection, preview export and experimental decode commands | Executable built from a source checkout |
 
 ### Internal evidence and development modules

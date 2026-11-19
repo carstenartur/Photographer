@@ -1,0 +1,747 @@
+{
+  "source": {
+    "repository": "https://github.com/carstenartur/Photographer",
+    "public_commit": "e370faa130ad33a611535fbff2fe4373ddd580a1",
+    "candidate_version": "0.1.8-SNAPSHOT",
+    "public_tree": "24299edeb3649774c2f03c4748ec3eee483f9bde",
+    "build_checkout_commit": "c09b70b04998d8ad7cbe782e6a3de0278abf0ed9",
+    "build_checkout_tree": "6ddef0400f7be717fed22b988d9437d4ab9fa472",
+    "build_checkout_note": "Local documentation checkout. Its runtime source and Maven/Fiji package inputs match the public source commit; the six additional Markdown documentation edits do not affect this candidate archive. Later release/version metadata or packaged guide edits may change whole-JAR digests."
+  },
+  "fiji": {
+    "archive_url": "https://downloads.imagej.net/fiji/archive/latest/20261112-1517/fiji-latest-linux64-jdk.zip",
+    "archive_sha256": "fb3a5206ee94434907dea34b88b84f174de08ce25b3038c7a999bc554edcda15",
+    "archive_bytes": 705857345,
+    "host_jars": [
+      {
+        "path": "jars/ij-1.54p.jar",
+        "sha256": "2e1a09961dfb41cee66ddc821b2577a41a072566ce45a49bae69267099741e20"
+      },
+      {
+        "path": "jars/slf4j-api-2.0.17.jar",
+        "sha256": "7b751d952061954d5abfed7181c1f645d336091b679891591d63329c622eb832"
+      }
+    ]
+  },
+  "candidate_install_zip": {
+    "filename": "cr3-fiji-install.zip",
+    "sha256": "6c9f7da16b7a18dc487091ac0db68d1f910ba6ba0ba2b39ff7787cc53d8edfca",
+    "bytes": 427718,
+    "jars": [
+      {
+        "path": "jars/cr3-codec.jar",
+        "bytes": 103231,
+        "sha256": "3dce94bf2a40337576448f70067e42586dc55df9a437d62cd21293aae063d167",
+        "artifactId": "cr3-codec",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      },
+      {
+        "path": "jars/cr3-container.jar",
+        "bytes": 51183,
+        "sha256": "c40a84088dec66b58d8200d6e62212c560a9b3082cda2bec31ab4426129f4dcb",
+        "artifactId": "cr3-container",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      },
+      {
+        "path": "jars/cr3-core.jar",
+        "bytes": 76787,
+        "sha256": "dd272e870b92caf9f904839e287e3c03f02fb41c44333286a66e32971d61df77",
+        "artifactId": "cr3-core",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      },
+      {
+        "path": "jars/cr3-imageio.jar",
+        "bytes": 83589,
+        "sha256": "55f683247e6b22f15d235ced7105e09230a84a3a72fb06f175013e16c954c092",
+        "artifactId": "cr3-imageio",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      },
+      {
+        "path": "jars/cr3-metadata.jar",
+        "bytes": 38568,
+        "sha256": "0c6201250a69e49ac643be7dedc3bd0a479569c82f08c7ced657d26e523aa458",
+        "artifactId": "cr3-metadata",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      },
+      {
+        "path": "jars/cr3-processing.jar",
+        "bytes": 62602,
+        "sha256": "7f89b940b21fc3ad41719f39e3e0c879cab990d346a1a7b2fabcdd654e567baf",
+        "artifactId": "cr3-processing",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      },
+      {
+        "path": "plugins/CR3_Sensor_Import.jar",
+        "bytes": 10904,
+        "sha256": "0f8453718a4158e68f85b27f5d61c806afdc386c04ee9e6b8fff0e698faf3c90",
+        "artifactId": "cr3-imagej",
+        "groupId": "io.github.carstenartur",
+        "version": "0.1.8-SNAPSHOT"
+      }
+    ]
+  },
+  "tools": {
+    "java_runtime": "openjdk version \"21.0.13\" 2026-10-20\nOpenJDK Runtime Environment (build 21.0.13+9-1-deb13u2-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13+9-1-deb13u2-Debian, mixed mode, sharing)",
+    "compiler": "Eclipse Temurin JDK 25.0.5.1+2",
+    "javac": "javac 25.0.5.1",
+    "compiled_class_major": 65,
+    "probe_source_sha256": "3ff685fbc9e3a5f1828eadacc5c65f2fcb13c9b6a5d395bf6cc5cc13a1cb63a9",
+    "probe_class_sha256": "0565dbf2c9e1c7c214cfe63c3bbfe88de5d12060c2b7a27e548081086183f09f"
+  },
+  "commands": {
+    "classpath_order": [
+      "jars/cr3-codec.jar",
+      "jars/cr3-container.jar",
+      "jars/cr3-core.jar",
+      "jars/cr3-imageio.jar",
+      "jars/cr3-metadata.jar",
+      "jars/cr3-processing.jar",
+      "plugins/CR3_Sensor_Import.jar",
+      "jars/ij-1.54p.jar",
+      "jars/slf4j-api-2.0.17.jar"
+    ],
+    "compile": [
+      "$JDK25/bin/javac",
+      "--release",
+      "21",
+      "-proc:none",
+      "-cp",
+      "$FIJI_CLASSPATH",
+      "-d",
+      "$CLASSES",
+      "$QA/Cr3ImageJProbe.java"
+    ],
+    "probe": [
+      "$JAVA21",
+      "-Djava.awt.headless=true",
+      "-Xms24m",
+      "-Xmx{heap_mib}m",
+      "-XX:+Use{collector}GC",
+      "-XX:ActiveProcessorCount=4",
+      "-cp",
+      "$CLASSES:$FIJI_CLASSPATH",
+      "Cr3ImageJProbe",
+      "{mode}",
+      "$INPUT",
+      "--checksum"
+    ]
+  },
+  "reference": {
+    "repository_path": "docs/cr3/optimization-2026-11-19/channel-audit.json",
+    "sha256": "badd934d6617d03245d2a20327913928f67532d91e3a6dc1f19a5e35a5c6ef8c"
+  },
+  "inputs": [
+    {
+      "sample": "sample.cr3",
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+      "bytes": 22920507,
+      "repository_path": "canon-cr3-imageio/src/test/resources/samples/sample.cr3"
+    },
+    {
+      "sample": "eosr-iso-low.cr3",
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+      "bytes": 40282915,
+      "repository_path": "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3"
+    },
+    {
+      "sample": "research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c",
+      "bytes": 11053010,
+      "repository_path": "canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3"
+    },
+    {
+      "sample": "eos-m50-craw-4656.cr3",
+      "sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "bytes": 14851567,
+      "url": "https://raw.pixls.us/getfile.php/4656/nice/Canon%20-%20EOS%20M50%20-%203:2.CR3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "public_id": 4656
+    }
+  ],
+  "cases": [
+    {
+      "id": "i0-color-136m-G1",
+      "input_index": 0,
+      "mode": "color",
+      "heap_mib": 136,
+      "collector": "G1",
+      "reference_panel": "final-java21",
+      "reference_mode": "rgb16",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "color",
+        "mode": "rgb16",
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "482d0cb8385a95c5",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "x": 2748,
+            "y": 1834,
+            "values": [
+              16185,
+              17436,
+              17239
+            ]
+          },
+          {
+            "x": 5495,
+            "y": 3667,
+            "values": [
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 142606336
+      },
+      "compact_messages": [
+        "CR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 123179072 bytes, available 136301016 bytes)."
+      ],
+      "compact_worker_limits": [
+        1
+      ]
+    },
+    {
+      "id": "i0-color-768m-Serial",
+      "input_index": 0,
+      "mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "final-java21",
+      "reference_mode": "rgb16",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "color",
+        "mode": "rgb16",
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "482d0cb8385a95c5",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "x": 2748,
+            "y": 1834,
+            "values": [
+              16185,
+              17436,
+              17239
+            ]
+          },
+          {
+            "x": 5495,
+            "y": 3667,
+            "values": [
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i0-sensor-51m-G1",
+      "input_index": 0,
+      "mode": "sensor",
+      "heap_mib": 51,
+      "collector": "G1",
+      "reference_panel": "screen-raw",
+      "reference_mode": "sensor",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "sensor",
+        "mode": "sensor",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "bbb2c3b2ecb4e45b",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              2060
+            ]
+          },
+          {
+            "x": 2816,
+            "y": 1855,
+            "values": [
+              2857
+            ]
+          },
+          {
+            "x": 5631,
+            "y": 3709,
+            "values": [
+              2033
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 54525952
+      },
+      "compact_messages": [
+        "CR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 43132864 bytes, available 47931600 bytes)."
+      ],
+      "compact_worker_limits": [
+        1
+      ]
+    },
+    {
+      "id": "i0-sensor-768m-Serial",
+      "input_index": 0,
+      "mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "screen-raw",
+      "reference_mode": "sensor",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "sensor",
+        "mode": "sensor",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "bbb2c3b2ecb4e45b",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              2060
+            ]
+          },
+          {
+            "x": 2816,
+            "y": 1855,
+            "values": [
+              2857
+            ]
+          },
+          {
+            "x": 5631,
+            "y": 3709,
+            "values": [
+              2033
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i1-color-768m-Serial",
+      "input_index": 1,
+      "mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "final-java21",
+      "reference_mode": "rgb16",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "color",
+        "mode": "rgb16",
+        "width": 6744,
+        "height": 4500,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "ba1e15e786312378",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              0,
+              5138,
+              2689
+            ]
+          },
+          {
+            "x": 3372,
+            "y": 2250,
+            "values": [
+              12850,
+              11411,
+              11324
+            ]
+          },
+          {
+            "x": 6743,
+            "y": 4499,
+            "values": [
+              3281,
+              5934,
+              6005
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i1-sensor-768m-Serial",
+      "input_index": 1,
+      "mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "screen-raw",
+      "reference_mode": "sensor",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "sensor",
+        "mode": "sensor",
+        "width": 6888,
+        "height": 4546,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "bfdafa4cdea7ee7c",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              2048
+            ]
+          },
+          {
+            "x": 3444,
+            "y": 2273,
+            "values": [
+              2515
+            ]
+          },
+          {
+            "x": 6887,
+            "y": 4545,
+            "values": [
+              2126
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i2-color-768m-Serial",
+      "input_index": 2,
+      "mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "final-java21",
+      "reference_mode": "rgb16",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "color",
+        "mode": "rgb16",
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "5c286fbe36253461",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              0,
+              4462,
+              1755
+            ]
+          },
+          {
+            "x": 2748,
+            "y": 1834,
+            "values": [
+              65535,
+              52430,
+              65535
+            ]
+          },
+          {
+            "x": 5495,
+            "y": 3667,
+            "values": [
+              13662,
+              13817,
+              13311
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i2-sensor-768m-Serial",
+      "input_index": 2,
+      "mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "screen-refill",
+      "reference_mode": "sensor",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "sensor",
+        "mode": "sensor",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "a90bf97e45a21c71",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              2034
+            ]
+          },
+          {
+            "x": 2816,
+            "y": 1855,
+            "values": [
+              16383
+            ]
+          },
+          {
+            "x": 5631,
+            "y": 3709,
+            "values": [
+              2327
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i3-color-768m-Serial",
+      "input_index": 3,
+      "mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "final-java21",
+      "reference_mode": "rgb16",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "color",
+        "mode": "rgb16",
+        "width": 6024,
+        "height": 4020,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "a4bfda0cf5099990",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              9878,
+              8913,
+              8339
+            ]
+          },
+          {
+            "x": 3012,
+            "y": 2010,
+            "values": [
+              15462,
+              13803,
+              11983
+            ]
+          },
+          {
+            "x": 6023,
+            "y": 4019,
+            "values": [
+              25337,
+              23207,
+              19245
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    },
+    {
+      "id": "i3-sensor-768m-Serial",
+      "input_index": 3,
+      "mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "reference_panel": "screen-refill",
+      "reference_mode": "sensor",
+      "exit_code": 0,
+      "full_output_match": true,
+      "observed": {
+        "imagej_mode": "sensor",
+        "mode": "sensor",
+        "width": 6288,
+        "height": 4056,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "9bfade480f63376f",
+        "samples": [
+          {
+            "x": 0,
+            "y": 0,
+            "values": [
+              516
+            ]
+          },
+          {
+            "x": 3144,
+            "y": 2028,
+            "values": [
+              1265
+            ]
+          },
+          {
+            "x": 6287,
+            "y": 4055,
+            "values": [
+              1139
+            ]
+          }
+        ],
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "java_version": "21.0.13+9-1-deb13u2-Debian",
+        "java_vm": "OpenJDK 64-Bit Server VM",
+        "available_processors": 4,
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": [],
+      "compact_worker_limits": []
+    }
+  ]
+}

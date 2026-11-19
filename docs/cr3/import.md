@@ -113,7 +113,7 @@ that exchange the axes use one extra bit per pixel to track the rearrangement;
 flips and 180-degree rotation need constant extra space. The extra orientation
 pass and a lower worker limit can increase import time. Partial RGB reads budget for the Bayer
 region with interpolation neighbors and any separately allocated output pixels.
-Bayer reads retain their single-band layout. Both use the same worker policy.
+Native sensor reads keep the same dense unsigned-short plane and can reduce per-worker workspace. Partial RGB and Bayer reads both use the same adaptive worker policy. [0.1.8 changes and measured import times](../releases/0.1.8.md#memory-and-performance)
 
 | Complete output | Unavoidable pixel-array payload |
 | --- | ---: |

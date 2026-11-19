@@ -17,7 +17,7 @@ RAW development uses the as-shot white balance when the capture contains support
 
 **Upgrading from 0.1.5.** Starting with 0.1.6, the standard read develops RAW. Pass `setPreviewOnly(true)` to keep the camera-rendered JPEG behavior.
 
-The 16-bit RGB option is implemented in the 0.1.8-SNAPSHOT source build and planned for the next release. Stable 0.1.7 develops 8-bit RGB even when `SIXTEEN` is selected.
+The 0.1.8-SNAPSHOT source build implements the 16-bit RGB option. Stable 0.1.7 develops 8-bit RGB even when `SIXTEEN` is selected. [0.1.8 changes and compatibility](../releases/0.1.8.md)
 
 The stream-origin, preview-toggle, Bayer destination validation and metadata schema behavior described below is available starting with [0.1.7](../releases/0.1.7.md).
 

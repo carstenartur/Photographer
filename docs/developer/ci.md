@@ -79,15 +79,11 @@ The Maven Release Plugin's `release:prepare` goal versions the reactor, includin
 
 The workflow opens one PR to bring the next development snapshot back to `main`. If repository settings block automatic PR creation, open the comparison link in the snapshot job and create the PR from the prepared branch. Select **Approve workflows to run** if prompted, and merge after the required checks and reviews pass. You can rerun failed jobs from the original release run. [GitHub Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#preventing-github-actions-from-creating-or-approving-pull-requests)
 
-## Private-repository Actions usage
+## Actions runner usage
 
-`Photographer` is a private repository. Standard GitHub-hosted runner time therefore
-counts against the repository owner's included GitHub Actions allowance and any
-configured Actions budget. Jobs are rounded to billable minutes individually, so
-splitting trivial steps into many separate jobs can consume more allowance than the
-same commands in one bounded job.
+Photographer is a public repository. Standard GitHub-hosted runner time is free for its public workflows. Larger runners have separate billing rules. [GitHub Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 
-Repository controls used here:
+The project limits duplicate work and bounds CI runtime.
 
 - superseded runs are cancelled with workflow concurrency groups;
 - the reference manifest check shares the Java runner;
@@ -110,17 +106,7 @@ test failure:
 - no job log blob exists;
 - unrelated Java, frontend and Python jobs fail identically.
 
-Use the workflow error annotations and GitHub status to diagnose failures before runner assignment. If the annotations indicate billing or quota, check the owner's Actions usage and budgets.
-
-1. Open **Settings** for the owner account.
-2. Open **Billing and licensing**.
-3. Check **Usage** and **Budgets** for **Actions**.
-4. Confirm that included minutes remain, or add a valid payment method and a small
-   explicit budget that does not stop usage at zero.
-5. Alternatively, attach a trusted self-hosted runner or wait for the billing-cycle
-   allowance reset.
-
-Resume the affected jobs after the reported runner-allocation problem is resolved.
+Check the run annotations, the job's `runs-on` label and GitHub Status before investigating project code. If GitHub reports an account or billing restriction, check which repository and runner type the notice names. Resume the affected jobs after resolving the reported cause.
 
 ## Change policy
 
