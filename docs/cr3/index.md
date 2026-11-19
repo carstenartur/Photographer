@@ -4,13 +4,13 @@ This is the maintained entry point for Photographer’s independent Java librari
 
 The native Java RAW import supports the measured 14-bit, four-plane V1 configurations for the Canon EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. The full-frame acceptance panel covers 15 lossless RAW files and six three-level C-RAW files, including two project-owned PowerShot captures. [Lossless measurements](../cr3-results/2026-11-14-crx-native/README.md) · [C-RAW measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
 
-The [0.1.8 development release notes](../releases/0.1.8.md) cover RGB16 import in Java and Fiji, the active-area crop correction, and RAW heap planning.
+The [0.1.8 release notes](../releases/0.1.8.md) cover RGB16 import in Java and Fiji, the active-area crop correction, and RAW heap planning.
 
 ## Choose the path you need
 
 | Need | Start here | Status |
 |---|---|---|
-| Install the CR3 libraries with Maven | [Maven release repositories](../cr3-maven-central.md#resolve-a-released-version) | Version 0.1.7 on Maven Central, with a separate Git-backed distribution. |
+| Install the CR3 libraries with Maven | [Maven release repositories](../cr3-maven-central.md#resolve-a-released-version) | Version 0.1.8 on Maven Central, with a separate Git-backed distribution. |
 | Inspect CR3 tracks or extract embedded preview/thumbnail JPEGs | [Container and metadata](decoder.md#stable-container-and-metadata-layers) | Stable public APIs |
 | Import a file with the Java decoder or export camera frames from Photographer | [CR3 file import](import.md) | Includes native sensor and developed RGB examples |
 | Use CR3 through Java ImageIO | [ImageIO integration](imageio.md) | Default RAW color development on supported layouts, explicit preview, thumbnail and metadata |
@@ -18,7 +18,7 @@ The [0.1.8 development release notes](../releases/0.1.8.md) cover RGB16 import i
 | Write a lossless CR3 from native sensor data | [CR3 camera-profile writer](imageio.md#write-a-lossless-cr3-using-a-camera-profile) | Four built-in profiles and their full Bayer mosaics |
 | Export a native sensor image and reopen it as a DNG | [Bayer DNG round trip](imageio.md#write-and-read-a-bayer-dng) | Uncompressed 16-bit Bayer mosaic with calibration |
 | Inspect sensor values in Fiji or ImageJ | [Fiji update site](fiji-update-site.md) · [Import and macro examples](../../cr3-imagej/README.md) | One unsigned 16-bit plane, full sensor coordinates |
-| Develop a 16-bit color image in Fiji or Java | [Fiji color import](fiji-update-site.md) · [ImageIO options](imageio.md) | Three 16-bit RGB channels in 0.1.8-SNAPSHOT; experimental color rendering |
+| Develop a 16-bit color image in Fiji or Java | [Fiji color import](fiji-update-site.md) · [ImageIO options](imageio.md) | Three 16-bit RGB channels from 0.1.8, with experimental color rendering |
 | Use the command-line tool | [CLI](cli.md) | Supported command surface with experimental decode commands identified |
 | Follow the decoder from CRX sample to Bayer rows and RGB | [Native codec](decoder.md#native-codec-layer) · [Output modes](decoder.md#output-modes) | Stable container and metadata APIs, experimental RAW controls, internal processing |
 | Implement or verify a CR3 reader or writer | [CR3 and CRX format reference](format.md) | Measured byte and bit layouts, fixtures and implementation links |
@@ -42,7 +42,7 @@ The [0.1.8 development release notes](../releases/0.1.8.md) cover RGB16 import i
 | `io.github.carstenartur:cr3-processing` | Pedestal, crop, demosaic, white balance and color processing | Internal pipeline, not a general processing API |
 | `io.github.carstenartur:cr3-core` | Decoder facade and camera-profile writer | Stable preview and thumbnail paths. Native decoding and lossless writing cover the measured profiles. |
 | `io.github.carstenartur:cr3-imageio` | Java ImageIO CR3 and Bayer DNG readers and writers | Stable preview and metadata access, profile-specific RAW import |
-| `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer import and, in the 0.1.8 development source, an RGB16 composite importer | Distributed as a Fiji plugin |
+| `io.github.carstenartur:cr3-imagej` | Full-sensor Bayer import and RGB16 composite import | Distributed as a Fiji plugin |
 | `com.photographer.focusstack:canon-cr3-cli` | Inspection, preview export and experimental decode commands | Executable built from a source checkout |
 
 ### Internal evidence and development modules

@@ -25,9 +25,9 @@ int sensorCode = image.getProcessor().get(100, 200);
 
 ## Open a color image
 
-In **0.1.8-SNAPSHOT**, choose **File › Import › CR3 Color Image...** to develop the active area of a supported RAW or C-RAW capture into a three-channel, EXIF-oriented sRGB composite. The red, green and blue planes each store unsigned 16-bit values and share an initial display range of 0–65535. RAW color rendering is experimental. This command is planned for the next release. Stable 0.1.7 offers 8-bit developed RGB through its [color script](../docs/cr3/fiji-update-site.md#open-a-color-image).
+In **0.1.8 or later**, choose **File › Import › CR3 Color Image...** to develop the active area of a supported RAW or C-RAW capture into a three-channel, EXIF-oriented sRGB composite. The red, green and blue planes each store unsigned 16-bit values and share an initial display range of 0–65535. RAW color rendering is experimental.
 
-The [development Groovy example](examples/open-cr3-color.groovy) offers the camera JPEG and the 16-bit RAW composite. A headless Java caller can read individual developed values directly:
+The [Groovy example](examples/open-cr3-color.groovy) offers the camera JPEG and the 16-bit RAW composite. A headless Java caller can read individual developed values directly:
 
 ```java
 import com.photographer.focusstack.cr3.imagej.Cr3ColorImporter;
@@ -40,7 +40,9 @@ int green = image.getStack().getProcessor(2).get(100, 200);
 
 ImageJ macros can call `run("CR3 Color Image...", "path=[/data/capture.cr3]");`.
 
-## Memory use in 0.1.8 development builds
+<a id="memory-use-in-018-development-builds"></a>
+
+## Memory use
 
 Both RAW menu commands use the decoder's `AUTO` memory policy. If the normal read exceeds its estimated Java heap budget, the decoder selects compact processing with an adapted worker limit. The sensor importer retains the same dense unsigned-short plane; its fallback reduces worker workspace. The RGB16 importer can also use compact development and in-place orientation. One line beginning `CR3 low-memory:` on standard error reports the limit for the read. The estimate is advisory: if even one worker exceeds the budget, the decoder still attempts that smallest configuration. Sensor codes, RGB16 precision, dimensions and orientation follow the same rules in either mode.
 

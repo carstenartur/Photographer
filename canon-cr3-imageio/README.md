@@ -22,7 +22,7 @@ classification is maintained in
 Use standard ImageIO APIs to load the developed photograph or request the
 embedded JPEG. The [ImageIO guide](../docs/cr3/imageio.md) describes the
 behavior change from 0.1.5 and the available sensor output modes. Default
-development produces 8-bit sRGB. In 0.1.8-SNAPSHOT (planned for the next release),
+development produces 8-bit sRGB. Starting with 0.1.8,
 `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` develops three
 unsigned 16-bit bands. Access individual channel values through the raster.
 Standard or default read parameters can also select an advertised 16-bit RGB

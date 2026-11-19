@@ -1,10 +1,10 @@
 # CR3 Maven releases
 
-A regular Photographer release publishes six CR3 libraries to the project's `maven-repository` Git branch and to Maven Central. The Git branch inherits Photographer's repository permissions. Central serves the published coordinates to Maven consumers. [Start a release](developer/ci.md#publish-a-release)
+A regular Photographer release publishes six CR3 libraries to the project's `maven-repository` Git branch and to Maven Central. The public Git branch supports anonymous HTTPS downloads. Central serves the published coordinates to Maven consumers. [Start a release](developer/ci.md#publish-a-release)
 
 ## Resolve a released version
 
-For Java 21 or newer, add `io.github.carstenartur:cr3-imageio:0.1.7` to your application's dependencies. Maven Central supplies this artifact and its five CR3 dependencies. The dependency snippets below also show direct access to the container parser. [Consumer examples](#consumer-examples) · [Photographer 0.1.7](releases/0.1.7.md)
+For Java 21 or newer, add `io.github.carstenartur:cr3-imageio:0.1.8` to your application's dependencies. Maven Central supplies this artifact and its five CR3 dependencies. The dependency snippets below also show direct access to the container parser. [Consumer examples](#consumer-examples) · [Photographer 0.1.8](releases/0.1.8.md)
 
 ## Git-backed repository
 
@@ -20,23 +20,23 @@ Both commands produce `target/public-maven-repository/`. Ordinary dependency dow
 
 The **Release Workflow** stages the six libraries at the stable tag and fast-forwards `maven-repository`. Each version's POM, binary, sources, Javadoc and checksums are immutable. An identical prior Maven release can be reused. A changed or partial version directory stops publication. GitHub Release remains the archival event for a configured Zenodo integration. Record an archive DOI only after the record exists.
 
-### Resolve a version from the private Git branch
+<a id="resolve-a-version-from-the-private-git-branch"></a>
 
-Use your authorized Git access to clone the private distribution branch and select the exact version to verify. Maven reads that checkout through a file URL.
+### Resolve a version from the public Git branch
+
+From the Photographer checkout, point Maven at the public `maven-repository` branch and select an exact release. This example resolves the archived `0.1.5` artifacts over HTTPS using an empty local Maven cache.
 
 ```bash
-git clone --single-branch --branch maven-repository \
-  https://github.com/carstenartur/Photographer.git ../photographer-maven
 mvn -B -f release/canon-cr3-consumer/pom.xml -Pphotographer-releases \
-  "-Dphotographer.repository.url=file://$(cd ../photographer-maven && pwd)" \
+  -Dphotographer.repository.url=https://raw.githubusercontent.com/carstenartur/Photographer/maven-repository/ \
   "-Dmaven.repo.local=$(mktemp -d)" \
   -Dcr3.version=0.1.5 \
   org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies
 ```
 
-The command copies the six resolved CR3 runtime JARs and their external dependencies to `release/canon-cr3-consumer/target/dependency/`. For a locally staged candidate, use `"-Dphotographer.repository.url=file://$PWD/target/public-maven-repository"`. The [standalone consumer POM](../release/canon-cr3-consumer/pom.xml) declares one dependency. Copy its `photographer-releases` profile into another consumer's POM or directly add that profile's repository entry under `<project><repositories>`.
+The command copies the six CR3 runtime JARs and their external dependencies to `release/canon-cr3-consumer/target/dependency/`. To use the same repository in another application, copy the `photographer-releases` profile from the [standalone consumer POM](../release/canon-cr3-consumer/pom.xml) or add its repository entry under `<project><repositories>`.
 
-A distribution on a public HTTPS server can be consumed anonymously by passing its repository root as `photographer.repository.url`. For a public Photographer GitHub repository, that URL would be `https://raw.githubusercontent.com/carstenartur/Photographer/maven-repository/`. Private GitHub raw URLs do not provide anonymous access. For a version published to Maven Central, run the same consumer command without `-Pphotographer-releases` and without the repository URL.
+For a locally staged candidate, use `"-Dphotographer.repository.url=file://$PWD/target/public-maven-repository"`. For a release published to Maven Central, omit both `-Pphotographer-releases` and `-Dphotographer.repository.url`.
 
 ## Public coordinates
 
@@ -48,7 +48,7 @@ io.github.carstenartur
 
 The **CR3 ImageIO** library provides Java ImageIO readers and writers for Canon CR3 and uncompressed Bayer DNG. The [ImageIO guide](cr3/imageio.md) describes the supported layouts and write profiles.
 
-The six artifacts below share version `0.1.7` on Maven Central. In this version `ImageIO.read(File)` develops the full-resolution RAW by default. The Git-backed example above selects the archived `0.1.5` release. [ImageIO migration note](cr3/imageio.md)
+The six artifacts below share version `0.1.8` on Maven Central. In this version `ImageIO.read(File)` develops the full-resolution RAW by default. The Git-backed example above selects the archived `0.1.5` release. [ImageIO migration note](cr3/imageio.md)
 
 | Artifact | Purpose |
 |---|---|
@@ -137,11 +137,11 @@ The release profile and credential names follow the project’s [jgit-storage-hi
 
 ### Verify the published Central version
 
-From the Photographer checkout, resolve `0.1.7` using a fresh Maven cache and the default Central repository.
+From the Photographer checkout, resolve `0.1.8` using a fresh Maven cache and the default Central repository.
 
 ```bash
 mvn -B -f release/canon-cr3-consumer/pom.xml \
-  "-Dmaven.repo.local=$(mktemp -d)" -Dcr3.version=0.1.7 \
+  "-Dmaven.repo.local=$(mktemp -d)" -Dcr3.version=0.1.8 \
   org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies
 ```
 
@@ -157,7 +157,7 @@ ImageIO integration:
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-imageio</artifactId>
-  <version>0.1.7</version>
+  <version>0.1.8</version>
 </dependency>
 ```
 
@@ -167,7 +167,7 @@ Low-level container access:
 <dependency>
   <groupId>io.github.carstenartur</groupId>
   <artifactId>cr3-container</artifactId>
-  <version>0.1.7</version>
+  <version>0.1.8</version>
 </dependency>
 ```
 
@@ -177,4 +177,4 @@ The ImageIO dependency resolves the remaining supported runtime modules transiti
 
 The 0.1.5 archives resolve from the authorized Git-backed repository checkout. An independent consumer started with an empty Maven cache and retrieved all six POMs, runtime JARs, sources and Javadocs. Java 21 discovered the CR3 ImageIO provider from those dependencies. [Pinned Maven tree](https://github.com/carstenartur/Photographer/tree/9af70e857d3f138b2688f377e135e85b850f0c81) · [Checksums and release channels](releases/0.1.5.md#artifact-verification)
 
-[Verify 0.1.7 from Maven Central](#verify-the-published-central-version)
+[Verify 0.1.8 from Maven Central](#verify-the-published-central-version)

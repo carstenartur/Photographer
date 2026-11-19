@@ -22,7 +22,7 @@ Photographer controls compatible Canon cameras via CCAPI and USB/PTP. Its React 
 | Open a Bayer mosaic or a color image in Fiji | [Install the Fiji update site](docs/cr3/fiji-update-site.md) · [Import sensor data](cr3-imagej/README.md) · [Open a color image](docs/cr3/fiji-update-site.md#open-a-color-image) |
 | Inspect a CR3 or export a preview from the command line | [CLI commands](docs/cr3/cli.md) |
 | Review the CR3 reader and writer provenance | [Reviewer guide](docs/cleanroom/reviewer-guide.md) |
-| Find the stable release and check its downloads | [Photographer 0.1.7](docs/releases/0.1.7.md) |
+| Find the stable release and check its downloads | [Photographer 0.1.8](docs/releases/0.1.8.md) · [Downloads](https://github.com/carstenartur/Photographer/releases/tag/v0.1.8) |
 | Build or extend Photographer | [Developer manual](docs/developer/index.md) · [Project verification](docs/developer/testing.md) |
 
 ![Mock camera profile showing the generated live view, battery level and camera settings](docs/screenshots/mock-camera.webp)
@@ -75,7 +75,7 @@ Find the Maven modules, dependency layers and supported library interfaces in th
 
 ## Import Canon CR3 files in Java
 
-Add `io.github.carstenartur:cr3-imageio:0.1.7` from Maven Central to a Java 21 or newer Maven application to develop a full-resolution color image from CR3 with `ImageIO.read(file)`. Use the reader parameters to select the camera’s embedded JPEG, linear Bayer or the original sensor codes. The standalone `cr3-core` decoder also accepts a file path directly.
+Add `io.github.carstenartur:cr3-imageio:0.1.8` from Maven Central to a Java 21 or newer Maven application to develop a full-resolution color image from CR3 with `ImageIO.read(file)`. Use the reader parameters to select three-channel 16-bit RGB, the camera’s embedded JPEG, linear Bayer or the original sensor codes. The standalone `cr3-core` decoder also accepts a file path directly.
 
 [Run the minimal Maven example](docs/cr3/imageio.md#run-the-minimal-example) · [ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
 

@@ -1,0 +1,539 @@
+{
+  "release": "https://github.com/carstenartur/Photographer/releases/tag/v0.1.8",
+  "tag": "v0.1.8",
+  "archives": [
+    {
+      "url": "https://github.com/carstenartur/Photographer/releases/download/v0.1.8/cr3-fiji-install.zip",
+      "bytes": 427719,
+      "sha256": "6dd55d4fb19c5da50ab782c921e55746f74bdacf68b625f2ad8a11a143e5440f"
+    },
+    {
+      "url": "https://github.com/carstenartur/Photographer/releases/download/v0.1.8/cr3-fiji-update-site.zip",
+      "bytes": 1868165,
+      "sha256": "3e849dc71059e7a3a05547f4c21dba17caaa24a9984dabf3892391a4fe1f7654"
+    }
+  ],
+  "hosted_site_verified": true,
+  "installed_jars_match_site": true,
+  "runtime_classes_match_candidate": true,
+  "preserved_previous_release_payloads": 28,
+  "total_released_history_payloads": 35,
+  "hosted_files": [
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/db.xml.gz",
+      "bytes": 2324,
+      "sha256": "7ec3b03207ac35b7aef905c020e8075f480ed291e0649f8e544f8c744faacc0c"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/version.txt",
+      "bytes": 6,
+      "sha256": "76f81f64ece28d0bcfe39dd35f6d14f3c87fe000b77aee11561e18d1919f607e"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/jars/cr3-processing.jar-20261119170824",
+      "bytes": 62568,
+      "sha256": "6d89fa308380396ffd7f361d9b9fd8f1af39486f4b009d62c1237aed8332a20b"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/jars/cr3-imageio.jar-20261119170824",
+      "bytes": 83690,
+      "sha256": "a1d593f843b7a942dab394b45f28763a5e3c6abdf151be85e59c31c252c221eb"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/jars/cr3-container.jar-20261119170824",
+      "bytes": 51149,
+      "sha256": "8b4b7b610502e3c42270041e7c67d269d6813dff934cac0aafd28eb5b0c78e85"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/jars/cr3-codec.jar-20261119170824",
+      "bytes": 103198,
+      "sha256": "051c61d1c1c33986fb9c834a92d9ec417d4e48bcbf51d14294f3bcfc41e5ff32"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/jars/cr3-core.jar-20261119170824",
+      "bytes": 76851,
+      "sha256": "b7315ccd375f4ec1784ad8e8d6e9e288ebd87b83887b93bbb9797a4aab3d8e00"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/jars/cr3-metadata.jar-20261119170824",
+      "bytes": 38536,
+      "sha256": "aff916901d856c74c638d3e9f8a5d68e4cefd99403fec5e9adb4834f29a90623"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/plugins/CR3_Sensor_Import.jar-20261119170824",
+      "bytes": 10873,
+      "sha256": "2b2839a1fd8cf83b6b37ef541309975fd98ec36038f338619f1bc63416938565"
+    },
+    {
+      "url": "https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy",
+      "bytes": 893,
+      "sha256": "2a4d9c174e362fabb2f5fb25eb4dcad9a87387d7ab4c621466bda1d223bedda3"
+    }
+  ],
+  "runtime_comparison": [
+    {
+      "path": "jars/cr3-codec.jar",
+      "sha256": "051c61d1c1c33986fb9c834a92d9ec417d4e48bcbf51d14294f3bcfc41e5ff32",
+      "identical_class_files": 54,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/maven/io.github.carstenartur/cr3-codec/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-codec/pom.xml"
+      ]
+    },
+    {
+      "path": "jars/cr3-container.jar",
+      "sha256": "8b4b7b610502e3c42270041e7c67d269d6813dff934cac0aafd28eb5b0c78e85",
+      "identical_class_files": 24,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/maven/io.github.carstenartur/cr3-container/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-container/pom.xml"
+      ]
+    },
+    {
+      "path": "jars/cr3-core.jar",
+      "sha256": "b7315ccd375f4ec1784ad8e8d6e9e288ebd87b83887b93bbb9797a4aab3d8e00",
+      "identical_class_files": 31,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/cr3/import.md",
+        "META-INF/maven/io.github.carstenartur/cr3-core/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-core/pom.xml"
+      ]
+    },
+    {
+      "path": "jars/cr3-imageio.jar",
+      "sha256": "a1d593f843b7a942dab394b45f28763a5e3c6abdf151be85e59c31c252c221eb",
+      "identical_class_files": 26,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/cr3/imageio.md",
+        "META-INF/cr3/import.md",
+        "META-INF/maven/io.github.carstenartur/cr3-imageio/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-imageio/pom.xml"
+      ]
+    },
+    {
+      "path": "jars/cr3-metadata.jar",
+      "sha256": "aff916901d856c74c638d3e9f8a5d68e4cefd99403fec5e9adb4834f29a90623",
+      "identical_class_files": 19,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/maven/io.github.carstenartur/cr3-metadata/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-metadata/pom.xml"
+      ]
+    },
+    {
+      "path": "jars/cr3-processing.jar",
+      "sha256": "6d89fa308380396ffd7f361d9b9fd8f1af39486f4b009d62c1237aed8332a20b",
+      "identical_class_files": 29,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/maven/io.github.carstenartur/cr3-processing/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-processing/pom.xml"
+      ]
+    },
+    {
+      "path": "plugins/CR3_Sensor_Import.jar",
+      "sha256": "2b2839a1fd8cf83b6b37ef541309975fd98ec36038f338619f1bc63416938565",
+      "identical_class_files": 2,
+      "differing_archive_entries": [
+        "META-INF/MANIFEST.MF",
+        "META-INF/maven/io.github.carstenartur/cr3-imagej/pom.properties",
+        "META-INF/maven/io.github.carstenartur/cr3-imagej/pom.xml"
+      ]
+    }
+  ],
+  "checked_on": "2026-11-19",
+  "release_source_commit": "d027bdb5d9191a4f41924aa37deac0e09d24ba22",
+  "stable_commit": "20ca2d01ec07964abd076d80ae6d38fcc711c780",
+  "release_workflow": "https://github.com/carstenartur/Photographer/actions/runs/44570543725",
+  "reference_matrix": "matrix.json",
+  "replay_runner": "run_checks.py",
+  "runtime": {
+    "java_version": "21.0.13+9-1-deb13u2-Debian",
+    "java_vm": "OpenJDK 64-Bit Server VM",
+    "available_processors": 4,
+    "fiji_archive_sha256": "fb3a5206ee94434907dea34b88b84f174de08ce25b3038c7a999bc554edcda15"
+  },
+  "replay_artifacts": {
+    "install_zip_sha256": "6dd55d4fb19c5da50ab782c921e55746f74bdacf68b625f2ad8a11a143e5440f",
+    "jars_sha256": {
+      "cr3-codec.jar": "051c61d1c1c33986fb9c834a92d9ec417d4e48bcbf51d14294f3bcfc41e5ff32",
+      "cr3-container.jar": "8b4b7b610502e3c42270041e7c67d269d6813dff934cac0aafd28eb5b0c78e85",
+      "cr3-core.jar": "b7315ccd375f4ec1784ad8e8d6e9e288ebd87b83887b93bbb9797a4aab3d8e00",
+      "cr3-imageio.jar": "a1d593f843b7a942dab394b45f28763a5e3c6abdf151be85e59c31c252c221eb",
+      "cr3-metadata.jar": "aff916901d856c74c638d3e9f8a5d68e4cefd99403fec5e9adb4834f29a90623",
+      "cr3-processing.jar": "6d89fa308380396ffd7f361d9b9fd8f1af39486f4b009d62c1237aed8332a20b",
+      "CR3_Sensor_Import.jar": "2b2839a1fd8cf83b6b37ef541309975fd98ec36038f338619f1bc63416938565",
+      "ij-1.54p.jar": "2e1a09961dfb41cee66ddc821b2577a41a072566ce45a49bae69267099741e20",
+      "slf4j-api-2.0.17.jar": "7b751d952061954d5abfed7181c1f645d336091b679891591d63329c622eb832"
+    },
+    "probe_class_sha256": "0565dbf2c9e1c7c214cfe63c3bbfe88de5d12060c2b7a27e548081086183f09f"
+  },
+  "replay_cases": [
+    {
+      "id": "i0-color-136m-G1",
+      "input_index": 0,
+      "imagej_mode": "color",
+      "heap_mib": 136,
+      "collector": "G1",
+      "exit_code": 0,
+      "result": {
+        "mode": "rgb16",
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "482d0cb8385a95c5",
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 142606336
+      },
+      "compact_messages": [
+        "CR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 123179072 bytes, available 136292760 bytes)."
+      ]
+    },
+    {
+      "id": "i0-color-768m-Serial",
+      "input_index": 0,
+      "imagej_mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "rgb16",
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "482d0cb8385a95c5",
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i0-sensor-51m-G1",
+      "input_index": 0,
+      "imagej_mode": "sensor",
+      "heap_mib": 51,
+      "collector": "G1",
+      "exit_code": 0,
+      "result": {
+        "mode": "sensor",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "bbb2c3b2ecb4e45b",
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 54525952
+      },
+      "compact_messages": [
+        "CR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 43132864 bytes, available 47931560 bytes)."
+      ]
+    },
+    {
+      "id": "i0-sensor-768m-Serial",
+      "input_index": 0,
+      "imagej_mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "sensor",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "bbb2c3b2ecb4e45b",
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i1-color-768m-Serial",
+      "input_index": 1,
+      "imagej_mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "rgb16",
+        "width": 6744,
+        "height": 4500,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "ba1e15e786312378",
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i1-sensor-768m-Serial",
+      "input_index": 1,
+      "imagej_mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "sensor",
+        "width": 6888,
+        "height": 4546,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "bfdafa4cdea7ee7c",
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i2-color-768m-Serial",
+      "input_index": 2,
+      "imagej_mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "rgb16",
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "5c286fbe36253461",
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i2-sensor-768m-Serial",
+      "input_index": 2,
+      "imagej_mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "sensor",
+        "width": 5632,
+        "height": 3710,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "a90bf97e45a21c71",
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i3-color-768m-Serial",
+      "input_index": 3,
+      "imagej_mode": "color",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "rgb16",
+        "width": 6024,
+        "height": 4020,
+        "channels": 3,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "a4bfda0cf5099990",
+        "headless": true,
+        "window_open": false,
+        "composite": true,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    },
+    {
+      "id": "i3-sensor-768m-Serial",
+      "input_index": 3,
+      "imagej_mode": "sensor",
+      "heap_mib": 768,
+      "collector": "Serial",
+      "exit_code": 0,
+      "result": {
+        "mode": "sensor",
+        "width": 6288,
+        "height": 4056,
+        "channels": 1,
+        "bits": 16,
+        "checksum_kind": "full-u16le-or-u8",
+        "fnv1a64": "9bfade480f63376f",
+        "headless": true,
+        "window_open": false,
+        "composite": false,
+        "requested_memory_mode": "AUTO",
+        "max_heap_bytes": 778502144
+      },
+      "compact_messages": []
+    }
+  ],
+  "replay_cases_passed": 10,
+  "limitations": [
+    "These are headless imports. The graphical menu and channel checks in fiji-application.json used the candidate whose runtime classes are identical.",
+    "Full-image fingerprints are compared with the recorded ImageIO reference, not an independent color-rendering reference.",
+    "The constrained heap values cover one image in the recorded JVM configuration, not a minimum RAM requirement for the Fiji application."
+  ],
+  "central_example": {
+    "example_pom_sha256": "d3a97c3e17d0697f7a94bdd902085ec47bdfd7f6a425da4ce3b12c1db25df849",
+    "example_source_sha256": "c81f1e53f31e5fdeb1685c406dc60999244e788f786dbc62bebe91e0420f3526",
+    "input_sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+    "public_pom_url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-imageio/0.1.8/cr3-imageio-0.1.8.pom",
+    "public_pom_sha256": "2a43279da5489a754c437333a30c63a6281564f10b461ab5904af0ab2e070658",
+    "local_cache_initial_entries": 0,
+    "java_runtime": "openjdk version \"21.0.13\" 2026-10-20\nOpenJDK Runtime Environment (build 21.0.13+9-1-deb13u2-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13+9-1-deb13u2-Debian, mixed mode, sharing)",
+    "central_payloads": [
+      {
+        "file": "cr3-container-0.1.8.pom",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-container/0.1.8/cr3-container-0.1.8.pom",
+        "bytes": 1816,
+        "sha256": "55f9749c7a1718b893ee31d0b3bd70e6e8b987ce970369b500f012e3df96a6af",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-container-0.1.8.jar",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-container/0.1.8/cr3-container-0.1.8.jar",
+        "bytes": 50710,
+        "sha256": "7955b9cbe11730fb1365c4411b3a8526ca6325a9062f8eb93c555ae39476f233",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-metadata-0.1.8.pom",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-metadata/0.1.8/cr3-metadata-0.1.8.pom",
+        "bytes": 1995,
+        "sha256": "03e0037a94e9fa4521f9df4631e236521efa17680ac588dced2b6eb67d28c4e0",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-metadata-0.1.8.jar",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-metadata/0.1.8/cr3-metadata-0.1.8.jar",
+        "bytes": 38447,
+        "sha256": "a5461197c1f8245f2a2f92ab2330bbc9ce65e574c53bf44add679c5f630c798f",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-codec-0.1.8.pom",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-codec/0.1.8/cr3-codec-0.1.8.pom",
+        "bytes": 2178,
+        "sha256": "946a830ca0ddfa50802730042cf5d54b739416338a90bd3976d7299958d80a69",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-codec-0.1.8.jar",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-codec/0.1.8/cr3-codec-0.1.8.jar",
+        "bytes": 103125,
+        "sha256": "95007f4b2c2d2c29d97779d58ed5648be0c5333d45d7262316606714e9cf5153",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-processing-0.1.8.pom",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-processing/0.1.8/cr3-processing-0.1.8.pom",
+        "bytes": 2182,
+        "sha256": "b89e4d5d94ebae1d3e1415ddf5c05aa70534022d7085f4bb268121526f094aa6",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-processing-0.1.8.jar",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-processing/0.1.8/cr3-processing-0.1.8.jar",
+        "bytes": 61590,
+        "sha256": "b662b50dbed852433761d7dcc77daee255a44b7ce48845c1cdde050ddf96b156",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-core-0.1.8.pom",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-core/0.1.8/cr3-core-0.1.8.pom",
+        "bytes": 2532,
+        "sha256": "b2bb4b2bed3a25052f9a11609cc9cc12038fa9af3e0cdd941b6cf3c66eabb401",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-core-0.1.8.jar",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-core/0.1.8/cr3-core-0.1.8.jar",
+        "bytes": 76518,
+        "sha256": "477fbad5b3ec6cce933764b7fd4d7472e8be33e005a55829d4fdb5d4b10c5329",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-imageio-0.1.8.pom",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-imageio/0.1.8/cr3-imageio-0.1.8.pom",
+        "bytes": 2825,
+        "sha256": "2a43279da5489a754c437333a30c63a6281564f10b461ab5904af0ab2e070658",
+        "maven_repository_id": "central"
+      },
+      {
+        "file": "cr3-imageio-0.1.8.jar",
+        "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-imageio/0.1.8/cr3-imageio-0.1.8.jar",
+        "bytes": 83369,
+        "sha256": "d8373830b485bbd50b7cbf5272c982d8cc9c7bd3779b5e00b80a52c733a58121",
+        "maven_repository_id": "central"
+      }
+    ],
+    "java21_stdout": "5632 x 3710 Bayer mosaic, 1584 distinct sensor values, maximum 3512",
+    "matches_documentation": true,
+    "class_major": 65,
+    "example_class_sha256": "df59f592731df7a7412152cd0f31feb6c2ea1e1adf3fb4d427cc946a5ef426a6",
+    "maven_command": [
+      "$MVN",
+      "-B",
+      "-ntp",
+      "-U",
+      "-Dmaven.repo.local=$MAVEN_CACHE",
+      "-f",
+      "$REPO/examples/cr3-imageio/pom.xml",
+      "compile",
+      "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies"
+    ],
+    "java21_command": [
+      "$JAVA21",
+      "-cp",
+      "target/classes:target/dependency/*",
+      "SensorValues",
+      "$REPO/canon-cr3-imageio/src/test/resources/samples/sample.cr3"
+    ],
+    "maven_build_runtime": "Apache Maven 3.9.11, Eclipse Temurin 25.0.5.1+2; release 21",
+    "standalone_example": "examples/cr3-imageio",
+    "local_example_checkout_commit": "e56da20a2ff1f03b33cff1d08a6e30ec8afb57dd",
+    "example_java_source": "examples/cr3-imageio/src/main/java/SensorValues.java",
+    "commands_note": "MVN is Maven 3.9.11 running on JDK25; JAVA21 is the Java21 executable; REPO is the checkout; MAVEN_CACHE is an initially empty directory. The Java command runs in examples/cr3-imageio."
+  }
+}
