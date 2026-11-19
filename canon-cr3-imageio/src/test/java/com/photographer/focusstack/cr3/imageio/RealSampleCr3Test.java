@@ -433,6 +433,8 @@ class RealSampleCr3Test {
 
                 BufferedImage rawLinear = decoder.decode(
                         Cr3DecodeOptions.rawLinear().cropToActiveArea(true));
+                assertThat(rawLinear.getWidth()).isEqualTo(5496);
+                assertThat(rawLinear.getHeight()).isEqualTo(3668);
 
                 short[] pixels = ((java.awt.image.DataBufferUShort)
                         rawLinear.getRaster().getDataBuffer()).getData();
@@ -444,10 +446,11 @@ class RealSampleCr3Test {
                     histogram[bin]++;
                 }
 
-                // sample.reference.tiff: crop [120, 28, 5615, 3695), subtract the
-                // default 512 DN black level and scale 14-bit values to unsigned 16-bit.
+                // Independently counted from the unchanged sample.reference.tiff:
+                // inclusive IAD1 [120,28..5615,3695] becomes [120,28..5616,3696).
+                // Subtract 512 DN, then scale 14-bit values to unsigned 16-bit.
                 assertThat(histogram).as("black-corrected reference histogram")
-                        .containsExactly(0, 11_927_041, 8_223_124, 0, 0, 0, 0, 0,
+                        .containsExactly(0, 11_935_391, 8_223_937, 0, 0, 0, 0, 0,
                                 0, 0, 0, 0, 0, 0, 0, 0);
             }
         }

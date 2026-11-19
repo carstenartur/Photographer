@@ -71,18 +71,29 @@ public record Iad1Box(
     }
 
     /**
-     * Creates a SensorCropGeometry from this IAD1 data.
+     * Converts IAD1's inclusive last-pixel coordinates to half-open sensor geometry.
      *
      * <p>Active area values are clamped to valid sensor bounds because some Canon
      * firmware versions produce values that overflow the actual sensor dimensions
      * by a few pixels, especially in 1.6× crop mode.</p>
+     *
+     * <p>All-zero active fields mean that no active area was supplied, including
+     * the shorter IAD1 layouts. Invalid or nonintersecting rectangles also remain
+     * unset so consumers retain their full-sensor fallback. A genuine one-pixel
+     * rectangle at the origin cannot be distinguished from this absent sentinel.</p>
      */
     public SensorCropGeometry toSensorCropGeometry(int sensorW, int sensorH) {
-        // Clamp active area to sensor bounds (firmware may produce overflow values)
+        if ((activeLeft == 0 && activeTop == 0 && activeRight == 0 && activeBottom == 0)
+                || activeRight < activeLeft || activeBottom < activeTop) {
+            return SensorCropGeometry.withActiveArea(sensorW, sensorH, 0, 0, 0, 0);
+        }
         int clampedLeft = Math.max(0, Math.min(activeLeft(), sensorW));
         int clampedTop = Math.max(0, Math.min(activeTop(), sensorH));
-        int clampedRight = Math.max(clampedLeft, Math.min(activeRight(), sensorW));
-        int clampedBottom = Math.max(clampedTop, Math.min(activeBottom(), sensorH));
+        int clampedRight = (int) Math.max(0L, Math.min((long) activeRight() + 1, sensorW));
+        int clampedBottom = (int) Math.max(0L, Math.min((long) activeBottom() + 1, sensorH));
+        if (clampedRight <= clampedLeft || clampedBottom <= clampedTop) {
+            return SensorCropGeometry.withActiveArea(sensorW, sensorH, 0, 0, 0, 0);
+        }
         return SensorCropGeometry.withActiveArea(sensorW, sensorH,
                 clampedLeft, clampedTop, clampedRight, clampedBottom);
     }
