@@ -80,6 +80,8 @@ Worker calls wait for submitted tasks before returning or propagating an error. 
 
 These classes implement the internal CR3 rendering pipeline. The facade resolves the display pedestal from optical-black rows when available, then MakerNote per-channel values, then a global default. White balance uses valid CTMD gains when present and can fall back to MakerNote or daylight multipliers. The RGB path applies the requested black-level and white-balance corrections before demosaic, followed by the camera color matrix, sRGB conversion and EXIF orientation. [Capture calibration and output modes](format.md#cfa-and-calibration-in-output-modes)
 
+Starting with the 0.1.8-SNAPSHOT development version, `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` produces three unsigned 16-bit RGB channels. This path retains fractional values and highlight headroom through the enabled rendering stages, then clamps and rounds the final channels to `0..65535`. It uses bounded row buffers and writes directly into the oriented output planes. Disabling sRGB conversion selects a linear RGB color model. The default eight-bit rendering path remains available; stable 0.1.7 supports only that depth for developed RGB. [ImageIO options and sample access](imageio.md)
+
 ## Unified facade
 
 For a runnable Maven consumer that reads files by path, develops RGB or selects a sensor region, see [Import a CR3 file](import.md).
@@ -98,7 +100,7 @@ For a runnable Maven consumer that reads files by path, develops RGB or selects 
 | `THUMBNAIL` | Stable subset | Embedded JPEG thumbnail |
 | `RAW_LINEAR` | Verified for the RG4 lossless and RG5 C-RAW layouts | One unsigned-short Bayer band scaled toward the 16-bit range, with optional crop and default black-level subtraction |
 | `RAW_SENSOR` | Verified on the same profiles | Unscaled sensor codes in one unsigned-short band, including optical-black margins |
-| `RAW_PROCESSED` | Experimental | RAW decode plus crop/demosaic/color processing |
+| `RAW_PROCESSED` | Experimental | RAW decode plus crop/demosaic/color processing; 8-bit by default, optional 16-bit RGB in 0.1.8-SNAPSHOT |
 
 Factory shortcuts include `Cr3DecodeOptions.defaults()`, `rawLinear()`, `rawSensor()` and `rawProcessed()`.
 

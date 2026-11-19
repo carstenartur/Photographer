@@ -5,6 +5,7 @@ import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.awt.image.DirectColorModel;
@@ -59,6 +60,30 @@ public final class BayerDemosaicer {
                 rawImage.width(), rawImage.height(), rawImage.bayerPattern(), whiteLevel);
 
         return demosaicToNewImage(rawImage, Math.max(1, whiteLevel));
+    }
+
+    /**
+     * Develops a crop-local Bayer region directly into three unsigned-short RGB planes.
+     * The supplied mosaic must include the interpolation neighbors of the region.
+     *
+     * @param image Bayer samples, in native sensor units, left unmodified
+     * @param blackLevel pedestal in sensor coordinates, or null to skip subtraction
+     * @param sensorX sensor column of the first Bayer sample
+     * @param sensorY sensor row of the first Bayer sample
+     * @param whiteBalance RGB gains, or null for unit gains
+     * @param whiteLevel normalization level after pedestal subtraction
+     * @param matrix camera-to-linear-RGB matrix, or null to keep camera RGB
+     * @param region requested rectangle within the supplied mosaic, before orientation
+     * @param orientation EXIF orientation of the result
+     * @param srgb whether to apply the sRGB transfer function
+     * @param maxWorkers maximum workers, or zero for automatic selection
+     * @return oriented RGB image, quantized once to 0–65535 per channel
+     */
+    public static BufferedImage develop16(Cr3RawImage image, BlackLevel blackLevel, int sensorX, int sensorY,
+                                          double[] whiteBalance, int whiteLevel, double[][] matrix,
+                                          Rectangle region, int orientation, boolean srgb, int maxWorkers) {
+        return new Rgb16Developer(image, blackLevel, sensorX, sensorY, whiteBalance, whiteLevel, matrix, srgb)
+                .develop(region, orientation, maxWorkers);
     }
 
     /**
@@ -150,8 +175,8 @@ public final class BayerDemosaicer {
      *
      * <p>This method scales the raw sensor values (which may be 14-bit or higher) down to
      * the 8-bit-per-channel range (0–255) required by {@link BufferedImage#TYPE_INT_RGB}.
-     * For true high-bit-depth processing, callers should work with the raw {@code int[][]}
-     * planes from {@link Cr3RawImage} directly.</p>
+     * Use {@link #develop16(Cr3RawImage, BlackLevel, int, int, double[], int, double[][],
+     * Rectangle, int, boolean, int)} to retain fractional values until 16-bit RGB output.</p>
      *
      * @param rawImage the RAW Bayer image
      * @return a full-color RGB BufferedImage (TYPE_INT_RGB, 8-bit per channel)
@@ -258,11 +283,11 @@ public final class BayerDemosaicer {
     }
 
     /** Identifies the color type at a given Bayer position. */
-    private enum PixelColor {
+    enum PixelColor {
         RED, GREEN_IN_RED_ROW, GREEN_IN_BLUE_ROW, BLUE
     }
 
-    private static PixelColor getPixelColor(Cr3RawImage.BayerPattern pattern,
+    static PixelColor getPixelColor(Cr3RawImage.BayerPattern pattern,
                                              boolean evenRow, boolean evenCol) {
         return switch (pattern) {
             case RGGB -> {

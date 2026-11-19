@@ -23,7 +23,7 @@ mvn -q -N help:evaluate -Dexpression=revision -DforceStdout
 
 ## Import from a file
 
-Save this example as `Cr3Import.java`. Pass an input CR3, an output PNG and one of the four modes shown below. For example, `Cr3Import photo.CR3 frame.png sensor` writes the native Bayer codes to a single-band 16-bit PNG. The PNG can look dark when viewed as an ordinary grayscale picture because a 14-bit sensor uses only part of that range.
+Save this example as `Cr3Import.java`. Pass an input CR3, an output PNG and one of the modes shown below. For example, `Cr3Import photo.CR3 frame.png sensor` writes the native Bayer codes to a single-band 16-bit PNG. The PNG can look dark when viewed as an ordinary grayscale picture because a 14-bit sensor uses only part of that range.
 
 ```java
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
@@ -36,11 +36,12 @@ public class Cr3Import {
     public static void main(String[] args) throws Exception {
         if (args.length != 3) {
             throw new IllegalArgumentException(
-                    "Usage: Cr3Import input.CR3 output.png preview|rgb|linear|sensor");
+                    "Usage: Cr3Import input.CR3 output.png preview|rgb|rgb16|linear|sensor");
         }
         var options = switch (args[2]) {
             case "preview" -> Cr3DecodeOptions.defaults();
             case "rgb"     -> Cr3DecodeOptions.rawProcessed();
+            case "rgb16"   -> Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN);
             case "linear"  -> Cr3DecodeOptions.rawLinear();
             case "sensor"  -> Cr3DecodeOptions.rawSensor();
             default -> throw new IllegalArgumentException("Unknown mode: " + args[2]);
@@ -71,8 +72,11 @@ On Windows, use `"target/classes;target/dependency/*"` for the classpath.
 | --- | --- |
 | `preview` | The JPEG rendered by the camera, decoded to pixels and written as PNG in this example. Its resolution depends on the file. |
 | `rgb` | An 8-bit RGB image developed from the RAW track. The default processing applies active-area cropping, demosaicing, camera color processing and orientation. |
+| `rgb16` (0.1.8-SNAPSHOT) | Developed RGB with three unsigned 16-bit channels. Processing uses the same crop and orientation as `rgb`. The default encoding is sRGB. Add `applySrgbConversion(false)` for linear RGB. |
 | `linear` | A single-band Bayer mosaic, cropped to the active area and black-level corrected by default, scaled to 16 bits. |
 | `sensor` | The reconstructed sensor codes, including optical-black margins, in the original sensor coordinates. No scaling, cropping or orientation transform. |
+
+For `rgb16`, use a local **0.1.8-SNAPSHOT** build until the next release. In stable 0.1.7 the same request produces 8-bit RGB. Access the developed green value at (x, y) with `image.getRaster().getSample(x, y, 1)`. Its 16-bit range represents demosaiced and processed color. The `sensor` mode stores the camera's original sample depth in a single unsigned 16-bit band. Color reproduction remains experimental.
 
 The native importer has been verified on 14-bit, four-plane V1 lossless RAW and three-level C-RAW recordings from the EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. Selecting an unsupported RAW profile can raise `Cr3Exception`. Requesting the camera preview is a separate choice. For quantitative work, keep the Bayer data or the original CR3. An RGB or preview PNG does not preserve the camera's original file or its complete metadata.
 

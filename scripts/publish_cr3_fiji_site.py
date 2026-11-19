@@ -18,7 +18,7 @@ from http.client import HTTPException
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
-from build_cr3_fiji_site import INSTALL_ARCHIVE, LIBRARIES, PLUGIN, SITE_ARCHIVE, current_payloads, zip_files
+from build_cr3_fiji_site import COLOR_EXAMPLE, INSTALL_ARCHIVE, LIBRARIES, PLUGIN, SITE_ARCHIVE, current_payloads, zip_files
 
 ARTIFACTS = {f'jars/cr3-{suffix}.jar': f'cr3-{suffix}' for suffix in LIBRARIES}
 ARTIFACTS[PLUGIN] = 'cr3-imagej'
@@ -106,7 +106,7 @@ def install(archive, tag, checkout):
             if len(names) != len(set(names)) or 'db.xml.gz' not in names:
                 raise ValueError('Missing or duplicate update-site archive entry')
             for name in names:
-                if name != 'db.xml.gz':
+                if name not in {'db.xml.gz', COLOR_EXAMPLE}:
                     filename, _, stamp = name.rpartition('-')
                     if filename not in ARTIFACTS or not STAMP.fullmatch(stamp):
                         raise ValueError('Unexpected archive path: ' + name)
@@ -119,7 +119,8 @@ def install(archive, tag, checkout):
                 if not {f'version={version}', f'artifactId={artifact}', 'groupId=io.github.carstenartur'} <= properties:
                     raise ValueError(f'{name} is not the release artifact {artifact}:{version}')
         history = database_history(site)
-        if set(names) != set(history) | {'db.xml.gz'}:
+        ancillary = {COLOR_EXAMPLE} & set(names)
+        if set(names) != set(history) | {'db.xml.gz'} | ancillary:
             raise ValueError('Archive contains payloads outside the Fiji database history')
         marker = destination / MARKER
         if destination.exists():
@@ -130,6 +131,10 @@ def install(archive, tag, checkout):
             unchanged = filecmp.cmp(destination / 'db.xml.gz', site / 'db.xml.gz', shallow=False)
             if previous == version and not unchanged:
                 raise ValueError('Published Fiji releases are immutable')
+            if previous == version and COLOR_EXAMPLE in ancillary:
+                example = destination / COLOR_EXAMPLE
+                if not example.is_file() or not filecmp.cmp(example, site / COLOR_EXAMPLE, shallow=False):
+                    raise ValueError('Published Fiji release examples are immutable')
             if not database_history(destination).items() <= history.items():
                 raise ValueError('The new Fiji database forks the published history')
             for path in destination.rglob('*'):
@@ -186,6 +191,8 @@ def verify_served(site, base_url, tag):
     if (site / MARKER).read_text().strip() != tag.removeprefix('v'):
         raise ValueError('Expected a matching release in the local version.txt')
     paths = [site / 'db.xml.gz', site / MARKER, *current_payloads(site, ARTIFACTS).values()]
+    if (site / COLOR_EXAMPLE).is_file():
+        paths.append(site / COLOR_EXAMPLE)
     for path in paths:
         name = path.relative_to(site).as_posix()
         url = f"{base_url.rstrip('/')}/{quote(name)}"

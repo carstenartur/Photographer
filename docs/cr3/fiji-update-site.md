@@ -1,4 +1,4 @@
-# Install the Canon CR3 sensor importer in Fiji
+# Install the Canon CR3 importer in Fiji
 
 Use Fiji with Java 21 or newer. Add the hosted update site to receive the importer and subsequent updates. For offline installation, obtain the two ZIPs from the project's GitHub release assets or the **cr3-fiji-distribution** Actions artifact. Access follows the repository's sharing settings. The workflow can also be run manually.
 
@@ -21,46 +21,17 @@ The screenshot uses **Image › Adjust › Brightness/Contrast... › Set** with
 
 ## Open a color image
 
-Choose the output that fits your work.
+**Development (0.1.8-SNAPSHOT, planned for the next release).** Choose **File › Import › CR3 Color Image...** to develop a [supported RAW or C-RAW file](decoder.md). Fiji opens an RGB composite with three unsigned 16-bit channels. The importer crops to the active area, applies EXIF orientation and develops to sRGB. Each channel starts with the same 0–65535 display range. The rendering is experimental. For the camera's own rendering, choose the embedded JPEG in the script below.
 
-| Output | Source and display |
+| Import | Pixel values |
 | --- | --- |
-| **CR3 Sensor Data...** | One value per Bayer site, displayed in grayscale. Use this view to measure the original sensor codes. |
-| Embedded color JPEG | The camera's rendered preview, when present. It opens without decoding the RAW sensor stream. |
-| RGB developed from RAW | The Java reader demosaics a [supported RAW or C-RAW layout](decoder.md) into sRGB. Its default rendering uses 8 bits per channel, the active sensor area and the recorded orientation. Color reproduction and camera support remain experimental. |
+| **CR3 Sensor Data...** | One original camera code per Bayer site, including margins. A 14-bit code of 2857 stays 2857 in the 16-bit plane. |
+| **CR3 Color Image...** (development) | Three demosaiced, color-processed values per output pixel, quantized to 16 bits per channel. |
+| Camera JPEG (script) | The camera's rendered, 8-bit-per-channel preview, when present. |
 
-After installing the update site, download the Groovy example and open it in Fiji's Script Editor, or paste the code below with **Groovy** selected. Run it and choose a CR3 file. With **Develop RAW to RGB** cleared, Fiji opens the camera JPEG. Select it to render from the RAW data using the installed decoder. [Download the example](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) · [Fiji scripting guide](https://imagej.net/scripting/)
+**Stable 0.1.7.** The [hosted Groovy example](https://carstenartur.github.io/Photographer/fiji/cr3/open-cr3-color.groovy) for this release offers camera JPEG and 8-bit developed RGB.
 
-```groovy
-#@ File(label="Canon CR3 file", style="file") cr3
-#@ Boolean(label="Develop RAW to RGB", value=false) developRaw
-#@output ImagePlus image
-
-import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions
-import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReaderSpi
-import ij.ImagePlus
-import ij.process.ColorProcessor
-
-import javax.imageio.ImageIO
-
-def reader = new CanonCr3ImageReaderSpi().createReaderInstance()
-try {
-    def stream = ImageIO.createImageInputStream(cr3)
-    if (stream == null) {
-        throw new IOException("Could not open " + cr3)
-    }
-    stream.withCloseable { input ->
-        reader.setInput(input)
-        def param = reader.getDefaultReadParam()
-        param.setDecodeOptions(developRaw ? Cr3DecodeOptions.rawProcessed() : Cr3DecodeOptions.defaults())
-        def pixels = reader.read(0, param)
-        def label = developRaw ? "developed RGB" : "camera JPEG"
-        image = new ImagePlus(cr3.name + " — " + label, new ColorProcessor(pixels))
-    }
-} finally {
-    reader.dispose()
-}
-```
+**Development builds.** Open the [16-bit Groovy example](../../cr3-imagej/examples/open-cr3-color.groovy) in Fiji's Script Editor and select **Groovy**. Run it, choose a CR3 and select **Develop RAW to 16-bit RGB** for the three-channel composite. Leave that option cleared to open the camera JPEG. The development update-site ZIP includes this script as `open-cr3-color.groovy` at the site root.
 
 For byte-preserving JPEG extraction in Java, use the [embedded-preview extractor](import.md#copy-the-cameras-embedded-jpeg-unchanged). The [ImageIO guide](imageio.md#read-parameters) describes the development controls.
 

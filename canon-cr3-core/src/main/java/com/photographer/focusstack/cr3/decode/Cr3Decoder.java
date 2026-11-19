@@ -358,9 +358,18 @@ public final class Cr3Decoder implements AutoCloseable {
                 ? ExifOrientationTransformer.sourceRegion(outputRegion, fullArea.width, fullArea.height, orientation)
                 : new Rectangle(fullArea.width, fullArea.height);
         Rectangle area = partial ? withDemosaicNeighbors(region, fullArea) : fullArea;
-        int[] suppliedSamples = partial || (orientation >= 5 && orientation <= 8)
+        boolean sixteenBit = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
+        int[] suppliedSamples = sixteenBit || partial || (orientation >= 5 && orientation <= 8)
                 ? null : reusableRgbSamples(destination, area);
         var prepared = prepareRawDevelopment(track, options, area, partial, orientation, suppliedSamples);
+
+        Rectangle localRegion = new Rectangle(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
+                region.width, region.height);
+        if (sixteenBit) {
+            return BayerDemosaicer.develop16(prepared.image(), prepared.blackLevel(), area.x, area.y,
+                    prepared.whiteBalance(), prepared.whiteLevel(), prepared.colorMatrix(), localRegion,
+                    orientation, options.applySrgbConversion(), options.maxWorkers());
+        }
 
         // White balance and interpolation retain their crop-local Bayer phase.
         if (prepared.whiteBalance() != null) {
@@ -378,8 +387,7 @@ public final class Cr3Decoder implements AutoCloseable {
             SrgbConverter.process(rgb, options.maxWorkers());
         }
         if (partial) {
-            rgb = rgb.getSubimage(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
-                    region.width, region.height);
+            rgb = rgb.getSubimage(localRegion.x, localRegion.y, localRegion.width, localRegion.height);
         }
         BufferedImage oriented = ExifOrientationTransformer.applyToOwnedImage(rgb, orientation);
         return suppliedSamples == null ? oriented : destination;

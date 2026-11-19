@@ -1,4 +1,4 @@
-# Canon CR3 sensor import for ImageJ and Fiji
+# Canon CR3 import for ImageJ and Fiji
 
 Install the plugin and its decoder using the [Fiji installation and update-site instructions](../docs/cr3/fiji-update-site.md). Start Fiji with Java 21 or later. Choose **File › Import › CR3 Sensor Data...** and select a Canon CR3 file.
 
@@ -25,7 +25,20 @@ int sensorCode = image.getProcessor().get(100, 200);
 
 ## Open a color image
 
-Use the [Fiji script for color output](../docs/cr3/fiji-update-site.md#open-a-color-image) to open the camera’s embedded JPEG or develop a supported RAW file into RGB. Use **CR3 Sensor Data...** for measurements in native Bayer coordinates.
+In **0.1.8-SNAPSHOT**, choose **File › Import › CR3 Color Image...** to develop the active area of a supported RAW or C-RAW capture into a three-channel, EXIF-oriented sRGB composite. The red, green and blue planes each store unsigned 16-bit values and share an initial display range of 0–65535. RAW color rendering is experimental. This command is planned for the next release. Stable 0.1.7 offers 8-bit developed RGB through its [color script](../docs/cr3/fiji-update-site.md#open-a-color-image).
+
+The [development Groovy example](examples/open-cr3-color.groovy) offers the camera JPEG and the 16-bit RAW composite. A headless Java caller can read individual developed values directly:
+
+```java
+import com.photographer.focusstack.cr3.imagej.Cr3ColorImporter;
+import ij.CompositeImage;
+import java.nio.file.Path;
+
+CompositeImage image = Cr3ColorImporter.open(Path.of("/data/capture.cr3"));
+int green = image.getStack().getProcessor(2).get(100, 200);
+```
+
+ImageJ macros can call `run("CR3 Color Image...", "path=[/data/capture.cr3]");`.
 
 ## Verify an import against a reference
 

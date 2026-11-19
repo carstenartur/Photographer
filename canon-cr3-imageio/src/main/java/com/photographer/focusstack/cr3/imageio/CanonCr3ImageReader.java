@@ -19,6 +19,7 @@ import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
@@ -46,6 +47,15 @@ import java.util.List;
 public class CanonCr3ImageReader extends ImageReader {
 
     private static final Logger LOG = LoggerFactory.getLogger(CanonCr3ImageReader.class);
+
+    private static final ImageTypeSpecifier RGB8 = ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB);
+    private static final ImageTypeSpecifier SRGB16 = rgb16Type(ColorSpace.CS_sRGB);
+    private static final ImageTypeSpecifier LINEAR_RGB16 = rgb16Type(ColorSpace.CS_LINEAR_RGB);
+
+    private static ImageTypeSpecifier rgb16Type(int colorSpace) {
+        return ImageTypeSpecifier.createBanded(ColorSpace.getInstance(colorSpace), new int[]{0, 1, 2},
+                new int[]{0, 0, 0}, DataBuffer.TYPE_USHORT, false, false);
+    }
 
     private Cr3Decoder decoder;
     private Cr3ImageMetadata imageMetadata;
@@ -99,14 +109,7 @@ public class CanonCr3ImageReader extends ImageReader {
     public Iterator<ImageTypeSpecifier> getImageTypes(int imageIndex) throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
-        return List.of(ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB)).iterator();
-    }
-
-    private static List<ImageTypeSpecifier> destinationTypes(ImageTypeSpecifier decodedType) {
-        if (decodedType.getNumBands() == 3 && decodedType.getBufferedImageType() != BufferedImage.TYPE_INT_RGB) {
-            return List.of(decodedType, ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
-        }
-        return List.of(decodedType);
+        return List.of(RGB8, SRGB16, LINEAR_RGB16).iterator();
     }
 
     @Override
@@ -209,6 +212,12 @@ public class CanonCr3ImageReader extends ImageReader {
             return readProcessedImage(imageIndex, options, param);
         }
         BufferedImage decoded = decode(imageIndex, options);
+        ImageTypeSpecifier requested = param.getDestinationType();
+        if (param.getDestination() == null && requested != null
+                && !requested.equals(ImageTypeSpecifier.createFromRenderedImage(decoded))
+                && !(decoded.getRaster().getNumBands() == 3 && requested.equals(RGB8))) {
+            throw new IIOException("Destination image type is incompatible with the selected JPEG");
+        }
         return copyImage(param, decoded, imageRegions(param, decoded.getWidth(), decoded.getHeight()));
     }
 
@@ -217,12 +226,19 @@ public class CanonCr3ImageReader extends ImageReader {
         checkIndex(imageIndex);
         ensureParsed();
         try {
+            boolean sixteen = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
+            if (sixteen) {
+                checkRgb16Destination(param, options);
+            } else if (param.getDestination() == null && param.getDestinationType() != null
+                    && !RGB8.equals(param.getDestinationType())) {
+                throw new IIOException("Destination image type is incompatible with 8-bit RGB");
+            }
             Rectangle bounds = decoder.getRawProcessedBounds(options);
             ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
             Rectangle source = regions.source();
             if (source.equals(bounds)) {
                 BufferedImage destination = param instanceof CanonCr3ImageReadParam cr3
-                        && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
+                        && !sixteen && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
                         && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
                         && param.getSourceBands() == null && param.getDestinationBands() == null
                         ? param.getDestination() : null;
@@ -235,6 +251,28 @@ public class CanonCr3ImageReader extends ImageReader {
             return copyImage(param, decoded, new ImageRegions(localSource, regions.destination()));
         } catch (Cr3Exception e) {
             throw decodeError(options, e);
+        }
+    }
+
+    private static void checkRgb16Destination(ImageReadParam param, Cr3DecodeOptions options) throws IIOException {
+        BufferedImage supplied = param.getDestination();
+        ImageTypeSpecifier requested = param.getDestinationType();
+        if (supplied == null && requested == null) {
+            return;
+        }
+        var model = supplied != null ? supplied.getSampleModel() : requested.getSampleModel();
+        checkReadParamBandSettings(param, 3, model.getNumBands());
+        int[] bands = param.getDestinationBands();
+        for (int i = 0; i < (bands == null ? model.getNumBands() : bands.length); i++) {
+            if (model.getDataType() != DataBuffer.TYPE_USHORT || model.getSampleSize(bands == null ? i : bands[i]) != 16) {
+                throw new IIOException("Developed RGB requires unsigned 16-bit destination bands");
+            }
+        }
+        // A requested full RGB image must label its samples with the selected transfer curve.
+        if (supplied == null && bands == null && param.getSourceBands() == null
+                && !requested.getColorModel().getColorSpace().equals(
+                        (options.applySrgbConversion() ? SRGB16 : LINEAR_RGB16).getColorModel().getColorSpace())) {
+            throw new IIOException("Destination color space is incompatible with the selected RGB encoding");
         }
     }
 
@@ -358,9 +396,6 @@ public class CanonCr3ImageReader extends ImageReader {
             return param.getDestination();
         }
         ImageTypeSpecifier requested = param.getDestinationType();
-        if (requested != null && !destinationTypes(decoded).contains(requested)) {
-            throw new IIOException("Destination image type is incompatible with the selected output");
-        }
         ImageTypeSpecifier type = requested == null ? decoded : requested;
         return type.createBufferedImage(region.x + region.width, region.y + region.height);
     }

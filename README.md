@@ -62,7 +62,7 @@ flowchart TD
     APP --> CAM["Camera backends"]
     APP --> DB["Storage"]
     APP --> IO["CR3 and DNG ImageIO"]
-    FIJI["Fiji sensor importer"] --> IO
+    FIJI["Fiji CR3 importers"] --> IO
     IO --> CORE["CR3 decoder"]
     CLI["CR3 command line"] --> CORE
 ```

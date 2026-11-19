@@ -20,7 +20,7 @@ from publish_cr3_fiji_site import tagged_source
 from publish_cr3_fiji_site import ARTIFACTS, attach_archives, install, previous_archive, verify_served
 
 
-def archive(root, version, timestamp):
+def archive(root, version, timestamp, example=None):
     temp = io.BytesIO()
     with ZipFile(temp, 'w') as zipped:
         db = ET.Element('pluginRecords')
@@ -34,6 +34,8 @@ def archive(root, version, timestamp):
             ET.SubElement(plugin, 'version', timestamp=timestamp, filesize=str(len(jar)), checksum='a' * 40)
             zipped.writestr(filename + '-' + timestamp, jar)
         zipped.writestr('db.xml.gz', gzip.compress(ET.tostring(db), mtime=0))
+        if example is not None:
+            zipped.writestr('open-cr3-color.groovy', example)
     path = root / (timestamp + '.zip')
     path.write_bytes(temp.getvalue())
     return path
@@ -105,6 +107,18 @@ class TaggedSourceTest(unittest.TestCase):
 
 
 class BuildInputTest(unittest.TestCase):
+    def test_previous_site_accepts_the_versioned_color_example_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            previous = archive(root, '0.1.8', '20260101000000', b'// versioned example\n')
+            site = root / 'site'
+            builder.restore_previous(previous, site, ARTIFACTS)
+            self.assertEqual(b'// versioned example\n', (site / 'open-cr3-color.groovy').read_bytes())
+            with ZipFile(previous, 'a') as zipped:
+                zipped.writestr('unrelated.groovy', '// unexpected')
+            with self.assertRaisesRegex(ValueError, 'Unexpected path'):
+                builder.restore_previous(previous, root / 'invalid', ARTIFACTS)
+
     def test_rejects_missing_or_different_license_before_accessing_fiji(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -135,6 +149,20 @@ class BuildInputTest(unittest.TestCase):
 
 
 class PublicationTest(unittest.TestCase):
+    def test_publishes_versioned_example_and_rejects_changed_release_retry(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            original = b'// 16-bit color example\n'
+            asset = archive(root, '0.1.8', '20260101000000', original)
+            install(asset, 'v0.1.8', root)
+            install(asset, 'v0.1.8', root)
+            example = root / 'fiji/cr3/open-cr3-color.groovy'
+            self.assertEqual(original, example.read_bytes())
+            modified = archive(root, '0.1.8', '20260101000000', b'// changed example\n')
+            with self.assertRaisesRegex(ValueError, 'immutable'):
+                install(modified, 'v0.1.8', root)
+            self.assertEqual(original, example.read_bytes())
+
     def test_replaying_exact_release_preserves_other_pages(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -216,10 +244,10 @@ class PublicationTest(unittest.TestCase):
                 install(bad, 'v0.1.5', root)
             self.assertFalse((root / 'index.html').exists())
 
-    def test_public_verification_requires_all_nine_anonymous_downloads_to_match(self):
+    def test_public_verification_includes_the_versioned_example(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            asset = archive(root, '0.1.5', '20260101000000')
+            asset = archive(root, '0.1.5', '20260101000000', b'// color example\n')
             install(asset, 'v0.1.5', root)
             site = root / 'fiji/cr3'
             published = root / 'public'
@@ -241,7 +269,7 @@ class PublicationTest(unittest.TestCase):
                 try:
                     verify_served(site, url, 'v0.1.5')
                     expected = {p.relative_to(site).as_posix() for p in site.rglob('*') if p.is_file()}
-                    self.assertEqual(9, len(expected))
+                    self.assertEqual(10, len(expected))
                     self.assertEqual({(name, None) for name in expected}, set(requests))
                     jar = next((published / 'jars').iterdir())
                     original = jar.read_bytes()
@@ -249,6 +277,11 @@ class PublicationTest(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, jar.name):
                         verify_served(site, url, 'v0.1.5')
                     jar.write_bytes(original)
+                    example = published / 'open-cr3-color.groovy'
+                    example.write_bytes(b'// stale example\n')
+                    with self.assertRaisesRegex(ValueError, 'open-cr3-color.groovy'):
+                        verify_served(site, url, 'v0.1.5')
+                    example.write_bytes((site / example.name).read_bytes())
                     (published / 'version.txt').write_text('0.1.5-SNAPSHOT\n')
                     with self.assertRaisesRegex(ValueError, 'version.txt'):
                         verify_served(site, url, 'v0.1.5')

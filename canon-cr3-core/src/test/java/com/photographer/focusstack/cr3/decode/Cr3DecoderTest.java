@@ -13,7 +13,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Rectangle;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +24,77 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 class Cr3DecoderTest {
+
+    @Test
+    void developsNativeCodesIntoLinearUnsignedShortRgb() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var options = Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                    .applyBlackLevel(false).applyWhiteBalance(false).applyColorMatrix(false).applySrgbConversion(false);
+            var packed = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+            var image = decoder.decodeRawProcessedRegion(options, null, packed);
+            var raster = image.getRaster();
+            assertEquals(DataBuffer.TYPE_USHORT, raster.getTransferType());
+            assertArrayEquals(new int[]{16, 16, 16}, raster.getSampleModel().getSampleSize());
+            assertEquals(3, raster.getDataBuffer().getNumBanks());
+            assertSame(ColorSpace.getInstance(ColorSpace.CS_LINEAR_RGB), image.getColorModel().getColorSpace());
+            // RGGB sites 8192, 8193, 8191, 8194, normalized by 16383 and rounded once.
+            assertArrayEquals(new int[]{
+                    32770, 32770, 32778, 32770, 32774, 32778,
+                    32770, 32765, 32778, 32770, 32770, 32778}, raster.getPixels(0, 0, 2, 2, (int[]) null));
+            assertEquals(0xff000000, packed.getRGB(0, 0));
+        }
+    }
+
+    @Test
+    void preservesFractionalGainsAndUnclippedHighlightsThroughTheColorMatrix() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var metadata = decoder.getMetadata();
+            metadata.setCameraModel("Unknown");
+            metadata.setPerChannelBlackLevels(new int[]{90, 101, 120, 140});
+            metadata.setWhiteBalanceMultipliers(new double[]{1.25, 2.5, 0.7501});
+            var options = Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                    .applySrgbConversion(false);
+            // At the red site the two green neighbors average to 8081.5 after pedestal subtraction.
+            // Green then exceeds nominal white. Its negative matrix coefficients still reduce red and blue.
+            var linear = decoder.decode(options);
+            assertArrayEquals(new int[]{26933, 65535, 12907}, linear.getRaster().getPixel(0, 0, (int[]) null));
+            var srgb = decoder.decode(options.applySrgbConversion(true));
+            assertTrue(srgb.getColorModel().getColorSpace().isCS_sRGB());
+            assertArrayEquals(new int[]{44128, 65535, 31528}, srgb.getRaster().getPixel(0, 0, (int[]) null));
+        }
+    }
+
+    @Test
+    void sixteenBitWindowsPreserveCropPhaseAndOrientedSamples() throws Exception {
+        try (var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            decoder.setInput(input);
+            var metadata = decoder.getMetadata();
+            var options = Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                    .applyColorMatrix(false).applySrgbConversion(false);
+            metadata.setActiveAreaLeft(1);
+            metadata.setActiveAreaRight(2);
+            metadata.setActiveAreaBottom(2);
+            metadata.setPerChannelBlackLevels(new int[]{1, 4096, 4000, 2048});
+            metadata.setWhiteBalanceMultipliers(new double[]{2, 1, 0.5});
+            for (int orientation = 1; orientation <= 8; orientation++) {
+                metadata.setOrientation(orientation);
+                var full = decoder.decode(options);
+                assertArrayEquals(new int[]{32780, 24587, 0}, full.getRaster().getPixel(0, 0, (int[]) null));
+                var window = new Rectangle(full.getWidth() - 1, full.getHeight() - 1, 1, 1);
+                var patch = decoder.decodeRawProcessedRegion(options, window);
+                assertArrayEquals(full.getRaster().getPixel(window.x, window.y, (int[]) null),
+                        patch.getRaster().getPixel(0, 0, (int[]) null));
+            }
+        }
+    }
 
     @Test
     void preparedRawReproducesDefaultColorDevelopment() throws Exception {
