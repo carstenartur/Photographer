@@ -70,6 +70,8 @@ Starting with 0.1.8-SNAPSHOT, the normal processing JAR includes the Java 25 Vec
 
 The normal JMH distribution also includes this implementation. Building requires JDK 25; `-Pcr3-vector` additionally runs processing unit tests with vectors enabled. Packaged-artifact integration tests exercise both enabled and disabled launches during `verify`.
 
+See the [complete-import measurements](optimization-2026-11-19/README.md) for the measured effect of this option, exact RGB16 quantization and adaptive compact processing, including raw records and reproduction commands.
+
 ```sh
 mvn -B -Pbenchmarks -pl canon-cr3-benchmark -am -DskipTests package
 java --add-modules=jdk.incubator.vector \
