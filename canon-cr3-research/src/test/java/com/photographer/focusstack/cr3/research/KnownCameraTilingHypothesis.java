@@ -100,7 +100,7 @@ final class KnownCameraTilingHypothesis {
     static final CameraTiling G5X_MARK_II = new CameraTiling(
             "Canon PowerShot G5 X Mark II",
             5632, 3710,
-            5495, 3667,                   // active = right−left, bottom−top from IAD1
+            5496, 3668,                   // inclusive IAD1 active = [120,28..5615,3695]
             2, 2816, 3710,
             "RGGB",
             3,                            // observed in C‑RAW iq3 fixtures
@@ -151,7 +151,7 @@ final class KnownCameraTilingHypothesis {
     static final CameraTiling EOS_R = new CameraTiling(
             "Canon EOS R",
             6888, 4546,
-            6743, 4499,                   // active = [144,46..6887,4545]
+            6744, 4500,                   // inclusive IAD1 active = [144,46..6887,4545]
             2, 3444, 4546,
             "RGGB",
             3,                            // hypothesis, not yet verified

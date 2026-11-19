@@ -42,13 +42,11 @@ public final class Cr3MetadataReader {
                     metadata.setBitDepth(track.cmp1().bitsPerSample());
                 }
                 if (track.iad1() != null) {
-                    int sW = track.width();
-                    int sH = track.height();
-                    // Clamp active area to sensor bounds (some firmware produces overflow values)
-                    metadata.setActiveAreaLeft(Math.max(0, Math.min(track.iad1().activeLeft(), sW)));
-                    metadata.setActiveAreaTop(Math.max(0, Math.min(track.iad1().activeTop(), sH)));
-                    metadata.setActiveAreaRight(Math.max(0, Math.min(track.iad1().activeRight(), sW)));
-                    metadata.setActiveAreaBottom(Math.max(0, Math.min(track.iad1().activeBottom(), sH)));
+                    var geometry = track.iad1().toSensorCropGeometry(track.width(), track.height());
+                    metadata.setActiveAreaLeft(geometry.activeLeft());
+                    metadata.setActiveAreaTop(geometry.activeTop());
+                    metadata.setActiveAreaRight(geometry.activeRight());
+                    metadata.setActiveAreaBottom(geometry.activeBottom());
                 }
                 break;
             }
