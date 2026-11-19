@@ -25,6 +25,11 @@ behavior change from 0.1.5 and the available sensor output modes. Default
 development produces 8-bit sRGB. In 0.1.8-SNAPSHOT (planned for the next release),
 `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` develops three
 unsigned 16-bit bands. Access individual channel values through the raster.
+Standard or default read parameters can also select an advertised 16-bit RGB
+destination to choose its depth and color encoding. Explicit `setDecodeOptions`
+settings take precedence; incompatible RGB destinations are rejected before
+decoding. The [destination rules](../docs/cr3/imageio.md#standard-imageio-regions-and-destinations)
+describe mutable settings and destination reuse.
 
 ## Key types
 

@@ -2,9 +2,11 @@ package com.photographer.focusstack.analysis.service;
 
 import com.photographer.focusstack.camera.service.FrameDataStore.OriginalFrame;
 import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
 import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReader;
+import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -12,8 +14,11 @@ import org.springframework.stereotype.Service;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.FileImageInputStream;
+import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
@@ -65,7 +70,8 @@ public final class StackFileProcessor {
                     if (cr3 && preferRaw) {
                         return inspectRaw(frame);
                     }
-                    Dimension size = imageDimensions(reader);
+                    Dimension size = cr3 ? withPreviewReader(frame, StackFileProcessor::imageDimensions)
+                            : imageDimensions(reader);
                     return new Input(frame, size, cr3, false, 8L * size.width * size.height + 4 * MIB);
                 }));
             } catch (RawDecodeException | InterruptedIOException failure) {
@@ -183,10 +189,11 @@ public final class StackFileProcessor {
                     throw new RawDecodeException(frame, unavailable);
                 }
             }
-            return withReader(frame, reader -> {
+            ReadOperation<BufferedImage> read = reader -> {
                 assertDimensions(input, imageDimensions(reader));
                 return reader.read(0);
-            });
+            };
+            return input.cr3() ? withPreviewReader(frame, read) : withReader(frame, read);
         });
     }
 
@@ -231,17 +238,34 @@ public final class StackFileProcessor {
 
     private static <T> T withReader(OriginalFrame frame, ReadOperation<T> operation) throws IOException {
         try (var input = new FileImageInputStream(frame.path().toFile())) {
-            var readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) {
-                throw new IOException("No image reader available for " + frame.fileName());
+            return withReader(frame, input, operation);
+        }
+    }
+
+    private static <T> T withPreviewReader(OriginalFrame frame, ReadOperation<T> operation) throws IOException {
+        try (var input = new FileImageInputStream(frame.path().toFile())) {
+            byte[] jpeg = Cr3PreviewExtractor.extractPreviewBytes(input, Cr3Parser.parse(input));
+            try (var preview = new MemoryCacheImageInputStream(new ByteArrayInputStream(jpeg))) {
+                // Inspect the JPEG header before reserving pixels; CR3 reader dimensions describe RAW.
+                return withReader(frame, preview, operation);
             }
-            ImageReader reader = readers.next();
-            try {
-                reader.setInput(input, false, true);
-                return operation.read(reader);
-            } finally {
-                reader.dispose();
-            }
+        } catch (Cr3Exception unavailable) {
+            throw new IOException("Unable to read embedded preview of " + frame.fileName(), unavailable);
+        }
+    }
+
+    private static <T> T withReader(OriginalFrame frame, ImageInputStream input, ReadOperation<T> operation)
+            throws IOException {
+        var readers = ImageIO.getImageReaders(input);
+        if (!readers.hasNext()) {
+            throw new IOException("No image reader available for " + frame.fileName());
+        }
+        ImageReader reader = readers.next();
+        try {
+            reader.setInput(input, false, true);
+            return operation.read(reader);
+        } finally {
+            reader.dispose();
         }
     }
 
