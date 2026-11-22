@@ -181,11 +181,12 @@ def check_bird_observer(page, url, password, captures):
                         'the initial preview to stop')
     expect(panel.get_by_role('button', name='Start preview', exact=True)).to_be_enabled()
     panel.get_by_role('button', name='Start preview', exact=True).click()
+    # Stopped runs keep their counters. Wait until the restarted preview is running.
     preview_status = wait_for_bird_status(
         page, url, password,
-        lambda status: status['framesAnalyzed'] >= 1 and status['skippedFrames'] >= 2,
+        lambda status: status['running'] and status['framesAnalyzed'] >= 1 and status['skippedFrames'] >= 2,
         'an analysed crop followed by duplicate mock frames')
-    assert preview_status['running'] and not preview_status['armed']
+    assert not preview_status['armed']
     assert preview_status['captureCount'] == 0
     assert preview_status['preview']['boundingBoxes'] == []
     assert authenticated_json(page, url, password, '/observer/stats')['totalEvents'] == events_before
