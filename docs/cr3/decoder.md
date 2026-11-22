@@ -1,6 +1,8 @@
 # CR3 Decoder and Processing
 
-The native Java RAW import supports the measured 14-bit, four-plane V1 configurations for the Canon EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. The full-frame acceptance panel covers 15 lossless RAW files and six three-level C-RAW files, including two project-owned PowerShot captures. [Lossless measurements](../cr3-results/2026-11-14-crx-native/README.md) · [C-RAW measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
+The native Java RAW import reconstructs the measured 14-bit, four-plane CRX layouts.
+The [camera coverage table](camera-coverage.md) lists the tested RAW and C-RAW modes
+with their sensor references.
 
 ## Stable container and metadata layers
 
@@ -52,9 +54,14 @@ Parser helpers and offset/layout interpretation are internal. Consumers should d
 
 ### C-RAW coefficients and synthesis
 
-`CrxLossyDecoder` validates the measured V1 two-tile, three-level layout. Each tile plane starts with the signed approximation band `LL3`, followed by `X`, `Y` and `XY` details from coarsest to finest. An entropy window excludes the band's declared terminal padding. The approximation reuses the lossless predictor with a signed 21-bit coefficient range. `CrxWaveletDetail` decodes its own adaptive Rice and run state, using quantized coefficients for context. It multiplies each signed detail coefficient by the inverse quantization factor before synthesis. [C-RAW profile and band windows](format.md#profile-and-band-windows) · [Approximation and detail entropy](format.md#approximation-band-and-detail-entropy) · [Inverse quantization](format.md#inverse-quantization)
+`CrxLossyDecoder` validates the measured V1 one- and two-tile, three-level layouts. Each tile plane starts with the signed approximation band `LL3`, followed by `X`, `Y` and `XY` details from coarsest to finest. An entropy window excludes the band's declared terminal padding. The approximation reuses the lossless predictor with a signed 21-bit coefficient range. `CrxWaveletDetail` decodes its own adaptive Rice and run state, using quantized coefficients for context. It multiplies each signed detail coefficient by the inverse quantization factor before synthesis. [C-RAW profile and band windows](format.md#profile-and-band-windows) · [Approximation and detail entropy](format.md#approximation-band-and-detail-entropy) · [Inverse quantization](format.md#inverse-quantization)
 
 `CrxWaveletTile` reads the physical band rows, including tile-boundary support columns. It synthesizes each level horizontally and then vertically using integer 5/3 lifting. A tile uses its stored support at the shared horizontal seam. At an outer edge, the lift repeats the nearest available value when a neighboring detail or even sample is missing. Some stored low-X detail rows are wider than the synthesis support, so the entropy reader still consumes the surplus columns. Intermediate coefficients stay signed. After the final lift, `CrxLossyDecoder` clamps the recovered samples to `0..16383` and emits the same Bayer row layout as the lossless path. The result represents the sensor mosaic reconstructed from the quantized capture. [Physical band dimensions and tile boundaries](format.md#physical-band-dimensions-and-tile-boundaries) · [Inverse integer 5/3 lifting](format.md#inverse-integer-53-lifting)
+
+The V2 single-tile profile adds an adaptive quantization map. Four plane readers
+share one byte per map cell and continue to reconstruct the bands with bounded
+row buffers. Every band still has its own compressed input window and entropy
+state. See the [measured adaptive format and coverage](../cr3-results/2026-11-22-crx-adaptive/README.md).
 
 Most classes under `com.photographer.focusstack.cr3.raw.codec` are internal even when Java visibility is public for module integration and tests. `Cr3RawImage` is `PUBLIC_EXPERIMENTAL`.
 
@@ -124,7 +131,7 @@ try (var decoder = new Cr3Decoder()) {
 
 The whole-sensor integration tests compare `RAW_LINEAR` with the reference after reversing the scaling. Add `-Dcr3.full-sensor.native=true` to the same Maven command to compare `RAW_SENSOR` directly. Both modes use the same registered CR3 files, reference rasters and exact comparison at every sensor site.
 
-The C-RAW gate checks equality with the native reconstruction of the compressed capture, including optical black, both sides of the tile seam and saturated sites. V2 CRX, RAW bursts, additional sensor depths, and camera-specific color rendering have separate qualification criteria.
+The C-RAW gate checks equality with the native reconstruction of the compressed capture, including optical black, both sides of the tile seam and saturated sites. Other CRX layouts, RAW bursts, additional sensor depths, and camera-specific color rendering have separate qualification criteria.
 
 ## Research promotion gate
 

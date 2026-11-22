@@ -1,5 +1,6 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -115,6 +116,18 @@ class CrxHeaderTest {
     @Test
     void detectVersionDefaultsToV1ForNull() {
         assertThat(CrxHeader.detectVersion(null)).isEqualTo(CrxHeader.CodecVersion.V1);
+    }
+
+    @Test
+    void codecVersionComesFromTheTrackDespiteDifferentContainerVersion() {
+        var v1Track = new Cmp1Box((short) 0x0100, 16, 16, 16, 16,
+                14, 4, 0, 0, 0, false, 0, false);
+        var v2Track = new Cmp1Box((short) 0x0200, 16, 16, 16, 16,
+                14, 4, 0, 0, 3, false, 0, false);
+        assertThat(CrxHeader.detectVersion(v1Track, "CanonCR3_003/00.10.00/00.00.00"))
+                .isEqualTo(CrxHeader.CodecVersion.V1);
+        assertThat(CrxHeader.detectVersion(v2Track, "CanonCR3_001/00.11.00/00.00.00"))
+                .isEqualTo(CrxHeader.CodecVersion.V2);
     }
 
     @Test

@@ -783,8 +783,8 @@ public final class Cr3Decoder implements AutoCloseable {
                     cmp1.multipleHTiles(), cmp1.mdatHeaderSize());
         }
 
-        var version = container.cncvBox() == null ? CrxHeader.CodecVersion.V1
-                : CrxHeader.detectVersion(container.cncvBox().versionString());
+        String cncvVersion = container.cncvBox() == null ? null : container.cncvBox().versionString();
+        var version = CrxHeader.detectVersion(cmp1, cncvVersion);
         return new RawTrack(rawTrack, rawWidth, rawHeight, bitDepth, version);
     }
 
