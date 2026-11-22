@@ -2,7 +2,7 @@
 
 These tools measure a fresh file import into an owned image. The Java probe uses
 the project's public ImageIO/decoder interfaces. The C probe is a standalone
-black-box client of the documented LibRaw 0.21.4 API; it adds no native dependency
+black-box client of the documented LibRaw C API. It adds no native dependency
 to Photographer or its Fiji importer.
 
 The [QA and performance evidence](../../docs/cr3/performance-2026-11-19/README.md)
@@ -99,8 +99,12 @@ hash covers selected complete rows and is only a liveness diagnostic.
 
 ## LibRaw C probe
 
-Use matching public headers and a thread-safe LibRaw **0.21.4** runtime. With
-the matching development package installed in standard Linux locations:
+Use matching public headers and a thread-safe LibRaw runtime. The probe checks
+that the header and runtime versions agree. The original comparison used
+0.21.4. The same probe also supports 0.22.2 and 0.22.3.
+
+With the matching development package installed in standard Linux locations,
+build the probe with GCC:
 
 ```bash
 mkdir -p target
@@ -116,8 +120,8 @@ OMP_NUM_THREADS=4 OMP_THREAD_LIMIT=4 OMP_DYNAMIC=FALSE \
 ```
 
 For an extracted binary package, add its include/library directories and an
-appropriate runtime library search path. The evidence manifest pins the tested
-Debian packages, loaded library, client source and executable. Run `--help` for
+appropriate runtime library search path. Pin the package and shared library,
+client source, and executable in the comparison manifest. Run `--help` for
 the complete argument list and `--selftest` for a small public-API Bayer input.
 
 | Java workload | LibRaw settings |

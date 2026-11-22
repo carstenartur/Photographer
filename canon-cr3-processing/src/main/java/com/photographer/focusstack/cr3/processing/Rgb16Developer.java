@@ -89,6 +89,8 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
         if (flipX) {
             step = -step;
         }
+        int rowEnd = region.x + region.width;
+        int interiorEnd = Math.min(rowEnd, image.width() - 1);
         for (int y = first; y < end; y++) {
             if (y + 1 == end && originalBelow != null) {
                 System.arraycopy(originalBelow, 0, below, 0, rowLength);
@@ -100,29 +102,64 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
             PixelColor even = color(0, y);
             PixelColor odd = color(1, y);
             int verticalCount = neighbors(y, image.height());
-            for (int x = region.x; x < region.x + region.width; x++, destination += step) {
-                int i = x + 1;
-                int horizontalCount = neighbors(x, image.width());
-                double horizontal = current[i - 1] + current[i + 1];
-                double vertical = above[i] + below[i];
-                PixelColor site = (x & 1) == 0 ? even : odd;
-                if (site == PixelColor.GREEN_IN_RED_ROW || site == PixelColor.GREEN_IN_BLUE_ROW) {
-                    double across = horizontal / Math.max(1, horizontalCount);
-                    double along = vertical / Math.max(1, verticalCount);
-                    boolean redRow = site == PixelColor.GREEN_IN_RED_ROW;
-                    write(channels, destination, redRow ? across : along, current[i], redRow ? along : across);
-                } else {
-                    double green = (horizontal + vertical) / Math.max(1, horizontalCount + verticalCount);
-                    double diagonal = (above[i - 1] + above[i + 1] + below[i - 1] + below[i + 1])
-                            / Math.max(1, horizontalCount * verticalCount);
-                    boolean red = site == PixelColor.RED;
-                    write(channels, destination, red ? current[i] : diagonal, green, red ? diagonal : current[i]);
+            int x = region.x;
+            if (verticalCount == 2) {
+                // Each interior pair begins at a red or blue site, then visits the green site.
+                boolean evenChroma = even == PixelColor.RED || even == PixelColor.BLUE;
+                int firstChroma = Math.max(1, x);
+                if (((firstChroma & 1) == 0) != evenChroma) {
+                    firstChroma++;
                 }
+                if (firstChroma + 1 < interiorEnd) {
+                    for (; x < firstChroma; x++, destination += step) {
+                        writeBorder(channels, destination, above, current, below, x, verticalCount,
+                                (x & 1) == 0 ? even : odd);
+                    }
+                    boolean redRow = (evenChroma ? even : odd) == PixelColor.RED;
+                    for (; x + 1 < interiorEnd; x += 2, destination += 2 * step) {
+                        int i = x + 1;
+                        double horizontal = current[i - 1] + current[i + 1];
+                        double vertical = above[i] + below[i];
+                        double green = (horizontal + vertical) * 0.25;
+                        double diagonal = (above[i - 1] + above[i + 1] + below[i - 1] + below[i + 1]) * 0.25;
+                        write(channels, destination, redRow ? current[i] : diagonal, green,
+                                redRow ? diagonal : current[i]);
+
+                        double across = (current[i] + current[i + 2]) * 0.5;
+                        double along = (above[i + 1] + below[i + 1]) * 0.5;
+                        write(channels, destination + step, redRow ? across : along, current[i + 1],
+                                redRow ? along : across);
+                    }
+                }
+            }
+            for (; x < rowEnd; x++, destination += step) {
+                writeBorder(channels, destination, above, current, below, x, verticalCount,
+                        (x & 1) == 0 ? even : odd);
             }
             double[] old = above;
             above = current;
             current = below;
             below = old;
+        }
+    }
+
+    private void writeBorder(short[][] channels, int destination, double[] above, double[] current,
+                             double[] below, int x, int verticalCount, PixelColor site) {
+        int i = x + 1;
+        int horizontalCount = neighbors(x, image.width());
+        double horizontal = current[i - 1] + current[i + 1];
+        double vertical = above[i] + below[i];
+        if (site == PixelColor.GREEN_IN_RED_ROW || site == PixelColor.GREEN_IN_BLUE_ROW) {
+            double across = horizontal / Math.max(1, horizontalCount);
+            double along = vertical / Math.max(1, verticalCount);
+            boolean redRow = site == PixelColor.GREEN_IN_RED_ROW;
+            write(channels, destination, redRow ? across : along, current[i], redRow ? along : across);
+        } else {
+            double green = (horizontal + vertical) / Math.max(1, horizontalCount + verticalCount);
+            double diagonal = (above[i - 1] + above[i + 1] + below[i - 1] + below[i + 1])
+                    / Math.max(1, horizontalCount * verticalCount);
+            boolean red = site == PixelColor.RED;
+            write(channels, destination, red ? current[i] : diagonal, green, red ? diagonal : current[i]);
         }
     }
 
