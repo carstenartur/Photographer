@@ -6,9 +6,12 @@ public interface CameraSessionLeaseManager {
 
     CameraSessionLeaseMetrics metrics();
 
+    /** Snapshot for discovery. Acquisition remains the authority for access. */
+<span class="nc" id="L10">    default boolean isLeased(CameraLeaseKey key) { return false; }</span>
+
     /** Blocks all subsequent acquisitions while existing handles may still close. */
     default void beginShutdown() {
         // Unmanaged/test implementations have no process-local lifecycle state.
-<span class="nc" id="L12">    }</span>
+<span class="nc" id="L15">    }</span>
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

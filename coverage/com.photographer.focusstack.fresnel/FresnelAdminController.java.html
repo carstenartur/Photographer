@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FresnelAdminController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">FresnelAdminController.java</span></div><h1>FresnelAdminController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import com.photographer.focusstack.app.api.ApiPaths;
+
+@RestController
+@Tag(name = &quot;Fresnel capture&quot;)
+@RequestMapping(ApiPaths.V1)
+class FresnelAdminController {
+    static final String ADMIN = &quot;/admin/integrations/fresnel&quot;;
+    private final ObjectProvider&lt;FresnelPairings&gt; pairings;
+    private final ObjectProvider&lt;FresnelCaptures&gt; captures;
+    private final boolean trustNetwork;
+
+    FresnelAdminController(ObjectProvider&lt;FresnelPairings&gt; pairings, ObjectProvider&lt;FresnelCaptures&gt; captures,
+<span class="fc" id="L26">            @Value(&quot;${focusstack.fresnel.trust-private-network:false}&quot;) boolean trustNetwork) {</span>
+<span class="fc" id="L27">        this.pairings = pairings;</span>
+<span class="fc" id="L28">        this.captures = captures;</span>
+<span class="fc" id="L29">        this.trustNetwork = trustNetwork;</span>
+<span class="fc" id="L30">    }</span>
+<span class="fc" id="L31">    record CodeRequest(String baseUrl, List&lt;String&gt; scopes) {}</span>
+
+    @Operation(summary = &quot;List paired instances and active captures&quot;)
+    @GetMapping(ADMIN + &quot;/pairings&quot;)
+    ResponseEntity&lt;?&gt; list() {
+<span class="fc" id="L36">        var service = pairings.getIfAvailable();</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        if (service == null) return privateOk(Map.of(&quot;enabled&quot;, false, &quot;pairings&quot;, List.of()));</span>
+<span class="fc" id="L38">        var engine = captures.getObject();</span>
+<span class="fc" id="L39">        return privateOk(Map.of(&quot;enabled&quot;, true, &quot;descriptor&quot;, engine.descriptor(), &quot;pairings&quot;, service.list().stream()</span>
+<span class="fc" id="L40">                .map(p -&gt; Map.of(&quot;pairing&quot;, p, &quot;sessions&quot;, engine.activeSessions(p.pairingId()))).toList()));</span>
+    }
+
+    @Operation(summary = &quot;Get an instance and its active captures&quot;)
+    @GetMapping(ADMIN + &quot;/pairings/{id}&quot;)
+    ResponseEntity&lt;?&gt; one(@PathVariable String id) {
+<span class="nc" id="L46">        var pairing = service().list().stream().filter(p -&gt; p.pairingId().equals(id)).findFirst()</span>
+<span class="nc" id="L47">                .orElseThrow(() -&gt; new FresnelProblem(404, &quot;PAIRING_NOT_FOUND&quot;));</span>
+<span class="nc" id="L48">        return privateOk(Map.of(&quot;pairing&quot;, pairing, &quot;sessions&quot;, captures.getObject().activeSessions(id)));</span>
+    }
+
+    @Operation(summary = &quot;Read the aggregate Fresnel connection status&quot;)
+    @GetMapping(&quot;/fresnel/status&quot;)
+    ResponseEntity&lt;?&gt; indicator() {
+<span class="fc" id="L54">        var service = pairings.getIfAvailable();</span>
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">        List&lt;FresnelPairings.Summary&gt; list = service == null ? List.of() : service.list();</span>
+<span class="fc" id="L56">        String state = java.util.stream.Stream.of(&quot;CONNECTED&quot;, &quot;PAIRING&quot;, &quot;DISCONNECTED&quot;, &quot;REVOKED&quot;)</span>
+<span class="fc" id="L57">                .filter(value -&gt; list.stream().anyMatch(p -&gt; value.equals(p.state()))).findFirst().orElse(&quot;NOT_CONFIGURED&quot;);</span>
+<span class="fc" id="L58">        return privateOk(Map.of(&quot;state&quot;, state));</span>
+    }
+
+    @Operation(summary = &quot;Issue a one-time pairing code&quot;)
+    @PostMapping(ADMIN + &quot;/pairing-codes&quot;)
+    ResponseEntity&lt;?&gt; issue(@RequestBody CodeRequest request) {
+        URI base;
+<span class="fc" id="L65">        try { base = URI.create(request.baseUrl()); }</span>
+<span class="pc" id="L66">        catch (IllegalArgumentException | NullPointerException e) { throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;); }</span>
+<span class="pc bpc" id="L67" title="3 of 6 branches missed.">        if (&quot;http&quot;.equalsIgnoreCase(base.getScheme()) &amp;&amp; !trustNetwork &amp;&amp; !FresnelIngress.loopback(base.getHost())) {</span>
+<span class="nc" id="L68">            throw new FresnelProblem(400, &quot;SECURE_TRANSPORT_REQUIRED&quot;);</span>
+        }
+<span class="fc" id="L70">        return ResponseEntity.status(201).header(HttpHeaders.CACHE_CONTROL, &quot;private, no-store&quot;)</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">                .body(service().issue(request.baseUrl(), request.scopes() == null ? FresnelPairings.SCOPES : request.scopes()));</span>
+    }
+
+    @Operation(summary = &quot;Revoke an instance and stop its captures&quot;)
+    @DeleteMapping(ADMIN + &quot;/pairings/{id}&quot;)
+    ResponseEntity&lt;Void&gt; revoke(@PathVariable String id) {
+<span class="fc" id="L77">        service().revoke(id, () -&gt; captures.getObject().revoke(id));</span>
+<span class="fc" id="L78">        return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, &quot;private, no-store&quot;).build();</span>
+    }
+
+    @Operation(summary = &quot;Abort one capture session&quot;)
+    @PostMapping(ADMIN + &quot;/pairings/{id}/sessions/{session}/abort&quot;)
+    ResponseEntity&lt;Void&gt; abort(@PathVariable String id, @PathVariable String session) {
+<span class="nc" id="L84">        service().whilePaired(id, () -&gt; captures.getObject().cancel(id, session, &quot;admin-abort-&quot; + session));</span>
+<span class="nc" id="L85">        return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, &quot;private, no-store&quot;).build();</span>
+    }
+
+    private FresnelPairings service() {
+<span class="fc" id="L89">        var service = pairings.getIfAvailable();</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        if (service == null) throw new FresnelProblem(409, &quot;NOT_CONFIGURED&quot;);</span>
+<span class="fc" id="L91">        return service;</span>
+    }
+    private static ResponseEntity&lt;?&gt; privateOk(Object body) {
+<span class="fc" id="L94">        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, &quot;private, no-store&quot;).body(body);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

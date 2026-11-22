@@ -22,7 +22,7 @@ final class CcapiLiveViewCapabilities {
     static CameraCapabilitySnapshot.Capability scroll(
             CameraCapabilitySnapshot snapshot) {
 <span class="fc" id="L24">        List&lt;CameraCapabilitySnapshot.Endpoint&gt; advertised = snapshot.advertisedEndpoints().stream()</span>
-<span class="fc" id="L25">                .filter(endpoint -&gt; endpoint.path().endsWith(SCROLL_SUFFIX))</span>
+<span class="fc" id="L25">                .filter(endpoint -&gt; CcapiEndpointCatalog.matchesOperation(endpoint.path(), SCROLL_SUFFIX))</span>
 <span class="fc" id="L26">                .toList();</span>
 <span class="fc bfc" id="L27" title="All 2 branches covered.">        if (advertised.isEmpty()) {</span>
 <span class="fc" id="L28">            return new CameraCapabilitySnapshot.Capability(</span>

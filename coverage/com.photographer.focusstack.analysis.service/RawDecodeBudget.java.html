@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RawDecodeBudget.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.service</a> &gt; <span class="el_source">RawDecodeBudget.java</span></div><h1>RawDecodeBudget.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.service;
+
+import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.io.InterruptedIOException;
+
+/** Process-wide admission budget for RAW decoding and file-backed stack processing. */
+@Service
+public final class RawDecodeBudget {
+
+    private static final long MIB = 1L &lt;&lt; 20;
+    private final int workers;
+    private final long maxBytes;
+    private int availableWorkers;
+    private long availableBytes;
+
+    public RawDecodeBudget(
+            @Value(&quot;${focusstack.processing.decode.max-workers:0}&quot;) int workers,
+<span class="fc" id="L22">            @Value(&quot;${focusstack.processing.decode.max-bytes:0}&quot;) long maxBytes) {</span>
+<span class="pc bpc" id="L23" title="2 of 4 branches missed.">        if (workers &lt; 0 || maxBytes &lt; 0) {</span>
+<span class="nc" id="L24">            throw new IllegalArgumentException(&quot;Decode limits must be non-negative&quot;);</span>
+        }
+<span class="fc" id="L26">        Runtime runtime = Runtime.getRuntime();</span>
+<span class="fc" id="L27">        int cpuCount = runtime.availableProcessors();</span>
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        this.workers = workers == 0 ? cpuCount : Math.min(workers, cpuCount);</span>
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        this.maxBytes = maxBytes == 0 ? Math.min(runtime.maxMemory() / 4 * 3, 1024 * MIB) : maxBytes;</span>
+<span class="fc" id="L30">        this.availableWorkers = this.workers;</span>
+<span class="fc" id="L31">        this.availableBytes = this.maxBytes;</span>
+<span class="fc" id="L32">    }</span>
+
+    public int capacityWorkers() {
+<span class="fc" id="L35">        return workers;</span>
+    }
+
+    /** Allows a packed RGB raster, an orientation copy, and working buffers for one worker. */
+    public static long estimateRawBytes(int width, int height) {
+<span class="fc" id="L40">        return estimateRawBytes(width, height, true, 1);</span>
+    }
+
+    static long estimateRawBytes(int width, int height, boolean orientationCopy, int workers) {
+<span class="fc" id="L44">        long rowBytes = BayerDemosaicer.estimateInPlaceRowBytes(width, height, workers);</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        if (orientationCopy) {</span>
+            // The caller can supply developed bounds with the sensor axes swapped by EXIF.
+<span class="fc" id="L47">            rowBytes = Math.max(rowBytes, BayerDemosaicer.estimateInPlaceRowBytes(height, width, workers));</span>
+        }
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        long rasterBytes = Math.multiplyExact((long) width * height, orientationCopy ? 8 : 4);</span>
+<span class="fc" id="L50">        return Math.addExact(rasterBytes, 8 * MIB + rowBytes);</span>
+    }
+
+    public Lease acquire(long estimatedBytes, int preferredWorkers) throws IOException {
+<span class="fc" id="L54">        return acquire(estimatedBytes, estimatedBytes, preferredWorkers);</span>
+    }
+
+    synchronized Lease acquire(long minimumBytes, long preferredBytes, int preferredWorkers) throws IOException {
+<span class="pc bpc" id="L58" title="3 of 6 branches missed.">        if (minimumBytes &lt; 1 || preferredBytes &lt; minimumBytes || preferredWorkers &lt; 1) {</span>
+<span class="nc" id="L59">            throw new IllegalArgumentException(&quot;Invalid decode reservation&quot;);</span>
+        }
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (minimumBytes &gt; maxBytes) {</span>
+<span class="fc" id="L62">            throw new LimitExceededException(&quot;Image processing needs an estimated &quot; + minimumBytes</span>
+                    + &quot; bytes, above the configured decode budget of &quot; + maxBytes);
+        }
+        try {
+<span class="pc bpc" id="L66" title="1 of 4 branches missed.">            while (availableWorkers == 0 || availableBytes &lt; minimumBytes) {</span>
+<span class="fc" id="L67">                wait();</span>
+            }
+<span class="nc" id="L69">        } catch (InterruptedException error) {</span>
+<span class="nc" id="L70">            Thread.currentThread().interrupt();</span>
+<span class="fc" id="L71">        }</span>
+<span class="pc bpc" id="L72" title="1 of 2 branches missed.">        if (Thread.currentThread().isInterrupted()) {</span>
+<span class="nc" id="L73">            throw new InterruptedIOException(&quot;Interrupted while waiting for the decode budget&quot;);</span>
+        }
+<span class="fc" id="L75">        int reservedWorkers = Math.min(preferredWorkers, availableWorkers);</span>
+<span class="fc" id="L76">        long reservedBytes = Math.min(preferredBytes, availableBytes);</span>
+<span class="fc" id="L77">        availableWorkers -= reservedWorkers;</span>
+<span class="fc" id="L78">        availableBytes -= reservedBytes;</span>
+<span class="fc" id="L79">        return new Lease(reservedWorkers, reservedBytes);</span>
+    }
+
+    static final class LimitExceededException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private LimitExceededException(String message) {
+<span class="fc" id="L86">            super(message);</span>
+<span class="fc" id="L87">        }</span>
+    }
+
+    public final class Lease implements AutoCloseable {
+        private final int workers;
+        private final long bytes;
+        private boolean closed;
+
+<span class="fc" id="L95">        private Lease(int workers, long bytes) {</span>
+<span class="fc" id="L96">            this.workers = workers;</span>
+<span class="fc" id="L97">            this.bytes = bytes;</span>
+<span class="fc" id="L98">        }</span>
+
+        public int workers() {
+<span class="fc" id="L101">            return workers;</span>
+        }
+
+        long bytes() {
+<span class="fc" id="L105">            return bytes;</span>
+        }
+
+        @Override
+        public void close() {
+<span class="fc" id="L110">            synchronized (RawDecodeBudget.this) {</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                if (!closed) {</span>
+<span class="fc" id="L112">                    availableWorkers += workers;</span>
+<span class="fc" id="L113">                    availableBytes += bytes;</span>
+<span class="fc" id="L114">                    closed = true;</span>
+<span class="fc" id="L115">                    RawDecodeBudget.this.notifyAll();</span>
+                }
+<span class="fc" id="L117">            }</span>
+<span class="fc" id="L118">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

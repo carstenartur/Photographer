@@ -123,9 +123,12 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
 <span class="fc" id="L123">    }</span>
 
     @Override
+<span class="fc" id="L126">    public boolean isLeased(CameraLeaseKey key) { return leases.containsKey(key); }</span>
+
+    @Override
     public CameraSessionLeaseMetrics metrics() {
-<span class="fc" id="L127">        return new CameraSessionLeaseMetrics(</span>
-<span class="fc" id="L128">                leases.size(), conflicts.get(), staleRecoveries.get());</span>
+<span class="fc" id="L130">        return new CameraSessionLeaseMetrics(</span>
+<span class="fc" id="L131">                leases.size(), conflicts.get(), staleRecoveries.get());</span>
     }
 
     /**
@@ -133,77 +136,77 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
      * including expired ones, are never removed.
      */
     int reapStaleLeases() {
-<span class="fc" id="L136">        Instant now = clock.instant();</span>
-<span class="fc" id="L137">        AtomicLong recovered = new AtomicLong();</span>
-<span class="fc" id="L138">        leases.forEach((key, ignored) -&gt; leases.computeIfPresent(key, (cameraKey, current) -&gt; {</span>
-<span class="pc bpc" id="L139" title="3 of 4 branches missed.">            if (current.handleCount() == 0 &amp;&amp; !current.hardDeadline().isAfter(now)) {</span>
-<span class="nc" id="L140">                recovered.incrementAndGet();</span>
-<span class="nc" id="L141">                return null;</span>
+<span class="fc" id="L139">        Instant now = clock.instant();</span>
+<span class="fc" id="L140">        AtomicLong recovered = new AtomicLong();</span>
+<span class="fc" id="L141">        leases.forEach((key, ignored) -&gt; leases.computeIfPresent(key, (cameraKey, current) -&gt; {</span>
+<span class="pc bpc" id="L142" title="3 of 4 branches missed.">            if (current.handleCount() == 0 &amp;&amp; !current.hardDeadline().isAfter(now)) {</span>
+<span class="nc" id="L143">                recovered.incrementAndGet();</span>
+<span class="nc" id="L144">                return null;</span>
             }
-<span class="fc" id="L143">            return current;</span>
+<span class="fc" id="L146">            return current;</span>
         }));
-<span class="fc" id="L145">        staleRecoveries.addAndGet(recovered.get());</span>
-<span class="fc" id="L146">        return Math.toIntExact(recovered.get());</span>
+<span class="fc" id="L148">        staleRecoveries.addAndGet(recovered.get());</span>
+<span class="fc" id="L149">        return Math.toIntExact(recovered.get());</span>
     }
 
     @PreDestroy
     public void close() {
-<span class="fc" id="L151">        synchronized (lifecycleMonitor) {</span>
-<span class="fc" id="L152">            beginShutdown();</span>
-<span class="fc" id="L153">            int active = leases.size();</span>
-<span class="fc bfc" id="L154" title="All 2 branches covered.">            if (active != 0) {</span>
-<span class="fc" id="L155">                throw new IllegalStateException(</span>
+<span class="fc" id="L154">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L155">            beginShutdown();</span>
+<span class="fc" id="L156">            int active = leases.size();</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">            if (active != 0) {</span>
+<span class="fc" id="L158">                throw new IllegalStateException(</span>
                         &quot;Camera session lease manager closed with &quot; + active
                                 + &quot; active lease(s)&quot;);
             }
-<span class="fc" id="L159">        }</span>
-<span class="fc" id="L160">    }</span>
+<span class="fc" id="L162">        }</span>
+<span class="fc" id="L163">    }</span>
 
     private void release(CameraLeaseKey key, String ownerToken, String correlationId) {
-<span class="fc" id="L163">        synchronized (lifecycleMonitor) {</span>
-<span class="fc" id="L164">  leases.computeIfPresent(key, (cameraKey, current) -&gt; {</span>
-<span class="pc bpc" id="L165" title="1 of 2 branches missed.">      if (!current.ownerToken().equals(ownerToken)</span>
-<span class="pc bpc" id="L166" title="1 of 2 branches missed.">              || !current.correlationId().equals(correlationId)) {</span>
-<span class="nc" id="L167">          return current;</span>
+<span class="fc" id="L166">        synchronized (lifecycleMonitor) {</span>
+<span class="fc" id="L167">  leases.computeIfPresent(key, (cameraKey, current) -&gt; {</span>
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">      if (!current.ownerToken().equals(ownerToken)</span>
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">              || !current.correlationId().equals(correlationId)) {</span>
+<span class="nc" id="L170">          return current;</span>
       }
-<span class="fc" id="L169">      int remaining = current.handleCount() - 1;</span>
-<span class="fc bfc" id="L170" title="All 2 branches covered.">      return remaining == 0 ? null : current.withHandleCount(remaining);</span>
+<span class="fc" id="L172">      int remaining = current.handleCount() - 1;</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">      return remaining == 0 ? null : current.withHandleCount(remaining);</span>
   });
-<span class="fc" id="L172">        }</span>
-<span class="fc" id="L173">    }</span>
+<span class="fc" id="L175">        }</span>
+<span class="fc" id="L176">    }</span>
 
     private static Duration retryAfter(Instant now, Instant hardDeadline) {
-<span class="fc" id="L176">        Duration remaining = Duration.between(now, hardDeadline);</span>
-<span class="pc bpc" id="L177" title="1 of 4 branches missed.">        if (remaining.isNegative() || remaining.isZero()) {</span>
-<span class="fc" id="L178">            return Duration.ZERO;</span>
+<span class="fc" id="L179">        Duration remaining = Duration.between(now, hardDeadline);</span>
+<span class="pc bpc" id="L180" title="1 of 4 branches missed.">        if (remaining.isNegative() || remaining.isZero()) {</span>
+<span class="fc" id="L181">            return Duration.ZERO;</span>
         }
-<span class="pc bpc" id="L180" title="1 of 2 branches missed.">        return remaining.compareTo(MAX_PUBLIC_RETRY_AFTER) &gt; 0</span>
-<span class="fc" id="L181">                ? MAX_PUBLIC_RETRY_AFTER</span>
-<span class="nc" id="L182">                : remaining;</span>
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">        return remaining.compareTo(MAX_PUBLIC_RETRY_AFTER) &gt; 0</span>
+<span class="fc" id="L184">                ? MAX_PUBLIC_RETRY_AFTER</span>
+<span class="nc" id="L185">                : remaining;</span>
     }
 
     private static Duration requirePositive(Duration value, String name) {
-<span class="fc" id="L186">        Objects.requireNonNull(value, name);</span>
-<span class="pc bpc" id="L187" title="2 of 4 branches missed.">        if (value.isZero() || value.isNegative()) {</span>
-<span class="nc" id="L188">            throw new IllegalArgumentException(name + &quot; must be positive&quot;);</span>
+<span class="fc" id="L189">        Objects.requireNonNull(value, name);</span>
+<span class="pc bpc" id="L190" title="2 of 4 branches missed.">        if (value.isZero() || value.isNegative()) {</span>
+<span class="nc" id="L191">            throw new IllegalArgumentException(name + &quot; must be positive&quot;);</span>
         }
-<span class="fc" id="L190">        return value;</span>
+<span class="fc" id="L193">        return value;</span>
     }
 
     private static String validatedCorrelationId(String value) {
-<span class="pc bpc" id="L194" title="2 of 4 branches missed.">        if (value == null || !value.matches(&quot;[A-Za-z0-9_-]{8,64}&quot;)) {</span>
-<span class="nc" id="L195">            throw new IllegalStateException(&quot;Correlation ID provider returned an invalid value&quot;);</span>
+<span class="pc bpc" id="L197" title="2 of 4 branches missed.">        if (value == null || !value.matches(&quot;[A-Za-z0-9_-]{8,64}&quot;)) {</span>
+<span class="nc" id="L198">            throw new IllegalStateException(&quot;Correlation ID provider returned an invalid value&quot;);</span>
         }
-<span class="fc" id="L197">        return value;</span>
+<span class="fc" id="L200">        return value;</span>
     }
 
     private static String newCorrelationId() {
         try {
-<span class="fc" id="L202">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
-<span class="fc" id="L203">                    .digest(UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));</span>
-<span class="fc" id="L204">            return HEX.formatHex(digest, 0, 8);</span>
-<span class="nc" id="L205">        } catch (NoSuchAlgorithmException impossible) {</span>
-<span class="nc" id="L206">            throw new IllegalStateException(&quot;SHA-256 is unavailable&quot;, impossible);</span>
+<span class="fc" id="L205">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
+<span class="fc" id="L206">                    .digest(UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L207">            return HEX.formatHex(digest, 0, 8);</span>
+<span class="nc" id="L208">        } catch (NoSuchAlgorithmException impossible) {</span>
+<span class="nc" id="L209">            throw new IllegalStateException(&quot;SHA-256 is unavailable&quot;, impossible);</span>
         }
     }
 
@@ -214,18 +217,18 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
             Instant hardDeadline,
             int handleCount) {
 
-<span class="fc" id="L217">        private LeaseState {</span>
-<span class="fc" id="L218">            Objects.requireNonNull(ownerToken, &quot;ownerToken&quot;);</span>
-<span class="fc" id="L219">            Objects.requireNonNull(correlationId, &quot;correlationId&quot;);</span>
-<span class="fc" id="L220">            Objects.requireNonNull(workflowType, &quot;workflowType&quot;);</span>
-<span class="fc" id="L221">            Objects.requireNonNull(hardDeadline, &quot;hardDeadline&quot;);</span>
-<span class="pc bpc" id="L222" title="1 of 2 branches missed.">            if (handleCount &lt; 0) {</span>
-<span class="nc" id="L223">                throw new IllegalArgumentException(&quot;handleCount must not be negative&quot;);</span>
+<span class="fc" id="L220">        private LeaseState {</span>
+<span class="fc" id="L221">            Objects.requireNonNull(ownerToken, &quot;ownerToken&quot;);</span>
+<span class="fc" id="L222">            Objects.requireNonNull(correlationId, &quot;correlationId&quot;);</span>
+<span class="fc" id="L223">            Objects.requireNonNull(workflowType, &quot;workflowType&quot;);</span>
+<span class="fc" id="L224">            Objects.requireNonNull(hardDeadline, &quot;hardDeadline&quot;);</span>
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">            if (handleCount &lt; 0) {</span>
+<span class="nc" id="L226">                throw new IllegalArgumentException(&quot;handleCount must not be negative&quot;);</span>
             }
-<span class="fc" id="L225">        }</span>
+<span class="fc" id="L228">        }</span>
 
         LeaseState withHandleCount(int value) {
-<span class="fc" id="L228">            return new LeaseState(ownerToken, correlationId, workflowType, hardDeadline, value);</span>
+<span class="fc" id="L231">            return new LeaseState(ownerToken, correlationId, workflowType, hardDeadline, value);</span>
         }
     }
 
@@ -234,30 +237,30 @@ public final class InMemoryCameraSessionLeaseManager implements CameraSessionLea
         private final CameraLeaseKey key;
         private final String ownerToken;
         private final String correlationId;
-<span class="fc" id="L237">        private final AtomicBoolean closed = new AtomicBoolean();</span>
+<span class="fc" id="L240">        private final AtomicBoolean closed = new AtomicBoolean();</span>
 
         private Handle(
                 InMemoryCameraSessionLeaseManager manager,
                 CameraLeaseKey key,
                 String ownerToken,
-<span class="fc" id="L243">                String correlationId) {</span>
-<span class="fc" id="L244">            this.manager = manager;</span>
-<span class="fc" id="L245">            this.key = key;</span>
-<span class="fc" id="L246">            this.ownerToken = ownerToken;</span>
-<span class="fc" id="L247">            this.correlationId = correlationId;</span>
-<span class="fc" id="L248">        }</span>
+<span class="fc" id="L246">                String correlationId) {</span>
+<span class="fc" id="L247">            this.manager = manager;</span>
+<span class="fc" id="L248">            this.key = key;</span>
+<span class="fc" id="L249">            this.ownerToken = ownerToken;</span>
+<span class="fc" id="L250">            this.correlationId = correlationId;</span>
+<span class="fc" id="L251">        }</span>
 
         @Override
         public String ownerCorrelationId() {
-<span class="fc" id="L252">            return correlationId;</span>
+<span class="fc" id="L255">            return correlationId;</span>
         }
 
         @Override
         public void close() {
-<span class="fc bfc" id="L257" title="All 2 branches covered.">            if (closed.compareAndSet(false, true)) {</span>
-<span class="fc" id="L258">                manager.release(key, ownerToken, correlationId);</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">            if (closed.compareAndSet(false, true)) {</span>
+<span class="fc" id="L261">                manager.release(key, ownerToken, correlationId);</span>
             }
-<span class="fc" id="L260">        }</span>
+<span class="fc" id="L263">        }</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

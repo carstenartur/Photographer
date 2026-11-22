@@ -10,10 +10,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -29,285 +27,267 @@ import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot
 /** Builds a host- and credential-free diagnostic view from the exact CCAPI catalog. */
 final class CanonCcapiCapabilitySnapshotFactory {
 
-<span class="fc" id="L32">    private static final Pattern VERSION_PATTERN = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
+<span class="fc" id="L30">    private static final Pattern VERSION_PATTERN = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
 
-<span class="fc" id="L34">    private static final List&lt;Definition&gt; BASE_DEFINITIONS = List.of(</span>
-<span class="fc" id="L35">            definition(&quot;device-information&quot;, true, methods(HttpMethod.GET), &quot;/deviceinformation&quot;),</span>
-<span class="fc" id="L36">            definition(&quot;battery-status&quot;, true, methods(HttpMethod.GET),</span>
+<span class="fc" id="L32">    private static final List&lt;Definition&gt; BASE_DEFINITIONS = List.of(</span>
+<span class="fc" id="L33">            definition(&quot;device-information&quot;, true, methods(HttpMethod.GET), &quot;/deviceinformation&quot;),</span>
+<span class="fc" id="L34">            definition(&quot;battery-status&quot;, true, methods(HttpMethod.GET),</span>
                     &quot;/devicestatus/batterylist&quot;, &quot;/devicestatus/battery&quot;),
-<span class="fc" id="L38">            definition(&quot;storage-status&quot;, true, methods(HttpMethod.GET), &quot;/devicestatus/storage&quot;),</span>
-<span class="fc" id="L39">            definition(&quot;lens-status&quot;, true, methods(HttpMethod.GET), &quot;/devicestatus/lens&quot;),</span>
-<span class="fc" id="L40">            definition(&quot;still-capture&quot;, true, methods(HttpMethod.POST),</span>
+<span class="fc" id="L36">            definition(&quot;storage-status&quot;, true, methods(HttpMethod.GET), &quot;/devicestatus/storage&quot;),</span>
+<span class="fc" id="L37">            new Definition(&quot;lens-status&quot;, List.of(&quot;/devicestatus/lens&quot;), methods(HttpMethod.GET), true, false),</span>
+<span class="fc" id="L38">            definition(&quot;still-capture&quot;, true, methods(HttpMethod.POST),</span>
                     &quot;/shooting/control/shutterbutton/manual&quot;, &quot;/shooting/control/shutterbutton&quot;),
-<span class="fc" id="L42">            definition(&quot;manual-focus-drive&quot;, true, methods(HttpMethod.POST),</span>
+<span class="fc" id="L40">            definition(&quot;manual-focus-drive&quot;, true, methods(HttpMethod.POST),</span>
                     &quot;/shooting/control/drivefocus&quot;),
-<span class="fc" id="L44">            definition(&quot;live-view-control&quot;, true, methods(HttpMethod.POST), &quot;/shooting/liveview&quot;),</span>
-<span class="fc" id="L45">            definition(&quot;live-view-frame&quot;, true, methods(HttpMethod.GET), &quot;/shooting/liveview/flip&quot;),</span>
-<span class="fc" id="L46">            definition(&quot;media-list-and-download&quot;, true, methods(HttpMethod.GET), &quot;/contents&quot;),</span>
-<span class="fc" id="L47">            definition(&quot;event-polling&quot;, true, methods(HttpMethod.GET), &quot;/event/polling&quot;),</span>
-<span class="fc" id="L48">            definition(&quot;event-monitoring&quot;, false, methods(HttpMethod.GET, HttpMethod.DELETE),</span>
-                    &quot;/event/monitoring&quot;),
-<span class="fc" id="L50">            definition(&quot;live-view-multipart&quot;, false, methods(HttpMethod.GET, HttpMethod.DELETE),</span>
+<span class="fc" id="L42">            definition(&quot;live-view-control&quot;, true, methods(HttpMethod.POST), &quot;/shooting/liveview&quot;),</span>
+<span class="fc" id="L43">            definition(&quot;live-view-frame&quot;, true, methods(HttpMethod.GET), &quot;/shooting/liveview/flip&quot;),</span>
+<span class="fc" id="L44">            definition(&quot;live-view-multipart&quot;, false, methods(HttpMethod.GET, HttpMethod.DELETE),</span>
                     &quot;/shooting/liveview/multipart&quot;),
-<span class="fc" id="L52">            definition(&quot;live-view-rtp&quot;, false, methods(HttpMethod.POST), &quot;/shooting/liveview/rtp&quot;)</span>
+<span class="fc" id="L46">            definition(&quot;live-view-rtp&quot;, false, methods(HttpMethod.POST), &quot;/shooting/liveview/rtp&quot;)</span>
     );
 
-<span class="fc" id="L55">    private static final List&lt;Definition&gt; NATIVE_BRACKETING_DEFINITIONS = List.of(</span>
-<span class="fc" id="L56">            definition(&quot;native-focus-bracketing&quot;, true, methods(HttpMethod.GET, HttpMethod.PUT),</span>
+<span class="fc" id="L49">    private static final List&lt;Definition&gt; NATIVE_BRACKETING_DEFINITIONS = List.of(</span>
+<span class="fc" id="L50">            definition(&quot;native-focus-bracketing&quot;, true, methods(HttpMethod.GET, HttpMethod.PUT),</span>
                     &quot;/shooting/settings/focusbracketing&quot;),
-<span class="fc" id="L58">            definition(&quot;native-focus-bracketing-shot-count&quot;, true,</span>
-<span class="fc" id="L59">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
+<span class="fc" id="L52">            definition(&quot;native-focus-bracketing-shot-count&quot;, true,</span>
+<span class="fc" id="L53">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
                     &quot;/shooting/settings/focusbracketing/numberofshots&quot;),
-<span class="fc" id="L61">            definition(&quot;native-focus-bracketing-increment&quot;, true,</span>
-<span class="fc" id="L62">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
+<span class="fc" id="L55">            definition(&quot;native-focus-bracketing-increment&quot;, true,</span>
+<span class="fc" id="L56">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
                     &quot;/shooting/settings/focusbracketing/focusincrement&quot;),
-<span class="fc" id="L64">            definition(&quot;native-focus-bracketing-exposure-smoothing&quot;, true,</span>
-<span class="fc" id="L65">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
+<span class="fc" id="L58">            definition(&quot;native-focus-bracketing-exposure-smoothing&quot;, true,</span>
+<span class="fc" id="L59">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
                     &quot;/shooting/settings/focusbracketing/exposuresmoothing&quot;),
-<span class="fc" id="L67">            definition(&quot;native-focus-bracketing-depth-composition&quot;, true,</span>
-<span class="fc" id="L68">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
+<span class="fc" id="L61">            definition(&quot;native-focus-bracketing-depth-composition&quot;, true,</span>
+<span class="fc" id="L62">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
                     &quot;/shooting/settings/focusbracketing/depthcomposite&quot;),
-<span class="fc" id="L70">            definition(&quot;native-focus-bracketing-crop-depth-composition&quot;, true,</span>
-<span class="fc" id="L71">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
+<span class="fc" id="L64">            definition(&quot;native-focus-bracketing-crop-depth-composition&quot;, true,</span>
+<span class="fc" id="L65">                    methods(HttpMethod.GET, HttpMethod.PUT),</span>
                     &quot;/shooting/settings/focusbracketing/cropdepthcomp&quot;)
     );
+
+    /** Publication exports only exact, known operation paths, excluding media names and vendor-private paths. */
+    static boolean isDocumentedEvidencePath(String path) {
+<span class="fc" id="L71">        Matcher version = VERSION_PATTERN.matcher(path);</span>
+<span class="pc bpc" id="L72" title="2 of 4 branches missed.">        if (!version.find() || !path.substring(0, version.start()).equals(&quot;/ccapi&quot;)) {</span>
+<span class="nc" id="L73">            return false;</span>
+        }
+<span class="fc" id="L75">        String suffix = &quot;/&quot; + path.substring(version.end());</span>
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        for (CcapiMediaOperation operation : CcapiMediaOperation.values()) {</span>
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">            if (suffix.equals(operation.path)) {</span>
+<span class="nc" id="L78">                return true;</span>
+            }
+        }
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        return suffix.equals(&quot;/shooting/liveview/scroll&quot;)</span>
+<span class="fc" id="L82">                || java.util.stream.Stream.concat(BASE_DEFINITIONS.stream(), NATIVE_BRACKETING_DEFINITIONS.stream())</span>
+<span class="fc bfc" id="L83" title="All 2 branches covered.">                        .anyMatch(definition -&gt; definition.suffixes().contains(suffix));</span>
+    }
 
     private final CanonCcapiStatusBackend backend;
     private final RestTemplate restTemplate;
 
     CanonCcapiCapabilitySnapshotFactory(
             CanonCcapiStatusBackend backend,
-<span class="fc" id="L80">            RestTemplate restTemplate) {</span>
-<span class="fc" id="L81">        this.backend = Objects.requireNonNull(backend, &quot;backend&quot;);</span>
-<span class="fc" id="L82">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
-<span class="fc" id="L83">    }</span>
+<span class="fc" id="L91">            RestTemplate restTemplate) {</span>
+<span class="fc" id="L92">        this.backend = Objects.requireNonNull(backend, &quot;backend&quot;);</span>
+<span class="fc" id="L93">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L94">    }</span>
 
-    CameraCapabilitySnapshot create() {
-<span class="fc" id="L86">        List&lt;AdvertisedEndpoint&gt; advertised = advertisedEndpoints();</span>
-<span class="fc" id="L87">        Identity identity = readIdentity(advertised);</span>
+    CameraCapabilitySnapshot create(boolean extendedEvents) {
+<span class="fc" id="L97">        CcapiEndpointCatalog catalog = backend.endpointCatalog();</span>
+<span class="fc" id="L98">        Identity identity = readIdentity(catalog);</span>
 
-<span class="fc" id="L89">        List&lt;Definition&gt; definitions = new ArrayList&lt;&gt;(BASE_DEFINITIONS);</span>
-<span class="fc" id="L90">        boolean nativeBracketingImplemented = backend instanceof NativeFocusBracketingProvider;</span>
-<span class="fc bfc" id="L91" title="All 2 branches covered.">        for (Definition definition : NATIVE_BRACKETING_DEFINITIONS) {</span>
-<span class="fc" id="L92">            definitions.add(new Definition(</span>
-<span class="fc" id="L93">                    definition.id(),</span>
-<span class="fc" id="L94">                    definition.suffixes(),</span>
-<span class="fc" id="L95">                    definition.requiredMethods(),</span>
-                    nativeBracketingImplemented));
-<span class="fc" id="L97">        }</span>
+<span class="fc" id="L100">        List&lt;Definition&gt; definitions = new ArrayList&lt;&gt;(BASE_DEFINITIONS);</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        for (CcapiMediaOperation operation : CcapiMediaOperation.values()) {</span>
+<span class="fc bfc" id="L102" title="All 4 branches covered.">            if (operation != CcapiMediaOperation.POLLING_CONTINUATION || extendedEvents) {</span>
+<span class="fc bfc" id="L103" title="All 4 branches covered.">                definitions.add(new Definition(operation.capability, List.of(operation.path), operation.methods,</span>
+                        operation != CcapiMediaOperation.MONITORING || extendedEvents, operation.allowUnknownMethods));
+            }
+        }
+<span class="fc" id="L107">        boolean nativeBracketingImplemented = backend instanceof NativeFocusBracketingProvider;</span>
+<span class="fc bfc" id="L108" title="All 2 branches covered.">        for (Definition definition : NATIVE_BRACKETING_DEFINITIONS) {</span>
+<span class="fc" id="L109">            definitions.add(new Definition(</span>
+<span class="fc" id="L110">                    definition.id(),</span>
+<span class="fc" id="L111">                    definition.suffixes(),</span>
+<span class="fc" id="L112">                    definition.requiredMethods(),</span>
+                    nativeBracketingImplemented, false));
+<span class="fc" id="L114">        }</span>
 
-<span class="fc" id="L99">        List&lt;CapabilityResult&gt; resolved = definitions.stream()</span>
-<span class="fc" id="L100">                .map(definition -&gt; resolve(definition, advertised))</span>
-<span class="fc" id="L101">                .toList();</span>
-<span class="fc" id="L102">        LensResult lensResult = readLens(resolved);</span>
+<span class="fc" id="L116">        List&lt;CapabilityResult&gt; resolved = definitions.stream()</span>
+<span class="fc" id="L117">                .map(definition -&gt; resolve(definition, catalog))</span>
+<span class="fc" id="L118">                .toList();</span>
+<span class="fc" id="L119">        LensResult lensResult = readLens(resolved);</span>
 
-<span class="fc" id="L104">        List&lt;CameraCapabilitySnapshot.Capability&gt; capabilities = resolved.stream()</span>
-<span class="fc bfc" id="L105" title="All 2 branches covered.">                .map(result -&gt; result.definition().id().equals(&quot;lens-status&quot;)</span>
-<span class="fc" id="L106">                        ? lensResult.capability()</span>
-<span class="fc" id="L107">                        : result.capability())</span>
-<span class="fc" id="L108">                .toList();</span>
-<span class="fc" id="L109">        List&lt;CameraCapabilitySnapshot.Endpoint&gt; endpoints = advertised.stream()</span>
-<span class="fc" id="L110">                .map(AdvertisedEndpoint::diagnostic)</span>
-<span class="fc" id="L111">                .toList();</span>
+<span class="fc" id="L121">        List&lt;CameraCapabilitySnapshot.Capability&gt; capabilities = resolved.stream()</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">                .map(result -&gt; result.definition().id().equals(&quot;lens-status&quot;)</span>
+<span class="fc" id="L123">                        ? lensResult.capability()</span>
+<span class="fc" id="L124">                        : result.capability())</span>
+<span class="fc" id="L125">                .toList();</span>
+<span class="fc" id="L126">        List&lt;CameraCapabilitySnapshot.Endpoint&gt; endpoints = catalog.endpoints().stream()</span>
+<span class="fc" id="L127">                .map(endpoint -&gt; new CameraCapabilitySnapshot.Endpoint(endpoint.version(), endpointPath(endpoint.url()),</span>
+<span class="fc" id="L128">                        methodNames(endpoint.methods()), endpoint.methodMetadataKnown()))</span>
+<span class="fc" id="L129">                .toList();</span>
 
-<span class="fc" id="L113">        return new CameraCapabilitySnapshot(</span>
-<span class="fc" id="L114">                identity.model(),</span>
-<span class="fc" id="L115">                identity.firmwareVersion(),</span>
-<span class="pc bpc" id="L116" title="1 of 2 branches missed.">                !advertised.isEmpty(),</span>
+<span class="fc" id="L131">        return new CameraCapabilitySnapshot(</span>
+<span class="fc" id="L132">                identity.model(),</span>
+<span class="fc" id="L133">                identity.firmwareVersion(),</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">                !endpoints.isEmpty(),</span>
                 capabilities,
                 endpoints,
-<span class="fc" id="L119">                lensResult.lens());</span>
+<span class="fc" id="L137">                lensResult.lens());</span>
     }
 
-    private List&lt;AdvertisedEndpoint&gt; advertisedEndpoints() {
-<span class="fc" id="L123">        Map&lt;String, String&gt; urls = backend.getDiscoveredEndpoints();</span>
-<span class="fc" id="L124">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; methods = backend.getDiscoveredEndpointMethods();</span>
-<span class="fc" id="L125">        List&lt;AdvertisedEndpoint&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L126" title="All 2 branches covered.">        for (Map.Entry&lt;String, String&gt; entry : urls.entrySet()) {</span>
-<span class="fc" id="L127">            String path = endpointPath(entry.getValue());</span>
-<span class="fc" id="L128">            Set&lt;HttpMethod&gt; advertisedMethods = methods.get(entry.getKey());</span>
-<span class="fc bfc" id="L129" title="All 2 branches covered.">            boolean metadataKnown = advertisedMethods != null;</span>
-<span class="fc" id="L130">            result.add(new AdvertisedEndpoint(</span>
-<span class="fc" id="L131">                    version(path),</span>
-<span class="fc" id="L132">                    versionNumber(path),</span>
-                    path,
-<span class="fc" id="L134">                    entry.getValue(),</span>
-<span class="fc bfc" id="L135" title="All 2 branches covered.">                    advertisedMethods == null ? Set.of() : advertisedMethods,</span>
-                    metadataKnown));
-<span class="fc" id="L137">        }</span>
-<span class="fc" id="L138">        result.sort(Comparator.comparingInt(AdvertisedEndpoint::versionNumber)</span>
-<span class="fc" id="L139">                .thenComparing(AdvertisedEndpoint::path));</span>
-<span class="fc" id="L140">        return List.copyOf(result);</span>
-    }
-
-    private Identity readIdentity(List&lt;AdvertisedEndpoint&gt; endpoints) {
-<span class="fc" id="L144">        AdvertisedEndpoint endpoint = highestExact(endpoints, List.of(&quot;/deviceinformation&quot;))</span>
-<span class="fc bfc" id="L145" title="All 2 branches covered.">                .filter(candidate -&gt; !candidate.methodMetadataKnown()</span>
-<span class="pc bpc" id="L146" title="1 of 2 branches missed.">                        || candidate.methods().contains(HttpMethod.GET))</span>
-<span class="fc" id="L147">                .orElse(null);</span>
-<span class="fc bfc" id="L148" title="All 2 branches covered.">        if (endpoint == null) {</span>
-<span class="fc" id="L149">            return Identity.UNKNOWN;</span>
+    private Identity readIdentity(CcapiEndpointCatalog catalog) {
+<span class="fc" id="L141">        CcapiEndpointCatalog.Endpoint endpoint = catalog.findOperation(&quot;/deviceinformation&quot;, methods(HttpMethod.GET), true)</span>
+<span class="fc" id="L142">                .orElse(null);</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">        if (endpoint == null) {</span>
+<span class="fc" id="L144">            return Identity.UNKNOWN;</span>
         }
-<span class="fc" id="L151">        DeviceInformation response = restTemplate.getForObject(endpoint.url(), DeviceInformation.class);</span>
-<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        if (response == null) {</span>
-<span class="nc" id="L153">            return Identity.UNKNOWN;</span>
+<span class="fc" id="L146">        DeviceInformation response = restTemplate.getForObject(endpoint.url(), DeviceInformation.class);</span>
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">        if (response == null) {</span>
+<span class="nc" id="L148">            return Identity.UNKNOWN;</span>
         }
-<span class="fc" id="L155">        return new Identity(response.productname(), response.firmwareversion());</span>
+<span class="fc" id="L150">        return new Identity(response.productname(), response.firmwareversion());</span>
     }
 
     private LensResult readLens(List&lt;CapabilityResult&gt; capabilities) {
-<span class="fc" id="L159">        CapabilityResult result = capabilities.stream()</span>
-<span class="fc" id="L160">                .filter(candidate -&gt; candidate.definition().id().equals(&quot;lens-status&quot;))</span>
-<span class="fc" id="L161">                .findFirst()</span>
-<span class="fc" id="L162">                .orElseThrow();</span>
-<span class="pc bpc" id="L163" title="1 of 4 branches missed.">        if (result.capability().availability() != AVAILABLE || result.endpoint() == null) {</span>
-<span class="fc" id="L164">            return new LensResult(result.capability(), null);</span>
+<span class="fc" id="L154">        CapabilityResult result = capabilities.stream()</span>
+<span class="fc" id="L155">                .filter(candidate -&gt; candidate.definition().id().equals(&quot;lens-status&quot;))</span>
+<span class="fc" id="L156">                .findFirst()</span>
+<span class="fc" id="L157">                .orElseThrow();</span>
+<span class="pc bpc" id="L158" title="1 of 4 branches missed.">        if (result.capability().availability() != AVAILABLE || result.endpoint() == null) {</span>
+<span class="fc" id="L159">            return new LensResult(result.capability(), null);</span>
         }
 
         try {
-<span class="fc" id="L168">            LensResponse response = restTemplate.getForObject(</span>
-<span class="fc" id="L169">                    result.endpoint().url(), LensResponse.class);</span>
-<span class="pc bpc" id="L170" title="1 of 2 branches missed.">            CameraCapabilitySnapshot.Lens lens = response == null</span>
-<span class="nc" id="L171">                    ? new CameraCapabilitySnapshot.Lens(false, null)</span>
-<span class="fc" id="L172">                    : new CameraCapabilitySnapshot.Lens(</span>
-<span class="fc" id="L173">                            Boolean.TRUE.equals(response.mount()), response.name());</span>
-<span class="fc" id="L174">            return new LensResult(result.capability(), lens);</span>
-<span class="fc" id="L175">        } catch (RuntimeException exception) {</span>
-<span class="fc" id="L176">            Optional&lt;CameraOperationException&gt; operation = operationFailure(exception);</span>
-<span class="pc bpc" id="L177" title="1 of 2 branches missed.">            if (operation.isPresent()</span>
-<span class="pc bpc" id="L178" title="1 of 2 branches missed.">                    &amp;&amp; operation.orElseThrow().category()</span>
+<span class="fc" id="L163">            LensResponse response = restTemplate.getForObject(</span>
+<span class="fc" id="L164">                    result.endpoint().url(), LensResponse.class);</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">            CameraCapabilitySnapshot.Lens lens = response == null</span>
+<span class="nc" id="L166">                    ? new CameraCapabilitySnapshot.Lens(false, null)</span>
+<span class="fc" id="L167">                    : new CameraCapabilitySnapshot.Lens(</span>
+<span class="fc" id="L168">                            Boolean.TRUE.equals(response.mount()), response.name());</span>
+<span class="fc" id="L169">            return new LensResult(result.capability(), lens);</span>
+<span class="fc" id="L170">        } catch (RuntimeException exception) {</span>
+<span class="fc" id="L171">            Optional&lt;CameraOperationException&gt; operation = operationFailure(exception);</span>
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">            if (operation.isPresent()</span>
+<span class="pc bpc" id="L173" title="1 of 2 branches missed.">                    &amp;&amp; operation.orElseThrow().category()</span>
                     == CameraOperationException.Category.TEMPORARY_STATE) {
-<span class="fc" id="L180">                CameraOperationException failure = operation.orElseThrow();</span>
-<span class="fc" id="L181">                CameraCapabilitySnapshot.Capability temporary = new CameraCapabilitySnapshot.Capability(</span>
-<span class="fc" id="L182">                        result.capability().id(),</span>
+<span class="fc" id="L175">                CameraOperationException failure = operation.orElseThrow();</span>
+<span class="fc" id="L176">                CameraCapabilitySnapshot.Capability temporary = new CameraCapabilitySnapshot.Capability(</span>
+<span class="fc" id="L177">                        result.capability().id(),</span>
                         true,
                         true,
                         TEMPORARILY_UNAVAILABLE,
-<span class="fc" id="L186">                        result.capability().requiredMethods(),</span>
-<span class="fc" id="L187">                        result.capability().advertisedMethods(),</span>
-<span class="fc" id="L188">                        result.capability().methodMetadataKnown(),</span>
-<span class="fc" id="L189">                        failure.reason().name());</span>
-<span class="fc" id="L190">                return new LensResult(temporary, null);</span>
+<span class="fc" id="L181">                        result.capability().requiredMethods(),</span>
+<span class="fc" id="L182">                        result.capability().advertisedMethods(),</span>
+<span class="fc" id="L183">                        result.capability().methodMetadataKnown(),</span>
+<span class="fc" id="L184">                        failure.reason().name());</span>
+<span class="fc" id="L185">                return new LensResult(temporary, null);</span>
             }
-<span class="nc" id="L192">            throw exception;</span>
+<span class="nc" id="L187">            throw exception;</span>
         }
     }
 
     private static CapabilityResult resolve(
             Definition definition,
-            List&lt;AdvertisedEndpoint&gt; endpoints) {
-<span class="fc" id="L199">        AdvertisedEndpoint endpoint = highestExact(endpoints, definition.suffixes()).orElse(null);</span>
-<span class="fc bfc" id="L200" title="All 2 branches covered.">        if (endpoint == null) {</span>
-<span class="fc" id="L201">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
-<span class="fc" id="L202">                    definition.id(),</span>
+            CcapiEndpointCatalog catalog) {
+<span class="fc" id="L194">        CcapiEndpointCatalog.Endpoint endpoint = bestEndpoint(catalog, definition.suffixes(),</span>
+<span class="fc" id="L195">                definition.requiredMethods(), definition.allowUnknownMethods())</span>
+<span class="fc" id="L196">                .or(() -&gt; bestEndpoint(catalog, definition.suffixes(), Set.of(), true))</span>
+<span class="fc" id="L197">                .orElse(null);</span>
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        if (endpoint == null) {</span>
+<span class="fc" id="L199">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
+<span class="fc" id="L200">                    definition.id(),</span>
                     false,
-<span class="fc" id="L204">                    definition.implemented(),</span>
+<span class="fc" id="L202">                    definition.implemented(),</span>
                     UNSUPPORTED,
-<span class="fc" id="L206">                    methodNames(definition.requiredMethods()),</span>
-<span class="fc" id="L207">                    Set.of(),</span>
+<span class="fc" id="L204">                    methodNames(definition.requiredMethods()),</span>
+<span class="fc" id="L205">                    Set.of(),</span>
                     false,
                     &quot;ENDPOINT_NOT_ADVERTISED&quot;), null);
         }
-<span class="fc bfc" id="L211" title="All 2 branches covered.">        if (!definition.implemented()) {</span>
-<span class="fc" id="L212">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
-<span class="fc" id="L213">                    definition.id(),</span>
+<span class="fc bfc" id="L209" title="All 2 branches covered.">        if (!definition.implemented()) {</span>
+<span class="fc" id="L210">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
+<span class="fc" id="L211">                    definition.id(),</span>
                     true,
                     false,
                     ADVERTISED_NOT_IMPLEMENTED,
-<span class="fc" id="L217">                    methodNames(definition.requiredMethods()),</span>
-<span class="fc" id="L218">                    methodNames(endpoint.methods()),</span>
-<span class="fc" id="L219">                    endpoint.methodMetadataKnown(),</span>
+<span class="fc" id="L215">                    methodNames(definition.requiredMethods()),</span>
+<span class="fc" id="L216">                    methodNames(endpoint.methods()),</span>
+<span class="fc" id="L217">                    endpoint.methodMetadataKnown(),</span>
                     &quot;APPLICATION_NOT_IMPLEMENTED&quot;), endpoint);
         }
-<span class="fc bfc" id="L222" title="All 2 branches covered.">        if (!endpoint.methodMetadataKnown()) {</span>
-<span class="fc" id="L223">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
-<span class="fc" id="L224">                    definition.id(),</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">        if (!endpoint.methodMetadataKnown()) {</span>
+<span class="fc" id="L221">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
+<span class="fc" id="L222">                    definition.id(),</span>
                     true,
                     true,
                     METHOD_METADATA_UNKNOWN,
-<span class="fc" id="L228">                    methodNames(definition.requiredMethods()),</span>
-<span class="fc" id="L229">                    Set.of(),</span>
+<span class="fc" id="L226">                    methodNames(definition.requiredMethods()),</span>
+<span class="fc" id="L227">                    Set.of(),</span>
                     false,
                     &quot;METHOD_METADATA_NOT_ADVERTISED&quot;), endpoint);
         }
-<span class="pc bpc" id="L233" title="1 of 2 branches missed.">        if (!endpoint.methods().containsAll(definition.requiredMethods())) {</span>
-<span class="nc" id="L234">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
-<span class="nc" id="L235">                    definition.id(),</span>
+<span class="pc bpc" id="L231" title="1 of 2 branches missed.">        if (!endpoint.methods().containsAll(definition.requiredMethods())) {</span>
+<span class="nc" id="L232">            return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
+<span class="nc" id="L233">                    definition.id(),</span>
                     true,
                     true,
                     UNSUPPORTED,
-<span class="nc" id="L239">                    methodNames(definition.requiredMethods()),</span>
-<span class="nc" id="L240">                    methodNames(endpoint.methods()),</span>
+<span class="nc" id="L237">                    methodNames(definition.requiredMethods()),</span>
+<span class="nc" id="L238">                    methodNames(endpoint.methods()),</span>
                     true,
                     &quot;METHOD_NOT_ADVERTISED&quot;), endpoint);
         }
-<span class="fc" id="L244">        return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
-<span class="fc" id="L245">                definition.id(),</span>
+<span class="fc" id="L242">        return new CapabilityResult(definition, new CameraCapabilitySnapshot.Capability(</span>
+<span class="fc" id="L243">                definition.id(),</span>
                 true,
                 true,
                 AVAILABLE,
-<span class="fc" id="L249">                methodNames(definition.requiredMethods()),</span>
-<span class="fc" id="L250">                methodNames(endpoint.methods()),</span>
+<span class="fc" id="L247">                methodNames(definition.requiredMethods()),</span>
+<span class="fc" id="L248">                methodNames(endpoint.methods()),</span>
                 true,
                 null), endpoint);
     }
 
-    private static Optional&lt;AdvertisedEndpoint&gt; highestExact(
-            List&lt;AdvertisedEndpoint&gt; endpoints,
-            List&lt;String&gt; suffixes) {
-<span class="fc" id="L258">        return endpoints.stream()</span>
-<span class="fc" id="L259">                .filter(endpoint -&gt; suffixes.stream().anyMatch(endpoint.path()::endsWith))</span>
-<span class="fc" id="L260">                .max(Comparator.comparingInt(AdvertisedEndpoint::versionNumber)</span>
-<span class="fc" id="L261">                        .thenComparing(AdvertisedEndpoint::path));</span>
+    private static Optional&lt;CcapiEndpointCatalog.Endpoint&gt; bestEndpoint(
+            CcapiEndpointCatalog catalog, List&lt;String&gt; operations, Set&lt;HttpMethod&gt; methods, boolean allowUnknownMethods) {
+<span class="fc" id="L255">        return operations.stream()</span>
+<span class="fc" id="L256">                .map(operation -&gt; catalog.findOperation(operation, methods, allowUnknownMethods))</span>
+<span class="fc" id="L257">                .flatMap(Optional::stream)</span>
+<span class="fc" id="L258">                .max(CcapiEndpointCatalog.VERSION_ORDER);</span>
     }
 
     private static Optional&lt;CameraOperationException&gt; operationFailure(Throwable failure) {
-<span class="fc" id="L265">        Throwable current = failure;</span>
-<span class="pc bpc" id="L266" title="1 of 2 branches missed.">        while (current != null) {</span>
-<span class="fc bfc" id="L267" title="All 2 branches covered.">            if (current instanceof CameraOperationException operation) {</span>
-<span class="fc" id="L268">                return Optional.of(operation);</span>
+<span class="fc" id="L262">        Throwable current = failure;</span>
+<span class="pc bpc" id="L263" title="1 of 2 branches missed.">        while (current != null) {</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">            if (current instanceof CameraOperationException operation) {</span>
+<span class="fc" id="L265">                return Optional.of(operation);</span>
             }
-<span class="fc" id="L270">            current = current.getCause();</span>
+<span class="fc" id="L267">            current = current.getCause();</span>
         }
-<span class="nc" id="L272">        return Optional.empty();</span>
+<span class="nc" id="L269">        return Optional.empty();</span>
     }
 
     private static String endpointPath(String value) {
         try {
-<span class="fc" id="L277">            String path = URI.create(value).getPath();</span>
-<span class="pc bpc" id="L278" title="2 of 4 branches missed.">            return path == null || path.isBlank() ? &quot;/&quot; : path;</span>
-<span class="nc" id="L279">        } catch (IllegalArgumentException exception) {</span>
-<span class="nc" id="L280">            int query = value.indexOf('?');</span>
-<span class="nc bnc" id="L281" title="All 2 branches missed.">            return query &gt;= 0 ? value.substring(0, query) : value;</span>
-        }
-    }
-
-    private static String version(String path) {
-<span class="fc" id="L286">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
-<span class="pc bpc" id="L287" title="1 of 2 branches missed.">        return matcher.find() ? &quot;ver&quot; + matcher.group(1) : &quot;unknown&quot;;</span>
-    }
-
-    private static int versionNumber(String path) {
-<span class="fc" id="L291">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
-<span class="pc bpc" id="L292" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
-<span class="nc" id="L293">            return -1;</span>
-        }
-        try {
-<span class="fc" id="L296">            return Integer.parseInt(matcher.group(1));</span>
-<span class="nc" id="L297">        } catch (NumberFormatException exception) {</span>
-<span class="nc" id="L298">            return -1;</span>
+<span class="fc" id="L274">            String path = URI.create(value).getRawPath();</span>
+<span class="pc bpc" id="L275" title="2 of 4 branches missed.">            return path == null || path.isBlank() ? &quot;/&quot; : path;</span>
+<span class="nc" id="L276">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L277">            int query = value.indexOf('?');</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">            return query &gt;= 0 ? value.substring(0, query) : value;</span>
         }
     }
 
     private static Set&lt;HttpMethod&gt; methods(HttpMethod... methods) {
-<span class="fc" id="L303">        return Set.of(methods);</span>
+<span class="fc" id="L283">        return Set.of(methods);</span>
     }
 
     private static Set&lt;String&gt; methodNames(Set&lt;HttpMethod&gt; methods) {
-<span class="fc" id="L307">        return methods.stream()</span>
-<span class="fc" id="L308">                .map(HttpMethod::name)</span>
-<span class="fc" id="L309">                .sorted()</span>
-<span class="fc" id="L310">                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));</span>
+<span class="fc" id="L287">        return methods.stream()</span>
+<span class="fc" id="L288">                .map(HttpMethod::name)</span>
+<span class="fc" id="L289">                .sorted()</span>
+<span class="fc" id="L290">                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));</span>
     }
 
     private static Definition definition(
@@ -315,53 +295,40 @@ final class CanonCcapiCapabilitySnapshotFactory {
             boolean implemented,
             Set&lt;HttpMethod&gt; methods,
             String... suffixes) {
-<span class="fc" id="L318">        return new Definition(id, List.of(suffixes), methods, implemented);</span>
+<span class="fc" id="L298">        return new Definition(id, List.of(suffixes), methods, implemented, true);</span>
     }
 
-<span class="fc" id="L321">    private record Definition(</span>
+<span class="fc" id="L301">    private record Definition(</span>
             String id,
             List&lt;String&gt; suffixes,
             Set&lt;HttpMethod&gt; requiredMethods,
-            boolean implemented) {
+            boolean implemented,
+            boolean allowUnknownMethods) {
     }
 
-<span class="fc" id="L328">    private record CapabilityResult(</span>
+<span class="fc" id="L309">    private record CapabilityResult(</span>
             Definition definition,
             CameraCapabilitySnapshot.Capability capability,
-            AdvertisedEndpoint endpoint) {
+            CcapiEndpointCatalog.Endpoint endpoint) {
     }
 
-<span class="fc" id="L334">    private record AdvertisedEndpoint(</span>
-            String version,
-            int versionNumber,
-            String path,
-            String url,
-            Set&lt;HttpMethod&gt; methods,
-            boolean methodMetadataKnown) {
-
-        private CameraCapabilitySnapshot.Endpoint diagnostic() {
-<span class="fc" id="L343">            return new CameraCapabilitySnapshot.Endpoint(</span>
-<span class="fc" id="L344">                    version, path, methodNames(methods), methodMetadataKnown);</span>
-        }
-    }
-
-<span class="fc" id="L348">    private record LensResult(</span>
+<span class="fc" id="L315">    private record LensResult(</span>
             CameraCapabilitySnapshot.Capability capability,
             CameraCapabilitySnapshot.Lens lens) {
     }
 
-<span class="fc" id="L353">    private record Identity(String model, String firmwareVersion) {</span>
-<span class="fc" id="L354">        private static final Identity UNKNOWN = new Identity(&quot;unknown&quot;, &quot;unknown&quot;);</span>
+<span class="fc" id="L320">    private record Identity(String model, String firmwareVersion) {</span>
+<span class="fc" id="L321">        private static final Identity UNKNOWN = new Identity(&quot;unknown&quot;, &quot;unknown&quot;);</span>
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L358">    private record DeviceInformation(</span>
+<span class="fc" id="L325">    private record DeviceInformation(</span>
             @JsonProperty(&quot;productname&quot;) String productname,
             @JsonProperty(&quot;firmwareversion&quot;) String firmwareversion) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L364">    private record LensResponse(</span>
+<span class="fc" id="L331">    private record LensResponse(</span>
             @JsonProperty(&quot;mount&quot;) Boolean mount,
             @JsonProperty(&quot;name&quot;) String name) {
     }

@@ -17,7 +17,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -38,8 +37,6 @@ import java.util.regex.Pattern;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CANCELLED;
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.CAMERA_REJECTED;
-import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ENDPOINT_NOT_FOUND;
-import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
 
 /**
  * Version-aware, bounded CCAPI media and polling client.
@@ -50,208 +47,206 @@ import static com.photographer.focusstack.camera.exception.CameraOperationExcept
  */
 final class CanonCcapiMediaClient {
 
-<span class="fc" id="L53">    private static final Pattern VERSION_PATTERN = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
-<span class="fc" id="L54">    private static final Pattern MEDIA_PATH_PATTERN =</span>
-<span class="fc" id="L55">            Pattern.compile(&quot;^/ccapi/ver\\d+/contents/.+\\.[^/]+$&quot;);</span>
-<span class="fc" id="L56">    private static final Pattern CONTENT_RANGE_PATTERN =</span>
-<span class="fc" id="L57">            Pattern.compile(&quot;bytes\\s+(\\d+)-(\\d+)/(\\d+|\\*)&quot;, Pattern.CASE_INSENSITIVE);</span>
+<span class="fc" id="L50">    private static final Pattern VERSION_PATTERN = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
+<span class="fc" id="L51">    private static final Pattern MEDIA_PATH_PATTERN =</span>
+<span class="fc" id="L52">            Pattern.compile(&quot;^/ccapi/ver\\d+/contents/.+\\.[^/]+$&quot;);</span>
+<span class="fc" id="L53">    private static final Pattern CONTENT_RANGE_PATTERN =</span>
+<span class="fc" id="L54">            Pattern.compile(&quot;bytes\\s+(\\d+)-(\\d+)/(\\d+|\\*)&quot;, Pattern.CASE_INSENSITIVE);</span>
     private static final int MAX_TRANSFER_BYTES = 16 * 1024 * 1024;
     private static final int MAX_DIRECTORIES = 100;
-<span class="fc" id="L60">    private static final Duration MAX_OBSERVATION_TIMEOUT = Duration.ofMinutes(5);</span>
-<span class="fc" id="L61">    private static final Duration POLL_DELAY = Duration.ofMillis(250);</span>
+<span class="fc" id="L57">    private static final Duration MAX_OBSERVATION_TIMEOUT = Duration.ofMinutes(5);</span>
+<span class="fc" id="L58">    private static final Duration POLL_DELAY = Duration.ofMillis(250);</span>
 
     private final String profileId;
     private final URI origin;
     private final RestTemplate restTemplate;
-    private final Supplier&lt;Map&lt;String, String&gt;&gt; endpointSupplier;
-    private final Supplier&lt;Map&lt;String, Set&lt;HttpMethod&gt;&gt;&gt; methodSupplier;
+    private final Supplier&lt;CcapiEndpointCatalog&gt; catalog;
 
     CanonCcapiMediaClient(
             String profileId,
             String baseUrl,
             RestTemplate restTemplate,
-            Supplier&lt;Map&lt;String, String&gt;&gt; endpointSupplier,
-<span class="fc" id="L74">            Supplier&lt;Map&lt;String, Set&lt;HttpMethod&gt;&gt;&gt; methodSupplier) {</span>
-<span class="fc" id="L75">        this.profileId = requireProfileId(profileId);</span>
-<span class="fc" id="L76">        this.origin = origin(URI.create(Objects.requireNonNull(baseUrl, &quot;baseUrl&quot;)));</span>
-<span class="fc" id="L77">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
-<span class="fc" id="L78">        this.endpointSupplier = Objects.requireNonNull(endpointSupplier, &quot;endpointSupplier&quot;);</span>
-<span class="fc" id="L79">        this.methodSupplier = Objects.requireNonNull(methodSupplier, &quot;methodSupplier&quot;);</span>
-<span class="fc" id="L80">    }</span>
+<span class="fc" id="L69">            Supplier&lt;CcapiEndpointCatalog&gt; catalog) {</span>
+<span class="fc" id="L70">        this.profileId = requireProfileId(profileId);</span>
+<span class="fc" id="L71">        this.origin = origin(URI.create(Objects.requireNonNull(baseUrl, &quot;baseUrl&quot;)));</span>
+<span class="fc" id="L72">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L73">        this.catalog = Objects.requireNonNull(catalog, &quot;catalog&quot;);</span>
+<span class="fc" id="L74">    }</span>
 
     CameraMediaProvider.MediaPage listMedia(CameraMediaProvider.MediaQuery query) {
-<span class="fc" id="L83">        Objects.requireNonNull(query, &quot;query&quot;);</span>
-<span class="fc" id="L84">        checkCancelled();</span>
-<span class="fc" id="L85">        EndpointView contents = requiredEndpoint(&quot;/contents&quot;, HttpMethod.GET, false);</span>
+<span class="fc" id="L77">        Objects.requireNonNull(query, &quot;query&quot;);</span>
+<span class="fc" id="L78">        checkCancelled();</span>
+<span class="fc" id="L79">        String contents = CcapiMediaOperation.CONTENTS.requireUrl(catalog.get(), profileId);</span>
 
-<span class="fc" id="L87">        List&lt;String&gt; storages = listPaths(contents.url());</span>
-<span class="fc" id="L88">        List&lt;DirectoryQuery&gt; directories = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L89">        boolean directoryLimitReached = false;</span>
+<span class="fc" id="L81">        List&lt;String&gt; storages = listPaths(contents);</span>
+<span class="fc" id="L82">        List&lt;DirectoryQuery&gt; directories = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L83">        boolean directoryLimitReached = false;</span>
 
         storageLoop:
-<span class="fc bfc" id="L92" title="All 2 branches covered.">        for (String storage : storages) {</span>
-<span class="fc" id="L93">            checkCancelled();</span>
-<span class="fc bfc" id="L94" title="All 2 branches covered.">            for (String directory : listPaths(resolveCameraValue(storage).toString())) {</span>
-<span class="fc bfc" id="L95" title="All 2 branches covered.">                for (String format : cameraFormats(query.formats())) {</span>
-<span class="pc bpc" id="L96" title="1 of 2 branches missed.">                    if (directories.size() &gt;= MAX_DIRECTORIES) {</span>
-<span class="nc" id="L97">                        directoryLimitReached = true;</span>
-<span class="nc" id="L98">                        break storageLoop;</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        for (String storage : storages) {</span>
+<span class="fc" id="L87">            checkCancelled();</span>
+<span class="fc bfc" id="L88" title="All 2 branches covered.">            for (String directory : listPaths(resolveCameraValue(storage).toString())) {</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">                for (String format : cameraFormats(query.formats())) {</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">                    if (directories.size() &gt;= MAX_DIRECTORIES) {</span>
+<span class="nc" id="L91">                        directoryLimitReached = true;</span>
+<span class="nc" id="L92">                        break storageLoop;</span>
                     }
-<span class="fc" id="L100">                    directories.add(count(directory, format));</span>
-<span class="fc" id="L101">                }</span>
-<span class="fc" id="L102">            }</span>
-<span class="fc" id="L103">        }</span>
+<span class="fc" id="L94">                    directories.add(count(directory, format));</span>
+<span class="fc" id="L95">                }</span>
+<span class="fc" id="L96">            }</span>
+<span class="fc" id="L97">        }</span>
 
-<span class="pc bpc" id="L105" title="1 of 2 branches missed.">        Integer totalAvailable = directoryLimitReached</span>
-<span class="nc" id="L106">                ? null</span>
-<span class="fc" id="L107">                : clampedTotal(directories);</span>
-<span class="fc" id="L108">        LinkedHashMap&lt;String, CameraMediaReference&gt; references = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc" id="L109">        int pagesVisited = 0;</span>
-<span class="fc" id="L110">        boolean truncated = directoryLimitReached;</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        Integer totalAvailable = directoryLimitReached</span>
+<span class="nc" id="L100">                ? null</span>
+<span class="fc" id="L101">                : clampedTotal(directories);</span>
+<span class="fc" id="L102">        LinkedHashMap&lt;String, CameraMediaReference&gt; references = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L103">        int pagesVisited = 0;</span>
+<span class="fc" id="L104">        boolean truncated = directoryLimitReached;</span>
 
         outer:
-<span class="fc bfc" id="L113" title="All 2 branches covered.">        for (DirectoryQuery directory : directories) {</span>
-<span class="fc" id="L114">            int availablePages = directory.pageNumber();</span>
-<span class="pc bpc" id="L115" title="3 of 4 branches missed.">            if (availablePages == 0 &amp;&amp; directory.contentsNumber() &gt; 0) {</span>
-<span class="nc" id="L116">                availablePages = 1;</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        for (DirectoryQuery directory : directories) {</span>
+<span class="fc" id="L108">            int availablePages = directory.pageNumber();</span>
+<span class="pc bpc" id="L109" title="3 of 4 branches missed.">            if (availablePages == 0 &amp;&amp; directory.contentsNumber() &gt; 0) {</span>
+<span class="nc" id="L110">                availablePages = 1;</span>
             }
-<span class="fc bfc" id="L118" title="All 2 branches covered.">            for (int page = 1; page &lt;= availablePages; page++) {</span>
-<span class="fc" id="L119">                checkCancelled();</span>
-<span class="pc bpc" id="L120" title="1 of 2 branches missed.">                if (pagesVisited &gt;= query.maxPages()) {</span>
-<span class="nc" id="L121">                    truncated = true;</span>
-<span class="nc" id="L122">                    break outer;</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            for (int page = 1; page &lt;= availablePages; page++) {</span>
+<span class="fc" id="L113">                checkCancelled();</span>
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">                if (pagesVisited &gt;= query.maxPages()) {</span>
+<span class="nc" id="L115">                    truncated = true;</span>
+<span class="nc" id="L116">                    break outer;</span>
                 }
-<span class="fc" id="L124">                pagesVisited++;</span>
-<span class="fc" id="L125">                String url = queryUrl(directory.directoryValue(), directory.format(),</span>
-<span class="fc" id="L126">                        &quot;list&quot;, page);</span>
-<span class="fc bfc" id="L127" title="All 2 branches covered.">                for (String value : listPaths(url)) {</span>
-<span class="fc" id="L128">                    CameraMediaReference reference = reference(value);</span>
-<span class="pc bpc" id="L129" title="1 of 2 branches missed.">                    if (!requestedFormat(reference.format(), query.formats())) {</span>
-<span class="nc" id="L130">                        continue;</span>
+<span class="fc" id="L118">                pagesVisited++;</span>
+<span class="fc" id="L119">                String url = queryUrl(directory.directoryValue(), directory.format(),</span>
+<span class="fc" id="L120">                        &quot;list&quot;, page);</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">                for (String value : listPaths(url)) {</span>
+<span class="fc" id="L122">                    CameraMediaReference reference = reference(value);</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">                    if (!requestedFormat(reference.format(), query.formats())) {</span>
+<span class="nc" id="L124">                        continue;</span>
                     }
-<span class="fc" id="L132">                    references.putIfAbsent(reference.relativePath(), reference);</span>
-<span class="fc bfc" id="L133" title="All 2 branches covered.">                    if (references.size() &gt;= query.maxItems()) {</span>
-<span class="pc bpc" id="L134" title="1 of 2 branches missed.">                        truncated = totalAvailable == null</span>
-<span class="pc bpc" id="L135" title="3 of 4 branches missed.">                                || references.size() &lt; totalAvailable</span>
+<span class="fc" id="L126">                    references.putIfAbsent(reference.relativePath(), reference);</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                    if (references.size() &gt;= query.maxItems()) {</span>
+<span class="pc bpc" id="L128" title="1 of 2 branches missed.">                        truncated = totalAvailable == null</span>
+<span class="pc bpc" id="L129" title="3 of 4 branches missed.">                                || references.size() &lt; totalAvailable</span>
                                 || page &lt; availablePages;
-<span class="fc" id="L137">                        break outer;</span>
+<span class="fc" id="L131">                        break outer;</span>
                     }
-<span class="fc" id="L139">                }</span>
+<span class="fc" id="L133">                }</span>
             }
-<span class="fc" id="L141">        }</span>
+<span class="fc" id="L135">        }</span>
 
-<span class="fc" id="L143">        return new CameraMediaProvider.MediaPage(</span>
-<span class="fc" id="L144">                List.copyOf(references.values()), totalAvailable, truncated);</span>
+<span class="fc" id="L137">        return new CameraMediaProvider.MediaPage(</span>
+<span class="fc" id="L138">                List.copyOf(references.values()), totalAvailable, truncated);</span>
     }
 
     CameraMediaProvider.MediaChunk downloadMedia(
             CameraMediaReference reference,
             long offset,
             int maxBytes) {
-<span class="fc" id="L151">        Objects.requireNonNull(reference, &quot;reference&quot;);</span>
-<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        if (offset &lt; 0L) {</span>
-<span class="nc" id="L153">            throw new IllegalArgumentException(&quot;offset must not be negative&quot;);</span>
+<span class="fc" id="L145">        Objects.requireNonNull(reference, &quot;reference&quot;);</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">        if (offset &lt; 0L) {</span>
+<span class="nc" id="L147">            throw new IllegalArgumentException(&quot;offset must not be negative&quot;);</span>
         }
-<span class="pc bpc" id="L155" title="2 of 4 branches missed.">        if (maxBytes &lt; 1 || maxBytes &gt; MAX_TRANSFER_BYTES) {</span>
-<span class="nc" id="L156">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L149" title="2 of 4 branches missed.">        if (maxBytes &lt; 1 || maxBytes &gt; MAX_TRANSFER_BYTES) {</span>
+<span class="nc" id="L150">            throw new IllegalArgumentException(</span>
                     &quot;maxBytes must be between 1 and &quot; + MAX_TRANSFER_BYTES);
         }
-<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (offset &gt; Long.MAX_VALUE - maxBytes + 1L) {</span>
-<span class="nc" id="L160">            throw new IllegalArgumentException(</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        if (offset &gt; Long.MAX_VALUE - maxBytes + 1L) {</span>
+<span class="nc" id="L154">            throw new IllegalArgumentException(</span>
                     &quot;requested byte range exceeds the supported offset range&quot;);
         }
-<span class="fc" id="L163">        checkCancelled();</span>
-<span class="fc" id="L164">        URI uri = resolveCameraValue(reference.relativePath());</span>
-<span class="fc" id="L165">        long end = offset + maxBytes - 1L;</span>
+<span class="fc" id="L157">        checkCancelled();</span>
+<span class="fc" id="L158">        URI uri = resolveCameraValue(reference.relativePath());</span>
+<span class="fc" id="L159">        long end = offset + maxBytes - 1L;</span>
 
-<span class="fc" id="L167">        CameraMediaProvider.MediaChunk result = restTemplate.execute(</span>
+<span class="fc" id="L161">        CameraMediaProvider.MediaChunk result = restTemplate.execute(</span>
                 uri,
                 HttpMethod.GET,
-<span class="fc" id="L170">                request -&gt; request.getHeaders().setRange(</span>
-<span class="fc" id="L171">                        List.of(HttpRange.createByteRange(offset, end))),</span>
-<span class="fc" id="L172">                response -&gt; extractChunk(reference, offset, maxBytes, response));</span>
-<span class="fc" id="L173">        return Objects.requireNonNull(result, &quot;camera media response&quot;);</span>
+<span class="fc" id="L164">                request -&gt; request.getHeaders().setRange(</span>
+<span class="fc" id="L165">                        List.of(HttpRange.createByteRange(offset, end))),</span>
+<span class="fc" id="L166">                response -&gt; extractChunk(reference, offset, maxBytes, response));</span>
+<span class="fc" id="L167">        return Objects.requireNonNull(result, &quot;camera media response&quot;);</span>
     }
 
     Optional&lt;CameraMediaReference&gt; awaitAddedMedia(
             CameraMediaProvider.EventMode mode,
             Duration timeout) {
-<span class="fc" id="L179">        Objects.requireNonNull(mode, &quot;mode&quot;);</span>
-<span class="pc bpc" id="L180" title="1 of 2 branches missed.">        if (mode == CameraMediaProvider.EventMode.MONITORING) {</span>
-<span class="nc" id="L181">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L173">        Objects.requireNonNull(mode, &quot;mode&quot;);</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">        if (mode == CameraMediaProvider.EventMode.MONITORING) {</span>
+<span class="nc" id="L175">            throw new IllegalArgumentException(</span>
                     &quot;binary monitoring must be handled by CanonCcapiMonitoringClient&quot;);
         }
-<span class="fc" id="L184">        validateTimeout(timeout);</span>
-<span class="fc" id="L185">        checkCancelled();</span>
+<span class="fc" id="L178">        validateTimeout(timeout);</span>
+<span class="fc" id="L179">        checkCancelled();</span>
 
-<span class="fc bfc" id="L187" title="All 2 branches covered.">        boolean requiresDelete = mode == CameraMediaProvider.EventMode.POLLING_CONTINUATION;</span>
-<span class="fc" id="L188">        EndpointView endpoint = requiredEndpoint(&quot;/event/polling&quot;, HttpMethod.GET, requiresDelete);</span>
-<span class="fc bfc" id="L189" title="All 2 branches covered.">        String requestUrl = requiresDelete</span>
-<span class="fc" id="L190">                ? appendQuery(endpoint.url(), &quot;continue=on&quot;)</span>
-<span class="fc" id="L191">                : endpoint.url();</span>
-<span class="fc" id="L192">        long deadline = System.nanoTime() + timeout.toNanos();</span>
-<span class="fc" id="L193">        ExecutorService executor = Executors.newThreadPerTaskExecutor(</span>
-<span class="fc" id="L194">                Thread.ofVirtual().name(&quot;ccapi-event-&quot;, 0).factory());</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">        boolean requiresDelete = mode == CameraMediaProvider.EventMode.POLLING_CONTINUATION;</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        String endpoint = (requiresDelete ? CcapiMediaOperation.POLLING_CONTINUATION : CcapiMediaOperation.POLLING)</span>
+<span class="fc" id="L183">                .requireUrl(catalog.get(), profileId);</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">        String requestUrl = requiresDelete</span>
+<span class="fc" id="L185">                ? appendQuery(endpoint, &quot;continue=on&quot;)</span>
+<span class="fc" id="L186">                : endpoint;</span>
+<span class="fc" id="L187">        long deadline = System.nanoTime() + timeout.toNanos();</span>
+<span class="fc" id="L188">        ExecutorService executor = Executors.newThreadPerTaskExecutor(</span>
+<span class="fc" id="L189">                Thread.ofVirtual().name(&quot;ccapi-event-&quot;, 0).factory());</span>
 
         try {
-<span class="pc bpc" id="L197" title="1 of 2 branches missed.">            while (System.nanoTime() &lt; deadline) {</span>
-<span class="fc" id="L198">                checkCancelled();</span>
-<span class="fc" id="L199">                Duration remaining = Duration.ofNanos(</span>
-<span class="fc" id="L200">                        Math.max(1L, deadline - System.nanoTime()));</span>
-<span class="fc" id="L201">                Object event = boundedGet(requestUrl, remaining, executor);</span>
-<span class="fc" id="L202">                Optional&lt;CameraMediaReference&gt; media = extractAddedMediaValues(event).stream()</span>
-<span class="fc" id="L203">                        .map(this::reference)</span>
-<span class="fc" id="L204">                        .findFirst();</span>
-<span class="fc bfc" id="L205" title="All 2 branches covered.">                if (media.isPresent()) {</span>
-<span class="fc" id="L206">                    return media;</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">            while (System.nanoTime() &lt; deadline) {</span>
+<span class="fc" id="L193">                checkCancelled();</span>
+<span class="fc" id="L194">                Duration remaining = Duration.ofNanos(</span>
+<span class="fc" id="L195">                        Math.max(1L, deadline - System.nanoTime()));</span>
+<span class="fc" id="L196">                Object event = boundedGet(requestUrl, remaining, executor);</span>
+<span class="fc" id="L197">                Optional&lt;CameraMediaReference&gt; media = extractAddedMediaValues(event).stream()</span>
+<span class="fc" id="L198">                        .map(this::reference)</span>
+<span class="fc" id="L199">                        .findFirst();</span>
+<span class="fc bfc" id="L200" title="All 2 branches covered.">                if (media.isPresent()) {</span>
+<span class="fc" id="L201">                    return media;</span>
                 }
-<span class="pc bpc" id="L208" title="1 of 2 branches missed.">                if (mode == CameraMediaProvider.EventMode.POLLING) {</span>
-<span class="fc" id="L209">                    sleepUntilNextPoll(deadline);</span>
+<span class="pc bpc" id="L203" title="1 of 2 branches missed.">                if (mode == CameraMediaProvider.EventMode.POLLING) {</span>
+<span class="fc" id="L204">                    sleepUntilNextPoll(deadline);</span>
                 }
-<span class="fc" id="L211">            }</span>
-<span class="nc" id="L212">            return Optional.empty();</span>
+<span class="fc" id="L206">            }</span>
+<span class="nc" id="L207">            return Optional.empty();</span>
         } finally {
-<span class="fc" id="L214">            boolean interrupted = Thread.interrupted();</span>
-<span class="fc bfc" id="L215" title="All 2 branches covered.">            if (requiresDelete) {</span>
-<span class="fc" id="L216">                cancelEvent(endpoint);</span>
+<span class="fc" id="L209">            boolean interrupted = Thread.interrupted();</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">            if (requiresDelete) {</span>
+<span class="fc" id="L211">                cancelEvent(endpoint);</span>
             }
-<span class="fc" id="L218">            executor.shutdownNow();</span>
-<span class="pc bpc" id="L219" title="1 of 2 branches missed.">            if (interrupted) {</span>
-<span class="nc" id="L220">                Thread.currentThread().interrupt();</span>
+<span class="fc" id="L213">            executor.shutdownNow();</span>
+<span class="pc bpc" id="L214" title="1 of 2 branches missed.">            if (interrupted) {</span>
+<span class="nc" id="L215">                Thread.currentThread().interrupt();</span>
             }
         }
     }
 
     private DirectoryQuery count(String directoryValue, String format) {
-<span class="fc" id="L226">        String url = queryUrl(directoryValue, format, &quot;number&quot;, null);</span>
+<span class="fc" id="L221">        String url = queryUrl(directoryValue, format, &quot;number&quot;, null);</span>
         @SuppressWarnings(&quot;unchecked&quot;)
-<span class="fc" id="L228">        Map&lt;String, Object&gt; response = restTemplate.getForObject(url, Map.class);</span>
-<span class="fc" id="L229">        int contentsNumber = nonNegativeInt(</span>
-<span class="pc bpc" id="L230" title="1 of 2 branches missed.">                response == null ? null : response.get(&quot;contentsnumber&quot;));</span>
-<span class="fc" id="L231">        int pageNumber = nonNegativeInt(</span>
-<span class="pc bpc" id="L232" title="1 of 2 branches missed.">                response == null ? null : response.get(&quot;pagenumber&quot;));</span>
-<span class="fc" id="L233">        return new DirectoryQuery(directoryValue, format, contentsNumber, pageNumber);</span>
+<span class="fc" id="L223">        Map&lt;String, Object&gt; response = restTemplate.getForObject(url, Map.class);</span>
+<span class="fc" id="L224">        int contentsNumber = nonNegativeInt(</span>
+<span class="pc bpc" id="L225" title="1 of 2 branches missed.">                response == null ? null : response.get(&quot;contentsnumber&quot;));</span>
+<span class="fc" id="L226">        int pageNumber = nonNegativeInt(</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">                response == null ? null : response.get(&quot;pagenumber&quot;));</span>
+<span class="fc" id="L228">        return new DirectoryQuery(directoryValue, format, contentsNumber, pageNumber);</span>
     }
 
     @SuppressWarnings(&quot;unchecked&quot;)
     private List&lt;String&gt; listPaths(String url) {
-<span class="fc" id="L238">        checkCancelled();</span>
-<span class="fc" id="L239">        Map&lt;String, Object&gt; response = restTemplate.getForObject(url, Map.class);</span>
-<span class="pc bpc" id="L240" title="1 of 2 branches missed.">        if (response == null) {</span>
-<span class="nc" id="L241">            return List.of();</span>
+<span class="fc" id="L233">        checkCancelled();</span>
+<span class="fc" id="L234">        Map&lt;String, Object&gt; response = restTemplate.getForObject(url, Map.class);</span>
+<span class="pc bpc" id="L235" title="1 of 2 branches missed.">        if (response == null) {</span>
+<span class="nc" id="L236">            return List.of();</span>
         }
-<span class="fc bfc" id="L243" title="All 2 branches covered.">        Object values = response.containsKey(&quot;path&quot;) ? response.get(&quot;path&quot;) : response.get(&quot;url&quot;);</span>
-<span class="pc bpc" id="L244" title="1 of 2 branches missed.">        if (!(values instanceof List&lt;?&gt; list)) {</span>
-<span class="nc" id="L245">            return List.of();</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">        Object values = response.containsKey(&quot;path&quot;) ? response.get(&quot;path&quot;) : response.get(&quot;url&quot;);</span>
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">        if (!(values instanceof List&lt;?&gt; list)) {</span>
+<span class="nc" id="L240">            return List.of();</span>
         }
-<span class="fc" id="L247">        List&lt;String&gt; result = new ArrayList&lt;&gt;();</span>
-<span class="fc bfc" id="L248" title="All 2 branches covered.">        for (Object value : list) {</span>
-<span class="pc bpc" id="L249" title="2 of 4 branches missed.">            if (value instanceof String string &amp;&amp; !string.isBlank()) {</span>
-<span class="fc" id="L250">                resolveCameraValue(string);</span>
-<span class="fc" id="L251">                result.add(string);</span>
+<span class="fc" id="L242">        List&lt;String&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">        for (Object value : list) {</span>
+<span class="pc bpc" id="L244" title="2 of 4 branches missed.">            if (value instanceof String string &amp;&amp; !string.isBlank()) {</span>
+<span class="fc" id="L245">                resolveCameraValue(string);</span>
+<span class="fc" id="L246">                result.add(string);</span>
             }
-<span class="fc" id="L253">        }</span>
-<span class="fc" id="L254">        return List.copyOf(result);</span>
+<span class="fc" id="L248">        }</span>
+<span class="fc" id="L249">        return List.copyOf(result);</span>
     }
 
     private CameraMediaProvider.MediaChunk extractChunk(
@@ -259,451 +254,392 @@ final class CanonCcapiMediaClient {
             long requestedOffset,
             int maxBytes,
             org.springframework.http.client.ClientHttpResponse response) throws IOException {
-<span class="fc" id="L262">        HttpStatusCode status = response.getStatusCode();</span>
-<span class="fc bfc" id="L263" title="All 2 branches covered.">        if (status.value() != HttpStatus.OK.value()</span>
-<span class="pc bpc" id="L264" title="1 of 2 branches missed.">                &amp;&amp; status.value() != HttpStatus.PARTIAL_CONTENT.value()) {</span>
-<span class="nc" id="L265">            throw rejected(status.value());</span>
+<span class="fc" id="L257">        HttpStatusCode status = response.getStatusCode();</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        if (status.value() != HttpStatus.OK.value()</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">                &amp;&amp; status.value() != HttpStatus.PARTIAL_CONTENT.value()) {</span>
+<span class="nc" id="L260">            throw rejected(status.value());</span>
         }
 
-<span class="fc" id="L268">        ContentRange range = parseContentRange(</span>
-<span class="fc" id="L269">                response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE));</span>
-<span class="fc bfc" id="L270" title="All 2 branches covered.">        if (status.value() == HttpStatus.PARTIAL_CONTENT.value()) {</span>
-<span class="pc bpc" id="L271" title="2 of 4 branches missed.">            if (range == null || range.start() != requestedOffset) {</span>
-<span class="nc" id="L272">                throw rejected(status.value());</span>
+<span class="fc" id="L263">        ContentRange range = parseContentRange(</span>
+<span class="fc" id="L264">                response.getHeaders().getFirst(HttpHeaders.CONTENT_RANGE));</span>
+<span class="fc bfc" id="L265" title="All 2 branches covered.">        if (status.value() == HttpStatus.PARTIAL_CONTENT.value()) {</span>
+<span class="pc bpc" id="L266" title="2 of 4 branches missed.">            if (range == null || range.start() != requestedOffset) {</span>
+<span class="nc" id="L267">                throw rejected(status.value());</span>
             }
-<span class="fc bfc" id="L274" title="All 2 branches covered.">        } else if (requestedOffset &gt; 0L) {</span>
+<span class="fc bfc" id="L269" title="All 2 branches covered.">        } else if (requestedOffset &gt; 0L) {</span>
+<span class="fc" id="L270">            throw rejected(status.value());</span>
+        }
+
+<span class="fc" id="L273">        BoundedBytes bounded = readBounded(response.getBody(), maxBytes);</span>
+<span class="fc bfc" id="L274" title="All 2 branches covered.">        if (bounded.overflow()) {</span>
 <span class="fc" id="L275">            throw rejected(status.value());</span>
         }
 
-<span class="fc" id="L278">        BoundedBytes bounded = readBounded(response.getBody(), maxBytes);</span>
-<span class="fc bfc" id="L279" title="All 2 branches covered.">        if (bounded.overflow()) {</span>
-<span class="fc" id="L280">            throw rejected(status.value());</span>
-        }
-
-<span class="pc bpc" id="L283" title="1 of 2 branches missed.">        if (range != null) {</span>
-<span class="fc" id="L284">            long declaredLength = range.end() - range.start() + 1L;</span>
-<span class="fc" id="L285">            long requestedEnd = requestedOffset + maxBytes - 1L;</span>
-<span class="pc bpc" id="L286" title="1 of 4 branches missed.">            if (declaredLength != bounded.data().length || range.end() &gt; requestedEnd) {</span>
-<span class="fc" id="L287">                throw rejected(status.value());</span>
+<span class="pc bpc" id="L278" title="1 of 2 branches missed.">        if (range != null) {</span>
+<span class="fc" id="L279">            long declaredLength = range.end() - range.start() + 1L;</span>
+<span class="fc" id="L280">            long requestedEnd = requestedOffset + maxBytes - 1L;</span>
+<span class="pc bpc" id="L281" title="1 of 4 branches missed.">            if (declaredLength != bounded.data().length || range.end() &gt; requestedEnd) {</span>
+<span class="fc" id="L282">                throw rejected(status.value());</span>
             }
         }
 
-<span class="pc bpc" id="L291" title="1 of 2 branches missed.">        Long totalSize = range == null</span>
-<span class="nc" id="L292">                ? contentLength(response.getHeaders())</span>
-<span class="fc" id="L293">                : range.totalSize();</span>
-<span class="pc bpc" id="L294" title="3 of 4 branches missed.">        if (status.value() == HttpStatus.OK.value()</span>
+<span class="pc bpc" id="L286" title="1 of 2 branches missed.">        Long totalSize = range == null</span>
+<span class="nc" id="L287">                ? contentLength(response.getHeaders())</span>
+<span class="fc" id="L288">                : range.totalSize();</span>
+<span class="pc bpc" id="L289" title="3 of 4 branches missed.">        if (status.value() == HttpStatus.OK.value()</span>
                 &amp;&amp; totalSize != null
-<span class="nc bnc" id="L296" title="All 2 branches missed.">                &amp;&amp; totalSize != bounded.data().length) {</span>
-<span class="nc" id="L297">            throw rejected(status.value());</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">                &amp;&amp; totalSize != bounded.data().length) {</span>
+<span class="nc" id="L292">            throw rejected(status.value());</span>
         }
 
-<span class="pc bpc" id="L300" title="2 of 4 branches missed.">        boolean complete = range != null &amp;&amp; totalSize != null</span>
-<span class="pc bpc" id="L301" title="1 of 2 branches missed.">                ? range.end() + 1L &gt;= totalSize</span>
-<span class="pc bnc" id="L302" title="All 2 branches missed.">                : status.value() == HttpStatus.OK.value();</span>
-<span class="fc" id="L303">        return new CameraMediaProvider.MediaChunk(</span>
-<span class="fc" id="L304">                reference, requestedOffset, bounded.data(), totalSize, complete);</span>
+<span class="pc bpc" id="L295" title="2 of 4 branches missed.">        boolean complete = range != null &amp;&amp; totalSize != null</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">                ? range.end() + 1L &gt;= totalSize</span>
+<span class="pc bnc" id="L297" title="All 2 branches missed.">                : status.value() == HttpStatus.OK.value();</span>
+<span class="fc" id="L298">        return new CameraMediaProvider.MediaChunk(</span>
+<span class="fc" id="L299">                reference, requestedOffset, bounded.data(), totalSize, complete);</span>
     }
 
     private Object boundedGet(
             String url,
             Duration remaining,
             ExecutorService executor) {
-<span class="fc" id="L311">        Future&lt;Object&gt; future = executor.submit(</span>
-<span class="fc" id="L312">                () -&gt; restTemplate.getForObject(url, Object.class));</span>
+<span class="fc" id="L306">        Future&lt;Object&gt; future = executor.submit(</span>
+<span class="fc" id="L307">                () -&gt; restTemplate.getForObject(url, Object.class));</span>
         try {
-<span class="fc" id="L314">            return future.get(</span>
-<span class="fc" id="L315">                    Math.max(1L, remaining.toNanos()), TimeUnit.NANOSECONDS);</span>
-<span class="nc" id="L316">        } catch (TimeoutException exception) {</span>
-<span class="nc" id="L317">            future.cancel(true);</span>
-<span class="nc" id="L318">            return null;</span>
-<span class="nc" id="L319">        } catch (InterruptedException exception) {</span>
-<span class="nc" id="L320">            future.cancel(true);</span>
-<span class="nc" id="L321">            Thread.currentThread().interrupt();</span>
-<span class="nc" id="L322">            throw cancelled(exception);</span>
-<span class="nc" id="L323">        } catch (ExecutionException exception) {</span>
-<span class="nc" id="L324">            Throwable cause = exception.getCause();</span>
-<span class="nc bnc" id="L325" title="All 2 branches missed.">            if (cause instanceof RuntimeException runtime) {</span>
-<span class="nc" id="L326">                throw runtime;</span>
+<span class="fc" id="L309">            return future.get(</span>
+<span class="fc" id="L310">                    Math.max(1L, remaining.toNanos()), TimeUnit.NANOSECONDS);</span>
+<span class="nc" id="L311">        } catch (TimeoutException exception) {</span>
+<span class="nc" id="L312">            future.cancel(true);</span>
+<span class="nc" id="L313">            return null;</span>
+<span class="nc" id="L314">        } catch (InterruptedException exception) {</span>
+<span class="nc" id="L315">            future.cancel(true);</span>
+<span class="nc" id="L316">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L317">            throw cancelled(exception);</span>
+<span class="nc" id="L318">        } catch (ExecutionException exception) {</span>
+<span class="nc" id="L319">            Throwable cause = exception.getCause();</span>
+<span class="nc bnc" id="L320" title="All 2 branches missed.">            if (cause instanceof RuntimeException runtime) {</span>
+<span class="nc" id="L321">                throw runtime;</span>
             }
-<span class="nc" id="L328">            throw new CameraOperationException(</span>
+<span class="nc" id="L323">            throw new CameraOperationException(</span>
                     profileId, CAMERA_REJECTED, null, cause);
         }
     }
 
-    private void cancelEvent(EndpointView endpoint) {
+    private void cancelEvent(String endpoint) {
         try {
-<span class="fc" id="L335">            restTemplate.delete(endpoint.url());</span>
-<span class="nc" id="L336">        } catch (RuntimeException ignored) {</span>
+<span class="fc" id="L330">            restTemplate.delete(endpoint);</span>
+<span class="nc" id="L331">        } catch (RuntimeException ignored) {</span>
             // Cancellation is best-effort and must not replace the original result.
-<span class="fc" id="L338">        }</span>
-<span class="fc" id="L339">    }</span>
+<span class="fc" id="L333">        }</span>
+<span class="fc" id="L334">    }</span>
 
     private void sleepUntilNextPoll(long deadline) {
-<span class="fc" id="L342">        long remaining = deadline - System.nanoTime();</span>
-<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        if (remaining &lt;= 0L) {</span>
-<span class="nc" id="L344">            return;</span>
+<span class="fc" id="L337">        long remaining = deadline - System.nanoTime();</span>
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">        if (remaining &lt;= 0L) {</span>
+<span class="nc" id="L339">            return;</span>
         }
-<span class="fc" id="L346">        long millis = Math.min(POLL_DELAY.toMillis(),</span>
-<span class="fc" id="L347">                Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining)));</span>
+<span class="fc" id="L341">        long millis = Math.min(POLL_DELAY.toMillis(),</span>
+<span class="fc" id="L342">                Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remaining)));</span>
         try {
-<span class="fc" id="L349">            Thread.sleep(millis);</span>
-<span class="nc" id="L350">        } catch (InterruptedException exception) {</span>
-<span class="nc" id="L351">            Thread.currentThread().interrupt();</span>
-<span class="nc" id="L352">            throw cancelled(exception);</span>
-<span class="fc" id="L353">        }</span>
-<span class="fc" id="L354">    }</span>
-
-    private EndpointView requiredEndpoint(
-            String suffix,
-            HttpMethod requiredMethod,
-            boolean requireDelete) {
-<span class="fc" id="L360">        Map&lt;String, String&gt; endpoints = endpointSupplier.get();</span>
-<span class="fc" id="L361">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; methods = methodSupplier.get();</span>
-<span class="fc" id="L362">        List&lt;EndpointView&gt; candidates = endpoints.entrySet().stream()</span>
-<span class="fc" id="L363">                .map(entry -&gt; endpoint(entry, methods))</span>
-<span class="fc" id="L364">                .filter(candidate -&gt; candidate.path().endsWith(suffix))</span>
-<span class="fc" id="L365">                .toList();</span>
-<span class="pc bpc" id="L366" title="1 of 2 branches missed.">        if (candidates.isEmpty()) {</span>
-<span class="nc" id="L367">            throw new CameraOperationException(profileId, ENDPOINT_NOT_FOUND, 404);</span>
-        }
-
-<span class="fc" id="L370">        return candidates.stream()</span>
-<span class="pc bpc" id="L371" title="1 of 2 branches missed.">                .filter(candidate -&gt; !candidate.methodMetadataKnown()</span>
-<span class="pc bpc" id="L372" title="1 of 2 branches missed.">                        || candidate.methods().contains(requiredMethod))</span>
-<span class="fc bfc" id="L373" title="All 2 branches covered.">                .filter(candidate -&gt; !requireDelete</span>
-<span class="pc bpc" id="L374" title="1 of 2 branches missed.">                        || candidate.methodMetadataKnown()</span>
-<span class="fc bfc" id="L375" title="All 2 branches covered.">                        &amp;&amp; candidate.methods().contains(HttpMethod.DELETE))</span>
-<span class="fc" id="L376">                .max(Comparator.comparingInt(EndpointView::versionNumber)</span>
-<span class="fc" id="L377">                        .thenComparing(EndpointView::path))</span>
-<span class="fc" id="L378">                .orElseThrow(() -&gt; new CameraOperationException(</span>
-<span class="fc" id="L379">                        profileId, METHOD_NOT_ALLOWED, 405));</span>
-    }
-
-    private EndpointView endpoint(
-            Map.Entry&lt;String, String&gt; entry,
-            Map&lt;String, Set&lt;HttpMethod&gt;&gt; methods) {
-<span class="fc" id="L385">        URI resolved = resolveCameraValue(entry.getValue());</span>
-<span class="fc" id="L386">        Set&lt;HttpMethod&gt; advertisedMethods = methods.get(entry.getKey());</span>
-<span class="fc" id="L387">        return new EndpointView(</span>
-<span class="fc" id="L388">                resolved.getPath(),</span>
-<span class="fc" id="L389">                resolved.toString(),</span>
-<span class="fc" id="L390">                versionNumber(resolved.getPath()),</span>
-<span class="pc bpc" id="L391" title="2 of 4 branches missed.">                advertisedMethods == null ? Set.of() : Set.copyOf(advertisedMethods),</span>
-                advertisedMethods != null);
-    }
+<span class="fc" id="L344">            Thread.sleep(millis);</span>
+<span class="nc" id="L345">        } catch (InterruptedException exception) {</span>
+<span class="nc" id="L346">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L347">            throw cancelled(exception);</span>
+<span class="fc" id="L348">        }</span>
+<span class="fc" id="L349">    }</span>
 
     private String queryUrl(
             String directoryValue,
             String format,
             String kind,
             Integer page) {
-<span class="fc" id="L400">        StringBuilder query = new StringBuilder(&quot;type=&quot;)</span>
-<span class="fc" id="L401">                .append(format)</span>
-<span class="fc" id="L402">                .append(&quot;&amp;kind=&quot;)</span>
-<span class="fc" id="L403">                .append(kind);</span>
-<span class="fc bfc" id="L404" title="All 2 branches covered.">        if (page != null) {</span>
-<span class="fc" id="L405">            query.append(&quot;&amp;page=&quot;).append(page);</span>
+<span class="fc" id="L356">        StringBuilder query = new StringBuilder(&quot;type=&quot;)</span>
+<span class="fc" id="L357">                .append(format)</span>
+<span class="fc" id="L358">                .append(&quot;&amp;kind=&quot;)</span>
+<span class="fc" id="L359">                .append(kind);</span>
+<span class="fc bfc" id="L360" title="All 2 branches covered.">        if (page != null) {</span>
+<span class="fc" id="L361">            query.append(&quot;&amp;page=&quot;).append(page);</span>
         }
-<span class="fc" id="L407">        return appendQuery(resolveCameraValue(directoryValue).toString(), query.toString());</span>
+<span class="fc" id="L363">        return appendQuery(resolveCameraValue(directoryValue).toString(), query.toString());</span>
     }
 
     private static String appendQuery(String url, String query) {
-<span class="pc bpc" id="L411" title="1 of 2 branches missed.">        return url + (url.contains(&quot;?&quot;) ? &quot;&amp;&quot; : &quot;?&quot;) + query;</span>
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">        return url + (url.contains(&quot;?&quot;) ? &quot;&amp;&quot; : &quot;?&quot;) + query;</span>
     }
 
     private List&lt;String&gt; cameraFormats(Set&lt;String&gt; formats) {
-<span class="pc bpc" id="L415" title="1 of 2 branches missed.">        if (formats.isEmpty()) {</span>
-<span class="fc" id="L416">            return List.of(&quot;all&quot;);</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">        if (formats.isEmpty()) {</span>
+<span class="fc" id="L372">            return List.of(&quot;all&quot;);</span>
         }
-<span class="nc" id="L418">        return formats.stream()</span>
-<span class="nc" id="L419">                .map(this::cameraFormat)</span>
-<span class="nc" id="L420">                .distinct()</span>
-<span class="nc" id="L421">                .sorted()</span>
-<span class="nc" id="L422">                .toList();</span>
+<span class="nc" id="L374">        return formats.stream()</span>
+<span class="nc" id="L375">                .map(this::cameraFormat)</span>
+<span class="nc" id="L376">                .distinct()</span>
+<span class="nc" id="L377">                .sorted()</span>
+<span class="nc" id="L378">                .toList();</span>
     }
 
     private String cameraFormat(String format) {
-<span class="nc bnc" id="L426" title="All 3 branches missed.">        return switch (format) {</span>
-<span class="nc" id="L427">            case &quot;JPG&quot;, &quot;JPEG&quot; -&gt; &quot;jpeg&quot;;</span>
-<span class="nc" id="L428">            case &quot;HEIF&quot;, &quot;HIF&quot; -&gt; &quot;hif&quot;;</span>
-<span class="nc" id="L429">            default -&gt; format.toLowerCase(Locale.ROOT);</span>
+<span class="nc bnc" id="L382" title="All 3 branches missed.">        return switch (format) {</span>
+<span class="nc" id="L383">            case &quot;JPG&quot;, &quot;JPEG&quot; -&gt; &quot;jpeg&quot;;</span>
+<span class="nc" id="L384">            case &quot;HEIF&quot;, &quot;HIF&quot; -&gt; &quot;hif&quot;;</span>
+<span class="nc" id="L385">            default -&gt; format.toLowerCase(Locale.ROOT);</span>
         };
     }
 
     private boolean requestedFormat(
             String actualFormat,
             Set&lt;String&gt; requestedFormats) {
-<span class="pc bpc" id="L436" title="1 of 2 branches missed.">        if (requestedFormats.isEmpty()) {</span>
-<span class="fc" id="L437">            return true;</span>
+<span class="pc bpc" id="L392" title="1 of 2 branches missed.">        if (requestedFormats.isEmpty()) {</span>
+<span class="fc" id="L393">            return true;</span>
         }
-<span class="nc" id="L439">        String actual = cameraFormat(actualFormat);</span>
-<span class="nc" id="L440">        return requestedFormats.stream()</span>
-<span class="nc" id="L441">                .map(this::cameraFormat)</span>
-<span class="nc" id="L442">                .anyMatch(actual::equals);</span>
+<span class="nc" id="L395">        String actual = cameraFormat(actualFormat);</span>
+<span class="nc" id="L396">        return requestedFormats.stream()</span>
+<span class="nc" id="L397">                .map(this::cameraFormat)</span>
+<span class="nc" id="L398">                .anyMatch(actual::equals);</span>
     }
 
     private List&lt;String&gt; extractAddedMediaValues(Object event) {
-<span class="pc bpc" id="L446" title="1 of 2 branches missed.">        if (!(event instanceof Map&lt;?, ?&gt; map)) {</span>
-<span class="nc" id="L447">            return List.of();</span>
+<span class="pc bpc" id="L402" title="1 of 2 branches missed.">        if (!(event instanceof Map&lt;?, ?&gt; map)) {</span>
+<span class="nc" id="L403">            return List.of();</span>
         }
-<span class="fc" id="L449">        LinkedHashSet&lt;String&gt; result = new LinkedHashSet&lt;&gt;();</span>
-<span class="fc" id="L450">        collectMediaValues(map.get(&quot;addedcontents&quot;), result);</span>
-<span class="fc" id="L451">        return List.copyOf(result);</span>
+<span class="fc" id="L405">        LinkedHashSet&lt;String&gt; result = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc" id="L406">        collectMediaValues(map.get(&quot;addedcontents&quot;), result);</span>
+<span class="fc" id="L407">        return List.copyOf(result);</span>
     }
 
     private void collectMediaValues(Object node, Set&lt;String&gt; result) {
-<span class="fc bfc" id="L455" title="All 2 branches covered.">        if (node instanceof String value) {</span>
-<span class="pc bpc" id="L456" title="1 of 2 branches missed.">            if (!value.contains(&quot;/contents/&quot;)) {</span>
-<span class="nc" id="L457">                return;</span>
+<span class="fc bfc" id="L411" title="All 2 branches covered.">        if (node instanceof String value) {</span>
+<span class="pc bpc" id="L412" title="1 of 2 branches missed.">            if (!value.contains(&quot;/contents/&quot;)) {</span>
+<span class="nc" id="L413">                return;</span>
             }
-<span class="fc" id="L459">            URI resolved = resolveCameraValue(value);</span>
-<span class="pc bpc" id="L460" title="1 of 2 branches missed.">            if (MEDIA_PATH_PATTERN.matcher(resolved.getPath()).matches()) {</span>
-<span class="fc" id="L461">                result.add(value);</span>
+<span class="fc" id="L415">            URI resolved = resolveCameraValue(value);</span>
+<span class="pc bpc" id="L416" title="1 of 2 branches missed.">            if (MEDIA_PATH_PATTERN.matcher(resolved.getPath()).matches()) {</span>
+<span class="fc" id="L417">                result.add(value);</span>
             }
-<span class="fc bfc" id="L463" title="All 2 branches covered.">        } else if (node instanceof List&lt;?&gt; list) {</span>
-<span class="fc bfc" id="L464" title="All 2 branches covered.">            for (Object value : list) {</span>
-<span class="fc" id="L465">                collectMediaValues(value, result);</span>
-<span class="fc" id="L466">            }</span>
-<span class="pc bpc" id="L467" title="1 of 2 branches missed.">        } else if (node instanceof Map&lt;?, ?&gt; map) {</span>
-<span class="nc bnc" id="L468" title="All 2 branches missed.">            for (Object value : map.values()) {</span>
-<span class="nc" id="L469">                collectMediaValues(value, result);</span>
-<span class="nc" id="L470">            }</span>
+<span class="fc bfc" id="L419" title="All 2 branches covered.">        } else if (node instanceof List&lt;?&gt; list) {</span>
+<span class="fc bfc" id="L420" title="All 2 branches covered.">            for (Object value : list) {</span>
+<span class="fc" id="L421">                collectMediaValues(value, result);</span>
+<span class="fc" id="L422">            }</span>
+<span class="pc bpc" id="L423" title="1 of 2 branches missed.">        } else if (node instanceof Map&lt;?, ?&gt; map) {</span>
+<span class="nc bnc" id="L424" title="All 2 branches missed.">            for (Object value : map.values()) {</span>
+<span class="nc" id="L425">                collectMediaValues(value, result);</span>
+<span class="nc" id="L426">            }</span>
         }
-<span class="fc" id="L472">    }</span>
+<span class="fc" id="L428">    }</span>
 
     private CameraMediaReference reference(String value) {
-<span class="fc" id="L475">        URI resolved = resolveCameraValue(value);</span>
-<span class="fc" id="L476">        String path = resolved.getPath();</span>
-<span class="fc" id="L477">        String fileName = path.substring(path.lastIndexOf('/') + 1);</span>
-<span class="fc" id="L478">        return new CameraMediaReference(</span>
-<span class="fc" id="L479">                storage(path), path, fileName, null, version(path));</span>
+<span class="fc" id="L431">        URI resolved = resolveCameraValue(value);</span>
+<span class="fc" id="L432">        String path = resolved.getPath();</span>
+<span class="fc" id="L433">        String fileName = path.substring(path.lastIndexOf('/') + 1);</span>
+<span class="fc" id="L434">        return new CameraMediaReference(</span>
+<span class="fc" id="L435">                storage(path), path, fileName, null, version(path));</span>
     }
 
     private URI resolveCameraValue(String value) {
-<span class="fc" id="L483">        Objects.requireNonNull(value, &quot;camera value&quot;);</span>
+<span class="fc" id="L439">        Objects.requireNonNull(value, &quot;camera value&quot;);</span>
         URI uri;
         try {
-<span class="fc" id="L486">            uri = URI.create(value.trim());</span>
-<span class="nc" id="L487">        } catch (IllegalArgumentException exception) {</span>
-<span class="nc" id="L488">            throw rejected(null);</span>
-<span class="fc" id="L489">        }</span>
-<span class="fc bfc" id="L490" title="All 2 branches covered.">        URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);</span>
-<span class="fc" id="L491">        String path = resolved.getPath();</span>
-<span class="fc" id="L492">        URI normalized = resolved.normalize();</span>
-<span class="pc bpc" id="L493" title="1 of 2 branches missed.">        if (resolved.getUserInfo() != null</span>
-<span class="pc bpc" id="L494" title="1 of 2 branches missed.">                || resolved.getQuery() != null</span>
-<span class="pc bpc" id="L495" title="1 of 2 branches missed.">                || resolved.getFragment() != null</span>
-<span class="pc bpc" id="L496" title="1 of 4 branches missed.">                || !sameOrigin(origin, resolved)</span>
+<span class="fc" id="L442">            uri = URI.create(value.trim());</span>
+<span class="nc" id="L443">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L444">            throw rejected(null);</span>
+<span class="fc" id="L445">        }</span>
+<span class="fc bfc" id="L446" title="All 2 branches covered.">        URI resolved = uri.isAbsolute() ? uri : origin.resolve(uri);</span>
+<span class="fc" id="L447">        String path = resolved.getPath();</span>
+<span class="fc" id="L448">        URI normalized = resolved.normalize();</span>
+<span class="pc bpc" id="L449" title="1 of 2 branches missed.">        if (resolved.getUserInfo() != null</span>
+<span class="pc bpc" id="L450" title="1 of 2 branches missed.">                || resolved.getQuery() != null</span>
+<span class="pc bpc" id="L451" title="1 of 2 branches missed.">                || resolved.getFragment() != null</span>
+<span class="pc bpc" id="L452" title="1 of 4 branches missed.">                || !sameOrigin(origin, resolved)</span>
                 || path == null
-<span class="pc bpc" id="L498" title="1 of 2 branches missed.">                || !path.startsWith(&quot;/ccapi/&quot;)</span>
-<span class="pc bpc" id="L499" title="1 of 2 branches missed.">                || path.indexOf('\\') &gt;= 0</span>
-<span class="fc bfc" id="L500" title="All 2 branches covered.">                || hasDotSegment(path)</span>
-<span class="pc bpc" id="L501" title="1 of 2 branches missed.">                || !Objects.equals(path, normalized.getPath())) {</span>
-<span class="fc" id="L502">            throw rejected(null);</span>
+<span class="pc bpc" id="L454" title="1 of 2 branches missed.">                || !path.startsWith(&quot;/ccapi/&quot;)</span>
+<span class="pc bpc" id="L455" title="1 of 2 branches missed.">                || path.indexOf('\\') &gt;= 0</span>
+<span class="fc bfc" id="L456" title="All 2 branches covered.">                || hasDotSegment(path)</span>
+<span class="pc bpc" id="L457" title="1 of 2 branches missed.">                || !Objects.equals(path, normalized.getPath())) {</span>
+<span class="fc" id="L458">            throw rejected(null);</span>
         }
-<span class="fc" id="L504">        return resolved;</span>
+<span class="fc" id="L460">        return resolved;</span>
     }
 
     private static boolean hasDotSegment(String path) {
-<span class="fc bfc" id="L508" title="All 2 branches covered.">        for (String segment : path.split(&quot;/&quot;, -1)) {</span>
-<span class="pc bpc" id="L509" title="1 of 4 branches missed.">            if (&quot;.&quot;.equals(segment) || &quot;..&quot;.equals(segment)) {</span>
-<span class="fc" id="L510">                return true;</span>
+<span class="fc bfc" id="L464" title="All 2 branches covered.">        for (String segment : path.split(&quot;/&quot;, -1)) {</span>
+<span class="pc bpc" id="L465" title="1 of 4 branches missed.">            if (&quot;.&quot;.equals(segment) || &quot;..&quot;.equals(segment)) {</span>
+<span class="fc" id="L466">                return true;</span>
             }
         }
-<span class="fc" id="L513">        return false;</span>
+<span class="fc" id="L469">        return false;</span>
     }
 
     private static URI origin(URI uri) {
-<span class="fc" id="L517">        String scheme = uri.getScheme();</span>
-<span class="fc" id="L518">        String host = uri.getHost();</span>
-<span class="pc bpc" id="L519" title="2 of 4 branches missed.">        if (scheme == null || host == null) {</span>
-<span class="nc" id="L520">            throw new IllegalArgumentException(&quot;baseUrl must contain a scheme and host&quot;);</span>
+<span class="fc" id="L473">        String scheme = uri.getScheme();</span>
+<span class="fc" id="L474">        String host = uri.getHost();</span>
+<span class="pc bpc" id="L475" title="2 of 4 branches missed.">        if (scheme == null || host == null) {</span>
+<span class="nc" id="L476">            throw new IllegalArgumentException(&quot;baseUrl must contain a scheme and host&quot;);</span>
         }
         try {
-<span class="fc" id="L523">            return new URI(</span>
-<span class="fc" id="L524">                    scheme.toLowerCase(Locale.ROOT),</span>
+<span class="fc" id="L479">            return new URI(</span>
+<span class="fc" id="L480">                    scheme.toLowerCase(Locale.ROOT),</span>
                     null,
-<span class="fc" id="L526">                    host.toLowerCase(Locale.ROOT),</span>
-<span class="fc" id="L527">                    effectivePort(uri),</span>
+<span class="fc" id="L482">                    host.toLowerCase(Locale.ROOT),</span>
+<span class="fc" id="L483">                    effectivePort(uri),</span>
                     &quot;/&quot;,
                     null,
                     null);
-<span class="nc" id="L531">        } catch (URISyntaxException exception) {</span>
-<span class="nc" id="L532">            throw new IllegalArgumentException(&quot;invalid camera base URL&quot;, exception);</span>
+<span class="nc" id="L487">        } catch (URISyntaxException exception) {</span>
+<span class="nc" id="L488">            throw new IllegalArgumentException(&quot;invalid camera base URL&quot;, exception);</span>
         }
     }
 
     private static boolean sameOrigin(URI expected, URI actual) {
-<span class="pc bpc" id="L537" title="1 of 2 branches missed.">        return expected.getScheme().equalsIgnoreCase(actual.getScheme())</span>
-<span class="fc bfc" id="L538" title="All 2 branches covered.">                &amp;&amp; expected.getHost().equalsIgnoreCase(actual.getHost())</span>
-<span class="pc bpc" id="L539" title="1 of 2 branches missed.">                &amp;&amp; effectivePort(expected) == effectivePort(actual);</span>
+<span class="pc bpc" id="L493" title="1 of 2 branches missed.">        return expected.getScheme().equalsIgnoreCase(actual.getScheme())</span>
+<span class="fc bfc" id="L494" title="All 2 branches covered.">                &amp;&amp; expected.getHost().equalsIgnoreCase(actual.getHost())</span>
+<span class="pc bpc" id="L495" title="1 of 2 branches missed.">                &amp;&amp; effectivePort(expected) == effectivePort(actual);</span>
     }
 
     private static int effectivePort(URI uri) {
-<span class="fc bfc" id="L543" title="All 2 branches covered.">        if (uri.getPort() &gt;= 0) {</span>
-<span class="fc" id="L544">            return uri.getPort();</span>
+<span class="fc bfc" id="L499" title="All 2 branches covered.">        if (uri.getPort() &gt;= 0) {</span>
+<span class="fc" id="L500">            return uri.getPort();</span>
         }
-<span class="pc bpc" id="L546" title="1 of 2 branches missed.">        return &quot;https&quot;.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;</span>
+<span class="pc bpc" id="L502" title="1 of 2 branches missed.">        return &quot;https&quot;.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;</span>
     }
 
     private static String storage(String path) {
-<span class="fc" id="L550">        String marker = &quot;/contents/&quot;;</span>
-<span class="fc" id="L551">        int start = path.indexOf(marker);</span>
-<span class="pc bpc" id="L552" title="1 of 2 branches missed.">        if (start &lt; 0) {</span>
-<span class="nc" id="L553">            return &quot;unknown&quot;;</span>
+<span class="fc" id="L506">        String marker = &quot;/contents/&quot;;</span>
+<span class="fc" id="L507">        int start = path.indexOf(marker);</span>
+<span class="pc bpc" id="L508" title="1 of 2 branches missed.">        if (start &lt; 0) {</span>
+<span class="nc" id="L509">            return &quot;unknown&quot;;</span>
         }
-<span class="fc" id="L555">        start += marker.length();</span>
-<span class="fc" id="L556">        int end = path.indexOf('/', start);</span>
-<span class="pc bpc" id="L557" title="1 of 2 branches missed.">        return end &lt; 0 ? path.substring(start) : path.substring(start, end);</span>
+<span class="fc" id="L511">        start += marker.length();</span>
+<span class="fc" id="L512">        int end = path.indexOf('/', start);</span>
+<span class="pc bpc" id="L513" title="1 of 2 branches missed.">        return end &lt; 0 ? path.substring(start) : path.substring(start, end);</span>
     }
 
     private static String version(String path) {
-<span class="fc" id="L561">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
-<span class="pc bpc" id="L562" title="1 of 2 branches missed.">        return matcher.find() ? &quot;ver&quot; + matcher.group(1) : &quot;unknown&quot;;</span>
-    }
-
-    private static int versionNumber(String path) {
-<span class="fc" id="L566">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
-<span class="pc bpc" id="L567" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
-<span class="nc" id="L568">            return -1;</span>
-        }
-        try {
-<span class="fc" id="L571">            return Integer.parseInt(matcher.group(1));</span>
-<span class="nc" id="L572">        } catch (NumberFormatException exception) {</span>
-<span class="nc" id="L573">            return -1;</span>
-        }
+<span class="fc" id="L517">        Matcher matcher = VERSION_PATTERN.matcher(path);</span>
+<span class="pc bpc" id="L518" title="1 of 2 branches missed.">        return matcher.find() ? &quot;ver&quot; + matcher.group(1) : &quot;unknown&quot;;</span>
     }
 
     private static int nonNegativeInt(Object value) {
-<span class="pc bpc" id="L578" title="1 of 2 branches missed.">        if (!(value instanceof Number number)) {</span>
-<span class="nc" id="L579">            return 0;</span>
+<span class="pc bpc" id="L522" title="1 of 2 branches missed.">        if (!(value instanceof Number number)) {</span>
+<span class="nc" id="L523">            return 0;</span>
         }
-<span class="fc" id="L581">        long result = number.longValue();</span>
-<span class="pc bpc" id="L582" title="1 of 2 branches missed.">        if (result &lt;= 0L) {</span>
-<span class="nc" id="L583">            return 0;</span>
+<span class="fc" id="L525">        long result = number.longValue();</span>
+<span class="pc bpc" id="L526" title="1 of 2 branches missed.">        if (result &lt;= 0L) {</span>
+<span class="nc" id="L527">            return 0;</span>
         }
-<span class="pc bpc" id="L585" title="1 of 2 branches missed.">        return result &gt; Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) result;</span>
+<span class="pc bpc" id="L529" title="1 of 2 branches missed.">        return result &gt; Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) result;</span>
     }
 
     private static Integer clampedTotal(List&lt;DirectoryQuery&gt; directories) {
-<span class="fc" id="L589">        long total = 0L;</span>
-<span class="fc bfc" id="L590" title="All 2 branches covered.">        for (DirectoryQuery directory : directories) {</span>
-<span class="fc" id="L591">            total += directory.contentsNumber();</span>
-<span class="pc bpc" id="L592" title="1 of 2 branches missed.">            if (total &gt;= Integer.MAX_VALUE) {</span>
-<span class="nc" id="L593">                return Integer.MAX_VALUE;</span>
+<span class="fc" id="L533">        long total = 0L;</span>
+<span class="fc bfc" id="L534" title="All 2 branches covered.">        for (DirectoryQuery directory : directories) {</span>
+<span class="fc" id="L535">            total += directory.contentsNumber();</span>
+<span class="pc bpc" id="L536" title="1 of 2 branches missed.">            if (total &gt;= Integer.MAX_VALUE) {</span>
+<span class="nc" id="L537">                return Integer.MAX_VALUE;</span>
             }
-<span class="fc" id="L595">        }</span>
-<span class="fc" id="L596">        return (int) total;</span>
+<span class="fc" id="L539">        }</span>
+<span class="fc" id="L540">        return (int) total;</span>
     }
 
     private BoundedBytes readBounded(InputStream input, int maxBytes) throws IOException {
-<span class="fc" id="L600">        ByteArrayOutputStream output = new ByteArrayOutputStream(</span>
-<span class="fc" id="L601">                Math.min(maxBytes, 64 * 1024));</span>
-<span class="fc" id="L602">        byte[] buffer = new byte[Math.min(8192, maxBytes + 1)];</span>
-<span class="fc" id="L603">        boolean overflow = false;</span>
-<span class="pc bpc" id="L604" title="1 of 2 branches missed.">        while (output.size() &lt;= maxBytes) {</span>
-<span class="fc" id="L605">            checkCancelled();</span>
-<span class="fc" id="L606">            int remaining = maxBytes + 1 - output.size();</span>
-<span class="fc" id="L607">            int read = input.read(buffer, 0, Math.min(buffer.length, remaining));</span>
-<span class="fc bfc" id="L608" title="All 2 branches covered.">            if (read &lt; 0) {</span>
-<span class="fc" id="L609">                break;</span>
+<span class="fc" id="L544">        ByteArrayOutputStream output = new ByteArrayOutputStream(</span>
+<span class="fc" id="L545">                Math.min(maxBytes, 64 * 1024));</span>
+<span class="fc" id="L546">        byte[] buffer = new byte[Math.min(8192, maxBytes + 1)];</span>
+<span class="fc" id="L547">        boolean overflow = false;</span>
+<span class="pc bpc" id="L548" title="1 of 2 branches missed.">        while (output.size() &lt;= maxBytes) {</span>
+<span class="fc" id="L549">            checkCancelled();</span>
+<span class="fc" id="L550">            int remaining = maxBytes + 1 - output.size();</span>
+<span class="fc" id="L551">            int read = input.read(buffer, 0, Math.min(buffer.length, remaining));</span>
+<span class="fc bfc" id="L552" title="All 2 branches covered.">            if (read &lt; 0) {</span>
+<span class="fc" id="L553">                break;</span>
             }
-<span class="pc bpc" id="L611" title="1 of 2 branches missed.">            if (read == 0) {</span>
-<span class="nc" id="L612">                continue;</span>
+<span class="pc bpc" id="L555" title="1 of 2 branches missed.">            if (read == 0) {</span>
+<span class="nc" id="L556">                continue;</span>
             }
-<span class="fc" id="L614">            output.write(buffer, 0, read);</span>
-<span class="fc bfc" id="L615" title="All 2 branches covered.">            if (output.size() &gt; maxBytes) {</span>
-<span class="fc" id="L616">                overflow = true;</span>
-<span class="fc" id="L617">                break;</span>
+<span class="fc" id="L558">            output.write(buffer, 0, read);</span>
+<span class="fc bfc" id="L559" title="All 2 branches covered.">            if (output.size() &gt; maxBytes) {</span>
+<span class="fc" id="L560">                overflow = true;</span>
+<span class="fc" id="L561">                break;</span>
             }
-<span class="fc" id="L619">        }</span>
-<span class="fc" id="L620">        byte[] bytes = output.toByteArray();</span>
-<span class="fc bfc" id="L621" title="All 2 branches covered.">        if (bytes.length &gt; maxBytes) {</span>
-<span class="fc" id="L622">            bytes = java.util.Arrays.copyOf(bytes, maxBytes);</span>
+<span class="fc" id="L563">        }</span>
+<span class="fc" id="L564">        byte[] bytes = output.toByteArray();</span>
+<span class="fc bfc" id="L565" title="All 2 branches covered.">        if (bytes.length &gt; maxBytes) {</span>
+<span class="fc" id="L566">            bytes = java.util.Arrays.copyOf(bytes, maxBytes);</span>
         }
-<span class="fc" id="L624">        return new BoundedBytes(bytes, overflow);</span>
+<span class="fc" id="L568">        return new BoundedBytes(bytes, overflow);</span>
     }
 
     private static ContentRange parseContentRange(String value) {
-<span class="fc bfc" id="L628" title="All 2 branches covered.">        if (value == null) {</span>
-<span class="fc" id="L629">            return null;</span>
+<span class="fc bfc" id="L572" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="fc" id="L573">            return null;</span>
         }
-<span class="fc" id="L631">        Matcher matcher = CONTENT_RANGE_PATTERN.matcher(value.trim());</span>
-<span class="pc bpc" id="L632" title="1 of 2 branches missed.">        if (!matcher.matches()) {</span>
-<span class="nc" id="L633">            return null;</span>
+<span class="fc" id="L575">        Matcher matcher = CONTENT_RANGE_PATTERN.matcher(value.trim());</span>
+<span class="pc bpc" id="L576" title="1 of 2 branches missed.">        if (!matcher.matches()) {</span>
+<span class="nc" id="L577">            return null;</span>
         }
         try {
-<span class="fc" id="L636">            long start = Long.parseLong(matcher.group(1));</span>
-<span class="fc" id="L637">            long end = Long.parseLong(matcher.group(2));</span>
-<span class="pc bpc" id="L638" title="1 of 2 branches missed.">            Long total = &quot;*&quot;.equals(matcher.group(3))</span>
-<span class="nc" id="L639">                    ? null</span>
-<span class="fc" id="L640">                    : Long.parseLong(matcher.group(3));</span>
-<span class="pc bpc" id="L641" title="3 of 6 branches missed.">            if (end &lt; start || total != null &amp;&amp; total &lt;= end) {</span>
-<span class="nc" id="L642">                return null;</span>
+<span class="fc" id="L580">            long start = Long.parseLong(matcher.group(1));</span>
+<span class="fc" id="L581">            long end = Long.parseLong(matcher.group(2));</span>
+<span class="pc bpc" id="L582" title="1 of 2 branches missed.">            Long total = &quot;*&quot;.equals(matcher.group(3))</span>
+<span class="nc" id="L583">                    ? null</span>
+<span class="fc" id="L584">                    : Long.parseLong(matcher.group(3));</span>
+<span class="pc bpc" id="L585" title="3 of 6 branches missed.">            if (end &lt; start || total != null &amp;&amp; total &lt;= end) {</span>
+<span class="nc" id="L586">                return null;</span>
             }
-<span class="fc" id="L644">            return new ContentRange(start, end, total);</span>
-<span class="nc" id="L645">        } catch (NumberFormatException exception) {</span>
-<span class="nc" id="L646">            return null;</span>
+<span class="fc" id="L588">            return new ContentRange(start, end, total);</span>
+<span class="nc" id="L589">        } catch (NumberFormatException exception) {</span>
+<span class="nc" id="L590">            return null;</span>
         }
     }
 
     private static Long contentLength(HttpHeaders headers) {
-<span class="nc" id="L651">        long value = headers.getContentLength();</span>
-<span class="nc bnc" id="L652" title="All 2 branches missed.">        return value &lt; 0L ? null : value;</span>
+<span class="nc" id="L595">        long value = headers.getContentLength();</span>
+<span class="nc bnc" id="L596" title="All 2 branches missed.">        return value &lt; 0L ? null : value;</span>
     }
 
     private void validateTimeout(Duration timeout) {
-<span class="fc" id="L656">        Objects.requireNonNull(timeout, &quot;timeout&quot;);</span>
-<span class="pc bpc" id="L657" title="1 of 2 branches missed.">        if (timeout.isZero()</span>
-<span class="pc bpc" id="L658" title="1 of 2 branches missed.">                || timeout.isNegative()</span>
-<span class="pc bpc" id="L659" title="1 of 2 branches missed.">                || timeout.compareTo(MAX_OBSERVATION_TIMEOUT) &gt; 0) {</span>
-<span class="nc" id="L660">            throw new IllegalArgumentException(</span>
+<span class="fc" id="L600">        Objects.requireNonNull(timeout, &quot;timeout&quot;);</span>
+<span class="pc bpc" id="L601" title="1 of 2 branches missed.">        if (timeout.isZero()</span>
+<span class="pc bpc" id="L602" title="1 of 2 branches missed.">                || timeout.isNegative()</span>
+<span class="pc bpc" id="L603" title="1 of 2 branches missed.">                || timeout.compareTo(MAX_OBSERVATION_TIMEOUT) &gt; 0) {</span>
+<span class="nc" id="L604">            throw new IllegalArgumentException(</span>
                     &quot;timeout must be positive and no longer than &quot;
                             + MAX_OBSERVATION_TIMEOUT);
         }
-<span class="fc" id="L664">    }</span>
+<span class="fc" id="L608">    }</span>
 
     private void checkCancelled() {
-<span class="fc bfc" id="L667" title="All 2 branches covered.">        if (Thread.currentThread().isInterrupted()) {</span>
-<span class="fc" id="L668">            throw cancelled(null);</span>
+<span class="fc bfc" id="L611" title="All 2 branches covered.">        if (Thread.currentThread().isInterrupted()) {</span>
+<span class="fc" id="L612">            throw cancelled(null);</span>
         }
-<span class="fc" id="L670">    }</span>
+<span class="fc" id="L614">    }</span>
 
     private CameraOperationException cancelled(Throwable cause) {
-<span class="fc" id="L673">        return new CameraOperationException(profileId, CANCELLED, null, cause);</span>
+<span class="fc" id="L617">        return new CameraOperationException(profileId, CANCELLED, null, cause);</span>
     }
 
     private CameraOperationException rejected(Integer status) {
-<span class="fc" id="L677">        return new CameraOperationException(profileId, CAMERA_REJECTED, status);</span>
+<span class="fc" id="L621">        return new CameraOperationException(profileId, CAMERA_REJECTED, status);</span>
     }
 
     private static String requireProfileId(String value) {
-<span class="fc" id="L681">        Objects.requireNonNull(value, &quot;profileId&quot;);</span>
-<span class="pc bpc" id="L682" title="1 of 2 branches missed.">        if (value.isBlank()) {</span>
-<span class="nc" id="L683">            throw new IllegalArgumentException(&quot;profileId must not be blank&quot;);</span>
+<span class="fc" id="L625">        Objects.requireNonNull(value, &quot;profileId&quot;);</span>
+<span class="pc bpc" id="L626" title="1 of 2 branches missed.">        if (value.isBlank()) {</span>
+<span class="nc" id="L627">            throw new IllegalArgumentException(&quot;profileId must not be blank&quot;);</span>
         }
-<span class="fc" id="L685">        return value;</span>
+<span class="fc" id="L629">        return value;</span>
     }
 
-<span class="fc" id="L688">    private record DirectoryQuery(</span>
+<span class="fc" id="L632">    private record DirectoryQuery(</span>
             String directoryValue,
             String format,
             int contentsNumber,
             int pageNumber) {
     }
 
-<span class="fc" id="L695">    private record EndpointView(</span>
-            String path,
-            String url,
-            int versionNumber,
-            Set&lt;HttpMethod&gt; methods,
-            boolean methodMetadataKnown) {
+<span class="fc" id="L639">    private record BoundedBytes(byte[] data, boolean overflow) {</span>
     }
 
-<span class="fc" id="L703">    private record BoundedBytes(byte[] data, boolean overflow) {</span>
-    }
-
-<span class="fc" id="L706">    private record ContentRange(long start, long end, Long totalSize) {</span>
+<span class="fc" id="L642">    private record ContentRange(long start, long end, Long totalSize) {</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

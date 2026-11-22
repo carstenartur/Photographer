@@ -46,43 +46,46 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     private static final String BATTERY_SUFFIX = &quot;/devicestatus/battery&quot;;
     private static final String BATTERY_LIST_SUFFIX = &quot;/devicestatus/batterylist&quot;;
     private static final String LIVE_VIEW_SUFFIX = &quot;/shooting/liveview&quot;;
-    private static final String VERSION_ROOT_PREFIX = &quot;/ccapi/ver&quot;;
 
     private final String baseUrl;
     private final RestTemplate restTemplate;
-<span class="fc" id="L53">    private final AtomicInteger trackedFocusPosition = new AtomicInteger();</span>
+<span class="fc" id="L52">    private final AtomicInteger trackedFocusPosition = new AtomicInteger();</span>
     private volatile CcapiEndpointCatalog endpointCatalog;
 
     public CanonCcapiStatusBackend(String baseUrl, RestTemplate restTemplate) {
-<span class="fc" id="L57">        super(baseUrl, restTemplate);</span>
-<span class="fc" id="L58">        this.baseUrl = normalizeBaseUrl(baseUrl);</span>
-<span class="fc" id="L59">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
-<span class="fc" id="L60">    }</span>
+<span class="fc" id="L56">        super(baseUrl, restTemplate);</span>
+<span class="fc" id="L57">        this.baseUrl = normalizeBaseUrl(baseUrl);</span>
+<span class="fc" id="L58">        this.restTemplate = Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L59">    }</span>
 
     @Override
     public CameraCapabilitySnapshot getCapabilitySnapshot() {
-<span class="fc" id="L64">        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create();</span>
+<span class="fc" id="L63">        return capabilitySnapshot(false);</span>
+    }
+
+    final CameraCapabilitySnapshot capabilitySnapshot(boolean extendedEvents) {
+<span class="fc" id="L67">        return new CanonCcapiCapabilitySnapshotFactory(this, restTemplate).create(extendedEvents);</span>
     }
 
     @Override
     public BatteryInfo getBatteryInfo() {
-<span class="fc" id="L69">        return readBattery().value();</span>
+<span class="fc" id="L72">        return readBattery().value();</span>
     }
 
     @Override
     public StorageInfo getStorageInfo() {
-<span class="fc" id="L74">        return readStorage().value();</span>
+<span class="fc" id="L77">        return readStorage().value();</span>
     }
 
     @Override
     public CameraState getState() {
-<span class="fc" id="L79">        ReadResult&lt;BatteryInfo&gt; battery = readBattery();</span>
-<span class="fc" id="L80">        ReadResult&lt;StorageInfo&gt; storage = readStorage();</span>
-<span class="fc" id="L81">        return new CameraState(</span>
-<span class="fc bfc" id="L82" title="All 4 branches covered.">                battery.reachable() || storage.reachable(),</span>
-<span class="fc" id="L83">                battery.value().percent(),</span>
-<span class="fc" id="L84">                storage.value().totalFreeBytes(),</span>
-<span class="fc" id="L85">                trackedFocusPosition.get(),</span>
+<span class="fc" id="L82">        ReadResult&lt;BatteryInfo&gt; battery = readBattery();</span>
+<span class="fc" id="L83">        ReadResult&lt;StorageInfo&gt; storage = readStorage();</span>
+<span class="fc" id="L84">        return new CameraState(</span>
+<span class="fc bfc" id="L85" title="All 4 branches covered.">                battery.reachable() || storage.reachable(),</span>
+<span class="fc" id="L86">                battery.value().percent(),</span>
+<span class="fc" id="L87">                storage.value().totalFreeBytes(),</span>
+<span class="fc" id="L88">                trackedFocusPosition.get(),</span>
                 &quot;auto&quot;,
                 &quot;auto&quot;,
                 &quot;auto&quot;,
@@ -92,17 +95,17 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
 
     @Override
     public void setFocus(FocusCommand command) {
-<span class="fc" id="L95">        super.setFocus(command);</span>
-<span class="pc bpc" id="L96" title="1 of 2 branches missed.">        int delta = command.direction() == FocusCommand.Direction.NEAR</span>
-<span class="pc" id="L97">                ? -command.steps() : command.steps();</span>
-<span class="fc" id="L98">        trackedFocusPosition.addAndGet(delta);</span>
-<span class="fc" id="L99">    }</span>
+<span class="fc" id="L98">        super.setFocus(command);</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">        int delta = command.direction() == FocusCommand.Direction.NEAR</span>
+<span class="pc" id="L100">                ? -command.steps() : command.steps();</span>
+<span class="fc" id="L101">        trackedFocusPosition.addAndGet(delta);</span>
+<span class="fc" id="L102">    }</span>
 
     /** Routes inherited discovery through the shared immutable catalog. */
     @Override
     void discoverEndpoints() {
-<span class="nc" id="L104">        endpointCatalog();</span>
-<span class="nc" id="L105">    }</span>
+<span class="nc" id="L107">        endpointCatalog();</span>
+<span class="nc" id="L108">    }</span>
 
     /**
      * Resolves the highest exact endpoint that supports the operation's required
@@ -110,63 +113,64 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
      */
     @Override
     String findEndpoint(String suffix) {
-<span class="fc" id="L113">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
-<span class="fc" id="L114">        HttpMethod requiredMethod = requiredMethod(suffix);</span>
-<span class="pc bpc" id="L115" title="1 of 2 branches missed.">        if (requiredMethod != null) {</span>
-<span class="fc" id="L116">            return catalog.findExactPath(suffix, requiredMethod)</span>
-<span class="fc" id="L117">                    .map(CcapiEndpointCatalog.Endpoint::url)</span>
-<span class="fc" id="L118">                    .orElse(null);</span>
+<span class="fc" id="L116">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
+<span class="fc" id="L117">        HttpMethod requiredMethod = requiredMethod(suffix);</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        if (requiredMethod != null) {</span>
+<span class="fc" id="L119">            return catalog.findExactPath(suffix, requiredMethod)</span>
+<span class="fc" id="L120">                    .map(CcapiEndpointCatalog.Endpoint::url)</span>
+<span class="fc" id="L121">                    .orElse(null);</span>
         }
-<span class="nc" id="L120">        return catalog.findExactPath(suffix)</span>
-<span class="nc" id="L121">                .map(CcapiEndpointCatalog.Endpoint::url)</span>
-<span class="nc" id="L122">                .orElse(null);</span>
+<span class="nc" id="L123">        return catalog.findExactPath(suffix)</span>
+<span class="nc" id="L124">                .map(CcapiEndpointCatalog.Endpoint::url)</span>
+<span class="nc" id="L125">                .orElse(null);</span>
     }
 
     /** Applies advertised method metadata without guessing when metadata is absent. */
     @Override
     boolean endpointAllows(String suffix, HttpMethod method, boolean defaultValue) {
-<span class="fc" id="L128">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
-<span class="fc" id="L129">        CcapiEndpointCatalog.Endpoint exact = catalog.findExactPath(suffix).orElse(null);</span>
-<span class="fc bfc" id="L130" title="All 2 branches covered.">        if (exact == null) {</span>
-<span class="fc" id="L131">            return defaultValue;</span>
+<span class="fc" id="L131">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
+<span class="fc" id="L132">        CcapiEndpointCatalog.Endpoint exact = catalog.findExactPath(suffix).orElse(null);</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">        if (exact == null) {</span>
+<span class="fc" id="L134">            return defaultValue;</span>
         }
-<span class="fc" id="L133">        CcapiEndpointCatalog.Endpoint compatible = catalog.findExactPath(suffix, method)</span>
-<span class="fc" id="L134">                .orElse(null);</span>
-<span class="fc bfc" id="L135" title="All 2 branches covered.">        if (compatible == null) {</span>
-<span class="fc" id="L136">            return false;</span>
+<span class="fc" id="L136">        CcapiEndpointCatalog.Endpoint compatible = catalog.findExactPath(suffix, method)</span>
+<span class="fc" id="L137">                .orElse(null);</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        if (compatible == null) {</span>
+<span class="fc" id="L139">            return false;</span>
         }
-<span class="pc bpc" id="L138" title="1 of 4 branches missed.">        return compatible.methodMetadataKnown() || defaultValue;</span>
+<span class="pc bpc" id="L141" title="1 of 4 branches missed.">        return compatible.methodMetadataKnown() || defaultValue;</span>
     }
 
     /**
-     * Uses the exact stable suffix encoded in the compatibility path. If Canon
+     * Uses the whole operation encoded by a versioned compatibility path. If Canon
      * advertises that endpoint but explicitly rejects the required method, fail as
      * unsupported instead of silently reconstructing and invoking the same path.
      */
     @Override
     String resolveEndpoint(String suffix, String defaultPath) {
-<span class="fc" id="L148">        String exactSuffix = suffixFromDefaultPath(defaultPath, suffix);</span>
-<span class="fc" id="L149">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
-<span class="fc" id="L150">        HttpMethod requiredMethod = requiredMethod(exactSuffix);</span>
+<span class="fc" id="L151">        String operation = CcapiEndpointCatalog.versionedOperation(defaultPath);</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        boolean matchWholeOperation = operation != null;</span>
+<span class="pc bpc" id="L153" title="1 of 2 branches missed.">        String operationOrSuffix = matchWholeOperation ? operation : suffix;</span>
+<span class="fc" id="L154">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
+<span class="fc" id="L155">        HttpMethod requiredMethod = requiredMethod(operationOrSuffix);</span>
 
-<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        CcapiEndpointCatalog.Endpoint endpoint = requiredMethod == null</span>
-<span class="nc" id="L153">                ? catalog.findExactPath(exactSuffix).orElse(null)</span>
-<span class="fc" id="L154">                : catalog.findExactPath(exactSuffix, requiredMethod).orElse(null);</span>
-<span class="fc bfc" id="L155" title="All 2 branches covered.">        if (endpoint != null) {</span>
-<span class="fc" id="L156">            return endpoint.url();</span>
+<span class="fc" id="L157">        CcapiEndpointCatalog.Endpoint endpoint =</span>
+<span class="fc" id="L158">                catalog.findPath(operationOrSuffix, requiredMethod, matchWholeOperation).orElse(null);</span>
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (endpoint != null) {</span>
+<span class="fc" id="L160">            return endpoint.url();</span>
         }
 
-<span class="fc" id="L159">        CcapiEndpointCatalog.Endpoint advertised = catalog.findExactPath(exactSuffix)</span>
-<span class="fc" id="L160">                .orElse(null);</span>
-<span class="pc bpc" id="L161" title="2 of 4 branches missed.">        if (advertised != null &amp;&amp; requiredMethod != null</span>
-<span class="pc bpc" id="L162" title="1 of 2 branches missed.">                &amp;&amp; advertised.methodMetadataKnown()) {</span>
-<span class="fc" id="L163">            throw new CameraException(&quot;CCAPI endpoint &quot; + advertised.path()</span>
-<span class="fc" id="L164">                    + &quot; does not advertise &quot; + requiredMethod.name());</span>
+<span class="fc" id="L163">        CcapiEndpointCatalog.Endpoint advertised =</span>
+<span class="fc" id="L164">                catalog.findPath(operationOrSuffix, null, matchWholeOperation).orElse(null);</span>
+<span class="pc bpc" id="L165" title="1 of 4 branches missed.">        if (advertised != null &amp;&amp; requiredMethod != null</span>
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">                &amp;&amp; advertised.methodMetadataKnown()) {</span>
+<span class="fc" id="L167">            throw new CameraException(&quot;CCAPI endpoint &quot; + advertised.path()</span>
+<span class="fc" id="L168">                    + &quot; does not advertise &quot; + requiredMethod.name());</span>
         }
 
-<span class="nc" id="L167">        log.debug(&quot;CCAPI endpoint '{}' was not advertised; using legacy fallback {}&quot;,</span>
-                exactSuffix, defaultPath);
-<span class="nc" id="L169">        return baseUrl + defaultPath;</span>
+<span class="fc" id="L171">        log.debug(&quot;CCAPI endpoint '{}' was not advertised; using legacy fallback {}&quot;,</span>
+                operationOrSuffix, defaultPath);
+<span class="fc" id="L173">        return baseUrl + defaultPath;</span>
     }
 
     /**
@@ -178,302 +182,288 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
      */
     @Override
     public void stopLiveView() {
-<span class="fc" id="L181">        String url = findEndpoint(LIVE_VIEW_SUFFIX);</span>
-<span class="pc bpc" id="L182" title="1 of 4 branches missed.">        if (url != null &amp;&amp; endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {</span>
+<span class="fc" id="L185">        String url = findEndpoint(LIVE_VIEW_SUFFIX);</span>
+<span class="pc bpc" id="L186" title="1 of 4 branches missed.">        if (url != null &amp;&amp; endpointAllows(LIVE_VIEW_SUFFIX, HttpMethod.POST, true)) {</span>
             try {
-<span class="fc" id="L184">                ccapiPost(url, Map.of(&quot;liveviewsize&quot;, &quot;off&quot;));</span>
-<span class="fc" id="L185">                log.info(&quot;Live view stopped.&quot;);</span>
-<span class="nc" id="L186">            } catch (RestClientException exception) {</span>
-<span class="nc" id="L187">                log.debug(&quot;Failed to stop live view (may already be off): {}&quot;,</span>
-<span class="nc" id="L188">                        exception.getMessage());</span>
-<span class="fc" id="L189">            }</span>
+<span class="fc" id="L188">                ccapiPost(url, Map.of(&quot;liveviewsize&quot;, &quot;off&quot;));</span>
+<span class="fc" id="L189">                log.info(&quot;Live view stopped.&quot;);</span>
+<span class="nc" id="L190">            } catch (RestClientException exception) {</span>
+<span class="nc" id="L191">                log.debug(&quot;Failed to stop live view (may already be off): {}&quot;,</span>
+<span class="nc" id="L192">                        exception.getMessage());</span>
+<span class="fc" id="L193">            }</span>
         }
-<span class="fc" id="L191">        super.stopLiveView();</span>
-<span class="fc" id="L192">    }</span>
+<span class="fc" id="L195">        super.stopLiveView();</span>
+<span class="fc" id="L196">    }</span>
 
     @Override
     public Map&lt;String, String&gt; getDiscoveredEndpoints() {
-<span class="fc" id="L196">        Map&lt;String, String&gt; result = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc bfc" id="L197" title="All 2 branches covered.">        for (CcapiEndpointCatalog.Endpoint endpoint : endpointCatalog().endpoints()) {</span>
-<span class="fc" id="L198">            result.put(endpoint.advertisedValue(), endpoint.url());</span>
-<span class="fc" id="L199">        }</span>
-<span class="fc" id="L200">        return Map.copyOf(result);</span>
+<span class="fc" id="L200">        Map&lt;String, String&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L201" title="All 2 branches covered.">        for (CcapiEndpointCatalog.Endpoint endpoint : endpointCatalog().endpoints()) {</span>
+<span class="fc" id="L202">            result.put(endpoint.advertisedValue(), endpoint.url());</span>
+<span class="fc" id="L203">        }</span>
+<span class="fc" id="L204">        return Map.copyOf(result);</span>
     }
 
     @Override
     public Map&lt;String, Set&lt;HttpMethod&gt;&gt; getDiscoveredEndpointMethods() {
-<span class="fc" id="L205">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; result = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc bfc" id="L206" title="All 2 branches covered.">        for (CcapiEndpointCatalog.Endpoint endpoint : endpointCatalog().endpoints()) {</span>
-<span class="fc bfc" id="L207" title="All 2 branches covered.">            if (endpoint.methodMetadataKnown()) {</span>
-<span class="fc" id="L208">                result.put(endpoint.advertisedValue(), endpoint.methods());</span>
+<span class="fc" id="L209">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L210" title="All 2 branches covered.">        for (CcapiEndpointCatalog.Endpoint endpoint : endpointCatalog().endpoints()) {</span>
+<span class="fc bfc" id="L211" title="All 2 branches covered.">            if (endpoint.methodMetadataKnown()) {</span>
+<span class="fc" id="L212">                result.put(endpoint.advertisedValue(), endpoint.methods());</span>
             }
-<span class="fc" id="L210">        }</span>
-<span class="fc" id="L211">        return Map.copyOf(result);</span>
+<span class="fc" id="L214">        }</span>
+<span class="fc" id="L215">        return Map.copyOf(result);</span>
     }
 
     private static HttpMethod requiredMethod(String suffix) {
-<span class="pc bpc" id="L215" title="1 of 2 branches missed.">        String normalized = suffix == null ? &quot;&quot; : suffix.trim().toLowerCase(Locale.ROOT);</span>
-<span class="fc bfc" id="L216" title="All 2 branches covered.">        if (!normalized.startsWith(&quot;/&quot;)) {</span>
-<span class="fc" id="L217">            normalized = &quot;/&quot; + normalized;</span>
+<span class="pc bpc" id="L219" title="1 of 2 branches missed.">        String normalized = suffix == null ? &quot;&quot; : suffix.trim().toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L220" title="All 2 branches covered.">        if (!normalized.startsWith(&quot;/&quot;)) {</span>
+<span class="fc" id="L221">            normalized = &quot;/&quot; + normalized;</span>
         }
 
-<span class="fc bfc" id="L220" title="All 2 branches covered.">        if (normalized.endsWith(&quot;/deviceinformation&quot;)</span>
-<span class="fc bfc" id="L221" title="All 2 branches covered.">                || normalized.contains(&quot;/devicestatus/&quot;)</span>
-<span class="pc bpc" id="L222" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/battery&quot;)</span>
-<span class="pc bpc" id="L223" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/batterylist&quot;)</span>
-<span class="pc bpc" id="L224" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/storage&quot;)</span>
-<span class="pc bpc" id="L225" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/currentstorage&quot;)</span>
-<span class="fc bfc" id="L226" title="All 2 branches covered.">                || normalized.endsWith(&quot;/liveview/flip&quot;)</span>
-<span class="fc bfc" id="L227" title="All 2 branches covered.">                || normalized.contains(&quot;/contents&quot;)</span>
-<span class="fc bfc" id="L228" title="All 2 branches covered.">                || normalized.endsWith(&quot;/event/polling&quot;)) {</span>
-<span class="fc" id="L229">            return HttpMethod.GET;</span>
+<span class="fc bfc" id="L224" title="All 2 branches covered.">        if (normalized.endsWith(&quot;/deviceinformation&quot;)</span>
+<span class="fc bfc" id="L225" title="All 2 branches covered.">                || normalized.contains(&quot;/devicestatus/&quot;)</span>
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/battery&quot;)</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/batterylist&quot;)</span>
+<span class="pc bpc" id="L228" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/storage&quot;)</span>
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/currentstorage&quot;)</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">                || normalized.endsWith(&quot;/liveview/flip&quot;)</span>
+<span class="fc bfc" id="L231" title="All 2 branches covered.">                || normalized.contains(&quot;/contents&quot;)</span>
+<span class="fc bfc" id="L232" title="All 2 branches covered.">                || normalized.endsWith(&quot;/event/polling&quot;)) {</span>
+<span class="fc" id="L233">            return HttpMethod.GET;</span>
         }
-<span class="fc bfc" id="L231" title="All 2 branches covered.">        if (normalized.endsWith(&quot;/shooting/liveview&quot;)</span>
-<span class="pc bpc" id="L232" title="1 of 2 branches missed.">                || normalized.equals(&quot;/liveview&quot;)</span>
-<span class="fc bfc" id="L233" title="All 2 branches covered.">                || normalized.contains(&quot;/shooting/control/&quot;)</span>
-<span class="fc bfc" id="L234" title="All 2 branches covered.">                || normalized.endsWith(&quot;/shutterbutton&quot;)</span>
-<span class="pc bpc" id="L235" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/shutterbutton/manual&quot;)</span>
-<span class="nc bnc" id="L236" title="All 2 branches missed.">                || normalized.endsWith(&quot;/drivefocus&quot;)</span>
-<span class="nc bnc" id="L237" title="All 2 branches missed.">                || normalized.endsWith(&quot;/af&quot;)) {</span>
-<span class="fc" id="L238">            return HttpMethod.POST;</span>
+<span class="fc bfc" id="L235" title="All 2 branches covered.">        if (normalized.endsWith(&quot;/shooting/liveview&quot;)</span>
+<span class="pc bpc" id="L236" title="1 of 2 branches missed.">                || normalized.equals(&quot;/liveview&quot;)</span>
+<span class="fc bfc" id="L237" title="All 2 branches covered.">                || normalized.contains(&quot;/shooting/control/&quot;)</span>
+<span class="fc bfc" id="L238" title="All 2 branches covered.">                || normalized.endsWith(&quot;/shutterbutton&quot;)</span>
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">                || normalized.endsWith(&quot;/shutterbutton/manual&quot;)</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                || normalized.endsWith(&quot;/drivefocus&quot;)</span>
+<span class="nc bnc" id="L241" title="All 2 branches missed.">                || normalized.endsWith(&quot;/af&quot;)) {</span>
+<span class="fc" id="L242">            return HttpMethod.POST;</span>
         }
-<span class="nc" id="L240">        return null;</span>
-    }
-
-    private static String suffixFromDefaultPath(String defaultPath, String requestedSuffix) {
-<span class="pc bpc" id="L244" title="1 of 2 branches missed.">        if (defaultPath != null) {</span>
-<span class="fc" id="L245">            int versionRoot = defaultPath.indexOf(VERSION_ROOT_PREFIX);</span>
-<span class="pc bpc" id="L246" title="1 of 2 branches missed.">            if (versionRoot &gt;= 0) {</span>
-<span class="fc" id="L247">                int operationPath = defaultPath.indexOf('/',</span>
-<span class="fc" id="L248">                        versionRoot + VERSION_ROOT_PREFIX.length());</span>
-<span class="pc bpc" id="L249" title="1 of 2 branches missed.">                if (operationPath &gt;= 0) {</span>
-<span class="fc" id="L250">                    return defaultPath.substring(operationPath);</span>
-                }
-            }
-        }
-<span class="nc" id="L254">        return requestedSuffix;</span>
+<span class="nc" id="L244">        return null;</span>
     }
 
     private ReadResult&lt;BatteryInfo&gt; readBattery() {
-<span class="fc" id="L258">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
-<span class="fc" id="L259">        String batteryListUrl = findGetEndpoint(catalog, BATTERY_LIST_SUFFIX);</span>
-<span class="fc bfc" id="L260" title="All 2 branches covered.">        if (batteryListUrl != null) {</span>
+<span class="fc" id="L248">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
+<span class="fc" id="L249">        String batteryListUrl = findGetEndpoint(catalog, BATTERY_LIST_SUFFIX);</span>
+<span class="fc bfc" id="L250" title="All 2 branches covered.">        if (batteryListUrl != null) {</span>
             try {
-<span class="fc" id="L262">                BatteryListResponse response = restTemplate.getForObject(</span>
+<span class="fc" id="L252">                BatteryListResponse response = restTemplate.getForObject(</span>
                         batteryListUrl, BatteryListResponse.class);
-<span class="fc" id="L264">                return new ReadResult&lt;&gt;(worstBattery(response), true);</span>
-<span class="nc" id="L265">            } catch (RestClientException exception) {</span>
-<span class="nc" id="L266">                log.debug(&quot;CCAPI battery-list status unavailable: {}&quot;, exception.getMessage());</span>
-<span class="nc" id="L267">                return new ReadResult&lt;&gt;(BatteryInfo.unknown(), false);</span>
+<span class="fc" id="L254">                return new ReadResult&lt;&gt;(worstBattery(response), true);</span>
+<span class="nc" id="L255">            } catch (RestClientException exception) {</span>
+<span class="nc" id="L256">                log.debug(&quot;CCAPI battery-list status unavailable: {}&quot;, exception.getMessage());</span>
+<span class="nc" id="L257">                return new ReadResult&lt;&gt;(BatteryInfo.unknown(), false);</span>
             }
         }
 
-<span class="fc" id="L271">        String batteryUrl = findGetEndpoint(catalog, BATTERY_SUFFIX);</span>
-<span class="fc bfc" id="L272" title="All 2 branches covered.">        if (batteryUrl == null) {</span>
-<span class="fc" id="L273">            return new ReadResult&lt;&gt;(BatteryInfo.unknown(), false);</span>
+<span class="fc" id="L261">        String batteryUrl = findGetEndpoint(catalog, BATTERY_SUFFIX);</span>
+<span class="fc bfc" id="L262" title="All 2 branches covered.">        if (batteryUrl == null) {</span>
+<span class="fc" id="L263">            return new ReadResult&lt;&gt;(BatteryInfo.unknown(), false);</span>
         }
         try {
-<span class="fc" id="L276">            BatteryEntry response = restTemplate.getForObject(batteryUrl, BatteryEntry.class);</span>
-<span class="fc" id="L277">            return new ReadResult&lt;&gt;(toBatteryInfo(response), true);</span>
-<span class="nc" id="L278">        } catch (RestClientException exception) {</span>
-<span class="nc" id="L279">            log.debug(&quot;CCAPI battery status unavailable: {}&quot;, exception.getMessage());</span>
-<span class="nc" id="L280">            return new ReadResult&lt;&gt;(BatteryInfo.unknown(), false);</span>
+<span class="fc" id="L266">            BatteryEntry response = restTemplate.getForObject(batteryUrl, BatteryEntry.class);</span>
+<span class="fc" id="L267">            return new ReadResult&lt;&gt;(toBatteryInfo(response), true);</span>
+<span class="nc" id="L268">        } catch (RestClientException exception) {</span>
+<span class="nc" id="L269">            log.debug(&quot;CCAPI battery status unavailable: {}&quot;, exception.getMessage());</span>
+<span class="nc" id="L270">            return new ReadResult&lt;&gt;(BatteryInfo.unknown(), false);</span>
         }
     }
 
     private ReadResult&lt;StorageInfo&gt; readStorage() {
-<span class="fc" id="L285">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
-<span class="fc" id="L286">        String storageUrl = findGetEndpoint(catalog, STORAGE_SUFFIX);</span>
-<span class="fc bfc" id="L287" title="All 2 branches covered.">        if (storageUrl == null) {</span>
-<span class="fc" id="L288">            return new ReadResult&lt;&gt;(StorageInfo.empty(), false);</span>
+<span class="fc" id="L275">        CcapiEndpointCatalog catalog = endpointCatalog();</span>
+<span class="fc" id="L276">        String storageUrl = findGetEndpoint(catalog, STORAGE_SUFFIX);</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (storageUrl == null) {</span>
+<span class="fc" id="L278">            return new ReadResult&lt;&gt;(StorageInfo.empty(), false);</span>
         }
         try {
-<span class="fc" id="L291">            StorageListResponse response = restTemplate.getForObject(</span>
+<span class="fc" id="L281">            StorageListResponse response = restTemplate.getForObject(</span>
                     storageUrl, StorageListResponse.class);
-<span class="fc" id="L293">            return new ReadResult&lt;&gt;(toStorageInfo(response), true);</span>
-<span class="fc" id="L294">        } catch (RestClientException exception) {</span>
-<span class="fc" id="L295">            log.debug(&quot;CCAPI storage status unavailable: {}&quot;, exception.getMessage());</span>
-<span class="fc" id="L296">            return new ReadResult&lt;&gt;(StorageInfo.empty(), false);</span>
+<span class="fc" id="L283">            return new ReadResult&lt;&gt;(toStorageInfo(response), true);</span>
+<span class="fc" id="L284">        } catch (RestClientException exception) {</span>
+<span class="fc" id="L285">            log.debug(&quot;CCAPI storage status unavailable: {}&quot;, exception.getMessage());</span>
+<span class="fc" id="L286">            return new ReadResult&lt;&gt;(StorageInfo.empty(), false);</span>
         }
     }
 
     private static String findGetEndpoint(CcapiEndpointCatalog catalog, String suffix) {
-<span class="fc" id="L301">        return catalog.findExactPath(suffix, HttpMethod.GET)</span>
-<span class="fc" id="L302">                .map(CcapiEndpointCatalog.Endpoint::url)</span>
-<span class="fc" id="L303">                .orElse(null);</span>
+<span class="fc" id="L291">        return catalog.findOperation(suffix, Set.of(HttpMethod.GET), true)</span>
+<span class="fc" id="L292">                .map(CcapiEndpointCatalog.Endpoint::url)</span>
+<span class="fc" id="L293">                .orElse(null);</span>
     }
 
-    private CcapiEndpointCatalog endpointCatalog() {
-<span class="fc" id="L307">        CcapiEndpointCatalog current = endpointCatalog;</span>
-<span class="fc bfc" id="L308" title="All 2 branches covered.">        if (current != null) {</span>
-<span class="fc" id="L309">            return current;</span>
+    final CcapiEndpointCatalog endpointCatalog() {
+<span class="fc" id="L297">        CcapiEndpointCatalog current = endpointCatalog;</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">        if (current != null) {</span>
+<span class="fc" id="L299">            return current;</span>
         }
-<span class="fc" id="L311">        synchronized (this) {</span>
-<span class="fc" id="L312">            current = endpointCatalog;</span>
-<span class="pc bpc" id="L313" title="1 of 2 branches missed.">            if (current != null) {</span>
-<span class="nc" id="L314">                return current;</span>
+<span class="fc" id="L301">        synchronized (this) {</span>
+<span class="fc" id="L302">            current = endpointCatalog;</span>
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">            if (current != null) {</span>
+<span class="nc" id="L304">                return current;</span>
             }
-<span class="fc" id="L316">            CcapiEndpointCatalog discovered = CcapiEndpointCatalog.discover(baseUrl, restTemplate);</span>
-<span class="fc bfc" id="L317" title="All 2 branches covered.">            if (!discovered.endpoints().isEmpty()) {</span>
-<span class="fc" id="L318">                endpointCatalog = discovered;</span>
+<span class="fc" id="L306">            CcapiEndpointCatalog discovered = CcapiEndpointCatalog.discover(baseUrl, restTemplate);</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">            if (!discovered.endpoints().isEmpty()) {</span>
+<span class="fc" id="L308">                endpointCatalog = discovered;</span>
             }
-<span class="fc" id="L320">            return discovered;</span>
+<span class="fc" id="L310">            return discovered;</span>
         }
     }
 
     static StorageInfo toStorageInfo(StorageListResponse response) {
-<span class="pc bpc" id="L325" title="2 of 4 branches missed.">        if (response == null || response.storagelist() == null</span>
-<span class="fc bfc" id="L326" title="All 2 branches covered.">                || response.storagelist().isEmpty()) {</span>
-<span class="fc" id="L327">            return StorageInfo.empty();</span>
+<span class="pc bpc" id="L315" title="2 of 4 branches missed.">        if (response == null || response.storagelist() == null</span>
+<span class="fc bfc" id="L316" title="All 2 branches covered.">                || response.storagelist().isEmpty()) {</span>
+<span class="fc" id="L317">            return StorageInfo.empty();</span>
         }
-<span class="fc" id="L329">        List&lt;StorageInfo.Volume&gt; volumes = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L330">        int index = 0;</span>
-<span class="fc bfc" id="L331" title="All 2 branches covered.">        for (StorageEntry entry : response.storagelist()) {</span>
-<span class="pc bpc" id="L332" title="1 of 2 branches missed.">            if (entry == null) {</span>
-<span class="nc" id="L333">                continue;</span>
+<span class="fc" id="L319">        List&lt;StorageInfo.Volume&gt; volumes = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L320">        int index = 0;</span>
+<span class="fc bfc" id="L321" title="All 2 branches covered.">        for (StorageEntry entry : response.storagelist()) {</span>
+<span class="pc bpc" id="L322" title="1 of 2 branches missed.">            if (entry == null) {</span>
+<span class="nc" id="L323">                continue;</span>
             }
-<span class="fc" id="L335">            index++;</span>
-<span class="fc" id="L336">            String location = firstNonBlank(entry.path(), entry.url());</span>
-<span class="fc" id="L337">            String name = firstNonBlank(entry.name(), lastPathSegment(location));</span>
-<span class="pc bpc" id="L338" title="1 of 2 branches missed.">            if (name == null) {</span>
-<span class="nc" id="L339">                name = &quot;storage-&quot; + index;</span>
+<span class="fc" id="L325">            index++;</span>
+<span class="fc" id="L326">            String location = firstNonBlank(entry.path(), entry.url());</span>
+<span class="fc" id="L327">            String name = firstNonBlank(entry.name(), lastPathSegment(location));</span>
+<span class="pc bpc" id="L328" title="1 of 2 branches missed.">            if (name == null) {</span>
+<span class="nc" id="L329">                name = &quot;storage-&quot; + index;</span>
             }
-<span class="fc" id="L341">            volumes.add(new StorageInfo.Volume(</span>
+<span class="fc" id="L331">            volumes.add(new StorageInfo.Volume(</span>
                     name,
                     location,
-<span class="fc" id="L344">                    knownLong(entry.maxsize()),</span>
-<span class="fc" id="L345">                    knownLong(entry.spacesize()),</span>
-<span class="fc" id="L346">                    knownCount(entry.contentsnumber()),</span>
-<span class="fc" id="L347">                    normalizedOrUnknown(entry.accesscapability())</span>
+<span class="fc" id="L334">                    knownLong(entry.maxsize()),</span>
+<span class="fc" id="L335">                    knownLong(entry.spacesize()),</span>
+<span class="fc" id="L336">                    knownCount(entry.contentsnumber()),</span>
+<span class="fc" id="L337">                    normalizedOrUnknown(entry.accesscapability())</span>
             ));
-<span class="fc" id="L349">        }</span>
-<span class="pc bpc" id="L350" title="1 of 2 branches missed.">        return volumes.isEmpty() ? StorageInfo.empty() : new StorageInfo(volumes);</span>
+<span class="fc" id="L339">        }</span>
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">        return volumes.isEmpty() ? StorageInfo.empty() : new StorageInfo(volumes);</span>
     }
 
     private static BatteryInfo worstBattery(BatteryListResponse response) {
-<span class="pc bpc" id="L354" title="2 of 4 branches missed.">        if (response == null || response.batterylist() == null</span>
-<span class="pc bpc" id="L355" title="1 of 2 branches missed.">                || response.batterylist().isEmpty()) {</span>
-<span class="nc" id="L356">            return BatteryInfo.unknown();</span>
+<span class="pc bpc" id="L344" title="2 of 4 branches missed.">        if (response == null || response.batterylist() == null</span>
+<span class="pc bpc" id="L345" title="1 of 2 branches missed.">                || response.batterylist().isEmpty()) {</span>
+<span class="nc" id="L346">            return BatteryInfo.unknown();</span>
         }
-<span class="fc" id="L358">        BatteryInfo worstKnown = null;</span>
-<span class="fc" id="L359">        BatteryInfo firstUnknown = null;</span>
-<span class="fc bfc" id="L360" title="All 2 branches covered.">        for (BatteryEntry entry : response.batterylist()) {</span>
-<span class="fc" id="L361">            BatteryInfo candidate = toBatteryInfo(entry);</span>
-<span class="pc bpc" id="L362" title="1 of 2 branches missed.">            if (candidate.percent() &gt;= 0) {</span>
-<span class="pc bpc" id="L363" title="1 of 4 branches missed.">                if (worstKnown == null || candidate.percent() &lt; worstKnown.percent()) {</span>
-<span class="fc" id="L364">                    worstKnown = candidate;</span>
+<span class="fc" id="L348">        BatteryInfo worstKnown = null;</span>
+<span class="fc" id="L349">        BatteryInfo firstUnknown = null;</span>
+<span class="fc bfc" id="L350" title="All 2 branches covered.">        for (BatteryEntry entry : response.batterylist()) {</span>
+<span class="fc" id="L351">            BatteryInfo candidate = toBatteryInfo(entry);</span>
+<span class="pc bpc" id="L352" title="1 of 2 branches missed.">            if (candidate.percent() &gt;= 0) {</span>
+<span class="pc bpc" id="L353" title="1 of 4 branches missed.">                if (worstKnown == null || candidate.percent() &lt; worstKnown.percent()) {</span>
+<span class="fc" id="L354">                    worstKnown = candidate;</span>
                 }
-<span class="nc bnc" id="L366" title="All 2 branches missed.">            } else if (firstUnknown == null) {</span>
-<span class="nc" id="L367">                firstUnknown = candidate;</span>
+<span class="nc bnc" id="L356" title="All 2 branches missed.">            } else if (firstUnknown == null) {</span>
+<span class="nc" id="L357">                firstUnknown = candidate;</span>
             }
-<span class="fc" id="L369">        }</span>
-<span class="pc bpc" id="L370" title="1 of 2 branches missed.">        return worstKnown != null ? worstKnown</span>
-<span class="nc bnc" id="L371" title="All 2 branches missed.">                : firstUnknown != null ? firstUnknown : BatteryInfo.unknown();</span>
+<span class="fc" id="L359">        }</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">        return worstKnown != null ? worstKnown</span>
+<span class="nc bnc" id="L361" title="All 2 branches missed.">                : firstUnknown != null ? firstUnknown : BatteryInfo.unknown();</span>
     }
 
     private static BatteryInfo toBatteryInfo(BatteryEntry entry) {
-<span class="pc bpc" id="L375" title="1 of 2 branches missed.">        if (entry == null) {</span>
-<span class="nc" id="L376">            return BatteryInfo.unknown();</span>
+<span class="pc bpc" id="L365" title="1 of 2 branches missed.">        if (entry == null) {</span>
+<span class="nc" id="L366">            return BatteryInfo.unknown();</span>
         }
-<span class="fc" id="L378">        return new BatteryInfo(</span>
-<span class="fc" id="L379">                normalizedOrUnknown(entry.level()),</span>
-<span class="fc" id="L380">                normalizedOrUnknown(entry.kind()),</span>
-<span class="fc" id="L381">                normalizedOrUnknown(entry.quality()),</span>
-<span class="fc" id="L382">                strictBatteryPercent(entry.level())</span>
+<span class="fc" id="L368">        return new BatteryInfo(</span>
+<span class="fc" id="L369">                normalizedOrUnknown(entry.level()),</span>
+<span class="fc" id="L370">                normalizedOrUnknown(entry.kind()),</span>
+<span class="fc" id="L371">                normalizedOrUnknown(entry.quality()),</span>
+<span class="fc" id="L372">                strictBatteryPercent(entry.level())</span>
         );
     }
 
     static int strictBatteryPercent(String level) {
-<span class="pc bpc" id="L387" title="2 of 4 branches missed.">        if (level == null || level.isBlank()) {</span>
-<span class="nc" id="L388">            return -1;</span>
+<span class="pc bpc" id="L377" title="2 of 4 branches missed.">        if (level == null || level.isBlank()) {</span>
+<span class="nc" id="L378">            return -1;</span>
         }
-<span class="fc" id="L390">        String normalized = level.trim().toLowerCase(Locale.ROOT);</span>
-<span class="pc bpc" id="L391" title="4 of 7 branches missed.">        return switch (normalized) {</span>
-<span class="nc" id="L392">            case &quot;full&quot; -&gt; 100;</span>
-<span class="fc" id="L393">            case &quot;high&quot; -&gt; 80;</span>
-<span class="nc" id="L394">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
-<span class="fc" id="L395">            case &quot;quarter&quot; -&gt; 25;</span>
-<span class="nc" id="L396">            case &quot;low&quot; -&gt; 20;</span>
-<span class="nc" id="L397">            case &quot;empty&quot; -&gt; 0;</span>
-<span class="fc" id="L398">            default -&gt; parseNumericPercent(normalized);</span>
+<span class="fc" id="L380">        String normalized = level.trim().toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L381" title="4 of 7 branches missed.">        return switch (normalized) {</span>
+<span class="nc" id="L382">            case &quot;full&quot; -&gt; 100;</span>
+<span class="fc" id="L383">            case &quot;high&quot; -&gt; 80;</span>
+<span class="nc" id="L384">            case &quot;half&quot;, &quot;middle&quot; -&gt; 50;</span>
+<span class="fc" id="L385">            case &quot;quarter&quot; -&gt; 25;</span>
+<span class="nc" id="L386">            case &quot;low&quot; -&gt; 20;</span>
+<span class="nc" id="L387">            case &quot;empty&quot; -&gt; 0;</span>
+<span class="fc" id="L388">            default -&gt; parseNumericPercent(normalized);</span>
         };
     }
 
     private static int parseNumericPercent(String value) {
         try {
-<span class="fc" id="L404">            int numeric = Integer.parseInt(value);</span>
-<span class="pc bpc" id="L405" title="1 of 4 branches missed.">            return numeric &gt;= 0 &amp;&amp; numeric &lt;= 100 ? numeric : -1;</span>
-<span class="fc" id="L406">        } catch (NumberFormatException exception) {</span>
-<span class="fc" id="L407">            return -1;</span>
+<span class="fc" id="L394">            int numeric = Integer.parseInt(value);</span>
+<span class="pc bpc" id="L395" title="1 of 4 branches missed.">            return numeric &gt;= 0 &amp;&amp; numeric &lt;= 100 ? numeric : -1;</span>
+<span class="fc" id="L396">        } catch (NumberFormatException exception) {</span>
+<span class="fc" id="L397">            return -1;</span>
         }
     }
 
     private static long knownLong(Long value) {
-<span class="pc bpc" id="L412" title="2 of 4 branches missed.">        return value == null || value &lt; 0L ? -1L : value;</span>
+<span class="pc bpc" id="L402" title="2 of 4 branches missed.">        return value == null || value &lt; 0L ? -1L : value;</span>
     }
 
     private static int knownCount(Long value) {
-<span class="pc bpc" id="L416" title="2 of 4 branches missed.">        if (value == null || value &lt; 0L) {</span>
-<span class="nc" id="L417">            return -1;</span>
+<span class="pc bpc" id="L406" title="2 of 4 branches missed.">        if (value == null || value &lt; 0L) {</span>
+<span class="nc" id="L407">            return -1;</span>
         }
-<span class="pc bpc" id="L419" title="1 of 2 branches missed.">        return value &gt; Integer.MAX_VALUE ? Integer.MAX_VALUE : value.intValue();</span>
+<span class="pc bpc" id="L409" title="1 of 2 branches missed.">        return value &gt; Integer.MAX_VALUE ? Integer.MAX_VALUE : value.intValue();</span>
     }
 
     private static String normalizedOrUnknown(String value) {
-<span class="pc bpc" id="L423" title="2 of 4 branches missed.">        return value == null || value.isBlank()</span>
-<span class="pc" id="L424">                ? &quot;unknown&quot; : value.trim().toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L413" title="2 of 4 branches missed.">        return value == null || value.isBlank()</span>
+<span class="pc" id="L414">                ? &quot;unknown&quot; : value.trim().toLowerCase(Locale.ROOT);</span>
     }
 
     private static String firstNonBlank(String first, String second) {
-<span class="pc bpc" id="L428" title="1 of 4 branches missed.">        if (first != null &amp;&amp; !first.isBlank()) {</span>
-<span class="fc" id="L429">            return first;</span>
+<span class="pc bpc" id="L418" title="1 of 4 branches missed.">        if (first != null &amp;&amp; !first.isBlank()) {</span>
+<span class="fc" id="L419">            return first;</span>
         }
-<span class="pc bpc" id="L431" title="2 of 4 branches missed.">        if (second != null &amp;&amp; !second.isBlank()) {</span>
-<span class="fc" id="L432">            return second;</span>
+<span class="pc bpc" id="L421" title="2 of 4 branches missed.">        if (second != null &amp;&amp; !second.isBlank()) {</span>
+<span class="fc" id="L422">            return second;</span>
         }
-<span class="nc" id="L434">        return null;</span>
+<span class="nc" id="L424">        return null;</span>
     }
 
     private static String lastPathSegment(String location) {
-<span class="pc bpc" id="L438" title="2 of 4 branches missed.">        if (location == null || location.isBlank()) {</span>
-<span class="nc" id="L439">            return null;</span>
+<span class="pc bpc" id="L428" title="2 of 4 branches missed.">        if (location == null || location.isBlank()) {</span>
+<span class="nc" id="L429">            return null;</span>
         }
         String path;
         try {
-<span class="fc" id="L443">            path = URI.create(location).getPath();</span>
-<span class="nc" id="L444">        } catch (IllegalArgumentException exception) {</span>
-<span class="nc" id="L445">            path = location;</span>
-<span class="fc" id="L446">        }</span>
-<span class="pc bpc" id="L447" title="1 of 2 branches missed.">        if (path == null) {</span>
-<span class="nc" id="L448">            return null;</span>
+<span class="fc" id="L433">            path = URI.create(location).getPath();</span>
+<span class="nc" id="L434">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L435">            path = location;</span>
+<span class="fc" id="L436">        }</span>
+<span class="pc bpc" id="L437" title="1 of 2 branches missed.">        if (path == null) {</span>
+<span class="nc" id="L438">            return null;</span>
         }
-<span class="fc" id="L450">        int slash = path.lastIndexOf('/');</span>
-<span class="pc bpc" id="L451" title="2 of 4 branches missed.">        if (slash &lt; 0 || slash == path.length() - 1) {</span>
-<span class="nc" id="L452">            return null;</span>
+<span class="fc" id="L440">        int slash = path.lastIndexOf('/');</span>
+<span class="pc bpc" id="L441" title="2 of 4 branches missed.">        if (slash &lt; 0 || slash == path.length() - 1) {</span>
+<span class="nc" id="L442">            return null;</span>
         }
-<span class="fc" id="L454">        return path.substring(slash + 1);</span>
+<span class="fc" id="L444">        return path.substring(slash + 1);</span>
     }
 
     private static String normalizeBaseUrl(String value) {
-<span class="fc" id="L458">        Objects.requireNonNull(value, &quot;baseUrl&quot;);</span>
-<span class="fc" id="L459">        String normalized = value.trim();</span>
-<span class="pc bpc" id="L460" title="1 of 2 branches missed.">        while (normalized.endsWith(&quot;/&quot;)) {</span>
-<span class="nc" id="L461">            normalized = normalized.substring(0, normalized.length() - 1);</span>
+<span class="fc" id="L448">        Objects.requireNonNull(value, &quot;baseUrl&quot;);</span>
+<span class="fc" id="L449">        String normalized = value.trim();</span>
+<span class="pc bpc" id="L450" title="1 of 2 branches missed.">        while (normalized.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L451">            normalized = normalized.substring(0, normalized.length() - 1);</span>
         }
-<span class="fc" id="L463">        return normalized;</span>
+<span class="fc" id="L453">        return normalized;</span>
     }
 
-<span class="fc" id="L466">    private record ReadResult&lt;T&gt;(T value, boolean reachable) {</span>
+<span class="fc" id="L456">    private record ReadResult&lt;T&gt;(T value, boolean reachable) {</span>
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L470">    record StorageListResponse(</span>
+<span class="fc" id="L460">    record StorageListResponse(</span>
             @JsonProperty(&quot;storagelist&quot;) List&lt;StorageEntry&gt; storagelist
     ) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L476">    record StorageEntry(</span>
+<span class="fc" id="L466">    record StorageEntry(</span>
             @JsonProperty(&quot;name&quot;) String name,
             @JsonProperty(&quot;url&quot;) String url,
             @JsonProperty(&quot;path&quot;) String path,
@@ -485,13 +475,13 @@ public class CanonCcapiStatusBackend extends CanonCcapiBackend
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L488">    record BatteryListResponse(</span>
+<span class="fc" id="L478">    record BatteryListResponse(</span>
             @JsonProperty(&quot;batterylist&quot;) List&lt;BatteryEntry&gt; batterylist
     ) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-<span class="fc" id="L494">    record BatteryEntry(</span>
+<span class="fc" id="L484">    record BatteryEntry(</span>
             @JsonProperty(&quot;position&quot;) String position,
             @JsonProperty(&quot;name&quot;) String name,
             @JsonProperty(&quot;kind&quot;) String kind,

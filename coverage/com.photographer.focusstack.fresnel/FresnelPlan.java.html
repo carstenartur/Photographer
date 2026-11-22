@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FresnelPlan.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">FresnelPlan.java</span></div><h1>FresnelPlan.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.cfg.CoercionAction;
+import com.fasterxml.jackson.databind.cfg.CoercionInputShape;
+import com.fasterxml.jackson.databind.type.LogicalType;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+/** The externally triggered still-image plan from the pinned v1 contract. */
+<span class="fc" id="L29">record FresnelPlan(String externalExperimentId, String cameraProfileId, Workflow workflowType,</span>
+                   Settings requestedSettings, List&lt;Step&gt; steps) {
+<span class="fc" id="L31">    enum Workflow { BACKGROUND_ORIENTED_SCHLIEREN, DISPLAY_PHOTOMETRIC_STEREO }</span>
+<span class="fc" id="L32">    enum Role { REFERENCE, DISTURBED, DARK, FLAT, DIRECTIONAL_LIGHT }</span>
+<span class="fc" id="L33">    record Settings(Boolean lockExposure, Boolean lockFocus, String preferredFormat) {}</span>
+<span class="fc" id="L34">    record Step(String id, Integer sequenceIndex, Role role, String triggerMode, Integer settleDelayMs,</span>
+                String externalPatternId, String externalPatternSha256) {}
+<span class="fc" id="L36">    record Trigger(String presentedAt, String externalPatternId, String externalPatternSha256) {}</span>
+
+    static final int MAX_STEPS = 32;
+    static final int MAX_DURATION_MS = 600_000;
+    static final int MAX_WAIT_MS = 60_000;
+    static final int MAX_ASSET_BYTES = 8 * 1024 * 1024;
+<span class="fc" id="L42">    static final JsonMapper JSON = JsonMapper.builder()</span>
+<span class="fc" id="L43">            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)</span>
+<span class="fc" id="L44">            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, DeserializationFeature.FAIL_ON_TRAILING_TOKENS,</span>
+                    DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS)
+<span class="fc" id="L46">            .withCoercionConfig(LogicalType.Textual, rules -&gt; rules</span>
+<span class="fc" id="L47">                    .setCoercion(CoercionInputShape.Integer, CoercionAction.Fail)</span>
+<span class="fc" id="L48">                    .setCoercion(CoercionInputShape.Float, CoercionAction.Fail)</span>
+<span class="fc" id="L49">                    .setCoercion(CoercionInputShape.Boolean, CoercionAction.Fail))</span>
+<span class="fc" id="L50">            .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)</span>
+<span class="fc" id="L51">            .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)</span>
+<span class="fc" id="L52">            .serializationInclusion(JsonInclude.Include.NON_NULL).build();</span>
+<span class="fc" id="L53">    private static final Pattern ID = Pattern.compile(&quot;[A-Za-z0-9][A-Za-z0-9._:-]{0,127}&quot;);</span>
+<span class="fc" id="L54">    private static final Pattern SHA = Pattern.compile(&quot;[a-f0-9]{64}&quot;);</span>
+
+    static &lt;T&gt; T parse(byte[] body, Class&lt;T&gt; type) {
+        try {
+<span class="fc" id="L58">            T value = JSON.readValue(body, type);</span>
+<span class="pc bpc" id="L59" title="1 of 2 branches missed.">            if (value != null) return value;</span>
+<span class="fc" id="L60">        } catch (IOException e) {</span>
+<span class="fc" id="L61">            throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="nc" id="L62">        }</span>
+<span class="nc" id="L63">        throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+    }
+
+    static void requireId(String id) {
+<span class="pc bpc" id="L67" title="2 of 4 branches missed.">        if (id == null || !ID.matcher(id).matches()) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc" id="L68">    }</span>
+
+    static String hash(byte[] bytes) {
+<span class="fc" id="L71">        return HexFormat.of().formatHex(sha256().digest(bytes));</span>
+    }
+
+    static String hash(Path path) throws IOException {
+<span class="fc" id="L75">        var digest = sha256();</span>
+<span class="fc" id="L76">        try (var input = new DigestInputStream(Files.newInputStream(path), digest)) {</span>
+<span class="fc" id="L77">            input.transferTo(OutputStream.nullOutputStream());</span>
+        }
+<span class="fc" id="L79">        return HexFormat.of().formatHex(digest.digest());</span>
+    }
+
+    private static MessageDigest sha256() {
+        try {
+<span class="fc" id="L84">            return MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="nc" id="L85">        } catch (NoSuchAlgorithmException impossible) {</span>
+<span class="nc" id="L86">            throw new IllegalStateException(impossible);</span>
+        }
+    }
+
+    void validate() {
+<span class="fc" id="L91">        requireId(externalExperimentId);</span>
+<span class="fc" id="L92">        requireId(cameraProfileId);</span>
+<span class="pc bpc" id="L93" title="6 of 12 branches missed.">        if (workflowType == null || requestedSettings == null || requestedSettings.lockFocus == null</span>
+                || requestedSettings.lockExposure == null || requestedSettings.preferredFormat == null
+                || steps == null)
+<span class="nc" id="L96">            throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="pc bpc" id="L97" title="2 of 4 branches missed.">        if (steps.isEmpty() || steps.size() &gt; MAX_STEPS) throw new FresnelProblem(422, &quot;INVALID_PLAN&quot;);</span>
+<span class="pc bpc" id="L98" title="1 of 2 branches missed.">        if (!Set.of(&quot;JPEG&quot;, &quot;PNG&quot;, &quot;RAW_WITH_PREVIEW&quot;).contains(requestedSettings.preferredFormat))</span>
+<span class="nc" id="L99">            throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc" id="L100">        int delay = 0, references = 0, lights = 0;</span>
+<span class="fc" id="L101">        var ids = new HashSet&lt;String&gt;();</span>
+<span class="fc" id="L102">        var patterns = new HashMap&lt;String,String&gt;();</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        boolean bos = workflowType == Workflow.BACKGROUND_ORIENTED_SCHLIEREN;</span>
+<span class="fc bfc" id="L104" title="All 2 branches covered.">        for (int i = 0; i &lt; steps.size(); i++) {</span>
+<span class="fc" id="L105">            Step step = steps.get(i);</span>
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">            if (step == null) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc" id="L107">            requireId(step.id);</span>
+<span class="pc bpc" id="L108" title="5 of 10 branches missed.">            if (step.id.length() &gt; 64 || step.sequenceIndex == null || step.sequenceIndex &lt; 0 || step.sequenceIndex &gt; 255</span>
+<span class="pc bpc" id="L109" title="2 of 4 branches missed.">                    || step.role == null || !&quot;EXTERNAL&quot;.equals(step.triggerMode) || step.settleDelayMs == null</span>
+<span class="pc bpc" id="L110" title="2 of 4 branches missed.">                    || step.settleDelayMs &lt; 0 || step.settleDelayMs &gt; 30_000)</span>
+<span class="nc" id="L111">                throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc bfc" id="L112" title="All 4 branches covered.">            if (!ids.add(step.id) || step.sequenceIndex != i) throw new FresnelProblem(422, &quot;INVALID_PLAN&quot;);</span>
+<span class="fc" id="L113">            delay += step.settleDelayMs;</span>
+<span class="pc bpc" id="L114" title="2 of 6 branches missed.">            if (!bos || step.externalPatternId != null || step.externalPatternSha256 != null) {</span>
+<span class="fc" id="L115">                requireId(step.externalPatternId);</span>
+<span class="pc bpc" id="L116" title="1 of 4 branches missed.">                if (step.externalPatternSha256 == null || !SHA.matcher(step.externalPatternSha256).matches())</span>
+<span class="fc" id="L117">                    throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc" id="L118">                String old = patterns.putIfAbsent(step.externalPatternId, step.externalPatternSha256);</span>
+<span class="pc bpc" id="L119" title="3 of 4 branches missed.">                if (old != null &amp;&amp; !old.equals(step.externalPatternSha256)) throw new FresnelProblem(422, &quot;INVALID_PLAN&quot;);</span>
+            }
+<span class="pc bpc" id="L121" title="1 of 6 branches missed.">            if (bos != (step.role == Role.REFERENCE || step.role == Role.DISTURBED))</span>
+<span class="nc" id="L122">                throw new FresnelProblem(422, &quot;INVALID_PLAN&quot;);</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            if (step.role == Role.REFERENCE) references++;</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            if (step.role == Role.DIRECTIONAL_LIGHT) lights++;</span>
+        }
+<span class="pc bpc" id="L126" title="4 of 10 branches missed.">        if (delay &gt; MAX_DURATION_MS || (bos ? references != 1 || steps.size() &lt; 2 : lights &lt; 3))</span>
+<span class="nc" id="L127">            throw new FresnelProblem(422, &quot;INVALID_PLAN&quot;);</span>
+<span class="fc" id="L128">    }</span>
+
+    static void validateTrigger(Trigger trigger, Step step) {
+        try {
+<span class="fc" id="L132">            OffsetDateTime.parse(trigger.presentedAt());</span>
+<span class="nc" id="L133">        } catch (DateTimeParseException | NullPointerException invalid) {</span>
+<span class="nc" id="L134">            throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc" id="L135">        }</span>
+<span class="pc bpc" id="L136" title="1 of 4 branches missed.">        if (trigger.externalPatternId() != null || trigger.externalPatternSha256() != null) {</span>
+<span class="fc" id="L137">            requireId(trigger.externalPatternId());</span>
+<span class="pc bpc" id="L138" title="2 of 4 branches missed.">            if (trigger.externalPatternSha256() == null || !SHA.matcher(trigger.externalPatternSha256()).matches())</span>
+<span class="nc" id="L139">                throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+        }
+<span class="pc bpc" id="L141" title="1 of 2 branches missed.">        if (!java.util.Objects.equals(trigger.externalPatternId(), step.externalPatternId())</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">                || !java.util.Objects.equals(trigger.externalPatternSha256(), step.externalPatternSha256()))</span>
+<span class="fc" id="L143">            throw new FresnelProblem(422, &quot;PATTERN_MISMATCH&quot;);</span>
+<span class="fc" id="L144">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

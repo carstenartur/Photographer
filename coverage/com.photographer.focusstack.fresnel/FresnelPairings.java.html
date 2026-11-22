@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FresnelPairings.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">FresnelPairings.java</span></div><h1>FresnelPairings.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+
+@Service
+@ConditionalOnProperty(name = &quot;focusstack.fresnel.enabled&quot;, havingValue = &quot;true&quot;)
+public class FresnelPairings {
+<span class="fc" id="L31">    public static final List&lt;String&gt; SCOPES = List.of(&quot;fresnel:descriptor:read&quot;, &quot;fresnel:cameras:read&quot;,</span>
+            &quot;fresnel:capture-sessions:write&quot;, &quot;fresnel:media:read&quot;);
+<span class="fc" id="L33">    static final Pattern ID = Pattern.compile(&quot;[A-Za-z0-9][A-Za-z0-9._:-]{0,127}&quot;);</span>
+<span class="fc" id="L34">    private static final Pattern UUID_TEXT = Pattern.compile(&quot;[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}&quot;);</span>
+<span class="fc" id="L35">    private static final Pattern LABEL = Pattern.compile(&quot;[^\\p{Cntrl}]{1,128}&quot;);</span>
+<span class="fc" id="L36">    private static final Duration CODE_TTL = Duration.ofMinutes(5);</span>
+<span class="fc" id="L37">    private final Cache&lt;String, Pending&gt; codes = Caffeine.newBuilder().maximumSize(128)</span>
+<span class="fc" id="L38">            .expireAfterWrite(CODE_TTL).build();</span>
+<span class="fc" id="L39">    private final Cache&lt;String, Integer&gt; failures = Caffeine.newBuilder().maximumSize(4096)</span>
+<span class="fc" id="L40">            .expireAfterWrite(Duration.ofMinutes(1)).build();</span>
+<span class="fc" id="L41">    private final Cache&lt;String, Integer&gt; tokenFailures = Caffeine.newBuilder().maximumSize(4096)</span>
+<span class="fc" id="L42">            .expireAfterWrite(Duration.ofMinutes(1)).build();</span>
+<span class="fc" id="L43">    private final SecureRandom random = new SecureRandom();</span>
+<span class="fc" id="L44">    private final ObjectMapper json = new ObjectMapper();</span>
+    private final Path directory;
+    private final Clock clock;
+
+    @Autowired
+    public FresnelPairings(@Value(&quot;${focusstack.fresnel.directory:${focusstack.storage.images-dir:./data/images}/fresnel}&quot;) String root) {
+<span class="fc" id="L50">        this(Path.of(root), Clock.systemUTC());</span>
+<span class="fc" id="L51">    }</span>
+
+<span class="fc" id="L53">    FresnelPairings(Path root, Clock clock) {</span>
+<span class="fc" id="L54">        this.directory = root.resolve(&quot;pairings&quot;);</span>
+<span class="fc" id="L55">        this.clock = clock;</span>
+<span class="fc" id="L56">        try { Files.createDirectories(directory); }</span>
+<span class="pc" id="L57">        catch (IOException e) { throw new UncheckedIOException(e); }</span>
+<span class="fc" id="L58">    }</span>
+
+<span class="fc" id="L60">    public record PairRequest(String pairingCode, String fresnelInstanceId, String fresnelDisplayName,</span>
+                              String fresnelApplicationVersion, Integer fresnelProtocolVersion) {}
+<span class="fc" id="L62">    public record Grant(String pairingCode, String expiresAt, String baseUrl) {}</span>
+<span class="fc" id="L63">    public record Exchange(String pairingId, String bearerToken, List&lt;String&gt; scopes) {}</span>
+<span class="fc" id="L64">    public record Summary(String pairingId, String displayName, String applicationVersion, String instanceId,</span>
+                          List&lt;String&gt; scopes, String createdAt, String lastSeenAt, String state) {}
+<span class="fc" id="L66">    private record Pending(List&lt;String&gt; scopes, Instant expires) {}</span>
+<span class="fc" id="L67">    private record Stored(String id, String name, String version, String instanceId, List&lt;String&gt; scopes,</span>
+                          String createdAt, String lastSeenAt, String revokedAt, String hash) {
+<span class="fc" id="L69">        Stored seen(String now) { return new Stored(id, name, version, instanceId, scopes, createdAt, now, revokedAt, hash); }</span>
+<span class="fc" id="L70">        Stored revoked(String now) { return new Stored(id, name, version, instanceId, scopes, createdAt, lastSeenAt, now, null); }</span>
+    }
+
+    public synchronized Grant issue(String baseUrl, List&lt;String&gt; scopes) {
+<span class="pc bpc" id="L74" title="3 of 6 branches missed.">        if (scopes == null || scopes.isEmpty() || !SCOPES.containsAll(scopes)</span>
+<span class="pc bpc" id="L75" title="1 of 2 branches missed.">                || scopes.stream().distinct().count() != scopes.size()) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+        URI origin;
+<span class="pc bpc" id="L77" title="1 of 2 branches missed.">        try { origin = URI.create(baseUrl == null ? &quot;&quot; : baseUrl); }</span>
+<span class="pc" id="L78">        catch (IllegalArgumentException e) { throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;); }</span>
+<span class="pc bpc" id="L79" title="2 of 6 branches missed.">        if (origin.getHost() == null || origin.getUserInfo() != null || origin.getQuery() != null</span>
+<span class="pc bpc" id="L80" title="1 of 4 branches missed.">                || origin.getFragment() != null || !List.of(&quot;&quot;, &quot;/&quot;).contains(origin.getPath())</span>
+<span class="pc bpc" id="L81" title="1 of 4 branches missed.">                || origin.getPort() == 0 || origin.getPort() &gt; 65535</span>
+<span class="pc bpc" id="L82" title="1 of 2 branches missed.">                || !List.of(&quot;https&quot;, &quot;http&quot;).contains(origin.getScheme())) {</span>
+<span class="fc" id="L83">            throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+        }
+<span class="fc" id="L85">        String code = secret();</span>
+<span class="fc" id="L86">        Instant expiry = clock.instant().plus(CODE_TTL);</span>
+<span class="fc" id="L87">        codes.put(digest(code), new Pending(List.copyOf(scopes), expiry));</span>
+<span class="fc" id="L88">        return new Grant(code, expiry.toString(), origin.toString());</span>
+    }
+
+    public synchronized Exchange exchange(PairRequest request, String peer) {
+<span class="fc" id="L92">        int count = failures.asMap().getOrDefault(peer, 0);</span>
+<span class="fc bfc" id="L93" title="All 2 branches covered.">        if (count &gt;= 5) throw new FresnelProblem(429, &quot;RATE_LIMITED&quot;);</span>
+<span class="pc bpc" id="L94" title="3 of 6 branches missed.">        if (request == null || !matches(ID, request.fresnelInstanceId()) || !matches(LABEL, request.fresnelDisplayName())</span>
+<span class="pc bpc" id="L95" title="2 of 4 branches missed.">                || !matches(LABEL, request.fresnelApplicationVersion()) || request.fresnelProtocolVersion() == null</span>
+<span class="pc bpc" id="L96" title="2 of 4 branches missed.">                || request.fresnelProtocolVersion() &lt; 1 || request.pairingCode() == null</span>
+<span class="pc bpc" id="L97" title="2 of 4 branches missed.">                || request.pairingCode().isEmpty() || request.pairingCode().length() &gt; 512) {</span>
+<span class="nc" id="L98">            throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+        }
+<span class="fc" id="L100">        String key = digest(request.pairingCode());</span>
+<span class="fc" id="L101">        Pending pending = codes.getIfPresent(key);</span>
+<span class="pc bpc" id="L102" title="1 of 4 branches missed.">        if (pending == null || !clock.instant().isBefore(pending.expires())) {</span>
+<span class="fc" id="L103">            failures.put(peer, count + 1);</span>
+<span class="fc" id="L104">            throw new FresnelProblem(403, &quot;PAIRING_CODE_INVALID&quot;);</span>
+        }
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        if (request.fresnelProtocolVersion() != 1) throw new FresnelProblem(409, &quot;INCOMPATIBLE&quot;);</span>
+<span class="fc" id="L107">        String id = UUID.randomUUID().toString();</span>
+<span class="fc" id="L108">        String token = id + &quot;.&quot; + secret();</span>
+<span class="fc" id="L109">        String now = clock.instant().toString();</span>
+<span class="fc" id="L110">        save(new Stored(id, request.fresnelDisplayName(), request.fresnelApplicationVersion(),</span>
+<span class="fc" id="L111">                request.fresnelInstanceId(), pending.scopes(), now, null, null, digest(token)));</span>
+<span class="fc" id="L112">        codes.invalidate(key);</span>
+<span class="fc" id="L113">        return new Exchange(id, token, pending.scopes());</span>
+    }
+
+    synchronized String authenticatePeer(String header, String peer) {
+<span class="fc" id="L117">        int failed = tokenFailures.asMap().getOrDefault(peer, 0);</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (failed &gt;= 16) throw new FresnelProblem(429, &quot;RATE_LIMITED&quot;);</span>
+        try {
+<span class="fc" id="L120">            return authorize(header, null);</span>
+<span class="fc" id="L121">        } catch (FresnelProblem e) {</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">            if (e.status() == 401) tokenFailures.put(peer, failed + 1);</span>
+<span class="fc" id="L123">            throw e;</span>
+        }
+    }
+
+    public synchronized String authorize(String header, String scope) {
+<span class="pc bpc" id="L128" title="2 of 6 branches missed.">        if (header == null || header.length() != 7 + 36 + 1 + 43 || !header.regionMatches(true, 0, &quot;Bearer &quot;, 0, 7)</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">                || header.charAt(43) != '.') throw unauthorized();</span>
+<span class="fc" id="L130">        String token = header.substring(7);</span>
+<span class="fc" id="L131">        Stored p = active(token.substring(0, 36));</span>
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (!MessageDigest.isEqual(digest(token).getBytes(StandardCharsets.US_ASCII),</span>
+<span class="pc" id="L133">                p.hash().getBytes(StandardCharsets.US_ASCII))) throw unauthorized();</span>
+<span class="fc bfc" id="L134" title="All 4 branches covered.">        if (scope != null &amp;&amp; !p.scopes().contains(scope)) throw new FresnelProblem(403, &quot;INSUFFICIENT_SCOPE&quot;);</span>
+<span class="fc" id="L135">        return p.id();</span>
+    }
+
+    synchronized void recordSuccessfulRequest(String pairingId) {
+<span class="fc" id="L139">        Stored p = load(pairingId);</span>
+<span class="pc bpc" id="L140" title="2 of 4 branches missed.">        if (p == null || p.revokedAt() != null) return;</span>
+<span class="fc" id="L141">        Instant now = clock.instant();</span>
+<span class="pc bpc" id="L142" title="1 of 4 branches missed.">        if (p.lastSeenAt() == null || Instant.parse(p.lastSeenAt()).plusSeconds(5).isBefore(now)) {</span>
+<span class="fc" id="L143">            save(p.seen(now.toString()));</span>
+        }
+<span class="fc" id="L145">    }</span>
+
+    public synchronized &lt;T&gt; T whileAuthorized(String header, String scope, Function&lt;String, T&gt; action) {
+<span class="fc" id="L148">        return action.apply(authorize(header, scope));</span>
+    }
+
+    public synchronized void whilePaired(String id, Runnable action) {
+<span class="fc" id="L152">        active(id);</span>
+<span class="fc" id="L153">        action.run();</span>
+<span class="fc" id="L154">    }</span>
+
+    public synchronized void revoke(String id, Runnable stop) {
+<span class="fc" id="L157">        Stored p = load(id);</span>
+<span class="pc bpc" id="L158" title="1 of 2 branches missed.">        if (p == null) throw new FresnelProblem(404, &quot;PAIRING_NOT_FOUND&quot;);</span>
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (p.revokedAt() == null) save(p.revoked(clock.instant().toString()));</span>
+<span class="fc" id="L160">        stop.run();</span>
+<span class="fc" id="L161">    }</span>
+
+    public synchronized List&lt;Summary&gt; list() {
+<span class="fc" id="L164">        try (var files = Files.list(directory)) {</span>
+<span class="fc" id="L165">            return files.map(path -&gt; path.getFileName().toString()).filter(name -&gt; name.endsWith(&quot;.json&quot;))</span>
+<span class="fc" id="L166">                    .map(name -&gt; load(name.substring(0, name.length() - 5))).map(p -&gt; new Summary(p.id(), p.name(),</span>
+<span class="fc" id="L167">                            p.version(), p.instanceId(), p.scopes(), p.createdAt(), p.lastSeenAt(), state(p)))</span>
+<span class="fc" id="L168">                    .sorted(java.util.Comparator.comparing(Summary::createdAt).reversed()).toList();</span>
+<span class="nc" id="L169">        } catch (IOException e) { throw new UncheckedIOException(e); }</span>
+    }
+
+    private String state(Stored p) {
+<span class="fc bfc" id="L173" title="All 2 branches covered.">        if (p.revokedAt() != null) return &quot;REVOKED&quot;;</span>
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (p.lastSeenAt() == null) return &quot;PAIRING&quot;;</span>
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        return Instant.parse(p.lastSeenAt()).plusSeconds(60).isAfter(clock.instant()) ? &quot;CONNECTED&quot; : &quot;DISCONNECTED&quot;;</span>
+    }
+
+    private Stored active(String id) {
+<span class="fc" id="L179">        Stored p = load(id);</span>
+<span class="pc bpc" id="L180" title="1 of 4 branches missed.">        if (p == null || p.revokedAt() != null) throw unauthorized();</span>
+<span class="fc" id="L181">        return p;</span>
+    }
+<span class="fc" id="L183">    private static FresnelProblem unauthorized() { return new FresnelProblem(401, &quot;AUTHENTICATION_FAILED&quot;); }</span>
+
+    private Stored load(String id) {
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">        if (!matches(UUID_TEXT, id)) return null;</span>
+<span class="fc" id="L187">        Path file = directory.resolve(id + &quot;.json&quot;);</span>
+<span class="fc" id="L188">        try { return json.readValue(Files.readAllBytes(file), Stored.class); }</span>
+<span class="nc" id="L189">        catch (java.nio.file.NoSuchFileException e) { return null; }</span>
+<span class="nc" id="L190">        catch (IOException e) { throw new UncheckedIOException(e); }</span>
+    }
+
+    private void save(Stored p) {
+        try {
+<span class="fc" id="L195">            CaptureJournal.writeAtomically(directory, p.id() + &quot;.json&quot;, json.writeValueAsBytes(p));</span>
+<span class="pc" id="L196">        } catch (IOException e) { throw new UncheckedIOException(e); }</span>
+<span class="fc" id="L197">    }</span>
+
+    private String secret() {
+<span class="fc" id="L200">        byte[] bytes = new byte[32];</span>
+<span class="fc" id="L201">        random.nextBytes(bytes);</span>
+<span class="fc" id="L202">        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);</span>
+    }
+    private static boolean matches(Pattern pattern, String value) {
+<span class="pc bpc" id="L205" title="2 of 4 branches missed.">        return value != null &amp;&amp; pattern.matcher(value).matches();</span>
+    }
+    private static String digest(String value) {
+<span class="fc" id="L208">        return FresnelPlan.hash(value.getBytes(StandardCharsets.UTF_8));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

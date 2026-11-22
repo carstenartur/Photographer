@@ -53,30 +53,24 @@ public class CameraController {
 <span class="fc" id="L53">        this.directControl = directControl;</span>
 <span class="fc" id="L54">    }</span>
 
-    /** Read-only access remains on the existing cached backend boundary. */
-    private CameraBackend backendForRead(String profileId) {
-<span class="fc" id="L58">        CameraProfile profile = profileService.getProfile(profileId);</span>
-<span class="fc" id="L59">        return backendFactory.getBackend(profile);</span>
-    }
-
     @GetMapping
     @Operation(summary = &quot;List camera profiles&quot;)
     public ResponseEntity&lt;List&lt;CameraProfile&gt;&gt; listProfiles() {
-<span class="fc" id="L65">        return ResponseEntity.ok(profileService.getAllProfiles());</span>
+<span class="fc" id="L59">        return ResponseEntity.ok(profileService.getAllProfiles());</span>
     }
 
     @PostMapping
     @Operation(summary = &quot;Create a camera profile&quot;)
     public ResponseEntity&lt;CameraProfile&gt; createProfile(
             @Valid @RequestBody CameraProfile profile) {
-<span class="fc" id="L72">        return ResponseEntity.status(HttpStatus.CREATED)</span>
-<span class="fc" id="L73">                .body(profileService.createProfile(profile));</span>
+<span class="fc" id="L66">        return ResponseEntity.status(HttpStatus.CREATED)</span>
+<span class="fc" id="L67">                .body(profileService.createProfile(profile));</span>
     }
 
     @GetMapping(&quot;/{id}&quot;)
     @Operation(summary = &quot;Get camera profile by id&quot;)
     public ResponseEntity&lt;CameraProfile&gt; getProfile(@PathVariable String id) {
-<span class="fc" id="L79">        return ResponseEntity.ok(profileService.getProfile(id));</span>
+<span class="fc" id="L73">        return ResponseEntity.ok(profileService.getProfile(id));</span>
     }
 
     @PutMapping(&quot;/{id}&quot;)
@@ -84,21 +78,21 @@ public class CameraController {
     public ResponseEntity&lt;CameraProfile&gt; updateProfile(
             @PathVariable String id,
             @Valid @RequestBody CameraProfile profile) {
-<span class="fc" id="L87">        CameraProfile updated = directControl.withProfileLease(id, () -&gt; {</span>
-<span class="fc" id="L88">            backendFactory.evict(id);</span>
-<span class="fc" id="L89">            return profileService.updateProfile(id, profile);</span>
+<span class="fc" id="L81">        CameraProfile updated = directControl.withProfileLease(id, () -&gt; {</span>
+<span class="fc" id="L82">            backendFactory.evict(id);</span>
+<span class="fc" id="L83">            return profileService.updateProfile(id, profile);</span>
         });
-<span class="fc" id="L91">        return ResponseEntity.ok(updated);</span>
+<span class="fc" id="L85">        return ResponseEntity.ok(updated);</span>
     }
 
     @DeleteMapping(&quot;/{id}&quot;)
     @Operation(summary = &quot;Delete camera profile by id&quot;)
     public ResponseEntity&lt;Void&gt; deleteProfile(@PathVariable String id) {
-<span class="fc" id="L97">        directControl.withProfileLeaseVoid(id, () -&gt; {</span>
-<span class="fc" id="L98">            backendFactory.evict(id);</span>
-<span class="fc" id="L99">            profileService.deleteProfile(id);</span>
-<span class="fc" id="L100">        });</span>
-<span class="fc" id="L101">        return ResponseEntity.noContent().build();</span>
+<span class="fc" id="L91">        directControl.withProfileLeaseVoid(id, () -&gt; {</span>
+<span class="fc" id="L92">            backendFactory.evict(id);</span>
+<span class="fc" id="L93">            profileService.deleteProfile(id);</span>
+<span class="fc" id="L94">        });</span>
+<span class="fc" id="L95">        return ResponseEntity.noContent().build();</span>
     }
 
     @GetMapping(&quot;/search&quot;)
@@ -106,46 +100,45 @@ public class CameraController {
     public ResponseEntity&lt;List&lt;CameraProfile&gt;&gt; searchProfiles(
             @RequestParam String q,
             @RequestParam(defaultValue = &quot;20&quot;) int maxResults) {
-<span class="fc" id="L109">        List&lt;CameraProfile&gt; results = searchService.searchCameraProfiles(q, maxResults)</span>
-<span class="fc" id="L110">                .stream()</span>
-<span class="fc" id="L111">                .map(CameraProfileEntity::toRecord)</span>
-<span class="fc" id="L112">                .toList();</span>
-<span class="fc" id="L113">        return ResponseEntity.ok(results);</span>
+<span class="fc" id="L103">        List&lt;CameraProfile&gt; results = searchService.searchCameraProfiles(q, maxResults)</span>
+<span class="fc" id="L104">                .stream()</span>
+<span class="fc" id="L105">                .map(CameraProfileEntity::toRecord)</span>
+<span class="fc" id="L106">                .toList();</span>
+<span class="fc" id="L107">        return ResponseEntity.ok(results);</span>
     }
 
     @GetMapping(&quot;/{id}/info&quot;)
     @Operation(summary = &quot;Get camera hardware information&quot;)
     public ResponseEntity&lt;CameraInfo&gt; getCameraInfo(@PathVariable String id) {
-<span class="fc" id="L119">        return ResponseEntity.ok(backendForRead(id).getInfo());</span>
+<span class="fc" id="L113">        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::getInfo));</span>
     }
 
     @GetMapping(&quot;/{id}/status&quot;)
     @Operation(summary = &quot;Get camera status&quot;)
     public ResponseEntity&lt;CameraState&gt; getCameraStatus(@PathVariable String id) {
-<span class="fc" id="L125">        return ResponseEntity.ok(backendForRead(id).getState());</span>
+<span class="fc" id="L119">        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::getState));</span>
     }
 
     @GetMapping(&quot;/{id}/capabilities&quot;)
     @Operation(summary = &quot;Get redacted camera capability diagnostics&quot;)
     public ResponseEntity&lt;CameraCapabilitySnapshot&gt; getCameraCapabilities(
             @PathVariable String id) {
-<span class="fc" id="L132">        CameraBackend backend = backendForRead(id);</span>
-<span class="fc bfc" id="L133" title="All 2 branches covered.">        CameraCapabilitySnapshot snapshot = backend instanceof CameraCapabilityProvider provider</span>
-<span class="fc" id="L134">                ? provider.getCapabilitySnapshot()</span>
-<span class="fc" id="L135">                : CameraCapabilitySnapshot.diagnosticsUnavailable(backend.getInfo());</span>
-<span class="fc" id="L136">        return ResponseEntity.ok(snapshot);</span>
+<span class="fc" id="L126">        return ResponseEntity.ok(directControl.withBackend(id,</span>
+<span class="fc bfc" id="L127" title="All 2 branches covered.">                backend -&gt; backend instanceof CameraCapabilityProvider provider</span>
+<span class="fc" id="L128">                        ? provider.getCapabilitySnapshot()</span>
+<span class="fc" id="L129">                        : CameraCapabilitySnapshot.diagnosticsUnavailable(backend.getInfo())));</span>
     }
 
     @GetMapping(&quot;/{id}/liveview&quot;)
     @Operation(summary = &quot;Get latest live view frame&quot;)
     public ResponseEntity&lt;LiveViewFrame&gt; getLiveView(@PathVariable String id) {
-<span class="nc" id="L142">        return ResponseEntity.ok(backendForRead(id).getLiveView());</span>
+<span class="fc" id="L135">        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::getLiveView));</span>
     }
 
     @PostMapping(&quot;/{id}/capture&quot;)
     @Operation(summary = &quot;Capture a frame&quot;)
     public ResponseEntity&lt;CaptureResult&gt; capture(@PathVariable String id) {
-<span class="fc" id="L148">        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::capture));</span>
+<span class="fc" id="L141">        return ResponseEntity.ok(directControl.withBackend(id, CameraBackend::capture));</span>
     }
 
     @PostMapping(&quot;/{id}/focus&quot;)
@@ -153,8 +146,8 @@ public class CameraController {
     public ResponseEntity&lt;Void&gt; adjustFocus(
             @PathVariable String id,
             @Valid @RequestBody FocusCommand command) {
-<span class="fc" id="L156">        directControl.withBackendVoid(id, backend -&gt; backend.setFocus(command));</span>
-<span class="fc" id="L157">        return ResponseEntity.ok().build();</span>
+<span class="fc" id="L149">        directControl.withBackendVoid(id, backend -&gt; backend.setFocus(command));</span>
+<span class="fc" id="L150">        return ResponseEntity.ok().build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

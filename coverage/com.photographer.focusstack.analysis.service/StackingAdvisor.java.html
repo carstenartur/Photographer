@@ -6,6 +6,7 @@ import com.photographer.focusstack.analysis.strategy.PixelDiffStrategy;
 import com.photographer.focusstack.analysis.strategy.StructuralSimilarityStrategy;
 import com.photographer.focusstack.common.analysis.AnalysisResult;
 import com.photographer.focusstack.common.model.StackingParameters;
+import ij.process.ByteProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,29 +18,31 @@ import java.util.UUID;
 @Service
 public class StackingAdvisor {
 
-<span class="fc" id="L20">    private static final Logger log = LoggerFactory.getLogger(StackingAdvisor.class);</span>
+<span class="fc" id="L21">    private static final Logger log = LoggerFactory.getLogger(StackingAdvisor.class);</span>
 
     private final SharpnessAnalyzer sharpnessAnalyzer;
     private final InformationGainEstimator informationGainEstimator;
     private final MotionDetectionStrategy motionDetectionStrategy;
     private final ImageJProcessor imageJProcessor;
 
+<span class="fc" id="L28">    public record RawFrameAnalysis(AnalysisResult result, ByteProcessor pixels) {}</span>
+
     public StackingAdvisor(SharpnessAnalyzer sharpnessAnalyzer,
                            MotionDetector motionDetector,
                            InformationGainEstimator informationGainEstimator,
                            ImageJProcessor imageJProcessor,
-<span class="fc" id="L31">                           @Value(&quot;${analysis.motion.strategy:structural-similarity}&quot;) String strategyName) {</span>
-<span class="fc" id="L32">        this.sharpnessAnalyzer = sharpnessAnalyzer;</span>
-<span class="fc" id="L33">        this.informationGainEstimator = informationGainEstimator;</span>
-<span class="fc" id="L34">        this.imageJProcessor = imageJProcessor;</span>
-<span class="pc bpc" id="L35" title="1 of 3 branches missed.">        this.motionDetectionStrategy = switch (strategyName.toLowerCase()) {</span>
-<span class="fc" id="L36">            case &quot;pixel-diff&quot; -&gt; new PixelDiffStrategy(motionDetector);</span>
-<span class="nc" id="L37">            case &quot;optical-flow&quot; -&gt; new OpticalFlowStrategy(imageJProcessor, motionDetector);</span>
-<span class="fc" id="L38">            default -&gt; new StructuralSimilarityStrategy(imageJProcessor, motionDetector);</span>
+<span class="fc" id="L34">                           @Value(&quot;${analysis.motion.strategy:structural-similarity}&quot;) String strategyName) {</span>
+<span class="fc" id="L35">        this.sharpnessAnalyzer = sharpnessAnalyzer;</span>
+<span class="fc" id="L36">        this.informationGainEstimator = informationGainEstimator;</span>
+<span class="fc" id="L37">        this.imageJProcessor = imageJProcessor;</span>
+<span class="pc bpc" id="L38" title="1 of 3 branches missed.">        this.motionDetectionStrategy = switch (strategyName.toLowerCase()) {</span>
+<span class="fc" id="L39">            case &quot;pixel-diff&quot; -&gt; new PixelDiffStrategy(motionDetector);</span>
+<span class="nc" id="L40">            case &quot;optical-flow&quot; -&gt; new OpticalFlowStrategy(imageJProcessor, motionDetector);</span>
+<span class="fc" id="L41">            default -&gt; new StructuralSimilarityStrategy(imageJProcessor, motionDetector);</span>
         };
-<span class="fc" id="L40">        log.info(&quot;StackingAdvisor initialized with '{}' motion detection strategy&quot;,</span>
-<span class="fc" id="L41">                this.motionDetectionStrategy.name());</span>
-<span class="fc" id="L42">    }</span>
+<span class="fc" id="L43">        log.info(&quot;StackingAdvisor initialized with '{}' motion detection strategy&quot;,</span>
+<span class="fc" id="L44">                this.motionDetectionStrategy.name());</span>
+<span class="fc" id="L45">    }</span>
 
     /**
      * Analyzes a frame and makes a continue/stop recommendation.
@@ -53,38 +56,66 @@ public class StackingAdvisor {
                                        byte[] previousFrame,
                                        List&lt;AnalysisResult&gt; history,
                                        StackingParameters params) {
-<span class="fc" id="L56">        double sharpnessScore = computeSharpness(imageData);</span>
-<span class="fc" id="L57">        double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);</span>
-
+<span class="fc" id="L59">        double sharpnessScore = computeSharpness(imageData);</span>
         MotionDetector.MotionResult motionResult;
-<span class="fc bfc" id="L60" title="All 4 branches covered.">        if (params.motionDetectionEnabled() &amp;&amp; previousFrame != null) {</span>
-<span class="fc" id="L61">            motionResult = motionDetectionStrategy.detect(imageData, previousFrame, 0.15);</span>
+<span class="fc bfc" id="L61" title="All 4 branches covered.">        if (params.motionDetectionEnabled() &amp;&amp; previousFrame != null) {</span>
+<span class="fc" id="L62">            motionResult = motionDetectionStrategy.detect(imageData, previousFrame, 0.15);</span>
         } else {
-<span class="fc" id="L63">            motionResult = new MotionDetector.MotionResult(0.0, false, 0.15);</span>
+<span class="fc" id="L64">            motionResult = new MotionDetector.MotionResult(0.0, false, 0.15);</span>
         }
 
+<span class="fc" id="L67">        return completeAnalysis(sharpnessScore, motionResult, history, params);</span>
+    }
+
+    /** Prepares each captured RAW frame once and keeps only its reduced grayscale pixels. */
+    public RawFrameAnalysis analyzeRawFrame(
+            byte[] imageData,
+            byte[] previousEncoded,
+            RawFrameAnalysis previousRaw,
+            List&lt;AnalysisResult&gt; history,
+            StackingParameters params) {
+<span class="nc" id="L77">        ByteProcessor current = imageJProcessor.readForStacking(imageData);</span>
+<span class="nc" id="L78">        MotionDetector.MotionResult motion = new MotionDetector.MotionResult(0.0, false, 0.15);</span>
+<span class="nc bnc" id="L79" title="All 4 branches missed.">        if (params.motionDetectionEnabled() &amp;&amp; current != null) {</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">            ByteProcessor previous = previousRaw == null</span>
+<span class="nc" id="L81">                    ? imageJProcessor.readForStacking(previousEncoded) : previousRaw.pixels();</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            motion = motionDetectionStrategy instanceof StructuralSimilarityStrategy</span>
+<span class="nc" id="L83">                    ? imageJProcessor.detectDecodedStructuralMotion(current, previous, 0.15)</span>
+<span class="nc" id="L84">                    : imageJProcessor.detectDecodedMotion(current, previous, 0.15);</span>
+        }
+<span class="nc" id="L86">        AnalysisResult result = completeAnalysis(</span>
+<span class="nc" id="L87">                imageJProcessor.calculateDecodedSharpness(current), motion, history, params);</span>
+<span class="nc" id="L88">        return new RawFrameAnalysis(result, current);</span>
+    }
+
+    private AnalysisResult completeAnalysis(
+            double sharpnessScore,
+            MotionDetector.MotionResult motionResult,
+            List&lt;AnalysisResult&gt; history,
+            StackingParameters params) {
+<span class="fc" id="L96">        double sharpRegionPercentage = estimateSharpRegion(sharpnessScore);</span>
         // Build a preliminary result for gain estimation
-<span class="fc" id="L67">        AnalysisResult preliminary = new AnalysisResult(</span>
-<span class="fc" id="L68">                UUID.randomUUID().toString(),</span>
+<span class="fc" id="L98">        AnalysisResult preliminary = new AnalysisResult(</span>
+<span class="fc" id="L99">                UUID.randomUUID().toString(),</span>
                 sharpnessScore,
                 sharpRegionPercentage,
-<span class="fc" id="L71">                motionResult.motionDetected(),</span>
-<span class="fc" id="L72">                motionResult.motionScore(),</span>
+<span class="fc" id="L102">                motionResult.motionDetected(),</span>
+<span class="fc" id="L103">                motionResult.motionScore(),</span>
                 0.0,
                 true
         );
 
-<span class="fc" id="L77">        double infoGain = informationGainEstimator.estimateGain(history, preliminary);</span>
+<span class="fc" id="L108">        double infoGain = informationGainEstimator.estimateGain(history, preliminary);</span>
 
-<span class="fc" id="L79">        boolean recommendContinue = shouldContinue(</span>
+<span class="fc" id="L110">        boolean recommendContinue = shouldContinue(</span>
                 infoGain, motionResult, history, params);
 
-<span class="fc" id="L82">        return new AnalysisResult(</span>
-<span class="fc" id="L83">                preliminary.imageId(),</span>
+<span class="fc" id="L113">        return new AnalysisResult(</span>
+<span class="fc" id="L114">                preliminary.imageId(),</span>
                 sharpnessScore,
                 sharpRegionPercentage,
-<span class="fc" id="L86">                motionResult.motionDetected(),</span>
-<span class="fc" id="L87">                motionResult.motionScore(),</span>
+<span class="fc" id="L117">                motionResult.motionDetected(),</span>
+<span class="fc" id="L118">                motionResult.motionScore(),</span>
                 infoGain,
                 recommendContinue
         );
@@ -95,31 +126,31 @@ public class StackingAdvisor {
                                    List&lt;AnalysisResult&gt; history,
                                    StackingParameters params) {
         // Abort if max frames reached
-<span class="pc bpc" id="L98" title="1 of 4 branches missed.">        if (history != null &amp;&amp; history.size() &gt;= params.maxFrames()) {</span>
-<span class="fc" id="L99">            return false;</span>
+<span class="pc bpc" id="L129" title="1 of 4 branches missed.">        if (history != null &amp;&amp; history.size() &gt;= params.maxFrames()) {</span>
+<span class="fc" id="L130">            return false;</span>
         }
         // Never recommend stopping before the minimum number of frames —
         // a focus stack with 1-2 frames is useless.
-<span class="pc bpc" id="L103" title="1 of 4 branches missed.">        if (history == null || history.size() &lt; InformationGainEstimator.MIN_FRAMES_BEFORE_STOP) {</span>
-<span class="fc" id="L104">            return true;</span>
+<span class="pc bpc" id="L134" title="1 of 4 branches missed.">        if (history == null || history.size() &lt; InformationGainEstimator.MIN_FRAMES_BEFORE_STOP) {</span>
+<span class="fc" id="L135">            return true;</span>
         }
         // Abort if motion detected (the structural-similarity strategy is
         // blur-invariant, so a positive here represents real subject motion)
-<span class="fc bfc" id="L108" title="All 2 branches covered.">        if (motionResult.motionDetected()) {</span>
-<span class="fc" id="L109">            log.info(&quot;Recommending stop: motion detected (score={})&quot;, motionResult.motionScore());</span>
-<span class="fc" id="L110">            return false;</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">        if (motionResult.motionDetected()) {</span>
+<span class="fc" id="L140">            log.info(&quot;Recommending stop: motion detected (score={})&quot;, motionResult.motionScore());</span>
+<span class="fc" id="L141">            return false;</span>
         }
         // Abort if information gain below threshold
-<span class="pc bpc" id="L113" title="1 of 2 branches missed.">        if (infoGain &lt; params.abortThreshold()) {</span>
-<span class="nc" id="L114">            log.info(&quot;Recommending stop: information gain {}&lt;{} (threshold)&quot;,</span>
-<span class="nc" id="L115">                    infoGain, params.abortThreshold());</span>
-<span class="nc" id="L116">            return false;</span>
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        if (infoGain &lt; params.abortThreshold()) {</span>
+<span class="nc" id="L145">            log.info(&quot;Recommending stop: information gain {}&lt;{} (threshold)&quot;,</span>
+<span class="nc" id="L146">                    infoGain, params.abortThreshold());</span>
+<span class="nc" id="L147">            return false;</span>
         }
-<span class="fc" id="L118">        return true;</span>
+<span class="fc" id="L149">        return true;</span>
     }
 
     private double estimateSharpRegion(double sharpnessScore) {
-<span class="fc" id="L122">        return Math.min(1.0, sharpnessScore * 1.2);</span>
+<span class="fc" id="L153">        return Math.min(1.0, sharpnessScore * 1.2);</span>
     }
 
     /**
@@ -129,10 +160,10 @@ public class StackingAdvisor {
      * Falls back to {@link SharpnessAnalyzer} for raw/synthetic byte arrays.
      */
     private double computeSharpness(byte[] imageData) {
-<span class="pc bpc" id="L132" title="1 of 4 branches missed.">        if (imageData != null &amp;&amp; imageJProcessor.isImageFile(imageData)) {</span>
-<span class="fc" id="L133">            return imageJProcessor.calculateSharpness(imageData);</span>
+<span class="pc bpc" id="L163" title="1 of 4 branches missed.">        if (imageData != null &amp;&amp; imageJProcessor.isImageFile(imageData)) {</span>
+<span class="fc" id="L164">            return imageJProcessor.calculateSharpness(imageData);</span>
         }
-<span class="fc" id="L135">        return sharpnessAnalyzer.calculateSharpness(imageData);</span>
+<span class="fc" id="L166">        return sharpnessAnalyzer.calculateSharpness(imageData);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

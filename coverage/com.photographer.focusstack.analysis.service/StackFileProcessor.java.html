@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StackFileProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.service</a> &gt; <span class="el_source">StackFileProcessor.java</span></div><h1>StackFileProcessor.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.service;
+
+import com.photographer.focusstack.camera.service.FrameDataStore.OriginalFrame;
+import com.photographer.focusstack.cr3.Cr3Exception;
+import com.photographer.focusstack.cr3.container.Cr3Parser;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+import com.photographer.focusstack.cr3.decode.Cr3Decoder;
+import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReader;
+import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.FileImageInputStream;
+import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.awt.Dimension;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+/** Develops the originals and merges them in acquisition order within a shared working-set budget. */
+@Service
+public final class StackFileProcessor {
+<span class="fc" id="L37">    private static final Logger log = LoggerFactory.getLogger(StackFileProcessor.class);</span>
+    private static final long MIB = 1L &lt;&lt; 20;
+    private final RawDecodeBudget budget;
+
+<span class="fc" id="L41">    public StackFileProcessor(RawDecodeBudget budget) {</span>
+<span class="fc" id="L42">        this.budget = budget;</span>
+<span class="fc" id="L43">    }</span>
+
+<span class="fc" id="L45">    public enum Source {</span>
+<span class="fc" id="L46">        RAW, RASTER, EMBEDDED_PREVIEW</span>
+    }
+
+<span class="fc" id="L49">    public record Result(byte[] png, Source source, int frameCount) {}</span>
+
+    public Result merge(List&lt;OriginalFrame&gt; originals) throws IOException {
+<span class="pc bpc" id="L52" title="1 of 2 branches missed.">        if (originals.isEmpty()) {</span>
+<span class="nc" id="L53">            throw new IllegalArgumentException(&quot;At least one original is required&quot;);</span>
+        }
+        try {
+<span class="fc" id="L56">            return merge(originals, true);</span>
+<span class="fc" id="L57">        } catch (RawDecodeException unavailable) {</span>
+            // Use one consistent development mode for the entire stack.
+<span class="fc" id="L59">            log.info(&quot;Using embedded previews for stack development: {}&quot;, unavailable.getMessage());</span>
+<span class="fc" id="L60">            return merge(originals, false);</span>
+        }
+    }
+
+    private Result merge(List&lt;OriginalFrame&gt; originals, boolean preferRaw) throws IOException {
+<span class="fc" id="L65">        List&lt;Input&gt; inputs = new ArrayList&lt;&gt;(originals.size());</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">        for (OriginalFrame frame : originals) {</span>
+            try {
+<span class="fc" id="L68">                inputs.add(withReader(frame, reader -&gt; {</span>
+<span class="fc" id="L69">                    boolean cr3 = reader instanceof CanonCr3ImageReader;</span>
+<span class="fc bfc" id="L70" title="All 4 branches covered.">                    if (cr3 &amp;&amp; preferRaw) {</span>
+<span class="fc" id="L71">                        return inspectRaw(frame);</span>
+                    }
+<span class="fc bfc" id="L73" title="All 2 branches covered.">                    Dimension size = cr3 ? withPreviewReader(frame, StackFileProcessor::imageDimensions)</span>
+<span class="fc" id="L74">                            : imageDimensions(reader);</span>
+<span class="fc" id="L75">                    return new Input(frame, size, cr3, false, 8L * size.width * size.height + 4 * MIB);</span>
+                }));
+<span class="fc" id="L77">            } catch (RawDecodeException | InterruptedIOException failure) {</span>
+<span class="fc" id="L78">                throw failure;</span>
+<span class="fc" id="L79">            } catch (IOException unreadable) {</span>
+<span class="fc" id="L80">                log.warn(&quot;Skipping unreadable stack original {}&quot;, frame.fileName(), unreadable);</span>
+<span class="fc" id="L81">            }</span>
+<span class="fc" id="L82">        }</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (inputs.isEmpty()) {</span>
+<span class="nc" id="L84">            throw new IOException(&quot;No readable stack originals&quot;);</span>
+        }
+<span class="fc" id="L86">        Dimension dimensions = inputs.getFirst().size();</span>
+<span class="fc" id="L87">        long pixels = (long) dimensions.width * dimensions.height;</span>
+<span class="pc bpc" id="L88" title="2 of 4 branches missed.">        if (pixels &lt; 1 || pixels &gt; Integer.MAX_VALUE) {</span>
+<span class="nc" id="L89">            throw new IOException(&quot;Unsupported stack dimensions: &quot; + dimensions);</span>
+        }
+<span class="pc bpc" id="L91" title="2 of 4 branches missed.">        if (inputs.stream().anyMatch(input -&gt; !dimensions.equals(input.size()))) {</span>
+<span class="nc" id="L92">            throw new IOException(&quot;All stack originals must have the same developed dimensions&quot;);</span>
+        }
+
+        // The accumulator holds one packed output and one float score per pixel.
+<span class="fc" id="L96">        long stackBytes = 8 * pixels + 8 * MIB;</span>
+<span class="fc" id="L97">        boolean hasRaw = inputs.stream().anyMatch(Input::raw);</span>
+<span class="fc" id="L98">        long frameBytes = inputs.stream().mapToLong(Input::estimatedBytes).max().orElseThrow();</span>
+<span class="fc" id="L99">        int cpuBudget = budget.capacityWorkers();</span>
+<span class="fc" id="L100">        int maxParallel = Math.min(cpuBudget, inputs.size());</span>
+<span class="fc" id="L101">        long preferredFrameSlots = Math.min(maxParallel, (Long.MAX_VALUE - stackBytes) / frameBytes);</span>
+<span class="fc" id="L102">        long preferredBytes = stackBytes + preferredFrameSlots * frameBytes;</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        try (var lease = budget.acquire(stackBytes + frameBytes, preferredBytes, hasRaw ? cpuBudget : maxParallel)) {</span>
+<span class="fc" id="L104">            int slotsByMemory = (int) ((lease.bytes() - stackBytes) / frameBytes);</span>
+<span class="fc" id="L105">            int parallel = Math.min(maxParallel, Math.min(lease.workers(), slotsByMemory));</span>
+<span class="fc" id="L106">            Merged merged = mergeInOrder(inputs, parallel, lease.workers());</span>
+<span class="fc" id="L107">            var output = new ByteArrayOutputStream();</span>
+<span class="pc bpc" id="L108" title="1 of 2 branches missed.">            if (!ImageIO.write(merged.image(), &quot;png&quot;, output)) {</span>
+<span class="nc" id="L109">                throw new IOException(&quot;No PNG writer available for the merged stack&quot;);</span>
+            }
+<span class="fc" id="L111">            return new Result(output.toByteArray(), merged.source(), merged.frameCount());</span>
+<span class="fc" id="L112">        } catch (RawDecodeBudget.LimitExceededException insufficient) {</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">            if (hasRaw) {</span>
+<span class="fc" id="L114">                throw new RawDecodeException(insufficient.getMessage(), insufficient);</span>
+            }
+<span class="nc" id="L116">            throw insufficient;</span>
+        }
+    }
+
+    private static Merged mergeInOrder(List&lt;Input&gt; inputs, int parallel, int workerBudget) throws IOException {
+<span class="fc" id="L121">        var pending = new ArrayDeque&lt;Future&lt;BufferedImage&gt;&gt;(parallel);</span>
+<span class="fc" id="L122">        try (var tasks = Executors.newFixedThreadPool(parallel)) {</span>
+            try {
+<span class="fc bfc" id="L124" title="All 2 branches covered.">                for (int i = 0; i &lt; parallel; i++) {</span>
+<span class="fc" id="L125">                    pending.addLast(submit(tasks, inputs.get(i), workersForSlot(i, parallel, workerBudget)));</span>
+                }
+<span class="fc" id="L127">                int next = parallel;</span>
+<span class="fc" id="L128">                int current = 0;</span>
+<span class="fc" id="L129">                int accepted = 0;</span>
+<span class="fc" id="L130">                Source source = Source.RASTER;</span>
+<span class="fc" id="L131">                ImageJStackMerger.ColorAccumulator accumulator = null;</span>
+<span class="fc bfc" id="L132" title="All 2 branches covered.">                while (!pending.isEmpty()) {</span>
+<span class="fc" id="L133">                    Input input = inputs.get(current++);</span>
+<span class="fc" id="L134">                    BufferedImage image = readIfAvailable(pending.removeFirst(), input);</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">                    if (image != null) {</span>
+<span class="fc bfc" id="L136" title="All 2 branches covered.">                        if (accumulator == null) {</span>
+<span class="fc" id="L137">                            accumulator = new ImageJStackMerger.ColorAccumulator(image);</span>
+                        }
+<span class="fc" id="L139">                        accumulator.add(image);</span>
+<span class="fc" id="L140">                        accepted++;</span>
+<span class="fc bfc" id="L141" title="All 2 branches covered.">                        if (input.cr3()) {</span>
+<span class="fc bfc" id="L142" title="All 2 branches covered.">                            source = input.raw() ? Source.RAW : Source.EMBEDDED_PREVIEW;</span>
+                        }
+                    }
+<span class="fc" id="L145">                    image = null;</span>
+                    // Combining a finished frame uses a worker slot freed by its decoder.
+<span class="fc bfc" id="L147" title="All 2 branches covered.">                    if (next &lt; inputs.size()) {</span>
+<span class="fc" id="L148">                        int workers = workersForSlot(next % parallel, parallel, workerBudget);</span>
+<span class="fc" id="L149">                        pending.addLast(submit(tasks, inputs.get(next++), workers));</span>
+                    }
+<span class="fc" id="L151">                }</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">                if (accumulator == null) {</span>
+<span class="nc" id="L153">                    throw new IOException(&quot;No readable stack originals&quot;);</span>
+                }
+<span class="fc" id="L155">                return new Merged(accumulator.image(), source, accepted);</span>
+<span class="nc" id="L156">            } catch (IOException | RuntimeException | Error failure) {</span>
+<span class="nc" id="L157">                tasks.shutdownNow();</span>
+<span class="nc" id="L158">                throw failure;</span>
+            }
+        }
+    }
+
+    private static int workersForSlot(int slot, int slots, int budget) {
+<span class="fc" id="L164">        int share = budget / slots;</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        return slot &lt; budget % slots ? share + 1 : share;</span>
+    }
+
+    private static BufferedImage readIfAvailable(Future&lt;BufferedImage&gt; future, Input input) throws IOException {
+        try {
+<span class="fc" id="L170">            return await(future);</span>
+<span class="nc" id="L171">        } catch (RawDecodeException | InterruptedIOException failure) {</span>
+<span class="nc" id="L172">            throw failure;</span>
+<span class="nc" id="L173">        } catch (IOException unreadable) {</span>
+<span class="nc" id="L174">            log.warn(&quot;Skipping unreadable stack original {}&quot;, input.frame().fileName(), unreadable);</span>
+<span class="nc" id="L175">            return null;</span>
+        }
+    }
+
+    private static Future&lt;BufferedImage&gt; submit(ExecutorService tasks, Input input, int workers) {
+<span class="fc" id="L180">        return tasks.submit(() -&gt; {</span>
+<span class="fc" id="L181">            OriginalFrame frame = input.frame();</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">            if (input.raw()) {</span>
+<span class="fc" id="L183">                try (var decoder = new Cr3Decoder()) {</span>
+<span class="fc" id="L184">                    decoder.setInput(frame.path());</span>
+<span class="fc" id="L185">                    var options = Cr3DecodeOptions.rawProcessed().maxWorkers(workers);</span>
+<span class="fc" id="L186">                    assertDimensions(input, decoder.getRawProcessedBounds(options).getSize());</span>
+<span class="fc" id="L187">                    return decoder.decode(options);</span>
+<span class="nc" id="L188">                } catch (Cr3Exception | EOFException unavailable) {</span>
+<span class="nc" id="L189">                    throw new RawDecodeException(frame, unavailable);</span>
+                }
+            }
+<span class="fc" id="L192">            ReadOperation&lt;BufferedImage&gt; read = reader -&gt; {</span>
+<span class="fc" id="L193">                assertDimensions(input, imageDimensions(reader));</span>
+<span class="fc" id="L194">                return reader.read(0);</span>
+            };
+<span class="fc bfc" id="L196" title="All 2 branches covered.">            return input.cr3() ? withPreviewReader(frame, read) : withReader(frame, read);</span>
+        });
+    }
+
+    private static void assertDimensions(Input input, Dimension current) throws IOException {
+<span class="pc bpc" id="L201" title="1 of 2 branches missed.">        if (!input.size().equals(current)) {</span>
+<span class="nc" id="L202">            throw new IOException(&quot;Frame dimensions changed while merging &quot; + input.frame().fileName());</span>
+        }
+<span class="fc" id="L204">    }</span>
+
+    private static BufferedImage await(Future&lt;BufferedImage&gt; future) throws IOException {
+        try {
+<span class="fc" id="L208">            return future.get();</span>
+<span class="nc" id="L209">        } catch (InterruptedException failure) {</span>
+<span class="nc" id="L210">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L211">            throw new InterruptedIOException(&quot;Interrupted while processing stack originals&quot;);</span>
+<span class="nc" id="L212">        } catch (ExecutionException failure) {</span>
+<span class="nc bnc" id="L213" title="All 4 branches missed.">            switch (failure.getCause()) {</span>
+<span class="nc" id="L214">                case IOException error -&gt; throw error;</span>
+<span class="nc" id="L215">                case RuntimeException error -&gt; throw error;</span>
+<span class="nc" id="L216">                case Error error -&gt; throw error;</span>
+<span class="nc" id="L217">                default -&gt; throw new IOException(&quot;Unable to decode a stack original&quot;, failure);</span>
+            }
+        }
+    }
+
+    private Input inspectRaw(OriginalFrame frame) throws IOException {
+<span class="fc" id="L223">        try (var decoder = new Cr3Decoder()) {</span>
+<span class="fc" id="L224">            decoder.setInput(frame.path());</span>
+<span class="fc" id="L225">            Dimension size = decoder.getRawProcessedBounds(Cr3DecodeOptions.rawProcessed()).getSize();</span>
+<span class="fc" id="L226">            var metadata = decoder.getMetadata();</span>
+<span class="pc bpc" id="L227" title="4 of 6 branches missed.">            boolean orientationCopy = metadata != null &amp;&amp; metadata.orientation() &gt;= 2 &amp;&amp; metadata.orientation() &lt;= 8;</span>
+<span class="fc" id="L228">            return new Input(frame, size, true, true,</span>
+<span class="fc" id="L229">                    RawDecodeBudget.estimateRawBytes(size.width, size.height, orientationCopy, budget.capacityWorkers()));</span>
+<span class="fc" id="L230">        } catch (Cr3Exception | EOFException unavailable) {</span>
+<span class="fc" id="L231">            throw new RawDecodeException(frame, unavailable);</span>
+        }
+    }
+
+    private static Dimension imageDimensions(ImageReader reader) throws IOException {
+<span class="fc" id="L236">        return new Dimension(reader.getWidth(0), reader.getHeight(0));</span>
+    }
+
+    private static &lt;T&gt; T withReader(OriginalFrame frame, ReadOperation&lt;T&gt; operation) throws IOException {
+<span class="fc" id="L240">        try (var input = new FileImageInputStream(frame.path().toFile())) {</span>
+<span class="fc" id="L241">            return withReader(frame, input, operation);</span>
+        }
+    }
+
+    private static &lt;T&gt; T withPreviewReader(OriginalFrame frame, ReadOperation&lt;T&gt; operation) throws IOException {
+<span class="fc" id="L246">        try (var input = new FileImageInputStream(frame.path().toFile())) {</span>
+<span class="fc" id="L247">            byte[] jpeg = Cr3PreviewExtractor.extractPreviewBytes(input, Cr3Parser.parse(input));</span>
+<span class="fc" id="L248">            try (var preview = new MemoryCacheImageInputStream(new ByteArrayInputStream(jpeg))) {</span>
+                // Inspect the JPEG header before reserving pixels; CR3 reader dimensions describe RAW.
+<span class="fc" id="L250">                return withReader(frame, preview, operation);</span>
+            }
+<span class="nc" id="L252">        } catch (Cr3Exception unavailable) {</span>
+<span class="nc" id="L253">            throw new IOException(&quot;Unable to read embedded preview of &quot; + frame.fileName(), unavailable);</span>
+        }
+    }
+
+    private static &lt;T&gt; T withReader(OriginalFrame frame, ImageInputStream input, ReadOperation&lt;T&gt; operation)
+            throws IOException {
+<span class="fc" id="L259">        var readers = ImageIO.getImageReaders(input);</span>
+<span class="pc bpc" id="L260" title="1 of 2 branches missed.">        if (!readers.hasNext()) {</span>
+<span class="nc" id="L261">            throw new IOException(&quot;No image reader available for &quot; + frame.fileName());</span>
+        }
+<span class="fc" id="L263">        ImageReader reader = readers.next();</span>
+        try {
+<span class="fc" id="L265">            reader.setInput(input, false, true);</span>
+<span class="fc" id="L266">            return operation.read(reader);</span>
+        } finally {
+<span class="fc" id="L268">            reader.dispose();</span>
+        }
+    }
+
+<span class="fc" id="L272">    private record Input(OriginalFrame frame, Dimension size, boolean cr3, boolean raw, long estimatedBytes) {}</span>
+
+<span class="fc" id="L274">    private record Merged(BufferedImage image, Source source, int frameCount) {}</span>
+
+    @FunctionalInterface
+    private interface ReadOperation&lt;T&gt; {
+        T read(ImageReader reader) throws IOException;
+    }
+
+    private static final class RawDecodeException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        private RawDecodeException(OriginalFrame frame, Exception cause) {
+<span class="fc" id="L285">            this(&quot;Unable to develop RAW original &quot; + frame.fileName(), cause);</span>
+<span class="fc" id="L286">        }</span>
+
+        private RawDecodeException(String message, Exception cause) {
+<span class="fc" id="L289">            super(message, cause);</span>
+<span class="fc" id="L290">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

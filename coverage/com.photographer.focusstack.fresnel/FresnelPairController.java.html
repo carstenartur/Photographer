@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FresnelPairController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">FresnelPairController.java</span></div><h1>FresnelPairController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
+
+import java.io.IOException;
+import java.util.Map;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@Tag(name = &quot;Fresnel capture&quot;)
+@RequestMapping(FresnelIngress.ROOT)
+@ConditionalOnProperty(name = &quot;focusstack.fresnel.enabled&quot;, havingValue = &quot;true&quot;)
+class FresnelPairController {
+    private final FresnelPairings pairings;
+    private final FresnelCaptures captures;
+<span class="fc" id="L21">    FresnelPairController(FresnelPairings pairings, FresnelCaptures captures) {</span>
+<span class="fc" id="L22">        this.pairings = pairings;</span>
+<span class="fc" id="L23">        this.captures = captures;</span>
+<span class="fc" id="L24">    }</span>
+
+    @Operation(summary = &quot;Exchange a one-time pairing code&quot;)
+    @PostMapping(value = &quot;/pair&quot;, consumes = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity&lt;?&gt; pair(@RequestHeader(value = &quot;Idempotency-Key&quot;, required = false) String key,
+                           HttpServletRequest request) throws IOException {
+<span class="pc bpc" id="L30" title="2 of 4 branches missed.">        if (key == null || !FresnelPairings.ID.matcher(key).matches()) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+        FresnelPairings.PairRequest body;
+<span class="fc" id="L32">        try { body = FresnelPlan.JSON.readValue(request.getInputStream(), FresnelPairings.PairRequest.class); }</span>
+<span class="pc" id="L33">        catch (com.fasterxml.jackson.core.JsonProcessingException e) { throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;); }</span>
+<span class="fc" id="L34">        var descriptor = captures.descriptor();</span>
+<span class="fc" id="L35">        var result = pairings.exchange(body, request.getRemoteAddr());</span>
+<span class="fc" id="L36">        return ResponseEntity.status(201).body(Map.of(&quot;pairingId&quot;, result.pairingId(), &quot;bearerToken&quot;,</span>
+<span class="fc" id="L37">                result.bearerToken(), &quot;scopes&quot;, result.scopes(), &quot;descriptor&quot;, descriptor));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

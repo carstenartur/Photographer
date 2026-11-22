@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BirdFrameAnalyzer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.observer.service</a> &gt; <span class="el_source">BirdFrameAnalyzer.java</span></div><h1>BirdFrameAnalyzer.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.observer.service;
+
+import com.photographer.focusstack.ai.VisionContext;
+import com.photographer.focusstack.ai.VisionProvider;
+import com.photographer.focusstack.ai.VisionResult;
+import com.photographer.focusstack.observer.bird.BirdTriggerSettings;
+import com.photographer.focusstack.observer.events.BoundingBox;
+
+import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Pixel-based ROI preparation; the detector never sees pixels outside the selected rectangle. */
+final class BirdFrameAnalyzer {
+    static final int MAX_FRAME_BYTES = 16 * 1024 * 1024;
+    private final VisionProvider provider;
+
+<span class="fc" id="L24">    BirdFrameAnalyzer(VisionProvider provider) {</span>
+<span class="fc" id="L25">        this.provider = provider;</span>
+<span class="fc" id="L26">    }</span>
+
+<span class="fc" id="L28">    record Analysis(byte[] previewJpeg, int width, int height, List&lt;BoundingBox&gt; boxes, VisionResult result) {}</span>
+
+    Analysis analyze(byte[] encoded, BirdTriggerSettings settings) throws IOException {
+<span class="fc" id="L31">        BufferedImage full = decode(encoded);</span>
+<span class="fc" id="L32">        var roi = settings.roi();</span>
+<span class="fc" id="L33">        int left = Math.min(full.getWidth() - 1, (int) Math.floor(roi.x() * full.getWidth()));</span>
+<span class="fc" id="L34">        int top = Math.min(full.getHeight() - 1, (int) Math.floor(roi.y() * full.getHeight()));</span>
+<span class="fc" id="L35">        int right = Math.min(full.getWidth(), (int) Math.ceil((roi.x() + roi.width()) * full.getWidth()));</span>
+<span class="fc" id="L36">        int bottom = Math.min(full.getHeight(), (int) Math.ceil((roi.y() + roi.height()) * full.getHeight()));</span>
+<span class="fc" id="L37">        int width = Math.max(1, right - left);</span>
+<span class="fc" id="L38">        int height = Math.max(1, bottom - top);</span>
+<span class="fc" id="L39">        byte[] crop = encode(full.getSubimage(left, top, width, height), &quot;png&quot;);</span>
+<span class="fc" id="L40">        VisionResult result = provider.detectObjects(crop, VisionContext.wildlife());</span>
+<span class="pc bpc" id="L41" title="1 of 4 branches missed.">        if (result == null || !result.successful()) {</span>
+<span class="fc" id="L42">            throw new DetectionFailure(&quot;Local bird detection failed; no capture was requested&quot;);</span>
+        }
+<span class="fc" id="L44">        List&lt;BoundingBox&gt; boxes = new ArrayList&lt;&gt;();</span>
+<span class="pc bpc" id="L45" title="1 of 4 branches missed.">        if (result.boundingBoxes() != null) for (BoundingBox box : result.boundingBoxes()) {</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">            if (!qualifies(box, settings)) continue;</span>
+<span class="fc" id="L47">            boxes.add(new BoundingBox(</span>
+<span class="fc" id="L48">                    (left + box.x() * width) / full.getWidth(),</span>
+<span class="fc" id="L49">                    (top + box.y() * height) / full.getHeight(),</span>
+<span class="fc" id="L50">                    box.width() * width / full.getWidth(),</span>
+<span class="fc" id="L51">                    box.height() * height / full.getHeight(), &quot;bird&quot;, box.confidence()));</span>
+<span class="fc" id="L52">        }</span>
+<span class="fc" id="L53">        BufferedImage preview = previewImage(full);</span>
+<span class="fc" id="L54">        return new Analysis(encode(preview, &quot;jpg&quot;), preview.getWidth(), preview.getHeight(), List.copyOf(boxes), result);</span>
+    }
+
+    private static boolean qualifies(BoundingBox box, BirdTriggerSettings settings) {
+<span class="pc bpc" id="L58" title="1 of 4 branches missed.">        return box != null &amp;&amp; &quot;bird&quot;.equals(box.label())</span>
+<span class="pc bpc" id="L59" title="1 of 4 branches missed.">                &amp;&amp; Double.isFinite(box.confidence()) &amp;&amp; box.confidence() &gt;= settings.minConfidence()</span>
+<span class="pc bpc" id="L60" title="2 of 6 branches missed.">                &amp;&amp; box.confidence() &lt;= 1 &amp;&amp; Double.isFinite(box.x()) &amp;&amp; Double.isFinite(box.y())</span>
+<span class="pc bpc" id="L61" title="2 of 4 branches missed.">                &amp;&amp; Double.isFinite(box.width()) &amp;&amp; Double.isFinite(box.height())</span>
+<span class="pc bpc" id="L62" title="4 of 8 branches missed.">                &amp;&amp; box.x() &gt;= 0 &amp;&amp; box.y() &gt;= 0 &amp;&amp; box.width() &gt; 0 &amp;&amp; box.height() &gt; 0</span>
+<span class="pc bpc" id="L63" title="2 of 4 branches missed.">                &amp;&amp; box.x() + box.width() &lt;= 1.000000001 &amp;&amp; box.y() + box.height() &lt;= 1.000000001</span>
+<span class="fc bfc" id="L64" title="All 2 branches covered.">                &amp;&amp; box.width() * box.height() &gt;= settings.minArea();</span>
+    }
+
+    static BufferedImage decode(byte[] bytes) throws IOException {
+<span class="pc bpc" id="L68" title="3 of 6 branches missed.">        if (bytes == null || bytes.length == 0 || bytes.length &gt; MAX_FRAME_BYTES) {</span>
+<span class="nc" id="L69">            throw new IOException(&quot;Live-view image is empty or exceeds the image budget&quot;);</span>
+        }
+<span class="fc" id="L71">        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {</span>
+<span class="fc" id="L72">            var readers = ImageIO.getImageReaders(input);</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">            if (!readers.hasNext()) throw new IOException(&quot;Live view is not a supported JPEG/PNG image&quot;);</span>
+<span class="fc" id="L74">            var reader = readers.next();</span>
+            try {
+<span class="fc" id="L76">                String format = reader.getFormatName();</span>
+<span class="pc bpc" id="L77" title="1 of 4 branches missed.">                if (!&quot;JPEG&quot;.equalsIgnoreCase(format) &amp;&amp; !&quot;PNG&quot;.equalsIgnoreCase(format)) {</span>
+<span class="nc" id="L78">                    throw new IOException(&quot;Live view is not a supported JPEG/PNG image&quot;);</span>
+                }
+<span class="fc" id="L80">                reader.setInput(input, true, true);</span>
+<span class="fc" id="L81">                int width = reader.getWidth(0), height = reader.getHeight(0);</span>
+<span class="pc bpc" id="L82" title="5 of 10 branches missed.">                if (width &lt; 1 || height &lt; 1 || width &gt; 8192 || height &gt; 8192</span>
+                        || (long) width * height &gt; 16_777_216L) {
+<span class="nc" id="L84">                    throw new IOException(&quot;Live-view dimensions exceed the image budget&quot;);</span>
+                }
+<span class="fc" id="L86">                var warning = new java.util.concurrent.atomic.AtomicBoolean();</span>
+<span class="fc" id="L87">                reader.addIIOReadWarningListener((source, message) -&gt; warning.set(true));</span>
+<span class="fc" id="L88">                BufferedImage image = reader.read(0);</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">                if (warning.get()) throw new IOException(&quot;Live-view image was only partially decoded&quot;);</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">                if (image == null) throw new IOException(&quot;Live-view image could not be decoded&quot;);</span>
+<span class="fc" id="L91">                return image;</span>
+            } finally {
+<span class="fc" id="L93">                reader.dispose();</span>
+            }
+        }
+    }
+
+    static byte[] jpegPreview(byte[] source) throws IOException {
+<span class="fc" id="L99">        return encode(previewImage(decode(source)), &quot;jpg&quot;);</span>
+    }
+
+    private static BufferedImage previewImage(BufferedImage source) {
+<span class="fc" id="L103">        double scale = Math.min(1, 1280.0 / Math.max(source.getWidth(), source.getHeight()));</span>
+<span class="fc" id="L104">        var image = new BufferedImage(Math.max(1, (int) Math.round(source.getWidth() * scale)),</span>
+<span class="fc" id="L105">                Math.max(1, (int) Math.round(source.getHeight() * scale)), BufferedImage.TYPE_INT_RGB);</span>
+<span class="fc" id="L106">        var graphics = image.createGraphics();</span>
+        try {
+<span class="fc" id="L108">            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);</span>
+<span class="fc" id="L109">            graphics.drawImage(source, 0, 0, image.getWidth(), image.getHeight(), null);</span>
+        } finally {
+<span class="fc" id="L111">            graphics.dispose();</span>
+        }
+<span class="fc" id="L113">        return image;</span>
+    }
+
+    private static byte[] encode(BufferedImage image, String format) throws IOException {
+<span class="fc" id="L117">        var output = new ByteArrayOutputStream();</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">        if (!ImageIO.write(image, format, output)) throw new IOException(&quot;Image encoder is unavailable&quot;);</span>
+<span class="fc" id="L119">        return output.toByteArray();</span>
+    }
+
+    static final class DetectionFailure extends IllegalStateException {
+<span class="fc" id="L123">        DetectionFailure(String message) { super(message); }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>
