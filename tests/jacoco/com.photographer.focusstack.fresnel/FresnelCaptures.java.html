@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FresnelCaptures.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">FresnelCaptures.java</span></div><h1>FresnelCaptures.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.service.FrameDataStore;
+import com.photographer.focusstack.camera.session.CameraLeaseIdentityProvider;
+import com.photographer.focusstack.camera.session.CameraLeaseRequest;
+import com.photographer.focusstack.camera.session.CameraSessionConflictException;
+import com.photographer.focusstack.camera.session.CameraSessionLease;
+import com.photographer.focusstack.camera.session.CameraSessionLeaseManager;
+import com.photographer.focusstack.camera.session.CameraWorkflowType;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.model.CameraProfile;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
+import static com.photographer.focusstack.fresnel.CaptureSession.State;
+import static com.photographer.focusstack.fresnel.CaptureSession.StepState;
+
+/** Bounded Photographer-owned still captures. The initial adapter exposes PNG mock profiles. */
+@Service
+@ConditionalOnProperty(name = &quot;focusstack.fresnel.enabled&quot;, havingValue = &quot;true&quot;)
+public final class FresnelCaptures implements AutoCloseable {
+<span class="fc" id="L51">    private static final Logger log = LoggerFactory.getLogger(FresnelCaptures.class);</span>
+<span class="fc" id="L52">    static final List&lt;String&gt; CAPABILITIES = List.of(&quot;STILL_CAPTURE&quot;, &quot;EXTERNAL_STEP_TRIGGER&quot;,</span>
+            &quot;DURABLE_MEDIA&quot;, &quot;RANGE_DOWNLOAD&quot;, &quot;SHA256_INTEGRITY&quot;);
+<span class="fc" id="L54">    record OwnedCamera(CameraSessionLease lease, CameraBackend backend) {}</span>
+<span class="fc" id="L55">    record TriggerResult(int status, Object body) {}</span>
+<span class="fc" id="L56">    record Media(CaptureSession.Asset metadata, Path path) {}</span>
+
+    private final CameraProfileService profiles;
+    private final CameraBackendFactory backends;
+    private final CameraLeaseIdentityProvider identities;
+    private final CameraSessionLeaseManager leases;
+    private final FresnelPairings pairings;
+    private final FrameDataStore media;
+    private final CaptureJournal journal;
+    private final MeterRegistry metrics;
+<span class="fc" id="L66">    private final Map&lt;String,CaptureSession&gt; sessions = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L67">    private final Map&lt;String,OwnedCamera&gt; active = new HashMap&lt;&gt;();</span>
+<span class="fc" id="L68">    private final ScheduledExecutorService workers = Executors.newScheduledThreadPool(2,</span>
+<span class="fc" id="L69">            Thread.ofPlatform().daemon().name(&quot;fresnel-capture-&quot;, 0).factory());</span>
+    private static final int MAX_RETAINED_SESSIONS = 512;
+    private final Duration retention;
+<span class="fc" id="L72">    private Instant nextPurge = Instant.EPOCH;</span>
+    private boolean unavailable;
+
+    @Autowired
+    public FresnelCaptures(CameraProfileService profiles, CameraBackendFactory backends,
+                          CameraLeaseIdentityProvider identities, CameraSessionLeaseManager leases,
+                          FresnelPairings pairings, FrameDataStore media, MeterRegistry metrics,
+                          @Value(&quot;${focusstack.fresnel.directory:${focusstack.storage.images-dir:./data/images}/fresnel}&quot;) Path directory,
+                          @Value(&quot;${focusstack.fresnel.retention:PT0S}&quot;) Duration retention)
+<span class="fc" id="L81">            throws IOException {</span>
+<span class="pc bpc" id="L82" title="2 of 6 branches missed.">        if (retention.isNegative() || (!retention.isZero() &amp;&amp; retention.compareTo(Duration.ofDays(1)) &lt; 0))</span>
+<span class="nc" id="L83">            throw new IllegalArgumentException(&quot;Fresnel retention must be disabled or at least one day&quot;);</span>
+<span class="fc" id="L84">        this.retention = retention;</span>
+<span class="fc" id="L85">        this.profiles = profiles;</span>
+<span class="fc" id="L86">        this.backends = backends;</span>
+<span class="fc" id="L87">        this.identities = identities;</span>
+<span class="fc" id="L88">        this.leases = leases;</span>
+<span class="fc" id="L89">        this.pairings = pairings;</span>
+<span class="fc" id="L90">        this.media = media;</span>
+<span class="fc" id="L91">        this.metrics = metrics;</span>
+<span class="fc" id="L92">        this.journal = new CaptureJournal(directory.resolve(&quot;sessions&quot;));</span>
+        try {
+<span class="fc bfc" id="L94" title="All 2 branches covered.">            for (CaptureSession stored : journal.load()) {</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">                if (stored.purging) {</span>
+<span class="fc" id="L96">                    removeExpired(stored);</span>
+                } else {
+<span class="fc" id="L98">                    recover(stored);</span>
+<span class="fc" id="L99">                    sessions.put(stored.id, stored);</span>
+                }
+<span class="fc" id="L101">            }</span>
+<span class="nc" id="L102">        } catch (RuntimeException | IOException e) {</span>
+<span class="nc" id="L103">            journal.close();</span>
+<span class="nc" id="L104">            throw e;</span>
+<span class="fc" id="L105">        }</span>
+<span class="fc" id="L106">        workers.scheduleWithFixedDelay(() -&gt; expire(Instant.now()), 1, 1, TimeUnit.SECONDS);</span>
+<span class="fc" id="L107">    }</span>
+
+    public Map&lt;String,Object&gt; descriptor() {
+<span class="fc" id="L110">        String version = getClass().getPackage().getImplementationVersion();</span>
+<span class="fc" id="L111">        return Map.of(&quot;protocolVersion&quot;, 1, &quot;minimumSupportedProtocolVersion&quot;, 1, &quot;instanceId&quot;, journal.instanceId,</span>
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">                &quot;displayName&quot;, &quot;Photographer&quot;, &quot;applicationVersion&quot;, version == null ? &quot;development&quot; : version,</span>
+<span class="fc" id="L113">                &quot;capabilities&quot;, CAPABILITIES, &quot;supportedFormats&quot;, List.of(&quot;PNG&quot;), &quot;eventTransports&quot;, List.of(&quot;POLLING&quot;),</span>
+<span class="fc" id="L114">                &quot;limits&quot;, Map.of(&quot;maximumSteps&quot;, FresnelPlan.MAX_STEPS, &quot;maximumAssetBytes&quot;, FresnelPlan.MAX_ASSET_BYTES,</span>
+<span class="fc" id="L115">                        &quot;maximumSessionDurationMs&quot;, FresnelPlan.MAX_DURATION_MS, &quot;maximumTriggerWaitMs&quot;, FresnelPlan.MAX_WAIT_MS,</span>
+<span class="fc" id="L116">                        &quot;idempotencyRetentionSeconds&quot;, 86400), &quot;serverTime&quot;, Instant.now().toString());</span>
+    }
+
+    synchronized List&lt;Map&lt;String,Object&gt;&gt; cameras() {
+<span class="fc" id="L120">        ready();</span>
+<span class="fc" id="L121">        return profiles.getAllProfiles().stream().filter(FresnelCaptures::supported).map(profile -&gt; {</span>
+<span class="fc" id="L122">            boolean busy = identities.resolve(profile).map(leases::isLeased).orElse(false);</span>
+<span class="fc" id="L123">            return Map.&lt;String,Object&gt;of(&quot;cameraProfileId&quot;, alias(profile), &quot;displayName&quot;, &quot;Mock camera&quot;,</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">                    &quot;state&quot;, busy ? &quot;BUSY&quot; : &quot;CONNECTED&quot;, &quot;capabilities&quot;, CAPABILITIES, &quot;supportedFormats&quot;, List.of(&quot;PNG&quot;));</span>
+<span class="fc" id="L125">        }).toList();</span>
+    }
+
+<span class="fc" id="L128">    private static boolean supported(CameraProfile profile) { return &quot;mock&quot;.equalsIgnoreCase(profile.backendType()); }</span>
+
+    static String alias(CameraProfile profile) {
+<span class="fc" id="L131">        return &quot;camera-&quot; + FresnelPlan.hash(profile.id().getBytes(StandardCharsets.UTF_8)).substring(0, 32);</span>
+    }
+
+    public synchronized List&lt;Map&lt;String,Object&gt;&gt; activeSessions(String pairingId) {
+<span class="fc" id="L135">        ready();</span>
+<span class="pc bnc" id="L136" title="All 4 branches missed.">        return sessions.values().stream().filter(s -&gt; s.pairingId.equals(pairingId) &amp;&amp; !s.state.terminal())</span>
+<span class="fc" id="L137">                .map(CaptureSession::active).toList();</span>
+    }
+
+    synchronized Map&lt;String,Object&gt; create(String pairingId, String key, byte[] body) {
+<span class="fc" id="L141">        ready();</span>
+<span class="fc" id="L142">        FresnelPlan.requireId(key);</span>
+<span class="fc" id="L143">        String hash = FresnelPlan.hash(body);</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">        for (var stored : sessions.values()) {</span>
+<span class="pc bpc" id="L145" title="3 of 6 branches missed.">            if (!stored.purging &amp;&amp; stored.pairingId.equals(pairingId) &amp;&amp; stored.createKey.equals(key)) {</span>
+<span class="pc bpc" id="L146" title="1 of 2 branches missed.">                if (!stored.bodyHash.equals(hash)) throw new FresnelProblem(409, &quot;IDEMPOTENCY_CONFLICT&quot;);</span>
+<span class="fc" id="L147">                recordReplay(&quot;create&quot;, &quot;accepted&quot;);</span>
+<span class="fc" id="L148">                return stored.created();</span>
+            }
+<span class="nc" id="L150">        }</span>
+<span class="fc" id="L151">        FresnelPlan plan = FresnelPlan.parse(body, FresnelPlan.class);</span>
+<span class="fc" id="L152">        plan.validate();</span>
+<span class="fc" id="L153">        var profile = profiles.getAllProfiles().stream().filter(FresnelCaptures::supported)</span>
+<span class="fc" id="L154">                .filter(p -&gt; alias(p).equals(plan.cameraProfileId())).findFirst()</span>
+<span class="pc" id="L155">                .orElseThrow(() -&gt; new FresnelProblem(404, &quot;CAMERA_NOT_FOUND&quot;));</span>
+<span class="fc" id="L156">        var settings = plan.requestedSettings();</span>
+<span class="pc bpc" id="L157" title="2 of 6 branches missed.">        if (settings.lockExposure() || settings.lockFocus() || !&quot;PNG&quot;.equals(settings.preferredFormat()))</span>
+<span class="fc" id="L158">            throw new FresnelProblem(422, &quot;UNSUPPORTED_SETTINGS&quot;);</span>
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (sessions.size() &gt;= MAX_RETAINED_SESSIONS) purge(Instant.now());</span>
+<span class="pc bpc" id="L160" title="2 of 4 branches missed.">        if (sessions.size() &gt;= MAX_RETAINED_SESSIONS || active.size() &gt;= 16) throw new FresnelProblem(429, &quot;CAPTURE_LIMIT&quot;);</span>
+<span class="fc" id="L161">        var session = CaptureSession.create(pairingId, key, hash, profile.id(), plan);</span>
+<span class="pc" id="L162">        var keyForCamera = identities.resolve(profile).orElseThrow(() -&gt; new FresnelProblem(422, &quot;UNSUPPORTED_SETTINGS&quot;));</span>
+        CameraSessionLease lease;
+        try {
+<span class="fc" id="L165">            lease = leases.acquire(new CameraLeaseRequest(keyForCamera, CameraWorkflowType.FRESNEL_CAPTURE, session.id,</span>
+<span class="fc" id="L166">                    session.id, Duration.ofMillis(FresnelPlan.MAX_DURATION_MS)));</span>
+<span class="fc" id="L167">        } catch (CameraSessionConflictException conflict) {</span>
+<span class="fc" id="L168">            throw new FresnelProblem(409, &quot;LEASE_CONFLICT&quot;);</span>
+<span class="fc" id="L169">        }</span>
+        try {
+<span class="fc" id="L171">            var camera = new OwnedCamera(lease, backends.getBackend(profile));</span>
+<span class="fc" id="L172">            save(session);</span>
+<span class="fc" id="L173">            sessions.put(session.id, session);</span>
+<span class="fc" id="L174">            active.put(session.id, camera);</span>
+<span class="fc" id="L175">            recordSessionState(session);</span>
+<span class="fc" id="L176">            return session.created();</span>
+<span class="nc" id="L177">        } catch (RuntimeException failed) {</span>
+<span class="nc" id="L178">            lease.close();</span>
+<span class="nc" id="L179">            throw failed;</span>
+        }
+    }
+
+    private CaptureSession owned(String pairing, String sessionId) {
+<span class="fc" id="L184">        ready();</span>
+<span class="fc" id="L185">        var session = sessions.get(sessionId);</span>
+<span class="pc bpc" id="L186" title="2 of 6 branches missed.">        if (session == null || session.purging || !session.pairingId.equals(pairing)) throw new FresnelProblem(404, &quot;SESSION_NOT_FOUND&quot;);</span>
+<span class="fc" id="L187">        return session;</span>
+    }
+
+<span class="fc" id="L190">    synchronized Map&lt;String,Object&gt; status(String pairing, String sessionId) { return owned(pairing, sessionId).status(); }</span>
+
+    synchronized Map&lt;String,Object&gt; events(String pairing, String id, long cursor, int limit) {
+<span class="nc" id="L193">        var session = owned(pairing, id);</span>
+<span class="nc bnc" id="L194" title="All 6 branches missed.">        if (cursor &lt; 0 || limit &lt; 1 || limit &gt; 1000) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        var page = session.events.stream().filter(e -&gt; e.eventId() &gt; cursor).limit(limit).toList();</span>
+<span class="nc bnc" id="L196" title="All 2 branches missed.">        long end = page.isEmpty() ? cursor : page.getLast().eventId();</span>
+<span class="nc bnc" id="L197" title="All 2 branches missed.">        return Map.of(&quot;events&quot;, page, &quot;lastEventId&quot;, end, &quot;hasMore&quot;, end &lt; session.events.size());</span>
+    }
+
+    synchronized TriggerResult trigger(String pairing, String sessionId, String stepId, String key, byte[] body) {
+<span class="fc" id="L201">        var session = owned(pairing, sessionId);</span>
+<span class="fc" id="L202">        FresnelPlan.requireId(key);</span>
+<span class="fc" id="L203">        String hash = FresnelPlan.hash(body);</span>
+<span class="fc bfc" id="L204" title="All 2 branches covered.">        for (var old : session.steps) {</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">            if (key.equals(old.key)) {</span>
+<span class="pc bpc" id="L206" title="1 of 4 branches missed.">                if (!old.stepId.equals(stepId) || !old.bodyHash.equals(hash)) throw new FresnelProblem(409, &quot;IDEMPOTENCY_CONFLICT&quot;);</span>
+<span class="pc bpc" id="L207" title="1 of 6 branches missed.">                if (old.result != null &amp;&amp; old.verified &amp;&amp; verifiedFrame(session, old) != null) {</span>
+<span class="fc" id="L208">                    recordReplay(&quot;trigger&quot;, &quot;completed&quot;);</span>
+<span class="fc" id="L209">                    return new TriggerResult(200, old.result);</span>
+                }
+<span class="pc bpc" id="L211" title="1 of 4 branches missed.">                if (old.state == StepState.CAPTURING &amp;&amp; session.state == State.CAPTURING) {</span>
+<span class="fc" id="L212">                    recordReplay(&quot;trigger&quot;, &quot;pending&quot;);</span>
+<span class="fc" id="L213">                    return new TriggerResult(202, session.status());</span>
+                }
+            }
+<span class="fc" id="L216">        }</span>
+<span class="fc" id="L217">        var step = session.step(stepId);</span>
+<span class="pc bpc" id="L218" title="1 of 4 branches missed.">        if (session.state == State.RECOVERY_REQUIRED || step.state == StepState.RECOVERY_REQUIRED)</span>
+<span class="fc" id="L219">            throw new FresnelProblem(409, &quot;RECOVERY_REQUIRED&quot;);</span>
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">        if (step.key != null) throw new FresnelProblem(409, &quot;STEP_ALREADY_TRIGGERED&quot;);</span>
+<span class="pc bpc" id="L221" title="2 of 4 branches missed.">        if (session.state == State.WAITING_FOR_EXTERNAL_TRIGGER &amp;&amp; timedOut(session, Instant.now()))</span>
+<span class="nc" id="L222">            stop(session, State.PAUSED);</span>
+<span class="pc bpc" id="L223" title="2 of 4 branches missed.">        if (session.state != State.WAITING_FOR_EXTERNAL_TRIGGER || step.sequenceIndex != session.completed())</span>
+<span class="nc" id="L224">            throw new FresnelProblem(409, &quot;STEP_NOT_READY&quot;);</span>
+<span class="fc" id="L225">        var planned = session.plan.steps().get(step.sequenceIndex);</span>
+<span class="fc" id="L226">        FresnelPlan.validateTrigger(FresnelPlan.parse(body, FresnelPlan.Trigger.class), planned);</span>
+<span class="fc" id="L227">        step.key = key;</span>
+<span class="fc" id="L228">        step.bodyHash = hash;</span>
+<span class="fc" id="L229">        step.state = StepState.CAPTURING;</span>
+<span class="fc" id="L230">        session.event(State.CAPTURING, &quot;STEP_RESERVED&quot;, step);</span>
+<span class="fc" id="L231">        save(session);</span>
+<span class="fc" id="L232">        recordSessionState(session);</span>
+<span class="fc" id="L233">        recordStepState(step);</span>
+<span class="fc" id="L234">        workers.schedule(() -&gt; dispatch(session, step), planned.settleDelayMs(), TimeUnit.MILLISECONDS);</span>
+<span class="fc" id="L235">        return new TriggerResult(202, session.status());</span>
+    }
+
+    private void dispatch(CaptureSession session, CaptureSession.Step step) {
+        // Revocation and entry into capture share the same pairing lock. No token goes to disk.
+        try {
+<span class="fc" id="L241">            pairings.whilePaired(session.pairingId, () -&gt; capture(session, step));</span>
+<span class="nc" id="L242">        } catch (RuntimeException failed) {</span>
+<span class="nc" id="L243">            synchronized (this) {</span>
+<span class="nc bnc" id="L244" title="All 4 branches missed.">                if (!unavailable &amp;&amp; session.state == State.CAPTURING) {</span>
+<span class="nc" id="L245">                    step.state = StepState.RECOVERY_REQUIRED;</span>
+<span class="nc" id="L246">                    session.event(State.RECOVERY_REQUIRED, &quot;RECOVERY_REQUIRED&quot;, step);</span>
+                    try {
+<span class="nc" id="L248">                        save(session);</span>
+<span class="nc" id="L249">                        recordSessionState(session);</span>
+<span class="nc" id="L250">                        recordStepState(step);</span>
+<span class="nc" id="L251">                    } finally { release(session); }</span>
+                }
+<span class="nc" id="L253">            }</span>
+<span class="fc" id="L254">        }</span>
+<span class="fc" id="L255">    }</span>
+
+    private synchronized void capture(CaptureSession session, CaptureSession.Step step) {
+<span class="pc bpc" id="L258" title="4 of 8 branches missed.">        if (unavailable || session.state != State.CAPTURING || step.state != StepState.CAPTURING || step.dispatched) return;</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">        if (timedOut(session, Instant.now())) { stop(session, State.PAUSED); return; }</span>
+<span class="fc" id="L260">        var camera = active.get(session.id);</span>
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">        if (camera == null) throw new IllegalStateException(&quot;Capture lease is unavailable&quot;);</span>
+<span class="fc" id="L262">        step.assetId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L263">        step.dispatched = true;</span>
+<span class="fc" id="L264">        save(session); // A crash from here on fences the step, even if the camera received nothing.</span>
+<span class="fc" id="L265">        var captured = camera.backend.capture();</span>
+<span class="fc" id="L266">        byte[] bytes = captured.imageData();</span>
+<span class="fc" id="L267">        byte[] pngSignature = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10};</span>
+<span class="pc bpc" id="L268" title="3 of 6 branches missed.">        if (bytes == null || bytes.length &lt; pngSignature.length || bytes.length &gt; FresnelPlan.MAX_ASSET_BYTES</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">                || !Arrays.equals(pngSignature, 0, pngSignature.length, bytes, 0, pngSignature.length))</span>
+<span class="nc" id="L270">            throw new IllegalStateException(&quot;Camera did not return the promised PNG representation&quot;);</span>
+<span class="fc" id="L271">        String assetId = step.assetId;</span>
+<span class="fc" id="L272">        String name = step.stepId.replace(':', '_') + &quot;.png&quot;;</span>
+<span class="fc" id="L273">        var role = session.plan.steps().get(step.sequenceIndex).role().name();</span>
+<span class="fc" id="L274">        var asset = new CaptureSession.Asset(session.id, step.stepId, assetId, role, name, &quot;image/png&quot;, bytes.length,</span>
+<span class="fc" id="L275">                FresnelPlan.hash(bytes), captured.capturedAt().toString());</span>
+        try {
+<span class="fc" id="L277">            Path source = Files.createTempFile(&quot;fresnel-capture-&quot;, &quot;.png&quot;);</span>
+            try {
+<span class="fc" id="L279">                Files.write(source, bytes);</span>
+<span class="fc" id="L280">                media.putFile(assetId, name, source);</span>
+<span class="fc" id="L281">                Path stored = media.getOriginalFrame(assetId).path();</span>
+<span class="fc" id="L282">                try (var file = FileChannel.open(stored, StandardOpenOption.WRITE)) {</span>
+<span class="fc" id="L283">                    file.force(true);</span>
+                }
+                // The filename and remaining metadata are committed in the session journal.
+<span class="fc" id="L286">                CaptureJournal.syncDirectory(stored.getParent());</span>
+            } finally {
+<span class="fc" id="L288">                Files.deleteIfExists(source);</span>
+            }
+<span class="nc" id="L290">        } catch (IOException io) {</span>
+<span class="nc" id="L291">            throw new UncheckedIOException(io);</span>
+<span class="fc" id="L292">        }</span>
+<span class="fc" id="L293">        step.result = new CaptureSession.Result(session.id, step.stepId, asset, Instant.now().toString());</span>
+<span class="fc" id="L294">        step.state = StepState.COMPLETED;</span>
+<span class="fc bfc" id="L295" title="All 2 branches covered.">        boolean done = session.completed() == session.steps.size();</span>
+<span class="fc bfc" id="L296" title="All 2 branches covered.">        session.event(done ? State.COMPLETED : State.WAITING_FOR_EXTERNAL_TRIGGER, &quot;STEP_COMPLETED&quot;, step);</span>
+<span class="fc" id="L297">        save(session);</span>
+<span class="fc" id="L298">        recordSessionState(session);</span>
+<span class="fc" id="L299">        recordStepState(step);</span>
+<span class="fc" id="L300">        metrics.counter(&quot;photographer.fresnel.capture.source.bytes&quot;).increment(asset.byteLength());</span>
+<span class="fc bfc" id="L301" title="All 2 branches covered.">        if (done) release(session);</span>
+<span class="fc" id="L302">    }</span>
+
+    synchronized void cancel(String pairing, String id, String key) {
+<span class="fc" id="L305">        cancel(pairing, id, key, null);</span>
+<span class="fc" id="L306">    }</span>
+
+    synchronized void cancel(String pairing, String id, String key, byte[] body) {
+<span class="fc" id="L309">        var session = owned(pairing, id);</span>
+<span class="fc" id="L310">        FresnelPlan.requireId(key);</span>
+<span class="pc bpc" id="L311" title="1 of 4 branches missed.">        if (body != null &amp;&amp; body.length &gt; 0)</span>
+<span class="pc bpc" id="L312" title="1 of 2 branches missed.">            throw session.cancelKeys.contains(key) ? new FresnelProblem(409, &quot;IDEMPOTENCY_CONFLICT&quot;)</span>
+<span class="pc" id="L313">                    : new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">        if (session.cancelKeys.contains(key)) {</span>
+<span class="fc" id="L315">            recordReplay(&quot;cancel&quot;, &quot;accepted&quot;);</span>
+<span class="fc" id="L316">            return;</span>
+        }
+<span class="pc bpc" id="L318" title="1 of 2 branches missed.">        if (session.cancelKeys.size() &gt;= 32) throw new FresnelProblem(429, &quot;CAPTURE_LIMIT&quot;);</span>
+<span class="fc" id="L319">        session.cancelKeys.add(key);</span>
+<span class="pc bpc" id="L320" title="1 of 2 branches missed.">        if (session.state.terminal()) save(session);</span>
+<span class="fc" id="L321">        else stop(session, State.CANCELLED);</span>
+<span class="fc" id="L322">    }</span>
+
+    public synchronized void revoke(String pairingId) {
+<span class="fc bfc" id="L325" title="All 2 branches covered.">        for (var session : sessions.values()) {</span>
+<span class="pc bpc" id="L326" title="3 of 4 branches missed.">            if (!session.state.terminal() &amp;&amp; session.pairingId.equals(pairingId)) stop(session, State.CANCELLED);</span>
+<span class="fc" id="L327">        }</span>
+<span class="fc" id="L328">    }</span>
+
+    private static boolean timedOut(CaptureSession session, Instant now) {
+<span class="pc bpc" id="L331" title="1 of 4 branches missed.">        return !now.isBefore(Instant.parse(session.createdAt).plusMillis(FresnelPlan.MAX_DURATION_MS))</span>
+                || (session.state == State.WAITING_FOR_EXTERNAL_TRIGGER
+<span class="fc bfc" id="L333" title="All 2 branches covered.">                &amp;&amp; !now.isBefore(Instant.parse(session.updatedAt).plusMillis(FresnelPlan.MAX_WAIT_MS)));</span>
+    }
+
+    synchronized void expire(Instant now) {
+<span class="pc bpc" id="L337" title="1 of 2 branches missed.">        if (unavailable) return;</span>
+<span class="fc bfc" id="L338" title="All 2 branches covered.">        if (!now.isBefore(nextPurge)) {</span>
+<span class="fc" id="L339">            purge(now);</span>
+<span class="fc" id="L340">            nextPurge = now.plus(Duration.ofHours(1));</span>
+        }
+<span class="fc bfc" id="L342" title="All 2 branches covered.">        for (String id : List.copyOf(active.keySet())) {</span>
+<span class="fc" id="L343">            var session = sessions.get(id);</span>
+<span class="fc bfc" id="L344" title="All 2 branches covered.">            if (timedOut(session, now)) stop(session, State.PAUSED);</span>
+<span class="fc" id="L345">        }</span>
+<span class="fc" id="L346">    }</span>
+
+    private void purge(Instant now) {
+<span class="fc bfc" id="L349" title="All 2 branches covered.">        if (retention.isZero()) return;</span>
+<span class="pc bpc" id="L350" title="1 of 2 branches missed.">        var expired = sessions.values().stream().filter(session -&gt; session.state.terminal()</span>
+<span class="fc bfc" id="L351" title="All 2 branches covered.">                &amp;&amp; Instant.parse(session.updatedAt).plus(retention).isBefore(now)).toList();</span>
+<span class="fc bfc" id="L352" title="All 2 branches covered.">        for (var session : expired) {</span>
+<span class="pc bpc" id="L353" title="1 of 2 branches missed.">            if (!session.purging) {</span>
+<span class="fc" id="L354">                session.purging = true;</span>
+<span class="fc" id="L355">                save(session);</span>
+            }
+            try {
+<span class="fc" id="L358">                removeExpired(session);</span>
+<span class="fc" id="L359">                sessions.remove(session.id);</span>
+<span class="nc" id="L360">            } catch (IOException failure) {</span>
+<span class="nc" id="L361">                log.warn(&quot;Could not finish expired Fresnel session cleanup, will retry&quot;, failure);</span>
+<span class="fc" id="L362">            }</span>
+<span class="fc" id="L363">        }</span>
+<span class="fc" id="L364">    }</span>
+
+    private void removeExpired(CaptureSession session) throws IOException {
+<span class="fc bfc" id="L367" title="All 2 branches covered.">        for (var step : session.steps) {</span>
+<span class="fc bfc" id="L368" title="All 2 branches covered.">            String id = step.result != null ? step.result.asset().assetId() : step.assetId;</span>
+<span class="fc bfc" id="L369" title="All 2 branches covered.">            if (id != null) {</span>
+<span class="fc" id="L370">                media.remove(id);</span>
+<span class="pc bpc" id="L371" title="1 of 2 branches missed.">                if (media.contains(id)) throw new IOException(&quot;Expired frame remains in storage&quot;);</span>
+            }
+<span class="fc" id="L373">        }</span>
+<span class="fc" id="L374">        journal.delete(session.id);</span>
+<span class="fc" id="L375">    }</span>
+
+    private void stop(CaptureSession session, State target) {
+<span class="fc bfc" id="L378" title="All 2 branches covered.">        for (var step : session.steps) {</span>
+<span class="pc bpc" id="L379" title="2 of 8 branches missed.">            if (step.state == StepState.PENDING || (!step.dispatched</span>
+                    &amp;&amp; (step.state == StepState.CAPTURING || step.state == StepState.RECOVERY_REQUIRED))) {
+<span class="fc bfc" id="L381" title="All 2 branches covered.">                if (target == State.CANCELLED) step.state = StepState.CANCELLED;</span>
+<span class="pc bpc" id="L382" title="1 of 2 branches missed.">                else if (step.key != null) step.state = StepState.RECOVERY_REQUIRED;</span>
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">            } else if (step.state == StepState.CAPTURING) {</span>
+<span class="nc" id="L384">                step.state = StepState.RECOVERY_REQUIRED;</span>
+            }
+<span class="fc" id="L386">        }</span>
+<span class="fc" id="L387">        session.event(target, target.name(), null);</span>
+        try {
+<span class="fc" id="L389">            save(session);</span>
+<span class="fc" id="L390">            recordSessionState(session);</span>
+<span class="fc" id="L391">        } finally { release(session); }</span>
+<span class="fc" id="L392">    }</span>
+
+    synchronized Media asset(String pairing, String id, String assetId) {
+<span class="fc" id="L395">        ready();</span>
+<span class="fc" id="L396">        var session = sessions.get(id);</span>
+<span class="pc bpc" id="L397" title="2 of 6 branches missed.">        if (session != null &amp;&amp; !session.purging &amp;&amp; session.pairingId.equals(pairing)) {</span>
+<span class="fc bfc" id="L398" title="All 2 branches covered.">            for (var step : session.steps) {</span>
+<span class="fc bfc" id="L399" title="All 6 branches covered.">                if (step.result != null &amp;&amp; step.verified &amp;&amp; step.result.asset().assetId().equals(assetId)) {</span>
+<span class="fc" id="L400">                    var original = verifiedFrame(session, step);</span>
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">                    if (original != null) return new Media(step.result.asset(), original.path());</span>
+                }
+<span class="fc" id="L403">            }</span>
+        }
+<span class="fc" id="L405">        throw new FresnelProblem(404, &quot;ASSET_NOT_FOUND&quot;);</span>
+    }
+
+    private FrameDataStore.OriginalFrame original(CaptureSession.Asset asset) {
+<span class="fc" id="L409">        var frame = media.getOriginalFrame(asset.assetId());</span>
+        try {
+<span class="pc bpc" id="L411" title="2 of 4 branches missed.">            if (frame != null &amp;&amp; asset.byteLength() &lt;= FresnelPlan.MAX_ASSET_BYTES</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">                    &amp;&amp; Files.size(frame.path()) == asset.byteLength()</span>
+<span class="pc bpc" id="L413" title="1 of 2 branches missed.">                    &amp;&amp; FresnelPlan.hash(frame.path()).equals(asset.sha256()))</span>
+<span class="fc" id="L414">                return frame;</span>
+<span class="nc" id="L415">        } catch (IOException failure) {</span>
+<span class="nc" id="L416">            throw new UncheckedIOException(failure);</span>
+<span class="fc" id="L417">        }</span>
+<span class="fc" id="L418">        return null;</span>
+    }
+
+    private FrameDataStore.OriginalFrame verifiedFrame(CaptureSession session, CaptureSession.Step step) {
+<span class="fc" id="L422">        var frame = original(step.result.asset());</span>
+<span class="pc bpc" id="L423" title="1 of 2 branches missed.">        if (frame == null) {</span>
+<span class="nc" id="L424">            step.verified = false;</span>
+<span class="nc" id="L425">            step.state = StepState.RECOVERY_REQUIRED;</span>
+<span class="nc" id="L426">            session.event(State.RECOVERY_REQUIRED, &quot;RECOVERY_REQUIRED&quot;, step);</span>
+            try {
+<span class="nc" id="L428">                save(session);</span>
+<span class="nc" id="L429">                recordSessionState(session);</span>
+<span class="nc" id="L430">                recordStepState(step);</span>
+<span class="nc" id="L431">            } finally { release(session); }</span>
+        }
+<span class="fc" id="L433">        return frame;</span>
+    }
+
+    private void recover(CaptureSession session) {
+<span class="fc" id="L437">        boolean changed = false;</span>
+<span class="fc bfc" id="L438" title="All 2 branches covered.">        for (var step : session.steps) {</span>
+<span class="pc bpc" id="L439" title="1 of 4 branches missed.">            if (step.result != null &amp;&amp; step.verified) {</span>
+<span class="fc bfc" id="L440" title="All 2 branches covered.">                if (original(step.result.asset()) == null) {</span>
+<span class="fc" id="L441">                    step.verified = false;</span>
+<span class="fc" id="L442">                    step.state = StepState.RECOVERY_REQUIRED;</span>
+<span class="fc" id="L443">                    changed = true;</span>
+                }
+<span class="pc bpc" id="L445" title="1 of 4 branches missed.">            } else if (step.key != null &amp;&amp; step.state == StepState.CAPTURING) {</span>
+<span class="fc" id="L446">                step.state = StepState.RECOVERY_REQUIRED;</span>
+<span class="fc" id="L447">                changed = true;</span>
+            }
+<span class="fc" id="L449">        }</span>
+<span class="pc bpc" id="L450" title="1 of 6 branches missed.">        if ((!session.state.terminal() &amp;&amp; session.state != State.RECOVERY_REQUIRED) || changed) {</span>
+<span class="fc" id="L451">            session.event(State.RECOVERY_REQUIRED, &quot;RECOVERY_REQUIRED&quot;, null);</span>
+<span class="fc" id="L452">            save(session);</span>
+<span class="fc" id="L453">            recordSessionState(session);</span>
+        }
+<span class="fc" id="L455">    }</span>
+
+    private void recordSessionState(CaptureSession session) {
+<span class="fc" id="L458">        metrics.counter(&quot;photographer.fresnel.session.transitions&quot;, &quot;state&quot;, session.state.name()).increment();</span>
+<span class="fc" id="L459">    }</span>
+
+    private void recordStepState(CaptureSession.Step step) {
+<span class="fc" id="L462">        metrics.counter(&quot;photographer.fresnel.step.transitions&quot;, &quot;state&quot;, step.state.name()).increment();</span>
+<span class="fc" id="L463">    }</span>
+
+    private void recordReplay(String operation, String result) {
+<span class="fc" id="L466">        metrics.counter(&quot;photographer.fresnel.request.replays&quot;, &quot;operation&quot;, operation, &quot;result&quot;, result).increment();</span>
+<span class="fc" id="L467">    }</span>
+
+    private void save(CaptureSession session) {
+<span class="fc" id="L470">        try { journal.save(session); }</span>
+<span class="nc" id="L471">        catch (IOException io) {</span>
+<span class="nc" id="L472">            unavailable = true;</span>
+<span class="nc bnc" id="L473" title="All 2 branches missed.">            for (String id : List.copyOf(active.keySet())) release(sessions.get(id));</span>
+<span class="nc" id="L474">            throw new UncheckedIOException(io);</span>
+<span class="fc" id="L475">        }</span>
+<span class="fc" id="L476">    }</span>
+
+    private void release(CaptureSession session) {
+<span class="fc" id="L479">        var owned = active.remove(session.id);</span>
+<span class="fc bfc" id="L480" title="All 2 branches covered.">        if (owned != null) owned.lease.close();</span>
+<span class="fc" id="L481">    }</span>
+
+<span class="fc" id="L483">    synchronized void checkAvailable() { ready(); }</span>
+
+<span class="pc bpc" id="L485" title="1 of 2 branches missed.">    private void ready() { if (unavailable) throw new FresnelProblem(503, &quot;SERVICE_UNAVAILABLE&quot;); }</span>
+
+    @EventListener(ContextClosedEvent.class)
+<span class="fc" id="L488">    public void stopBeforeLeaseManagerShutdown() throws IOException { close(); }</span>
+
+    @Override @PreDestroy public synchronized void close() throws IOException {
+<span class="pc bpc" id="L491" title="1 of 4 branches missed.">        if (unavailable &amp;&amp; workers.isShutdown()) return;</span>
+<span class="fc" id="L492">        unavailable = true;</span>
+<span class="fc" id="L493">        workers.shutdownNow();</span>
+<span class="fc bfc" id="L494" title="All 2 branches covered.">        for (var camera : active.values()) camera.lease.close();</span>
+<span class="fc" id="L495">        active.clear();</span>
+<span class="fc" id="L496">        journal.close();</span>
+<span class="fc" id="L497">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

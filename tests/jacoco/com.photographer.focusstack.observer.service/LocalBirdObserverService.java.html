@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalBirdObserverService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.observer.service</a> &gt; <span class="el_source">LocalBirdObserverService.java</span></div><h1>LocalBirdObserverService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.observer.service;
+
+import com.photographer.focusstack.ai.VisionProvider;
+import com.photographer.focusstack.ai.local.LocalBirdVisionProvider;
+import com.photographer.focusstack.camera.backend.CameraBackendFactory;
+import com.photographer.focusstack.camera.service.CameraProfileService;
+import com.photographer.focusstack.camera.session.*;
+import com.photographer.focusstack.common.camera.CameraBackend;
+import com.photographer.focusstack.common.camera.LiveViewFrame;
+import com.photographer.focusstack.common.camera.Operation;
+import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
+import com.photographer.focusstack.common.model.CameraProfile;
+import com.photographer.focusstack.observer.bird.BirdTriggerPolicy;
+import com.photographer.focusstack.observer.bird.BirdTriggerSettings;
+import com.photographer.focusstack.observer.events.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+/** One camera-owning worker: fetch, analyse, optionally capture, then fetch again. No frame queue. */
+@Service
+public class LocalBirdObserverService {
+<span class="fc" id="L35">    private static final Logger log = LoggerFactory.getLogger(LocalBirdObserverService.class);</span>
+<span class="fc" id="L36">    private static final Duration MAX_FRAME_AGE = Duration.ofSeconds(5);</span>
+    private final CameraBackendFactory backends;
+    private final CameraProfileService profiles;
+    private final CameraSessionLeaseManager leases;
+    private final CameraLeaseIdentityProvider identities;
+    private final VisionProvider vision;
+    private final BirdFrameAnalyzer analyzer;
+    private final BirdCaptureStore store;
+    private final ObserverService events;
+    private volatile Boolean modelAvailable;
+<span class="fc" id="L46">    private final Object modelLock = new Object();</span>
+    private Run current;
+    private boolean closing;
+
+    public LocalBirdObserverService(CameraBackendFactory backends, CameraProfileService profiles,
+                                    CameraSessionLeaseManager leases, CameraLeaseIdentityProvider identities,
+                                    @Qualifier(&quot;localBirdVisionProvider&quot;) VisionProvider vision,
+<span class="fc" id="L53">                                    BirdCaptureStore store, ObserverService events) {</span>
+<span class="fc" id="L54">        this.backends = backends;</span>
+<span class="fc" id="L55">        this.profiles = profiles;</span>
+<span class="fc" id="L56">        this.leases = leases;</span>
+<span class="fc" id="L57">        this.identities = identities;</span>
+<span class="fc" id="L58">        this.vision = vision;</span>
+<span class="fc" id="L59">        this.analyzer = new BirdFrameAnalyzer(vision);</span>
+<span class="fc" id="L60">        this.store = store;</span>
+<span class="fc" id="L61">        this.events = events;</span>
+<span class="fc" id="L62">    }</span>
+
+<span class="fc" id="L64">    public record Preview(long sequence, Instant timestamp, int width, int height,</span>
+                          String imageData, List&lt;BoundingBox&gt; boundingBoxes) {}
+
+<span class="fc" id="L67">    public record Status(boolean running, boolean armed, String phase, String cameraId, String model,</span>
+                         boolean modelAvailable, String modelError, BirdTriggerSettings settings,
+                         long captureCount, long framesAnalyzed, long skippedFrames, Long frameAgeMs,
+                         Long inferenceMs, Instant lastCaptureAt, String lastEventId, String error, Preview preview) {}
+
+<span class="fc" id="L72">    private record Configuration(boolean armed, BirdTriggerSettings settings) {}</span>
+
+    public Status start(String cameraId, boolean armed, BirdTriggerSettings settings) {
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (armed) throw new IllegalArgumentException(&quot;Start in preview mode, then explicitly arm automatic capture&quot;);</span>
+<span class="pc bpc" id="L76" title="2 of 4 branches missed.">        if (cameraId == null || cameraId.isBlank()) throw new IllegalArgumentException(&quot;Select a camera&quot;);</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">        if (!checkModel()) throw new IllegalStateException(&quot;The local bird model is unavailable&quot;);</span>
+<span class="fc" id="L78">        CameraProfile profile = profiles.getProfile(cameraId);</span>
+<span class="fc" id="L79">        String backend = profile.backendType().toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (!List.of(&quot;canon-ccapi&quot;, &quot;canon-usb&quot;, &quot;mock&quot;).contains(backend)) {</span>
+<span class="fc" id="L81">            throw new IllegalArgumentException(&quot;Select a CCAPI or USB camera, or a mock camera for development. Folder inputs use Observer Replay.&quot;);</span>
+        }
+<span class="fc" id="L83">        synchronized (this) {</span>
+<span class="fc bfc" id="L84" title="All 2 branches covered.">            if (closing) throw new IllegalStateException(&quot;Camera services are shutting down&quot;);</span>
+<span class="pc bpc" id="L85" title="3 of 4 branches missed.">            if (current != null &amp;&amp; !current.finished) throw new IllegalStateException(&quot;An observer is already running or stopping&quot;);</span>
+<span class="pc bpc" id="L86" title="1 of 2 branches missed.">            Run run = new Run(profile, new Configuration(false, settings == null ? BirdTriggerSettings.defaults() : settings));</span>
+<span class="fc" id="L87">            current = run;</span>
+<span class="fc" id="L88">            run.thread = Thread.ofPlatform().daemon().name(&quot;local-bird-observer&quot;).unstarted(() -&gt; execute(run));</span>
+<span class="fc" id="L89">            run.thread.start();</span>
+<span class="fc" id="L90">        }</span>
+<span class="fc" id="L91">        return status();</span>
+    }
+
+    public Status update(String cameraId, boolean armed, BirdTriggerSettings settings) {
+<span class="pc bpc" id="L95" title="1 of 2 branches missed.">        if (settings == null) throw new IllegalArgumentException(&quot;Settings are required&quot;);</span>
+<span class="fc" id="L96">        synchronized (this) {</span>
+<span class="pc bpc" id="L97" title="4 of 8 branches missed.">            if (closing || current == null || current.finished || current.stopping) {</span>
+<span class="nc" id="L98">                throw new IllegalStateException(&quot;Start a preview before changing the running observer&quot;);</span>
+            }
+<span class="pc bpc" id="L100" title="1 of 2 branches missed.">            if (!current.profile.id().equals(cameraId)) throw new IllegalArgumentException(&quot;Stop before selecting another camera&quot;);</span>
+            // Identity, not equality, is the generation token for in-flight analysis/capture decisions.
+<span class="fc" id="L102">            current.configuration = new Configuration(armed, settings);</span>
+<span class="fc" id="L103">        }</span>
+<span class="fc" id="L104">        return status();</span>
+    }
+
+    public Status stop() {
+<span class="fc" id="L108">        requestStop();</span>
+<span class="fc" id="L109">        return status();</span>
+    }
+
+    private synchronized void requestStop() {
+<span class="fc bfc" id="L113" title="All 6 branches covered.">        if (current == null || current.finished || current.stopping) return;</span>
+<span class="fc" id="L114">        current.stopping = true;</span>
+<span class="fc" id="L115">        boolean captureAlreadyCommitted = &quot;CAPTURING&quot;.equals(current.phase);</span>
+<span class="fc" id="L116">        current.phase = &quot;STOPPING&quot;;</span>
+        // Let an already committed photo/download finish and be saved. Wake other waits immediately.
+<span class="fc bfc" id="L118" title="All 2 branches covered.">        if (!captureAlreadyCommitted) current.thread.interrupt();</span>
+<span class="fc" id="L119">    }</span>
+
+    public synchronized void requestCameraShutdown() {
+<span class="fc" id="L122">        closing = true;</span>
+<span class="fc" id="L123">        requestStop();</span>
+<span class="fc" id="L124">    }</span>
+
+    public synchronized int activeCameraExecutions() {
+<span class="fc bfc" id="L127" title="All 4 branches covered.">        return current != null &amp;&amp; !current.finished ? 1 : 0;</span>
+    }
+
+    public Status status() {
+<span class="fc" id="L131">        boolean available = checkModel();</span>
+<span class="pc bpc" id="L132" title="1 of 4 branches missed.">        String modelError = available ? null : vision instanceof LocalBirdVisionProvider local</span>
+<span class="pc" id="L133">                ? local.availabilityError() : &quot;The local bird model is unavailable&quot;;</span>
+<span class="fc" id="L134">        synchronized (this) {</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">            if (current == null) return new Status(false, false, &quot;STOPPED&quot;, null,</span>
+<span class="fc" id="L136">                    LocalBirdVisionProvider.MODEL_NAME, available, modelError, BirdTriggerSettings.defaults(),</span>
+                    0, 0, 0, null, null, null, null, null, null);
+<span class="fc" id="L138">            Run run = current;</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">            Long age = run.preview == null ? null : Math.max(0, Duration.between(run.preview.timestamp(), Instant.now()).toMillis());</span>
+<span class="fc bfc" id="L140" title="All 8 branches covered.">            return new Status(!run.finished, !run.finished &amp;&amp; !run.stopping &amp;&amp; run.configuration.armed(),</span>
+<span class="fc" id="L141">                    run.phase, run.profile.id(), LocalBirdVisionProvider.MODEL_NAME, available, modelError,</span>
+<span class="fc" id="L142">                    run.configuration.settings(), run.captures, run.analysed, run.skipped, age,</span>
+                    run.inferenceMs, run.lastCapture, run.lastEvent, run.error, run.preview);
+        }
+    }
+
+    private boolean checkModel() {
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        if (modelAvailable == null) synchronized (modelLock) {</span>
+<span class="pc bpc" id="L149" title="1 of 2 branches missed.">            if (modelAvailable == null) modelAvailable = vision.isAvailable();</span>
+<span class="fc" id="L150">        }</span>
+<span class="fc" id="L151">        return Boolean.TRUE.equals(modelAvailable);</span>
+    }
+
+    private void execute(Run run) {
+<span class="fc" id="L155">        CameraSessionLease lease = null;</span>
+<span class="fc" id="L156">        CameraBackend camera = null;</span>
+<span class="fc" id="L157">        String terminalError = null;</span>
+        try {
+<span class="fc" id="L159">            var key = identities.resolve(run.profile);</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">            lease = key.isPresent() ? leases.acquire(new CameraLeaseRequest(key.get(),</span>
+<span class="pc" id="L161">                    CameraWorkflowType.WILDLIFE_OBSERVER, run.id, run.id, Duration.ofHours(6))) : CameraSessionLease.noop();</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">            if (run.stopping) return;</span>
+<span class="fc" id="L163">            camera = backends.getBackend(run.profile);</span>
+<span class="pc bpc" id="L164" title="2 of 4 branches missed.">            if (!camera.supports(Operation.LIVE_VIEW) || !camera.supports(Operation.CAPTURE)) {</span>
+<span class="nc" id="L165">                throw new IllegalStateException(&quot;Camera does not support live view and photo capture&quot;);</span>
+            }
+<span class="fc" id="L167">            var digest = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="fc" id="L168">            byte[] previousDigest = null;</span>
+<span class="fc" id="L169">            Instant previousTimestamp = null;</span>
+<span class="fc" id="L170">            Configuration policyConfiguration = null;</span>
+<span class="fc" id="L171">            BirdTriggerPolicy policy = null;</span>
+<span class="fc" id="L172">            int consecutiveErrors = 0;</span>
+<span class="fc bfc" id="L173" title="All 2 branches covered.">            while (!run.stopping) {</span>
+<span class="fc" id="L174">                long iterationStart = System.nanoTime();</span>
+<span class="fc" id="L175">                Configuration configuration = run.configuration;</span>
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">                if (configuration != policyConfiguration) {</span>
+<span class="fc" id="L177">                    policy = new BirdTriggerPolicy(configuration.settings());</span>
+<span class="fc" id="L178">                    policyConfiguration = configuration;</span>
+                }
+<span class="fc" id="L180">                boolean capturing = false;</span>
+                try {
+<span class="fc" id="L182">                    setPhase(run, &quot;OBSERVING&quot;);</span>
+<span class="fc" id="L183">                    LiveViewFrame frame = camera.getLiveView();</span>
+<span class="pc bpc" id="L184" title="1 of 6 branches missed.">                    if (!usable(frame) || previousTimestamp != null &amp;&amp; !frame.timestamp().isAfter(previousTimestamp)) {</span>
+<span class="fc" id="L185">                        skipped(run, policy, &quot;Waiting for a fresh camera frame&quot;);</span>
+                    } else {
+<span class="fc" id="L187">                        byte[] fingerprint = digest.digest(frame.data());</span>
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">                        if (Arrays.equals(previousDigest, fingerprint)) {</span>
+<span class="nc" id="L189">                            skipped(run, policy, &quot;Duplicate camera frame; waiting for a new image&quot;);</span>
+                        } else {
+<span class="fc" id="L191">                            previousTimestamp = frame.timestamp();</span>
+<span class="fc" id="L192">                            previousDigest = fingerprint;</span>
+<span class="fc" id="L193">                            var analysis = analyzer.analyze(frame.data(), configuration.settings());</span>
+<span class="pc bpc" id="L194" title="1 of 4 branches missed.">                            if (!canProceed(run, configuration) || !usable(frame)) {</span>
+<span class="fc" id="L195">                                skipped(run, policy, &quot;Discarded a stale or superseded detection&quot;);</span>
+                            } else {
+<span class="fc" id="L197">                                synchronized (this) {</span>
+<span class="fc" id="L198">                                    run.analysed++;</span>
+<span class="fc" id="L199">                                    run.inferenceMs = analysis.result().durationMs();</span>
+<span class="fc" id="L200">                                    run.preview = new Preview(run.analysed, frame.timestamp(), analysis.width(), analysis.height(),</span>
+<span class="fc" id="L201">                                            Base64.getEncoder().encodeToString(analysis.previewJpeg()), analysis.boxes());</span>
+<span class="fc" id="L202">                                    run.error = null;</span>
+<span class="fc" id="L203">                                }</span>
+<span class="fc" id="L204">                                consecutiveErrors = 0;</span>
+<span class="pc bpc" id="L205" title="1 of 2 branches missed.">                                boolean captureDue = policy.shouldCapture(frame.timestamp(), !analysis.boxes().isEmpty());</span>
+<span class="pc bpc" id="L206" title="2 of 6 branches missed.">                                if (configuration.armed() &amp;&amp; captureDue &amp;&amp; canProceed(run, configuration)) {</span>
+<span class="fc" id="L207">                                    capturing = true;</span>
+<span class="fc" id="L208">                                    setPhase(run, &quot;CAPTURING&quot;);</span>
+<span class="fc" id="L209">                                    camera.stopLiveView();</span>
+                                    // A stop or changed ROI during stopLiveView invalidates this decision too.
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">                                    if (commitCapture(run, configuration, frame)) {</span>
+<span class="fc" id="L212">                                        policy.captureCommitted(Instant.now());</span>
+<span class="fc" id="L213">                                        var capture = ProcessingCaptureProvider.capture(camera);</span>
+<span class="fc" id="L214">                                        synchronized (this) {</span>
+<span class="fc" id="L215">                                            run.captures++;</span>
+<span class="fc" id="L216">                                            run.lastCapture = Instant.now();</span>
+<span class="fc" id="L217">                                        }</span>
+<span class="fc" id="L218">                                        String eventId = UUID.randomUUID().toString();</span>
+<span class="fc" id="L219">                                        var saved = store.save(eventId, capture, analysis.previewJpeg());</span>
+<span class="fc" id="L220">                                        persist(run, configuration, frame, analysis, eventId, saved);</span>
+<span class="fc" id="L221">                                        policy.captureCommitted(Instant.now());</span>
+                                    }
+<span class="fc" id="L223">                                    policy.gap();</span>
+                                }
+                            }
+                        }
+                    }
+<span class="fc" id="L228">                } catch (BirdFrameAnalyzer.DetectionFailure failure) {</span>
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">                    if (!run.stopping) terminalError = failure.getMessage();</span>
+<span class="fc" id="L230">                    break;</span>
+<span class="nc" id="L231">                } catch (IOException | RuntimeException failure) {</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">                    if (capturing) {</span>
+<span class="nc" id="L233">                        terminalError = &quot;Capture or saving failed; stopped to avoid duplicate shots. Check the camera card and output directory.&quot;;</span>
+<span class="nc" id="L234">                        log.warn(&quot;Local bird capture {} failed ({})&quot;, run.id, failure.getClass().getSimpleName());</span>
+<span class="nc" id="L235">                        break;</span>
+                    }
+<span class="nc bnc" id="L237" title="All 2 branches missed.">                    if (run.stopping) break;</span>
+<span class="nc" id="L238">                    skipped(run, policy, &quot;Camera frame unavailable or invalid; waiting for recovery&quot;);</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">                    if (++consecutiveErrors &gt;= 10) {</span>
+<span class="nc" id="L240">                        terminalError = &quot;Stopped after 10 consecutive camera/image errors; reconnect the camera and restart preview&quot;;</span>
+<span class="nc" id="L241">                        break;</span>
+                    }
+<span class="fc" id="L243">                }</span>
+<span class="fc bfc" id="L244" title="All 2 branches covered.">                if (!run.stopping) {</span>
+<span class="fc" id="L245">                    long elapsedMs = (System.nanoTime() - iterationStart) / 1_000_000;</span>
+<span class="fc" id="L246">                    Thread.sleep(Math.max(1, configuration.settings().intervalMs() - elapsedMs));</span>
+                }
+<span class="fc" id="L248">            }</span>
+<span class="fc" id="L249">        } catch (InterruptedException interrupted) {</span>
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">            if (!run.stopping) terminalError = &quot;Observer worker was interrupted&quot;;</span>
+<span class="nc" id="L251">        } catch (CameraSessionConflictException conflict) {</span>
+<span class="nc" id="L252">            terminalError = &quot;Camera is in use by another workflow; stop that workflow before starting preview&quot;;</span>
+<span class="nc" id="L253">        } catch (Exception failure) {</span>
+<span class="nc" id="L254">            terminalError = &quot;Could not start the camera observer; check camera connection and live-view capability&quot;;</span>
+<span class="nc" id="L255">            log.warn(&quot;Local bird observer {} stopped ({})&quot;, run.id, failure.getClass().getSimpleName());</span>
+        } finally {
+            // Cancellation must not cause a live-view cleanup request to fail just because the flag is set.
+<span class="fc" id="L258">            Thread.interrupted();</span>
+<span class="pc bpc" id="L259" title="1 of 2 branches missed.">            if (camera != null) {</span>
+<span class="fc" id="L260">                try { camera.stopLiveView(); }</span>
+<span class="nc" id="L261">                catch (RuntimeException failure) {</span>
+<span class="nc" id="L262">                    terminalError = &quot;Observer stopped, but camera live-view cleanup failed; check the camera before restarting&quot;;</span>
+<span class="fc" id="L263">                }</span>
+            }
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">            if (lease != null) lease.close();</span>
+<span class="fc" id="L266">            synchronized (this) {</span>
+<span class="fc" id="L267">                run.finished = true;</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">                run.phase = terminalError == null ? &quot;STOPPED&quot; : &quot;ERROR&quot;;</span>
+<span class="fc" id="L269">                run.error = terminalError;</span>
+<span class="fc" id="L270">            }</span>
+        }
+<span class="fc" id="L272">    }</span>
+
+    private void persist(Run run, Configuration configuration, LiveViewFrame frame,
+                         BirdFrameAnalyzer.Analysis analysis, String eventId, BirdCaptureStore.StoredCapture saved) {
+<span class="fc" id="L276">        double confidence = analysis.boxes().stream().mapToDouble(BoundingBox::confidence).max().orElse(0);</span>
+<span class="fc" id="L277">        var result = new VisionResultData(analysis.result().provider(), analysis.result().model(), &quot;object_detection&quot;,</span>
+<span class="fc" id="L278">                &quot;bird&quot;, List.of(), confidence, &quot;Bird detected in observation region; species not classified&quot;,</span>
+<span class="fc" id="L279">                analysis.boxes(), null, analysis.result().durationMs());</span>
+<span class="fc" id="L280">        events.onEventCompleted(new ObservationEvent.Builder().id(eventId).timestamp(frame.timestamp())</span>
+<span class="fc" id="L281">                .completedAt(Instant.now()).state(EventState.COMPLETED).mode(&quot;wildlife&quot;)</span>
+<span class="fc" id="L282">                .cameraId(run.profile.id()).triggerReason(&quot;local-bird&quot;).roi(configuration.settings().roi())</span>
+<span class="fc" id="L283">                .images(List.of(saved.original())).bestImageId(saved.original().id()).aiResult(result)</span>
+<span class="fc" id="L284">                .metadata(Map.of(&quot;previewPath&quot;, saved.previewPath(), &quot;previewSource&quot;, saved.previewSource())).build());</span>
+<span class="fc" id="L285">        synchronized (this) { run.lastEvent = eventId; }</span>
+<span class="fc" id="L286">    }</span>
+
+    private synchronized boolean canProceed(Run run, Configuration configuration) {
+<span class="pc bpc" id="L289" title="2 of 8 branches missed.">        return current == run &amp;&amp; !run.stopping &amp;&amp; !closing &amp;&amp; run.configuration == configuration;</span>
+    }
+
+    private synchronized boolean commitCapture(Run run, Configuration configuration, LiveViewFrame frame) {
+<span class="pc bpc" id="L293" title="3 of 6 branches missed.">        return configuration.armed() &amp;&amp; canProceed(run, configuration) &amp;&amp; usable(frame);</span>
+    }
+
+    private synchronized void setPhase(Run run, String phase) {
+<span class="pc bpc" id="L297" title="1 of 2 branches missed.">        if (!run.stopping) run.phase = phase;</span>
+<span class="fc" id="L298">    }</span>
+
+    private synchronized void skipped(Run run, BirdTriggerPolicy policy, String reason) {
+<span class="fc" id="L301">        policy.gap();</span>
+<span class="fc" id="L302">        run.skipped++;</span>
+<span class="fc" id="L303">        run.error = reason;</span>
+<span class="fc" id="L304">    }</span>
+
+    private static boolean usable(LiveViewFrame frame) {
+<span class="pc bpc" id="L307" title="3 of 6 branches missed.">        if (frame == null || frame.data() == null || frame.data().length == 0</span>
+<span class="pc bpc" id="L308" title="2 of 4 branches missed.">                || frame.data().length &gt; BirdFrameAnalyzer.MAX_FRAME_BYTES || frame.timestamp() == null) return false;</span>
+<span class="fc" id="L309">        Instant now = Instant.now();</span>
+<span class="pc bpc" id="L310" title="1 of 2 branches missed.">        return !frame.timestamp().isAfter(now.plusSeconds(1))</span>
+<span class="fc bfc" id="L311" title="All 2 branches covered.">                &amp;&amp; Duration.between(frame.timestamp(), now).compareTo(MAX_FRAME_AGE) &lt;= 0;</span>
+    }
+
+    private static final class Run {
+<span class="fc" id="L315">        final String id = UUID.randomUUID().toString();</span>
+        final CameraProfile profile;
+        volatile Configuration configuration;
+        volatile boolean stopping;
+        boolean finished;
+        Thread thread;
+<span class="fc" id="L321">        String phase = &quot;STARTING&quot;;</span>
+        long captures, analysed, skipped;
+        Long inferenceMs;
+        Instant lastCapture;
+        String lastEvent, error;
+        Preview preview;
+
+<span class="fc" id="L328">        Run(CameraProfile profile, Configuration configuration) {</span>
+<span class="fc" id="L329">            this.profile = profile;</span>
+<span class="fc" id="L330">            this.configuration = configuration;</span>
+<span class="fc" id="L331">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

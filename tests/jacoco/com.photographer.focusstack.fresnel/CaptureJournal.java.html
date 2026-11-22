@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CaptureJournal.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">CaptureJournal.java</span></div><h1>CaptureJournal.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/** One durable, atomically replaced document per bounded experiment. */
+final class CaptureJournal implements Closeable {
+    private final Path directory;
+    private final FileChannel channel;
+    private final FileLock lock;
+    final String instanceId;
+
+<span class="fc" id="L24">    CaptureJournal(Path directory) throws IOException {</span>
+<span class="fc" id="L25">        this.directory = Files.createDirectories(directory);</span>
+<span class="fc" id="L26">        channel = FileChannel.open(directory.resolve(&quot;sessions.lock&quot;), StandardOpenOption.CREATE, StandardOpenOption.WRITE);</span>
+        try {
+<span class="fc" id="L28">            lock = channel.tryLock();</span>
+<span class="pc bpc" id="L29" title="1 of 2 branches missed.">            if (lock == null) throw new IOException(&quot;The Fresnel capture journal already has an owner&quot;);</span>
+<span class="fc" id="L30">            Path identity = directory.resolve(&quot;instance.id&quot;);</span>
+<span class="fc bfc" id="L31" title="All 2 branches covered.">            if (!Files.exists(identity)) {</span>
+<span class="fc" id="L32">                writeAtomically(directory, &quot;instance.id&quot;, UUID.randomUUID().toString().getBytes(StandardCharsets.US_ASCII));</span>
+            }
+<span class="fc" id="L34">            instanceId = UUID.fromString(Files.readString(identity)).toString();</span>
+<span class="nc" id="L35">        } catch (RuntimeException | IOException ex) {</span>
+<span class="nc" id="L36">            channel.close();</span>
+<span class="nc" id="L37">            throw ex;</span>
+<span class="fc" id="L38">        }</span>
+<span class="fc" id="L39">    }</span>
+
+    List&lt;CaptureSession&gt; load() throws IOException {
+<span class="fc" id="L42">        var sessions = new ArrayList&lt;CaptureSession&gt;();</span>
+<span class="fc" id="L43">        try (var paths = Files.newDirectoryStream(directory, &quot;*.json&quot;)) {</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">            for (Path path : paths) {</span>
+<span class="fc" id="L45">                CaptureSession session = FresnelPlan.JSON.readValue(path.toFile(), CaptureSession.class);</span>
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">                if (!path.getFileName().toString().equals(UUID.fromString(session.id) + &quot;.json&quot;))</span>
+<span class="nc" id="L47">                    throw new IOException(&quot;Invalid stored Fresnel session identity&quot;);</span>
+<span class="fc" id="L48">                sessions.add(session);</span>
+<span class="fc" id="L49">            }</span>
+        }
+<span class="fc" id="L51">        return sessions;</span>
+    }
+
+    void save(CaptureSession session) throws IOException {
+<span class="fc" id="L55">        writeAtomically(directory, UUID.fromString(session.id) + &quot;.json&quot;, FresnelPlan.JSON.writeValueAsBytes(session));</span>
+<span class="fc" id="L56">    }</span>
+
+    void delete(String sessionId) throws IOException {
+<span class="fc" id="L59">        Files.deleteIfExists(directory.resolve(UUID.fromString(sessionId) + &quot;.json&quot;));</span>
+<span class="fc" id="L60">        syncDirectory(directory);</span>
+<span class="fc" id="L61">    }</span>
+
+    static void writeAtomically(Path directory, String name, byte[] data) throws IOException {
+<span class="fc" id="L64">        Path temp = Files.createTempFile(directory, &quot;.write-&quot;, &quot;.tmp&quot;);</span>
+        try {
+<span class="fc" id="L66">            try (var out = FileChannel.open(temp, StandardOpenOption.WRITE)) {</span>
+<span class="fc" id="L67">                ByteBuffer bytes = ByteBuffer.wrap(data);</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">                while (bytes.hasRemaining()) out.write(bytes);</span>
+<span class="fc" id="L69">                out.force(true);</span>
+            }
+<span class="fc" id="L71">            Files.move(temp, directory.resolve(name), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="fc" id="L72">            syncDirectory(directory);</span>
+        } finally {
+<span class="fc" id="L74">            Files.deleteIfExists(temp);</span>
+        }
+<span class="fc" id="L76">    }</span>
+
+    static void syncDirectory(Path directory) throws IOException {
+<span class="fc" id="L79">        try (var parent = FileChannel.open(directory, StandardOpenOption.READ)) {</span>
+<span class="fc" id="L80">            parent.force(true);</span>
+<span class="nc" id="L81">        } catch (java.nio.file.AccessDeniedException windowsDirectoryHandle) {</span>
+            // Windows disallows opening directories as FileChannels.
+<span class="nc bnc" id="L83" title="All 2 branches missed.">            if (!System.getProperty(&quot;os.name&quot;).startsWith(&quot;Windows&quot;)) throw windowsDirectoryHandle;</span>
+<span class="fc" id="L84">        }</span>
+<span class="fc" id="L85">    }</span>
+
+    @Override public void close() throws IOException {
+<span class="fc" id="L88">        try { lock.release(); } finally { channel.close(); }</span>
+<span class="fc" id="L89">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

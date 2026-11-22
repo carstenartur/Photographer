@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FresnelCaptureController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">FresnelCaptureController.java</span></div><h1>FresnelCaptureController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import com.photographer.focusstack.app.api.ApiPaths;
+import jakarta.servlet.http.HttpServletRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+
+import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+@RestController
+@Tag(name = &quot;Fresnel capture&quot;)
+@ConditionalOnProperty(name = &quot;focusstack.fresnel.enabled&quot;, havingValue = &quot;true&quot;)
+@RequestMapping(ApiPaths.V1 + &quot;/integrations/fresnel&quot;)
+class FresnelCaptureController {
+    private static final String READ = &quot;fresnel:descriptor:read&quot;;
+    private static final String CAMERA = &quot;fresnel:cameras:read&quot;;
+    private static final String CONTROL = &quot;fresnel:capture-sessions:write&quot;;
+    private static final String MEDIA = &quot;fresnel:media:read&quot;;
+<span class="fc" id="L32">    private static final Pattern RANGE = Pattern.compile(&quot;bytes=([0-9]+)-([0-9]+)&quot;);</span>
+    private final FresnelCaptures captures;
+    private final FresnelPairings pairings;
+
+<span class="fc" id="L36">    FresnelCaptureController(FresnelCaptures captures, FresnelPairings pairings) {</span>
+<span class="fc" id="L37">        this.captures = captures;</span>
+<span class="fc" id="L38">        this.pairings = pairings;</span>
+<span class="fc" id="L39">    }</span>
+
+    @Operation(summary = &quot;Describe supported capture operations&quot;)
+    @GetMapping(&quot;/descriptor&quot;)
+    Map&lt;String,Object&gt; descriptor(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token) {
+<span class="fc" id="L44">        pairings.authorize(token, READ);</span>
+<span class="fc" id="L45">        return captures.descriptor();</span>
+    }
+
+    @Operation(summary = &quot;Check the paired connection&quot;)
+    @GetMapping(&quot;/health&quot;)
+    Map&lt;String,Object&gt; health(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token) {
+<span class="fc" id="L51">        pairings.authorize(token, READ);</span>
+<span class="fc" id="L52">        captures.checkAvailable();</span>
+<span class="fc" id="L53">        return Map.of(&quot;state&quot;, &quot;CONNECTED&quot;, &quot;checkedAt&quot;, Instant.now().toString(), &quot;messageCode&quot;, &quot;HEALTH_OK&quot;);</span>
+    }
+
+    @Operation(summary = &quot;List capture-capable mock profiles&quot;)
+    @GetMapping(&quot;/cameras&quot;)
+    List&lt;Map&lt;String,Object&gt;&gt; cameras(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token) {
+<span class="fc" id="L59">        pairings.authorize(token, CAMERA);</span>
+<span class="fc" id="L60">        return captures.cameras();</span>
+    }
+
+    @Operation(summary = &quot;Create a bounded capture session&quot;)
+    @PostMapping(&quot;/capture-sessions&quot;)
+    ResponseEntity&lt;?&gt; create(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token,
+                             @RequestHeader(value=&quot;Idempotency-Key&quot;, required=false) String key, @RequestBody byte[] body) {
+<span class="fc" id="L67">        return ResponseEntity.status(201).body(pairings.whileAuthorized(token, CONTROL, owner -&gt; captures.create(owner, key, body)));</span>
+    }
+
+    @Operation(summary = &quot;Read durable session status&quot;)
+    @GetMapping(&quot;/capture-sessions/{id}&quot;)
+    Object session(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token, @PathVariable String id) {
+<span class="fc" id="L73">        return captures.status(pairings.authorize(token, CONTROL), id);</span>
+    }
+
+    @Operation(summary = &quot;Poll events after a committed cursor&quot;)
+    @GetMapping(&quot;/capture-sessions/{id}/events&quot;)
+    Object events(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token, @PathVariable String id,
+                  @RequestParam(defaultValue=&quot;0&quot;) long afterEventId, @RequestParam(defaultValue=&quot;100&quot;) int limit) {
+<span class="nc" id="L80">        return captures.events(pairings.authorize(token, CONTROL), id, afterEventId, limit);</span>
+    }
+
+    @Operation(summary = &quot;Trigger a presented step once&quot;)
+    @PostMapping(&quot;/capture-sessions/{id}/steps/{stepId}/trigger&quot;)
+    ResponseEntity&lt;?&gt; trigger(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token,
+                              @RequestHeader(value=&quot;Idempotency-Key&quot;, required=false) String key,
+                              @PathVariable String id, @PathVariable String stepId, @RequestBody byte[] body) {
+<span class="fc" id="L88">        var result = pairings.whileAuthorized(token, CONTROL, owner -&gt; captures.trigger(owner, id, stepId, key, body));</span>
+<span class="fc" id="L89">        return ResponseEntity.status(result.status()).body(result.body());</span>
+    }
+
+    @Operation(summary = &quot;Cancel pending steps&quot;)
+    @PostMapping(&quot;/capture-sessions/{id}/cancel&quot;)
+    ResponseEntity&lt;Void&gt; cancel(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token,
+                                @RequestHeader(value=&quot;Idempotency-Key&quot;, required=false) String key,
+                                @PathVariable String id, @RequestBody(required=false) byte[] body) {
+<span class="nc" id="L97">        pairings.whileAuthorized(token, CONTROL, owner -&gt; {</span>
+<span class="nc" id="L98">            captures.cancel(owner, id, key, body);</span>
+<span class="nc" id="L99">            return null;</span>
+        });
+<span class="nc" id="L101">        return ResponseEntity.noContent().build();</span>
+    }
+
+    @Operation(summary = &quot;Read verified capture metadata&quot;)
+    @GetMapping(&quot;/capture-sessions/{id}/assets/{assetId}/metadata&quot;)
+    Object metadata(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token, @PathVariable String id,
+                    @PathVariable String assetId) {
+<span class="nc" id="L108">        return captures.asset(pairings.authorize(token, MEDIA), id, assetId).metadata();</span>
+    }
+
+    @Operation(summary = &quot;Read capture bytes or headers&quot;)
+    @RequestMapping(path=&quot;/capture-sessions/{id}/assets/{assetId}&quot;, method={RequestMethod.GET, RequestMethod.HEAD})
+    ResponseEntity&lt;StreamingResponseBody&gt; asset(@RequestHeader(value=&quot;Authorization&quot;, required=false) String token, @PathVariable String id,
+                            @PathVariable String assetId, HttpServletRequest request) {
+<span class="fc" id="L115">        var asset = captures.asset(pairings.authorize(token, MEDIA), id, assetId);</span>
+<span class="fc" id="L116">        var meta = asset.metadata();</span>
+<span class="fc" id="L117">        var headers = new HttpHeaders();</span>
+<span class="fc" id="L118">        String etag = &quot;\&quot;&quot; + meta.sha256() + &quot;\&quot;&quot;;</span>
+<span class="fc" id="L119">        headers.setETag(etag);</span>
+<span class="fc" id="L120">        headers.set(HttpHeaders.ACCEPT_RANGES, &quot;bytes&quot;);</span>
+<span class="fc" id="L121">        String condition = request.getHeader(HttpHeaders.IF_NONE_MATCH);</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        if (condition != null &amp;&amp; Arrays.stream(condition.split(&quot;,&quot;)).map(String::trim)</span>
+<span class="pc bpc" id="L123" title="3 of 8 branches missed.">                .anyMatch(value -&gt; value.equals(&quot;*&quot;) || value.equals(etag) || value.equals(&quot;W/&quot; + etag)))</span>
+<span class="fc" id="L124">            return ResponseEntity.status(304).headers(headers).build();</span>
+<span class="fc" id="L125">        long length = meta.byteLength();</span>
+<span class="fc" id="L126">        String range = request.getHeader(HttpHeaders.RANGE);</span>
+<span class="fc" id="L127">        String ifRange = request.getHeader(HttpHeaders.IF_RANGE);</span>
+<span class="fc" id="L128">        boolean head = &quot;HEAD&quot;.equals(request.getMethod());</span>
+<span class="fc" id="L129">        long start = 0, end = length - 1;</span>
+<span class="fc" id="L130">        int status = 200;</span>
+<span class="pc bpc" id="L131" title="1 of 8 branches missed.">        if (!head &amp;&amp; range != null &amp;&amp; (ifRange == null || ifRange.equals(etag))) {</span>
+<span class="fc" id="L132">            var match = RANGE.matcher(range);</span>
+<span class="pc bpc" id="L133" title="2 of 4 branches missed.">            if (range.length() &gt; 1024 || !match.matches()) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="fc" id="L134">            java.math.BigInteger first = new java.math.BigInteger(match.group(1));</span>
+<span class="fc" id="L135">            java.math.BigInteger last = new java.math.BigInteger(match.group(2));</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">            if (first.compareTo(last) &gt; 0) throw new FresnelProblem(400, &quot;INVALID_REQUEST&quot;);</span>
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">            if (first.compareTo(java.math.BigInteger.valueOf(length)) &gt;= 0) {</span>
+<span class="nc" id="L138">                headers.set(HttpHeaders.CONTENT_RANGE, &quot;bytes */&quot; + length);</span>
+<span class="nc" id="L139">                headers.setContentType(org.springframework.http.MediaType.APPLICATION_PROBLEM_JSON);</span>
+<span class="nc" id="L140">                return ResponseEntity.status(416).headers(headers).body(out -&gt;</span>
+<span class="nc" id="L141">                        FresnelPlan.JSON.writeValue(out, new FresnelProblem(416, &quot;RANGE_NOT_SATISFIABLE&quot;).body()));</span>
+            }
+<span class="fc" id="L143">            start = first.longValueExact();</span>
+<span class="fc" id="L144">            end = last.min(java.math.BigInteger.valueOf(length - 1)).longValueExact();</span>
+<span class="fc" id="L145">            headers.set(HttpHeaders.CONTENT_RANGE, &quot;bytes &quot; + start + &quot;-&quot; + end + &quot;/&quot; + length);</span>
+<span class="fc" id="L146">            status = 206;</span>
+        }
+<span class="fc" id="L148">        headers.set(HttpHeaders.CONTENT_TYPE, meta.mediaType());</span>
+<span class="fc" id="L149">        headers.setContentLength(end - start + 1);</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        if (head) return ResponseEntity.status(status).headers(headers).build();</span>
+<span class="fc" id="L151">        long offset = start, count = end - start + 1;</span>
+<span class="fc" id="L152">        StreamingResponseBody response = out -&gt; {</span>
+<span class="fc" id="L153">            try (var channel = FileChannel.open(asset.path(), StandardOpenOption.READ)) {</span>
+<span class="fc" id="L154">                channel.position(offset);</span>
+<span class="fc" id="L155">                var in = Channels.newInputStream(channel);</span>
+<span class="fc" id="L156">                byte[] buffer = new byte[8192];</span>
+<span class="fc" id="L157">                long remaining = count;</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">                while (remaining &gt; 0) {</span>
+<span class="fc" id="L159">                    int n = in.read(buffer, 0, (int)Math.min(buffer.length, remaining));</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">                    if (n &lt; 0) throw new IOException(&quot;Incomplete stored capture&quot;);</span>
+<span class="fc" id="L161">                    out.write(buffer, 0, n);</span>
+<span class="fc" id="L162">                    remaining -= n;</span>
+<span class="fc" id="L163">                }</span>
+            }
+<span class="fc" id="L165">        };</span>
+<span class="fc" id="L166">        return ResponseEntity.status(status).headers(headers).body(response);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

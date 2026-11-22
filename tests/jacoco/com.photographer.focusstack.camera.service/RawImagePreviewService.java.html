@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RawImagePreviewService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.service</a> &gt; <span class="el_source">RawImagePreviewService.java</span></div><h1>RawImagePreviewService.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.service;
 
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
@@ -10,9 +11,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.awt.image.BufferedImage;
+import javax.imageio.stream.FileImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.file.Path;
 
 /**
  * Extracts browser-displayable JPEG preview images from Canon RAW files (CR3/CR2).
@@ -22,12 +26,12 @@ import java.io.ByteArrayInputStream;
  * without requiring a full RAW decoder on the client side.
  *
  * &lt;p&gt;The original RAW data is preserved in {@link FrameDataStore} for export
- * and processing; only the HTTP image endpoint uses the extracted preview.
+ * and processing. Browser previews can be read separately from the original.
  */
 @Service
-<span class="fc" id="L28">public class RawImagePreviewService {</span>
+<span class="fc" id="L32">public class RawImagePreviewService {</span>
 
-<span class="fc" id="L30">    private static final Logger log = LoggerFactory.getLogger(RawImagePreviewService.class);</span>
+<span class="fc" id="L34">    private static final Logger log = LoggerFactory.getLogger(RawImagePreviewService.class);</span>
 
     /**
      * Result of a preview extraction attempt.
@@ -35,16 +39,14 @@ import java.io.ByteArrayInputStream;
      * @param jpegBytes  the JPEG preview bytes, or {@code null} if extraction failed
      * @param fileName   a display filename for the preview (e.g. {@code IMG_1234.preview.jpg})
      */
-<span class="fc" id="L38">    public record PreviewResult(byte[] jpegBytes, String fileName) {}</span>
+<span class="fc" id="L42">    public record PreviewResult(byte[] jpegBytes, String fileName) {}</span>
 
     /**
      * Returns {@code true} if the filename indicates a Canon RAW file that may
      * contain an embedded JPEG preview.
      */
     public boolean isRawFile(String fileName) {
-<span class="pc bpc" id="L45" title="1 of 2 branches missed.">        if (fileName == null) return false;</span>
-<span class="fc" id="L46">        String upper = fileName.toUpperCase();</span>
-<span class="pc bpc" id="L47" title="1 of 4 branches missed.">        return upper.endsWith(&quot;.CR3&quot;) || upper.endsWith(&quot;.CR2&quot;);</span>
+<span class="fc" id="L49">        return CapturedImageFormat.isCanonRaw(fileName);</span>
     }
 
     /**
@@ -55,33 +57,52 @@ import java.io.ByteArrayInputStream;
      * @return a {@link PreviewResult} with the JPEG bytes, or {@code null} if extraction fails
      */
     public PreviewResult extractPreview(byte[] rawBytes, String originalFileName) {
-<span class="pc bpc" id="L58" title="2 of 4 branches missed.">        if (rawBytes == null || rawBytes.length == 0) {</span>
-<span class="nc" id="L59">            return null;</span>
+<span class="pc bpc" id="L60" title="2 of 4 branches missed.">        if (rawBytes == null || rawBytes.length == 0) {</span>
+<span class="nc" id="L61">            return null;</span>
         }
-<span class="fc" id="L61">        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {</span>
-<span class="fc" id="L62">            Cr3Container container = Cr3Parser.parse(iis);</span>
-<span class="pc bpc" id="L63" title="1 of 2 branches missed.">            if (!Cr3PreviewExtractor.hasPreview(container)) {</span>
-<span class="nc" id="L64">                log.warn(&quot;CR3 file {} has no embedded JPEG preview&quot;, originalFileName);</span>
-<span class="nc" id="L65">                return null;</span>
+<span class="fc" id="L63">        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {</span>
+<span class="fc" id="L64">            return extractPreview(iis, originalFileName);</span>
+<span class="nc" id="L65">        } catch (IOException e) {</span>
+<span class="nc" id="L66">            log.debug(&quot;Failed to close preview input for {}&quot;, originalFileName, e);</span>
+<span class="nc" id="L67">            return null;</span>
+        }
+    }
+
+    /** Extracts a browser preview directly from the saved original. */
+    public PreviewResult extractFilePreview(Path original, String originalFileName) {
+<span class="fc" id="L73">        try (ImageInputStream iis = new FileImageInputStream(original.toFile())) {</span>
+<span class="fc" id="L74">            return extractPreview(iis, originalFileName);</span>
+<span class="nc" id="L75">        } catch (IOException e) {</span>
+<span class="nc" id="L76">            log.debug(&quot;Failed to open original frame {}&quot;, originalFileName, e);</span>
+<span class="nc" id="L77">            return null;</span>
+        }
+    }
+
+    private PreviewResult extractPreview(ImageInputStream iis, String originalFileName) {
+        try {
+<span class="fc" id="L83">            Cr3Container container = Cr3Parser.parse(iis);</span>
+<span class="pc bpc" id="L84" title="1 of 2 branches missed.">            if (!Cr3PreviewExtractor.hasPreview(container)) {</span>
+<span class="nc" id="L85">                log.warn(&quot;CR3 file {} has no embedded JPEG preview&quot;, originalFileName);</span>
+<span class="nc" id="L86">                return null;</span>
             }
-<span class="fc" id="L67">            byte[] jpegBytes = Cr3PreviewExtractor.extractPreviewBytes(iis, container);</span>
-<span class="pc bpc" id="L68" title="2 of 4 branches missed.">            if (jpegBytes == null || jpegBytes.length == 0) {</span>
-<span class="nc" id="L69">                log.warn(&quot;CR3 file {} — preview extraction returned empty data&quot;, originalFileName);</span>
-<span class="nc" id="L70">                return null;</span>
+<span class="fc" id="L88">            byte[] jpegBytes = Cr3PreviewExtractor.extractPreviewBytes(iis, container);</span>
+<span class="pc bpc" id="L89" title="2 of 4 branches missed.">            if (jpegBytes == null || jpegBytes.length == 0) {</span>
+<span class="nc" id="L90">                log.warn(&quot;CR3 file {} — preview extraction returned empty data&quot;, originalFileName);</span>
+<span class="nc" id="L91">                return null;</span>
             }
             // Build a display filename: IMG_1234.CR3 → IMG_1234.preview.jpg
-<span class="fc" id="L73">            String baseName = originalFileName;</span>
-<span class="fc" id="L74">            int dotIdx = baseName.lastIndexOf('.');</span>
-<span class="pc bpc" id="L75" title="1 of 2 branches missed.">            if (dotIdx &gt; 0) {</span>
-<span class="fc" id="L76">                baseName = baseName.substring(0, dotIdx);</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">            String baseName = originalFileName == null ? &quot;frame&quot; : originalFileName;</span>
+<span class="fc" id="L95">            int dotIdx = baseName.lastIndexOf('.');</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">            if (dotIdx &gt; 0) {</span>
+<span class="fc" id="L97">                baseName = baseName.substring(0, dotIdx);</span>
             }
-<span class="fc" id="L78">            String previewName = baseName + &quot;.preview.jpg&quot;;</span>
-<span class="fc" id="L79">            log.info(&quot;Extracted {} byte JPEG preview from {} → {}&quot;,</span>
-<span class="fc" id="L80">                    jpegBytes.length, originalFileName, previewName);</span>
-<span class="fc" id="L81">            return new PreviewResult(jpegBytes, previewName);</span>
-<span class="nc" id="L82">        } catch (Exception e) {</span>
-<span class="nc" id="L83">            log.error(&quot;Failed to extract JPEG preview from {}: {}&quot;, originalFileName, e.getMessage(), e);</span>
-<span class="nc" id="L84">            return null;</span>
+<span class="fc" id="L99">            String previewName = baseName + &quot;.preview.jpg&quot;;</span>
+<span class="fc" id="L100">            log.info(&quot;Extracted {} byte JPEG preview from {} → {}&quot;,</span>
+<span class="fc" id="L101">                    jpegBytes.length, originalFileName, previewName);</span>
+<span class="fc" id="L102">            return new PreviewResult(jpegBytes, previewName);</span>
+<span class="fc" id="L103">        } catch (Exception e) {</span>
+<span class="fc" id="L104">            log.error(&quot;Failed to extract JPEG preview from {}: {}&quot;, originalFileName, e.getMessage(), e);</span>
+<span class="fc" id="L105">            return null;</span>
         }
     }
 
@@ -92,16 +113,16 @@ import java.io.ByteArrayInputStream;
      * @return decoded RGB image, or {@code null} if decoding fails
      */
     public BufferedImage decodeFullRaw(byte[] rawBytes) {
-<span class="nc bnc" id="L95" title="All 4 branches missed.">        if (rawBytes == null || rawBytes.length == 0) {</span>
-<span class="nc" id="L96">            return null;</span>
+<span class="nc bnc" id="L116" title="All 4 branches missed.">        if (rawBytes == null || rawBytes.length == 0) {</span>
+<span class="nc" id="L117">            return null;</span>
         }
-<span class="nc" id="L98">        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {</span>
-<span class="nc" id="L99">            Cr3Decoder decoder = new Cr3Decoder();</span>
-<span class="nc" id="L100">            decoder.setInput(iis);</span>
-<span class="nc" id="L101">            return decoder.decode(Cr3DecodeOptions.rawProcessed());</span>
-<span class="nc" id="L102">        } catch (Exception e) {</span>
-<span class="nc" id="L103">            log.error(&quot;Failed to decode full CR3 RAW image: {}&quot;, e.getMessage(), e);</span>
-<span class="nc" id="L104">            return null;</span>
+<span class="nc" id="L119">        try (ImageInputStream iis = new MemoryCacheImageInputStream(new ByteArrayInputStream(rawBytes))) {</span>
+<span class="nc" id="L120">            Cr3Decoder decoder = new Cr3Decoder();</span>
+<span class="nc" id="L121">            decoder.setInput(iis);</span>
+<span class="nc" id="L122">            return decoder.decode(Cr3DecodeOptions.rawProcessed());</span>
+<span class="nc" id="L123">        } catch (Exception e) {</span>
+<span class="nc" id="L124">            log.error(&quot;Failed to decode full CR3 RAW image: {}&quot;, e.getMessage(), e);</span>
+<span class="nc" id="L125">            return null;</span>
         }
     }
 }

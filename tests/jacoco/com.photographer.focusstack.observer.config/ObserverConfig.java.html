@@ -2,12 +2,23 @@
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
+import com.photographer.focusstack.ai.local.LocalBirdVisionProvider;
+
+import java.nio.file.Path;
 
 /**
  * Enables the {@link ObserverProperties} configuration properties.
  */
 @Configuration
 @EnableConfigurationProperties(ObserverProperties.class)
-<span class="fc" id="L11">public class ObserverConfig {</span>
+<span class="fc" id="L16">public class ObserverConfig {</span>
+    @Bean(destroyMethod = &quot;close&quot;)
+    public LocalBirdVisionProvider localBirdVisionProvider(
+            @Value(&quot;${observer.local-bird.model-path:}&quot;) String modelPath) {
+<span class="pc bpc" id="L20" title="2 of 4 branches missed.">        return modelPath == null || modelPath.isBlank()</span>
+<span class="pc" id="L21">                ? new LocalBirdVisionProvider() : new LocalBirdVisionProvider(Path.of(modelPath));</span>
+    }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

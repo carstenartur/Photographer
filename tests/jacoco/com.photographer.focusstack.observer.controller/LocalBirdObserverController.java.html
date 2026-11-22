@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalBirdObserverController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.observer.controller</a> &gt; <span class="el_source">LocalBirdObserverController.java</span></div><h1>LocalBirdObserverController.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.observer.controller;
+
+import com.photographer.focusstack.app.api.ApiPaths;
+import com.photographer.focusstack.observer.bird.BirdTriggerSettings;
+import com.photographer.focusstack.observer.service.LocalBirdObserverService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.annotation.*;
+
+/** Explicit preview/arm lifecycle for the local bird trigger; normal application authentication applies. */
+@RestController
+@RequestMapping({ApiPaths.V1 + &quot;/observer/live&quot;, ApiPaths.LEGACY + &quot;/observer/live&quot;})
+@Tag(name = &quot;Local bird observer&quot;, description = &quot;Local live-view bird detection, explicit arming, capture and stop lifecycle.&quot;)
+public class LocalBirdObserverController {
+    private final LocalBirdObserverService service;
+
+<span class="fc" id="L20">    public LocalBirdObserverController(LocalBirdObserverService service) { this.service = service; }</span>
+
+<span class="fc" id="L22">    public record Request(String cameraId, boolean armed, BirdTriggerSettings settings) {}</span>
+
+    @GetMapping
+    @Operation(summary = &quot;Get local bird detection status and matching analysed preview&quot;)
+<span class="fc" id="L26">    public LocalBirdObserverService.Status status() { return service.status(); }</span>
+
+    @PostMapping(&quot;/start&quot;)
+    @Operation(summary = &quot;Start local bird detection in preview-only mode&quot;)
+    public LocalBirdObserverService.Status start(@RequestBody Request request) {
+<span class="fc" id="L31">        return service.start(request.cameraId(), request.armed(), request.settings());</span>
+    }
+
+    @PutMapping(&quot;/settings&quot;)
+    @Operation(summary = &quot;Update observation region and explicitly arm or disarm automatic capture&quot;)
+    public LocalBirdObserverService.Status settings(@RequestBody Request request) {
+<span class="nc" id="L37">        return service.update(request.cameraId(), request.armed(), request.settings());</span>
+    }
+
+    @PostMapping(&quot;/stop&quot;)
+    @Operation(summary = &quot;Stop bird detection and drain any already committed capture&quot;)
+<span class="fc" id="L42">    public LocalBirdObserverService.Status stop() { return service.stop(); }</span>
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ProblemDetail conflict(IllegalStateException error) {
+<span class="fc" id="L46">        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, error.getMessage());</span>
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail invalid(IllegalArgumentException error) {
+<span class="nc" id="L51">        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, error.getMessage());</span>
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail invalidBody(HttpMessageNotReadableException ignored) {
+<span class="fc" id="L56">        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, &quot;A valid observer request and in-frame region are required&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

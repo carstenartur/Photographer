@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImageJProcessor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.analysis.service</a> &gt; <span class="el_source">ImageJProcessor.java</span></div><h1>ImageJProcessor.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.analysis.service;
 
 import com.photographer.focusstack.common.analysis.SharpnessMap;
+import com.photographer.focusstack.common.camera.CapturedImageFormat;
+import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
-import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReadParam;
-import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReaderSpi;
+import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import ij.IJ;
 import ij.process.ByteProcessor;
 import ij.process.FloatProcessor;
@@ -11,11 +12,14 @@ import ij.process.ImageProcessor;
 import ij.process.ImageStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
 import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -31,16 +35,22 @@ import java.io.IOException;
 @Service
 public class ImageJProcessor {
 
-<span class="fc" id="L34">    private static final Logger log = LoggerFactory.getLogger(ImageJProcessor.class);</span>
+<span class="fc" id="L38">    private static final Logger log = LoggerFactory.getLogger(ImageJProcessor.class);</span>
     private static final double MAX_LAPLACIAN_VARIANCE = 16256.25;
-<span class="fc" id="L36">    private static final float[] LAPLACIAN_KERNEL = {0, 1, 0, 1, -4, 1, 0, 1, 0};</span>
-<span class="fc" id="L37">    private static final byte[] FTYP_SIGNATURE = {'f', 't', 'y', 'p'};</span>
-<span class="fc" id="L38">    private static final byte[] CRX_MAJOR_BRAND = {'c', 'r', 'x', ' '};</span>
+<span class="fc" id="L40">    private static final float[] LAPLACIAN_KERNEL = {0, 1, 0, 1, -4, 1, 0, 1, 0};</span>
+    private static final int STACK_ANALYSIS_MAX_EDGE = 2048;
+    private final RawDecodeBudget rawDecodeBudget;
 
-<span class="fc" id="L40">    public ImageJProcessor() {</span>
-<span class="fc" id="L41">        System.setProperty(&quot;java.awt.headless&quot;, &quot;true&quot;);</span>
-<span class="fc" id="L42">        log.info(&quot;ImageJ processor initialized (headless mode), ImageJ version: {}&quot;, IJ.getVersion());</span>
-<span class="fc" id="L43">    }</span>
+    public ImageJProcessor() {
+<span class="fc" id="L45">        this(new RawDecodeBudget(0, 0));</span>
+<span class="fc" id="L46">    }</span>
+
+    @Autowired
+<span class="fc" id="L49">    public ImageJProcessor(RawDecodeBudget rawDecodeBudget) {</span>
+<span class="fc" id="L50">        this.rawDecodeBudget = rawDecodeBudget;</span>
+<span class="fc" id="L51">        System.setProperty(&quot;java.awt.headless&quot;, &quot;true&quot;);</span>
+<span class="fc" id="L52">        log.info(&quot;ImageJ processor initialized (headless mode), ImageJ version: {}&quot;, IJ.getVersion());</span>
+<span class="fc" id="L53">    }</span>
 
     /**
      * Calculates sharpness of an actual image file (JPEG, PNG, BMP, CR3) using ImageJ
@@ -50,17 +60,21 @@ public class ImageJProcessor {
      * @return normalized sharpness score 0.0 - 1.0
      */
     public double calculateSharpness(byte[] imageFileBytes) {
-<span class="fc" id="L53">        FloatProcessor fp = readAsFloatProcessor(imageFileBytes);</span>
-<span class="fc bfc" id="L54" title="All 2 branches covered.">        if (fp == null) {</span>
-<span class="fc" id="L55">            return 0.0;</span>
+<span class="fc" id="L63">        return calculateDecodedSharpness(readAsByteProcessor(imageFileBytes));</span>
+    }
+
+    double calculateDecodedSharpness(ByteProcessor pixels) {
+<span class="fc bfc" id="L67" title="All 2 branches covered.">        if (pixels == null) {</span>
+<span class="fc" id="L68">            return 0.0;</span>
         }
 
-<span class="fc" id="L58">        fp.convolve(LAPLACIAN_KERNEL, 3, 3);</span>
+<span class="fc" id="L71">        FloatProcessor fp = pixels.convertToFloatProcessor();</span>
+<span class="fc" id="L72">        fp.convolve(LAPLACIAN_KERNEL, 3, 3);</span>
 
-<span class="fc" id="L60">        ImageStatistics stats = fp.getStatistics();</span>
-<span class="fc" id="L61">        double variance = stats.stdDev * stats.stdDev;</span>
+<span class="fc" id="L74">        ImageStatistics stats = fp.getStatistics();</span>
+<span class="fc" id="L75">        double variance = stats.stdDev * stats.stdDev;</span>
 
-<span class="fc" id="L63">        return Math.min(1.0, variance / MAX_LAPLACIAN_VARIANCE);</span>
+<span class="fc" id="L77">        return Math.min(1.0, variance / MAX_LAPLACIAN_VARIANCE);</span>
     }
 
     /**
@@ -74,33 +88,36 @@ public class ImageJProcessor {
     public MotionDetector.MotionResult detectMotion(byte[] currentImageBytes,
                                                      byte[] previousImageBytes,
                                                      double threshold) {
-<span class="fc" id="L77">        FloatProcessor fpCurrent = readAsFloatProcessor(currentImageBytes);</span>
-<span class="fc" id="L78">        FloatProcessor fpPrevious = readAsFloatProcessor(previousImageBytes);</span>
+<span class="fc" id="L91">        return detectDecodedMotion(readAsByteProcessor(currentImageBytes),</span>
+<span class="fc" id="L92">                readAsByteProcessor(previousImageBytes), threshold);</span>
+    }
 
-<span class="pc bpc" id="L80" title="1 of 4 branches missed.">        if (fpCurrent == null || fpPrevious == null) {</span>
-<span class="fc" id="L81">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+    MotionDetector.MotionResult detectDecodedMotion(
+            ByteProcessor current, ByteProcessor previous, double threshold) {
+<span class="pc bpc" id="L97" title="1 of 4 branches missed.">        if (current == null || previous == null) {</span>
+<span class="fc" id="L98">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
         }
 
-<span class="fc" id="L84">        int width = Math.min(fpCurrent.getWidth(), fpPrevious.getWidth());</span>
-<span class="fc" id="L85">        int height = Math.min(fpCurrent.getHeight(), fpPrevious.getHeight());</span>
+<span class="fc" id="L101">        int width = Math.min(current.getWidth(), previous.getWidth());</span>
+<span class="fc" id="L102">        int height = Math.min(current.getHeight(), previous.getHeight());</span>
 
-<span class="pc bpc" id="L87" title="2 of 4 branches missed.">        if (width == 0 || height == 0) {</span>
-<span class="nc" id="L88">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+<span class="pc bpc" id="L104" title="2 of 4 branches missed.">        if (width == 0 || height == 0) {</span>
+<span class="nc" id="L105">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
         }
 
-<span class="fc" id="L91">        double totalDiff = 0.0;</span>
-<span class="fc" id="L92">        int pixelCount = width * height;</span>
+<span class="fc" id="L108">        double totalDiff = 0.0;</span>
+<span class="fc" id="L109">        int pixelCount = width * height;</span>
 
-<span class="fc bfc" id="L94" title="All 2 branches covered.">        for (int y = 0; y &lt; height; y++) {</span>
-<span class="fc bfc" id="L95" title="All 2 branches covered.">            for (int x = 0; x &lt; width; x++) {</span>
-<span class="fc" id="L96">                float curr = fpCurrent.getf(x, y);</span>
-<span class="fc" id="L97">                float prev = fpPrevious.getf(x, y);</span>
-<span class="fc" id="L98">                totalDiff += Math.abs(curr - prev);</span>
+<span class="fc bfc" id="L111" title="All 2 branches covered.">        for (int y = 0; y &lt; height; y++) {</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            for (int x = 0; x &lt; width; x++) {</span>
+<span class="fc" id="L113">                int curr = current.get(x, y);</span>
+<span class="fc" id="L114">                int prev = previous.get(x, y);</span>
+<span class="fc" id="L115">                totalDiff += Math.abs(curr - prev);</span>
             }
         }
 
-<span class="fc" id="L102">        double motionScore = totalDiff / (pixelCount * 255.0);</span>
-<span class="fc bfc" id="L103" title="All 2 branches covered.">        return new MotionDetector.MotionResult(motionScore, motionScore &gt; threshold, threshold);</span>
+<span class="fc" id="L119">        double motionScore = totalDiff / (pixelCount * 255.0);</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">        return new MotionDetector.MotionResult(motionScore, motionScore &gt; threshold, threshold);</span>
     }
 
     /**
@@ -111,49 +128,49 @@ public class ImageJProcessor {
      * @return SharpnessMap with per-block sharpness scores
      */
     public SharpnessMap createSharpnessMap(byte[] imageFileBytes, int blockSize) {
-<span class="fc" id="L114">        ByteProcessor bp = readAsByteProcessor(imageFileBytes);</span>
-<span class="pc bpc" id="L115" title="1 of 2 branches missed.">        if (bp == null) {</span>
-<span class="nc" id="L116">            return new SharpnessMap(0, 0, blockSize, new double[0][0], 0.0);</span>
+<span class="fc" id="L131">        ByteProcessor bp = readAsByteProcessor(imageFileBytes);</span>
+<span class="pc bpc" id="L132" title="1 of 2 branches missed.">        if (bp == null) {</span>
+<span class="nc" id="L133">            return new SharpnessMap(0, 0, blockSize, new double[0][0], 0.0);</span>
         }
 
-<span class="fc" id="L119">        int imgWidth = bp.getWidth();</span>
-<span class="fc" id="L120">        int imgHeight = bp.getHeight();</span>
+<span class="fc" id="L136">        int imgWidth = bp.getWidth();</span>
+<span class="fc" id="L137">        int imgHeight = bp.getHeight();</span>
 
-<span class="fc" id="L122">        int blocksX = (imgWidth + blockSize - 1) / blockSize;</span>
-<span class="fc" id="L123">        int blocksY = (imgHeight + blockSize - 1) / blockSize;</span>
-<span class="fc" id="L124">        double[][] scores = new double[blocksY][blocksX];</span>
-<span class="fc" id="L125">        double totalScore = 0.0;</span>
-<span class="fc" id="L126">        int blockCount = 0;</span>
+<span class="fc" id="L139">        int blocksX = (imgWidth + blockSize - 1) / blockSize;</span>
+<span class="fc" id="L140">        int blocksY = (imgHeight + blockSize - 1) / blockSize;</span>
+<span class="fc" id="L141">        double[][] scores = new double[blocksY][blocksX];</span>
+<span class="fc" id="L142">        double totalScore = 0.0;</span>
+<span class="fc" id="L143">        int blockCount = 0;</span>
 
-<span class="fc bfc" id="L128" title="All 2 branches covered.">        for (int by = 0; by &lt; blocksY; by++) {</span>
-<span class="fc bfc" id="L129" title="All 2 branches covered.">            for (int bx = 0; bx &lt; blocksX; bx++) {</span>
-<span class="fc" id="L130">                int x = bx * blockSize;</span>
-<span class="fc" id="L131">                int y = by * blockSize;</span>
-<span class="fc" id="L132">                int w = Math.min(blockSize, imgWidth - x);</span>
-<span class="fc" id="L133">                int h = Math.min(blockSize, imgHeight - y);</span>
+<span class="fc bfc" id="L145" title="All 2 branches covered.">        for (int by = 0; by &lt; blocksY; by++) {</span>
+<span class="fc bfc" id="L146" title="All 2 branches covered.">            for (int bx = 0; bx &lt; blocksX; bx++) {</span>
+<span class="fc" id="L147">                int x = bx * blockSize;</span>
+<span class="fc" id="L148">                int y = by * blockSize;</span>
+<span class="fc" id="L149">                int w = Math.min(blockSize, imgWidth - x);</span>
+<span class="fc" id="L150">                int h = Math.min(blockSize, imgHeight - y);</span>
 
-<span class="pc bpc" id="L135" title="2 of 4 branches missed.">                if (w &lt; 3 || h &lt; 3) {</span>
-<span class="nc" id="L136">                    scores[by][bx] = 0.0;</span>
-<span class="nc" id="L137">                    continue;</span>
+<span class="pc bpc" id="L152" title="2 of 4 branches missed.">                if (w &lt; 3 || h &lt; 3) {</span>
+<span class="nc" id="L153">                    scores[by][bx] = 0.0;</span>
+<span class="nc" id="L154">                    continue;</span>
                 }
 
-<span class="fc" id="L140">                bp.setRoi(x, y, w, h);</span>
-<span class="fc" id="L141">                ImageProcessor cropped = bp.crop();</span>
-<span class="fc" id="L142">                FloatProcessor block = cropped.convertToFloatProcessor();</span>
-<span class="fc" id="L143">                block.convolve(LAPLACIAN_KERNEL, 3, 3);</span>
+<span class="fc" id="L157">                bp.setRoi(x, y, w, h);</span>
+<span class="fc" id="L158">                ImageProcessor cropped = bp.crop();</span>
+<span class="fc" id="L159">                FloatProcessor block = cropped.convertToFloatProcessor();</span>
+<span class="fc" id="L160">                block.convolve(LAPLACIAN_KERNEL, 3, 3);</span>
 
-<span class="fc" id="L145">                ImageStatistics stats = block.getStatistics();</span>
-<span class="fc" id="L146">                double variance = stats.stdDev * stats.stdDev;</span>
-<span class="fc" id="L147">                double blockScore = Math.min(1.0, variance / MAX_LAPLACIAN_VARIANCE);</span>
+<span class="fc" id="L162">                ImageStatistics stats = block.getStatistics();</span>
+<span class="fc" id="L163">                double variance = stats.stdDev * stats.stdDev;</span>
+<span class="fc" id="L164">                double blockScore = Math.min(1.0, variance / MAX_LAPLACIAN_VARIANCE);</span>
 
-<span class="fc" id="L149">                scores[by][bx] = blockScore;</span>
-<span class="fc" id="L150">                totalScore += blockScore;</span>
-<span class="fc" id="L151">                blockCount++;</span>
+<span class="fc" id="L166">                scores[by][bx] = blockScore;</span>
+<span class="fc" id="L167">                totalScore += blockScore;</span>
+<span class="fc" id="L168">                blockCount++;</span>
             }
         }
 
-<span class="pc bpc" id="L155" title="1 of 2 branches missed.">        double overallScore = blockCount &gt; 0 ? totalScore / blockCount : 0.0;</span>
-<span class="fc" id="L156">        return new SharpnessMap(blocksX, blocksY, blockSize, scores, overallScore);</span>
+<span class="pc bpc" id="L172" title="1 of 2 branches missed.">        double overallScore = blockCount &gt; 0 ? totalScore / blockCount : 0.0;</span>
+<span class="fc" id="L173">        return new SharpnessMap(blocksX, blocksY, blockSize, scores, overallScore);</span>
     }
 
     /**
@@ -165,22 +182,22 @@ public class ImageJProcessor {
      * @return true if the data appears to be a JPEG, PNG, BMP, or CR3 image
      */
     public boolean isImageFile(byte[] data) {
-<span class="pc bpc" id="L168" title="1 of 4 branches missed.">        if (data == null || data.length &lt; 4) {</span>
-<span class="fc" id="L169">            return false;</span>
+<span class="pc bpc" id="L185" title="1 of 4 branches missed.">        if (data == null || data.length &lt; 4) {</span>
+<span class="fc" id="L186">            return false;</span>
         }
         // JPEG: FF D8 FF
-<span class="pc bpc" id="L172" title="1 of 6 branches missed.">        if ((data[0] &amp; 0xFF) == 0xFF &amp;&amp; (data[1] &amp; 0xFF) == 0xD8 &amp;&amp; (data[2] &amp; 0xFF) == 0xFF) {</span>
-<span class="fc" id="L173">            return true;</span>
+<span class="pc bpc" id="L189" title="1 of 6 branches missed.">        if ((data[0] &amp; 0xFF) == 0xFF &amp;&amp; (data[1] &amp; 0xFF) == 0xD8 &amp;&amp; (data[2] &amp; 0xFF) == 0xFF) {</span>
+<span class="fc" id="L190">            return true;</span>
         }
         // PNG: 89 50 4E 47
-<span class="pc bpc" id="L176" title="3 of 8 branches missed.">        if ((data[0] &amp; 0xFF) == 0x89 &amp;&amp; data[1] == 0x50 &amp;&amp; data[2] == 0x4E &amp;&amp; data[3] == 0x47) {</span>
-<span class="fc" id="L177">            return true;</span>
+<span class="pc bpc" id="L193" title="3 of 8 branches missed.">        if ((data[0] &amp; 0xFF) == 0x89 &amp;&amp; data[1] == 0x50 &amp;&amp; data[2] == 0x4E &amp;&amp; data[3] == 0x47) {</span>
+<span class="fc" id="L194">            return true;</span>
         }
         // BMP: 42 4D
-<span class="pc bpc" id="L180" title="3 of 4 branches missed.">        if (data[0] == 0x42 &amp;&amp; data[1] == 0x4D) {</span>
-<span class="nc" id="L181">            return true;</span>
+<span class="pc bpc" id="L197" title="3 of 4 branches missed.">        if (data[0] == 0x42 &amp;&amp; data[1] == 0x4D) {</span>
+<span class="nc" id="L198">            return true;</span>
         }
-<span class="fc" id="L183">        return isCr3File(data);</span>
+<span class="fc" id="L200">        return CapturedImageFormat.hasCr3Header(data);</span>
     }
 
     /**
@@ -200,100 +217,98 @@ public class ImageJProcessor {
     public MotionDetector.MotionResult detectStructuralMotion(byte[] currentImageBytes,
                                                                byte[] previousImageBytes,
                                                                double threshold) {
-<span class="nc" id="L203">        FloatProcessor fpCurrent = readAsFloatProcessor(currentImageBytes);</span>
-<span class="nc" id="L204">        FloatProcessor fpPrevious = readAsFloatProcessor(previousImageBytes);</span>
+<span class="nc" id="L220">        return detectDecodedStructuralMotion(readAsByteProcessor(currentImageBytes),</span>
+<span class="nc" id="L221">                readAsByteProcessor(previousImageBytes), threshold);</span>
+    }
 
-<span class="nc bnc" id="L206" title="All 4 branches missed.">        if (fpCurrent == null || fpPrevious == null) {</span>
-<span class="nc" id="L207">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+    MotionDetector.MotionResult detectDecodedStructuralMotion(
+            ByteProcessor current, ByteProcessor previous, double threshold) {
+<span class="nc bnc" id="L226" title="All 4 branches missed.">        if (current == null || previous == null) {</span>
+<span class="nc" id="L227">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
         }
 
-<span class="nc" id="L210">        int width = Math.min(fpCurrent.getWidth(), fpPrevious.getWidth());</span>
-<span class="nc" id="L211">        int height = Math.min(fpCurrent.getHeight(), fpPrevious.getHeight());</span>
+<span class="nc" id="L230">        int width = Math.min(current.getWidth(), previous.getWidth());</span>
+<span class="nc" id="L231">        int height = Math.min(current.getHeight(), previous.getHeight());</span>
 
-<span class="nc bnc" id="L213" title="All 4 branches missed.">        if (width &lt; 3 || height &lt; 3) {</span>
-<span class="nc" id="L214">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
+<span class="nc bnc" id="L233" title="All 4 branches missed.">        if (width &lt; 3 || height &lt; 3) {</span>
+<span class="nc" id="L234">            return new MotionDetector.MotionResult(0.0, false, threshold);</span>
         }
 
         // Compute Sobel edge magnitude for both frames
-<span class="nc" id="L218">        float[] edgesCurrent = sobelMagnitude(fpCurrent, width, height);</span>
-<span class="nc" id="L219">        float[] edgesPrevious = sobelMagnitude(fpPrevious, width, height);</span>
+<span class="nc" id="L238">        float[] edgesCurrent = sobelMagnitude(current, width, height);</span>
+<span class="nc" id="L239">        float[] edgesPrevious = sobelMagnitude(previous, width, height);</span>
 
         // Normalised cross-correlation of edge maps
-<span class="nc" id="L222">        double similarity = normalizedCrossCorrelation(edgesCurrent, edgesPrevious);</span>
-<span class="nc" id="L223">        double motionScore = Math.max(0.0, 1.0 - similarity);</span>
+<span class="nc" id="L242">        double similarity = normalizedCrossCorrelation(edgesCurrent, edgesPrevious);</span>
+<span class="nc" id="L243">        double motionScore = Math.max(0.0, 1.0 - similarity);</span>
 
-<span class="nc" id="L225">        log.debug(&quot;Structural motion detection: similarity={}, motionScore={}, threshold={}&quot;,</span>
-<span class="nc" id="L226">                String.format(&quot;%.4f&quot;, similarity),</span>
-<span class="nc" id="L227">                String.format(&quot;%.4f&quot;, motionScore),</span>
-<span class="nc" id="L228">                threshold);</span>
+<span class="nc" id="L245">        log.debug(&quot;Structural motion detection: similarity={}, motionScore={}, threshold={}&quot;,</span>
+<span class="nc" id="L246">                String.format(&quot;%.4f&quot;, similarity),</span>
+<span class="nc" id="L247">                String.format(&quot;%.4f&quot;, motionScore),</span>
+<span class="nc" id="L248">                threshold);</span>
 
-<span class="nc bnc" id="L230" title="All 2 branches missed.">        return new MotionDetector.MotionResult(motionScore, motionScore &gt; threshold, threshold);</span>
+<span class="nc bnc" id="L250" title="All 2 branches missed.">        return new MotionDetector.MotionResult(motionScore, motionScore &gt; threshold, threshold);</span>
     }
 
-    /** Computes Sobel gradient magnitude for a FloatProcessor. */
-    private float[] sobelMagnitude(FloatProcessor fp, int width, int height) {
-<span class="nc" id="L235">        int innerW = width - 2;</span>
-<span class="nc" id="L236">        int innerH = height - 2;</span>
-<span class="nc" id="L237">        float[] result = new float[innerW * innerH];</span>
+    /** Computes Sobel gradient magnitude for grayscale pixels. */
+    private float[] sobelMagnitude(ByteProcessor fp, int width, int height) {
+<span class="nc" id="L255">        int innerW = width - 2;</span>
+<span class="nc" id="L256">        int innerH = height - 2;</span>
+<span class="nc" id="L257">        float[] result = new float[innerW * innerH];</span>
 
-<span class="nc bnc" id="L239" title="All 2 branches missed.">        for (int y = 1; y &lt; height - 1; y++) {</span>
-<span class="nc bnc" id="L240" title="All 2 branches missed.">            for (int x = 1; x &lt; width - 1; x++) {</span>
-<span class="nc" id="L241">                float gx =</span>
-<span class="nc" id="L242">                        -fp.getf(x - 1, y - 1) + fp.getf(x + 1, y - 1)</span>
-<span class="nc" id="L243">                        - 2f * fp.getf(x - 1, y) + 2f * fp.getf(x + 1, y)</span>
-<span class="nc" id="L244">                        - fp.getf(x - 1, y + 1) + fp.getf(x + 1, y + 1);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        for (int y = 1; y &lt; height - 1; y++) {</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">            for (int x = 1; x &lt; width - 1; x++) {</span>
+<span class="nc" id="L261">                float gx =</span>
+<span class="nc" id="L262">                        -fp.getf(x - 1, y - 1) + fp.getf(x + 1, y - 1)</span>
+<span class="nc" id="L263">                        - 2f * fp.getf(x - 1, y) + 2f * fp.getf(x + 1, y)</span>
+<span class="nc" id="L264">                        - fp.getf(x - 1, y + 1) + fp.getf(x + 1, y + 1);</span>
 
-<span class="nc" id="L246">                float gy =</span>
-<span class="nc" id="L247">                        -fp.getf(x - 1, y - 1) - 2f * fp.getf(x, y - 1) - fp.getf(x + 1, y - 1)</span>
-<span class="nc" id="L248">                        + fp.getf(x - 1, y + 1) + 2f * fp.getf(x, y + 1) + fp.getf(x + 1, y + 1);</span>
+<span class="nc" id="L266">                float gy =</span>
+<span class="nc" id="L267">                        -fp.getf(x - 1, y - 1) - 2f * fp.getf(x, y - 1) - fp.getf(x + 1, y - 1)</span>
+<span class="nc" id="L268">                        + fp.getf(x - 1, y + 1) + 2f * fp.getf(x, y + 1) + fp.getf(x + 1, y + 1);</span>
 
-<span class="nc" id="L250">                result[(y - 1) * innerW + (x - 1)] = (float) Math.sqrt(gx * gx + gy * gy);</span>
+<span class="nc" id="L270">                result[(y - 1) * innerW + (x - 1)] = (float) Math.sqrt(gx * gx + gy * gy);</span>
             }
         }
-<span class="nc" id="L253">        return result;</span>
+<span class="nc" id="L273">        return result;</span>
     }
 
     /** Normalised cross-correlation of two float arrays. Returns [0, 1]. */
     private double normalizedCrossCorrelation(float[] a, float[] b) {
-<span class="nc bnc" id="L258" title="All 4 branches missed.">        if (a.length != b.length || a.length == 0) return 0.0;</span>
+<span class="nc bnc" id="L278" title="All 4 branches missed.">        if (a.length != b.length || a.length == 0) return 0.0;</span>
 
-<span class="nc" id="L260">        double meanA = 0, meanB = 0;</span>
-<span class="nc bnc" id="L261" title="All 2 branches missed.">        for (int i = 0; i &lt; a.length; i++) {</span>
-<span class="nc" id="L262">            meanA += a[i];</span>
-<span class="nc" id="L263">            meanB += b[i];</span>
+<span class="nc" id="L280">        double meanA = 0, meanB = 0;</span>
+<span class="nc bnc" id="L281" title="All 2 branches missed.">        for (int i = 0; i &lt; a.length; i++) {</span>
+<span class="nc" id="L282">            meanA += a[i];</span>
+<span class="nc" id="L283">            meanB += b[i];</span>
         }
-<span class="nc" id="L265">        meanA /= a.length;</span>
-<span class="nc" id="L266">        meanB /= b.length;</span>
+<span class="nc" id="L285">        meanA /= a.length;</span>
+<span class="nc" id="L286">        meanB /= b.length;</span>
 
-<span class="nc" id="L268">        double sumAB = 0, sumAA = 0, sumBB = 0;</span>
-<span class="nc bnc" id="L269" title="All 2 branches missed.">        for (int i = 0; i &lt; a.length; i++) {</span>
-<span class="nc" id="L270">            double da = a[i] - meanA;</span>
-<span class="nc" id="L271">            double db = b[i] - meanB;</span>
-<span class="nc" id="L272">            sumAB += da * db;</span>
-<span class="nc" id="L273">            sumAA += da * da;</span>
-<span class="nc" id="L274">            sumBB += db * db;</span>
+<span class="nc" id="L288">        double sumAB = 0, sumAA = 0, sumBB = 0;</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">        for (int i = 0; i &lt; a.length; i++) {</span>
+<span class="nc" id="L290">            double da = a[i] - meanA;</span>
+<span class="nc" id="L291">            double db = b[i] - meanB;</span>
+<span class="nc" id="L292">            sumAB += da * db;</span>
+<span class="nc" id="L293">            sumAA += da * da;</span>
+<span class="nc" id="L294">            sumBB += db * db;</span>
         }
 
-<span class="nc" id="L277">        double denom = Math.sqrt(sumAA * sumBB);</span>
-<span class="nc bnc" id="L278" title="All 2 branches missed.">        if (denom &lt; 1e-10) return 1.0; // both constant → identical</span>
-<span class="nc" id="L279">        double ncc = sumAB / denom;</span>
-<span class="nc" id="L280">        return Math.max(0.0, Math.min(1.0, ncc));</span>
+<span class="nc" id="L297">        double denom = Math.sqrt(sumAA * sumBB);</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">        if (denom &lt; 1e-10) return 1.0; // both constant → identical</span>
+<span class="nc" id="L299">        double ncc = sumAB / denom;</span>
+<span class="nc" id="L300">        return Math.max(0.0, Math.min(1.0, ncc));</span>
     }
 
     /**
      * Returns the ImageJ version string for health checks.
      */
     public String getVersion() {
-<span class="fc" id="L287">        return IJ.getVersion();</span>
+<span class="fc" id="L307">        return IJ.getVersion();</span>
     }
 
-    /**
-     * Reads image file bytes into an ImageJ FloatProcessor (grayscale).
-     * Uses ByteProcessor as intermediate to ensure grayscale conversion.
-     */
-    private FloatProcessor readAsFloatProcessor(byte[] imageFileBytes) {
-<span class="fc" id="L295">        ByteProcessor bp = readAsByteProcessor(imageFileBytes);</span>
-<span class="fc bfc" id="L296" title="All 2 branches covered.">        return bp != null ? bp.convertToFloatProcessor() : null;</span>
+    ByteProcessor readForStacking(byte[] imageFileBytes) {
+<span class="nc" id="L311">        return readAsByteProcessor(imageFileBytes, STACK_ANALYSIS_MAX_EDGE);</span>
     }
 
     /**
@@ -305,66 +320,77 @@ public class ImageJProcessor {
      * so we must convert non-grayscale images before wrapping them.
      */
     private ByteProcessor readAsByteProcessor(byte[] imageFileBytes) {
-<span class="fc bfc" id="L308" title="All 4 branches covered.">        if (imageFileBytes == null || imageFileBytes.length == 0) {</span>
-<span class="fc" id="L309">            return null;</span>
+<span class="fc" id="L323">        return readAsByteProcessor(imageFileBytes, Integer.MAX_VALUE);</span>
+    }
+
+    private ByteProcessor readAsByteProcessor(byte[] imageFileBytes, int maxEdge) {
+<span class="fc bfc" id="L327" title="All 4 branches covered.">        if (imageFileBytes == null || imageFileBytes.length == 0) {</span>
+<span class="fc" id="L328">            return null;</span>
         }
         try {
-<span class="fc" id="L312">            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageFileBytes));</span>
-<span class="fc bfc" id="L313" title="All 2 branches covered.">            if (bi == null) {</span>
-<span class="pc bpc" id="L314" title="1 of 2 branches missed.">                if (isCr3File(imageFileBytes)) {</span>
-<span class="nc" id="L315">                    bi = decodeCr3WithFallback(imageFileBytes);</span>
-                }
-<span class="pc bpc" id="L317" title="1 of 2 branches missed.">                if (bi == null) {</span>
-<span class="fc" id="L318">                    log.warn(&quot;Could not decode image from {} bytes&quot;, imageFileBytes.length);</span>
-<span class="fc" id="L319">                    return null;</span>
-                }
+<span class="fc bfc" id="L331" title="All 2 branches covered.">            if (CapturedImageFormat.hasCr3Header(imageFileBytes)) {</span>
+<span class="fc" id="L332">                return readCr3(imageFileBytes, maxEdge);</span>
             }
-            // ByteProcessor requires TYPE_BYTE_GRAY; real camera JPEGs are RGB.
-            // Convert to grayscale if the image is not already 8-bit gray.
-<span class="fc bfc" id="L324" title="All 2 branches covered.">            if (bi.getType() != BufferedImage.TYPE_BYTE_GRAY) {</span>
-<span class="fc" id="L325">                BufferedImage gray = new BufferedImage(</span>
-<span class="fc" id="L326">                        bi.getWidth(), bi.getHeight(), BufferedImage.TYPE_BYTE_GRAY);</span>
-<span class="fc" id="L327">                gray.getGraphics().drawImage(bi, 0, 0, null);</span>
-<span class="fc" id="L328">                bi = gray;</span>
+<span class="fc" id="L334">            BufferedImage bi = ImageIO.read(new ByteArrayInputStream(imageFileBytes));</span>
+<span class="fc bfc" id="L335" title="All 2 branches covered.">            if (bi == null) {</span>
+<span class="fc" id="L336">                log.warn(&quot;Could not decode image from {} bytes&quot;, imageFileBytes.length);</span>
+<span class="fc" id="L337">                return null;</span>
             }
-<span class="fc" id="L330">            return new ByteProcessor(bi);</span>
-<span class="fc" id="L331">        } catch (IOException e) {</span>
-<span class="fc" id="L332">            log.error(&quot;Error reading image: {}&quot;, e.getMessage(), e);</span>
-<span class="fc" id="L333">            return null;</span>
+<span class="fc" id="L339">            return toGrayscale(bi, maxEdge);</span>
+<span class="fc" id="L340">        } catch (Cr3Exception | IOException e) {</span>
+<span class="fc" id="L341">            log.warn(&quot;Could not read image: {}&quot;, e.getMessage());</span>
+<span class="fc" id="L342">            return null;</span>
         }
     }
 
-    private static boolean isCr3File(byte[] data) {
-<span class="pc bpc" id="L338" title="1 of 4 branches missed.">        if (data == null || data.length &lt; 12) {</span>
-<span class="fc" id="L339">            return false;</span>
-        }
-        // Compare ftyp signature at offset 4 and CRX major brand at offset 8 inline
-        // to avoid allocating temporary arrays on every call
-<span class="fc bfc" id="L343" title="All 2 branches covered.">        for (int i = 0; i &lt; FTYP_SIGNATURE.length; i++) {</span>
-<span class="fc bfc" id="L344" title="All 2 branches covered.">            if (data[4 + i] != FTYP_SIGNATURE[i]) return false;</span>
-        }
-<span class="fc bfc" id="L346" title="All 2 branches covered.">        for (int i = 0; i &lt; CRX_MAJOR_BRAND.length; i++) {</span>
-<span class="pc bpc" id="L347" title="1 of 2 branches missed.">            if (data[8 + i] != CRX_MAJOR_BRAND[i]) return false;</span>
-        }
-<span class="fc" id="L349">        return true;</span>
-    }
-
-    private BufferedImage decodeCr3WithFallback(byte[] imageFileBytes) {
-<span class="nc" id="L353">        try (MemoryCacheImageInputStream iis =</span>
+    private ByteProcessor readCr3(byte[] imageFileBytes, int maxEdge) throws Cr3Exception, IOException {
+<span class="fc" id="L347">        try (MemoryCacheImageInputStream iis =</span>
                      new MemoryCacheImageInputStream(new ByteArrayInputStream(imageFileBytes))) {
-<span class="nc" id="L355">            ImageReader reader = new CanonCr3ImageReaderSpi().createReaderInstance(null);</span>
+<span class="fc" id="L349">            Cr3Decoder decoder = new Cr3Decoder();</span>
+<span class="fc" id="L350">            decoder.setInput(iis);</span>
+<span class="fc" id="L351">            Cr3DecodeOptions options = Cr3DecodeOptions.rawProcessed();</span>
+            Rectangle bounds;
             try {
-<span class="nc" id="L357">                reader.setInput(iis);</span>
-<span class="nc" id="L358">                CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();</span>
-<span class="nc" id="L359">                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());</span>
-<span class="nc" id="L360">                return reader.read(0, param);</span>
-            } finally {
-<span class="nc" id="L362">                reader.dispose();</span>
+<span class="fc" id="L354">                bounds = decoder.getRawProcessedBounds(options);</span>
+<span class="nc" id="L355">            } catch (Cr3Exception exception) {</span>
+<span class="nc" id="L356">                return readCr3Preview(decoder, maxEdge, exception);</span>
+<span class="fc" id="L357">            }</span>
+<span class="fc" id="L358">            long estimatedBytes = RawDecodeBudget.estimateRawBytes(bounds.width, bounds.height);</span>
+<span class="fc" id="L359">            try (RawDecodeBudget.Lease lease = rawDecodeBudget.acquire(estimatedBytes, 1)) {</span>
+<span class="fc" id="L360">                return toGrayscale(decoder.decode(options.maxWorkers(lease.workers())), maxEdge);</span>
+<span class="fc" id="L361">            } catch (Cr3Exception | IOException exception) {</span>
+<span class="fc" id="L362">                return readCr3Preview(decoder, maxEdge, exception);</span>
             }
-<span class="nc" id="L364">        } catch (Exception e) {</span>
-<span class="nc" id="L365">            log.warn(&quot;CR3 fallback decode failed: {}&quot;, e.getMessage(), e);</span>
-<span class="nc" id="L366">            return null;</span>
+<span class="pc" id="L364">        }</span>
+    }
+
+    private ByteProcessor readCr3Preview(Cr3Decoder decoder, int maxEdge, Exception rawFailure)
+            throws Cr3Exception, IOException {
+<span class="pc bpc" id="L369" title="1 of 2 branches missed.">        if (Thread.currentThread().isInterrupted()) {</span>
+<span class="nc" id="L370">            throw new IOException(&quot;CR3 analysis interrupted&quot;, rawFailure);</span>
         }
+<span class="fc" id="L372">        log.debug(&quot;Using embedded preview for CR3 analysis: {}&quot;, rawFailure.getMessage());</span>
+<span class="fc" id="L373">        return toGrayscale(decoder.decode(Cr3DecodeOptions.defaults()), maxEdge);</span>
+    }
+
+    private static ByteProcessor toGrayscale(BufferedImage image, int maxEdge) {
+<span class="fc" id="L377">        int longestEdge = Math.max(image.getWidth(), image.getHeight());</span>
+<span class="pc bpc" id="L378" title="1 of 4 branches missed.">        if (image.getType() == BufferedImage.TYPE_BYTE_GRAY &amp;&amp; longestEdge &lt;= maxEdge) {</span>
+<span class="fc" id="L379">            return new ByteProcessor(image);</span>
+        }
+<span class="fc" id="L381">        double scale = Math.min(1.0, (double) maxEdge / longestEdge);</span>
+<span class="fc" id="L382">        int width = Math.max(1, (int) Math.round(image.getWidth() * scale));</span>
+<span class="fc" id="L383">        int height = Math.max(1, (int) Math.round(image.getHeight() * scale));</span>
+<span class="fc" id="L384">        BufferedImage gray = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_GRAY);</span>
+<span class="fc" id="L385">        Graphics2D graphics = gray.createGraphics();</span>
+        try {
+<span class="fc" id="L387">            graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,</span>
+                    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+<span class="fc" id="L389">            graphics.drawImage(image, 0, 0, width, height, null);</span>
+        } finally {
+<span class="fc" id="L391">            graphics.dispose();</span>
+        }
+<span class="fc" id="L393">        return new ByteProcessor(gray);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

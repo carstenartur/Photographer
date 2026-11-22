@@ -29,40 +29,48 @@ import java.util.regex.Pattern;
 public final class CcapiEndpointCatalog {
 
     private static final String API_ROOT = &quot;/ccapi&quot;;
+<span class="fc" id="L32">    private static final Pattern VERSIONED_OPERATION = Pattern.compile(&quot;/ccapi/ver[0-9]+(/.*)&quot;);</span>
+    private static final String LIVE_VIEW = &quot;/shooting/liveview&quot;;
     private static final String DEVELOPER_ROOT = &quot;/ccapi/ver100/topurlfordev&quot;;
-<span class="fc" id="L33">    private static final Pattern VERSION_ROOT_PATTERN = Pattern.compile(&quot;.*/ver\\d+/?$&quot;);</span>
-<span class="fc" id="L34">    private static final Pattern VERSION_NUMBER_PATTERN = Pattern.compile(&quot;ver(\\d+)&quot;);</span>
+<span class="fc" id="L35">    private static final Pattern VERSION_ROOT_PATTERN = Pattern.compile(&quot;.*/ver\\d+/?$&quot;);</span>
+<span class="fc" id="L36">    private static final Pattern VERSION_NUMBER_PATTERN = Pattern.compile(&quot;ver(\\d+)&quot;);</span>
 
     private final List&lt;Endpoint&gt; endpoints;
+    private final String basePath;
+    private final URI origin;
+<span class="fc" id="L41">    static final Comparator&lt;Endpoint&gt; VERSION_ORDER =</span>
+<span class="fc" id="L42">            Comparator.comparingInt(Endpoint::versionNumber).thenComparing(Endpoint::path);</span>
 
-<span class="fc" id="L38">    private CcapiEndpointCatalog(List&lt;Endpoint&gt; endpoints) {</span>
-<span class="fc" id="L39">        this.endpoints = List.copyOf(endpoints);</span>
-<span class="fc" id="L40">    }</span>
+<span class="fc" id="L44">    private CcapiEndpointCatalog(String baseUrl, List&lt;Endpoint&gt; endpoints) {</span>
+<span class="fc" id="L45">        this.endpoints = List.copyOf(endpoints);</span>
+<span class="fc" id="L46">        this.basePath = endpointPath(baseUrl);</span>
+<span class="fc" id="L47">        this.origin = URI.create(baseUrl);</span>
+<span class="fc" id="L48">    }</span>
 
     /** Discovers and normalizes the endpoint catalog using documented CCAPI roots. */
     public static CcapiEndpointCatalog discover(String baseUrl, RestTemplate restTemplate) {
-<span class="fc" id="L44">        String normalizedBaseUrl = normalizeBaseUrl(baseUrl);</span>
-<span class="fc" id="L45">        Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L52">        String normalizedBaseUrl = normalizeBaseUrl(baseUrl);</span>
+<span class="fc" id="L53">        Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
 
-<span class="fc" id="L47">        Map&lt;String, Object&gt; versions = getMap(restTemplate, normalizedBaseUrl + API_ROOT);</span>
-<span class="fc bfc" id="L48" title="All 4 branches covered.">        if (versions == null || versions.keySet().stream().noneMatch(key -&gt; key.startsWith(&quot;ver&quot;))) {</span>
-<span class="fc" id="L49">            versions = getMap(restTemplate, normalizedBaseUrl + DEVELOPER_ROOT);</span>
+<span class="fc" id="L55">        Map&lt;String, Object&gt; versions = getMap(restTemplate, normalizedBaseUrl + API_ROOT);</span>
+<span class="fc bfc" id="L56" title="All 4 branches covered.">        if (versions == null || versions.keySet().stream().noneMatch(key -&gt; key.startsWith(&quot;ver&quot;))) {</span>
+<span class="fc" id="L57">            versions = getMap(restTemplate, normalizedBaseUrl + DEVELOPER_ROOT);</span>
         }
-<span class="fc bfc" id="L51" title="All 2 branches covered.">        if (versions == null) {</span>
-<span class="fc" id="L52">            return new CcapiEndpointCatalog(List.of());</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (versions == null) {</span>
+<span class="fc" id="L60">            return new CcapiEndpointCatalog(normalizedBaseUrl, List.of());</span>
         }
 
-<span class="fc" id="L55">        Builder builder = new Builder(normalizedBaseUrl, restTemplate);</span>
-<span class="fc" id="L56">        versions.entrySet().stream()</span>
-<span class="fc" id="L57">                .filter(entry -&gt; entry.getKey().startsWith(&quot;ver&quot;))</span>
-<span class="fc" id="L58">                .sorted(Map.Entry.comparingByKey())</span>
-<span class="fc" id="L59">                .forEach(entry -&gt; builder.registerVersion(entry.getKey(), entry.getValue()));</span>
-<span class="fc" id="L60">        return builder.build();</span>
+<span class="fc" id="L63">        Builder builder = new Builder(normalizedBaseUrl, restTemplate);</span>
+<span class="fc" id="L64">        versions.entrySet().stream()</span>
+<span class="fc" id="L65">                .filter(entry -&gt; entry.getKey().startsWith(&quot;ver&quot;))</span>
+<span class="fc" id="L66">                .sorted(Map.Entry.comparingByKey())</span>
+<span class="fc" id="L67">                .forEach(entry -&gt; builder.registerVersion(entry.getKey(), entry.getValue()));</span>
+<span class="fc" id="L68">        return builder.build();</span>
     }
 
     /** Every normalized endpoint, ordered by API version and path. */
     public List&lt;Endpoint&gt; endpoints() {
-<span class="fc" id="L65">        return endpoints;</span>
+<span class="fc" id="L73">        return endpoints;</span>
     }
 
     /**
@@ -71,27 +79,63 @@ public final class CcapiEndpointCatalog {
      * {@code /devicestatus/storage}.
      */
     public Optional&lt;Endpoint&gt; findExactPath(String suffix) {
-<span class="fc" id="L74">        String normalizedSuffix = normalizeSuffix(suffix);</span>
-<span class="fc" id="L75">        return endpoints.stream()</span>
-<span class="fc" id="L76">                .filter(endpoint -&gt; endpoint.path().endsWith(normalizedSuffix))</span>
-<span class="fc" id="L77">                .max(Comparator.comparingInt(Endpoint::versionNumber)</span>
-<span class="fc" id="L78">                        .thenComparing(Endpoint::path));</span>
+<span class="fc" id="L82">        return findPath(suffix, null, false);</span>
     }
 
     /** Same as {@link #findExactPath(String)}, additionally requiring a method when known. */
     public Optional&lt;Endpoint&gt; findExactPath(String suffix, HttpMethod method) {
-<span class="fc" id="L83">        Objects.requireNonNull(method, &quot;method&quot;);</span>
-<span class="fc" id="L84">        return findExactPathCandidates(suffix).stream()</span>
-<span class="fc bfc" id="L85" title="All 4 branches covered.">                .filter(endpoint -&gt; !endpoint.methodMetadataKnown() || endpoint.methods().contains(method))</span>
-<span class="fc" id="L86">                .max(Comparator.comparingInt(Endpoint::versionNumber)</span>
-<span class="fc" id="L87">                        .thenComparing(Endpoint::path));</span>
+<span class="fc" id="L87">        Objects.requireNonNull(method, &quot;method&quot;);</span>
+<span class="fc" id="L88">        return findPath(suffix, method, false);</span>
     }
 
-    private List&lt;Endpoint&gt; findExactPathCandidates(String suffix) {
-<span class="fc" id="L91">        String normalizedSuffix = normalizeSuffix(suffix);</span>
-<span class="fc" id="L92">        return endpoints.stream()</span>
-<span class="fc" id="L93">                .filter(endpoint -&gt; endpoint.path().endsWith(normalizedSuffix))</span>
-<span class="fc" id="L94">                .toList();</span>
+    /** Legacy short names retain suffix lookup. Media and event requests always name a complete operation. */
+    Optional&lt;Endpoint&gt; findPath(String suffix, HttpMethod method, boolean matchWholeOperation) {
+<span class="fc" id="L93">        String normalizedSuffix = normalizeSuffix(suffix);</span>
+<span class="fc bfc" id="L94" title="All 4 branches covered.">        if (matchWholeOperation || normalizedSuffix.equals(CcapiMediaOperation.CONTENTS.path)</span>
+<span class="fc bfc" id="L95" title="All 4 branches covered.">                || normalizedSuffix.equals(&quot;/contents/sd&quot;) || normalizedSuffix.equals(CcapiMediaOperation.POLLING.path)</span>
+<span class="pc bpc" id="L96" title="1 of 2 branches missed.">                || normalizedSuffix.equals(CcapiMediaOperation.MONITORING.path)) {</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">            return findOperation(normalizedSuffix, method == null ? Set.of() : Set.of(method), true);</span>
+        }
+<span class="fc" id="L99">        return endpoints.stream()</span>
+<span class="fc" id="L100">                .filter(endpoint -&gt; matchesOperation(endpoint.path(), normalizedSuffix))</span>
+<span class="fc bfc" id="L101" title="All 4 branches covered.">                .filter(endpoint -&gt; method == null || !endpoint.methodMetadataKnown()</span>
+<span class="fc bfc" id="L102" title="All 2 branches covered.">                        || endpoint.methods().contains(method))</span>
+<span class="fc" id="L103">                .max(VERSION_ORDER);</span>
+    }
+
+    /** Selects one whole versioned operation on the configured camera, using a single descriptor for all methods. */
+    Optional&lt;Endpoint&gt; findOperation(String operation, Set&lt;HttpMethod&gt; methods, boolean allowUnknownMethods) {
+<span class="fc" id="L108">        return endpoints.stream()</span>
+<span class="fc" id="L109">                .filter(endpoint -&gt; isCameraOperation(endpoint, operation))</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">                .filter(endpoint -&gt; endpoint.methodMetadataKnown()</span>
+<span class="fc" id="L111">                        ? endpoint.methods().containsAll(methods) : allowUnknownMethods)</span>
+<span class="fc" id="L112">                .max(VERSION_ORDER);</span>
+    }
+
+    private boolean isCameraOperation(Endpoint endpoint, String operation) {
+        URI url;
+        try {
+<span class="fc" id="L118">            url = URI.create(endpoint.url());</span>
+<span class="nc" id="L119">        } catch (IllegalArgumentException invalid) {</span>
+<span class="nc" id="L120">            return false;</span>
+<span class="fc" id="L121">        }</span>
+<span class="pc bpc" id="L122" title="1 of 4 branches missed.">        if (url.getHost() == null || !url.getHost().equalsIgnoreCase(origin.getHost())</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">                || !origin.getScheme().equalsIgnoreCase(url.getScheme())</span>
+<span class="pc bpc" id="L124" title="2 of 4 branches missed.">                || port(url) != port(origin) || url.getRawUserInfo() != null</span>
+<span class="pc bpc" id="L125" title="2 of 4 branches missed.">                || url.getRawQuery() != null || url.getRawFragment() != null) {</span>
+<span class="fc" id="L126">            return false;</span>
+        }
+<span class="fc" id="L128">        String path = url.getRawPath();</span>
+<span class="fc bfc" id="L129" title="All 2 branches covered.">        return operation.equals(versionedOperation(path))</span>
+<span class="fc bfc" id="L130" title="All 4 branches covered.">                || !basePath.isEmpty() &amp;&amp; path.startsWith(basePath + &quot;/&quot;)</span>
+<span class="pc bpc" id="L131" title="1 of 2 branches missed.">                &amp;&amp; operation.equals(versionedOperation(path.substring(basePath.length())));</span>
+    }
+
+    private static int port(URI uri) {
+<span class="fc bfc" id="L135" title="All 2 branches covered.">        if (uri.getPort() &gt;= 0) {</span>
+<span class="fc" id="L136">            return uri.getPort();</span>
+        }
+<span class="fc bfc" id="L138" title="All 2 branches covered.">        return &quot;https&quot;.equalsIgnoreCase(uri.getScheme()) ? 443 : 80;</span>
     }
 
     /** One advertised endpoint with normalized transport metadata. */
@@ -104,193 +148,218 @@ public final class CcapiEndpointCatalog {
             Set&lt;HttpMethod&gt; methods,
             boolean methodMetadataKnown
     ) {
-<span class="fc" id="L107">        public Endpoint {</span>
-<span class="fc" id="L108">            version = Objects.requireNonNull(version, &quot;version&quot;);</span>
-<span class="fc" id="L109">            advertisedValue = Objects.requireNonNull(advertisedValue, &quot;advertisedValue&quot;);</span>
-<span class="fc" id="L110">            path = Objects.requireNonNull(path, &quot;path&quot;);</span>
-<span class="fc" id="L111">            url = Objects.requireNonNull(url, &quot;url&quot;);</span>
-<span class="pc bpc" id="L112" title="1 of 4 branches missed.">            methods = methods == null || methods.isEmpty()</span>
-<span class="fc" id="L113">                    ? Set.of() : Set.copyOf(methods);</span>
-<span class="fc" id="L114">        }</span>
+<span class="fc" id="L151">        public Endpoint {</span>
+<span class="fc" id="L152">            version = Objects.requireNonNull(version, &quot;version&quot;);</span>
+<span class="fc" id="L153">            advertisedValue = Objects.requireNonNull(advertisedValue, &quot;advertisedValue&quot;);</span>
+<span class="fc" id="L154">            path = Objects.requireNonNull(path, &quot;path&quot;);</span>
+<span class="fc" id="L155">            url = Objects.requireNonNull(url, &quot;url&quot;);</span>
+<span class="pc bpc" id="L156" title="1 of 4 branches missed.">            methods = methods == null || methods.isEmpty()</span>
+<span class="fc" id="L157">                    ? Set.of() : Set.copyOf(methods);</span>
+<span class="fc" id="L158">        }</span>
     }
 
     private static final class Builder {
         private final String baseUrl;
         private final RestTemplate restTemplate;
-<span class="fc" id="L120">        private final Map&lt;String, Endpoint&gt; endpointsByIdentity = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L164">        private final Map&lt;String, Endpoint&gt; endpointsByIdentity = new LinkedHashMap&lt;&gt;();</span>
 
-<span class="fc" id="L122">        private Builder(String baseUrl, RestTemplate restTemplate) {</span>
-<span class="fc" id="L123">            this.baseUrl = baseUrl;</span>
-<span class="fc" id="L124">            this.restTemplate = restTemplate;</span>
-<span class="fc" id="L125">        }</span>
+<span class="fc" id="L166">        private Builder(String baseUrl, RestTemplate restTemplate) {</span>
+<span class="fc" id="L167">            this.baseUrl = baseUrl;</span>
+<span class="fc" id="L168">            this.restTemplate = restTemplate;</span>
+<span class="fc" id="L169">        }</span>
 
         private void registerVersion(String version, Object value) {
-<span class="fc bfc" id="L128" title="All 2 branches covered.">            if (value instanceof List&lt;?&gt; list) {</span>
-<span class="fc" id="L129">                registerList(version, list);</span>
-<span class="pc bpc" id="L130" title="1 of 2 branches missed.">            } else if (value instanceof String string) {</span>
-<span class="fc" id="L131">                registerVersionRoot(version, string);</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">            if (value instanceof List&lt;?&gt; list) {</span>
+<span class="fc" id="L173">                registerList(version, list);</span>
+<span class="pc bpc" id="L174" title="1 of 2 branches missed.">            } else if (value instanceof String string) {</span>
+<span class="fc" id="L175">                registerVersionRoot(version, string);</span>
             }
-<span class="fc" id="L133">        }</span>
+<span class="fc" id="L177">        }</span>
 
         private void registerList(String version, List&lt;?&gt; list) {
-<span class="pc bpc" id="L136" title="1 of 2 branches missed.">            if (list.isEmpty()) {</span>
-<span class="nc" id="L137">                return;</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">            if (list.isEmpty()) {</span>
+<span class="nc" id="L181">                return;</span>
             }
-<span class="fc bfc" id="L139" title="All 2 branches covered.">            if (list.getFirst() instanceof Map&lt;?, ?&gt;) {</span>
-<span class="fc bfc" id="L140" title="All 2 branches covered.">                for (Object item : list) {</span>
-<span class="pc bpc" id="L141" title="1 of 2 branches missed.">                    if (item instanceof Map&lt;?, ?&gt; descriptor) {</span>
-<span class="fc" id="L142">                        registerDescriptor(version, descriptor);</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">            if (list.getFirst() instanceof Map&lt;?, ?&gt;) {</span>
+<span class="fc bfc" id="L184" title="All 2 branches covered.">                for (Object item : list) {</span>
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">                    if (item instanceof Map&lt;?, ?&gt; descriptor) {</span>
+<span class="fc" id="L186">                        registerDescriptor(version, descriptor);</span>
                     }
-<span class="fc" id="L144">                }</span>
-<span class="fc" id="L145">                return;</span>
+<span class="fc" id="L188">                }</span>
+<span class="fc" id="L189">                return;</span>
             }
-<span class="pc bpc" id="L147" title="1 of 4 branches missed.">            if (list.size() == 1 &amp;&amp; list.getFirst() instanceof String string</span>
-<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                    &amp;&amp; VERSION_ROOT_PATTERN.matcher(endpointPath(string)).matches()) {</span>
-<span class="nc" id="L149">                registerVersionRoot(version, string);</span>
-<span class="nc" id="L150">                return;</span>
+<span class="pc bpc" id="L191" title="1 of 4 branches missed.">            if (list.size() == 1 &amp;&amp; list.getFirst() instanceof String string</span>
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">                    &amp;&amp; VERSION_ROOT_PATTERN.matcher(endpointPath(string)).matches()) {</span>
+<span class="nc" id="L193">                registerVersionRoot(version, string);</span>
+<span class="nc" id="L194">                return;</span>
             }
-<span class="fc bfc" id="L152" title="All 2 branches covered.">            for (Object item : list) {</span>
-<span class="pc bpc" id="L153" title="1 of 2 branches missed.">                if (item instanceof String string) {</span>
-<span class="fc" id="L154">                    registerEndpoint(version, string, Set.of(), false);</span>
+<span class="fc bfc" id="L196" title="All 2 branches covered.">            for (Object item : list) {</span>
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">                if (item instanceof String string) {</span>
+<span class="fc" id="L198">                    registerEndpoint(version, string, Set.of(), false);</span>
                 }
-<span class="fc" id="L156">            }</span>
-<span class="fc" id="L157">        }</span>
+<span class="fc" id="L200">            }</span>
+<span class="fc" id="L201">        }</span>
 
         private void registerDescriptor(String version, Map&lt;?, ?&gt; descriptor) {
-<span class="fc" id="L160">            Object value = descriptor.get(&quot;url&quot;);</span>
-<span class="fc bfc" id="L161" title="All 2 branches covered.">            if (!(value instanceof String)) {</span>
-<span class="fc" id="L162">                value = descriptor.get(&quot;path&quot;);</span>
+<span class="fc" id="L204">            Object value = descriptor.get(&quot;url&quot;);</span>
+<span class="fc bfc" id="L205" title="All 2 branches covered.">            if (!(value instanceof String)) {</span>
+<span class="fc" id="L206">                value = descriptor.get(&quot;path&quot;);</span>
             }
-<span class="pc bpc" id="L164" title="1 of 2 branches missed.">            if (!(value instanceof String endpoint)) {</span>
-<span class="nc" id="L165">                return;</span>
+<span class="pc bpc" id="L208" title="1 of 2 branches missed.">            if (!(value instanceof String endpoint)) {</span>
+<span class="nc" id="L209">                return;</span>
             }
 
-<span class="fc" id="L168">            Set&lt;HttpMethod&gt; methods = new HashSet&lt;&gt;();</span>
-<span class="fc" id="L169">            boolean metadataKnown = false;</span>
-<span class="fc" id="L170">            metadataKnown |= addMethod(descriptor, &quot;get&quot;, HttpMethod.GET, methods);</span>
-<span class="fc" id="L171">            metadataKnown |= addMethod(descriptor, &quot;post&quot;, HttpMethod.POST, methods);</span>
-<span class="fc" id="L172">            metadataKnown |= addMethod(descriptor, &quot;put&quot;, HttpMethod.PUT, methods);</span>
-<span class="fc" id="L173">            metadataKnown |= addMethod(descriptor, &quot;delete&quot;, HttpMethod.DELETE, methods);</span>
-<span class="fc" id="L174">            registerEndpoint(version, endpoint, methods, metadataKnown);</span>
-<span class="fc" id="L175">        }</span>
+<span class="fc" id="L212">            Set&lt;HttpMethod&gt; methods = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L213">            boolean metadataKnown = false;</span>
+<span class="fc" id="L214">            metadataKnown |= addMethod(descriptor, &quot;get&quot;, HttpMethod.GET, methods);</span>
+<span class="fc" id="L215">            metadataKnown |= addMethod(descriptor, &quot;post&quot;, HttpMethod.POST, methods);</span>
+<span class="fc" id="L216">            metadataKnown |= addMethod(descriptor, &quot;put&quot;, HttpMethod.PUT, methods);</span>
+<span class="fc" id="L217">            metadataKnown |= addMethod(descriptor, &quot;delete&quot;, HttpMethod.DELETE, methods);</span>
+<span class="fc" id="L218">            registerEndpoint(version, endpoint, methods, metadataKnown);</span>
+<span class="fc" id="L219">        }</span>
 
         private boolean addMethod(Map&lt;?, ?&gt; descriptor, String key, HttpMethod method,
                                   Set&lt;HttpMethod&gt; methods) {
-<span class="pc bpc" id="L179" title="1 of 2 branches missed.">            if (!descriptor.containsKey(key)) {</span>
-<span class="nc" id="L180">                return false;</span>
+<span class="fc bfc" id="L223" title="All 2 branches covered.">            if (!descriptor.containsKey(key)) {</span>
+<span class="fc" id="L224">                return false;</span>
             }
-<span class="fc bfc" id="L182" title="All 2 branches covered.">            if (Boolean.TRUE.equals(descriptor.get(key))) {</span>
-<span class="fc" id="L183">                methods.add(method);</span>
+<span class="fc bfc" id="L226" title="All 2 branches covered.">            if (Boolean.TRUE.equals(descriptor.get(key))) {</span>
+<span class="fc" id="L227">                methods.add(method);</span>
             }
-<span class="fc" id="L185">            return true;</span>
+<span class="fc" id="L229">            return true;</span>
         }
 
         private void registerVersionRoot(String version, String root) {
-<span class="fc" id="L189">            String url = absoluteUrl(baseUrl, root);</span>
+<span class="fc" id="L233">            String url = absoluteUrl(baseUrl, root);</span>
             try {
-<span class="fc" id="L191">                Object response = restTemplate.getForObject(url, Object.class);</span>
-<span class="pc bpc" id="L192" title="1 of 2 branches missed.">                if (response instanceof List&lt;?&gt; list) {</span>
-<span class="fc" id="L193">                    registerList(version, list);</span>
-<span class="nc bnc" id="L194" title="All 2 branches missed.">                } else if (response instanceof Map&lt;?, ?&gt; map) {</span>
-<span class="nc" id="L195">                    Object versionValue = map.get(version);</span>
-<span class="nc bnc" id="L196" title="All 2 branches missed.">                    if (versionValue != null) {</span>
-<span class="nc" id="L197">                        registerVersion(version, versionValue);</span>
+<span class="fc" id="L235">                Object response = restTemplate.getForObject(url, Object.class);</span>
+<span class="pc bpc" id="L236" title="1 of 2 branches missed.">                if (response instanceof List&lt;?&gt; list) {</span>
+<span class="fc" id="L237">                    registerList(version, list);</span>
+<span class="nc bnc" id="L238" title="All 2 branches missed.">                } else if (response instanceof Map&lt;?, ?&gt; map) {</span>
+<span class="nc" id="L239">                    Object versionValue = map.get(version);</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">                    if (versionValue != null) {</span>
+<span class="nc" id="L241">                        registerVersion(version, versionValue);</span>
                     } else {
-<span class="nc bnc" id="L199" title="All 2 branches missed.">                        for (Object value : map.values()) {</span>
-<span class="nc bnc" id="L200" title="All 2 branches missed.">                            if (value instanceof List&lt;?&gt; list) {</span>
-<span class="nc" id="L201">                                registerList(version, list);</span>
+<span class="nc bnc" id="L243" title="All 2 branches missed.">                        for (Object value : map.values()) {</span>
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                            if (value instanceof List&lt;?&gt; list) {</span>
+<span class="nc" id="L245">                                registerList(version, list);</span>
                             }
-<span class="nc" id="L203">                        }</span>
+<span class="nc" id="L247">                        }</span>
                     }
                 }
-<span class="nc" id="L206">            } catch (RestClientException ignored) {</span>
-<span class="nc" id="L207">                return;</span>
-<span class="fc" id="L208">            }</span>
-<span class="fc" id="L209">        }</span>
+<span class="nc" id="L250">            } catch (RestClientException ignored) {</span>
+<span class="nc" id="L251">                return;</span>
+<span class="fc" id="L252">            }</span>
+<span class="fc" id="L253">        }</span>
 
         private void registerEndpoint(String version, String advertisedValue,
                                       Set&lt;HttpMethod&gt; methods, boolean metadataKnown) {
-<span class="pc bpc" id="L213" title="2 of 4 branches missed.">            if (advertisedValue == null || advertisedValue.isBlank()) {</span>
-<span class="nc" id="L214">                return;</span>
+<span class="pc bpc" id="L257" title="2 of 4 branches missed.">            if (advertisedValue == null || advertisedValue.isBlank()) {</span>
+<span class="nc" id="L258">                return;</span>
             }
-<span class="fc" id="L216">            String path = endpointPath(advertisedValue);</span>
-<span class="fc" id="L217">            Endpoint endpoint = new Endpoint(</span>
+<span class="fc" id="L260">            String path = endpointPath(advertisedValue);</span>
+<span class="fc" id="L261">            Endpoint endpoint = new Endpoint(</span>
                     version,
-<span class="fc" id="L219">                    versionNumber(version),</span>
+<span class="fc" id="L263">                    versionNumber(version),</span>
                     advertisedValue,
                     path,
-<span class="fc" id="L222">                    absoluteUrl(baseUrl, advertisedValue),</span>
+<span class="fc" id="L266">                    absoluteUrl(baseUrl, advertisedValue),</span>
                     methods,
                     metadataKnown
             );
-<span class="fc" id="L226">            endpointsByIdentity.put(version + &quot;\n&quot; + path, endpoint);</span>
-<span class="fc" id="L227">        }</span>
+<span class="fc" id="L270">            endpointsByIdentity.put(version + &quot;\n&quot; + path, endpoint);</span>
+<span class="fc" id="L271">        }</span>
 
         private CcapiEndpointCatalog build() {
-<span class="fc" id="L230">            List&lt;Endpoint&gt; ordered = new ArrayList&lt;&gt;(endpointsByIdentity.values());</span>
-<span class="fc" id="L231">            ordered.sort(Comparator.comparingInt(Endpoint::versionNumber)</span>
-<span class="fc" id="L232">                    .thenComparing(Endpoint::path));</span>
-<span class="fc" id="L233">            return new CcapiEndpointCatalog(ordered);</span>
+<span class="fc" id="L274">            List&lt;Endpoint&gt; ordered = new ArrayList&lt;&gt;(endpointsByIdentity.values());</span>
+<span class="fc" id="L275">            ordered.sort(Comparator.comparingInt(Endpoint::versionNumber)</span>
+<span class="fc" id="L276">                    .thenComparing(Endpoint::path));</span>
+<span class="fc" id="L277">            return new CcapiEndpointCatalog(baseUrl, ordered);</span>
         }
     }
 
     private static Map&lt;String, Object&gt; getMap(RestTemplate restTemplate, String url) {
         try {
-<span class="fc" id="L239">            Map&lt;?, ?&gt; response = restTemplate.getForObject(url, Map.class);</span>
-<span class="fc bfc" id="L240" title="All 4 branches covered.">            if (response == null || response.isEmpty()) {</span>
-<span class="fc" id="L241">                return null;</span>
+<span class="fc" id="L283">            Map&lt;?, ?&gt; response = restTemplate.getForObject(url, Map.class);</span>
+<span class="fc bfc" id="L284" title="All 4 branches covered.">            if (response == null || response.isEmpty()) {</span>
+<span class="fc" id="L285">                return null;</span>
             }
-<span class="fc" id="L243">            Map&lt;String, Object&gt; result = new LinkedHashMap&lt;&gt;();</span>
-<span class="fc" id="L244">            response.forEach((key, value) -&gt; result.put(String.valueOf(key), value));</span>
-<span class="fc" id="L245">            return result;</span>
-<span class="fc" id="L246">        } catch (RestClientException exception) {</span>
-<span class="fc" id="L247">            return null;</span>
+<span class="fc" id="L287">            Map&lt;String, Object&gt; result = new LinkedHashMap&lt;&gt;();</span>
+<span class="fc" id="L288">            response.forEach((key, value) -&gt; result.put(String.valueOf(key), value));</span>
+<span class="fc" id="L289">            return result;</span>
+<span class="fc" id="L290">        } catch (RestClientException exception) {</span>
+<span class="fc" id="L291">            return null;</span>
         }
     }
 
     private static String endpointPath(String endpoint) {
         try {
-<span class="fc" id="L253">            URI uri = URI.create(endpoint);</span>
-<span class="fc" id="L254">            String path = uri.getPath();</span>
-<span class="pc bpc" id="L255" title="1 of 2 branches missed.">            return path == null ? endpoint : path;</span>
-<span class="nc" id="L256">        } catch (IllegalArgumentException exception) {</span>
-<span class="nc" id="L257">            int query = endpoint.indexOf('?');</span>
-<span class="nc bnc" id="L258" title="All 2 branches missed.">            return query &gt;= 0 ? endpoint.substring(0, query) : endpoint;</span>
+<span class="fc" id="L297">            URI uri = URI.create(endpoint);</span>
+            // Escaped path segments are distinct from the literal advertised operation.
+<span class="fc" id="L299">            String path = uri.getRawPath();</span>
+<span class="pc bpc" id="L300" title="1 of 2 branches missed.">            return path == null ? endpoint : path;</span>
+<span class="nc" id="L301">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L302">            int query = endpoint.indexOf('?');</span>
+<span class="nc bnc" id="L303" title="All 2 branches missed.">            return query &gt;= 0 ? endpoint.substring(0, query) : endpoint;</span>
         }
     }
 
     private static String absoluteUrl(String baseUrl, String endpoint) {
-<span class="pc bpc" id="L263" title="1 of 4 branches missed.">        if (endpoint.startsWith(&quot;http://&quot;) || endpoint.startsWith(&quot;https://&quot;)) {</span>
-<span class="fc" id="L264">            return endpoint;</span>
+<span class="fc bfc" id="L308" title="All 4 branches covered.">        if (endpoint.startsWith(&quot;http://&quot;) || endpoint.startsWith(&quot;https://&quot;)) {</span>
+<span class="fc" id="L309">            return endpoint;</span>
         }
-<span class="pc bpc" id="L266" title="1 of 2 branches missed.">        return endpoint.startsWith(&quot;/&quot;) ? baseUrl + endpoint : baseUrl + &quot;/&quot; + endpoint;</span>
+<span class="fc bfc" id="L311" title="All 2 branches covered.">        return endpoint.startsWith(&quot;/&quot;) ? baseUrl + endpoint : baseUrl + &quot;/&quot; + endpoint;</span>
     }
 
     private static int versionNumber(String version) {
-<span class="fc" id="L270">        Matcher matcher = VERSION_NUMBER_PATTERN.matcher(version);</span>
-<span class="pc bpc" id="L271" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
-<span class="nc" id="L272">            return -1;</span>
+<span class="fc" id="L315">        Matcher matcher = VERSION_NUMBER_PATTERN.matcher(version);</span>
+<span class="pc bpc" id="L316" title="1 of 2 branches missed.">        if (!matcher.find()) {</span>
+<span class="nc" id="L317">            return -1;</span>
         }
         try {
-<span class="fc" id="L275">            return Integer.parseInt(matcher.group(1));</span>
-<span class="nc" id="L276">        } catch (NumberFormatException exception) {</span>
-<span class="nc" id="L277">            return -1;</span>
+<span class="fc" id="L320">            return Integer.parseInt(matcher.group(1));</span>
+<span class="nc" id="L321">        } catch (NumberFormatException exception) {</span>
+<span class="nc" id="L322">            return -1;</span>
         }
+    }
+
+    static boolean matchesOperation(String path, String operation) {
+<span class="fc bfc" id="L327" title="All 2 branches covered.">        if (!isLiveViewOperation(operation)) {</span>
+            // Older capture/status callers use short suffixes such as &quot;shutterbutton&quot;.
+<span class="fc" id="L329">            return path.endsWith(operation);</span>
+        }
+<span class="fc" id="L331">        return matchesWholeOperation(path, operation);</span>
+    }
+
+    private static boolean matchesWholeOperation(String path, String operation) {
+<span class="pc bpc" id="L335" title="1 of 4 branches missed.">        return path.equals(operation) || operation.equals(versionedOperation(path));</span>
+    }
+
+    static String versionedOperation(String path) {
+<span class="pc bpc" id="L339" title="1 of 2 branches missed.">        if (path == null) {</span>
+<span class="nc" id="L340">            return null;</span>
+        }
+<span class="fc" id="L342">        Matcher versioned = VERSIONED_OPERATION.matcher(path);</span>
+<span class="fc bfc" id="L343" title="All 2 branches covered.">        return versioned.matches() ? versioned.group(1) : null;</span>
+    }
+
+    static boolean isLiveViewOperation(String operation) {
+<span class="fc bfc" id="L347" title="All 4 branches covered.">        return operation.equals(LIVE_VIEW) || operation.startsWith(LIVE_VIEW + &quot;/&quot;);</span>
     }
 
     private static String normalizeSuffix(String suffix) {
-<span class="fc" id="L282">        Objects.requireNonNull(suffix, &quot;suffix&quot;);</span>
-<span class="fc" id="L283">        String result = suffix.trim();</span>
-<span class="fc bfc" id="L284" title="All 2 branches covered.">        return result.startsWith(&quot;/&quot;) ? result : &quot;/&quot; + result;</span>
+<span class="fc" id="L351">        Objects.requireNonNull(suffix, &quot;suffix&quot;);</span>
+<span class="fc" id="L352">        String result = suffix.trim();</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">        return result.startsWith(&quot;/&quot;) ? result : &quot;/&quot; + result;</span>
     }
 
     private static String normalizeBaseUrl(String baseUrl) {
-<span class="fc" id="L288">        Objects.requireNonNull(baseUrl, &quot;baseUrl&quot;);</span>
-<span class="fc" id="L289">        String result = baseUrl.trim();</span>
-<span class="pc bpc" id="L290" title="1 of 2 branches missed.">        while (result.endsWith(&quot;/&quot;)) {</span>
-<span class="nc" id="L291">            result = result.substring(0, result.length() - 1);</span>
+<span class="fc" id="L357">        Objects.requireNonNull(baseUrl, &quot;baseUrl&quot;);</span>
+<span class="fc" id="L358">        String result = baseUrl.trim();</span>
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        while (result.endsWith(&quot;/&quot;)) {</span>
+<span class="nc" id="L360">            result = result.substring(0, result.length() - 1);</span>
         }
-<span class="fc" id="L293">        return result;</span>
+<span class="fc" id="L362">        return result;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

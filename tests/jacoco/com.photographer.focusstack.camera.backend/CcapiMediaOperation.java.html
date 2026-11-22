@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CcapiMediaOperation.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.camera.backend</a> &gt; <span class="el_source">CcapiMediaOperation.java</span></div><h1>CcapiMediaOperation.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.camera.backend;
+
+import com.photographer.focusstack.camera.exception.CameraOperationException;
+import org.springframework.http.HttpMethod;
+
+import java.util.Optional;
+import java.util.Set;
+
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.ENDPOINT_NOT_FOUND;
+import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.METHOD_NOT_ALLOWED;
+
+/** Methods required on one advertised endpoint for each media/event transport. */
+<span class="fc" id="L13">enum CcapiMediaOperation {</span>
+<span class="fc" id="L14">    CONTENTS(&quot;media-list-and-download&quot;, &quot;/contents&quot;, true, HttpMethod.GET),</span>
+<span class="fc" id="L15">    POLLING(&quot;event-polling&quot;, &quot;/event/polling&quot;, true, HttpMethod.GET),</span>
+<span class="fc" id="L16">    POLLING_CONTINUATION(&quot;event-polling-continuation&quot;, &quot;/event/polling&quot;, false, HttpMethod.GET, HttpMethod.DELETE),</span>
+<span class="fc" id="L17">    MONITORING(&quot;event-monitoring&quot;, &quot;/event/monitoring&quot;, false, HttpMethod.GET, HttpMethod.DELETE);</span>
+
+    final String capability;
+    final String path;
+    final boolean allowUnknownMethods;
+    final Set&lt;HttpMethod&gt; methods;
+
+<span class="fc" id="L24">    CcapiMediaOperation(String capability, String path, boolean allowUnknownMethods, HttpMethod... methods) {</span>
+<span class="fc" id="L25">        this.capability = capability;</span>
+<span class="fc" id="L26">        this.path = path;</span>
+<span class="fc" id="L27">        this.allowUnknownMethods = allowUnknownMethods;</span>
+<span class="fc" id="L28">        this.methods = Set.of(methods);</span>
+<span class="fc" id="L29">    }</span>
+
+    Optional&lt;CcapiEndpointCatalog.Endpoint&gt; select(CcapiEndpointCatalog catalog) {
+<span class="fc" id="L32">        return catalog.findOperation(path, methods, allowUnknownMethods);</span>
+    }
+
+    String requireUrl(CcapiEndpointCatalog catalog, String profileId) {
+<span class="fc bfc" id="L36" title="All 2 branches covered.">        return select(catalog).orElseThrow(() -&gt; catalog.findOperation(path, Set.of(), true).isPresent()</span>
+<span class="fc" id="L37">                ? new CameraOperationException(profileId, METHOD_NOT_ALLOWED, 405)</span>
+<span class="fc" id="L38">                : new CameraOperationException(profileId, ENDPOINT_NOT_FOUND, 404)).url();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

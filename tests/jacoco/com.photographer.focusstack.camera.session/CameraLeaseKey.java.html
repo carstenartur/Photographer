@@ -22,219 +22,227 @@ import java.util.Objects;
  */
 public final class CameraLeaseKey {
 <span class="fc" id="L24">    private static final HexFormat HEX = HexFormat.of();</span>
+<span class="fc" id="L25">    static final CameraLeaseKey FIRST_CANON_USB_CAMERA = new CameraLeaseKey(&quot;canon-usb:first-device&quot;);</span>
 
     private final String canonicalOrigin;
     private final String redactedId;
 
-<span class="fc" id="L29">    private CameraLeaseKey(String canonicalOrigin) {</span>
-<span class="fc" id="L30">        this.canonicalOrigin = canonicalOrigin;</span>
-<span class="fc" id="L31">        this.redactedId = fingerprint(canonicalOrigin);</span>
-<span class="fc" id="L32">    }</span>
+<span class="fc" id="L30">    private CameraLeaseKey(String canonicalOrigin) {</span>
+<span class="fc" id="L31">        this.canonicalOrigin = canonicalOrigin;</span>
+<span class="fc" id="L32">        this.redactedId = fingerprint(canonicalOrigin);</span>
+<span class="fc" id="L33">    }</span>
+
+    static CameraLeaseKey fromMockProfile(String id) {
+<span class="pc bpc" id="L36" title="2 of 4 branches missed.">        if (id == null || id.isBlank()) {</span>
+<span class="nc" id="L37">            throw new IllegalArgumentException(&quot;Mock camera profile ID is required&quot;);</span>
+        }
+<span class="fc" id="L39">        return new CameraLeaseKey(&quot;mock:&quot; + id);</span>
+    }
 
     public static CameraLeaseKey fromCcapiProfile(CameraProfile profile) {
-<span class="fc" id="L35">        Objects.requireNonNull(profile, &quot;profile&quot;);</span>
-<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (profile.backendType() == null</span>
-<span class="pc bpc" id="L37" title="1 of 2 branches missed.">                || !&quot;canon-ccapi&quot;.equals(profile.backendType().trim().toLowerCase(Locale.ROOT))) {</span>
-<span class="nc" id="L38">            throw new IllegalArgumentException(&quot;Camera profile is not a canon-ccapi profile&quot;);</span>
+<span class="fc" id="L43">        Objects.requireNonNull(profile, &quot;profile&quot;);</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        if (profile.backendType() == null</span>
+<span class="pc bpc" id="L45" title="1 of 2 branches missed.">                || !&quot;canon-ccapi&quot;.equals(profile.backendType().trim().toLowerCase(Locale.ROOT))) {</span>
+<span class="nc" id="L46">            throw new IllegalArgumentException(&quot;Camera profile is not a canon-ccapi profile&quot;);</span>
         }
-<span class="fc" id="L40">        return fromCcapiLocation(profile.host());</span>
+<span class="fc" id="L48">        return fromCcapiLocation(profile.host());</span>
     }
 
     public static CameraLeaseKey fromCcapiLocation(String location) {
-<span class="pc bpc" id="L44" title="2 of 4 branches missed.">        if (location == null || location.isBlank()) {</span>
-<span class="nc" id="L45">            throw new IllegalArgumentException(&quot;CCAPI camera location is required&quot;);</span>
+<span class="pc bpc" id="L52" title="2 of 4 branches missed.">        if (location == null || location.isBlank()) {</span>
+<span class="nc" id="L53">            throw new IllegalArgumentException(&quot;CCAPI camera location is required&quot;);</span>
         }
-<span class="fc" id="L47">        String trimmed = location.trim();</span>
-<span class="fc" id="L48">        boolean explicitScheme = hasHttpScheme(trimmed);</span>
-<span class="fc bfc" id="L49" title="All 4 branches covered.">        if (!explicitScheme &amp;&amp; hasExplicitUriScheme(trimmed)) {</span>
-<span class="fc" id="L50">            throw new IllegalArgumentException(&quot;CCAPI camera location must use HTTP or HTTPS&quot;);</span>
+<span class="fc" id="L55">        String trimmed = location.trim();</span>
+<span class="fc" id="L56">        boolean explicitScheme = hasHttpScheme(trimmed);</span>
+<span class="fc bfc" id="L57" title="All 4 branches covered.">        if (!explicitScheme &amp;&amp; hasExplicitUriScheme(trimmed)) {</span>
+<span class="fc" id="L58">            throw new IllegalArgumentException(&quot;CCAPI camera location must use HTTP or HTTPS&quot;);</span>
         }
         URI uri;
         try {
-<span class="fc bfc" id="L54" title="All 2 branches covered.">            uri = URI.create(explicitScheme ? trimmed : &quot;http://&quot; + trimmed);</span>
-<span class="fc" id="L55">        } catch (IllegalArgumentException privateParseFailure) {</span>
-<span class="fc" id="L56">            throw new IllegalArgumentException(&quot;Malformed CCAPI camera location&quot;);</span>
-<span class="fc" id="L57">        }</span>
+<span class="fc bfc" id="L62" title="All 2 branches covered.">            uri = URI.create(explicitScheme ? trimmed : &quot;http://&quot; + trimmed);</span>
+<span class="fc" id="L63">        } catch (IllegalArgumentException privateParseFailure) {</span>
+<span class="fc" id="L64">            throw new IllegalArgumentException(&quot;Malformed CCAPI camera location&quot;);</span>
+<span class="fc" id="L65">        }</span>
 
-<span class="fc" id="L59">        String scheme = normalizeScheme(uri.getScheme());</span>
-<span class="fc bfc" id="L60" title="All 2 branches covered.">        if (uri.getRawUserInfo() != null) {</span>
-<span class="fc" id="L61">            throw new IllegalArgumentException(&quot;Credentials are not allowed in a CCAPI camera location&quot;);</span>
+<span class="fc" id="L67">        String scheme = normalizeScheme(uri.getScheme());</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        if (uri.getRawUserInfo() != null) {</span>
+<span class="fc" id="L69">            throw new IllegalArgumentException(&quot;Credentials are not allowed in a CCAPI camera location&quot;);</span>
         }
-<span class="fc" id="L63">        Authority authority = extractAuthority(uri);</span>
-<span class="fc" id="L64">        String normalizedHost = normalizeHost(authority.host());</span>
-<span class="fc" id="L65">        int effectivePort = authority.port();</span>
-<span class="fc bfc" id="L66" title="All 2 branches covered.">        if (effectivePort &lt; 0) {</span>
-<span class="fc bfc" id="L67" title="All 2 branches covered.">            effectivePort = explicitScheme ? defaultPort(scheme) : 8080;</span>
+<span class="fc" id="L71">        Authority authority = extractAuthority(uri);</span>
+<span class="fc" id="L72">        String normalizedHost = normalizeHost(authority.host());</span>
+<span class="fc" id="L73">        int effectivePort = authority.port();</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">        if (effectivePort &lt; 0) {</span>
+<span class="fc bfc" id="L75" title="All 2 branches covered.">            effectivePort = explicitScheme ? defaultPort(scheme) : 8080;</span>
         }
-<span class="pc bpc" id="L69" title="2 of 4 branches missed.">        if (effectivePort &lt; 1 || effectivePort &gt; 65_535) {</span>
-<span class="nc" id="L70">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
+<span class="pc bpc" id="L77" title="2 of 4 branches missed.">        if (effectivePort &lt; 1 || effectivePort &gt; 65_535) {</span>
+<span class="nc" id="L78">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
         }
 
-<span class="fc bfc" id="L73" title="All 2 branches covered.">        String printableHost = normalizedHost.indexOf(':') &gt;= 0</span>
-<span class="fc" id="L74">                ? '[' + normalizedHost + ']'</span>
-<span class="fc" id="L75">                : normalizedHost;</span>
-<span class="fc" id="L76">        return new CameraLeaseKey(scheme + &quot;://&quot; + printableHost + ':' + effectivePort);</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">        String printableHost = normalizedHost.indexOf(':') &gt;= 0</span>
+<span class="fc" id="L82">                ? '[' + normalizedHost + ']'</span>
+<span class="fc" id="L83">                : normalizedHost;</span>
+<span class="fc" id="L84">        return new CameraLeaseKey(scheme + &quot;://&quot; + printableHost + ':' + effectivePort);</span>
     }
 
     public String redactedId() {
-<span class="fc" id="L80">        return redactedId;</span>
+<span class="fc" id="L88">        return redactedId;</span>
     }
 
     private static boolean hasHttpScheme(String value) {
-<span class="fc bfc" id="L84" title="All 2 branches covered.">        return value.regionMatches(true, 0, &quot;http://&quot;, 0, 7)</span>
-<span class="pc bpc" id="L85" title="1 of 2 branches missed.">                || value.regionMatches(true, 0, &quot;https://&quot;, 0, 8);</span>
+<span class="fc bfc" id="L92" title="All 2 branches covered.">        return value.regionMatches(true, 0, &quot;http://&quot;, 0, 7)</span>
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">                || value.regionMatches(true, 0, &quot;https://&quot;, 0, 8);</span>
     }
 
     private static boolean hasExplicitUriScheme(String value) {
-<span class="fc" id="L89">        int separator = value.indexOf(&quot;://&quot;);</span>
-<span class="pc bpc" id="L90" title="1 of 4 branches missed.">        if (separator &lt;= 0 || !Character.isLetter(value.charAt(0))) {</span>
-<span class="fc" id="L91">            return false;</span>
+<span class="fc" id="L97">        int separator = value.indexOf(&quot;://&quot;);</span>
+<span class="pc bpc" id="L98" title="1 of 4 branches missed.">        if (separator &lt;= 0 || !Character.isLetter(value.charAt(0))) {</span>
+<span class="fc" id="L99">            return false;</span>
         }
-<span class="fc bfc" id="L93" title="All 2 branches covered.">        for (int index = 1; index &lt; separator; index++) {</span>
-<span class="fc" id="L94">            char character = value.charAt(index);</span>
-<span class="pc bpc" id="L95" title="7 of 8 branches missed.">            if (!Character.isLetterOrDigit(character)</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        for (int index = 1; index &lt; separator; index++) {</span>
+<span class="fc" id="L102">            char character = value.charAt(index);</span>
+<span class="pc bpc" id="L103" title="7 of 8 branches missed.">            if (!Character.isLetterOrDigit(character)</span>
                     &amp;&amp; character != '+' &amp;&amp; character != '-' &amp;&amp; character != '.') {
-<span class="nc" id="L97">                return false;</span>
+<span class="nc" id="L105">                return false;</span>
             }
         }
-<span class="fc" id="L100">        return true;</span>
+<span class="fc" id="L108">        return true;</span>
     }
 
     private static String normalizeScheme(String scheme) {
-<span class="pc bpc" id="L104" title="1 of 2 branches missed.">        if (scheme == null) {</span>
-<span class="nc" id="L105">            throw new IllegalArgumentException(&quot;CCAPI camera location must contain a scheme&quot;);</span>
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        if (scheme == null) {</span>
+<span class="nc" id="L113">            throw new IllegalArgumentException(&quot;CCAPI camera location must contain a scheme&quot;);</span>
         }
-<span class="fc" id="L107">        String normalized = scheme.toLowerCase(Locale.ROOT);</span>
-<span class="pc bpc" id="L108" title="3 of 4 branches missed.">        if (!&quot;http&quot;.equals(normalized) &amp;&amp; !&quot;https&quot;.equals(normalized)) {</span>
-<span class="nc" id="L109">            throw new IllegalArgumentException(&quot;CCAPI camera location must use HTTP or HTTPS&quot;);</span>
+<span class="fc" id="L115">        String normalized = scheme.toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L116" title="3 of 4 branches missed.">        if (!&quot;http&quot;.equals(normalized) &amp;&amp; !&quot;https&quot;.equals(normalized)) {</span>
+<span class="nc" id="L117">            throw new IllegalArgumentException(&quot;CCAPI camera location must use HTTP or HTTPS&quot;);</span>
         }
-<span class="fc" id="L111">        return normalized;</span>
+<span class="fc" id="L119">        return normalized;</span>
     }
 
     private static int defaultPort(String scheme) {
-<span class="pc bpc" id="L115" title="1 of 2 branches missed.">        return &quot;https&quot;.equals(scheme) ? 443 : 80;</span>
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        return &quot;https&quot;.equals(scheme) ? 443 : 80;</span>
     }
 
     private static Authority extractAuthority(URI uri) {
-<span class="pc bpc" id="L119" title="1 of 4 branches missed.">        if (uri.getHost() != null &amp;&amp; !uri.getHost().isBlank()) {</span>
-<span class="fc" id="L120">            return new Authority(uri.getHost(), uri.getPort());</span>
+<span class="pc bpc" id="L127" title="1 of 4 branches missed.">        if (uri.getHost() != null &amp;&amp; !uri.getHost().isBlank()) {</span>
+<span class="fc" id="L128">            return new Authority(uri.getHost(), uri.getPort());</span>
         }
-<span class="fc" id="L122">        String rawAuthority = uri.getRawAuthority();</span>
-<span class="pc bpc" id="L123" title="2 of 6 branches missed.">        if (rawAuthority == null || rawAuthority.isBlank() || rawAuthority.indexOf('@') &gt;= 0) {</span>
-<span class="fc" id="L124">            throw new IllegalArgumentException(&quot;CCAPI camera location must contain a valid host&quot;);</span>
-        }
-
-<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        if (rawAuthority.startsWith(&quot;[&quot;)) {</span>
-<span class="nc" id="L128">            int closingBracket = rawAuthority.indexOf(']');</span>
-<span class="nc bnc" id="L129" title="All 2 branches missed.">            if (closingBracket &lt; 2) {</span>
-<span class="nc" id="L130">                throw new IllegalArgumentException(&quot;Invalid IPv6 camera location&quot;);</span>
-            }
-<span class="nc" id="L132">            String host = rawAuthority.substring(1, closingBracket);</span>
-<span class="nc" id="L133">            String remainder = rawAuthority.substring(closingBracket + 1);</span>
-<span class="nc" id="L134">            return new Authority(host, parseOptionalPort(remainder));</span>
+<span class="fc" id="L130">        String rawAuthority = uri.getRawAuthority();</span>
+<span class="pc bpc" id="L131" title="2 of 6 branches missed.">        if (rawAuthority == null || rawAuthority.isBlank() || rawAuthority.indexOf('@') &gt;= 0) {</span>
+<span class="fc" id="L132">            throw new IllegalArgumentException(&quot;CCAPI camera location must contain a valid host&quot;);</span>
         }
 
-<span class="fc" id="L137">        int colon = rawAuthority.lastIndexOf(':');</span>
-<span class="pc bpc" id="L138" title="2 of 4 branches missed.">        if (colon &gt; 0 &amp;&amp; rawAuthority.indexOf(':') == colon) {</span>
-<span class="fc" id="L139">            String portText = rawAuthority.substring(colon + 1);</span>
-<span class="fc bfc" id="L140" title="All 2 branches covered.">            if (portText.chars().allMatch(Character::isDigit)) {</span>
-<span class="fc" id="L141">                return new Authority(</span>
-<span class="fc" id="L142">                        rawAuthority.substring(0, colon), parsePort(portText));</span>
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        if (rawAuthority.startsWith(&quot;[&quot;)) {</span>
+<span class="nc" id="L136">            int closingBracket = rawAuthority.indexOf(']');</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (closingBracket &lt; 2) {</span>
+<span class="nc" id="L138">                throw new IllegalArgumentException(&quot;Invalid IPv6 camera location&quot;);</span>
             }
-<span class="fc" id="L144">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
+<span class="nc" id="L140">            String host = rawAuthority.substring(1, closingBracket);</span>
+<span class="nc" id="L141">            String remainder = rawAuthority.substring(closingBracket + 1);</span>
+<span class="nc" id="L142">            return new Authority(host, parseOptionalPort(remainder));</span>
         }
-<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (rawAuthority.indexOf(':') &gt;= 0) {</span>
-<span class="nc" id="L147">            throw new IllegalArgumentException(&quot;IPv6 camera locations must use brackets&quot;);</span>
+
+<span class="fc" id="L145">        int colon = rawAuthority.lastIndexOf(':');</span>
+<span class="pc bpc" id="L146" title="2 of 4 branches missed.">        if (colon &gt; 0 &amp;&amp; rawAuthority.indexOf(':') == colon) {</span>
+<span class="fc" id="L147">            String portText = rawAuthority.substring(colon + 1);</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">            if (portText.chars().allMatch(Character::isDigit)) {</span>
+<span class="fc" id="L149">                return new Authority(</span>
+<span class="fc" id="L150">                        rawAuthority.substring(0, colon), parsePort(portText));</span>
+            }
+<span class="fc" id="L152">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
         }
-<span class="nc" id="L149">        return new Authority(rawAuthority, -1);</span>
+<span class="nc bnc" id="L154" title="All 2 branches missed.">        if (rawAuthority.indexOf(':') &gt;= 0) {</span>
+<span class="nc" id="L155">            throw new IllegalArgumentException(&quot;IPv6 camera locations must use brackets&quot;);</span>
+        }
+<span class="nc" id="L157">        return new Authority(rawAuthority, -1);</span>
     }
 
     private static int parseOptionalPort(String remainder) {
-<span class="nc bnc" id="L153" title="All 2 branches missed.">        if (remainder.isEmpty()) {</span>
-<span class="nc" id="L154">            return -1;</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">        if (remainder.isEmpty()) {</span>
+<span class="nc" id="L162">            return -1;</span>
         }
-<span class="nc bnc" id="L156" title="All 4 branches missed.">        if (!remainder.startsWith(&quot;:&quot;) || remainder.length() == 1) {</span>
-<span class="nc" id="L157">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
+<span class="nc bnc" id="L164" title="All 4 branches missed.">        if (!remainder.startsWith(&quot;:&quot;) || remainder.length() == 1) {</span>
+<span class="nc" id="L165">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
         }
-<span class="nc" id="L159">        return parsePort(remainder.substring(1));</span>
+<span class="nc" id="L167">        return parsePort(remainder.substring(1));</span>
     }
 
     private static int parsePort(String value) {
         try {
-<span class="fc" id="L164">            return Integer.parseInt(value);</span>
-<span class="nc" id="L165">        } catch (NumberFormatException privatePortFailure) {</span>
-<span class="nc" id="L166">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
+<span class="fc" id="L172">            return Integer.parseInt(value);</span>
+<span class="nc" id="L173">        } catch (NumberFormatException privatePortFailure) {</span>
+<span class="nc" id="L174">            throw new IllegalArgumentException(&quot;CCAPI camera location contains an invalid port&quot;);</span>
         }
     }
 
     private static String normalizeHost(String host) {
-<span class="fc" id="L171">        String value = stripBrackets(host).toLowerCase(Locale.ROOT);</span>
-<span class="pc bpc" id="L172" title="1 of 2 branches missed.">        if (value.indexOf('%') &gt;= 0) {</span>
-<span class="nc" id="L173">            throw new IllegalArgumentException(&quot;Scoped IPv6 camera locations are not supported&quot;);</span>
+<span class="fc" id="L179">        String value = stripBrackets(host).toLowerCase(Locale.ROOT);</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">        if (value.indexOf('%') &gt;= 0) {</span>
+<span class="nc" id="L181">            throw new IllegalArgumentException(&quot;Scoped IPv6 camera locations are not supported&quot;);</span>
         }
-<span class="fc bfc" id="L175" title="All 2 branches covered.">        if (value.indexOf(':') &gt;= 0) {</span>
+<span class="fc bfc" id="L183" title="All 2 branches covered.">        if (value.indexOf(':') &gt;= 0) {</span>
             try {
-<span class="fc" id="L177">                InetAddress address = InetAddress.getByName(value);</span>
-<span class="pc bpc" id="L178" title="1 of 2 branches missed.">                if (!(address instanceof Inet6Address)) {</span>
-<span class="nc" id="L179">                    throw new IllegalArgumentException(&quot;Invalid IPv6 camera location&quot;);</span>
+<span class="fc" id="L185">                InetAddress address = InetAddress.getByName(value);</span>
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">                if (!(address instanceof Inet6Address)) {</span>
+<span class="nc" id="L187">                    throw new IllegalArgumentException(&quot;Invalid IPv6 camera location&quot;);</span>
                 }
-<span class="fc" id="L181">                return address.getHostAddress().toLowerCase(Locale.ROOT);</span>
-<span class="nc" id="L182">            } catch (UnknownHostException privateHostFailure) {</span>
-<span class="nc" id="L183">                throw new IllegalArgumentException(&quot;Invalid IPv6 camera location&quot;);</span>
+<span class="fc" id="L189">                return address.getHostAddress().toLowerCase(Locale.ROOT);</span>
+<span class="nc" id="L190">            } catch (UnknownHostException privateHostFailure) {</span>
+<span class="nc" id="L191">                throw new IllegalArgumentException(&quot;Invalid IPv6 camera location&quot;);</span>
             }
         }
         try {
-<span class="fc" id="L187">            String ascii = IDN.toASCII(value, IDN.USE_STD3_ASCII_RULES)</span>
-<span class="fc" id="L188">                    .toLowerCase(Locale.ROOT);</span>
-<span class="fc bfc" id="L189" title="All 2 branches covered.">            return ascii.endsWith(&quot;.&quot;) ? ascii.substring(0, ascii.length() - 1) : ascii;</span>
-<span class="nc" id="L190">        } catch (IllegalArgumentException privateHostFailure) {</span>
-<span class="nc" id="L191">            throw new IllegalArgumentException(&quot;Invalid CCAPI camera host&quot;);</span>
+<span class="fc" id="L195">            String ascii = IDN.toASCII(value, IDN.USE_STD3_ASCII_RULES)</span>
+<span class="fc" id="L196">                    .toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L197" title="All 2 branches covered.">            return ascii.endsWith(&quot;.&quot;) ? ascii.substring(0, ascii.length() - 1) : ascii;</span>
+<span class="nc" id="L198">        } catch (IllegalArgumentException privateHostFailure) {</span>
+<span class="nc" id="L199">            throw new IllegalArgumentException(&quot;Invalid CCAPI camera host&quot;);</span>
         }
     }
 
     private static String stripBrackets(String host) {
-<span class="pc bpc" id="L196" title="1 of 4 branches missed.">        return host.startsWith(&quot;[&quot;) &amp;&amp; host.endsWith(&quot;]&quot;)</span>
-<span class="fc" id="L197">                ? host.substring(1, host.length() - 1)</span>
-<span class="fc" id="L198">                : host;</span>
+<span class="pc bpc" id="L204" title="1 of 4 branches missed.">        return host.startsWith(&quot;[&quot;) &amp;&amp; host.endsWith(&quot;]&quot;)</span>
+<span class="fc" id="L205">                ? host.substring(1, host.length() - 1)</span>
+<span class="fc" id="L206">                : host;</span>
     }
 
     private static String fingerprint(String value) {
         try {
-<span class="fc" id="L203">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
-<span class="fc" id="L204">                    .digest(value.getBytes(StandardCharsets.UTF_8));</span>
-<span class="fc" id="L205">            return HEX.formatHex(digest, 0, 8);</span>
-<span class="nc" id="L206">        } catch (NoSuchAlgorithmException impossible) {</span>
-<span class="nc" id="L207">            throw new IllegalStateException(&quot;SHA-256 is unavailable&quot;, impossible);</span>
+<span class="fc" id="L211">            byte[] digest = MessageDigest.getInstance(&quot;SHA-256&quot;)</span>
+<span class="fc" id="L212">                    .digest(value.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L213">            return HEX.formatHex(digest, 0, 8);</span>
+<span class="nc" id="L214">        } catch (NoSuchAlgorithmException impossible) {</span>
+<span class="nc" id="L215">            throw new IllegalStateException(&quot;SHA-256 is unavailable&quot;, impossible);</span>
         }
     }
 
     String canonicalOriginForTesting() {
-<span class="fc" id="L212">        return canonicalOrigin;</span>
+<span class="fc" id="L220">        return canonicalOrigin;</span>
     }
 
     @Override
     public boolean equals(Object other) {
-<span class="pc bpc" id="L217" title="2 of 4 branches missed.">        return this == other || other instanceof CameraLeaseKey key</span>
-<span class="pc bpc" id="L218" title="1 of 2 branches missed.">                &amp;&amp; canonicalOrigin.equals(key.canonicalOrigin);</span>
+<span class="pc bpc" id="L225" title="1 of 4 branches missed.">        return this == other || other instanceof CameraLeaseKey key</span>
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">                &amp;&amp; canonicalOrigin.equals(key.canonicalOrigin);</span>
     }
 
     @Override
     public int hashCode() {
-<span class="fc" id="L223">        return canonicalOrigin.hashCode();</span>
+<span class="fc" id="L231">        return canonicalOrigin.hashCode();</span>
     }
 
     @Override
     public String toString() {
-<span class="fc" id="L228">        return &quot;CameraLeaseKey[&quot; + redactedId + ']';</span>
+<span class="fc" id="L236">        return &quot;CameraLeaseKey[&quot; + redactedId + ']';</span>
     }
 
     private record Authority(String host, int port) {
-<span class="fc" id="L232">        private Authority {</span>
-<span class="pc bpc" id="L233" title="2 of 4 branches missed.">            if (host == null || host.isBlank()) {</span>
-<span class="nc" id="L234">                throw new IllegalArgumentException(</span>
+<span class="fc" id="L240">        private Authority {</span>
+<span class="pc bpc" id="L241" title="2 of 4 branches missed.">            if (host == null || host.isBlank()) {</span>
+<span class="nc" id="L242">                throw new IllegalArgumentException(</span>
                         &quot;CCAPI camera location must contain a valid host&quot;);
             }
-<span class="fc" id="L237">        }</span>
+<span class="fc" id="L245">        }</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

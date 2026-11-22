@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BrowserSocketSession.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.security</a> &gt; <span class="el_source">BrowserSocketSession.java</span></div><h1>BrowserSocketSession.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.security;
+
+import com.photographer.focusstack.app.api.ApiPaths;
+import com.photographer.focusstack.camera.config.PlainWebSocketBridge;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+/** Exchanges an authenticated browser request for an HttpOnly session usable by the plain WebSocket. */
+@Controller
+@RequestMapping({ApiPaths.V1 + &quot;/browser/socket-session&quot;, ApiPaths.LEGACY + &quot;/browser/socket-session&quot;})
+public class BrowserSocketSession {
+<span class="fc" id="L23">    private static final String ATTRIBUTE = BrowserSocketSession.class.getName() + &quot;.CONTEXT&quot;;</span>
+    private final PlainWebSocketBridge bridge;
+
+<span class="fc" id="L26">    public BrowserSocketSession(PlainWebSocketBridge bridge) {</span>
+<span class="fc" id="L27">        this.bridge = bridge;</span>
+<span class="fc" id="L28">    }</span>
+    private static final String AJAX = &quot;X-Requested-With=XMLHttpRequest&quot;;
+
+    private static HttpSessionSecurityContextRepository repository() {
+<span class="fc" id="L32">        var repository = new HttpSessionSecurityContextRepository();</span>
+<span class="fc" id="L33">        repository.setSpringSecurityContextKey(ATTRIBUTE);</span>
+<span class="fc" id="L34">        return repository;</span>
+    }
+
+    static SecurityContextRepository handshakeRepository() {
+<span class="fc" id="L38">        return new DelegatingSecurityContextRepository(</span>
+<span class="fc" id="L39">                new RequestAttributeSecurityContextRepository(), repository(),</span>
+                new HttpSessionSecurityContextRepository());
+    }
+
+    // The custom header prevents a cross-origin HTML form from creating or revoking this session.
+    @PostMapping(headers = AJAX)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void open(HttpServletRequest request, HttpServletResponse response) {
+<span class="nc" id="L47">        var previous = request.getSession(false);</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">        if (previous != null) {</span>
+<span class="nc" id="L49">            bridge.closeBrowserSession(previous.getId());</span>
+<span class="nc" id="L50">            request.changeSessionId();</span>
+        }
+<span class="nc" id="L52">        repository().saveContext(SecurityContextHolder.getContext(), request, response);</span>
+<span class="nc" id="L53">    }</span>
+
+    @DeleteMapping(headers = AJAX)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void close(HttpServletRequest request) {
+<span class="nc" id="L58">        var session = request.getSession(false);</span>
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (session != null) {</span>
+<span class="nc" id="L60">            session.removeAttribute(ATTRIBUTE);</span>
+<span class="nc" id="L61">            bridge.closeBrowserSession(session.getId());</span>
+        }
+<span class="nc" id="L63">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

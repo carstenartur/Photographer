@@ -1,69 +1,102 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.app.security</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.app.security;
 
 import com.photographer.focusstack.app.api.ApiPaths;
+import com.photographer.focusstack.app.api.RealtimeApiPaths;
+import com.photographer.focusstack.app.web.BrowserRoutes;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.web.util.WebUtils;
 
 @Configuration
 @EnableWebSecurity
-<span class="fc" id="L18">public class SecurityConfig {</span>
+<span class="fc" id="L26">public class SecurityConfig {</span>
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-<span class="fc" id="L22">        return new BCryptPasswordEncoder();</span>
+<span class="fc" id="L30">        return new BCryptPasswordEncoder();</span>
     }
 
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
-<span class="fc" id="L27">        return username -&gt; userRepository.findByUsername(username)</span>
-<span class="fc" id="L28">                .map(user -&gt; User.withUsername(user.getUsername())</span>
-<span class="fc" id="L29">                        .password(user.getPasswordHash())</span>
-<span class="fc" id="L30">                        .roles(user.getRole().name())</span>
-<span class="fc" id="L31">                        .build())</span>
-<span class="pc" id="L32">                .orElseThrow(() -&gt; new UsernameNotFoundException(&quot;User not found: &quot; + username));</span>
+<span class="fc" id="L35">        return username -&gt; userRepository.findByUsername(username)</span>
+<span class="fc" id="L36">                .map(user -&gt; User.withUsername(user.getUsername())</span>
+<span class="fc" id="L37">                        .password(user.getPasswordHash())</span>
+<span class="fc" id="L38">                        .roles(user.getRole().name())</span>
+<span class="fc" id="L39">                        .build())</span>
+<span class="pc" id="L40">                .orElseThrow(() -&gt; new UsernameNotFoundException(&quot;User not found: &quot; + username));</span>
+    }
+
+    @Bean
+    @Order(1)
+    public SecurityFilterChain crossOriginSocketSecurity(HttpSecurity http) throws Exception {
+<span class="fc" id="L46">        var plainSocket = PathPatternRequestMatcher.pathPattern(RealtimeApiPaths.PLAIN_ENDPOINT);</span>
+        // A client on another origin must supply its own credentials on the upgrade.
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">        return http.securityMatcher(request -&gt; plainSocket.matches(request)</span>
+<span class="pc bnc" id="L49" title="All 2 branches missed.">                        &amp;&amp; !WebUtils.isSameOrigin(new ServletServerHttpRequest(request)))</span>
+<span class="fc" id="L50">                .sessionManagement(session -&gt; session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+<span class="fc" id="L51">                .authorizeHttpRequests(requests -&gt; requests.anyRequest().authenticated())</span>
+<span class="fc" id="L52">                .httpBasic(Customizer.withDefaults())</span>
+<span class="fc" id="L53">                .build();</span>
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain plainWebSocketSecurity(HttpSecurity http) throws Exception {
+        // Only the same-origin plain socket reads the browser grant. Form login still works.
+<span class="fc" id="L60">        return http.securityMatcher(RealtimeApiPaths.PLAIN_ENDPOINT)</span>
+<span class="fc" id="L61">                .securityContext(context -&gt; context.securityContextRepository(BrowserSocketSession.handshakeRepository()))</span>
+<span class="fc" id="L62">                .authorizeHttpRequests(requests -&gt; requests.anyRequest().authenticated())</span>
+<span class="fc" id="L63">                .httpBasic(Customizer.withDefaults())</span>
+<span class="fc" id="L64">                .build();</span>
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-<span class="fc" id="L37">        http</span>
-<span class="fc" id="L38">            .authorizeHttpRequests(auth -&gt; auth</span>
+<span class="fc" id="L69">        http</span>
+<span class="fc" id="L70">            .authorizeHttpRequests(auth -&gt; auth</span>
                 // Public endpoints: API docs, static frontend assets, and health check
-<span class="fc" id="L40">                .requestMatchers(&quot;/swagger-ui/**&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
-<span class="fc" id="L41">                .requestMatchers(HttpMethod.GET, &quot;/&quot;, &quot;/index.html&quot;, &quot;/assets/**&quot;, &quot;/favicon.svg&quot;,</span>
-<span class="fc" id="L42">                        &quot;/favicon.ico&quot;).permitAll()</span>
-<span class="fc" id="L43">                .requestMatchers(HttpMethod.GET,</span>
+<span class="fc" id="L72">                .requestMatchers(&quot;/swagger-ui/**&quot;, &quot;/v3/api-docs/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
+<span class="fc" id="L73">                .requestMatchers(HttpMethod.GET, &quot;/&quot;, &quot;/index.html&quot;, &quot;/assets/**&quot;, &quot;/favicon.svg&quot;,</span>
+<span class="fc" id="L74">                        &quot;/favicon.ico&quot;).permitAll()</span>
+<span class="fc" id="L75">                .requestMatchers(HttpMethod.GET, BrowserRoutes.PATHS.toArray(String[]::new)).permitAll()</span>
+<span class="fc" id="L76">                .requestMatchers(HttpMethod.GET,</span>
                         ApiPaths.V1 + &quot;/analysis/health&quot;,
-<span class="fc" id="L45">                        ApiPaths.LEGACY + &quot;/analysis/health&quot;).permitAll()</span>
+<span class="fc" id="L78">                        ApiPaths.LEGACY + &quot;/analysis/health&quot;).permitAll()</span>
                 // Admin-only management endpoints
-<span class="fc" id="L47">                .requestMatchers(</span>
+<span class="fc" id="L80">                .requestMatchers(</span>
                         ApiPaths.V1 + &quot;/admin/**&quot;,
-<span class="fc" id="L49">                        ApiPaths.LEGACY + &quot;/admin/**&quot;).hasRole(&quot;ADMIN&quot;)</span>
-<span class="fc" id="L50">                .requestMatchers(HttpMethod.POST,</span>
+<span class="fc" id="L82">                        ApiPaths.LEGACY + &quot;/admin/**&quot;).hasRole(&quot;ADMIN&quot;)</span>
+<span class="fc" id="L83">                .requestMatchers(HttpMethod.POST,</span>
                         ApiPaths.V1 + &quot;/jobs/reindex&quot;,
-<span class="fc" id="L52">                        ApiPaths.LEGACY + &quot;/jobs/reindex&quot;).hasRole(&quot;ADMIN&quot;)</span>
+<span class="fc" id="L85">                        ApiPaths.LEGACY + &quot;/jobs/reindex&quot;).hasRole(&quot;ADMIN&quot;)</span>
                 // All other requests (API, WebSocket) require authentication
-<span class="fc" id="L54">                .anyRequest().authenticated()</span>
+<span class="fc" id="L87">                .anyRequest().authenticated()</span>
             )
-<span class="fc" id="L56">            .formLogin(form -&gt; form</span>
-<span class="fc" id="L57">                .defaultSuccessUrl(&quot;/&quot;, false)</span>
-<span class="fc" id="L58">                .failureUrl(&quot;/login?error&quot;)</span>
-<span class="fc" id="L59">                .permitAll()</span>
+<span class="fc" id="L89">            .formLogin(form -&gt; form</span>
+<span class="fc" id="L90">                .defaultSuccessUrl(&quot;/&quot;, false)</span>
+<span class="fc" id="L91">                .failureUrl(&quot;/login?error&quot;)</span>
+<span class="fc" id="L92">                .permitAll()</span>
             )
-<span class="fc" id="L61">            .httpBasic(basic -&gt; {})</span>
-<span class="fc" id="L62">            .csrf(csrf -&gt; csrf</span>
+<span class="fc" id="L94">            .httpBasic(basic -&gt; {})</span>
+<span class="fc" id="L95">            .csrf(csrf -&gt; csrf</span>
                 // Disable CSRF for REST API endpoints (stateless clients use HTTP Basic)
-<span class="fc" id="L64">                .ignoringRequestMatchers(&quot;/api/**&quot;, &quot;/ws/**&quot;)</span>
+<span class="fc" id="L97">                .ignoringRequestMatchers(&quot;/api/**&quot;, &quot;/ws/**&quot;)</span>
             );
-<span class="fc" id="L66">        return http.build();</span>
+<span class="fc" id="L99">        return http.build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

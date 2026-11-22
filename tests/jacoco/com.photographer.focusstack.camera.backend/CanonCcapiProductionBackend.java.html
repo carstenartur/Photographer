@@ -17,7 +17,9 @@ import com.photographer.focusstack.common.camera.NativeFocusBracketingCapabiliti
 import com.photographer.focusstack.common.camera.NativeFocusBracketingExecutionProvider;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingRequest;
 import com.photographer.focusstack.common.camera.NativeFocusBracketingSession;
+import com.photographer.focusstack.common.camera.NativeFocusBracketingTransportException;
 import com.photographer.focusstack.common.camera.Operation;
+import com.photographer.focusstack.common.camera.ProcessingCaptureProvider;
 import com.photographer.focusstack.common.device.BatteryInfo;
 import com.photographer.focusstack.common.device.StorageInfo;
 import org.springframework.http.HttpMethod;
@@ -37,22 +39,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.photographer.focusstack.camera.exception.CameraOperationException.Reason.LIVE_VIEW_NOT_STARTED;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.AVAILABLE;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.METHOD_METADATA_UNKNOWN;
-import static com.photographer.focusstack.common.camera.CameraCapabilitySnapshot.Availability.UNSUPPORTED;
 
 /** Production Canon CCAPI composition with one authoritative endpoint catalog. */
 final class CanonCcapiProductionBackend implements
         CameraBackend,
+        ProcessingCaptureProvider,
         CameraStatusProvider,
         CameraCapabilityProvider,
         NativeFocusBracketingExecutionProvider,
         CameraMediaProvider {
 
-<span class="fc" id="L52">    private static final Set&lt;String&gt; EVENT_METHODS = Set.of(&quot;GET&quot;, &quot;DELETE&quot;);</span>
-<span class="fc" id="L53">    private static final Set&lt;HttpMethod&gt; SCROLL_METHODS = Set.of(HttpMethod.GET, HttpMethod.DELETE);</span>
+<span class="fc" id="L52">    private static final Set&lt;HttpMethod&gt; SCROLL_METHODS = Set.of(HttpMethod.GET, HttpMethod.DELETE);</span>
     private static final String SCROLL_SUFFIX = &quot;/shooting/liveview/scroll&quot;;
-<span class="fc" id="L55">    private static final Pattern VERSION = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
+<span class="fc" id="L54">    private static final Pattern VERSION = Pattern.compile(&quot;(?:^|/)ver(\\d+)(?:/|$)&quot;);</span>
 
     private final CanonCcapiNativeFocusBracketingBackend delegate;
     private final CcapiLiveViewClient liveViewClient;
@@ -61,297 +60,258 @@ final class CanonCcapiProductionBackend implements
     private final CanonCcapiMonitoringClient monitoringClient;
 
     CanonCcapiProductionBackend(String profileId, String baseUrl, RestTemplate restTemplate) {
-<span class="fc" id="L64">        this(profileId, baseUrl, restTemplate,</span>
+<span class="fc" id="L63">        this(profileId, baseUrl, restTemplate,</span>
                 new CanonCcapiScrollLiveViewReader(profileId, restTemplate));
-<span class="fc" id="L66">    }</span>
+<span class="fc" id="L65">    }</span>
 
     CanonCcapiProductionBackend(
             String profileId,
             String baseUrl,
             RestTemplate restTemplate,
-<span class="fc" id="L72">            CanonCcapiScrollLiveViewReader scrollLiveViewReader) {</span>
-<span class="fc" id="L73">        Objects.requireNonNull(profileId, &quot;profileId&quot;);</span>
-<span class="fc" id="L74">        Objects.requireNonNull(baseUrl, &quot;baseUrl&quot;);</span>
-<span class="fc" id="L75">        Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
-<span class="fc" id="L76">        this.delegate = new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);</span>
-<span class="fc" id="L77">        this.liveViewClient = new CcapiLiveViewClient(</span>
+<span class="fc" id="L71">            CanonCcapiScrollLiveViewReader scrollLiveViewReader) {</span>
+<span class="fc" id="L72">        Objects.requireNonNull(profileId, &quot;profileId&quot;);</span>
+<span class="fc" id="L73">        Objects.requireNonNull(baseUrl, &quot;baseUrl&quot;);</span>
+<span class="fc" id="L74">        Objects.requireNonNull(restTemplate, &quot;restTemplate&quot;);</span>
+<span class="fc" id="L75">        this.delegate = new CanonCcapiNativeFocusBracketingBackend(baseUrl, restTemplate);</span>
+<span class="fc" id="L76">        this.liveViewClient = new CcapiLiveViewClient(</span>
                 profileId,
                 restTemplate,
-<span class="fc" id="L80">                delegate::getDiscoveredEndpoints,</span>
-<span class="fc" id="L81">                delegate::getDiscoveredEndpointMethods,</span>
-<span class="fc" id="L82">                delegate::ccapiPost);</span>
-<span class="fc" id="L83">        this.scrollLiveViewReader = Objects.requireNonNull(</span>
+<span class="fc" id="L79">                delegate::getDiscoveredEndpoints,</span>
+<span class="fc" id="L80">                delegate::getDiscoveredEndpointMethods,</span>
+<span class="fc" id="L81">                delegate::ccapiPost);</span>
+<span class="fc" id="L82">        this.scrollLiveViewReader = Objects.requireNonNull(</span>
                 scrollLiveViewReader, &quot;scrollLiveViewReader&quot;);
-<span class="fc" id="L85">        this.mediaClient = new CanonCcapiMediaClient(</span>
+<span class="fc" id="L84">        this.mediaClient = new CanonCcapiMediaClient(</span>
                 profileId,
                 baseUrl,
                 restTemplate,
-<span class="fc" id="L89">                delegate::getDiscoveredEndpoints,</span>
-<span class="fc" id="L90">                delegate::getDiscoveredEndpointMethods);</span>
-<span class="fc" id="L91">        this.monitoringClient = new CanonCcapiMonitoringClient(</span>
+<span class="fc" id="L88">                delegate::endpointCatalog);</span>
+<span class="fc" id="L89">        this.monitoringClient = new CanonCcapiMonitoringClient(</span>
                 profileId,
                 baseUrl,
                 restTemplate,
-<span class="fc" id="L95">                delegate::getDiscoveredEndpoints,</span>
-<span class="fc" id="L96">                delegate::getDiscoveredEndpointMethods);</span>
-<span class="fc" id="L97">    }</span>
+<span class="fc" id="L93">                delegate::endpointCatalog);</span>
+<span class="fc" id="L94">    }</span>
 
     @Override
     public CameraInfo getInfo() {
-<span class="nc" id="L101">        return delegate.getInfo();</span>
+<span class="nc" id="L98">        return delegate.getInfo();</span>
     }
 
     @Override
     public LiveViewFrame getLiveView() {
-<span class="fc bfc" id="L106" title="All 2 branches covered.">        if (liveViewClient.supportsFrameRetrieval()) {</span>
-<span class="fc" id="L107">            return liveViewClient.getFrame();</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">        if (liveViewClient.supportsFrameRetrieval()) {</span>
+<span class="fc" id="L104">            return liveViewClient.getFrame();</span>
         }
-<span class="fc" id="L109">        String scrollUrl = scrollEndpoint().orElse(null);</span>
-<span class="fc bfc" id="L110" title="All 2 branches covered.">        if (scrollUrl == null) {</span>
-<span class="nc" id="L111">            return liveViewClient.getFrame();</span>
+<span class="fc" id="L106">        String scrollUrl = scrollEndpoint().orElse(null);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        if (scrollUrl == null) {</span>
+<span class="nc" id="L108">            return liveViewClient.getFrame();</span>
         }
 
-<span class="fc" id="L114">        liveViewClient.start(&quot;medium&quot;);</span>
+<span class="fc" id="L111">        liveViewClient.start(&quot;medium&quot;);</span>
         try {
-<span class="fc" id="L116">            return scrollLiveViewReader.nextFrame(scrollUrl);</span>
-<span class="nc" id="L117">        } catch (RuntimeException failure) {</span>
-<span class="nc bnc" id="L118" title="All 2 branches missed.">            if (reason(failure) != LIVE_VIEW_NOT_STARTED) {</span>
-<span class="nc" id="L119">                throw failure;</span>
+<span class="fc" id="L113">            return scrollLiveViewReader.nextFrame(scrollUrl);</span>
+<span class="nc" id="L114">        } catch (RuntimeException failure) {</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if (reason(failure) != LIVE_VIEW_NOT_STARTED) {</span>
+<span class="nc" id="L116">                throw failure;</span>
             }
-<span class="nc" id="L121">            scrollLiveViewReader.abort();</span>
-<span class="nc" id="L122">            liveViewClient.markStopped();</span>
-<span class="nc" id="L123">            liveViewClient.start(&quot;medium&quot;);</span>
-<span class="nc" id="L124">            return scrollLiveViewReader.nextFrame(scrollUrl);</span>
+<span class="nc" id="L118">            scrollLiveViewReader.abort();</span>
+<span class="nc" id="L119">            liveViewClient.markStopped();</span>
+<span class="nc" id="L120">            liveViewClient.start(&quot;medium&quot;);</span>
+<span class="nc" id="L121">            return scrollLiveViewReader.nextFrame(scrollUrl);</span>
         }
     }
 
     @Override
     public void stopLiveView() {
         try {
-<span class="fc" id="L131">            scrollLiveViewReader.stop();</span>
+<span class="fc" id="L128">            scrollLiveViewReader.stop();</span>
         } finally {
-<span class="fc" id="L133">            liveViewClient.stop();</span>
+<span class="fc" id="L130">            liveViewClient.stop();</span>
         }
-<span class="fc" id="L135">    }</span>
+<span class="fc" id="L132">    }</span>
 
     @Override
     public CaptureResult capture() {
+<span class="nc" id="L136">        return capture(false);</span>
+    }
+
+    @Override
+    public CaptureResult captureForProcessing() {
+<span class="fc" id="L141">        return capture(true);</span>
+    }
+
+    private CaptureResult capture(boolean preferRaw) {
         // A scroll GET owns a separate long-running camera operation and must be
         // cancelled before the inherited capture path stops the control endpoint.
         try {
-<span class="fc" id="L142">            scrollLiveViewReader.stop();</span>
+<span class="fc" id="L148">            scrollLiveViewReader.stop();</span>
         } finally {
-<span class="fc" id="L144">            liveViewClient.markStopped();</span>
+<span class="fc" id="L150">            liveViewClient.markStopped();</span>
         }
-<span class="fc" id="L146">        return delegate.capture();</span>
+<span class="pc bpc" id="L152" title="1 of 2 branches missed.">        return preferRaw ? delegate.captureForProcessing() : delegate.capture();</span>
     }
 
     @Override
     public void setFocus(FocusCommand command) {
-<span class="fc" id="L151">        delegate.setFocus(command);</span>
-<span class="fc" id="L152">    }</span>
+<span class="fc" id="L157">        delegate.setFocus(command);</span>
+<span class="fc" id="L158">    }</span>
 
     @Override
     public CameraState getState() {
-<span class="nc" id="L156">        return delegate.getState();</span>
+<span class="nc" id="L162">        return delegate.getState();</span>
     }
 
     @Override
     public boolean supports(Operation operation) {
-<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        return operation == Operation.LIVE_VIEW</span>
-<span class="fc bfc" id="L162" title="All 4 branches covered.">                ? liveViewClient.supportsFrameRetrieval() || scrollEndpoint().isPresent()</span>
-<span class="nc" id="L163">                : delegate.supports(operation);</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        return operation == Operation.LIVE_VIEW</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">                ? liveViewClient.supportsControl()</span>
+<span class="fc bfc" id="L169" title="All 4 branches covered.">                        &amp;&amp; (liveViewClient.supportsFrameRetrieval() || scrollEndpoint().isPresent())</span>
+<span class="nc" id="L170">                : delegate.supports(operation);</span>
     }
 
     @Override
     public ExposureInfo getExposureInfo() {
-<span class="nc" id="L168">        return delegate.getExposureInfo();</span>
+<span class="nc" id="L175">        return delegate.getExposureInfo();</span>
     }
 
     @Override
     public void setIso(int rawValue) {
-<span class="nc" id="L173">        delegate.setIso(rawValue);</span>
-<span class="nc" id="L174">    }</span>
+<span class="nc" id="L180">        delegate.setIso(rawValue);</span>
+<span class="nc" id="L181">    }</span>
 
     @Override
     public void setShutterSpeed(int rawValue) {
-<span class="nc" id="L178">        delegate.setShutterSpeed(rawValue);</span>
-<span class="nc" id="L179">    }</span>
+<span class="nc" id="L185">        delegate.setShutterSpeed(rawValue);</span>
+<span class="nc" id="L186">    }</span>
 
     @Override
     public void setAperture(int rawValue) {
-<span class="nc" id="L183">        delegate.setAperture(rawValue);</span>
-<span class="nc" id="L184">    }</span>
+<span class="nc" id="L190">        delegate.setAperture(rawValue);</span>
+<span class="nc" id="L191">    }</span>
 
     @Override
     public BatteryInfo getBatteryInfo() {
-<span class="nc" id="L188">        return delegate.getBatteryInfo();</span>
+<span class="nc" id="L195">        return delegate.getBatteryInfo();</span>
     }
 
     @Override
     public StorageInfo getStorageInfo() {
-<span class="nc" id="L193">        return delegate.getStorageInfo();</span>
+<span class="nc" id="L200">        return delegate.getStorageInfo();</span>
     }
 
     @Override
     public CameraCapabilitySnapshot getCapabilitySnapshot() {
-<span class="fc" id="L198">        CameraCapabilitySnapshot base = delegate.getCapabilitySnapshot();</span>
-<span class="fc" id="L199">        List&lt;CameraCapabilitySnapshot.Capability&gt; capabilities = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L200">        boolean monitoringReplaced = false;</span>
-<span class="fc bfc" id="L201" title="All 2 branches covered.">        for (CameraCapabilitySnapshot.Capability capability : base.capabilities()) {</span>
-<span class="fc bfc" id="L202" title="All 2 branches covered.">            if (&quot;event-monitoring&quot;.equals(capability.id())) {</span>
-<span class="fc" id="L203">                capabilities.add(eventCapability(base, &quot;event-monitoring&quot;, &quot;/event/monitoring&quot;));</span>
-<span class="fc" id="L204">                monitoringReplaced = true;</span>
-            } else {
-<span class="fc" id="L206">                capabilities.add(capability);</span>
-            }
-<span class="fc" id="L208">        }</span>
-<span class="pc bpc" id="L209" title="1 of 2 branches missed.">        if (!monitoringReplaced) {</span>
-<span class="nc" id="L210">            capabilities.add(eventCapability(base, &quot;event-monitoring&quot;, &quot;/event/monitoring&quot;));</span>
-        }
-<span class="fc" id="L212">        capabilities.add(eventCapability(</span>
-                base, &quot;event-polling-continuation&quot;, &quot;/event/polling&quot;));
-<span class="pc bpc" id="L214" title="1 of 2 branches missed.">        if (capabilities.stream().noneMatch(</span>
-<span class="fc" id="L215">                capability -&gt; &quot;live-view-scroll&quot;.equals(capability.id()))) {</span>
-<span class="fc" id="L216">            capabilities.add(CcapiLiveViewCapabilities.scroll(base));</span>
+<span class="fc" id="L205">        CameraCapabilitySnapshot base = delegate.capabilitySnapshot(true);</span>
+<span class="fc" id="L206">        List&lt;CameraCapabilitySnapshot.Capability&gt; capabilities = new ArrayList&lt;&gt;(base.capabilities());</span>
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">        if (capabilities.stream().noneMatch(</span>
+<span class="fc" id="L208">                capability -&gt; &quot;live-view-scroll&quot;.equals(capability.id()))) {</span>
+<span class="fc" id="L209">            capabilities.add(CcapiLiveViewCapabilities.scroll(base));</span>
         }
 
-<span class="fc" id="L219">        return new CameraCapabilitySnapshot(</span>
-<span class="fc" id="L220">                base.model(),</span>
-<span class="fc" id="L221">                base.firmwareVersion(),</span>
-<span class="fc" id="L222">                base.catalogAvailable(),</span>
+<span class="fc" id="L212">        return new CameraCapabilitySnapshot(</span>
+<span class="fc" id="L213">                base.model(),</span>
+<span class="fc" id="L214">                base.firmwareVersion(),</span>
+<span class="fc" id="L215">                base.catalogAvailable(),</span>
                 capabilities,
-<span class="fc" id="L224">                base.advertisedEndpoints(),</span>
-<span class="fc" id="L225">                base.lens());</span>
+<span class="fc" id="L217">                base.advertisedEndpoints(),</span>
+<span class="fc" id="L218">                base.lens());</span>
     }
 
     private Optional&lt;String&gt; scrollEndpoint() {
-<span class="fc" id="L229">        Map&lt;String, String&gt; endpoints = delegate.getDiscoveredEndpoints();</span>
-<span class="fc" id="L230">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; methods = delegate.getDiscoveredEndpointMethods();</span>
-<span class="fc" id="L231">        return endpoints.entrySet().stream()</span>
-<span class="fc" id="L232">                .filter(entry -&gt; endpointPath(entry.getValue()).endsWith(SCROLL_SUFFIX))</span>
-<span class="fc" id="L233">                .filter(entry -&gt; {</span>
-<span class="fc" id="L234">                    Set&lt;HttpMethod&gt; advertised = methods.get(entry.getKey());</span>
-<span class="pc bpc" id="L235" title="2 of 4 branches missed.">                    return advertised != null &amp;&amp; advertised.containsAll(SCROLL_METHODS);</span>
+<span class="fc" id="L222">        Map&lt;String, String&gt; endpoints = delegate.getDiscoveredEndpoints();</span>
+<span class="fc" id="L223">        Map&lt;String, Set&lt;HttpMethod&gt;&gt; methods = delegate.getDiscoveredEndpointMethods();</span>
+<span class="fc" id="L224">        return endpoints.entrySet().stream()</span>
+<span class="fc" id="L225">                .filter(entry -&gt; CcapiEndpointCatalog.matchesOperation(endpointPath(entry.getValue()), SCROLL_SUFFIX))</span>
+<span class="fc" id="L226">                .filter(entry -&gt; {</span>
+<span class="fc" id="L227">                    Set&lt;HttpMethod&gt; advertised = methods.get(entry.getKey());</span>
+<span class="pc bpc" id="L228" title="2 of 4 branches missed.">                    return advertised != null &amp;&amp; advertised.containsAll(SCROLL_METHODS);</span>
                 })
-<span class="fc" id="L237">                .max(Comparator.comparingInt(</span>
+<span class="fc" id="L230">                .max(Comparator.comparingInt(</span>
                                 (Map.Entry&lt;String, String&gt; entry) -&gt;
-<span class="nc" id="L239">                                        versionNumber(endpointPath(entry.getValue())))</span>
-<span class="pc" id="L240">                        .thenComparing(entry -&gt; endpointPath(entry.getValue())))</span>
-<span class="fc" id="L241">                .map(Map.Entry::getValue);</span>
+<span class="nc" id="L232">                                        versionNumber(endpointPath(entry.getValue())))</span>
+<span class="pc" id="L233">                        .thenComparing(entry -&gt; endpointPath(entry.getValue())))</span>
+<span class="fc" id="L234">                .map(Map.Entry::getValue);</span>
     }
 
     private static CameraOperationException.Reason reason(Throwable failure) {
-<span class="nc" id="L245">        Throwable current = failure;</span>
-<span class="nc bnc" id="L246" title="All 2 branches missed.">        while (current != null) {</span>
-<span class="nc bnc" id="L247" title="All 2 branches missed.">            if (current instanceof CameraOperationException operation) {</span>
-<span class="nc" id="L248">                return operation.reason();</span>
+<span class="nc" id="L238">        Throwable current = failure;</span>
+<span class="nc bnc" id="L239" title="All 2 branches missed.">        while (current != null) {</span>
+<span class="nc bnc" id="L240" title="All 2 branches missed.">            if (current instanceof CameraOperationException operation) {</span>
+<span class="nc" id="L241">                return operation.reason();</span>
             }
-<span class="nc" id="L250">            current = current.getCause();</span>
+<span class="nc" id="L243">            current = current.getCause();</span>
         }
-<span class="nc" id="L252">        return null;</span>
+<span class="nc" id="L245">        return null;</span>
     }
 
     private static String endpointPath(String value) {
         try {
-<span class="fc" id="L257">            String path = URI.create(value).getPath();</span>
-<span class="pc bpc" id="L258" title="1 of 2 branches missed.">            return path == null ? value : path;</span>
-<span class="nc" id="L259">        } catch (IllegalArgumentException ignored) {</span>
-<span class="nc" id="L260">            return value;</span>
+<span class="fc" id="L250">            String path = URI.create(value).getPath();</span>
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">            return path == null ? value : path;</span>
+<span class="nc" id="L252">        } catch (IllegalArgumentException ignored) {</span>
+<span class="nc" id="L253">            return value;</span>
         }
     }
 
     private static int versionNumber(String path) {
-<span class="nc" id="L265">        Matcher matcher = VERSION.matcher(path);</span>
-<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (!matcher.find()) {</span>
-<span class="nc" id="L267">            return -1;</span>
+<span class="nc" id="L258">        Matcher matcher = VERSION.matcher(path);</span>
+<span class="nc bnc" id="L259" title="All 2 branches missed.">        if (!matcher.find()) {</span>
+<span class="nc" id="L260">            return -1;</span>
         }
         try {
-<span class="nc" id="L270">            return Integer.parseInt(matcher.group(1));</span>
-<span class="nc" id="L271">        } catch (NumberFormatException exception) {</span>
-<span class="nc" id="L272">            return -1;</span>
-        }
-    }
-
-    private static CameraCapabilitySnapshot.Capability eventCapability(
-            CameraCapabilitySnapshot snapshot,
-            String id,
-            String suffix) {
-<span class="fc" id="L280">        List&lt;CameraCapabilitySnapshot.Endpoint&gt; advertised = snapshot.advertisedEndpoints().stream()</span>
-<span class="fc" id="L281">                .filter(candidate -&gt; candidate.path().endsWith(suffix))</span>
-<span class="fc" id="L282">                .toList();</span>
-<span class="fc bfc" id="L283" title="All 2 branches covered.">        if (advertised.isEmpty()) {</span>
-<span class="fc" id="L284">            return new CameraCapabilitySnapshot.Capability(</span>
-                    id, false, true, UNSUPPORTED,
-<span class="fc" id="L286">                    EVENT_METHODS, Set.of(), false, &quot;ENDPOINT_NOT_ADVERTISED&quot;);</span>
-        }
-
-<span class="fc" id="L289">        CameraCapabilitySnapshot.Endpoint compatible = advertised.stream()</span>
-<span class="fc" id="L290">                .filter(CameraCapabilitySnapshot.Endpoint::methodMetadataKnown)</span>
-<span class="fc" id="L291">                .filter(candidate -&gt; candidate.methods().containsAll(EVENT_METHODS))</span>
-<span class="fc" id="L292">                .max(Comparator.comparingInt(</span>
-                                (CameraCapabilitySnapshot.Endpoint endpoint) -&gt;
-<span class="nc" id="L294">                                        endpointVersionNumber(endpoint))</span>
-<span class="fc" id="L295">                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))</span>
-<span class="fc" id="L296">                .orElse(null);</span>
-<span class="pc bpc" id="L297" title="1 of 2 branches missed.">        if (compatible != null) {</span>
-<span class="fc" id="L298">            return new CameraCapabilitySnapshot.Capability(</span>
-                    id, true, true, AVAILABLE,
-<span class="fc" id="L300">                    EVENT_METHODS, compatible.methods(), true, null);</span>
-        }
-
-<span class="nc" id="L303">        CameraCapabilitySnapshot.Endpoint highest = advertised.stream()</span>
-<span class="nc" id="L304">                .max(Comparator.comparingInt(</span>
-                                (CameraCapabilitySnapshot.Endpoint endpoint) -&gt;
-<span class="nc" id="L306">                                        endpointVersionNumber(endpoint))</span>
-<span class="nc" id="L307">                        .thenComparing(CameraCapabilitySnapshot.Endpoint::path))</span>
-<span class="nc" id="L308">                .orElseThrow();</span>
-<span class="nc bnc" id="L309" title="All 2 branches missed.">        if (!highest.methodMetadataKnown()) {</span>
-<span class="nc" id="L310">            return new CameraCapabilitySnapshot.Capability(</span>
-                    id, true, true, METHOD_METADATA_UNKNOWN,
-<span class="nc" id="L312">                    EVENT_METHODS, Set.of(), false, &quot;METHOD_METADATA_NOT_ADVERTISED&quot;);</span>
-        }
-<span class="nc" id="L314">        return new CameraCapabilitySnapshot.Capability(</span>
-                id, true, true, UNSUPPORTED,
-<span class="nc" id="L316">                EVENT_METHODS, highest.methods(), true, &quot;METHOD_NOT_ADVERTISED&quot;);</span>
-    }
-
-    private static int endpointVersionNumber(CameraCapabilitySnapshot.Endpoint endpoint) {
-<span class="nc" id="L320">        String version = endpoint.version();</span>
-<span class="nc bnc" id="L321" title="All 4 branches missed.">        if (version == null || !version.startsWith(&quot;ver&quot;)) {</span>
-<span class="nc" id="L322">            return -1;</span>
-        }
-        try {
-<span class="nc" id="L325">            return Integer.parseInt(version.substring(3));</span>
-<span class="nc" id="L326">        } catch (NumberFormatException exception) {</span>
-<span class="nc" id="L327">            return -1;</span>
+<span class="nc" id="L263">            return Integer.parseInt(matcher.group(1));</span>
+<span class="nc" id="L264">        } catch (NumberFormatException exception) {</span>
+<span class="nc" id="L265">            return -1;</span>
         }
     }
 
     @Override
+    public EventMode preflightNativeFocusBracketingTransport() {
+<span class="fc" id="L271">        CcapiEndpointCatalog catalog = delegate.endpointCatalog();</span>
+<span class="fc" id="L272">        CanonCcapiNativeSequenceTrigger.shutterEndpoint(catalog);</span>
+<span class="fc bfc" id="L273" title="All 2 branches covered.">        if (CcapiMediaOperation.CONTENTS.select(catalog).isEmpty()) {</span>
+<span class="fc" id="L274">            throw new NativeFocusBracketingTransportException(</span>
+                    NativeFocusBracketingTransportException.Reason.MEDIA_LISTING_UNAVAILABLE);
+        }
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (CcapiMediaOperation.MONITORING.select(catalog).isPresent()) {</span>
+<span class="fc" id="L278">            return EventMode.MONITORING;</span>
+        }
+<span class="fc bfc" id="L280" title="All 2 branches covered.">        if (CcapiMediaOperation.POLLING_CONTINUATION.select(catalog).isPresent()) {</span>
+<span class="fc" id="L281">            return EventMode.POLLING_CONTINUATION;</span>
+        }
+<span class="fc bfc" id="L283" title="All 2 branches covered.">        if (CcapiMediaOperation.POLLING.select(catalog).isPresent()) {</span>
+<span class="fc" id="L284">            return EventMode.POLLING;</span>
+        }
+<span class="fc" id="L286">        throw new NativeFocusBracketingTransportException(</span>
+                NativeFocusBracketingTransportException.Reason.EVENT_TRANSPORT_UNAVAILABLE);
+    }
+
+    @Override
     public NativeFocusBracketingCapabilities getNativeFocusBracketingCapabilities() {
-<span class="nc" id="L333">        return delegate.getNativeFocusBracketingCapabilities();</span>
+<span class="fc" id="L292">        return delegate.getNativeFocusBracketingCapabilities();</span>
     }
 
     @Override
     public NativeFocusBracketingSession prepareNativeFocusBracketing(
             NativeFocusBracketingRequest request) {
-<span class="nc" id="L339">        return new OwnedNativeSession(</span>
-<span class="nc" id="L340">                this, delegate.prepareNativeFocusBracketing(request));</span>
+<span class="nc" id="L298">        preflightNativeFocusBracketingTransport();</span>
+<span class="nc" id="L299">        return new OwnedNativeSession(</span>
+<span class="nc" id="L300">                this, delegate.prepareNativeFocusBracketing(request));</span>
     }
 
     @Override
     public void triggerNativeFocusBracketing(NativeFocusBracketingSession session) {
-<span class="nc bnc" id="L345" title="All 4 branches missed.">        if (!(session instanceof OwnedNativeSession owned) || owned.owner != this) {</span>
-<span class="nc" id="L346">            throw new IllegalArgumentException(</span>
+<span class="nc bnc" id="L305" title="All 4 branches missed.">        if (!(session instanceof OwnedNativeSession owned) || owned.owner != this) {</span>
+<span class="nc" id="L306">            throw new IllegalArgumentException(</span>
                     &quot;native focus-bracketing session belongs to another backend&quot;);
         }
-<span class="nc" id="L349">        owned.trigger(() -&gt; CanonCcapiNativeSequenceTrigger.trigger(delegate));</span>
-<span class="nc" id="L350">    }</span>
+<span class="nc" id="L309">        owned.trigger(() -&gt; CanonCcapiNativeSequenceTrigger.trigger(delegate));</span>
+<span class="nc" id="L310">    }</span>
 
     @Override
     public MediaPage listMedia(MediaQuery query) {
-<span class="nc" id="L354">        return mediaClient.listMedia(query);</span>
+<span class="fc" id="L314">        return mediaClient.listMedia(query);</span>
     }
 
     @Override
@@ -359,60 +319,60 @@ final class CanonCcapiProductionBackend implements
             CameraMediaReference reference,
             long offset,
             int maxBytes) {
-<span class="nc" id="L362">        return mediaClient.downloadMedia(reference, offset, maxBytes);</span>
+<span class="nc" id="L322">        return mediaClient.downloadMedia(reference, offset, maxBytes);</span>
     }
 
     @Override
     public Optional&lt;CameraMediaReference&gt; awaitAddedMedia(
             EventMode mode,
             Duration timeout) {
-<span class="nc bnc" id="L369" title="All 2 branches missed.">        return mode == EventMode.MONITORING</span>
-<span class="nc" id="L370">                ? monitoringClient.awaitAddedMedia(timeout)</span>
-<span class="nc" id="L371">                : mediaClient.awaitAddedMedia(mode, timeout);</span>
+<span class="fc bfc" id="L329" title="All 2 branches covered.">        return mode == EventMode.MONITORING</span>
+<span class="fc" id="L330">                ? monitoringClient.awaitAddedMedia(timeout)</span>
+<span class="fc" id="L331">                : mediaClient.awaitAddedMedia(mode, timeout);</span>
     }
 
     private static final class OwnedNativeSession implements NativeFocusBracketingSession {
         private final CanonCcapiProductionBackend owner;
         private final NativeFocusBracketingSession delegate;
-<span class="nc" id="L377">        private final AtomicBoolean triggered = new AtomicBoolean();</span>
-<span class="nc" id="L378">        private final AtomicBoolean closed = new AtomicBoolean();</span>
+<span class="nc" id="L337">        private final AtomicBoolean triggered = new AtomicBoolean();</span>
+<span class="nc" id="L338">        private final AtomicBoolean closed = new AtomicBoolean();</span>
 
         private OwnedNativeSession(
                 CanonCcapiProductionBackend owner,
-<span class="nc" id="L382">                NativeFocusBracketingSession delegate) {</span>
-<span class="nc" id="L383">            this.owner = Objects.requireNonNull(owner, &quot;owner&quot;);</span>
-<span class="nc" id="L384">            this.delegate = Objects.requireNonNull(delegate, &quot;delegate&quot;);</span>
-<span class="nc" id="L385">        }</span>
+<span class="nc" id="L342">                NativeFocusBracketingSession delegate) {</span>
+<span class="nc" id="L343">            this.owner = Objects.requireNonNull(owner, &quot;owner&quot;);</span>
+<span class="nc" id="L344">            this.delegate = Objects.requireNonNull(delegate, &quot;delegate&quot;);</span>
+<span class="nc" id="L345">        }</span>
 
         @Override
         public NativeFocusBracketingRequest request() {
-<span class="nc" id="L389">            return delegate.request();</span>
+<span class="nc" id="L349">            return delegate.request();</span>
         }
 
         private void trigger(Runnable triggerAction) {
-<span class="nc bnc" id="L393" title="All 2 branches missed.">            if (closed.get()) {</span>
-<span class="nc" id="L394">                throw new IllegalStateException(</span>
+<span class="nc bnc" id="L353" title="All 2 branches missed.">            if (closed.get()) {</span>
+<span class="nc" id="L354">                throw new IllegalStateException(</span>
                         &quot;native focus-bracketing session is already closed&quot;);
             }
-<span class="nc bnc" id="L397" title="All 2 branches missed.">            if (!triggered.compareAndSet(false, true)) {</span>
-<span class="nc" id="L398">                throw new IllegalStateException(</span>
+<span class="nc bnc" id="L357" title="All 2 branches missed.">            if (!triggered.compareAndSet(false, true)) {</span>
+<span class="nc" id="L358">                throw new IllegalStateException(</span>
                         &quot;native focus-bracketing session was already triggered&quot;);
             }
-<span class="nc" id="L401">            triggerAction.run();</span>
-<span class="nc" id="L402">        }</span>
+<span class="nc" id="L361">            triggerAction.run();</span>
+<span class="nc" id="L362">        }</span>
 
         @Override
         public void close() {
-<span class="nc bnc" id="L406" title="All 2 branches missed.">            if (!closed.compareAndSet(false, true)) {</span>
-<span class="nc" id="L407">                return;</span>
+<span class="nc bnc" id="L366" title="All 2 branches missed.">            if (!closed.compareAndSet(false, true)) {</span>
+<span class="nc" id="L367">                return;</span>
             }
             try {
-<span class="nc" id="L410">                delegate.close();</span>
-<span class="nc" id="L411">            } catch (RuntimeException failure) {</span>
-<span class="nc" id="L412">                closed.set(false);</span>
-<span class="nc" id="L413">                throw failure;</span>
-<span class="nc" id="L414">            }</span>
-<span class="nc" id="L415">        }</span>
+<span class="nc" id="L370">                delegate.close();</span>
+<span class="nc" id="L371">            } catch (RuntimeException failure) {</span>
+<span class="nc" id="L372">                closed.set(false);</span>
+<span class="nc" id="L373">                throw failure;</span>
+<span class="nc" id="L374">            }</span>
+<span class="nc" id="L375">        }</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CaptureSession.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Focus Stack - App</a> &gt; <a href="index.source.html" class="el_package">com.photographer.focusstack.fresnel</a> &gt; <span class="el_source">CaptureSession.java</span></div><h1>CaptureSession.java</h1><pre class="source lang-java linenums">package com.photographer.focusstack.fresnel;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+<span class="fc" id="L10">final class CaptureSession {</span>
+<span class="fc" id="L11">    enum State {</span>
+<span class="fc" id="L12">        WAITING_FOR_EXTERNAL_TRIGGER, CAPTURING, PAUSED, COMPLETED, CANCELLED, RECOVERY_REQUIRED;</span>
+<span class="fc bfc" id="L13" title="All 4 branches covered.">        boolean terminal() { return this == COMPLETED || this == CANCELLED; }</span>
+    }
+<span class="fc" id="L15">    enum StepState { PENDING, CAPTURING, COMPLETED, CANCELLED, RECOVERY_REQUIRED }</span>
+<span class="fc" id="L16">    record Asset(String sessionId, String stepId, String assetId, String role, String originalFileName,</span>
+                 String mediaType, long byteLength, String sha256, String capturedAt) {}
+<span class="fc" id="L18">    record Result(String sessionId, String stepId, Asset asset, String completedAt) {}</span>
+<span class="fc" id="L19">    record Event(long eventId, String sessionId, String state, String messageCode, String timestamp,</span>
+                 String stepId, Asset asset) {}
+<span class="fc" id="L21">    static final class Step {</span>
+        public String stepId;
+        public int sequenceIndex;
+<span class="fc" id="L24">        public StepState state = StepState.PENDING;</span>
+        public String key;
+        public String bodyHash;
+        public boolean dispatched;
+        public String assetId;
+        public Result result;
+<span class="fc" id="L30">        public boolean verified = true;</span>
+
+        Map&lt;String,Object&gt; status() {
+<span class="fc" id="L33">            var out = new LinkedHashMap&lt;String,Object&gt;();</span>
+<span class="fc" id="L34">            out.put(&quot;stepId&quot;, stepId);</span>
+<span class="fc" id="L35">            out.put(&quot;sequenceIndex&quot;, sequenceIndex);</span>
+<span class="fc" id="L36">            out.put(&quot;state&quot;, state);</span>
+<span class="pc bpc" id="L37" title="1 of 4 branches missed.">            if (result != null &amp;&amp; verified) out.put(&quot;result&quot;, result);</span>
+<span class="fc" id="L38">            return out;</span>
+        }
+    }
+
+    public String id;
+    public String pairingId;
+    public String createKey;
+    public String bodyHash;
+    public String internalCameraId;
+    public String createdAt;
+    public String updatedAt;
+    public State state;
+    public boolean purging;
+    public FresnelPlan plan;
+<span class="fc" id="L52">    public java.util.Set&lt;String&gt; cancelKeys = new java.util.LinkedHashSet&lt;&gt;();</span>
+<span class="fc" id="L53">    public List&lt;Step&gt; steps = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L54">    public List&lt;Event&gt; events = new ArrayList&lt;&gt;();</span>
+
+    static CaptureSession create(String pairing, String key, String hash, String camera, FresnelPlan plan) {
+<span class="fc" id="L57">        var session = new CaptureSession();</span>
+<span class="fc" id="L58">        session.id = UUID.randomUUID().toString();</span>
+<span class="fc" id="L59">        session.pairingId = pairing;</span>
+<span class="fc" id="L60">        session.createKey = key;</span>
+<span class="fc" id="L61">        session.bodyHash = hash;</span>
+<span class="fc" id="L62">        session.internalCameraId = camera;</span>
+<span class="fc" id="L63">        session.createdAt = Instant.now().toString();</span>
+<span class="fc" id="L64">        session.plan = plan;</span>
+<span class="fc bfc" id="L65" title="All 2 branches covered.">        for (FresnelPlan.Step planned : plan.steps()) {</span>
+<span class="fc" id="L66">            var step = new Step();</span>
+<span class="fc" id="L67">            step.stepId = planned.id();</span>
+<span class="fc" id="L68">            step.sequenceIndex = planned.sequenceIndex();</span>
+<span class="fc" id="L69">            session.steps.add(step);</span>
+<span class="fc" id="L70">        }</span>
+<span class="fc" id="L71">        session.event(State.WAITING_FOR_EXTERNAL_TRIGGER, &quot;SESSION_READY&quot;, null);</span>
+<span class="fc" id="L72">        return session;</span>
+    }
+
+    void event(State next, String code, Step current) {
+<span class="fc" id="L76">        state = next;</span>
+<span class="fc" id="L77">        updatedAt = Instant.now().toString();</span>
+<span class="fc" id="L78">        events.add(new Event(events.size() + 1L, id, next.name(), code, updatedAt,</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">                current == null ? null : current.stepId,</span>
+<span class="pc bpc" id="L80" title="1 of 6 branches missed.">                current == null || current.result == null || !current.verified ? null : current.result.asset));</span>
+<span class="fc" id="L81">    }</span>
+
+    private Map&lt;String,Object&gt; effectiveSettings() {
+<span class="fc" id="L84">        return Map.of(&quot;format&quot;, plan.requestedSettings().preferredFormat(), &quot;lockExposure&quot;, false, &quot;lockFocus&quot;, false);</span>
+    }
+
+    Map&lt;String,Object&gt; created() {
+<span class="fc" id="L88">        return Map.of(&quot;sessionId&quot;, id, &quot;cameraProfileId&quot;, plan.cameraProfileId(),</span>
+<span class="fc" id="L89">                &quot;createdAt&quot;, createdAt, &quot;effectiveSettings&quot;, effectiveSettings());</span>
+    }
+
+    Step step(String stepId) {
+<span class="fc" id="L93">        return steps.stream().filter(step -&gt; step.stepId.equals(stepId)).findFirst()</span>
+<span class="pc" id="L94">                .orElseThrow(() -&gt; new FresnelProblem(404, &quot;STEP_NOT_FOUND&quot;));</span>
+    }
+
+<span class="fc bfc" id="L97" title="All 2 branches covered.">    long completed() { return steps.stream().filter(step -&gt; step.state == StepState.COMPLETED).count(); }</span>
+
+    Map&lt;String,Object&gt; status() {
+<span class="fc" id="L100">        return Map.of(&quot;sessionId&quot;, id, &quot;state&quot;, state, &quot;totalSteps&quot;, steps.size(), &quot;completedSteps&quot;, completed(),</span>
+<span class="fc" id="L101">                &quot;updatedAt&quot;, updatedAt, &quot;lastEventId&quot;, events.size(), &quot;steps&quot;, steps.stream().map(Step::status).toList());</span>
+    }
+
+    Map&lt;String,Object&gt; active() {
+<span class="nc" id="L105">        var out = new LinkedHashMap&lt;String,Object&gt;();</span>
+<span class="nc" id="L106">        out.put(&quot;sessionId&quot;, id);</span>
+<span class="nc" id="L107">        out.put(&quot;cameraProfileId&quot;, plan.cameraProfileId());</span>
+<span class="nc" id="L108">        out.put(&quot;state&quot;, state);</span>
+<span class="nc" id="L109">        out.put(&quot;completedSteps&quot;, completed());</span>
+<span class="nc" id="L110">        out.put(&quot;totalSteps&quot;, steps.size());</span>
+<span class="nc" id="L111">        out.put(&quot;experiment&quot;, plan.externalExperimentId());</span>
+<span class="nc" id="L112">        out.put(&quot;workflow&quot;, plan.workflowType());</span>
+<span class="nc" id="L113">        out.put(&quot;effectiveSettings&quot;, effectiveSettings());</span>
+<span class="nc" id="L114">        out.put(&quot;steps&quot;, steps.stream().map(Step::status).toList());</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">        if (!events.isEmpty()) out.put(&quot;lastMessageCode&quot;, events.getLast().messageCode());</span>
+<span class="nc bnc" id="L116" title="All 2 branches missed.">        steps.stream().filter(step -&gt; step.state != StepState.COMPLETED).findFirst()</span>
+<span class="nc" id="L117">                .ifPresent(step -&gt; out.put(&quot;currentStepId&quot;, step.stepId));</span>
+<span class="nc" id="L118">        return out;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.16.202610240946</span></div></body></html>
