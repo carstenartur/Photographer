@@ -100,7 +100,7 @@
         <imagej.version>1.54j</imagej.version>
         <picocli.version>4.7.7</picocli.version>
         <jacoco.version>0.8.16</jacoco.version>
-        <flatten-maven-plugin.version>1.8.0</flatten-maven-plugin.version>
+        <flatten-maven-plugin.version>1.9.0</flatten-maven-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
         <maven-gpg-plugin.version>3.2.8</maven-gpg-plugin.version>
@@ -112,6 +112,7 @@
         <cr3.attachTestJars>true</cr3.attachTestJars>
         <!-- Empty default so JaCoCo prepare-agent can inject its agent via late-binding @{argLine} -->
         <argLine/>
+        <failsafe.maxHeap>4g</failsafe.maxHeap>
         <!-- Tags excluded by default; override with -DexcludedGroups= to run real-camera tests -->
         <excludedGroups>docker,real-camera</excludedGroups>
     </properties>
@@ -202,7 +203,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
-                        <argLine>-Xmx4g -Djava.awt.headless=true --enable-native-access=ALL-UNNAMED @{argLine}</argLine>
+                        <argLine>-Xmx${failsafe.maxHeap} -Djava.awt.headless=true --enable-native-access=ALL-UNNAMED @{argLine}</argLine>
                         <excludedGroups>${excludedGroups}</excludedGroups>
                     </configuration>
                 </plugin>

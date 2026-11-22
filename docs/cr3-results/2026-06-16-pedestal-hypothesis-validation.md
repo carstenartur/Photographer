@@ -85,23 +85,25 @@ Generated: 2026-06-16T13:14:37.629028674Z
 
 ## Beispielbilder
 
+[Ursprünglicher Bericht mit eingebetteten Bildern](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/2026-06-16-pedestal-hypothesis-validation.md) · [Alle Originalabbildungen](https://github.com/carstenartur/Photographer/tree/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation)
+
 ### `eosr-iso-high.cr3`
 
 | Reference | Baseline-Diff | Experimental-Diff |
 |---|---|---|
-| ![](images/pedestal-hypothesis-validation/eosr-iso-high-reference.png) | ![](images/pedestal-hypothesis-validation/eosr-iso-high-baseline-diff.png) | ![](images/pedestal-hypothesis-validation/eosr-iso-high-experimental-diff.png) |
+| [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-high-reference.png) | [Baseline-Diff](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-high-baseline-diff.png) | [Experimental-Diff](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-high-experimental-diff.png) |
 
 ### `eosr-iso-low.cr3`
 
 | Reference | Baseline-Diff | Experimental-Diff |
 |---|---|---|
-| ![](images/pedestal-hypothesis-validation/eosr-iso-low-reference.png) | ![](images/pedestal-hypothesis-validation/eosr-iso-low-baseline-diff.png) | ![](images/pedestal-hypothesis-validation/eosr-iso-low-experimental-diff.png) |
+| [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-low-reference.png) | [Baseline-Diff](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-low-baseline-diff.png) | [Experimental-Diff](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-low-experimental-diff.png) |
 
 ### `eosr-iso-mid.cr3`
 
 | Reference | Baseline-Diff | Experimental-Diff |
 |---|---|---|
-| ![](images/pedestal-hypothesis-validation/eosr-iso-mid-reference.png) | ![](images/pedestal-hypothesis-validation/eosr-iso-mid-baseline-diff.png) | ![](images/pedestal-hypothesis-validation/eosr-iso-mid-experimental-diff.png) |
+| [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-mid-reference.png) | [Baseline-Diff](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-mid-baseline-diff.png) | [Experimental-Diff](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/pedestal-hypothesis-validation/eosr-iso-mid-experimental-diff.png) |
 
 ## Schlussfolgerung
 

@@ -1,5 +1,7 @@
 package com.photographer.focusstack.cr3.raw.codec;
 
+import com.photographer.focusstack.cr3.bmff.Cmp1Box;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,9 +26,9 @@ public final class CrxHeader {
 
     /** Codec version determines marker bytes used in the bitstream. */
     public enum CodecVersion {
-        /** CanonCR3_001: markers ff01, ff02, ff03. */
+        /** CMP1 0x0100: markers ff01, ff02, ff03. */
         V1(0xff01, 0xff02, 0xff03),
-        /** CanonCR3_002+: markers ff11, ff12, ff13 (1DX Mark III, R5, etc.). */
+        /** CMP1 0x0200: markers ff11, ff12, ff13. */
         V2(0xff11, 0xff12, 0xff13);
 
         final int tileMarker;
@@ -82,7 +84,7 @@ public final class CrxHeader {
     private final List<Tile> tiles;
     private final int headerSize;
 
-    private CrxHeader(List<Tile> tiles, int headerSize) {
+    CrxHeader(List<Tile> tiles, int headerSize) {
         this.tiles = Collections.unmodifiableList(tiles);
         this.headerSize = headerSize;
     }
@@ -241,6 +243,21 @@ public final class CrxHeader {
             return CodecVersion.V2;
         }
         return CodecVersion.V1;
+    }
+
+    /**
+     * Selects the marker family from the sample description. CNCV describes the
+     * container and is only a fallback when the track version is unavailable.
+     */
+    public static CodecVersion detectVersion(Cmp1Box cmp1, String cncvVersion) {
+        if (cmp1 == null) {
+            return detectVersion(cncvVersion);
+        }
+        return switch (Short.toUnsignedInt(cmp1.version())) {
+            case 0x0100 -> CodecVersion.V1;
+            case 0x0200 -> CodecVersion.V2;
+            default -> detectVersion(cncvVersion);
+        };
     }
 
     private static List<Tile> resolveDataOffsets(List<Tile> tiles, int headerSize) {

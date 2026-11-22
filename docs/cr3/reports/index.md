@@ -25,10 +25,14 @@ Generated and dated reports are evidence snapshots. The maintained interpretatio
 | 2026-11-14 | First two native lossless Bayer values with a frozen reader | Both sites exact on 88 discovery and 32 held-out streams. First-site causal predictions confirmed in 30/30 cases. | [RG3 opening measurements](../../cr3-results/2026-11-14-crx-opening/README.md) |
 | 2026-11-14 | Complete native lossless import | All 365,774,016 native values exact in the normal Java RAW import on 15 files | [RG4 full mosaics](../../cr3-results/2026-11-14-crx-native/README.md) |
 | 2026-11-14 | Native three-level C-RAW decoding | Six reference rasters, 146,467,152 native samples | [RG5 full mosaics](../../cr3-results/2026-11-14-crx-wavelet/README.md) |
+| 2026-11-22 | One-tile V1 C-RAW and wider camera panel | Single-tile RP crop verified. All 26 files match 690,078,496 native sensor values. | [RG6 camera and crop results](../../cr3-results/2026-11-22-crx-camera-coverage/README.md) |
+| 2026-11-22 | Adaptive single-tile V2 C-RAW | 14 files from nine models match all 369,019,808 native values. | [RG7 adaptive C-RAW results](../../cr3-results/2026-11-22-crx-adaptive/README.md) |
 
 ## Current verdict
 
 RG4 verifies complete lossless native Bayer reconstruction for the measured 14-bit four-plane V1 layout. RG5 verifies the full three-level C-RAW reconstruction on four public files and two project-owned PowerShot captures.
+RG6 adds the one-tile V1 crop, selected-track version routing and a wider
+V1 camera panel. RG7 verifies the measured adaptive V2 profile.
 
 ## Evidence classes
 

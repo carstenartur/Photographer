@@ -44,52 +44,52 @@ function ConnectionDot({ connected }) {
 }
 
 /* ── CameraCard: single camera with auto-refreshing liveview & info ── */
-function CameraCard({ cam, onEdit, onDelete }) {
+function CameraCard({ cam, onEdit, onDelete, runCameraRequest }) {
   const [status, setStatus] = useState(null);
   const [info, setInfo] = useState(null);
   const [liveviewSrc, setLiveviewSrc] = useState(null);
   const [lvError, setLvError] = useState(false);
-  const unmounted = useRef(false);
-
   // Fetch info once
   useEffect(() => {
-    unmounted.current = false;
-    getCameraInfo(cam.id)
-      .then((data) => { if (!unmounted.current) setInfo(data); })
+    let cancelled = false;
+    runCameraRequest(cam.id, () => cancelled ? null : getCameraInfo(cam.id))
+      .then((data) => { if (!cancelled) setInfo(data); })
       .catch(() => {});
-    return () => { unmounted.current = true; };
-  }, [cam.id]);
+    return () => { cancelled = true; };
+  }, [cam.id, runCameraRequest]);
 
-  // Fetch status on mount, then every 5 s
+  // Wait for each read before scheduling the next to keep slow cameras from building queues.
   useEffect(() => {
     let cancelled = false;
+    let timer;
     const fetchStatus = () => {
-      getCameraStatus(cam.id)
+      runCameraRequest(cam.id, () => cancelled ? null : getCameraStatus(cam.id))
         .then((s) => { if (!cancelled) setStatus(s); })
-        .catch(() => { if (!cancelled) setStatus(null); });
+        .catch(() => { if (!cancelled) setStatus(null); })
+        .finally(() => { if (!cancelled) timer = setTimeout(fetchStatus, 5000); });
     };
     fetchStatus();
-    const id = setInterval(fetchStatus, 5000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [cam.id]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [cam.id, runCameraRequest]);
 
   // Poll liveview every 2 s
   useEffect(() => {
     let cancelled = false;
+    let timer;
     const fetchLv = () => {
-      getLiveViewImage(cam.id)
+      runCameraRequest(cam.id, () => cancelled ? null : getLiveViewImage(cam.id))
         .then((src) => {
           if (!cancelled) {
             setLiveviewSrc(src);
             setLvError(!src);
           }
         })
-        .catch(() => { if (!cancelled) setLvError(true); });
+        .catch(() => { if (!cancelled) setLvError(true); })
+        .finally(() => { if (!cancelled) timer = setTimeout(fetchLv, 2000); });
     };
     fetchLv();
-    const id = setInterval(fetchLv, 2000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [cam.id]);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [cam.id, runCameraRequest]);
 
   const connected = status?.connected ?? false;
 
@@ -174,6 +174,18 @@ export default function CameraList() {
     () => searchParams.get('new') === '1',
   );
   const [error, setError] = useState(null);
+  const cameraRequests = useRef(new Map());
+
+  // Polling and profile edits need the same server-side camera lease.
+  const runCameraRequest = useCallback((id, operation) => {
+    const requests = cameraRequests.current;
+    const result = (requests.get(id) ?? Promise.resolve()).then(operation);
+    const tail = result.catch(() => {});
+    requests.set(id, tail);
+    return result.finally(() => {
+      if (requests.get(id) === tail) requests.delete(id);
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,7 +217,7 @@ export default function CameraList() {
         maxFrames: Number(form.maxFrames),
         movementThreshold: Number(form.movementThreshold),
       };
-      if (form.id) await updateCamera(form.id, profile);
+      if (form.id) await runCameraRequest(form.id, () => updateCamera(form.id, profile));
       else await createCamera(profile);
       setForm(EMPTY_FORM);
       setShowForm(false);
@@ -218,7 +230,7 @@ export default function CameraList() {
   async function handleDelete(id) {
     if (!window.confirm('Delete this camera profile?')) return;
     try {
-      await deleteCamera(id);
+      await runCameraRequest(id, () => deleteCamera(id));
       await refreshCameras();
     } catch (err) {
       setError(`Delete failed: ${err.message}`);
@@ -334,7 +346,7 @@ export default function CameraList() {
       ) : (
         <div className="cam-grid">
           {cameras.map((cam) => (
-            <CameraCard key={cam.id} cam={cam} onDelete={handleDelete}
+            <CameraCard key={cam.id} cam={cam} onDelete={handleDelete} runCameraRequest={runCameraRequest}
               onEdit={(profile) => { setForm({ ...profile, host: profile.host ?? '' }); setShowForm(true); setError(null); }} />
           ))}
         </div>

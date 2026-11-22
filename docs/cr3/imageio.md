@@ -21,7 +21,7 @@ RAW development uses the as-shot white balance when the capture contains support
 
 The stream-origin, preview-toggle, Bayer destination validation and metadata schema behavior described below is available starting with [0.1.7](../releases/0.1.7.md).
 
-A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW read. Applications can explicitly request the embedded JPEG when one is present. Full-sensor values have been verified on the measured 14-bit, four-plane V1 lossless RAW and three-level C-RAW layouts. See the [decoder and supported layouts](decoder.md).
+A missing, unsupported, or unreadable RAW track causes an `IOException` on a RAW read. Applications can explicitly request the embedded JPEG when one is present. See [verified camera coverage](camera-coverage.md) for tested RAW and C-RAW modes, and the [decoder](decoder.md) for layout limits.
 
 ## Maven setup
 

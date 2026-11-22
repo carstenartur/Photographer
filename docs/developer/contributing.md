@@ -18,13 +18,15 @@ The repository does **not** currently contain a Maven Wrapper. Use an installed 
 ## Clone and inspect
 
 ```bash
-git clone https://github.com/carstenartur/Photographer.git
+git clone --filter=blob:none https://github.com/carstenartur/Photographer.git
 cd Photographer
 mvn -version
 java -version
 node --version
 npm --version
 ```
+
+The partial clone downloads the files needed for the current checkout, including the CR3 test fixtures. Git fetches historical file contents on demand. For a one-time build, the [quickstart](../quickstart.md#start-with-docker-compose) uses a shallow clone. Use a full clone for the [history audit](../public-release.md#repository-audit-commands).
 
 The root `pom.xml` is the authoritative reactor definition. See [Modules](modules.md) before assuming a dated module list is complete.
 

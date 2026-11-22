@@ -83,6 +83,16 @@ The RG3 research reader derives both values in a plane directly from the payload
 
 Six two-tile, 14-bit, three-level C-RAW recordings match external reconstructions at all 146,467,152 sensor sites. Two project-owned PowerShot captures exercise signed low-frequency coefficients at the start of a tile plane. Two test files were selected and identified by SHA-256 before prospective validation. [RG5 measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
 
+RG6 verifies the single-tile V1 C-RAW boundaries on an EOS RP crop capture.
+It also verifies selected-track CMP1 dispatch on EOS R8 and EOS R5 Mark II lossless RAW.
+The 26-file camera panel matches all 690,078,496 native Bayer values.
+[RG6 measurements](../cr3-results/2026-11-22-crx-camera-coverage/README.md) · [Camera coverage](camera-coverage.md)
+
+RG7 verifies single-tile CRX V2 with adaptive quantization on 14 C-RAW
+recordings from nine models. All 369,019,808 Bayer values match the
+DNGLab and LibRaw black-box references, including APS-C crop and the EOS
+R50 electronic-shutter recording. [RG7 measurements](../cr3-results/2026-11-22-crx-adaptive/README.md)
+
 ## Experimental lossless CR3 writing
 
 `Cr3Writer` and the ImageIO provider write native Bayer data according to the built-in EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II profiles. The profile supplies the full sensor dimensions, track layout and nominal calibration. Verification covers native-code round trips, DNGLab checksum comparisons and JPEG exports in LightCraft. The [format reference](format.md#lossless-writer-camera-profiles) gives the parameters and verification limits. The [ImageIO guide](imageio.md#write-a-lossless-cr3-using-a-camera-profile) shows the Java API.
@@ -94,7 +104,8 @@ The verified product paths include the following functions.
 - container/track parsing and embedded JPEG extraction remain supported;
 - structured metadata remains supported;
 - the standard ImageIO read develops RAW color on supported layouts, with explicit preview, thumbnail and metadata access;
-- native V1 lossless and three-level C-RAW decoding on the measured layouts;
+- native V1 lossless and one- or two-tile three-level C-RAW decoding on the measured layouts;
+- native V2 single-tile three-level adaptive C-RAW decoding on the measured layout;
 - RAW processing and color rendering have separate quality criteria.
 
 See [CR3 overview](index.md), [ImageIO](imageio.md) and [Decoder](decoder.md).

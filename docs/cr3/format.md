@@ -2,7 +2,7 @@
 
 A **CR3** file uses the **ISO Base Media File Format (BMFF)** container for camera sensor readings, capture metadata and embedded images. **CRX** is the compression used for the RAW readings. An embedded JPEG can be displayed independently of CRX decoding. Both full RAW and **compact RAW (C-RAW)** files use the `.CR3` extension.
 
-This independent engineering reference describes the layouts measured in Photographer. The reader code and evidence reviewed for this reference are pinned to [2640720dfa9170e6093e2b13e3b24e108ad4567a](https://github.com/carstenartur/Photographer/tree/2640720dfa9170e6093e2b13e3b24e108ad4567a). The sections on writing describe construction and validation for the four measured lossless camera profiles.
+This independent engineering reference describes the layouts measured in Photographer. The original reader review is pinned to [2640720dfa9170e6093e2b13e3b24e108ad4567a](https://github.com/carstenartur/Photographer/tree/2640720dfa9170e6093e2b13e3b24e108ad4567a). The camera coverage and adaptive C-RAW sections add later results. The sections on writing describe construction and validation for the four measured lossless camera profiles.
 
 Jump to the [reader steps](#reading-order), [writer profiles](#lossless-writer-camera-profiles), [patent publications](#patent-publications) or [glossary](#7-glossary).
 
@@ -47,6 +47,7 @@ Jump to the [reader steps](#reading-order), [writer profiles](#lossless-writer-c
      - [Physical band dimensions and tile boundaries](#physical-band-dimensions-and-tile-boundaries)
      - [Inverse integer 5/3 lifting](#inverse-integer-53-lifting)
      - [Evidence for the measured C-RAW layout](#evidence-for-the-measured-c-raw-layout)
+   - [V2 adaptive C-RAW](#v2-adaptive-c-raw)
 5. [CR3 writing and verification](#5-cr3-writing-and-verification)
    - [Minimal lossless writer derivation](#minimal-lossless-writer-derivation)
    - [Lossless writer camera profiles](#lossless-writer-camera-profiles)
@@ -88,14 +89,14 @@ For a ready-to-view image, follow [embedded preview and thumbnail](#embedded-pre
 | Layout | Measured structural properties | Native decode evidence |
 | --- | --- | --- |
 | CRX V1 lossless RAW | 14-bit, encoding type 0, four positional Bayer planes, one subband per plane, horizontal full-height tiles | 15 files with 365,774,016 matching sensor samples across EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. [RG4](../cr3-results/2026-11-14-crx-native/README.md) |
-| CRX V1 three-level C-RAW | 14-bit reconstruction, encoding type 0, four unrounded positional planes, two equal-width horizontal tiles, ten subbands per plane | Six files with 146,467,152 matching reconstructed samples across the same models. The comparison is with the Bayer mosaic decoded from each compressed recording. [RG5](../cr3-results/2026-11-14-crx-wavelet/README.md) |
+| CRX V1 three-level C-RAW | 14-bit reconstruction, encoding type 0, four unrounded positional planes, one or two equal-width full-height tiles, ten subbands per plane | Six original full-frame files and the EOS RP one-tile crop match their reference rasters. The comparison is with the Bayer mosaic decoded from each compressed recording. [RG5](../cr3-results/2026-11-14-crx-wavelet/README.md) |
 
 The measurements compare every site of the full sensor raster, including the masked margins. Camera settings or shooting modes can change the layout even within one model.
 
 | Task | Described and checked here | Outside this evidence |
 | --- | --- | --- |
 | Locate and extract images | Embedded JPEGs and the sample ranges in the measured still-image container | General CR3 layouts with multiple samples per track |
-| Decode the RAW mosaic | The two V1 layouts above, including the C-RAW reconstruction from compressed coefficients | Native V2 decoding, extended CMP1 headers and other C-RAW wavelet layouts |
+| Decode the RAW mosaic | The measured V1 layouts and single-tile V2 adaptive C-RAW | Extended CMP1 headers, other adaptive quantization profiles and other C-RAW wavelet layouts |
 | Write a CR3 | Four full-frame lossless 14-bit profiles, with input sensor codes preserved exactly | C-RAW writing, other camera modes and byte-identical camera firmware output |
 | Interpret metadata and open the result | The mapped tags, sensor geometry and [tested applications](#verification-levels) | Meanings of uncharacterized Canon fields, lens corrections and untested applications such as Canon Digital Photo Professional |
 
@@ -422,10 +423,13 @@ Byte zero of the CRX sample is the selected track's input stream position, deriv
 
 | Marker family | Tile | Plane | Subband | Selection |
 |---|---|---|---|---|
-| V1 | `0xFF01` | `0xFF02` | `0xFF03` | Default, including a missing CNCV version |
-| V2 | `0xFF11` | `0xFF12` | `0xFF13` | CNCV version string contains `CR3_002` or `CR3_003` |
+| V1 | `0xFF01` | `0xFF02` | `0xFF03` | Selected-track CMP1 version `0x0100` |
+| V2 | `0xFF11` | `0xFF12` | `0xFF13` | Selected-track CMP1 version `0x0200` |
 
-The two native sensor profiles here use V1. The V2 marker family has directory parsing coverage, and native reconstruction for V2 remains outside the measured scope. [Marker selection](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxHeader.java#L26-L41) · [CNCV detection](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxHeader.java#L236-L244) · [V2 parser test](../../canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxHeaderTest.java#L55-L62)
+The parser falls back to CNCV if the track version is missing or unrecognized.
+On the tested EOS R8 and EOS R5 Mark II RAW files, `CanonCR3_003` coexists with a V1 RAW track.
+
+The table below describes the V1 record fields. The native V2 reader interprets additional directory fields and a tile quantization map, as described in [V2 adaptive C-RAW](#v2-adaptive-c-raw). [Marker selection](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxHeader.java#L26-L41) · [CNCV detection](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxHeader.java#L236-L244) · [V2 parser test](../../canon-cr3-codec/src/test/java/com/photographer/focusstack/cr3/raw/codec/CrxHeaderTest.java#L55-L62)
 
 | Record-relative byte offset | Tile | Plane | Subband |
 |---:|---|---|---|
@@ -468,7 +472,7 @@ The codec delivers unsigned 14-bit codes at the mosaic sites, including optical-
 
 #### Profile and entropy boundaries
 
-The native V1 lossless reader requires CMP1 encoding type 0, zero wavelet levels, a depth of 14, four planes, a CFA value of 0–3 and a clear extended-header flag. The nominal tile width and both full mosaic dimensions must be positive and even. The tile height equals the full mosaic height. The tile count is `ceil(W/Tw)`, where `Tw <= W`. The final tile may be narrower. The measured camera panel uses two full-height horizontal tiles. The native checks also admit a single tile, as exercised by the product's synthetic fixture. Each plane has rounded bits equal to zero, its plane partial flag set, and one band with index zero and at least eight data bytes. Its declared size equals the plane size. Lossless decoding uses the entire declared band window, including any terminal bytes. The subband quantizer, subband partial flag and declared padding count are parsed fields that this path leaves unused. [Native lossless profile](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessImage.java#L24-L91) · [Single-tile product fixture](../../canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3DecoderTest.java#L101-L115)
+The native V1 lossless reader requires CMP1 encoding type 0, zero wavelet levels, a depth of 14, four planes, a CFA value of 0–3 and a clear extended-header flag. The nominal tile width and both full mosaic dimensions must be positive and even. The tile height equals the full mosaic height. The tile count is `ceil(W/Tw)`, where `Tw <= W`. The final tile may be narrower. The measured camera panels include one- and two-tile files. See [verified camera coverage](camera-coverage.md). Each plane has rounded bits equal to zero, its plane partial flag set, and one band with index zero and at least eight data bytes. Its declared size equals the plane size. Lossless decoding uses the entire declared band window, including any terminal bytes. The subband quantizer, subband partial flag and declared padding count are parsed fields that this path leaves unused. [Native lossless profile](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessImage.java#L24-L91) · [Single-tile product fixture](../../canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3DecoderTest.java#L101-L115)
 
 **Bit order.** All entropy reads are **most significant bit first (MSB first)**. `bits(n)` consumes the next `n` bits as an unsigned number, with `bits(0) = 0`. Read at most the band's declared byte window. EOF while reading a symbol, an invalid opening, or any reconstructed value outside `0..16383` fails the lossless payload. After reconstructing the declared samples, the reader permits unused terminal bits or bytes. [Bit order and bounds](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/BitReader.java#L49-L130) · [Lossless completion and bounds](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java#L27-L41) · [Last-sample range check](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java#L130-L146)
 
@@ -573,7 +577,7 @@ RG3 established the opening on 120 tile-plane streams and confirmed first-value 
 
 #### Profile and band windows
 
-The measured C-RAW profile has V1 markers, type 0, a depth of 14, three wavelet levels, four positional planes and CFA value 0–3. The CMP1 extended-header flag must be clear. The checker requires two equal-width horizontal tiles covering the full image height. The mosaic height and tile width must be even and at least 16 sites, and the mosaic width must equal twice the tile width. Each tile has four unique plane indices. Each plane has zero rounded bits and ten bands in increasing index order. The plane partial flag is unused here. The band partial flag must be clear. [Native C-RAW validation](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLossyDecoder.java#L34-L103)
+The measured C-RAW profile has V1 markers, type 0, a depth of 14, three wavelet levels, four positional planes and CFA value 0–3. The CMP1 extended-header flag must be clear. The checker accepts one full-frame tile or two equal-width horizontal tiles covering the full image height. The mosaic height and tile width must be even and at least 16 sites. A single tile uses the outer-edge rule on both sides. Each tile has four unique plane indices. Each plane has zero rounded bits and ten bands in increasing index order. The plane partial flag is unused here. The band partial flag must be clear. [Native C-RAW validation](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLossyDecoder.java#L34-L103)
 
 The sizes and offsets in the directory include padding. For a band of declared size `S` and padding `P`, the **entropy window** is its first `S-P` bytes, and `S > P` is required. Decode the full physical coefficient grid for every band, including its stored tile-boundary columns. At band completion require `ceil(bits consumed / 8) = S-P`. Unused low bits in the final entropy byte are permitted, and the declared terminal padding bytes are skipped. Each band has its own entropy and row state. [Band window construction](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxLossyDecoder.java#L105-L126) · [Approximation length check](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxNativeLosslessPlane.java#L48-L70) · [Detail length check](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java#L82-L86)
 
@@ -691,6 +695,20 @@ Vertical lifting uses the same equations with the low and high rows in each colu
 RG5 fixed the reader against two public discovery inputs and required exact uncropped mosaics for those inputs and two prospective holdouts from other models. All 104,677,712 sites matched. A separate first-party pair exposed the wider signed approximation opening and added 41,789,440 exact sites after that change. The aggregate is 146,467,152 sites over six C-RAW files. The references in SRC-011 and SRC-014 compare reconstructions of the compressed input. SRC-007 supplies the controlled first-party material. The ledger also registers SRC-002, SRC-003, SRC-010 and SRC-013 for algorithm-family and prior project evidence. Quantization and the repeated integer lifts govern the measured reconstruction of an already lossy representation. Other encodings, wavelet counts, extended headers and unmeasured tile arrangements are outside this profile. [RG5 discovery, holdout and signed-opening report](../cr3-results/2026-11-14-crx-wavelet/README.md) · [Public comparison](../cr3-results/2026-11-14-crx-wavelet/craw-sensors.tsv) · [First-party comparison](../cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv) · [C-RAW acceptance test](../../canon-cr3-research/src/test/java/com/photographer/focusstack/cr3/research/CrawSensorIT.java) · [Research ledger](../cleanroom/experiment-ledger.json)
 
 [Back to contents](#contents)
+
+### V2 adaptive C-RAW
+
+The measured adaptive layout uses CMP1 `0x0200`, 14-bit sensor codes, four
+Bayer planes, encoding type 0, three wavelet levels and one full-sensor tile.
+The tile data starts with an entropy-coded quantization map shared by the four
+planes. The directory bounds that map and each subsequent band separately.
+Band quantization uses the map and the band's gain before the inverse 5/3
+transform. Odd wavelet dimensions use outer-edge extension, including the
+unpaired final row of a quantization map.
+
+The [adaptive C-RAW evidence](../cr3-results/2026-11-22-crx-adaptive/README.md) records the tested map, gain
+and boundary rules. The implementation reuses the row-based synthesis.
+[Adaptive tile reader](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxAdaptiveLossyDecoder.java) · [Quantization map](../../canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxAdaptiveQuantization.java)
 
 ## 5. CR3 writing and verification
 
