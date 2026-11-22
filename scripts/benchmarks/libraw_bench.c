@@ -138,7 +138,8 @@ int main(int argc, char **argv) {
     if (strcmp(orientation,"camera") && strcmp(orientation,"none")) fail("bad orientation");
     if (!transfer) transfer = !strcmp(mode,"rgb8") ? "srgb" : "linear";
     if (strcmp(transfer,"srgb") && strcmp(transfer,"linear") && strcmp(transfer,"default")) fail("bad transfer");
-    if (strncmp(libraw_version(),"0.21.4",6)) fail("unexpected runtime ABI: expected 0.21.4");
+    if (strcmp(libraw_version(), LIBRAW_VERSION_STR))
+        fail("LibRaw runtime version differs from public headers: expected " LIBRAW_VERSION_STR);
     uint16_t tiny[32*32];
     for (size_t i=0; i<32*32; ++i) tiny[i] = (uint16_t)(1024 + (i*17)%8192);
     for (int iteration=-warmup; iteration<iterations; ++iteration) {

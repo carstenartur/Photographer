@@ -32,6 +32,25 @@ class Rgb16UnsignedBayerTest {
     }
 
     @Test
+    void interpolatesBothInteriorRowPhasesAndTheirEdges() {
+        short[] samples = {
+                32, 64, 160, 320, 544, 832, 1184,
+                128, 224, 384, 608, 896, 1248, 1664,
+                416, 576, 800, 1088, 1440, 1856, 2336,
+                896, 1120, 1408, 1760, 2176, 2656, 3200
+        };
+        var image = compact(samples, 7, 4, BayerPattern.RGGB, null, 0, 0, null,
+                65535, null, new Rectangle(0, 1, 7, 2), 1, false, 1);
+
+        assertArrayEquals(new int[]{
+                224, 128, 224, 352, 288, 224, 480, 384, 416, 736, 672, 608,
+                992, 896, 928, 1376, 1312, 1248, 1760, 1664, 1248,
+                416, 533, 672, 608, 576, 672, 800, 864, 928, 1120, 1088, 1184,
+                1440, 1504, 1568, 1888, 1856, 1952, 2336, 2240, 1952
+        }, image.getRaster().getPixels(0, 0, 7, 2, (int[]) null));
+    }
+
+    @Test
     void matchesIntDevelopmentForCalibratedCropsInEveryOrientation() {
         int width = 9;
         int height = 7;

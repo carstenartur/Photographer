@@ -39,8 +39,10 @@ With PowerShell 7, run from the repository root:
 ```powershell
 mvn -B -pl frontend-web,app -am package -DskipTests "-Djava.awt.headless=true"
 $env:FOCUSSTACK_SECURITY_ADMIN_PASSWORD = Read-Host "Photographer admin password" -MaskInput
-java "-Djava.awt.headless=true" -jar app/target/focusstack.jar
+java "--add-modules=jdk.incubator.vector" "-Djava.awt.headless=true" -jar app/target/focusstack.jar
 ```
+
+The Maven Spring Boot launcher supplies the same module option when Maven runs on JDK 25. With a custom Java 25 runtime that lacks the Vector API module, deactivate the profile with `-P'!spring-boot-java25-vector'` when invoking `spring-boot:run`. If you override `spring-boot.run.jvmArguments`, include `--add-modules=jdk.incubator.vector` to retain the vector option.
 
 ## Docker Compose development
 

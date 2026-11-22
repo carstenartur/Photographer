@@ -21,7 +21,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-The first build downloads Maven and frontend dependencies. When the `focusstack` service reports **healthy**, open [localhost:8080](http://localhost:8080) and sign in as `admin` with your web password. If you changed `APP_PORT` in `.env`, use that port.
+The first build downloads Maven and frontend dependencies. The image enables the Java 25 Vector API for [supported CR3 imports](cr3/imageio.md#optional-simd-c-raw-wavelet-lifting-on-jdk-25). When the `focusstack` service reports **healthy**, open [localhost:8080](http://localhost:8080) and sign in as `admin` with your web password. If you changed `APP_PORT` in `.env`, use that port.
 
 ## Try a capture without hardware
 
@@ -45,8 +45,10 @@ Set `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` in the environment of the Java process.
 read -rs -p 'Photographer admin password: ' FOCUSSTACK_SECURITY_ADMIN_PASSWORD
 echo
 export FOCUSSTACK_SECURITY_ADMIN_PASSWORD
-java -Djava.awt.headless=true -jar app/target/focusstack.jar
+java --add-modules=jdk.incubator.vector -Djava.awt.headless=true -jar app/target/focusstack.jar
 ```
+
+The JVM option enables the optional vector backend on a compatible Java 25 runtime and CPU. Omit it for scalar decoding on a custom Java runtime without the module.
 
 Open [localhost:8080](http://localhost:8080) and follow the same capture steps. For frontend hot reload, start a second terminal in `frontend-web` and run `npm ci` followed by `npm run dev`. Use Node.js 24 to match the Maven build. Vite prints its local URL and proxies API requests to the backend on port 8080. See [local development](developer/contributing.md) for PowerShell and verification commands.
 

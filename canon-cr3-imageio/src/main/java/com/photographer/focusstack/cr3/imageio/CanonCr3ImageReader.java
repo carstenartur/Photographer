@@ -219,7 +219,8 @@ public class CanonCr3ImageReader extends ImageReader {
                 && !(decoded.getRaster().getNumBands() == 3 && requested.equals(RGB8))) {
             throw new IIOException("Destination image type is incompatible with the selected JPEG");
         }
-        return copyImage(param, decoded, imageRegions(param, decoded.getWidth(), decoded.getHeight()));
+        return copyImage(param, decoded, imageRegions(param, decoded.getWidth(), decoded.getHeight()),
+                param.getSourceXSubsampling(), param.getSourceYSubsampling());
     }
 
     private static Cr3DecodeOptions negotiateRgbDestination(Cr3DecodeOptions options, ImageReadParam param) {
@@ -255,33 +256,40 @@ public class CanonCr3ImageReader extends ImageReader {
             Rectangle bounds = decoder.getRawProcessedBounds(options);
             ImageRegions regions = imageRegions(param, bounds.width, bounds.height);
             Rectangle source = regions.source();
+            int xStep = param.getSourceXSubsampling();
+            int yStep = param.getSourceYSubsampling();
+            boolean sampled = xStep != 1 || yStep != 1;
             if (param.getDestination() == null && options.memoryMode() != Cr3DecodeOptions.MemoryMode.FAST) {
                 var developed = sixteen ? (options.applySrgbConversion() ? SRGB16 : LINEAR_RGB16) : RGB8;
                 ImageTypeSpecifier requested = param.getDestinationType();
                 Rectangle dest = regions.destination();
                 boolean direct = param.getSourceBands() == null && param.getDestinationBands() == null
-                        && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
-                        && dest.x == 0 && dest.y == 0 && dest.width == source.width && dest.height == source.height;
+                        && dest.x == 0 && dest.y == 0;
                 // The advertised INT_RGB has a 32-bit color model; core's packed RGB8 has a
                 // 24-bit model. Partial packed views can also retain their halo's row stride.
-                if (!direct || requested != null
-                        && !(sixteen && Cr3DestinationMemory.matches(requested, developed, source.width, source.height))) {
+                boolean requestedCopy = requested != null && (sampled || !sixteen
+                        || !Cr3DestinationMemory.matches(requested, developed, dest.width, dest.height));
+                if (!direct || requestedCopy) {
                     options = Cr3DestinationMemory.forCopy(options, requested == null ? developed : requested, dest, 3);
                 }
+            }
+            if (sampled) {
+                BufferedImage decoded = decoder.decodeRawProcessedRegion(options, source, xStep, yStep);
+                return copyImage(param, decoded, new ImageRegions(decoded.getRaster().getBounds(),
+                        regions.destination()), 1, 1);
             }
             if (source.equals(bounds)) {
                 BufferedImage destination = param instanceof CanonCr3ImageReadParam cr3
                         && !sixteen && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
-                        && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
                         && param.getSourceBands() == null && param.getDestinationBands() == null
                         ? param.getDestination() : null;
                 BufferedImage decoded = decoder.decodeRawProcessedRegion(options, null, destination);
-                return decoded == destination ? decoded : copyImage(param, decoded, regions);
+                return decoded == destination ? decoded : copyImage(param, decoded, regions, 1, 1);
             }
             BufferedImage decoded = decoder.decodeRawProcessedRegion(options, source);
             // The decoder returns the source region with a zero-based raster.
             Rectangle localSource = new Rectangle(decoded.getWidth(), decoded.getHeight());
-            return copyImage(param, decoded, new ImageRegions(localSource, regions.destination()));
+            return copyImage(param, decoded, new ImageRegions(localSource, regions.destination()), 1, 1);
         } catch (Cr3Exception e) {
             throw decodeError(options, e);
         }
@@ -318,7 +326,8 @@ public class CanonCr3ImageReader extends ImageReader {
         }
     }
 
-    private static BufferedImage copyImage(ImageReadParam param, BufferedImage decoded, ImageRegions regions)
+    private static BufferedImage copyImage(ImageReadParam param, BufferedImage decoded, ImageRegions regions,
+                                           int xStep, int yStep)
             throws IIOException {
         Rectangle sourceRegion = regions.source();
         Rectangle destRegion = regions.destination();
@@ -327,10 +336,11 @@ public class CanonCr3ImageReader extends ImageReader {
         ImageTypeSpecifier requested = param.getDestinationType();
         if (param.getDestination() == null
                 && sourceBands == null && destBands == null
-                && param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
+                && xStep == 1 && yStep == 1
                 && sourceRegion.equals(decoded.getRaster().getBounds()) && destRegion.equals(sourceRegion)
-                // Advertised types may use a 1x1 model; compare the layout at the decoded size.
-                && (requested == null || requested.getColorModel().equals(decoded.getColorModel())
+                // A sampled read has already applied the stride. Preserve the requested destination factory.
+                && (requested == null || param.getSourceXSubsampling() == 1 && param.getSourceYSubsampling() == 1
+                && requested.getColorModel().equals(decoded.getColorModel())
                 && requested.getSampleModel(decoded.getWidth(), decoded.getHeight()).equals(decoded.getSampleModel()))) {
             return decoded;
         }
@@ -345,7 +355,7 @@ public class CanonCr3ImageReader extends ImageReader {
         if (destBands != null) {
             dest = dest.createWritableChild(0, 0, dest.getWidth(), dest.getHeight(), 0, 0, destBands);
         }
-        copySamples(source, sourceRegion, param.getSourceXSubsampling(), param.getSourceYSubsampling(), dest, destRegion);
+        copySamples(source, sourceRegion, xStep, yStep, dest, destRegion);
         return target;
     }
 

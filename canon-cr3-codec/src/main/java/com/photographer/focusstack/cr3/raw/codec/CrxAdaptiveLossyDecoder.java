@@ -132,6 +132,6 @@ final class CrxAdaptiveLossyDecoder {
                     : map.expand(CrxWaveletDetail.band(bits, shape.width(), shape.height(), 1), index, GAINS[index]);
         }
         CrxLossyDecoder.writePlane(bands, columns, height, rows, plane.index() & 1, plane.index() / 2,
-                false, false, map.boundedCoefficients(), consumer);
+                false, false, map.boundedCoefficients(), true, consumer);
     }
 }

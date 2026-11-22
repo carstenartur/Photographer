@@ -36,9 +36,11 @@ jobs:
           cache: maven
           cache-dependency-path: pom.xml
       - name: Stage research dependencies
+        # Downstream modules consume the test JARs produced by the reactor.
         run: >-
           mvn -B --no-transfer-progress install
-          -Dmaven.test.skip=true
+          -DskipTests
+          -DskipITs
           -pl canon-cr3-research
           -am
           -Djava.awt.headless=true

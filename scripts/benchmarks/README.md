@@ -2,7 +2,7 @@
 
 These tools measure a fresh file import into an owned image. The Java probe uses
 the project's public ImageIO/decoder interfaces. The C probe is a standalone
-black-box client of the documented LibRaw 0.21.4 API; it adds no native dependency
+black-box client of the documented LibRaw C API. It adds no native dependency
 to Photographer or its Fiji importer.
 
 The [QA and performance evidence](../../docs/cr3/performance-2026-11-19/README.md)
@@ -60,6 +60,10 @@ or any orientation override, so it still measures the actual `ImageIO.read(File)
 call. JSON records `requested_memory_mode` and `orientation_override` (zero when
 omitted); these fields do not claim to expose the effective automatic decision.
 
+`--subsample-x N` and `--subsample-y N` set the ImageIO source sampling intervals
+in the explicit RGB modes. Both default to one. JSON records the intervals as
+`subsample_x` and `subsample_y`. [RGB subsampling measurements](../../docs/cr3/rgb-subsampling-performance.md)
+
 For a controlled comparison of compact rotation with the normal path, run the
 following twice in fresh processes, changing `FAST` to `LOW_MEMORY` and keeping
 the input, heap, processor budget, JVM and other arguments identical:
@@ -97,10 +101,45 @@ sensor output). Full FNV hashes every row-major band value as u8 or canonical
 u16le; PNM files use the format's big-endian u16 encoding. The default sampled
 hash covers selected complete rows and is only a liveness diagnostic.
 
+## Bounded batch import probe
+
+`Cr3BatchImportProbe` imports a list of files via the ImageIO reader with an
+explicit worker budget. It runs at most the specified number of file imports
+concurrently and releases each image before taking another file from the queue.
+Batch wall time includes scheduling, reading full images and releasing them.
+The individual read times start when a file's worker begins its import.
+
+On four available CPUs, compare `1 4`, `2 2` and `4 1` for the same list of
+distinct inputs. Supply as many inputs as concurrent imports and start a fresh
+JVM for each configuration. For example, given an array `files` of CR3 paths:
+
+```bash
+probe=com.photographer.focusstack.cr3.benchmark.Cr3BatchImportProbe
+taskset -c 0-3 java -Xms24m -Xmx768m -XX:+UseSerialGC -XX:ActiveProcessorCount=4 \
+  -cp canon-cr3-benchmark/target/benchmarks.jar "$probe" 2 2 rgb8 2 3 "${files[@]}"
+```
+
+The arguments are concurrent files, decoder workers per file, output mode
+(`rgb8`, `rgb16` or `sensor`), warmup batches, measured batches and file paths.
+A worker count of zero uses the decoder's automatic processor-based limit.
+The probe requests GC between batches, outside batch timing. Run a separate
+`0 1 --checksum` batch (replacing the warmup and measured counts) to verify the
+dimensions, precision and full image fingerprint for each input. Use the
+same heap settings and compare output JSON by input filename. The checksum
+work in this verification batch is included in its wall time.
+
+The [eight-file batch comparison](../../docs/cr3/batch-import-2026-11-22/README.md)
+records throughput, peak process memory and heap-limit behavior for all three
+output modes.
+
 ## LibRaw C probe
 
-Use matching public headers and a thread-safe LibRaw **0.21.4** runtime. With
-the matching development package installed in standard Linux locations:
+Use matching public headers and a thread-safe LibRaw runtime. The probe checks
+that the header and runtime versions agree. The original comparison used
+0.21.4. The same probe also supports 0.22.2 and 0.22.3.
+
+With the matching development package installed in standard Linux locations,
+build the probe with GCC:
 
 ```bash
 mkdir -p target
@@ -116,8 +155,8 @@ OMP_NUM_THREADS=4 OMP_THREAD_LIMIT=4 OMP_DYNAMIC=FALSE \
 ```
 
 For an extracted binary package, add its include/library directories and an
-appropriate runtime library search path. The evidence manifest pins the tested
-Debian packages, loaded library, client source and executable. Run `--help` for
+appropriate runtime library search path. Pin the package and shared library,
+client source, and executable in the comparison manifest. Run `--help` for
 the complete argument list and `--selftest` for a small public-API Bayer input.
 
 | Java workload | LibRaw settings |

@@ -2,6 +2,17 @@
 
 CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
+## Comparison with LibRaw 0.22.2 and 0.22.3 on 2026-11-22
+
+The [release comparison](cr3/import-comparison-2026-11-22/README.md) measures
+Photographer 0.1.8 on Java 21 through its public ImageIO entry points. It includes
+byte-exact native Bayer comparisons, complete RGB8 and RGB16 imports, process
+high-water memory and pinned prebuilt LibRaw versions.
+
+The [RGB16 interpolation experiment](cr3/rgb16-pairs-2026-11-22.md) reports
+the exact-output Bayer-pair production change. The [file access and C-RAW
+experiments](cr3/io-benchmark-2026-11-22.md) record the other measured variants.
+
 ## Complete-import QA and comparison on 2026-11-19
 
 The [four-file QA and performance report](cr3/performance-2026-11-19/README.md)

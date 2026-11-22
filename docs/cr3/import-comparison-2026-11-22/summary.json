@@ -1,0 +1,1244 @@
+{
+  "sensor": {
+    "g5-raw": {
+      "checksums": {
+        "photographer": {
+          "width": 5632,
+          "height": 3710,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "bbb2c3b2ecb4e45b"
+        },
+        "libraw-0.22.2": {
+          "width": 5632,
+          "height": 3710,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "bbb2c3b2ecb4e45b"
+        },
+        "libraw-0.22.3": {
+          "width": 5632,
+          "height": 3710,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "bbb2c3b2ecb4e45b"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 101.240819,
+          "cpu_ms": 330.0,
+          "peak_rss_kib": 93908,
+          "java_allocated_bytes": 42344136,
+          "forks": [
+            {
+              "wall_ms": 115.987791,
+              "cpu_ms": 330.0,
+              "peak_rss_kib": 93712,
+              "java_allocated_bytes": 42344136
+            },
+            {
+              "wall_ms": 101.240819,
+              "cpu_ms": 330.0,
+              "peak_rss_kib": 94344,
+              "java_allocated_bytes": 42344136
+            },
+            {
+              "wall_ms": 100.127317,
+              "cpu_ms": 310.0,
+              "peak_rss_kib": 93908,
+              "java_allocated_bytes": 42344136
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 86.568,
+          "cpu_ms": 286.535,
+          "peak_rss_kib": 86088,
+          "forks": [
+            {
+              "wall_ms": 73.36,
+              "cpu_ms": 252.135,
+              "peak_rss_kib": 86004,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 87.967,
+              "cpu_ms": 304.602,
+              "peak_rss_kib": 86108,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 86.568,
+              "cpu_ms": 286.535,
+              "peak_rss_kib": 86088,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 90.156,
+          "cpu_ms": 308.665,
+          "peak_rss_kib": 86092,
+          "forks": [
+            {
+              "wall_ms": 105.078,
+              "cpu_ms": 328.753,
+              "peak_rss_kib": 86092,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 90.156,
+              "cpu_ms": 308.665,
+              "peak_rss_kib": 86020,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 88.3,
+              "cpu_ms": 293.514,
+              "peak_rss_kib": 86120,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "eosr-raw": {
+      "checksums": {
+        "photographer": {
+          "width": 6888,
+          "height": 4546,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "bfdafa4cdea7ee7c"
+        },
+        "libraw-0.22.2": {
+          "width": 6888,
+          "height": 4546,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "bfdafa4cdea7ee7c"
+        },
+        "libraw-0.22.3": {
+          "width": 6888,
+          "height": 4546,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "bfdafa4cdea7ee7c"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 118.785979,
+          "cpu_ms": 380.0,
+          "peak_rss_kib": 115876,
+          "java_allocated_bytes": 63271512,
+          "forks": [
+            {
+              "wall_ms": 118.785979,
+              "cpu_ms": 380.0,
+              "peak_rss_kib": 115952,
+              "java_allocated_bytes": 63271512
+            },
+            {
+              "wall_ms": 114.249155,
+              "cpu_ms": 370.0,
+              "peak_rss_kib": 115876,
+              "java_allocated_bytes": 63271512
+            },
+            {
+              "wall_ms": 127.039872,
+              "cpu_ms": 380.0,
+              "peak_rss_kib": 115432,
+              "java_allocated_bytes": 63271512
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 98.881,
+          "cpu_ms": 340.105,
+          "peak_rss_kib": 126772,
+          "forks": [
+            {
+              "wall_ms": 106.487,
+              "cpu_ms": 360.289,
+              "peak_rss_kib": 126844,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 96.049,
+              "cpu_ms": 327.411,
+              "peak_rss_kib": 126772,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 98.881,
+              "cpu_ms": 340.105,
+              "peak_rss_kib": 126740,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 96.607,
+          "cpu_ms": 332.073,
+          "peak_rss_kib": 126764,
+          "forks": [
+            {
+              "wall_ms": 97.254,
+              "cpu_ms": 332.073,
+              "peak_rss_kib": 126812,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 95.732,
+              "cpu_ms": 328.39,
+              "peak_rss_kib": 126720,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 96.607,
+              "cpu_ms": 332.805,
+              "peak_rss_kib": 126764,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "g5-craw": {
+      "checksums": {
+        "photographer": {
+          "width": 5632,
+          "height": 3710,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "a90bf97e45a21c71"
+        },
+        "libraw-0.22.2": {
+          "width": 5632,
+          "height": 3710,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "a90bf97e45a21c71"
+        },
+        "libraw-0.22.3": {
+          "width": 5632,
+          "height": 3710,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "a90bf97e45a21c71"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 78.389142,
+          "cpu_ms": 210.0,
+          "peak_rss_kib": 107472,
+          "java_allocated_bytes": 43817928,
+          "forks": [
+            {
+              "wall_ms": 73.791852,
+              "cpu_ms": 200.0,
+              "peak_rss_kib": 107828,
+              "java_allocated_bytes": 43817928
+            },
+            {
+              "wall_ms": 78.389142,
+              "cpu_ms": 210.0,
+              "peak_rss_kib": 107472,
+              "java_allocated_bytes": 43817928
+            },
+            {
+              "wall_ms": 99.239183,
+              "cpu_ms": 260.0,
+              "peak_rss_kib": 106780,
+              "java_allocated_bytes": 43817896
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 60.325,
+          "cpu_ms": 210.427,
+          "peak_rss_kib": 85932,
+          "forks": [
+            {
+              "wall_ms": 60.325,
+              "cpu_ms": 207.985,
+              "peak_rss_kib": 85932,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 60.094,
+              "cpu_ms": 210.427,
+              "peak_rss_kib": 85972,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 73.117,
+              "cpu_ms": 247.827,
+              "peak_rss_kib": 85800,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 61.366,
+          "cpu_ms": 211.403,
+          "peak_rss_kib": 85868,
+          "forks": [
+            {
+              "wall_ms": 61.366,
+              "cpu_ms": 211.403,
+              "peak_rss_kib": 85808,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 57.377,
+              "cpu_ms": 200.138,
+              "peak_rss_kib": 85888,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 74.173,
+              "cpu_ms": 231.626,
+              "peak_rss_kib": 85868,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "m50-craw": {
+      "checksums": {
+        "photographer": {
+          "width": 6288,
+          "height": 4056,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "9bfade480f63376f"
+        },
+        "libraw-0.22.2": {
+          "width": 6288,
+          "height": 4056,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "9bfade480f63376f"
+        },
+        "libraw-0.22.3": {
+          "width": 6288,
+          "height": 4056,
+          "bits": 16,
+          "channels": 1,
+          "fnv1a64": "9bfade480f63376f"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 134.564724,
+          "cpu_ms": 410.0,
+          "peak_rss_kib": 112720,
+          "java_allocated_bytes": 53309912,
+          "forks": [
+            {
+              "wall_ms": 152.721625,
+              "cpu_ms": 500.0,
+              "peak_rss_kib": 116052,
+              "java_allocated_bytes": 53309912
+            },
+            {
+              "wall_ms": 127.004405,
+              "cpu_ms": 390.0,
+              "peak_rss_kib": 110008,
+              "java_allocated_bytes": 53309912
+            },
+            {
+              "wall_ms": 134.564724,
+              "cpu_ms": 410.0,
+              "peak_rss_kib": 112720,
+              "java_allocated_bytes": 53309912
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 108.865,
+          "cpu_ms": 372.322,
+          "peak_rss_kib": 103912,
+          "forks": [
+            {
+              "wall_ms": 116.611,
+              "cpu_ms": 416.534,
+              "peak_rss_kib": 103912,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 108.865,
+              "cpu_ms": 362.975,
+              "peak_rss_kib": 103888,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 108.581,
+              "cpu_ms": 372.322,
+              "peak_rss_kib": 104144,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 116.684,
+          "cpu_ms": 404.732,
+          "peak_rss_kib": 104040,
+          "forks": [
+            {
+              "wall_ms": 116.684,
+              "cpu_ms": 404.732,
+              "peak_rss_kib": 104000,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 119.821,
+              "cpu_ms": 406.797,
+              "peak_rss_kib": 104040,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 105.833,
+              "cpu_ms": 361.232,
+              "peak_rss_kib": 104040,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  "rgb8": {
+    "g5-raw": {
+      "checksums": {
+        "photographer": {
+          "width": 5496,
+          "height": 3668,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "533495a176fc121a"
+        },
+        "libraw-0.22.2": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "3d92b9222645145e"
+        },
+        "libraw-0.22.3": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "3d92b9222645145e"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 230.620809,
+          "cpu_ms": 660.0,
+          "peak_rss_kib": 140760,
+          "java_allocated_bytes": 81571384,
+          "forks": [
+            {
+              "wall_ms": 192.923111,
+              "cpu_ms": 590.0,
+              "peak_rss_kib": 140760,
+              "java_allocated_bytes": 81571384
+            },
+            {
+              "wall_ms": 235.155806,
+              "cpu_ms": 660.0,
+              "peak_rss_kib": 139524,
+              "java_allocated_bytes": 81571384
+            },
+            {
+              "wall_ms": 230.620809,
+              "cpu_ms": 690.0,
+              "peak_rss_kib": 140976,
+              "java_allocated_bytes": 81571384
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 751.204,
+          "cpu_ms": 1076.582,
+          "peak_rss_kib": 264984,
+          "forks": [
+            {
+              "wall_ms": 622.501,
+              "cpu_ms": 892.645,
+              "peak_rss_kib": 265032,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 751.204,
+              "cpu_ms": 1076.582,
+              "peak_rss_kib": 264984,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 792.748,
+              "cpu_ms": 1129.132,
+              "peak_rss_kib": 264956,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 683.258,
+          "cpu_ms": 1019.464,
+          "peak_rss_kib": 264988,
+          "forks": [
+            {
+              "wall_ms": 610.322,
+              "cpu_ms": 955.725,
+              "peak_rss_kib": 264988,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 690.547,
+              "cpu_ms": 1019.464,
+              "peak_rss_kib": 265076,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 683.258,
+              "cpu_ms": 1025.841,
+              "peak_rss_kib": 264936,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "eosr-raw": {
+      "checksums": {
+        "photographer": {
+          "width": 6744,
+          "height": 4500,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "4ec22e4a80bb1e4e"
+        },
+        "libraw-0.22.2": {
+          "width": 6742,
+          "height": 4498,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "252b28a6b7ada1fd"
+        },
+        "libraw-0.22.3": {
+          "width": 6742,
+          "height": 4498,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "252b28a6b7ada1fd"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 307.223602,
+          "cpu_ms": 930.0,
+          "peak_rss_kib": 183216,
+          "java_allocated_bytes": 122498808,
+          "forks": [
+            {
+              "wall_ms": 280.600884,
+              "cpu_ms": 890.0,
+              "peak_rss_kib": 186176,
+              "java_allocated_bytes": 122498840
+            },
+            {
+              "wall_ms": 354.339136,
+              "cpu_ms": 1080.0,
+              "peak_rss_kib": 181072,
+              "java_allocated_bytes": 122498808
+            },
+            {
+              "wall_ms": 307.223602,
+              "cpu_ms": 930.0,
+              "peak_rss_kib": 183216,
+              "java_allocated_bytes": 122498808
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 1201.441,
+          "cpu_ms": 1675.815,
+          "peak_rss_kib": 391628,
+          "forks": [
+            {
+              "wall_ms": 1201.441,
+              "cpu_ms": 1675.815,
+              "peak_rss_kib": 391628,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1213.725,
+              "cpu_ms": 1707.931,
+              "peak_rss_kib": 391744,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1015.099,
+              "cpu_ms": 1543.034,
+              "peak_rss_kib": 391484,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 1092.43,
+          "cpu_ms": 1495.416,
+          "peak_rss_kib": 391472,
+          "forks": [
+            {
+              "wall_ms": 1092.43,
+              "cpu_ms": 1495.416,
+              "peak_rss_kib": 391472,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1105.222,
+              "cpu_ms": 1456.974,
+              "peak_rss_kib": 391408,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1091.369,
+              "cpu_ms": 1508.998,
+              "peak_rss_kib": 391584,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "g5-craw": {
+      "checksums": {
+        "photographer": {
+          "width": 5496,
+          "height": 3668,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "a53bb807df5d016f"
+        },
+        "libraw-0.22.2": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "9cbfce2feda3854a"
+        },
+        "libraw-0.22.3": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "9cbfce2feda3854a"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 183.148241,
+          "cpu_ms": 530.0,
+          "peak_rss_kib": 147496,
+          "java_allocated_bytes": 83045160,
+          "forks": [
+            {
+              "wall_ms": 183.148241,
+              "cpu_ms": 470.0,
+              "peak_rss_kib": 142976,
+              "java_allocated_bytes": 83045160
+            },
+            {
+              "wall_ms": 184.419082,
+              "cpu_ms": 540.0,
+              "peak_rss_kib": 152504,
+              "java_allocated_bytes": 83045144
+            },
+            {
+              "wall_ms": 172.704198,
+              "cpu_ms": 530.0,
+              "peak_rss_kib": 147496,
+              "java_allocated_bytes": 83045176
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 651.366,
+          "cpu_ms": 941.036,
+          "peak_rss_kib": 264728,
+          "forks": [
+            {
+              "wall_ms": 651.366,
+              "cpu_ms": 981.351,
+              "peak_rss_kib": 264640,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 664.368,
+              "cpu_ms": 941.036,
+              "peak_rss_kib": 264848,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 628.111,
+              "cpu_ms": 914.819,
+              "peak_rss_kib": 264728,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 663.189,
+          "cpu_ms": 946.315,
+          "peak_rss_kib": 264868,
+          "forks": [
+            {
+              "wall_ms": 755.642,
+              "cpu_ms": 997.083,
+              "peak_rss_kib": 264700,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 647.673,
+              "cpu_ms": 928.686,
+              "peak_rss_kib": 265048,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 663.189,
+              "cpu_ms": 946.315,
+              "peak_rss_kib": 264868,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "m50-craw": {
+      "checksums": {
+        "photographer": {
+          "width": 6024,
+          "height": 4020,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "fe7f1afca1efc8ff"
+        },
+        "libraw-0.22.2": {
+          "width": 6024,
+          "height": 4020,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "88273fa54883b1ac"
+        },
+        "libraw-0.22.3": {
+          "width": 6024,
+          "height": 4020,
+          "bits": 8,
+          "channels": 3,
+          "fnv1a64": "88273fa54883b1ac"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 244.183499,
+          "cpu_ms": 760.0,
+          "peak_rss_kib": 166036,
+          "java_allocated_bytes": 99581240,
+          "forks": [
+            {
+              "wall_ms": 244.183499,
+              "cpu_ms": 760.0,
+              "peak_rss_kib": 166908,
+              "java_allocated_bytes": 99581208
+            },
+            {
+              "wall_ms": 251.040405,
+              "cpu_ms": 770.0,
+              "peak_rss_kib": 160364,
+              "java_allocated_bytes": 99581240
+            },
+            {
+              "wall_ms": 219.304746,
+              "cpu_ms": 760.0,
+              "peak_rss_kib": 166036,
+              "java_allocated_bytes": 99581240
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 840.26,
+          "cpu_ms": 1211.261,
+          "peak_rss_kib": 314364,
+          "forks": [
+            {
+              "wall_ms": 840.26,
+              "cpu_ms": 1211.261,
+              "peak_rss_kib": 314416,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 784.374,
+              "cpu_ms": 1181.927,
+              "peak_rss_kib": 314364,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 852.053,
+              "cpu_ms": 1264.179,
+              "peak_rss_kib": 314352,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 804.559,
+          "cpu_ms": 1151.549,
+          "peak_rss_kib": 314444,
+          "forks": [
+            {
+              "wall_ms": 804.559,
+              "cpu_ms": 1144.9,
+              "peak_rss_kib": 314456,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 804.229,
+              "cpu_ms": 1151.549,
+              "peak_rss_kib": 314404,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 857.354,
+              "cpu_ms": 1201.647,
+              "peak_rss_kib": 314444,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  "rgb16": {
+    "g5-raw": {
+      "checksums": {
+        "photographer": {
+          "width": 5496,
+          "height": 3668,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "482d0cb8385a95c5"
+        },
+        "libraw-0.22.2": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "073206d539233c30"
+        },
+        "libraw-0.22.3": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "073206d539233c30"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 267.033929,
+          "cpu_ms": 810.0,
+          "peak_rss_kib": 184864,
+          "java_allocated_bytes": 122422584,
+          "forks": [
+            {
+              "wall_ms": 290.67993,
+              "cpu_ms": 950.0,
+              "peak_rss_kib": 184864,
+              "java_allocated_bytes": 122422584
+            },
+            {
+              "wall_ms": 267.033929,
+              "cpu_ms": 810.0,
+              "peak_rss_kib": 335856,
+              "java_allocated_bytes": 122422584
+            },
+            {
+              "wall_ms": 227.894794,
+              "cpu_ms": 780.0,
+              "peak_rss_kib": 183780,
+              "java_allocated_bytes": 122422584
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 661.252,
+          "cpu_ms": 981.581,
+          "peak_rss_kib": 324900,
+          "forks": [
+            {
+              "wall_ms": 661.252,
+              "cpu_ms": 981.581,
+              "peak_rss_kib": 324900,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 686.154,
+              "cpu_ms": 1050.449,
+              "peak_rss_kib": 324960,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 647.859,
+              "cpu_ms": 949.658,
+              "peak_rss_kib": 324848,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 665.476,
+          "cpu_ms": 984.867,
+          "peak_rss_kib": 324912,
+          "forks": [
+            {
+              "wall_ms": 665.476,
+              "cpu_ms": 984.867,
+              "peak_rss_kib": 324816,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 681.581,
+              "cpu_ms": 1000.95,
+              "peak_rss_kib": 324912,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 663.286,
+              "cpu_ms": 959.796,
+              "peak_rss_kib": 324924,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "eosr-raw": {
+      "checksums": {
+        "photographer": {
+          "width": 6744,
+          "height": 4500,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "ba1e15e786312378"
+        },
+        "libraw-0.22.2": {
+          "width": 6742,
+          "height": 4498,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "7bdf881b6024fe4a"
+        },
+        "libraw-0.22.3": {
+          "width": 6742,
+          "height": 4498,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "7bdf881b6024fe4a"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 430.549811,
+          "cpu_ms": 1390.0,
+          "peak_rss_kib": 237104,
+          "java_allocated_bytes": 183852184,
+          "forks": [
+            {
+              "wall_ms": 430.549811,
+              "cpu_ms": 1390.0,
+              "peak_rss_kib": 236772,
+              "java_allocated_bytes": 183852184
+            },
+            {
+              "wall_ms": 456.604185,
+              "cpu_ms": 1460.0,
+              "peak_rss_kib": 243308,
+              "java_allocated_bytes": 183852184
+            },
+            {
+              "wall_ms": 401.465858,
+              "cpu_ms": 1330.0,
+              "peak_rss_kib": 237104,
+              "java_allocated_bytes": 183852184
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 1179.353,
+          "cpu_ms": 1607.006,
+          "peak_rss_kib": 480428,
+          "forks": [
+            {
+              "wall_ms": 1179.353,
+              "cpu_ms": 1607.006,
+              "peak_rss_kib": 480412,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1163.645,
+              "cpu_ms": 1581.231,
+              "peak_rss_kib": 480444,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1286.383,
+              "cpu_ms": 1627.651,
+              "peak_rss_kib": 480428,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 1081.262,
+          "cpu_ms": 1507.576,
+          "peak_rss_kib": 480372,
+          "forks": [
+            {
+              "wall_ms": 1081.262,
+              "cpu_ms": 1507.576,
+              "peak_rss_kib": 480372,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1000.904,
+              "cpu_ms": 1499.765,
+              "peak_rss_kib": 480376,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 1283.006,
+              "cpu_ms": 1583.267,
+              "peak_rss_kib": 480360,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "g5-craw": {
+      "checksums": {
+        "photographer": {
+          "width": 5496,
+          "height": 3668,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "5c286fbe36253461"
+        },
+        "libraw-0.22.2": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "c3b6285b6b0fcdce"
+        },
+        "libraw-0.22.3": {
+          "width": 5536,
+          "height": 3692,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "c3b6285b6b0fcdce"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 256.575776,
+          "cpu_ms": 780.0,
+          "peak_rss_kib": 184392,
+          "java_allocated_bytes": 123896376,
+          "forks": [
+            {
+              "wall_ms": 256.575776,
+              "cpu_ms": 780.0,
+              "peak_rss_kib": 185616,
+              "java_allocated_bytes": 123896376
+            },
+            {
+              "wall_ms": 252.019339,
+              "cpu_ms": 680.0,
+              "peak_rss_kib": 182280,
+              "java_allocated_bytes": 123896376
+            },
+            {
+              "wall_ms": 271.606885,
+              "cpu_ms": 790.0,
+              "peak_rss_kib": 184392,
+              "java_allocated_bytes": 123896376
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 705.29,
+          "cpu_ms": 947.551,
+          "peak_rss_kib": 324680,
+          "forks": [
+            {
+              "wall_ms": 724.689,
+              "cpu_ms": 1004.453,
+              "peak_rss_kib": 324748,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 648.398,
+              "cpu_ms": 930.635,
+              "peak_rss_kib": 324580,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 705.29,
+              "cpu_ms": 947.551,
+              "peak_rss_kib": 324680,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 633.102,
+          "cpu_ms": 896.697,
+          "peak_rss_kib": 324688,
+          "forks": [
+            {
+              "wall_ms": 626.122,
+              "cpu_ms": 896.697,
+              "peak_rss_kib": 324652,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 633.102,
+              "cpu_ms": 879.276,
+              "peak_rss_kib": 324716,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 797.56,
+              "cpu_ms": 1041.975,
+              "peak_rss_kib": 324688,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    },
+    "m50-craw": {
+      "checksums": {
+        "photographer": {
+          "width": 6024,
+          "height": 4020,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "a4bfda0cf5099990"
+        },
+        "libraw-0.22.2": {
+          "width": 6024,
+          "height": 4020,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "6a8ba6a4e9adc28f"
+        },
+        "libraw-0.22.3": {
+          "width": 6024,
+          "height": 4020,
+          "bits": 16,
+          "channels": 3,
+          "fnv1a64": "6a8ba6a4e9adc28f"
+        }
+      },
+      "variants": {
+        "photographer": {
+          "wall_ms": 350.91042,
+          "cpu_ms": 1160.0,
+          "peak_rss_kib": 213556,
+          "java_allocated_bytes": 148599544,
+          "forks": [
+            {
+              "wall_ms": 350.91042,
+              "cpu_ms": 1160.0,
+              "peak_rss_kib": 213556,
+              "java_allocated_bytes": 148599544
+            },
+            {
+              "wall_ms": 347.764661,
+              "cpu_ms": 1150.0,
+              "peak_rss_kib": 212796,
+              "java_allocated_bytes": 148599544
+            },
+            {
+              "wall_ms": 367.330171,
+              "cpu_ms": 1190.0,
+              "peak_rss_kib": 214044,
+              "java_allocated_bytes": 148599544
+            }
+          ]
+        },
+        "libraw-0.22.2": {
+          "wall_ms": 929.458,
+          "cpu_ms": 1278.26,
+          "peak_rss_kib": 385336,
+          "forks": [
+            {
+              "wall_ms": 817.228,
+              "cpu_ms": 1251.988,
+              "peak_rss_kib": 385332,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 929.458,
+              "cpu_ms": 1278.26,
+              "peak_rss_kib": 385336,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 946.487,
+              "cpu_ms": 1388.974,
+              "peak_rss_kib": 385688,
+              "java_allocated_bytes": null
+            }
+          ]
+        },
+        "libraw-0.22.3": {
+          "wall_ms": 912.238,
+          "cpu_ms": 1295.626,
+          "peak_rss_kib": 385380,
+          "forks": [
+            {
+              "wall_ms": 912.238,
+              "cpu_ms": 1250.041,
+              "peak_rss_kib": 385216,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 962.774,
+              "cpu_ms": 1351.687,
+              "peak_rss_kib": 385476,
+              "java_allocated_bytes": null
+            },
+            {
+              "wall_ms": 858.353,
+              "cpu_ms": 1295.626,
+              "peak_rss_kib": 385380,
+              "java_allocated_bytes": null
+            }
+          ]
+        }
+      }
+    }
+  }
+}

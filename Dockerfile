@@ -117,4 +117,5 @@ ENTRYPOINT ["java", \
     "-XX:+UseG1GC", \
     "-Djava.awt.headless=true", \
     "--enable-native-access=ALL-UNNAMED", \
+    "--add-modules=jdk.incubator.vector", \
     "-jar", "app.jar"]

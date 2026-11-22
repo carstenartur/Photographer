@@ -353,6 +353,33 @@ public final class Cr3Decoder implements AutoCloseable {
      */
     public BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion,
                                                   BufferedImage destination) throws Cr3Exception, IOException {
+        return decodeRawProcessedRegion(options, outputRegion, destination, 1, 1);
+    }
+
+    /**
+     * Develops selected pixels on the oriented output grid. Each selected pixel uses
+     * the same full-resolution Bayer neighbours and calibration as a complete read.
+     *
+     * @param options RAW development options
+     * @param outputRegion rectangle in oriented coordinates, or null for the whole image
+     * @param xStep spacing between selected output columns, at least one
+     * @param yStep spacing between selected output rows, at least one
+     * @return zero-based developed image whose first sample is from the region's origin
+     * @throws IllegalArgumentException if the rectangle or sample spacing is invalid
+     * @throws Cr3Exception if RAW decoding fails
+     * @throws IOException if reading fails
+     */
+    public BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion,
+                                                  int xStep, int yStep) throws Cr3Exception, IOException {
+        return decodeRawProcessedRegion(options, outputRegion, null, xStep, yStep);
+    }
+
+    private BufferedImage decodeRawProcessedRegion(Cr3DecodeOptions options, Rectangle outputRegion,
+                                                   BufferedImage destination, int xStep, int yStep)
+            throws Cr3Exception, IOException {
+        if (xStep < 1 || yStep < 1) {
+            throw new IllegalArgumentException("RGB sample spacing must be positive");
+        }
         RawTrack track = rawTrack();
         Rectangle fullArea = processedArea(options, track);
         int orientation = orientation();
@@ -360,19 +387,29 @@ public final class Cr3Decoder implements AutoCloseable {
         if (outputRegion != null && (outputRegion.isEmpty() || !bounds.contains(outputRegion))) {
             throw new IllegalArgumentException("RGB region must be within the developed image");
         }
+        boolean sampled = xStep != 1 || yStep != 1;
+        if (sampled) {
+            Rectangle grid = outputRegion == null ? bounds : outputRegion;
+            // Both ends must land on sample sites before reflecting the grid in sensor coordinates.
+            outputRegion = new Rectangle(grid.x, grid.y,
+                    1 + (grid.width - 1) / xStep * xStep, 1 + (grid.height - 1) / yStep * yStep);
+        }
+        boolean transpose = orientation >= 5 && orientation <= 8;
+        int columnStep = transpose ? yStep : xStep;
+        int rowStep = transpose ? xStep : yStep;
         boolean partial = outputRegion != null && !bounds.equals(outputRegion);
         Rectangle region = partial
                 ? ExifOrientationTransformer.sourceRegion(outputRegion, fullArea.width, fullArea.height, orientation)
                 : new Rectangle(fullArea.width, fullArea.height);
         Rectangle area = partial ? withDemosaicNeighbors(region, fullArea) : fullArea;
         boolean sixteenBit = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
-        int[] suppliedSamples = sixteenBit || partial || (orientation >= 5 && orientation <= 8)
+        int[] suppliedSamples = sixteenBit || partial || transpose
                 ? null : reusableRgbSamples(destination, area);
         CrxSensorDecoder sensor = prepareSensor(track);
         long areaSites = (long) area.width * area.height;
-        long outputSites = (long) region.width * region.height;
-        var imageBytes = ImageBytes.rgb(sixteenBit, areaSites, outputSites, partial, orientation,
-                suppliedSamples != null);
+        long outputSites = (long) Math.ceilDiv(region.width, columnStep) * Math.ceilDiv(region.height, rowStep);
+        var imageBytes = sampled ? ImageBytes.sampledRgb(sixteenBit, areaSites, outputSites, transpose)
+                : ImageBytes.rgb(sixteenBit, areaSites, outputSites, partial, orientation, suppliedSamples != null);
         options = memoryOptions(options, track, imageBytes, area.width);
         boolean compact = options.memoryMode() == Cr3DecodeOptions.MemoryMode.LOW_MEMORY;
         var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples, sensor);
@@ -380,8 +417,16 @@ public final class Cr3Decoder implements AutoCloseable {
         Rectangle localRegion = new Rectangle(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
                 region.width, region.height);
         if (sixteenBit) {
+            var pattern = CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1());
+            if (sampled) {
+                BufferedImage rgb = BayerDemosaicer.develop16Sampled(prepared.compactSamples(), area.width,
+                        area.height, pattern, prepared.blackLevel(), area.x, area.y, prepared.whiteBalance(),
+                        prepared.whiteLevel(), prepared.colorMatrix(), localRegion, columnStep, rowStep,
+                        options.applySrgbConversion(), options.maxWorkers());
+                return ExifOrientationTransformer.applyToOwnedImageCompact(rgb, orientation);
+            }
             BufferedImage rgb = BayerDemosaicer.develop16Owned(prepared.compactSamples(), area.width, area.height,
-                    CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1()), prepared.blackLevel(), area.x, area.y,
+                    pattern, prepared.blackLevel(), area.x, area.y,
                     prepared.whiteBalance(), prepared.whiteLevel(), prepared.colorMatrix(), localRegion,
                     compact && !partial ? 1 : orientation, options.applySrgbConversion(), options.maxWorkers());
             return compact && !partial ? ExifOrientationTransformer.applyToOwnedImageCompact(rgb, orientation) : rgb;
@@ -394,13 +439,18 @@ public final class Cr3Decoder implements AutoCloseable {
         } else if (prepared.blackLevel() != null) {
             BlackLevelProcessor.process(prepared.image(), prepared.blackLevel(), area.x, area.y);
         }
-        BufferedImage rgb = BayerDemosaicer.demosaicInPlace(prepared.image(), prepared.whiteLevel(),
-                options.maxWorkers());
+        BufferedImage rgb = sampled
+                ? BayerDemosaicer.demosaicSampled(prepared.image(), prepared.whiteLevel(),
+                        localRegion, columnStep, rowStep, options.maxWorkers())
+                : BayerDemosaicer.demosaicInPlace(prepared.image(), prepared.whiteLevel(), options.maxWorkers());
         if (prepared.colorMatrix() != null) {
             ColorMatrixProcessor.process(rgb, prepared.colorMatrix(), options.maxWorkers());
         }
         if (options.applySrgbConversion()) {
             SrgbConverter.process(rgb, options.maxWorkers());
+        }
+        if (sampled) {
+            return ExifOrientationTransformer.applyToOwnedImageCompact(rgb, orientation);
         }
         if (partial) {
             rgb = rgb.getSubimage(localRegion.x, localRegion.y, localRegion.width, localRegion.height);

@@ -70,4 +70,85 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>compile-cr3-vector</id>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <release>25</release>
+                            <multiReleaseOutput>true</multiReleaseOutput>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java25</compileSourceRoot>
+                            </compileSourceRoots>
+                            <compilerArgs>
+                                <arg>--add-modules=jdk.incubator.vector</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive><manifestEntries><Multi-Release>true</Multi-Release></manifestEntries></archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>include-vector-sources</id>
+                        <!-- Register after compilation so source JARs include the optional backend. -->
+                        <phase>prepare-package</phase>
+                        <goals><goal>add-source</goal></goals>
+                        <configuration>
+                            <sources><source>${project.basedir}/src/main/java25</source></sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <configuration>
+                        <!-- Generate the docs using only Java 21 sources. -->
+                        <sourcepath>${project.basedir}/src/main/java</sourcepath>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>cr3-vector</id>
+            <properties>
+                <argLine>--add-modules=jdk.incubator.vector</argLine>
+            </properties>
+            <build>
+                <directory>${project.basedir}/target/vector</directory>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <additionalClasspathElements>
+                                <additionalClasspathElement>${project.build.outputDirectory}/META-INF/versions/25</additionalClasspathElement>
+                            </additionalClasspathElements>
+                            <systemPropertyVariables>
+                                <cr3.vector.tests>true</cr3.vector.tests>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

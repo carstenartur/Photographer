@@ -35,8 +35,9 @@ import java.util.Set;
  *
  * <p>Required option: {@code --input FILE}. Optional values are {@code --mode MODE},
  * {@code --warmup N}, {@code --iterations N}, {@code --workers N},
- * {@code --memory-mode AUTO|LOW_MEMORY|FAST}, {@code --orientation 1..8}, and
- * {@code --dump FILE}. Memory-mode values are case-insensitive.
+ * {@code --memory-mode AUTO|LOW_MEMORY|FAST}, {@code --orientation 1..8},
+ * {@code --subsample-x N}, {@code --subsample-y N}, and {@code --dump FILE}.
+ * Memory-mode values are case-insensitive. Sampling applies to the explicit RGB modes.
  * Boolean flags are {@code --checksum} and {@code --gc-between}.
  * The defaults are mode {@code default}, no warmup, one measured import, and an
  * automatic worker budget (zero), with automatic memory policy and camera orientation.</p>
@@ -68,7 +69,12 @@ public final class Cr3ImportProbe {
         int workers = integerOption(arguments, "--workers", 0, 0);
         MemoryMode memoryMode = memoryModeOption(arguments);
         int orientationOverride = integerOption(arguments, "--orientation", 0, 1);
+        int xStep = integerOption(arguments, "--subsample-x", 1, 1);
+        int yStep = integerOption(arguments, "--subsample-y", 1, 1);
         validateReadRequest(mode, workers, memoryMode, orientationOverride);
+        if ((xStep != 1 || yStep != 1) && !mode.startsWith("rgb")) {
+            throw new IllegalArgumentException("Source subsampling requires an explicit RGB mode, received " + mode);
+        }
         boolean checksum = arguments.containsKey("--checksum");
 
         ImageIO.scanForPlugins();
@@ -83,7 +89,7 @@ public final class Cr3ImportProbe {
             Map<Long, Long> before = allocated();
             long cpuStart = OS.getProcessCpuTime();
             long start = System.nanoTime();
-            BufferedImage image = read(file, mode, workers, memoryMode, orientationOverride);
+            BufferedImage image = read(file, mode, workers, memoryMode, orientationOverride, xStep, yStep);
             long elapsed = System.nanoTime() - start;
             long cpu = OS.getProcessCpuTime() - cpuStart;
             long allocated = allocated().entrySet().stream()
@@ -99,12 +105,14 @@ public final class Cr3ImportProbe {
                         "{\"engine\":\"Photographer\",\"input\":\"%s\",\"mode\":\"%s\","
                                 + "\"iteration\":%d,\"warmup\":%d,\"workers\":%d,\"available_processors\":%d,"
                                 + "\"requested_memory_mode\":\"%s\",\"orientation_override\":%d,"
+                                + "\"subsample_x\":%d,\"subsample_y\":%d,"
                                 + "\"width\":%d,\"height\":%d,\"channels\":%d,\"bits\":%d,"
                                 + "\"total_ms\":%.6f,\"cpu_ms\":%.6f,\"allocated_bytes\":%d,"
                                 + "\"heap_used_bytes\":%d,\"maxrss_kb\":%d,"
                                 + "\"checksum_kind\":\"%s\",\"fnv1a64\":\"%016x\"}%n",
                         escape(file.toString()), mode, iteration, warmup, workers,
                         Runtime.getRuntime().availableProcessors(), memoryMode.name(), orientationOverride,
+                        xStep, yStep,
                         image.getWidth(), image.getHeight(), image.getRaster().getNumBands(),
                         image.getSampleModel().getSampleSize(0),
                         elapsed / 1e6, cpu / 1e6, allocated, heapUsed, maxRss,
@@ -163,7 +171,7 @@ public final class Cr3ImportProbe {
 
     private static Map<String, String> parseArguments(String[] argv) {
         Set<String> valued = Set.of("--input", "--mode", "--warmup", "--iterations", "--workers", "--dump",
-                "--memory-mode", "--orientation");
+                "--memory-mode", "--orientation", "--subsample-x", "--subsample-y");
         Map<String, String> arguments = new HashMap<>();
         for (int i = 0; i < argv.length; i++) {
             String key = argv[i];
@@ -245,6 +253,11 @@ public final class Cr3ImportProbe {
 
     static BufferedImage read(Path file, String mode, int workers, MemoryMode memoryMode, int orientationOverride)
             throws Exception {
+        return read(file, mode, workers, memoryMode, orientationOverride, 1, 1);
+    }
+
+    private static BufferedImage read(Path file, String mode, int workers, MemoryMode memoryMode,
+                                      int orientationOverride, int xStep, int yStep) throws Exception {
         validateReadRequest(mode, workers, memoryMode, orientationOverride);
         if (mode.equals("default")) {
             BufferedImage image = ImageIO.read(file.toFile());
@@ -293,6 +306,9 @@ public final class Cr3ImportProbe {
                 }
                 var param = new CanonCr3ImageReadParam();
                 param.setDecodeOptions(options);
+                if (xStep != 1 || yStep != 1) {
+                    param.setSourceSubsampling(xStep, yStep, 0, 0);
+                }
                 return reader.read(0, param);
             } finally {
                 reader.dispose();

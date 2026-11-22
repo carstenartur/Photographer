@@ -75,7 +75,8 @@ class Cr3ImportProbeTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"--memory-mode,FAST", "--memory-mode,LOW_MEMORY", "--orientation,1", "--workers,1"})
+    @CsvSource({"--memory-mode,FAST", "--memory-mode,LOW_MEMORY", "--orientation,1", "--workers,1",
+            "--subsample-x,2"})
     void defaultModeRejectsOptionsThatImageIoReadWouldIgnore(String option, String value) {
         var failure = assertThrows(IllegalArgumentException.class, () -> Cr3ImportProbe.main(new String[]{
                 "--input", directory.resolve("missing.cr3").toString(), "--mode", "default", option, value}));
@@ -91,11 +92,22 @@ class Cr3ImportProbeTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"--memory-mode,compact", "--orientation,-1", "--orientation,0", "--orientation,9", "--orientation,one"})
-    void invalidPolicyAndOrientationValuesFailBeforeOpeningTheInput(String option, String value) {
+    @CsvSource({"--memory-mode,compact", "--orientation,-1", "--orientation,0", "--orientation,9",
+            "--orientation,one", "--subsample-x,0", "--subsample-y,one"})
+    void invalidOptionsFailBeforeOpeningTheInput(String option, String value) {
         var failure = assertThrows(IllegalArgumentException.class, () -> Cr3ImportProbe.main(new String[]{
                 "--input", directory.resolve("missing.cr3").toString(), "--mode", "rgb16", option, value}));
         assertTrue(failure.getMessage().contains(option), failure.getMessage());
+    }
+
+    @Test
+    void readsTheRequestedRgb16Subsampling() throws Exception {
+        var result = run("--input", fixture().toString(), "--mode", "rgb16",
+                "--subsample-x", "2", "--subsample-y", "1");
+
+        assertTrue(result.output().contains("\"subsample_x\":2,\"subsample_y\":1"), result.output());
+        assertTrue(result.output().contains("\"width\":1,\"height\":2,\"channels\":3,\"bits\":16"),
+                result.output());
     }
 
     @Test

@@ -135,15 +135,16 @@ public final class CrxLossyDecoder {
         }
         int x = tile * (2 * cols) + (plane.index() & 1);
         int y = plane.index() / 2;
-        writePlane(bands, cols, rows, rowsToRead, x, y, left, right, boundedCoefficients, consumer);
+        writePlane(bands, cols, rows, rowsToRead, x, y, left, right, boundedCoefficients, false, consumer);
     }
 
     static void writePlane(CrxWaveletTile.Band[] bands, int cols, int rows, int rowsToRead, int x, int y,
-                           boolean left, boolean right, boolean boundedCoefficients,
+                           boolean left, boolean right, boolean boundedCoefficients, boolean adaptive,
                            CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
         try {
             var planeRows = boundedCoefficients
                     ? CrxWaveletTile.synthesizeNative(bands, cols, rows, left, right)
+                    : adaptive ? CrxWaveletTile.synthesizeAdaptiveChecked(bands, cols, rows)
                     : CrxWaveletTile.synthesize(bands, cols, rows, left, right);
             int[] row = new int[cols];
             for (int rowIndex = 0; rowIndex < rowsToRead; rowIndex++) {

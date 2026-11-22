@@ -158,6 +158,19 @@ public final class BayerDemosaicer {
     }
 
     /**
+     * Develops a sampled RGB16 region from a full-resolution Bayer mosaic. The
+     * supplied mosaic must include each selected site's interpolation neighbours.
+     */
+    public static BufferedImage develop16Sampled(short[] samples, int width, int height,
+                                                 Cr3RawImage.BayerPattern pattern, BlackLevel blackLevel,
+                                                 int sensorX, int sensorY, double[] whiteBalance, int whiteLevel,
+                                                 double[][] matrix, Rectangle region, int xStep, int yStep,
+                                                 boolean srgb, int maxWorkers) {
+        return new Rgb16Developer(BayerSamples.of(samples, width, height, pattern), blackLevel, sensorX, sensorY,
+                whiteBalance, whiteLevel, matrix, srgb).developSampled(region, xStep, yStep, maxWorkers);
+    }
+
+    /**
      * Demosaics into the supplied sensor buffer and uses it as the returned image's storage.
      * The caller must own the buffer exclusively. Its Bayer samples are replaced by packed RGB.
      *
@@ -192,11 +205,7 @@ public final class BayerDemosaicer {
         int height = rawImage.height();
         int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(width, height));
         int[] data = rawImage.data();
-        var buffer = new DataBufferInt(data, data.length);
-        var model = new DirectColorModel(24, 0xff0000, 0xff00, 0xff);
-        var raster = Raster.createPackedRaster(buffer, width, height, width,
-                new int[]{model.getRedMask(), model.getGreenMask(), model.getBlueMask()}, null);
-        var output = new BufferedImage(model, raster, false, null);
+        var output = packedImage(data, width, height);
 
         RgbScale scale = new RgbScale(rawImage, Math.max(1, whiteLevel));
         if (stripes == 1) {
@@ -221,6 +230,50 @@ public final class BayerDemosaicer {
             System.arraycopy(seams[stripe - 1], 0, data, seam * width, width);
         }
         return output;
+    }
+
+    /** Demosaics selected sites with the same neighbours and rounding as a full RGB8 image. */
+    public static BufferedImage demosaicSampled(Cr3RawImage rawImage, int whiteLevel, Rectangle region,
+                                                 int xStep, int yStep, int maxWorkers) {
+        int width = rawImage.width();
+        int height = rawImage.height();
+        if (xStep < 1 || yStep < 1 || region.isEmpty() || !new Rectangle(width, height).contains(region)) {
+            throw new IllegalArgumentException("Invalid RGB sample region");
+        }
+        int columns = Math.ceilDiv(region.width, xStep);
+        int rows = Math.ceilDiv(region.height, yStep);
+        int[] pixels = new int[Math.multiplyExact(columns, rows)];
+        int[] samples = rawImage.data();
+        var scale = new RgbScale(rawImage, Math.max(1, whiteLevel));
+        int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(columns, rows));
+        Cr3Workers.run(stripes, stripe -> {
+            int first = Pixels.stripeStart(stripe, rows, stripes);
+            int end = Pixels.stripeStart(stripe + 1, rows, stripes);
+            for (int row = first; row < end; row++) {
+                int y = region.y + row * yStep;
+                boolean even = (y & 1) == 0;
+                PixelColor evenColumn = getPixelColor(rawImage.bayerPattern(), even, true);
+                PixelColor oddColumn = getPixelColor(rawImage.bayerPattern(), even, false);
+                boolean interiorRow = y > 0 && y < height - 1;
+                int offset = row * columns;
+                for (int column = 0; column < columns; column++) {
+                    int x = region.x + column * xStep;
+                    PixelColor color = (x & 1) == 0 ? evenColumn : oddColumn;
+                    pixels[offset + column] = interiorRow && x > 0 && x < width - 1
+                            ? interiorPixel(samples, y * width + x, width, color, scale)
+                            : borderPixel(rawImage, x, y, color, scale);
+                }
+            }
+        });
+        return packedImage(pixels, columns, rows);
+    }
+
+    private static BufferedImage packedImage(int[] data, int width, int height) {
+        var buffer = new DataBufferInt(data, data.length);
+        var model = new DirectColorModel(24, 0xff0000, 0xff00, 0xff);
+        var raster = Raster.createPackedRaster(buffer, width, height, width,
+                new int[]{model.getRedMask(), model.getGreenMask(), model.getBlueMask()}, null);
+        return new BufferedImage(model, raster, false, null);
     }
 
     private static void writeRows(Cr3RawImage rawImage, RgbScale scale, int first, int end) {

@@ -26,25 +26,13 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
     }
 
     private BufferedImage develop(Rectangle region, int orientation, int maxWorkers, boolean owned) {
-        if (region.isEmpty() || !new Rectangle(image.width(), image.height()).contains(region)) {
-            throw new IllegalArgumentException("RGB region must be within the Bayer image");
-        }
-        if (whiteLevel < 1 || (gains != null && gains.length != 3)) {
-            throw new IllegalArgumentException("Expected a positive white level and three RGB gains");
-        }
-        if (matrix != null && (matrix.length != 3 || Arrays.stream(matrix).anyMatch(row -> row == null || row.length != 3))) {
-            throw new IllegalArgumentException("Color matrix must be 3x3");
-        }
+        validate(region);
         int[] size = ExifOrientationTransformer.outputDimensions(region.width, region.height, orientation);
-        var space = ColorSpace.getInstance(srgb ? ColorSpace.CS_sRGB : ColorSpace.CS_LINEAR_RGB);
-        var colorModel = new ComponentColorModel(space, false, false, Transparency.OPAQUE, DataBuffer.TYPE_USHORT);
         boolean reuse = owned && image.unsignedShorts() != null && orientation == 1
                 && region.equals(new Rectangle(image.width(), image.height()));
         int sampleCount = Math.multiplyExact(size[0], size[1]);
         short[][] channels = {new short[sampleCount],
                 reuse ? image.unsignedShorts() : new short[sampleCount], new short[sampleCount]};
-        var raster = Raster.createBandedRaster(new DataBufferUShort(channels, sampleCount),
-                size[0], size[1], size[0], new int[]{0, 1, 2}, new int[3], null);
         int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(region.width, region.height));
 
         // In-place stores may replace a neighbor before an adjacent stripe reads it.
@@ -64,6 +52,64 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
             double[] originalBelow = seams == null || stripe + 1 == stripes ? null : seams[stripe][1];
             developRows(channels, region, orientation, first, end, originalAbove, originalBelow);
         });
+        return rgbImage(channels, size[0], size[1]);
+    }
+
+    BufferedImage developSampled(Rectangle region, int xStep, int yStep, int maxWorkers) {
+        validate(region);
+        if (xStep < 1 || yStep < 1) {
+            throw new IllegalArgumentException("RGB sample spacing must be positive");
+        }
+        int columns = Math.ceilDiv(region.width, xStep);
+        int rows = Math.ceilDiv(region.height, yStep);
+        short[][] channels = new short[3][Math.multiplyExact(columns, rows)];
+        int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(columns, rows));
+        Cr3Workers.run(stripes, stripe -> {
+            int first = Pixels.stripeStart(stripe, rows, stripes);
+            int end = Pixels.stripeStart(stripe + 1, rows, stripes);
+            double[][] corrected = new double[3][image.width() + 2];
+            int nextRow = region.y + first * yStep - 1;
+            for (int row = first; row < end; row++) {
+                int y = region.y + row * yStep;
+                // Keep the last three rows and normalize only the requested row and its neighbours.
+                for (int source = Math.max(nextRow, y - 1); source <= y + 1; source++) {
+                    correctRow(source, corrected[Math.floorMod(source, corrected.length)]);
+                }
+                nextRow = y + 2;
+                double[] above = corrected[Math.floorMod(y - 1, corrected.length)];
+                double[] current = corrected[y % corrected.length];
+                double[] below = corrected[(y + 1) % corrected.length];
+                PixelColor even = color(0, y);
+                PixelColor odd = color(1, y);
+                int verticalCount = neighbors(y, image.height());
+                int offset = row * columns;
+                for (int column = 0; column < columns; column++) {
+                    int x = region.x + column * xStep;
+                    writeBorder(channels, offset + column, above, current, below, x, verticalCount,
+                            (x & 1) == 0 ? even : odd);
+                }
+            }
+        });
+        return rgbImage(channels, columns, rows);
+    }
+
+    private void validate(Rectangle region) {
+        if (region.isEmpty() || !new Rectangle(image.width(), image.height()).contains(region)) {
+            throw new IllegalArgumentException("RGB region must be within the Bayer image");
+        }
+        if (whiteLevel < 1 || (gains != null && gains.length != 3)) {
+            throw new IllegalArgumentException("Expected a positive white level and three RGB gains");
+        }
+        if (matrix != null && (matrix.length != 3 || Arrays.stream(matrix).anyMatch(row -> row == null || row.length != 3))) {
+            throw new IllegalArgumentException("Color matrix must be 3x3");
+        }
+    }
+
+    private BufferedImage rgbImage(short[][] channels, int width, int height) {
+        var space = ColorSpace.getInstance(srgb ? ColorSpace.CS_sRGB : ColorSpace.CS_LINEAR_RGB);
+        var colorModel = new ComponentColorModel(space, false, false, Transparency.OPAQUE, DataBuffer.TYPE_USHORT);
+        var raster = Raster.createBandedRaster(new DataBufferUShort(channels, channels[0].length),
+                width, height, width, new int[]{0, 1, 2}, new int[3], null);
         return new BufferedImage(colorModel, raster, false, null);
     }
 
@@ -89,6 +135,8 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
         if (flipX) {
             step = -step;
         }
+        int rowEnd = region.x + region.width;
+        int interiorEnd = Math.min(rowEnd, image.width() - 1);
         for (int y = first; y < end; y++) {
             if (y + 1 == end && originalBelow != null) {
                 System.arraycopy(originalBelow, 0, below, 0, rowLength);
@@ -100,29 +148,64 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
             PixelColor even = color(0, y);
             PixelColor odd = color(1, y);
             int verticalCount = neighbors(y, image.height());
-            for (int x = region.x; x < region.x + region.width; x++, destination += step) {
-                int i = x + 1;
-                int horizontalCount = neighbors(x, image.width());
-                double horizontal = current[i - 1] + current[i + 1];
-                double vertical = above[i] + below[i];
-                PixelColor site = (x & 1) == 0 ? even : odd;
-                if (site == PixelColor.GREEN_IN_RED_ROW || site == PixelColor.GREEN_IN_BLUE_ROW) {
-                    double across = horizontal / Math.max(1, horizontalCount);
-                    double along = vertical / Math.max(1, verticalCount);
-                    boolean redRow = site == PixelColor.GREEN_IN_RED_ROW;
-                    write(channels, destination, redRow ? across : along, current[i], redRow ? along : across);
-                } else {
-                    double green = (horizontal + vertical) / Math.max(1, horizontalCount + verticalCount);
-                    double diagonal = (above[i - 1] + above[i + 1] + below[i - 1] + below[i + 1])
-                            / Math.max(1, horizontalCount * verticalCount);
-                    boolean red = site == PixelColor.RED;
-                    write(channels, destination, red ? current[i] : diagonal, green, red ? diagonal : current[i]);
+            int x = region.x;
+            if (verticalCount == 2) {
+                // Each interior pair begins at a red or blue site, then visits the green site.
+                boolean evenChroma = even == PixelColor.RED || even == PixelColor.BLUE;
+                int firstChroma = Math.max(1, x);
+                if (((firstChroma & 1) == 0) != evenChroma) {
+                    firstChroma++;
                 }
+                if (firstChroma + 1 < interiorEnd) {
+                    for (; x < firstChroma; x++, destination += step) {
+                        writeBorder(channels, destination, above, current, below, x, verticalCount,
+                                (x & 1) == 0 ? even : odd);
+                    }
+                    boolean redRow = (evenChroma ? even : odd) == PixelColor.RED;
+                    for (; x + 1 < interiorEnd; x += 2, destination += 2 * step) {
+                        int i = x + 1;
+                        double horizontal = current[i - 1] + current[i + 1];
+                        double vertical = above[i] + below[i];
+                        double green = (horizontal + vertical) * 0.25;
+                        double diagonal = (above[i - 1] + above[i + 1] + below[i - 1] + below[i + 1]) * 0.25;
+                        write(channels, destination, redRow ? current[i] : diagonal, green,
+                                redRow ? diagonal : current[i]);
+
+                        double across = (current[i] + current[i + 2]) * 0.5;
+                        double along = (above[i + 1] + below[i + 1]) * 0.5;
+                        write(channels, destination + step, redRow ? across : along, current[i + 1],
+                                redRow ? along : across);
+                    }
+                }
+            }
+            for (; x < rowEnd; x++, destination += step) {
+                writeBorder(channels, destination, above, current, below, x, verticalCount,
+                        (x & 1) == 0 ? even : odd);
             }
             double[] old = above;
             above = current;
             current = below;
             below = old;
+        }
+    }
+
+    private void writeBorder(short[][] channels, int destination, double[] above, double[] current,
+                             double[] below, int x, int verticalCount, PixelColor site) {
+        int i = x + 1;
+        int horizontalCount = neighbors(x, image.width());
+        double horizontal = current[i - 1] + current[i + 1];
+        double vertical = above[i] + below[i];
+        if (site == PixelColor.GREEN_IN_RED_ROW || site == PixelColor.GREEN_IN_BLUE_ROW) {
+            double across = horizontal / Math.max(1, horizontalCount);
+            double along = vertical / Math.max(1, verticalCount);
+            boolean redRow = site == PixelColor.GREEN_IN_RED_ROW;
+            write(channels, destination, redRow ? across : along, current[i], redRow ? along : across);
+        } else {
+            double green = (horizontal + vertical) / Math.max(1, horizontalCount + verticalCount);
+            double diagonal = (above[i - 1] + above[i + 1] + below[i - 1] + below[i + 1])
+                    / Math.max(1, horizontalCount * verticalCount);
+            boolean red = site == PixelColor.RED;
+            write(channels, destination, red ? current[i] : diagonal, green, red ? diagonal : current[i]);
         }
     }
 
