@@ -287,6 +287,15 @@
 
     <profiles>
         <profile>
+            <id>spring-boot-java25-vector</id>
+            <activation>
+                <jdk>[25,26)</jdk>
+            </activation>
+            <properties>
+                <spring-boot.run.jvmArguments>--add-modules=jdk.incubator.vector</spring-boot.run.jvmArguments>
+            </properties>
+        </profile>
+        <profile>
             <id>focus-stack-benchmark</id>
             <properties>
                 <focus.stack.jmh.version>1.37</focus.stack.jmh.version>
