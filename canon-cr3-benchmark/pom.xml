@@ -1,18 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>com.photographer.focusstack</groupId>
         <artifactId>canon-focus-stack-parent</artifactId>
-        <version>0.1.9-SNAPSHOT</version>
+        <version>0.1.9</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>canon-cr3-benchmark</artifactId>
-    <version>0.1.9-SNAPSHOT</version>
+    <version>0.1.9</version>
 
     <name>Canon CR3 - JMH Benchmarks</name>
     <description>JMH benchmarks for the Canon CR3 parser, metadata reader, preview extractor, CRX RAW decoder,
@@ -102,15 +100,13 @@
                         <configuration>
                             <finalName>${uberjar.name}</finalName>
                             <transformers combine.self="override">
-                                <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>org.openjdk.jmh.Main</mainClass>
                                     <manifestEntries>
                                         <Multi-Release>${benchmark.multiRelease}</Multi-Release>
                                     </manifestEntries>
                                 </transformer>
-                                <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                             </transformers>
                             <filters combine.self="override">
                                 <filter>
