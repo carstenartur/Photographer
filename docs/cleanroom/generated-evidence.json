@@ -669,6 +669,38 @@
       "gitBlobLocks": {
         "docs/cr3-results/2026-11-14-crx-wavelet/first-party-craw.tsv": "17e235456cc50a01c57b9a2367612d8fd2e809ae"
       }
+    },
+    {
+      "id": "RG6-camera-coverage",
+      "classification": "historical-manual",
+      "ownerModule": "canon-cr3-imageio",
+      "inputs": [
+        "scripts/research/public-crx/v1-cameras.tsv",
+        "docs/cleanroom/source-register.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-22-crx-camera-coverage/README.md",
+        "docs/cr3-results/2026-11-22-crx-camera-coverage/v1-match-matrix.tsv"
+      ],
+      "ledgerExperiment": "RG6",
+      "timestampPolicy": "not-applicable",
+      "rationale": "Combines separate baseline and candidate observations. The replay verifies the complete candidate sensor comparisons."
+    },
+    {
+      "id": "RG7-adaptive-craw",
+      "classification": "historical-manual",
+      "ownerModule": "canon-cr3-imageio",
+      "inputs": [
+        "scripts/research/public-crx/adaptive-craw.tsv",
+        "docs/cleanroom/source-register.json"
+      ],
+      "outputs": [
+        "docs/cr3-results/2026-11-22-crx-adaptive/README.md",
+        "docs/cr3-results/2026-11-22-crx-adaptive/full-sensor.tsv"
+      ],
+      "ledgerExperiment": "RG7",
+      "timestampPolicy": "not-applicable",
+      "rationale": "Summarizes the independent observations of adaptive maps, black-box reference byte comparisons and full ImageIO sensor verification."
     }
   ]
 }

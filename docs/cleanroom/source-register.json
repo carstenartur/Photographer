@@ -273,6 +273,41 @@
         "algorithm": "sha256",
         "digest": "Checked tool manifest: 01cab81c08df4931de25cbb9d5d0e65451680a0fa4e9ecea0a3921d0ba130fb3. Debian runtime package: 60ee4b595c2304531ff280f9c6f2d4a4371fa23878ba9504d0a15d3271307961; Debian development package: 97ea8e87714d409d542395dc5fbc9f928adc84d0280fd05ff47814aaa253c7ff. Loaded thread-safe libraw_r.so.23.0.0: d7f9c71246a262895cc27c42f7447dbd5107867a8f74875299975ede0246d523; first-party libraw-bench executable: 3bc0ada7e6bca3f9c8ba831ca4ead59e41964879689d22b077741e2653e20c73; client source: b12f0259192a36b64db37f48eefb4bb5301c8195a53b174a30c6931985add14b. The manifest also records build-script and public-header hashes; comparison-setup records public API option/ownership choices and dynamic-library resolution. Four-input full-native reference report JSON: f4759c73c563a02d191e44e49b6f494515239c298aa53c92b2d4ccb6f7cff0d9, binding original CR3 hashes to dimensions, full canonical u16le SHA-256, PGM-file hashes and full FNV values. The mutable public API web pages are cited, not claimed to be content-hash pinned."
       }
+    },
+    {
+      "id": "SRC-018",
+      "class": "public-specification",
+      "title": "Published LightCraft CR3 format observations",
+      "citation": "https://github.com/storytold/lightcraft/blob/f3bb7a9f3068e6b3e6136a1e864f7a3ae5dfc796/docs/cr3.md, Verified sensor decoding and CRX support scope sections. Photographer experiments 442 and 443.",
+      "verifiedDate": "2026-11-22",
+      "permittedUse": "Select public camera fixtures and form independent hypotheses about one-tile boundary behavior, CRX version identifiers and adaptive quantization. Published native sensor digests may serve as secondary black-box observations.",
+      "prohibitedUse": "Consulting LightCraft implementation or test source, translating its decoder, treating observations as universal guarantees, or replacing independent comparisons against a pinned reference executable.",
+      "repositoryEvidence": [
+        "docs/cr3/open-hypotheses.md",
+        "docs/cr3-results/2026-11-22-crx-camera-coverage/README.md",
+        "docs/cr3-results/2026-11-22-crx-adaptive/README.md"
+      ],
+      "integrity": null
+    },
+    {
+      "id": "SRC-019",
+      "class": "black-box-reference",
+      "title": "CC0 camera coverage originals and DNGLab native sensor references",
+      "citation": "raw.pixls.us originals and pinned Linux x86-64 DNGLab 0.8.0, analyze --raw-pixel. LibRaw 0.22.3 independently checked the three changed V1 cases and all 14 adaptive C-RAW captures.",
+      "verifiedDate": "2026-11-22",
+      "permittedUse": "Use each CC0 original to observe track and payload structure. Compare Photographer's output with hash-bound native sensor samples produced by black-box tools.",
+      "prohibitedUse": "Deriving decoder semantics from third-party implementation source or treating output equality as a claim about untested captures, metadata or color rendering.",
+      "repositoryEvidence": [
+        "scripts/research/public-crx/v1-cameras.tsv",
+        "scripts/research/public-crx/adaptive-craw.tsv",
+        "scripts/research/public-crx/prepare-sensor-fixtures.sh",
+        "docs/cr3-results/2026-11-22-crx-camera-coverage/v1-match-matrix.tsv",
+        "docs/cr3-results/2026-11-22-crx-adaptive/full-sensor.tsv"
+      ],
+      "integrity": {
+        "algorithm": "sha256",
+        "digest": "The fixture registry pins each original CR3 and native PGM. The fixture preparer pins the DNGLab executable."
+      }
     }
   ]
 }

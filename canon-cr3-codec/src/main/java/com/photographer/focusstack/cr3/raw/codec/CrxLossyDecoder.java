@@ -9,7 +9,7 @@ import java.io.IOException;
 /** Native decoder for three-level, 14-bit Canon CRX V1 C-RAW sensor tracks. */
 public final class CrxLossyDecoder {
     // All ten subbands of a plane can have a live entropy window during synthesis.
-    private static final int SUBBAND_READ_AHEAD = 16 * 1024;
+    static final int SUBBAND_READ_AHEAD = 16 * 1024;
 
     // Measured with isolated signed coefficient pulses and pinned full-sensor references.
     private static final int[] INVERSE_QUANTIZATION = {
@@ -19,6 +19,10 @@ public final class CrxLossyDecoder {
     };
 
     private CrxLossyDecoder() {}
+
+    static int uniformQuantizationStep(int index) {
+        return INVERSE_QUANTIZATION[index];
+    }
 
     public static boolean isLossy(Cmp1Box cmp1) {
         return cmp1 != null && !cmp1.isLossless();
@@ -39,6 +43,9 @@ public final class CrxLossyDecoder {
         if (cmp.isLossless()) {
             throw new Cr3Exception("Cannot decode C-RAW: CMP1 indicates lossless");
         }
+        if (version == CrxHeader.CodecVersion.V2) {
+            return CrxAdaptiveLossyDecoder.prepare(data, width, height, bitDepth, cmp);
+        }
         if (version != CrxHeader.CodecVersion.V1 || cmp.waveletLevels() != 3 || cmp.numPlanes() != 4
                 || cmp.encodingType() != 0 || bitDepth != 14 || cmp.bitsPerSample() != bitDepth
                 || cmp.cfaLayout() < 0 || cmp.cfaLayout() > 3 || cmp.hasExtendedHeader()) {
@@ -48,7 +55,8 @@ public final class CrxLossyDecoder {
         int tileWidth = cmp.tileWidth();
         if (width != cmp.imageWidth() || height != cmp.imageHeight() || tileWidth < 16
                 || height < 16 || (width & 1) != 0 || (height & 1) != 0 || (tileWidth & 1) != 0
-                || width != 2L * tileWidth || height != cmp.tileHeight() || (long) width * height > Integer.MAX_VALUE) {
+                || (width != tileWidth && width != 2L * tileWidth) || height != cmp.tileHeight()
+                || (long) width * height > Integer.MAX_VALUE) {
             throw new Cr3Exception("Unsupported C-RAW sensor or horizontal tile dimensions");
         }
         int headerSize = cmp.mdatHeaderSize();
@@ -61,7 +69,8 @@ public final class CrxLossyDecoder {
         } catch (IOException e) {
             throw new Cr3Exception("Invalid C-RAW tile directory: " + e.getMessage(), e);
         }
-        if (header.tiles().size() != 2) {
+        int tileCount = width / tileWidth;
+        if (header.tiles().size() != tileCount) {
             throw new Cr3Exception("C-RAW tile directory disagrees with CMP1");
         }
         long tileEnd = headerSize;
@@ -99,13 +108,13 @@ public final class CrxLossyDecoder {
             throw new Cr3Exception("C-RAW tiles disagree with the track extent");
         }
         return new CrxTileDecoder(header, width, height, tileWidth, (tile, plane, columns, rows, consumer) ->
-                decodePlane(data, tile, plane, columns, height / 2, rows, consumer));
+                decodePlane(data, tile, plane, columns, height / 2, rows, tile + 1 < tileCount, consumer));
     }
 
     private static void decodePlane(CrxTrackInput data, int tile, CrxHeader.Plane plane, int cols, int rows,
-                                    int rowsToRead,
+                                    int rowsToRead, boolean right,
                                     CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
-        boolean left = tile > 0, right = tile == 0;
+        boolean left = tile > 0;
         var shapes = CrxWaveletTile.shapes(cols, rows, left, right);
         var bands = new CrxWaveletTile.Band[shapes.length];
         boolean boundedCoefficients = true;
@@ -115,7 +124,7 @@ public final class CrxLossyDecoder {
             // The declared size locates the next band. The entropy window excludes terminal padding.
             int count = Math.toIntExact(band.dataSize()) - band.paddingBytes();
             int bw = shapes[b].width(), bh = shapes[b].height();
-            int factor = INVERSE_QUANTIZATION[band.quantValue()];
+            int factor = uniformQuantizationStep(band.quantValue());
             var bits = new BitReader(data.window(start, count, SUBBAND_READ_AHEAD));
             if (b == 0) {
                 bands[b] = CrxNativeLosslessPlane.approximation(bits, bw, bh);
@@ -126,6 +135,12 @@ public final class CrxLossyDecoder {
         }
         int x = tile * (2 * cols) + (plane.index() & 1);
         int y = plane.index() / 2;
+        writePlane(bands, cols, rows, rowsToRead, x, y, left, right, boundedCoefficients, consumer);
+    }
+
+    static void writePlane(CrxWaveletTile.Band[] bands, int cols, int rows, int rowsToRead, int x, int y,
+                           boolean left, boolean right, boolean boundedCoefficients,
+                           CrxSensorDecoder.RowConsumer consumer) throws IOException, Cr3Exception {
         try {
             var planeRows = boundedCoefficients
                     ? CrxWaveletTile.synthesizeNative(bands, cols, rows, left, right)

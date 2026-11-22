@@ -117,23 +117,25 @@ public final class SubbandExtractor {
             return Collections.emptyList();
         }
 
-        CrxHeader.CodecVersion version = CrxHeader.CodecVersion.V1;
-        if (container.cncvBox() != null) {
-            version = CrxHeader.detectVersion(container.cncvBox().versionString());
-        }
         String cncvVersion = container.cncvBox() == null ? null : container.cncvBox().versionString();
+        Cmp1Box cmp1 = raw.cmp1();
+        var version = CrxHeader.detectVersion(cmp1, cncvVersion);
 
         long rawSize = raw.dataSize();
         if (rawSize < 0 || rawSize > Integer.MAX_VALUE) {
             throw new IOException("RAW track size out of range for in-memory parse: " + rawSize);
         }
-        byte[] crxBytes = new byte[(int) rawSize];
-        input.seek(raw.dataOffset());
-        input.readFully(crxBytes);
+        CrxHeader header;
+        if (version == CrxHeader.CodecVersion.V2 && cmp1 != null && cmp1.version() == 0x200) {
+            var track = CrxTrackInput.fromStream(input, raw.dataOffset(), (int) rawSize);
+            header = CrxAdaptiveLossyDecoder.readDirectory(track, cmp1.mdatHeaderSize()).header();
+        } else {
+            byte[] crxBytes = new byte[(int) rawSize];
+            input.seek(raw.dataOffset());
+            input.readFully(crxBytes);
+            header = CrxHeader.parse(crxBytes, version);
+        }
 
-        CrxHeader header = CrxHeader.parse(crxBytes, version);
-
-        Cmp1Box cmp1 = raw.cmp1();
         int bitDepth = (cmp1 != null && cmp1.bitsPerSample() > 0) ? cmp1.bitsPerSample() : 14;
         int tileW = (cmp1 != null && cmp1.tileWidth() > 0) ? cmp1.tileWidth() : 0;
         int tileH = (cmp1 != null && cmp1.tileHeight() > 0) ? cmp1.tileHeight() : 0;

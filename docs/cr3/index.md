@@ -2,7 +2,9 @@
 
 This is the maintained entry point for Photographer’s independent Java libraries for the Canon CR3 format and its clean-room CRX research.
 
-The native Java RAW import supports the measured 14-bit, four-plane V1 configurations for the Canon EOS R, EOS RP, EOS M50 and PowerShot G5 X Mark II. The full-frame acceptance panel covers 15 lossless RAW files and six three-level C-RAW files, including two project-owned PowerShot captures. [Lossless measurements](../cr3-results/2026-11-14-crx-native/README.md) · [C-RAW measurements](../cr3-results/2026-11-14-crx-wavelet/README.md)
+The native Java RAW import reconstructs supported 14-bit, four-plane CRX layouts.
+See [verified camera coverage](camera-coverage.md) for tested RAW and C-RAW modes,
+and [decoder and processing](decoder.md) for format and memory limits.
 
 The [0.1.8 release notes](../releases/0.1.8.md) cover RGB16 import in Java and Fiji, the active-area crop correction, and RAW heap planning.
 

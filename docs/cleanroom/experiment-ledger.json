@@ -299,6 +299,52 @@
       "productionDecision": "Enable the measured native C-RAW profile through the public Java decoder, retain explicit unsupported-profile errors and restrict claims to the registered layouts.",
       "status": "complete",
       "missingRunMetadataReason": "Executed locally using JDK 25 and frozen discovery comparators registered on issue 337. artifactDigest identifies the four-image C-RAW report; the base revision and reproduction commands are in the report."
+    },
+    {
+      "id": "RG6",
+      "title": "Single-tile V1 C-RAW boundary reconstruction",
+      "issue": 443,
+      "sourceIds": [
+        "SRC-003",
+        "SRC-014",
+        "SRC-016",
+        "SRC-018",
+        "SRC-019"
+      ],
+      "oneChangedVariable": "Apply the existing outer-edge wavelet rule on both sides of a single full-height V1 C-RAW tile.",
+      "fixedInputs": "EOS RP 1.6x crop C-RAW (raw.pixls.us 4671); established V1 two-tile controls. Additional camera verification is observation-only.",
+      "implementationScope": "Independent native sensor comparison of a bounded one-tile candidate and existing V1 profiles.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": "sha256:511e645e8b50c64c8419114f31601eaf4f134803cdfa36808ee90e1e19065a5e",
+      "durableReport": "docs/cr3-results/2026-11-22-crx-camera-coverage/README.md",
+      "verdict": "SUPPORTED on the registered one-tile RP crop capture. All 26 measured V1 files match 690,078,496 native Bayer values.",
+      "productionDecision": "Enable the measured one-tile V1 C-RAW geometry and prefer the selected track's recognized CMP1 version.",
+      "missingRunMetadataReason": "Executed locally. The artifact digest identifies the per-file comparison matrix.",
+      "status": "complete"
+    },
+    {
+      "id": "RG7",
+      "title": "Single-tile V2 C-RAW adaptive quantization",
+      "issue": 442,
+      "sourceIds": [
+        "SRC-002",
+        "SRC-003",
+        "SRC-016",
+        "SRC-018",
+        "SRC-019"
+      ],
+      "oneChangedVariable": "Interpret the measured V2 tile directory and adaptive quantization map for reconstruction through the existing inverse 5/3 transform.",
+      "fixedInputs": "EOS R8 C-RAW (6587) for discovery; EOS R5 Mark II full and crop-mode C-RAW (7882 and 7884) as holdouts. Eleven further CC0 captures qualify the same layout and expand the measured quantization range.",
+      "implementationScope": "Fixture and black-box sensor analyses, boundary checks, and an independently derived row-bounded reconstruction candidate.",
+      "commit": null,
+      "workflowRun": null,
+      "artifactDigest": "sha256:701d37be11bb6c0dbb8eb0920741296d09c36690441f91b5da4b95d34a678288",
+      "durableReport": "docs/cr3-results/2026-11-22-crx-adaptive/README.md",
+      "verdict": "SUPPORTED on all 14 registered adaptive C-RAW files with 369,019,808 exact native values. The expanded verification includes the EOS R50 electronic-shutter QP range up to 168.",
+      "productionDecision": "Enable the measured single-tile V2 profile with bounded per-plane rows and a shared byte quantization map.",
+      "missingRunMetadataReason": "Executed locally. The artifact digest identifies the per-file comparison summary.",
+      "status": "complete"
     }
   ]
 }
