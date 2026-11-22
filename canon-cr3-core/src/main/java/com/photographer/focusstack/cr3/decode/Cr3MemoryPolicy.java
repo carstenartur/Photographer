@@ -15,6 +15,14 @@ final class Cr3MemoryPolicy {
             return new ImageBytes(bytes, bytes, bytes);
         }
 
+        static ImageBytes sampledRgb(boolean sixteenBit, long areaSites, long outputSites, boolean transpose) {
+            long mosaic = multiply(areaSites, sixteenBit ? Short.BYTES : Integer.BYTES);
+            long rgb = multiply(outputSites, sixteenBit ? 3 * Short.BYTES : Integer.BYTES);
+            long visited = transpose ? multiply(Math.ceilDiv(outputSites, Long.SIZE), Long.BYTES) : 0;
+            long peak = add(add(mosaic, rgb), visited);
+            return new ImageBytes(peak, peak, rgb);
+        }
+
         static ImageBytes rgb(boolean sixteenBit, long areaSites, long outputSites, boolean partial,
                               int orientation, boolean suppliedPackedSamples) {
             boolean transpose = orientation >= 5 && orientation <= 8;

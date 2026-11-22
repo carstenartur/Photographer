@@ -116,6 +116,12 @@ class Cr3InclusiveActiveAreaTest {
         sensor.setSamples(0, 0, 4, 4, 0, new int[]{
                 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000,
                 9000, 10000, 11000, 12000, 13000, 14000, 15000, 16383});
+        return sensorFile(sensor, left, top, right, bottom, iad1Length);
+    }
+
+    static byte[] sensorFile(Raster sensor, int left, int top, int right, int bottom, int iad1Length) throws Exception {
+        int width = sensor.getWidth();
+        int height = sensor.getHeight();
         var directory = ByteBuffer.allocate(108);
         directory.putShort((short) 0xff01).putShort((short) 8).putInt(32).putInt(0);
         for (int plane = 0; plane < 4; plane++) {
@@ -124,20 +130,20 @@ class Cr3InclusiveActiveAreaTest {
         }
         var payload = new ByteArrayOutputStream();
         try (var output = new MemoryCacheImageOutputStream(payload)) {
-            CrxLosslessEncoder.write(output, sensor, 4, directory.array());
+            CrxLosslessEncoder.write(output, sensor, width, directory.array());
         }
         byte[] sample = payload.toByteArray();
         var cmp = ByteBuffer.allocate(33);
-        cmp.putShort(4, (short) 1).putInt(8, 4).putInt(12, 4).putInt(16, 4).putInt(20, 4)
+        cmp.putShort(4, (short) 1).putInt(8, width).putInt(12, height).putInt(16, width).putInt(20, height)
                 .put(24, (byte) 14).put(25, (byte) 0x40).putInt(28, directory.capacity());
         var iad = ByteBuffer.allocate(48);
-        iad.putShort(4, (short) 4).putShort(6, (short) 4).putShort(8, (short) 1)
+        iad.putShort(4, (short) width).putShort(6, (short) height).putShort(8, (short) 1)
                 .putShort(10, (short) (iad1Length == 48 ? 2 : 0)).putShort(12, (short) 1)
                 .putShort(40, (short) left).putShort(42, (short) top)
                 .putShort(44, (short) right).putShort(46, (short) bottom);
         byte[] cdi = buildBox("CDI1", concat(new byte[4], buildBox("IAD1", Arrays.copyOf(iad.array(), iad1Length))));
         var visual = ByteBuffer.allocate(82);
-        visual.putShort(6, (short) 1).putShort(24, (short) 4).putShort(26, (short) 4);
+        visual.putShort(6, (short) 1).putShort(24, (short) width).putShort(26, (short) height);
         byte[] craw = buildBox("CRAW", concat(visual.array(), buildBox("CMP1", cmp.array()), cdi));
         byte[] stsd = buildBox("stsd", concat(ByteBuffer.allocate(8).putInt(0).putInt(1).array(), craw));
         byte[] stsz = buildBox("stsz", ByteBuffer.allocate(12).putInt(0).putInt(sample.length).putInt(1).array());

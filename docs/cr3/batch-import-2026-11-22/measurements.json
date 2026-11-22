@@ -1,0 +1,604 @@
+{
+  "source": "6ff5e34920f943354bf843cd72cba16a734ae54d",
+  "java": "openjdk version \"21.0.13\" 2026-10-20\nOpenJDK Runtime Environment (build 21.0.13+9-1-deb13u2-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13+9-1-deb13u2-Debian, mixed mode, sharing)",
+  "cpu_affinity": "0-3",
+  "benchmark_jar_sha256": "b56efea79b4009a2d9b0d2d5c23b60f01c411f426983092c7d3ad04630302f91",
+  "helper_classes": {
+    "Cr3ImportProbe.class": "e8e7c19b74b6f22b552ebc944667f8494a043ccd2450ac3a3c8df2ba4b54ee4c",
+    "Cr3BatchImportProbe$Imported.class": "70bc9d7a4dca1dc7c777d1b1e91c875d8cc7b1c47d2cfacb2c2e22ad76a03f6b",
+    "Cr3BatchImportProbe.class": "4d58b4c468bdeba04b9755b7ce22cd2a4ee7dc9be895be05c8e0b2a6d55a0537"
+  },
+  "inputs": [
+    {
+      "path": "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+      "camera_mode": "EOS R RAW",
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    },
+    {
+      "path": "6587.cr3",
+      "camera_mode": "EOS R8 C-RAW",
+      "sha256": "df33cf394573645ce03dea1b2e9f0b5cc2b7734e9e3391ee7114151414cf2812",
+      "public_id": 6587,
+      "registry": "scripts/research/public-crx/adaptive-craw.tsv",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "url": "https://raw.pixls.us/getfile.php/6587/nice/Canon%20-%20EOS%20R8%20-%203:2.CR3"
+    },
+    {
+      "path": "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+      "camera_mode": "G5 X Mark II RAW",
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    {
+      "path": "7882.cr3",
+      "camera_mode": "EOS R5 Mark II C-RAW",
+      "sha256": "b3c08a5c7a97299dfd58896a12b939e7b43ec78682761812524825e6e5d087be",
+      "public_id": 7882,
+      "registry": "scripts/research/public-crx/adaptive-craw.tsv",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "url": "https://raw.pixls.us/getfile.php/7882/nice/Canon%20-%20EOS%20R5%20Mark%20II%20-%20CRAW%20(3:2).CR3"
+    },
+    {
+      "path": "7896.cr3",
+      "camera_mode": "EOS R100 RAW",
+      "sha256": "6d83217d58a5e6d2dabcf470430e91a16676b60531c025b81fa7453fc74b0521",
+      "public_id": 7896,
+      "registry": "scripts/research/public-crx/v1-cameras.tsv",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "url": "https://raw.pixls.us/getfile.php/7896/nice/"
+    },
+    {
+      "path": "canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "camera_mode": "G5 X Mark II C-RAW",
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+    },
+    {
+      "path": "6648.cr3",
+      "camera_mode": "EOS R50 RAW",
+      "sha256": "cbc0666f27d37007203df53f3668c30d3980aab93c3e33e7bff41c72b77414e9",
+      "public_id": 6648,
+      "registry": "scripts/research/public-crx/v1-cameras.tsv",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "url": "https://raw.pixls.us/getfile.php/6648/nice/"
+    },
+    {
+      "path": "4671.cr3",
+      "camera_mode": "EOS RP cropped C-RAW",
+      "sha256": "4a859ab137f792aedaf3416b0aad1497ebaab02052a49453902e226699154aa7",
+      "public_id": 4671,
+      "registry": "scripts/research/public-crx/v1-cameras.tsv",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "url": "https://raw.pixls.us/getfile.php/4671/nice/"
+    }
+  ],
+  "warmup_batches": 2,
+  "measured_batches": 3,
+  "forks": [
+    [
+      "1x4",
+      "2x2",
+      "4x1"
+    ],
+    [
+      "4x1",
+      "2x2",
+      "1x4"
+    ],
+    [
+      "2x2",
+      "4x1",
+      "1x4"
+    ]
+  ],
+  "input_rotation_per_fork": [
+    0,
+    2,
+    4
+  ],
+  "heap_limit_by_mode_mib": {
+    "rgb8": 768,
+    "sensor": 768,
+    "rgb16": 512
+  },
+  "initial_rgb16_verification": {
+    "heap_limit_mib": 768,
+    "1x4_completed": true,
+    "2x2_exit_codes": [
+      -9,
+      -9
+    ],
+    "4x1_exit_codes": [
+      -9
+    ]
+  },
+  "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+  "kernel": "6.18.57",
+  "jvm_options_common": [
+    "-Xms24m",
+    "-XX:+UseSerialGC",
+    "-XX:ActiveProcessorCount=4"
+  ],
+  "results": {
+    "rgb8": {
+      "fingerprints": {
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": {
+          "width": 6744,
+          "height": 4500,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "4ec22e4a80bb1e4e"
+        },
+        "6587.cr3": {
+          "width": 5844,
+          "height": 3904,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "710b2966907446df"
+        },
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": {
+          "width": 5496,
+          "height": 3668,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "533495a176fc121a"
+        },
+        "7882.cr3": {
+          "width": 7932,
+          "height": 5300,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "f7d5ab5636951587"
+        },
+        "7896.cr3": {
+          "width": 6024,
+          "height": 4020,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "b5934108c1cd9e8d"
+        },
+        "canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3": {
+          "width": 5496,
+          "height": 3668,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "a53bb807df5d016f"
+        },
+        "6648.cr3": {
+          "width": 5844,
+          "height": 3960,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "259e179bc553a63a"
+        },
+        "4671.cr3": {
+          "width": 3920,
+          "height": 2612,
+          "channels": 3,
+          "bits": 8,
+          "fnv1a64": "17bd17d4f9ab3682"
+        }
+      },
+      "variants": {
+        "1x4": {
+          "batch_ms": 2329.727513,
+          "process_cpu_ms": 6480.0,
+          "per_file_ms": 267.4967725,
+          "allocated_bytes": 787828296,
+          "peak_rss_kib": 340616,
+          "compact_mode_messages": 0,
+          "forks": [
+            {
+              "batch_ms": 2329.727513,
+              "process_cpu_ms": 6290.0,
+              "per_file_ms": 267.4967725,
+              "allocated_bytes": 787828264,
+              "peak_rss_kib": 233312,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 2294.025321,
+              "process_cpu_ms": 6730.0,
+              "per_file_ms": 264.4510395,
+              "allocated_bytes": 787828296,
+              "peak_rss_kib": 371964,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 3349.10181,
+              "process_cpu_ms": 6480.0,
+              "per_file_ms": 393.248435,
+              "allocated_bytes": 787828296,
+              "peak_rss_kib": 340616,
+              "compact_mode_messages": 0
+            }
+          ]
+        },
+        "2x2": {
+          "batch_ms": 2087.056638,
+          "process_cpu_ms": 6580.0,
+          "per_file_ms": 429.6896335,
+          "allocated_bytes": 786686536,
+          "peak_rss_kib": 525044,
+          "compact_mode_messages": 0,
+          "forks": [
+            {
+              "batch_ms": 2087.056638,
+              "process_cpu_ms": 6740.0,
+              "per_file_ms": 488.66292999999996,
+              "allocated_bytes": 786686536,
+              "peak_rss_kib": 507848,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1873.977883,
+              "process_cpu_ms": 6200.0,
+              "per_file_ms": 429.6896335,
+              "allocated_bytes": 786686488,
+              "peak_rss_kib": 525044,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 2297.974077,
+              "process_cpu_ms": 6580.0,
+              "per_file_ms": 400.189614,
+              "allocated_bytes": 786686616,
+              "peak_rss_kib": 667696,
+              "compact_mode_messages": 0
+            }
+          ]
+        },
+        "4x1": {
+          "batch_ms": 2024.519326,
+          "process_cpu_ms": 6170.0,
+          "per_file_ms": 777.1624615000001,
+          "allocated_bytes": 786107472,
+          "peak_rss_kib": 731324,
+          "compact_mode_messages": 3,
+          "forks": [
+            {
+              "batch_ms": 2024.519326,
+              "process_cpu_ms": 6200.0,
+              "per_file_ms": 889.5447604999999,
+              "allocated_bytes": 786107472,
+              "peak_rss_kib": 731324,
+              "compact_mode_messages": 3
+            },
+            {
+              "batch_ms": 1828.836935,
+              "process_cpu_ms": 6050.0,
+              "per_file_ms": 777.1624615000001,
+              "allocated_bytes": 786107256,
+              "peak_rss_kib": 667000,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 2380.944696,
+              "process_cpu_ms": 6170.0,
+              "per_file_ms": 767.813798,
+              "allocated_bytes": 786107816,
+              "peak_rss_kib": 738312,
+              "compact_mode_messages": 4
+            }
+          ]
+        }
+      }
+    },
+    "sensor": {
+      "fingerprints": {
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": {
+          "width": 6888,
+          "height": 4546,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "bfdafa4cdea7ee7c"
+        },
+        "6587.cr3": {
+          "width": 6188,
+          "height": 4120,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "f836a663a795a375"
+        },
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": {
+          "width": 5632,
+          "height": 3710,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "bbb2c3b2ecb4e45b"
+        },
+        "7882.cr3": {
+          "width": 8480,
+          "height": 5650,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "af32b45357b534e5"
+        },
+        "7896.cr3": {
+          "width": 6288,
+          "height": 4056,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "cbe5299ab9c52630"
+        },
+        "canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3": {
+          "width": 5632,
+          "height": 3710,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "a90bf97e45a21c71"
+        },
+        "6648.cr3": {
+          "width": 6192,
+          "height": 4060,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "f18d612aa45960b7"
+        },
+        "4671.cr3": {
+          "width": 4032,
+          "height": 2656,
+          "channels": 1,
+          "bits": 16,
+          "fnv1a64": "39a60c4efed4e1f4"
+        }
+      },
+      "variants": {
+        "1x4": {
+          "batch_ms": 1696.780229,
+          "process_cpu_ms": 3670.0,
+          "per_file_ms": 180.6083895,
+          "allocated_bytes": 427803008,
+          "peak_rss_kib": 234292,
+          "compact_mode_messages": 0,
+          "forks": [
+            {
+              "batch_ms": 2525.81127,
+              "process_cpu_ms": 4160.0,
+              "per_file_ms": 282.4142295,
+              "allocated_bytes": 427803008,
+              "peak_rss_kib": 234292,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1545.940249,
+              "process_cpu_ms": 3410.0,
+              "per_file_ms": 167.9196695,
+              "allocated_bytes": 427803008,
+              "peak_rss_kib": 244420,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1696.780229,
+              "process_cpu_ms": 3670.0,
+              "per_file_ms": 180.6083895,
+              "allocated_bytes": 427803016,
+              "peak_rss_kib": 166816,
+              "compact_mode_messages": 0
+            }
+          ]
+        },
+        "2x2": {
+          "batch_ms": 1603.157994,
+          "process_cpu_ms": 4130.0,
+          "per_file_ms": 364.898066,
+          "allocated_bytes": 427801056,
+          "peak_rss_kib": 341364,
+          "compact_mode_messages": 0,
+          "forks": [
+            {
+              "batch_ms": 2416.660417,
+              "process_cpu_ms": 4230.0,
+              "per_file_ms": 463.413772,
+              "allocated_bytes": 427800912,
+              "peak_rss_kib": 297136,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1603.157994,
+              "process_cpu_ms": 4130.0,
+              "per_file_ms": 364.898066,
+              "allocated_bytes": 427801056,
+              "peak_rss_kib": 378068,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1445.614009,
+              "process_cpu_ms": 3500.0,
+              "per_file_ms": 268.29762900000003,
+              "allocated_bytes": 427801128,
+              "peak_rss_kib": 341364,
+              "compact_mode_messages": 0
+            }
+          ]
+        },
+        "4x1": {
+          "batch_ms": 1414.476244,
+          "process_cpu_ms": 3480.0,
+          "per_file_ms": 499.505284,
+          "allocated_bytes": 427797768,
+          "peak_rss_kib": 519100,
+          "compact_mode_messages": 0,
+          "forks": [
+            {
+              "batch_ms": 1183.123418,
+              "process_cpu_ms": 3830.0,
+              "per_file_ms": 517.6875365000001,
+              "allocated_bytes": 427797856,
+              "peak_rss_kib": 519100,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1424.723648,
+              "process_cpu_ms": 3480.0,
+              "per_file_ms": 499.505284,
+              "allocated_bytes": 427797768,
+              "peak_rss_kib": 559712,
+              "compact_mode_messages": 0
+            },
+            {
+              "batch_ms": 1414.476244,
+              "process_cpu_ms": 3220.0,
+              "per_file_ms": 449.799036,
+              "allocated_bytes": 427797736,
+              "peak_rss_kib": 481564,
+              "compact_mode_messages": 0
+            }
+          ]
+        }
+      }
+    },
+    "rgb16": {
+      "fingerprints": {
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": {
+          "width": 6744,
+          "height": 4500,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "ba1e15e786312378"
+        },
+        "6587.cr3": {
+          "width": 5844,
+          "height": 3904,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "44c330047abf8397"
+        },
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": {
+          "width": 5496,
+          "height": 3668,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "482d0cb8385a95c5"
+        },
+        "7882.cr3": {
+          "width": 7932,
+          "height": 5300,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "d8007128984b1081"
+        },
+        "7896.cr3": {
+          "width": 6024,
+          "height": 4020,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "7c9625fcbe92cd39"
+        },
+        "canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3": {
+          "width": 5496,
+          "height": 3668,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "5c286fbe36253461"
+        },
+        "6648.cr3": {
+          "width": 5844,
+          "height": 3960,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "ad1a39a0d592faa1"
+        },
+        "4671.cr3": {
+          "width": 3920,
+          "height": 2612,
+          "channels": 3,
+          "bits": 16,
+          "fnv1a64": "2c3eeff9deef665f"
+        }
+      },
+      "variants": {
+        "1x4": {
+          "batch_ms": 3982.713885,
+          "process_cpu_ms": 8590.0,
+          "per_file_ms": 319.282111,
+          "allocated_bytes": 1177848736,
+          "peak_rss_kib": 498416,
+          "compact_mode_messages": 4,
+          "forks": [
+            {
+              "batch_ms": 4080.329227,
+              "process_cpu_ms": 8430.0,
+              "per_file_ms": 319.282111,
+              "allocated_bytes": 1177706448,
+              "peak_rss_kib": 513624,
+              "compact_mode_messages": 4
+            },
+            {
+              "batch_ms": 3982.713885,
+              "process_cpu_ms": 9100.0,
+              "per_file_ms": 336.5038575,
+              "allocated_bytes": 1177848736,
+              "peak_rss_kib": 498416,
+              "compact_mode_messages": 5
+            },
+            {
+              "batch_ms": 3598.790256,
+              "process_cpu_ms": 8590.0,
+              "per_file_ms": 298.40516049999997,
+              "allocated_bytes": 1177848832,
+              "peak_rss_kib": 472912,
+              "compact_mode_messages": 4
+            }
+          ]
+        },
+        "2x2": {
+          "batch_ms": 3864.798022,
+          "process_cpu_ms": 8250.0,
+          "per_file_ms": 596.7474385,
+          "allocated_bytes": 1174073752,
+          "peak_rss_kib": 546548,
+          "compact_mode_messages": 17,
+          "forks": [
+            {
+              "batch_ms": 3488.687366,
+              "process_cpu_ms": 8250.0,
+              "per_file_ms": 596.7474385,
+              "allocated_bytes": 1174097336,
+              "peak_rss_kib": 546548,
+              "compact_mode_messages": 17
+            },
+            {
+              "batch_ms": 3864.798022,
+              "process_cpu_ms": 9460.0,
+              "per_file_ms": 948.806053,
+              "allocated_bytes": 1173910736,
+              "peak_rss_kib": 547852,
+              "compact_mode_messages": 19
+            },
+            {
+              "batch_ms": 3981.113985,
+              "process_cpu_ms": 8080.0,
+              "per_file_ms": 584.2005899999999,
+              "allocated_bytes": 1174073752,
+              "peak_rss_kib": 544652,
+              "compact_mode_messages": 10
+            }
+          ]
+        }
+      },
+      "failed_configurations": [
+        {
+          "case": "checksum",
+          "variant": "4x1",
+          "exit_code": 1,
+          "category": "java_heap_exhausted",
+          "java_heap_space_reported": true
+        },
+        {
+          "case": "fork1",
+          "variant": "2x2",
+          "exit_code": -9,
+          "category": "sigkill",
+          "java_heap_space_reported": false,
+          "timed_batches_before_exit": 2
+        }
+      ],
+      "retried_configurations": [
+        {
+          "variant": "2x2",
+          "repeated_fork": 1,
+          "completed_forks": 3
+        }
+      ]
+    }
+  }
+}
