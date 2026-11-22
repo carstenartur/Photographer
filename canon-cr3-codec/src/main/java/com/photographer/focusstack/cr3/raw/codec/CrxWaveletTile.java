@@ -59,7 +59,7 @@ final class CrxWaveletTile {
 
     /** Band order is LL3 followed by X, Y and XY details at each level, coarsest first. */
     static Band synthesize(Band[] bands, int width, int height, boolean hasLeftTile, boolean hasRightTile) {
-        return synthesize(bands, width, height, hasLeftTile, hasRightTile, true);
+        return synthesize(bands, width, height, hasLeftTile, hasRightTile, true, false);
     }
 
     static Band synthesizeNative(Band[] bands, int width, int height, boolean hasLeftTile, boolean hasRightTile) {
@@ -69,11 +69,21 @@ final class CrxWaveletTile {
         // low rows bounded by L + 3D/2 and high rows by 5D/2. Vertical lifting then
         // yields samples bounded by L + 21D/4. After three levels the bound is
         // 2^20 + 3 * 21D/4 < 2^30, so predictor sums and rounding fit in int.
-        return synthesize(bands, width, height, hasLeftTile, hasRightTile, false);
+        return synthesize(bands, width, height, hasLeftTile, hasRightTile, false, VectorSupport.KERNEL != null);
+    }
+
+    static Band synthesizeAdaptiveChecked(Band[] bands, int width, int height) {
+        // The admitted V2 gains give detail magnitudes at most C on the coarse level,
+        // (51C, 51C, 102C) on the middle level, and (102C, 102C, 204C) on the fine
+        // level, where C = 2^20. The horizontal outputs are bounded in magnitude by
+        // 544C across the three levels. The predictor sum fits in int (see
+        // docs/cr3/adaptive-decoding-performance.md), so horizontal vectors are safe.
+        // Keep the existing checked arithmetic for the scalar tail, fallback, and vertical rows.
+        return synthesize(bands, width, height, false, false, true, VectorSupport.KERNEL != null);
     }
 
     private static Band synthesize(Band[] bands, int width, int height, boolean hasLeftTile, boolean hasRightTile,
-                                   boolean checked) {
+                                   boolean checked, boolean vectorSafe) {
         if (bands.length != 1 + 3 * LEVELS || width <= 0 || height <= 0
                 || (long) width * height > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("Invalid three-level wavelet tile");
@@ -90,7 +100,7 @@ final class CrxWaveletTile {
         for (int level = 0; level < LEVELS; level++) {
             int index = 1 + 3 * level;
             low = level(low, bands[index], bands[index + 1], bands[index + 2],
-                    widths[level], heights[level], hasLeftTile, hasRightTile, checked);
+                    widths[level], heights[level], hasLeftTile, hasRightTile, checked, vectorSafe);
         }
         return low;
     }
@@ -100,7 +110,7 @@ final class CrxWaveletTile {
     }
 
     private static Band level(Band ll, Band x, Band y, Band xy, int width, int height,
-                              boolean hasLeftTile, boolean hasRightTile, boolean checked) {
+                              boolean hasLeftTile, boolean hasRightTile, boolean checked, boolean vectorSafe) {
         int lw = lowWidth(width, hasRightTile);
         int hw = (hasRightTile ? width / 2 + 1 : width / 2) + (hasLeftTile ? 1 : 0);
         int lh = Math.ceilDiv(height, 2), hh = height / 2;
@@ -108,8 +118,8 @@ final class CrxWaveletTile {
         requireShape(x, hw, lh);
         requireShape(y, lw, hh);
         requireShape(xy, hw, hh);
-        var lowRows = new HorizontalRows(ll, x, lw, hw, hasLeftTile, width, checked);
-        var highRows = new HorizontalRows(y, xy, lw, hw, hasLeftTile, width, checked);
+        var lowRows = new HorizontalRows(ll, x, lw, hw, hasLeftTile, width, checked, vectorSafe);
+        var highRows = new HorizontalRows(y, xy, lw, hw, hasLeftTile, width, checked, vectorSafe);
         return new Band(width, height, new VerticalRows(lowRows, highRows, width, height, checked));
     }
 
@@ -127,9 +137,12 @@ final class CrxWaveletTile {
      * can support the final odd site. At outer edges the closest available sample repeats.
      */
     private record HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost,
-                                  int width, boolean checked, int[] lowRow, int[] highRow) implements RowReader {
-        HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost, int width, boolean checked) {
-            this(low, high, lowWidth, highWidth, leftGhost, width, checked, new int[low.width], new int[high.width]);
+                                  int width, boolean checked, boolean vectorSafe,
+                                  int[] lowRow, int[] highRow) implements RowReader {
+        HorizontalRows(Band low, Band high, int lowWidth, int highWidth, boolean leftGhost, int width,
+                       boolean checked, boolean vectorSafe) {
+            this(low, high, lowWidth, highWidth, leftGhost, width, checked, vectorSafe,
+                    new int[low.width], new int[high.width]);
         }
 
         @Override
@@ -144,7 +157,19 @@ final class CrxWaveletTile {
             int right = highRow[Math.min(detail, highWidth - 1)];
             int even = undoUpdate(lowRow[0], highRow[0], right, checked);
             output[0] = even;
-            for (int odd = 1, i = 1; odd < width; odd += 2, i++) {
+            int pairs = 0;
+            if (vectorSafe) {
+                pairs = liftHorizontalVectors(lowRow, highRow, output, lowWidth, highWidth, detail, width, even);
+                if (pairs != 0) {
+                    detail += pairs;
+                    right = highRow[detail];
+                    even = undoUpdate(lowRow[pairs], highRow[detail - 1], right, checked);
+                    if (2 * pairs < width) {
+                        output[2 * pairs] = even;
+                    }
+                }
+            }
+            for (int odd = 2 * pairs + 1, i = pairs + 1; odd < width; odd += 2, i++) {
                 int nextRight = highRow[Math.min(++detail, highWidth - 1)];
                 int nextEven = i < lowWidth ? undoUpdate(lowRow[i], right, nextRight, checked) : even;
                 output[odd] = undoPredict(right, even, nextEven, checked);
@@ -153,6 +178,36 @@ final class CrxWaveletTile {
                 }
                 even = nextEven;
                 right = nextRight;
+            }
+        }
+    }
+
+    static int liftHorizontalVectors(int[] low, int[] high, int[] output, int lowWidth, int highWidth,
+                                     int origin, int width, int firstEven) {
+        VectorKernel kernel = VectorSupport.KERNEL;
+        return kernel == null ? 0 : kernel.lift(low, high, output, lowWidth, highWidth, origin, width, firstEven);
+    }
+
+    interface VectorKernel {
+        /** Returns the number of pairs written, including the scalar left edge, or zero. */
+        int lift(int[] low, int[] high, int[] output, int lowWidth, int highWidth, int origin, int width, int firstEven);
+    }
+
+    private static final class VectorSupport {
+        private static final VectorKernel KERNEL = load();
+
+        private static VectorKernel load() {
+            if (Runtime.version().feature() != 25
+                    || ModuleLayer.boot().findModule("jdk.incubator.vector").isEmpty()) {
+                return null;
+            }
+            try {
+                Class<?> implementation = Class.forName("com.photographer.focusstack.cr3.raw.codec.CrxWaveletVectors");
+                return (VectorKernel) implementation.getDeclaredConstructor().newInstance();
+            } catch (ClassNotFoundException | LinkageError e) {
+                return null;
+            } catch (ReflectiveOperationException e) {
+                throw new ExceptionInInitializerError(e);
             }
         }
     }

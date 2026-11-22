@@ -2,7 +2,10 @@ package com.photographer.focusstack.cr3.raw.codec;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Random;
+
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -93,6 +96,70 @@ class CrxWaveletTileTest {
     }
 
     @Test
+    void nativeLiftingPreservesSignedCoefficientsAcrossVectorBoundaries() throws IOException {
+        var random = new Random(67633);
+        for (int width : new int[]{9, 17, 18, 19, 31, 32, 33, 129, 130}) {
+            for (boolean left : new boolean[]{false, true}) {
+                for (boolean right : new boolean[]{false, true}) {
+                    int height = 19;
+                    var shapes = CrxWaveletTile.shapes(width, height, left, right);
+                    var bands = new CrxWaveletTile.Band[shapes.length];
+                    for (int b = 0; b < bands.length; b++) {
+                        var shape = shapes[b];
+                        int magnitude = b == 0 ? 1 << 20 : 1 << 26;
+                        int[] values = new int[shape.width()];
+                        Arrays.setAll(values, x -> random.nextInt(-magnitude, magnitude));
+                        bands[b] = new CrxWaveletTile.Band(shape.width(), shape.height(),
+                                row -> System.arraycopy(values, 0, row, 0, values.length));
+                    }
+                    int[] expected = WaveletTestRows.collect(CrxWaveletTile.synthesize(
+                            bands, width, height, left, right));
+                    assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesizeNative(
+                            bands, width, height, left, right))).containsExactly(expected);
+                }
+            }
+        }
+    }
+
+    @Test
+    void adaptiveHorizontalVectorsPreserveTheLargestAdmittedCoefficients() throws IOException {
+        int width = 131;
+        int height = 37;
+        var shapes = CrxWaveletTile.shapes(width, height, false, false);
+        int[] factors = {1, 1, 1, 1, 51, 51, 102, 102, 102, 204};
+        var scalar = new CrxWaveletTile.Band[shapes.length];
+        var adaptive = new CrxWaveletTile.Band[shapes.length];
+        var random = new Random(51237);
+        for (int b = 0; b < shapes.length; b++) {
+            var shape = shapes[b];
+            int positive = ((1 << 20) - 1) * factors[b];
+            int negative = -(1 << 20) * factors[b];
+            int[] values = new int[shape.width() * shape.height()];
+            Arrays.setAll(values, i -> random.nextBoolean() ? positive : negative);
+            scalar[b] = liftingBand(shape.width(), shape.height(), values);
+            adaptive[b] = liftingBand(shape.width(), shape.height(), values);
+        }
+
+        int[] expected = WaveletTestRows.collect(CrxWaveletTile.synthesize(scalar, width, height, false, false));
+        assertThat(WaveletTestRows.collect(CrxWaveletTile.synthesizeAdaptiveChecked(adaptive, width, height)))
+                .containsExactly(expected);
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "cr3.vector.tests", matches = "true")
+    void vectorKernelProcessesInteriorWhenHardwareSupports256BitVectors() throws ReflectiveOperationException {
+        Class<?> vector = Class.forName("jdk.incubator.vector.IntVector");
+        Class<?> species = Class.forName("jdk.incubator.vector.VectorSpecies");
+        Object preferred = vector.getField("SPECIES_PREFERRED").get(null);
+        int bits = (int) species.getMethod("vectorBitSize").invoke(preferred);
+
+        int pairs = CrxWaveletTile.liftHorizontalVectors(
+                new int[33], new int[32], new int[65], 33, 32, 0, 65, 0);
+
+        assertThat(pairs > 0).isEqualTo(bits >= 256);
+    }
+
+    @Test
     void checkedLiftingCanAverageTwoMaximumIntegers() throws IOException {
         var bands = zeros(8, 8, false, false);
         var approximation = bands[0];
@@ -113,13 +180,17 @@ class CrxWaveletTileTest {
     }
 
     private static CrxWaveletTile.Band square(int size, int... samples) {
-        return new CrxWaveletTile.Band(size, size, new CrxWaveletTile.RowReader() {
+        return liftingBand(size, size, samples);
+    }
+
+    private static CrxWaveletTile.Band liftingBand(int width, int height, int[] samples) {
+        return new CrxWaveletTile.Band(width, height, new CrxWaveletTile.RowReader() {
             int offset;
 
             @Override
             public void read(int[] row) {
-                System.arraycopy(samples, offset, row, 0, size);
-                offset += size;
+                System.arraycopy(samples, offset, row, 0, width);
+                offset += width;
             }
         });
     }

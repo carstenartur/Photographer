@@ -79,6 +79,21 @@ java --add-modules=jdk.incubator.vector \
   -jar canon-cr3-benchmark/target/benchmarks.jar Cr3RawProcessedBenchmark
 ```
 
+### Optional SIMD C-RAW wavelet lifting on JDK 25
+
+The codec in 0.1.9-SNAPSHOT includes a separate Vector API implementation
+for horizontal C-RAW wavelet reconstruction. It serves native Bayer and
+developed RGB imports that use the eligible C-RAW decoder paths. The same
+startup option, `--add-modules=jdk.incubator.vector`, enables automatic kernel
+selection on JDK 25 with at least 256-bit integer vectors. ImageIO parameters
+stay the same. The Java 21-compatible scalar implementation handles the
+module-disabled case, other Java versions and unsupported vector hardware.
+
+A standalone launcher can supply the option automatically. When the reader
+is embedded in another application, including Fiji, set the option on that
+application's JVM. See the [C-RAW SIMD benchmark](wavelet-simd-performance.md)
+for the exact output checks and memory measurements.
+
 ## Load the full-resolution color image
 
 Given a `java.io.File file`, read the developed image in a method that can throw `IOException`.
