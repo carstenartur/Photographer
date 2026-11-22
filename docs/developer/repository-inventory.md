@@ -173,6 +173,8 @@ Top-level package roots were counted from `src/main` and `src/test` Java package
 | manifest files (`reference-manifest.json`, `manifest.tsv`) | same directory tree | 2 |
 | generated files policy | `samples/research/README.md` describes capture workflow and appended manifest behavior | n/a |
 
+The TIFF count above reflects the June 2026 inventory. The unused [`sample.tiff`](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/canon-cr3-imageio/src/test/resources/samples/sample.tiff) is available in that historical tree. The fixture manifest still identifies `sample.reference.tiff` as the reference sidecar.
+
 ## Section 8: CLI
 
 | Command | Purpose | Stable | Research |

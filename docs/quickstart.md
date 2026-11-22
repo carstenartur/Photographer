@@ -7,10 +7,12 @@ The web application serves the camera controls and capture jobs on port 8080. Do
 Install Git, Docker and Docker Compose v2. Run from a shell:
 
 ```sh
-git clone https://github.com/carstenartur/Photographer.git
+git clone --depth 1 https://github.com/carstenartur/Photographer.git
 cd Photographer
 cp .env.example .env
 ```
+
+The shallow clone fetches the current source and test files with one commit of history. For ongoing development, see the [contributor checkout](developer/contributing.md#clone-and-inspect).
 
 Edit `.env` before the first start. Give `FOCUSSTACK_SECURITY_ADMIN_PASSWORD` and `POSTGRES_PASSWORD` separate passwords of your own. The first is the web login for `admin`. Compose passes the second to both PostgreSQL and the application. Leave `CAMERA_MOCK_ENABLED=true` for this walkthrough.
 

@@ -27,6 +27,8 @@ A generator is known, but the committed snapshot predates the isolated verify/up
 
 The manifest records the generator, inputs and rationale. The evidence remains byte-for-byte historical until it is migrated deliberately. CI verifies ownership and file presence; it does not claim current regeneration equivalence.
 
+The predictor isolation, reference comparison and pedestal reports link to their original reports and full-resolution figure directories at a fixed commit. The inventory lists the outputs carried in the current checkout. The [original evidence tree](https://github.com/carstenartur/Photographer/tree/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results) preserves the complete snapshots. With that commit available locally, `git show 271db071539de2a0a2e4f5cdbeaeb432af65fba1:<path>` reads any original file.
+
 ### `historical-manual`
 
 The file is a reviewed synthesis, source audit or durable interpretation assembled from multiple evidence records rather than the direct output of one generator.
