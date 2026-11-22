@@ -3,7 +3,7 @@
 This is the maintained entry point for Photographer’s independent Java libraries for the Canon CR3 format and its clean-room CRX research.
 
 The native Java RAW import reconstructs supported 14-bit, four-plane CRX layouts.
-See [verified camera coverage](camera-coverage.md) for tested RAW and C-RAW modes,
+See [camera compatibility](camera-coverage.md) for RAW and C-RAW coverage,
 and [decoder and processing](decoder.md) for format and memory limits.
 
 The [0.1.8 release notes](../releases/0.1.8.md) cover RGB16 import in Java and Fiji, the active-area crop correction, and RAW heap planning.
