@@ -54,7 +54,7 @@ class CanonCr3DestinationTest {
                     assertArrayEquals(expected, image.getRaster().getPixel(0, 0, (int[]) null));
                 }
                 if (param instanceof CanonCr3ImageReadParam cr3) {
-                    assertEquals(Cr3DecodeOptions.BitDepth.EIGHT, cr3.getDecodeOptions().bitDepth());
+                    assertEquals(Cr3DecodeOptions.BitDepth.SIXTEEN, cr3.getDecodeOptions().bitDepth());
                     assertTrue(cr3.getDecodeOptions().applySrgbConversion());
                 }
             }
@@ -167,7 +167,7 @@ class CanonCr3DestinationTest {
                     32770, 32765, 32778, 32770, 32770, 32778},
                     image.getRaster().getPixels(0, 0, 2, 2, (int[]) null));
             assertSame(settings, param.getDecodeOptions());
-            assertEquals(Cr3DecodeOptions.BitDepth.EIGHT, settings.bitDepth());
+            assertEquals(Cr3DecodeOptions.BitDepth.SIXTEEN, settings.bitDepth());
             assertTrue(settings.applySrgbConversion());
             assertFalse(settings.cropToActiveArea());
             assertEquals(1, settings.maxWorkers());

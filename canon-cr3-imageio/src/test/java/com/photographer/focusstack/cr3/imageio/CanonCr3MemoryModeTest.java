@@ -169,7 +169,7 @@ class CanonCr3MemoryModeTest {
             assertEquals(requested.getColorModel(), image.getColorModel());
             assertEquals(1, warningCount(messages));
             assertSame(options, param.getDecodeOptions());
-            assertEquals(Cr3DecodeOptions.BitDepth.EIGHT, options.bitDepth());
+            assertEquals(Cr3DecodeOptions.BitDepth.SIXTEEN, options.bitDepth());
             assertEquals(LOW_MEMORY, options.memoryMode());
             assertEquals(4, options.maxWorkers());
         } finally {

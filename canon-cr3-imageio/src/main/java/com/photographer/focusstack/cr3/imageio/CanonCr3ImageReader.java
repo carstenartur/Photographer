@@ -34,7 +34,7 @@ import java.util.List;
  * <p>This reader is a thin adapter around {@link Cr3Decoder}. The core decoding
  * logic lives in the {@code cr3-core} artifact.</p>
  *
- * <p>Image index 0 is the developed RGB image by default. Select
+ * <p>Image index 0 is the developed 16-bit sRGB image by default. Select
  * {@link CanonCr3ImageReadParam#setPreviewOnly(boolean)} to read the embedded JPEG.
  * Pass {@link Cr3DecodeOptions#rawSensor()} through
  * {@link CanonCr3ImageReadParam#setDecodeOptions(Cr3DecodeOptions)} to read the
@@ -97,7 +97,7 @@ public class CanonCr3ImageReader extends ImageReader {
     private Rectangle defaultImageBounds(int imageIndex) throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
-        Cr3DecodeOptions options = Cr3DecodeOptions.rawProcessed();
+        Cr3DecodeOptions options = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN);
         try {
             return decoder.getRawProcessedBounds(options);
         } catch (Cr3Exception e) {
@@ -109,7 +109,7 @@ public class CanonCr3ImageReader extends ImageReader {
     public Iterator<ImageTypeSpecifier> getImageTypes(int imageIndex) throws IOException {
         checkIndex(imageIndex);
         ensureParsed();
-        return List.of(RGB8, SRGB16, LINEAR_RGB16).iterator();
+        return List.of(SRGB16, LINEAR_RGB16, RGB8).iterator();
     }
 
     @Override
@@ -201,7 +201,7 @@ public class CanonCr3ImageReader extends ImageReader {
         if (param instanceof CanonCr3ImageReadParam cr3) {
             options = cr3.isPreviewOnly() ? Cr3DecodeOptions.defaults() : cr3.getDecodeOptions();
         } else {
-            options = Cr3DecodeOptions.rawProcessed();
+            options = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN);
         }
         if (param == null) {
             return decode(imageIndex, options);
@@ -225,7 +225,7 @@ public class CanonCr3ImageReader extends ImageReader {
 
     private static Cr3DecodeOptions negotiateRgbDestination(Cr3DecodeOptions options, ImageReadParam param) {
         if ((param instanceof CanonCr3ImageReadParam cr3 && cr3.hasExplicitDecodeOptions())
-                || options.bitDepth() != Cr3DecodeOptions.BitDepth.EIGHT || !options.applySrgbConversion()) {
+                || options.hasExplicitBitDepth() || !options.applySrgbConversion()) {
             return options;
         }
         ImageTypeSpecifier target = param.getDestination() == null ? param.getDestinationType()
@@ -234,12 +234,13 @@ public class CanonCr3ImageReader extends ImageReader {
             return options;
         }
         var color = target.getColorModel();
-        boolean srgb = color.equals(SRGB16.getColorModel());
-        if (!srgb && !color.equals(LINEAR_RGB16.getColorModel())) {
-            return options;
+        if (color.getComponentSize(0) == 8) {
+            return options.copy().bitDepth(Cr3DecodeOptions.BitDepth.EIGHT);
         }
-        // Destination selection affects this read only; mutable caller settings remain reusable.
-        return options.copy().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN).applySrgbConversion(srgb);
+        if (color.equals(LINEAR_RGB16.getColorModel())) {
+            return options.copy().applySrgbConversion(false);
+        }
+        return options;
     }
 
     private BufferedImage readProcessedImage(int imageIndex, Cr3DecodeOptions options, ImageReadParam param)

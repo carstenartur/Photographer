@@ -26,7 +26,7 @@ class Cr3ImportProbeTest {
 
         assertTrue(result.output().contains("\"requested_memory_mode\":\"AUTO\""), result.output());
         assertTrue(result.output().contains("\"orientation_override\":0"), result.output());
-        assertTrue(result.output().contains("\"channels\":3,\"bits\":8"), result.output());
+        assertTrue(result.output().contains("\"channels\":3,\"bits\":16"), result.output());
     }
 
     @ParameterizedTest

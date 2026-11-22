@@ -155,7 +155,7 @@ public final class Cr3ImportProbe {
             throw new IOException("No image returned for --mode " + mode);
         }
         int expectedBands = mode.startsWith("sensor") ? 1 : 3;
-        int expectedBits = mode.startsWith("sensor") || mode.startsWith("rgb16") ? 16 : 8;
+        int expectedBits = mode.equals("rgb8") ? 8 : 16;
         var samples = image.getSampleModel();
         if (samples.getNumBands() != expectedBands) {
             throw new IOException("--mode " + mode + " requires " + expectedBands

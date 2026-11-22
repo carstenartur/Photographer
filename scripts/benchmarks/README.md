@@ -38,7 +38,7 @@ JAR on the runtime classpath. The production CR3 modules themselves target Java
 
 | Mode | Public import and output |
 | --- | --- |
-| `default` | Actual `ImageIO.read(File)` with automatic options; RGB8 |
+| `default` | Actual `ImageIO.read(File)` with automatic options (sRGB16 in 0.1.9-SNAPSHOT, RGB8 in 0.1.8) |
 | `rgb8` | Explicit ImageIO processing options; RGB8 |
 | `rgb16` | Explicit ImageIO processing options; three unsigned-short sRGB bands |
 | `rgb16linear` | Same RGB16 pipeline with linear output transfer |
@@ -162,9 +162,9 @@ the complete argument list and `--selftest` for a small public-API Bayer input.
 | Java workload | LibRaw settings |
 | --- | --- |
 | `sensor` | `--mode sensor` |
-| `default` or `rgb8` | `--mode rgb8 --transfer srgb` |
+| `rgb8` | `--mode rgb8 --transfer srgb` |
 | `rgb16linear` | `--mode rgb16 --transfer linear` |
-| `rgb16` | `--mode rgb16 --transfer srgb` |
+| `default` (0.1.9-SNAPSHOT) or `rgb16` | `--mode rgb16 --transfer srgb` |
 
 Specify the transfer explicitly: the C client's bare `rgb16` default is linear.
 Quality 0 requests bilinear demosaicing. Camera WB, no auto brightness and a

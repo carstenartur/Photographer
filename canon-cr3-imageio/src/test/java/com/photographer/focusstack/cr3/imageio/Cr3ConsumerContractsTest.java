@@ -82,7 +82,7 @@ class Cr3ConsumerContractsTest {
             var reader = (CanonCr3ImageReader) readers.next();
             try {
                 reader.setInput(input);
-                assertEquals(BufferedImage.TYPE_INT_RGB, reader.read(0).getType());
+                assertArrayEquals(new int[]{16, 16, 16}, reader.read(0).getSampleModel().getSampleSize());
                 var params = reader.getDefaultReadParam();
                 params.setDecodeOptions(Cr3DecodeOptions.rawSensor());
                 assertArrayEquals(expected, reader.readRaster(0, params).getPixels(0, 0, 2, 2, (int[]) null));
