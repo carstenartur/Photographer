@@ -1,0 +1,26 @@
+{
+  "g5-raw": {
+    "width": 5632,
+    "height": 3710,
+    "samples": 20894720,
+    "u16be_sha256": "102ae30b4c26013ad933e095ff7cf04c8f2cbbb6789ecb9d522ab99bbf960b38"
+  },
+  "eosr-raw": {
+    "width": 6888,
+    "height": 4546,
+    "samples": 31312848,
+    "u16be_sha256": "350e0cf7c73f4f8b70eaa2d84503b222e8781d02a505003ec8bddd5dd0c4ad90"
+  },
+  "g5-craw": {
+    "width": 5632,
+    "height": 3710,
+    "samples": 20894720,
+    "u16be_sha256": "856ebe90a87b3721723ad4a9056328557dc6a7fda23ac0336048eb1f67ab63d6"
+  },
+  "m50-craw": {
+    "width": 6288,
+    "height": 4056,
+    "samples": 25504128,
+    "u16be_sha256": "df428e3652cf21196d6127871e23fbc16104c99993d9fcd6db8d52d9b74ee378"
+  }
+}

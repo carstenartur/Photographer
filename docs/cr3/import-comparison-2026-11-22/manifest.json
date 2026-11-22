@@ -1,0 +1,125 @@
+{
+  "command_options": {
+    "cpus": "0-3",
+    "ncpus": 4,
+    "warmup": 6,
+    "iterations": 9,
+    "forks": 3,
+    "libraw": [
+      "2",
+      "3"
+    ],
+    "modes": [
+      "sensor",
+      "rgb8",
+      "rgb16"
+    ],
+    "fixtures": null
+  },
+  "java_version": "openjdk version \"21.0.13\" 2026-10-20\nOpenJDK Runtime Environment (build 21.0.13+9-1-deb13u2-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13+9-1-deb13u2-Debian, mixed mode, sharing)",
+  "inputs": {
+    "g5-raw": {
+      "path": "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    "eosr-raw": {
+      "path": "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    },
+    "g5-craw": {
+      "path": "canon-cr3-imageio/src/test/resources/samples/research/g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+    },
+    "m50-craw": {
+      "path": "eos-m50-craw-4656.cr3",
+      "sha256": "27a88fdae82516ba136e12c2cc9b934f25dbaaac24d64ab4e5517f8524463594",
+      "type": "external",
+      "url": "https://raw.pixls.us/getfile.php/4656/nice/Canon%20-%20EOS%20M50%20-%203:2.CR3",
+      "license": "https://creativecommons.org/publicdomain/zero/1.0/"
+    }
+  },
+  "artifact_sha256": {
+    "conda0222/lib/libraw_r.so.25.0.0": "ac222490bac8dd5ae4d9491fa9af7381d336c3d4b34d24e5c2de149969d75966",
+    "conda0223/lib/libraw_r.so.25.0.0": "acc9aa0b27bc6b6712ec3c07854807aadb930790c8f0384c18a063081c15d055",
+    "libjpeg-turbo-3.2.0-hb03c661_1.conda": "bba8538e6538ed58a8479b332337b96986561f975d06cfa2039a016c2d246ee4",
+    "libraw-0.22.2-bench": "cd1cab59412278a919ea9323f595884fb7f295e67cc288a4ad292feb06b53d75",
+    "libraw-0.22.2-h074291d_0.conda": "fa3ccb18cf22f8ac94ec4f6bfcc9fd5805bf7af11cf56bf19c27fb051b36dd6a",
+    "libraw-0.22.3-bench": "4fdf0369a5464155f15154d615831ef08b457f7915728df70314a2595f4d32d1",
+    "libraw-0.22.3-hab3bfc1_0.conda": "998bd633349c75ff01549c398e990d0e0b34df1f3673f63c880becd99d8fcc90",
+    "libraw_bench.c": "a6088ea36db2f3e8493cc7f64b4756a5d719f2047cda18e57ad98ed5069fd503",
+    "com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.class": "e8e7c19b74b6f22b552ebc944667f8494a043ccd2450ac3a3c8df2ba4b54ee4c"
+  },
+  "native_package_urls": {
+    "libraw-0.22.2-h074291d_0.conda": "https://conda.anaconda.org/conda-forge/linux-64/libraw-0.22.2-h074291d_0.conda",
+    "libraw-0.22.3-hab3bfc1_0.conda": "https://conda.anaconda.org/conda-forge/linux-64/libraw-0.22.3-hab3bfc1_0.conda",
+    "libjpeg-turbo-3.2.0-hb03c661_1.conda": "https://conda.anaconda.org/conda-forge/linux-64/libjpeg-turbo-3.2.0-hb03c661_1.conda"
+  },
+  "kernel": "6.18.57",
+  "architecture": "x86_64",
+  "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+  "c_compiler": "gcc (Debian 14.2.0-19) 14.2.0",
+  "java_probe": {
+    "git_commit": "271db071539de2a0a2e4f5cdbeaeb432af65fba1",
+    "source_sha256": "eaefdd3ff96f0b3c2f6c139ebcf379374fee62b3e3ee717984753b1fa0950c4a",
+    "javac_version": "25.0.5.1",
+    "compiler_target": 21,
+    "runtime_executable_sha256": "1a7e0b17c39003c75b457d686775ccb032e56fa9c8afe3c492d8eb3715e8951a"
+  },
+  "native_package_metadata": {
+    "libraw": "https://api.anaconda.org/package/conda-forge/libraw",
+    "libjpeg-turbo": "https://api.anaconda.org/package/conda-forge/libjpeg-turbo",
+    "published_sha256_matched": true
+  },
+  "java_artifacts": {
+    "cr3-codec-0.1.8.jar": {
+      "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-codec/0.1.8/cr3-codec-0.1.8.jar",
+      "sha256": "95007f4b2c2d2c29d97779d58ed5648be0c5333d45d7262316606714e9cf5153"
+    },
+    "cr3-container-0.1.8.jar": {
+      "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-container/0.1.8/cr3-container-0.1.8.jar",
+      "sha256": "7955b9cbe11730fb1365c4411b3a8526ca6325a9062f8eb93c555ae39476f233"
+    },
+    "cr3-core-0.1.8.jar": {
+      "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-core/0.1.8/cr3-core-0.1.8.jar",
+      "sha256": "477fbad5b3ec6cce933764b7fd4d7472e8be33e005a55829d4fdb5d4b10c5329"
+    },
+    "cr3-imageio-0.1.8.jar": {
+      "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-imageio/0.1.8/cr3-imageio-0.1.8.jar",
+      "sha256": "d8373830b485bbd50b7cbf5272c982d8cc9c7bd3779b5e00b80a52c733a58121"
+    },
+    "cr3-metadata-0.1.8.jar": {
+      "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-metadata/0.1.8/cr3-metadata-0.1.8.jar",
+      "sha256": "a5461197c1f8245f2a2f92ab2330bbc9ce65e574c53bf44add679c5f630c798f"
+    },
+    "cr3-processing-0.1.8.jar": {
+      "url": "https://repo.maven.apache.org/maven2/io/github/carstenartur/cr3-processing/0.1.8/cr3-processing-0.1.8.jar",
+      "sha256": "b662b50dbed852433761d7dcc77daee255a44b7ce48845c1cdde050ddf96b156"
+    },
+    "slf4j-api-2.0.20.jar": {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.jar",
+      "sha256": "7e1446499b359675d8aabe6af2de86b85e72ae8a2a932c0b40d0e5ba57097439"
+    }
+  },
+  "native_shared_libraries": {
+    "0.22.2": {
+      "libjpeg.so.8": "27d5bc7b9c9674cc073e71e899e7d5f6dedf86f0ad4d93947f60aaee2c2b25c8",
+      "libz.so.1": "6c13931760210e8b391b63a337dfe4071346c4ad6e3827694edb7b6989bb16dd",
+      "liblcms2.so.2": "a0afaac586186b4e6b06c157e48c49480fde35d671052ee1309f36881a4508e7",
+      "libstdc++.so.6": "972bb2a18b71140dab0240f8a1f68ab3fb1d56bcd4c4f824a91b70888faf5a00",
+      "libm.so.6": "6d567d53e895273ca14a1f9dc164fc6c8d39aed2f60aa46a733c2784228915f3",
+      "libc.so.6": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+      "libgcc_s.so.1": "30c61ab012a4241bed033725a09b61f5fdd3bb7df95ee852d0b096520524c7af",
+      "libgomp.so.1": "6456b504ac347bd50c419667440b691f6966ad8aff5309d2f06c977fe2f9debe"
+    },
+    "0.22.3": {
+      "libjpeg.so.8": "27d5bc7b9c9674cc073e71e899e7d5f6dedf86f0ad4d93947f60aaee2c2b25c8",
+      "libz.so.1": "6c13931760210e8b391b63a337dfe4071346c4ad6e3827694edb7b6989bb16dd",
+      "liblcms2.so.2": "a0afaac586186b4e6b06c157e48c49480fde35d671052ee1309f36881a4508e7",
+      "libstdc++.so.6": "972bb2a18b71140dab0240f8a1f68ab3fb1d56bcd4c4f824a91b70888faf5a00",
+      "libm.so.6": "6d567d53e895273ca14a1f9dc164fc6c8d39aed2f60aa46a733c2784228915f3",
+      "libc.so.6": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+      "libgcc_s.so.1": "30c61ab012a4241bed033725a09b61f5fdd3bb7df95ee852d0b096520524c7af",
+      "libgomp.so.1": "6456b504ac347bd50c419667440b691f6966ad8aff5309d2f06c977fe2f9debe"
+    }
+  }
+}
