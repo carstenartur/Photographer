@@ -130,27 +130,29 @@ PRVW Pearson scores are low and inconsistent across cameras. As expected, they c
 
 ## Visual comparisons
 
+[Original report with embedded images](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/2026-06-14-B1-predictor-state-isolation.md) · [All original figures](https://github.com/carstenartur/Photographer/tree/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation)
+
 ### Dark fixture
 
 | Preview | Baseline decoder | B1-north-only | B1-row-offset |
 |---|---|---|---|
-| ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-preview.jpg) | ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-baseline.png) | ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-north-only.png) | ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-row-offset.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-preview.jpg) | [Baseline decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-baseline.png) | [B1-north-only](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-north-only.png) | [B1-row-offset](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-row-offset.png) |
 
 | B1-west-only | B2-tile-continued | Diff: B1-north-only vs baseline |
 |---|---|---|
-| ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-west-only.png) | ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b2-tile-continued.png) | ![](images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-north-only-diff.png) |
+| [B1-west-only](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-west-only.png) | [B2-tile-continued](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b2-tile-continued.png) | [Diff: B1-north-only vs baseline](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-b1-north-only-diff.png) |
 
 ### Flat fixture
 
 | Preview | Baseline decoder | B1-north-only | B2-tile-continued |
 |---|---|---|---|
-| ![](images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-preview.jpg) | ![](images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-baseline.png) | ![](images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-b1-north-only.png) | ![](images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-b2-tile-continued.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-preview.jpg) | [Baseline decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-baseline.png) | [B1-north-only](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-b1-north-only.png) | [B2-tile-continued](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-b2-tile-continued.png) |
 
 ### EOS R (detail, ISO low)
 
 | Preview | Baseline decoder | B1-north-only | B1-row-offset | B2-tile-continued |
 |---|---|---|---|---|
-| ![](images/predictor-state-isolation/eosr-iso-low-preview.jpg) | ![](images/predictor-state-isolation/eosr-iso-low-baseline.png) | ![](images/predictor-state-isolation/eosr-iso-low-b1-north-only.png) | ![](images/predictor-state-isolation/eosr-iso-low-b1-row-offset.png) | ![](images/predictor-state-isolation/eosr-iso-low-b2-tile-continued.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/eosr-iso-low-preview.jpg) | [Baseline decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/eosr-iso-low-baseline.png) | [B1-north-only](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/eosr-iso-low-b1-north-only.png) | [B1-row-offset](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/eosr-iso-low-b1-row-offset.png) | [B2-tile-continued](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/predictor-state-isolation/eosr-iso-low-b2-tile-continued.png) |
 
 ---
 

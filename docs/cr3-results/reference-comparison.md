@@ -1,5 +1,7 @@
 # CR3 Reference Comparison
 
+[Original report with embedded images](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/reference-comparison.md) · [All original figures](https://github.com/carstenartur/Photographer/tree/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison)
+
 - Generated: 2026-06-14T19:31:23.054742Z
 - Fixtures: 11 lossless CR3 fixtures
 - Exclusions: C-RAW / wavelet CR3 fixtures are intentionally skipped
@@ -38,7 +40,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/eosr-iso-high-preview.png) | ![](images/reference-comparison/eosr-iso-high-reference.png) | ![](images/reference-comparison/eosr-iso-high-decoder.png) | ![](images/reference-comparison/eosr-iso-high-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-high-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-high-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-high-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-high-difference.png) |
 
 ### `eosr-iso-low.cr3`
 
@@ -54,7 +56,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/eosr-iso-low-preview.png) | ![](images/reference-comparison/eosr-iso-low-reference.png) | ![](images/reference-comparison/eosr-iso-low-decoder.png) | ![](images/reference-comparison/eosr-iso-low-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-low-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-low-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-low-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-low-difference.png) |
 
 ### `eosr-iso-mid.cr3`
 
@@ -70,7 +72,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/eosr-iso-mid-preview.png) | ![](images/reference-comparison/eosr-iso-mid-reference.png) | ![](images/reference-comparison/eosr-iso-mid-decoder.png) | ![](images/reference-comparison/eosr-iso-mid-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-mid-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-mid-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-mid-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/eosr-iso-mid-difference.png) |
 
 ### `research/g5xm2-asis-iso200-ss130-ff2p5-01.cr3`
 
@@ -86,7 +88,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-preview.png) | ![](images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-reference.png) | ![](images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-decoder.png) | ![](images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-asis-iso200-ss130-ff2p5-01-difference.png) |
 
 ### `research/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02.cr3`
 
@@ -102,7 +104,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-preview.png) | ![](images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-reference.png) | ![](images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-decoder.png) | ![](images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-dark-iso125-ss160-ff7p1-20260504-192532-02-difference.png) |
 
 ### `research/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02.cr3`
 
@@ -118,7 +120,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-preview.png) | ![](images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-reference.png) | ![](images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-decoder.png) | ![](images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/g5xm2-flat-iso1600-ss0p4s-ff1p6-20260504-193022-02-difference.png) |
 
 ### `sample-iso-high.cr3`
 
@@ -134,7 +136,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/sample-iso-high-preview.png) | ![](images/reference-comparison/sample-iso-high-reference.png) | ![](images/reference-comparison/sample-iso-high-decoder.png) | ![](images/reference-comparison/sample-iso-high-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-iso-high-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-iso-high-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-iso-high-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-iso-high-difference.png) |
 
 ### `sample-tele.cr3`
 
@@ -150,7 +152,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/sample-tele-preview.png) | ![](images/reference-comparison/sample-tele-reference.png) | ![](images/reference-comparison/sample-tele-decoder.png) | ![](images/reference-comparison/sample-tele-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-tele-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-tele-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-tele-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-tele-difference.png) |
 
 ### `sample-wb-tungsten.cr3`
 
@@ -166,7 +168,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/sample-wb-tungsten-preview.png) | ![](images/reference-comparison/sample-wb-tungsten-reference.png) | ![](images/reference-comparison/sample-wb-tungsten-decoder.png) | ![](images/reference-comparison/sample-wb-tungsten-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wb-tungsten-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wb-tungsten-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wb-tungsten-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wb-tungsten-difference.png) |
 
 ### `sample-wide.cr3`
 
@@ -182,7 +184,7 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/sample-wide-preview.png) | ![](images/reference-comparison/sample-wide-reference.png) | ![](images/reference-comparison/sample-wide-decoder.png) | ![](images/reference-comparison/sample-wide-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wide-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wide-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wide-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-wide-difference.png) |
 
 ### `sample.cr3`
 
@@ -198,4 +200,4 @@
 
 | Preview | Reference | Decoder | Difference |
 |---|---|---|---|
-| ![](images/reference-comparison/sample-preview.png) | ![](images/reference-comparison/sample-reference.png) | ![](images/reference-comparison/sample-decoder.png) | ![](images/reference-comparison/sample-difference.png) |
+| [Preview](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-preview.png) | [Reference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-reference.png) | [Decoder](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-decoder.png) | [Difference](https://github.com/carstenartur/Photographer/blob/271db071539de2a0a2e4f5cdbeaeb432af65fba1/docs/cr3-results/images/reference-comparison/sample-difference.png) |
