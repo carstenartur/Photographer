@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.github.carstenartur</groupId>
+  <artifactId>cr3-imageio</artifactId>
+  <version>0.1.9</version>
+  <name>CR3 ImageIO</name>
+  <description>Java ImageIO provider for supported CR3 RAW and C-RAW reading, lossless CR3 writing with camera profiles, and uncompressed Bayer DNG reading and writing.</description>
+  <url>https://github.com/carstenartur/Photographer</url>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/license/mit</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <id>carstenartur</id>
+      <name>Carsten Hammer</name>
+      <url>https://github.com/carstenartur</url>
+      <roles>
+        <role>developer</role>
+        <role>maintainer</role>
+      </roles>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:https://github.com/carstenartur/Photographer.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/carstenartur/Photographer.git</developerConnection>
+    <tag>v0.1.9</tag>
+    <url>https://github.com/carstenartur/Photographer</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/carstenartur/Photographer/issues</url>
+  </issueManagement>
+  <ciManagement>
+    <system>GitHub Actions</system>
+    <url>https://github.com/carstenartur/Photographer/actions</url>
+  </ciManagement>
+  <dependencies>
+    <dependency>
+      <groupId>io.github.carstenartur</groupId>
+      <artifactId>cr3-core</artifactId>
+      <version>0.1.9</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.carstenartur</groupId>
+      <artifactId>cr3-container</artifactId>
+      <version>0.1.9</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.carstenartur</groupId>
+      <artifactId>cr3-metadata</artifactId>
+      <version>0.1.9</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.carstenartur</groupId>
+      <artifactId>cr3-codec</artifactId>
+      <version>0.1.9</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.github.carstenartur</groupId>
+      <artifactId>cr3-processing</artifactId>
+      <version>0.1.9</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.20</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+</project>
