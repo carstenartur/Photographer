@@ -65,7 +65,8 @@ class CanonCr3DestinationMemoryTest {
                 var param = reader.getDefaultReadParam();
                 param.setSourceRegion(region);
                 param.setDestinationOffset(new Point(1, 1));
-                var options = param.getDecodeOptions().memoryMode(Cr3DecodeOptions.MemoryMode.LOW_MEMORY);
+                var options = param.getDecodeOptions().bitDepth(Cr3DecodeOptions.BitDepth.EIGHT)
+                        .memoryMode(Cr3DecodeOptions.MemoryMode.LOW_MEMORY);
                 var image = reader.read(0, param);
                 assertEquals(width - 1, image.getWidth());
                 assertEquals(height - 1, image.getHeight());
@@ -90,7 +91,6 @@ class CanonCr3DestinationMemoryTest {
                     throw new AssertionError("The fixture must require more than half of the child heap");
                 }
                 var types = reader.getImageTypes(0);
-                types.next(); // Default RGB8.
                 var requested = types.next(); // Advertised banded RGB16 sRGB.
                 var param = reader.getDefaultReadParam();
                 param.setDestinationType(requested);

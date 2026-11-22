@@ -63,7 +63,7 @@ white balance, demosaicing and color conversion, and rounds only the final outpu
 to `0..65535`. It returns a banded RGB `BufferedImage`; read the full-depth samples
 through `image.getRaster()`, since `getRGB()` converts to eight bits per channel.
 Disable `applySrgbConversion` to retain linear RGB with a matching color model.
-Use version 0.1.8 or later for developed RGB16. The default color read produces eight-bit RGB.
+Use version 0.1.8 or later for developed RGB16. The core factory `rawProcessed()` selects eight-bit RGB. The ImageIO reader defaults to RGB16 in 0.1.9-SNAPSHOT.
 
 `experimentalPedestal(int)` and
 `PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH` are research-only controls. They

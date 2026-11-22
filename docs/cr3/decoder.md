@@ -87,7 +87,7 @@ Worker calls wait for submitted tasks before returning or propagating an error. 
 
 These classes implement the internal CR3 rendering pipeline. The facade resolves the display pedestal from optical-black rows when available, then MakerNote per-channel values, then a global default. White balance uses valid CTMD gains when present and can fall back to MakerNote or daylight multipliers. The RGB path applies the requested black-level and white-balance corrections before demosaic, followed by the camera color matrix, sRGB conversion and EXIF orientation. [Capture calibration and output modes](format.md#cfa-and-calibration-in-output-modes)
 
-Starting with 0.1.8, `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` produces three unsigned 16-bit RGB channels. This path retains fractional values and highlight headroom through the enabled rendering stages, then clamps and rounds the final channels to `0..65535`. It uses bounded row buffers and writes directly into the oriented output planes. Disabling sRGB conversion selects a linear RGB color model. The default read produces eight-bit RGB. [ImageIO options and sample access](imageio.md)
+Starting with 0.1.8, `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)` produces three unsigned 16-bit RGB channels. This path retains fractional values and highlight headroom through the enabled rendering stages, then clamps and rounds the final channels to `0..65535`. It uses bounded row buffers and writes directly into the oriented output planes. Disabling sRGB conversion selects a linear RGB color model. The core factory `rawProcessed()` selects RGB8. The ImageIO reader defaults to 16-bit sRGB in 0.1.9-SNAPSHOT. [ImageIO options and sample access](imageio.md)
 
 ## Unified facade
 

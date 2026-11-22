@@ -77,7 +77,7 @@ Find the Maven modules, dependency layers and supported library interfaces in th
 
 ## Import Canon CR3 files in Java
 
-Add `io.github.carstenartur:cr3-imageio:0.1.8` from Maven Central to a Java 21 or newer Maven application to develop a full-resolution color image from CR3 with `ImageIO.read(file)`. Use the reader parameters to select three-channel 16-bit RGB, the camera’s embedded JPEG, linear Bayer or the original sensor codes. The standalone `cr3-core` decoder also accepts a file path directly.
+`ImageIO.read(file)` develops the full-resolution CR3 image as three unsigned 16-bit sRGB channels in 0.1.9-SNAPSHOT. Use `image.getRaster().getSample(x, y, band)` to access the full precision. The published `io.github.carstenartur:cr3-imageio:0.1.8` for Java 21 or newer defaults to RGB8 and offers RGB16 through reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
 
 [Run the minimal Maven example](docs/cr3/imageio.md#run-the-minimal-example) · [ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
 

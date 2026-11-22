@@ -22,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -84,7 +85,7 @@ class ExternalCr3ConsumptionTest {
 
         BufferedImage developed = ImageIO.read(sample.toFile());
         assertNotNull(developed, "ImageIO.read should develop the RAW color image");
-        assertEquals(BufferedImage.TYPE_INT_RGB, developed.getType());
+        assertArrayEquals(new int[]{16, 16, 16}, developed.getSampleModel().getSampleSize());
 
         try (ImageInputStream input = ImageIO.createImageInputStream(sample.toFile())) {
             assertNotNull(input);

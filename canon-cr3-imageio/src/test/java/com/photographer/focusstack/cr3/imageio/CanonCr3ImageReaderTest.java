@@ -52,7 +52,8 @@ class CanonCr3ImageReaderTest {
 
             BufferedImage image = ImageIO.read(file.toFile());
             assertThat(image).isNotNull();
-            assertThat(image.getType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
+            assertThat(image.getRaster().getTransferType()).isEqualTo(DataBuffer.TYPE_USHORT);
+            assertThat(image.getSampleModel().getSampleSize()).containsExactly(16, 16, 16);
             assertThat(image.getWidth()).isEqualTo(2);
             assertThat(image.getHeight()).isEqualTo(2);
 
@@ -62,11 +63,11 @@ class CanonCr3ImageReaderTest {
                 assertThat(reader.getWidth(0)).isEqualTo(image.getWidth());
                 assertThat(reader.getHeight(0)).isEqualTo(image.getHeight());
                 assertThat(reader.getImageTypes(0).next().getBufferedImageType()).isEqualTo(image.getType());
-                int[] expected = image.getRGB(0, 0, 2, 2, null, 0, 2);
-                assertThat(reader.read(0).getRGB(0, 0, 2, 2, null, 0, 2)).containsExactly(expected);
+                int[] expected = image.getRaster().getPixels(0, 0, 2, 2, (int[]) null);
+                assertThat(reader.read(0).getRaster().getPixels(0, 0, 2, 2, (int[]) null)).containsExactly(expected);
                 var param = reader.getDefaultReadParam();
-                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed());
-                assertThat(reader.read(0, param).getRGB(0, 0, 2, 2, null, 0, 2)).containsExactly(expected);
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN));
+                assertThat(reader.read(0, param).getRaster().getPixels(0, 0, 2, 2, (int[]) null)).containsExactly(expected);
             } finally {
                 reader.dispose();
             }
@@ -100,7 +101,9 @@ class CanonCr3ImageReaderTest {
             try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
                  var input = new MemoryCacheImageInputStream(fixture)) {
                 reader.setInput(input);
-                BufferedImage raw = reader.read(0);
+                var reference = new ImageReadParam();
+                reference.setDestinationType(ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
+                BufferedImage raw = reader.read(0, reference);
                 BufferedImage destination = new BufferedImage(4, 3, BufferedImage.TYPE_INT_RGB);
                 destination.setRGB(2, 1, 0x223344);
                 ImageReadParam param = new ImageReadParam();
@@ -126,7 +129,9 @@ class CanonCr3ImageReaderTest {
             try (var fixture = CanonCr3ImageReaderTest.class.getResourceAsStream("four-sites.cr3");
                  var input = new MemoryCacheImageInputStream(fixture)) {
                 reader.setInput(input);
-                BufferedImage raw = reader.read(0);
+                var reference = new ImageReadParam();
+                reference.setDestinationType(ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
+                BufferedImage raw = reader.read(0, reference);
                 ImageReadParam param = reader.getDefaultReadParam();
                 param.setDestinationType(ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB));
                 param.setDestinationOffset(new Point(-1, 0));
@@ -287,7 +292,6 @@ class CanonCr3ImageReaderTest {
                  var input = new MemoryCacheImageInputStream(fixture)) {
                 reader.setInput(input);
                 var types = reader.getImageTypes(0);
-                assertThat(types.next().getBufferedImageType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
                 for (boolean srgb : new boolean[]{true, false}) {
                     assertThat(types.hasNext()).isTrue();
                     var type = types.next();
@@ -305,6 +309,8 @@ class CanonCr3ImageReaderTest {
                     assertThat(image.getRaster().getPixels(1, 1, 1, 2, (int[]) null))
                             .containsExactly(full.getPixels(1, 0, 1, 2, (int[]) null));
                 }
+                assertThat(types.next().getBufferedImageType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
+                assertThat(types.hasNext()).isFalse();
             } finally {
                 reader.dispose();
             }

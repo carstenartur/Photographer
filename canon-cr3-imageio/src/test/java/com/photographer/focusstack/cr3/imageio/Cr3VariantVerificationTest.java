@@ -306,7 +306,7 @@ class Cr3VariantVerificationTest {
                 assertThat(img)
                         .as(name + " — ImageIO.read() should return non-null image")
                         .isNotNull();
-                assertThat(img.getType()).as(name + " developed RGB type").isEqualTo(BufferedImage.TYPE_INT_RGB);
+                assertThat(img.getSampleModel().getSampleSize()).as(name + " developed RGB channels").containsExactly(16, 16, 16);
                 assertThat(img.getWidth()).as(name + " width").isGreaterThan(0);
                 assertThat(img.getHeight()).as(name + " height").isGreaterThan(0);
 

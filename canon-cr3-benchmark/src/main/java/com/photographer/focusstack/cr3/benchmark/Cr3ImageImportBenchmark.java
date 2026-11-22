@@ -106,7 +106,7 @@ public class Cr3ImageImportBenchmark {
 
     /** Full-resolution color development through the standard ImageIO file call. */
     @Benchmark
-    public BufferedImage importDefaultRawViaImageIo() throws IOException {
+    public BufferedImage importDefaultRgb16ViaImageIo() throws IOException {
         BufferedImage image = ImageIO.read(file.toFile());
         if (image == null) {
             throw new IOException("No ImageIO reader found for " + file);

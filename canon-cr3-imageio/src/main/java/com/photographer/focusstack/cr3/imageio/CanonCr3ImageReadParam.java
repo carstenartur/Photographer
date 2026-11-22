@@ -10,7 +10,7 @@ import java.util.Objects;
  *
  * <p>Extends {@link ImageReadParam} with CR3-specific options like output mode
  * and processing pipeline control. The default develops a full-resolution RAW
- * color image. Use {@link #setPreviewOnly(boolean) setPreviewOnly(true)} for the
+ * three-channel 16-bit sRGB image. Use {@link #setPreviewOnly(boolean) setPreviewOnly(true)} for the
  * camera's embedded JPEG.</p>
  *
  * <p><strong>API status:</strong> preview selection is supported for external
@@ -27,7 +27,7 @@ import java.util.Objects;
  */
 public class CanonCr3ImageReadParam extends ImageReadParam {
 
-    private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.rawProcessed();
+    private Cr3DecodeOptions decodeOptions = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN);
     private Cr3DecodeOptions previewOptions;
     private boolean explicitDecodeOptions;
     private boolean useDestinationAsWorkspace;
@@ -39,8 +39,8 @@ public class CanonCr3ImageReadParam extends ImageReadParam {
      * yet stable public API.</p>
      *
      * <p>The returned options are mutable. A change to their output mode, depth or
-     * encoding is preserved when a destination is selected. With default eight-bit
-     * sRGB output, a compatible sixteen-bit RGB destination can select its depth
+     * encoding is preserved when a destination is selected. With default 16-bit
+     * sRGB output, a compatible RGB destination can select its depth
      * and encoding without mutating these options.</p>
      *
      * @return the decode options

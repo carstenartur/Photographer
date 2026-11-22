@@ -1,5 +1,7 @@
 package com.photographer.focusstack.cr3.decode;
 
+import java.util.Objects;
+
 /**
  * Options controlling how a CR3 file is decoded.
  *
@@ -24,6 +26,7 @@ public final class Cr3DecodeOptions {
         var copy = new Cr3DecodeOptions();
         copy.outputMode = outputMode;
         copy.bitDepth = bitDepth;
+        copy.explicitBitDepth = explicitBitDepth;
         copy.applyBlackLevel = applyBlackLevel;
         copy.applyWhiteBalance = applyWhiteBalance;
         copy.applyColorMatrix = applyColorMatrix;
@@ -90,6 +93,7 @@ public final class Cr3DecodeOptions {
 
     private OutputMode outputMode = OutputMode.PREVIEW;
     private BitDepth bitDepth = BitDepth.EIGHT;
+    private boolean explicitBitDepth;
     private boolean applyBlackLevel = true;
     private boolean applyWhiteBalance = true;
     private boolean applyColorMatrix = true;
@@ -167,8 +171,11 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
-    /** Returns the output bit depth. Default is {@link BitDepth#EIGHT}. */
+    /** Returns the requested depth or the default supplied by the caller of the factory. */
     public BitDepth bitDepth() { return bitDepth; }
+
+    /** Whether a caller selected a depth that should take precedence over an ImageIO destination. */
+    public boolean hasExplicitBitDepth() { return explicitBitDepth; }
 
     /**
      * Records the requested RGB output depth. See {@link BitDepth} for the
@@ -179,6 +186,7 @@ public final class Cr3DecodeOptions {
      */
     public Cr3DecodeOptions bitDepth(BitDepth depth) {
         this.bitDepth = depth;
+        explicitBitDepth = true;
         return this;
     }
 
@@ -266,7 +274,14 @@ public final class Cr3DecodeOptions {
 
     /** Creates options for full RAW processing. */
     public static Cr3DecodeOptions rawProcessed() {
-        return new Cr3DecodeOptions().outputMode(OutputMode.RAW_PROCESSED);
+        return rawProcessed(BitDepth.EIGHT);
+    }
+
+    /** Creates RAW processing options with a default depth that a destination may override. */
+    public static Cr3DecodeOptions rawProcessed(BitDepth defaultDepth) {
+        var options = new Cr3DecodeOptions().outputMode(OutputMode.RAW_PROCESSED);
+        options.bitDepth = Objects.requireNonNull(defaultDepth, "defaultDepth");
+        return options;
     }
 
     /**

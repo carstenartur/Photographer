@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.jar.JarFile;
 
@@ -68,7 +69,8 @@ final class ExternalConsumptionProbe {
     private static BufferedImage verifyDefaultRawRead(Path sampleFile) throws IOException {
         BufferedImage image = ImageIO.read(sampleFile.toFile());
         require(image != null, "ImageIO.read(File) returned null for " + sampleFile);
-        require(image.getType() == BufferedImage.TYPE_INT_RGB, "Expected developed RGB from ImageIO.read(File)");
+        require(Arrays.equals(image.getSampleModel().getSampleSize(), new int[]{16, 16, 16}),
+                "Expected three 16-bit channels from ImageIO.read(File)");
         return image;
     }
 

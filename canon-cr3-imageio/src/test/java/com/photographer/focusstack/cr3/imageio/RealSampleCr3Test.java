@@ -363,7 +363,7 @@ class RealSampleCr3Test {
         void imageIoReadFile() throws Exception {
             BufferedImage img = ImageIO.read(sampleFile);
             assertThat(img).isNotNull();
-            assertThat(img.getType()).isEqualTo(BufferedImage.TYPE_INT_RGB);
+            assertThat(img.getSampleModel().getSampleSize()).containsExactly(16, 16, 16);
             assertThat(img.getWidth()).isGreaterThan(1620);
             assertThat(img.getHeight()).isGreaterThan(1080);
             try (ImageInputStream in = new FileImageInputStream(sampleFile)) {
