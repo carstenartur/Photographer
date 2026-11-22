@@ -75,15 +75,10 @@ final class CrxEntropyState {
 
     static int adaptK(int k, int value) {
         int scale = 1 << k;
-        if (2 * value < scale) {
-            return Math.max(0, k - 1);
-        }
-        if (value >= 6 * scale) {
-            return Math.min(MAX_RICE_WIDTH, k + 2);
-        }
-        if (value >= 3 * scale) {
-            return Math.min(MAX_RICE_WIDTH, k + 1);
-        }
-        return k;
+        // Prediction adaptation uses a residual of at most 21 bits and a neighbour difference.
+        // These signed differences fit in int. Their sign bits give the three threshold changes.
+        int decrease = (2 * value - scale) >> 31;
+        int increase = ((3 * scale - 1 - value) >>> 31) + ((6 * scale - 1 - value) >>> 31);
+        return Math.clamp(k + decrease + increase, 0, MAX_RICE_WIDTH);
     }
 }
