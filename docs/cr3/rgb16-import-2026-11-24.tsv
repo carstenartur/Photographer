@@ -1,0 +1,93 @@
+workload	input	JVM	revision	wall_median_ms	process_cpu_median_ms	allocated_median_MiB	process_peak_RSS_MiB
+compact	G5 X Mark II C-RAW	1	base	1668.58	2150.00	120.56	201.94
+compact	G5 X Mark II C-RAW	1	candidate	291.11	730.00	118.65	198.71
+compact	G5 X Mark II C-RAW	2	base	1630.60	2090.00	120.56	198.46
+compact	G5 X Mark II C-RAW	2	candidate	317.01	780.00	118.65	199.30
+compact	G5 X Mark II C-RAW	3	base	1639.34	2190.00	120.56	200.16
+compact	G5 X Mark II C-RAW	3	candidate	315.72	760.00	118.65	201.06
+compact	EOS R RAW	1	base	2852.08	3580.00	178.95	253.95
+compact	EOS R RAW	1	candidate	658.11	1460.00	175.95	241.05
+compact	EOS R RAW	2	base	2615.94	3500.00	178.95	245.57
+compact	EOS R RAW	2	candidate	534.29	1340.00	175.95	252.47
+compact	EOS R RAW	3	base	2619.56	3460.00	178.95	246.49
+compact	EOS R RAW	3	candidate	655.06	1660.00	175.95	242.76
+compact	G5 X Mark II RAW	1	base	1562.46	2060.00	119.16	194.99
+compact	G5 X Mark II RAW	1	candidate	350.49	920.00	117.24	194.29
+compact	G5 X Mark II RAW	2	base	1655.18	2140.00	119.16	190.52
+compact	G5 X Mark II RAW	2	candidate	329.27	850.00	117.24	192.93
+compact	G5 X Mark II RAW	3	base	1736.28	2310.00	119.16	198.93
+compact	G5 X Mark II RAW	3	candidate	339.17	880.00	117.24	192.98
+8x8	G5 X Mark II C-RAW	1	base	88.42	240.00	42.37	98.94
+8x8	G5 X Mark II C-RAW	1	candidate	70.36	200.00	13.54	69.42
+8x8	G5 X Mark II C-RAW	2	base	86.07	220.00	42.37	100.29
+8x8	G5 X Mark II C-RAW	2	candidate	68.33	200.00	13.54	71.04
+8x8	G5 X Mark II C-RAW	3	base	114.95	270.00	42.37	97.40
+8x8	G5 X Mark II C-RAW	3	candidate	67.02	190.00	13.54	70.22
+8x8	EOS R RAW	1	base	150.78	400.00	61.43	115.98
+8x8	EOS R RAW	1	candidate	142.70	410.00	18.03	70.56
+8x8	EOS R RAW	2	base	163.73	410.00	61.43	115.83
+8x8	EOS R RAW	2	candidate	133.59	410.00	18.03	70.46
+8x8	EOS R RAW	3	base	190.01	560.00	61.43	115.89
+8x8	EOS R RAW	3	candidate	119.81	350.00	18.03	70.24
+8x8	G5 X Mark II RAW	1	base	116.55	300.00	40.96	94.48
+8x8	G5 X Mark II RAW	1	candidate	87.07	240.00	12.13	64.65
+8x8	G5 X Mark II RAW	2	base	106.05	270.00	40.96	94.23
+8x8	G5 X Mark II RAW	2	candidate	75.94	220.00	12.13	63.92
+8x8	G5 X Mark II RAW	3	base	93.44	250.00	40.96	93.99
+8x8	G5 X Mark II RAW	3	candidate	82.41	240.00	12.13	64.21
+series	six files	1	base	1617.21	5115.00	757.43	382.11
+series-individual	G5 X Mark II RAW	1	base	228.70	NA	NA	NA
+series-individual	EOS R RAW	1	base	378.44	NA	NA	NA
+series-individual	G5 X Mark II C-RAW	1	base	226.61	NA	NA	NA
+series-individual	EOS R8 C-RAW	1	base	303.84	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	1	base	221.03	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	1	base	265.02	NA	NA	NA
+series	six files	1	candidate	1646.99	5075.00	757.45	380.51
+series-individual	G5 X Mark II RAW	1	candidate	208.75	NA	NA	NA
+series-individual	EOS R RAW	1	candidate	380.32	NA	NA	NA
+series-individual	G5 X Mark II C-RAW	1	candidate	205.64	NA	NA	NA
+series-individual	EOS R8 C-RAW	1	candidate	310.60	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	1	candidate	221.14	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	1	candidate	245.49	NA	NA	NA
+series	six files	2	base	1769.27	5495.00	757.43	397.74
+series-individual	EOS R RAW	2	base	427.59	NA	NA	NA
+series-individual	G5 X Mark II C-RAW	2	base	215.92	NA	NA	NA
+series-individual	EOS R8 C-RAW	2	base	305.82	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	2	base	302.52	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	2	base	232.52	NA	NA	NA
+series-individual	G5 X Mark II RAW	2	base	277.63	NA	NA	NA
+series	six files	2	candidate	1602.77	4850.00	757.45	394.88
+series-individual	EOS R RAW	2	candidate	359.83	NA	NA	NA
+series-individual	G5 X Mark II C-RAW	2	candidate	217.25	NA	NA	NA
+series-individual	EOS R8 C-RAW	2	candidate	303.65	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	2	candidate	240.87	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	2	candidate	216.73	NA	NA	NA
+series-individual	G5 X Mark II RAW	2	candidate	251.11	NA	NA	NA
+series	six files	3	base	1675.86	5575.00	757.43	383.94
+series-individual	G5 X Mark II C-RAW	3	base	223.76	NA	NA	NA
+series-individual	EOS R8 C-RAW	3	base	301.01	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	3	base	243.29	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	3	base	256.28	NA	NA	NA
+series-individual	G5 X Mark II RAW	3	base	214.02	NA	NA	NA
+series-individual	EOS R RAW	3	base	424.59	NA	NA	NA
+series	six files	3	candidate	1685.41	5465.00	757.45	395.41
+series-individual	G5 X Mark II C-RAW	3	candidate	212.74	NA	NA	NA
+series-individual	EOS R8 C-RAW	3	candidate	342.83	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	3	candidate	232.02	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	3	candidate	227.38	NA	NA	NA
+series-individual	G5 X Mark II RAW	3	candidate	256.83	NA	NA	NA
+series-individual	EOS R RAW	3	candidate	398.24	NA	NA	NA
+series	six files	4	base	1624.98	5105.00	757.43	302.91
+series-individual	EOS R8 C-RAW	4	base	266.48	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	4	base	255.26	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	4	base	249.96	NA	NA	NA
+series-individual	G5 X Mark II RAW	4	base	254.01	NA	NA	NA
+series-individual	EOS R RAW	4	base	380.00	NA	NA	NA
+series-individual	G5 X Mark II C-RAW	4	base	208.27	NA	NA	NA
+series	six files	4	candidate	1768.24	5395.00	757.45	300.97
+series-individual	EOS R8 C-RAW	4	candidate	245.13	NA	NA	NA
+series-individual	G7 X Mark III C-RAW	4	candidate	299.93	NA	NA	NA
+series-individual	EOS R5 Mark II C-RAW (APS-C)	4	candidate	289.87	NA	NA	NA
+series-individual	G5 X Mark II RAW	4	candidate	245.94	NA	NA	NA
+series-individual	EOS R RAW	4	candidate	394.73	NA	NA	NA
+series-individual	G5 X Mark II C-RAW	4	candidate	208.19	NA	NA	NA

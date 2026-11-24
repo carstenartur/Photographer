@@ -2,6 +2,10 @@
 
 CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
+## RGB16 rotation, source subsampling and metadata reads
+
+The [RGB16 import study](cr3/rgb16-import-2026-11-24.md) compares compact portrait rotation, coarse source subsampling, and a series of six distinct ordinary `ImageIO.read(File)` calls. It records full-output equivalence, memory use, wall time and the number of file reads attributable to TIFF metadata changes.
+
 ## Comparison with LibRaw 0.22.2 and 0.22.3 on 2026-11-22
 
 The [release comparison](cr3/import-comparison-2026-11-22/README.md) measures

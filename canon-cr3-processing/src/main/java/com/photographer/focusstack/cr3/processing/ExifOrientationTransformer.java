@@ -146,8 +146,10 @@ public final class ExifOrientationTransformer {
     /**
      * Orients exclusively owned dense RGB storage without allocating another image-sized pixel array.
      * Packed sRGB integer images and three-bank unsigned-short RGB16 images retain their original
-     * arrays. Flips and 180-degree rotation use constant scratch space; axis-swapping orientations
-     * use one visited bit per pixel and return a new raster over the same arrays.
+     * arrays. Flips and 180-degree rotation use constant scratch space. Axis-swapping orientations
+     * return a new raster over the same arrays. Their temporary storage fits the budget of a
+     * pixel-visited bitmap (one bit per pixel, rounded up to whole {@code long} words).
+     * Large RGB16 images use this budget to move consecutive samples together.
      *
      * <p>Compact storage must have zero offsets, no row padding, and exactly one image's samples
      * in each distinct bank. Other layouts, including subimages and aliased banks, delegate to
@@ -195,9 +197,12 @@ public final class ExifOrientationTransformer {
             }
         } else {
             var output = pixels.transposedImage(image);
-            var visited = new BitSet(count);
             boolean reverseX = reversesX(orientation);
             boolean reverseY = reversesY(orientation);
+            if (pixels.banks() != null && CompactRgb16Transpose.apply(pixels.banks(), width, height, reverseX, reverseY)) {
+                return output;
+            }
+            var visited = new BitSet(count);
             for (int first = visited.nextClearBit(0); first < count; first = visited.nextClearBit(first + 1)) {
                 visited.set(first);
                 int next = transposedIndex(first, width, height, reverseX, reverseY);

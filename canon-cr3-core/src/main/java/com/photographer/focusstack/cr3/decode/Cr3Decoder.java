@@ -314,7 +314,7 @@ public final class Cr3Decoder implements AutoCloseable {
         CrxSensorDecoder sensor = prepareSensor(track);
         var imageBytes = ImageBytes.samples((long) area.width * area.height, Integer.BYTES);
         options = memoryOptions(options, track, imageBytes, 0);
-        var prepared = prepareRawDevelopment(track, options, area, false, null, sensor);
+        var prepared = prepareRawDevelopment(track, options, area, false, null, sensor, null);
         double[][] matrix = prepared.colorMatrix();
         return new Cr3PreparedRaw(prepared.image(), prepared.blackLevel(), area.x, area.y,
                 prepared.whiteBalance().clone(), prepared.whiteLevel(),
@@ -406,13 +406,17 @@ public final class Cr3Decoder implements AutoCloseable {
         int[] suppliedSamples = sixteenBit || partial || transpose
                 ? null : reusableRgbSamples(destination, area);
         CrxSensorDecoder sensor = prepareSensor(track);
+        if (sixteenBit && sampled && (canPackAxis(region.width, columnStep) || canPackAxis(region.height, rowStep))) {
+            return decodePackedSampledRgb16(track, options, fullArea, region, area, partial, sensor,
+                    columnStep, rowStep, orientation);
+        }
         long areaSites = (long) area.width * area.height;
         long outputSites = (long) Math.ceilDiv(region.width, columnStep) * Math.ceilDiv(region.height, rowStep);
         var imageBytes = sampled ? ImageBytes.sampledRgb(sixteenBit, areaSites, outputSites, transpose)
                 : ImageBytes.rgb(sixteenBit, areaSites, outputSites, partial, orientation, suppliedSamples != null);
         options = memoryOptions(options, track, imageBytes, area.width);
         boolean compact = options.memoryMode() == Cr3DecodeOptions.MemoryMode.LOW_MEMORY;
-        var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples, sensor);
+        var prepared = prepareRawDevelopment(track, options, area, partial, suppliedSamples, sensor, null);
 
         Rectangle localRegion = new Rectangle(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
                 region.width, region.height);
@@ -461,6 +465,45 @@ public final class Cr3Decoder implements AutoCloseable {
         return suppliedSamples == null ? oriented : destination;
     }
 
+    private static boolean canPackAxis(int length, int spacing) {
+        // There must be two selected sites and room for at least one removable Bayer pair.
+        return spacing >= 5 && length > spacing;
+    }
+
+    /** Develops the coarse RGB16 grid with the same interpolation neighbors and native calibration. */
+    private BufferedImage decodePackedSampledRgb16(RawTrack track, Cr3DecodeOptions options, Rectangle fullArea,
+            Rectangle region, Rectangle area, boolean partial, CrxSensorDecoder sensor,
+            int columnStep, int rowStep, int orientation) throws Cr3Exception, IOException {
+        var local = new Rectangle(fullArea.x + region.x - area.x, fullArea.y + region.y - area.y,
+                region.width, region.height);
+        var cols = new SampleAxis(area.width, local.x, local.width, columnStep);
+        var rows = new SampleAxis(area.height, local.y, local.height, rowStep);
+        var grid = new SampleGrid(cols, rows);
+        long storedSites = (long) cols.size * rows.size;
+        if (rows.gap != 0 && options.applyBlackLevel()) {
+            // Four int pedestals per retained row pair, expressed in unsigned-short sample units.
+            storedSites += 8L * Math.ceilDiv(rows.size, 2);
+        }
+        long outputSites = (long) Math.ceilDiv(region.width, columnStep) * Math.ceilDiv(region.height, rowStep);
+        boolean transpose = orientation >= 5 && orientation <= 8;
+        var imageBytes = ImageBytes.sampledRgb(true, storedSites, outputSites, transpose);
+        options = memoryOptions(options, track, imageBytes, cols.size);
+        var prepared = prepareRawDevelopment(track, options, area, partial, null, sensor, grid);
+        var pattern = CrxLosslessRawDecoder.resolveBayerPattern(track.source.cmp1());
+        BlackLevel black = prepared.blackLevel();
+        int sensorY = area.y;
+        if (rows.gap != 0 && black != null && black.isPerRow()) {
+            // White normalization was resolved against every optical-black row before projection.
+            black = black.forSensorRows(rows.size, y -> area.y + rows.original(y), pattern);
+            sensorY = 0;
+        }
+        local.setSize(cols.span, rows.span);
+        var rgb = BayerDemosaicer.develop16Sampled(prepared.compactSamples(), cols.size, rows.size,
+                pattern, black, area.x, sensorY, prepared.whiteBalance(), prepared.whiteLevel(),
+                prepared.colorMatrix(), local, cols.step, rows.step, options.applySrgbConversion(), options.maxWorkers());
+        return ExifOrientationTransformer.applyToOwnedImageCompact(rgb, orientation);
+    }
+
     private static int[] reusableRgbSamples(BufferedImage image, Rectangle area) {
         if (image == null || image.getType() != BufferedImage.TYPE_INT_RGB
                 || image.getWidth() != area.width || image.getHeight() != area.height) {
@@ -484,9 +527,11 @@ public final class Cr3Decoder implements AutoCloseable {
                                        double[] whiteBalance, int whiteLevel, double[][] colorMatrix) {}
 
     private PreparedDevelopment prepareRawDevelopment(RawTrack track, Cr3DecodeOptions options, Rectangle area,
-                                                      boolean partial, int[] suppliedSamples, CrxSensorDecoder sensor)
+                                                      boolean partial, int[] suppliedSamples,
+                                                      CrxSensorDecoder sensor, SampleGrid grid)
             throws Cr3Exception, IOException {
-        int sampleCount = Math.multiplyExact(area.width, area.height);
+        int sampleCount = grid == null ? Math.multiplyExact(area.width, area.height)
+                : Math.multiplyExact(grid.columns.size, grid.rows.size);
         boolean compact = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN;
         short[] compactSamples = compact ? new short[sampleCount] : null;
         int[] samples = compact ? null : suppliedSamples == null ? new int[sampleCount] : suppliedSamples;
@@ -499,12 +544,17 @@ public final class Cr3Decoder implements AutoCloseable {
         int blackColumns = metadata == null ? 0 : metadata.activeAreaLeft();
         var ob = options.applyBlackLevel() && !experiment
                 ? ObBlackLevelEstimator.forSensor(track.width, track.height, blackColumns) : null;
-        CrxSensorDecoder.RowConsumer write = (x, y, row) -> {
-            if (ob != null) {
-                ob.addPlaneRow(x, y, row);
-            }
-            copyBayerRow(samples, compactSamples, area, x, y, row);
-        };
+        CrxSensorDecoder.RowConsumer write;
+        if (grid == null) {
+            write = (x, y, row) -> {
+                if (ob != null) {
+                    ob.addPlaneRow(x, y, row);
+                }
+                copyBayerRow(samples, compactSamples, area, x, y, row);
+            };
+        } else {
+            write = grid.consumer(compactSamples, area, ob);
+        }
         // With the masked columns in the first tile, no two tiles add to the same black-level sums.
         boolean independentTiles = ob == null || blackColumns <= track.source.cmp1().tileWidth();
         CrxSensorDecoder.PlaneRowLimit limit = partial
@@ -556,8 +606,14 @@ public final class Cr3Decoder implements AutoCloseable {
         // An even origin preserves the Bayer phase of the whole developed crop.
         int left = Math.max(0, region.x - 1) & ~1;
         int top = Math.max(0, region.y - 1) & ~1;
-        int right = Math.min(fullArea.width, region.x + region.width + 1);
-        int bottom = Math.min(fullArea.height, region.y + region.height + 1);
+        int right = region.x + region.width;
+        int bottom = region.y + region.height;
+        if (right < fullArea.width) {
+            right++;
+        }
+        if (bottom < fullArea.height) {
+            bottom++;
+        }
         return new Rectangle(fullArea.x + left, fullArea.y + top, right - left, bottom - top);
     }
 
@@ -869,6 +925,107 @@ public final class Cr3Decoder implements AutoCloseable {
         } else {
             for (int i = first; i < end; i++, dest += 2) {
                 destination[dest] = row[i];
+            }
+        }
+    }
+
+    /** Sensor and compact coordinates along one axis of a sampled RGB grid. */
+    private static final class SampleAxis {
+        final int extent;
+        final int first;
+        final int requestedStep;
+        final int intervals;
+        final int gap;
+        final int size;
+        final int span;
+        final int step;
+
+        SampleAxis(int extent, int first, int length, int requestedStep) {
+            this.extent = extent;
+            this.first = first;
+            this.requestedStep = requestedStep;
+            intervals = (length - 1) / requestedStep;
+            // Each selected pixel needs its left and right neighbor. Keeping four
+            // slots for even spacing or three for odd spacing preserves the CFA phase.
+            step = intervals == 0 ? requestedStep : Math.min(requestedStep, 4 - (requestedStep & 1));
+            gap = requestedStep - step;
+            size = extent - intervals * gap;
+            span = length - intervals * gap;
+        }
+
+        /** Compact index for a coordinate to retain, or -1 in a discarded gap. */
+        int index(int coordinate) {
+            if (gap == 0) {
+                return coordinate;
+            }
+            int relative = Math.max(0, coordinate - first + 1);
+            int block = Math.min(relative / requestedStep, intervals);
+            if (block < intervals && relative - block * requestedStep >= step) {
+                return -1;
+            }
+            return coordinate - block * gap;
+        }
+
+        /** Number of retained coordinates strictly before the given clipped endpoint. */
+        int countBefore(int endpoint) {
+            // The right-exclusive full extent can be Integer.MAX_VALUE.
+            long relative = Math.max(0L, (long) endpoint - first + 1);
+            int block = (int) Math.min(relative / requestedStep, intervals);
+            int skipped = block * gap;
+            if (block < intervals) {
+                skipped += Math.max(0, (int) (relative - (long) block * requestedStep) - step);
+            }
+            return endpoint - skipped;
+        }
+
+        int original(int position) {
+            int relative = Math.max(0, position - first + 1);
+            // Where gaps exist the physical spacing is always three or four.
+            int block = step == 3 ? relative / 3 : relative / 4;
+            return position + Math.min(block, intervals) * gap;
+        }
+    }
+
+    private record SampleGrid(SampleAxis columns, SampleAxis rows) {
+        CrxSensorDecoder.RowConsumer consumer(short[] samples, Rectangle area, ObBlackLevelEstimator ob) {
+            return (x, y, row) -> {
+                if (ob != null) {
+                    ob.addPlaneRow(x, y, row);
+                }
+                copy(samples, x - area.x, y - area.y, row);
+            };
+        }
+
+        void copy(short[] samples, int x, int y, int[] plane) {
+            if (y < 0 || y >= rows.extent) {
+                return;
+            }
+            int storedY = rows.index(y);
+            if (storedY < 0) {
+                return;
+            }
+            int rowOffset = storedY * columns.size;
+            if (columns.gap == 0) {
+                int first = Math.max(0, Math.ceilDiv(-x, 2));
+                int end = Math.min(plane.length, Math.ceilDiv(columns.extent - x, 2));
+                int dest = rowOffset + x + 2 * first;
+                for (int i = first; i < end; i++, dest += 2) {
+                    samples[dest] = (short) plane[i];
+                }
+                return;
+            }
+            int left = Math.max(0, x);
+            int right = (int) Math.min(columns.extent, (long) x + 2L * plane.length);
+            if (left >= right) {
+                return;
+            }
+            int start = columns.countBefore(left);
+            int end = columns.countBefore(right);
+            // Removing pairs preserves parity, including when the left edge was discarded.
+            start += (start ^ x) & 1;
+            for (int dest = start; dest < end; dest += 2) {
+                int source = (columns.original(dest) - x) / 2;
+                samples[rowOffset + dest] = (short) plane[source];
             }
         }
     }

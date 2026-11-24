@@ -66,6 +66,22 @@ class ExifOrientationCompactTest {
     }
 
     @Test
+    void compactsLargeRgb16RowsWithAndWithoutPartialGroups() {
+        // Exercise progressively wider groups, including an exact fit, a one-column
+        // tail and a tail one column short of a full group at the largest width.
+        for (int width : new int[]{351, 463, 799, 1536, 1537, 1599}) {
+            for (int orientation = 5; orientation <= 8; orientation++) {
+                var image = rgb16(width, 67, ColorSpace.CS_sRGB, new int[]{2, 0, 1});
+                fillSamples(image);
+                var expected = ExifOrientationTransformer.apply(image, orientation);
+                var actual = ExifOrientationTransformer.applyToOwnedImageCompact(image, orientation);
+                assertSameSamples(expected, actual);
+                assertSameBanks(image, actual);
+            }
+        }
+    }
+
+    @Test
     void matchesCopyingReferenceForThinOddAndPrimeDimensions() {
         int[][] dimensions = {{1, 1}, {1, 7}, {7, 1}, {2, 3}, {3, 2}, {4, 2}, {6, 8},
                 {9, 7}, {11, 13}, {71, 9}, {257, 67}};

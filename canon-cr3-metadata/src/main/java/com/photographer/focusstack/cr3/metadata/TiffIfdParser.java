@@ -322,8 +322,13 @@ public final class TiffIfdParser {
                     if (arrOffset + totalSize > tiffBase + boxDataSize) return null;
                     input.seek(arrOffset);
                     int[] values = new int[(int) count];
-                    for (int i = 0; i < count; i++) {
-                        values[i] = input.readUnsignedShort();
+                    short[] chunk = new short[Math.min(values.length, 1024)];
+                    for (int offset = 0; offset < values.length; offset += chunk.length) {
+                        int words = Math.min(chunk.length, values.length - offset);
+                        input.readFully(chunk, 0, words);
+                        for (int i = 0; i < words; i++) {
+                            values[offset + i] = Short.toUnsignedInt(chunk[i]);
+                        }
                     }
                     return new TagValue.IntArrayValue(values);
                 }

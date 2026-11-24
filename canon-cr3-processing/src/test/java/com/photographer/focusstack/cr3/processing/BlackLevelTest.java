@@ -3,6 +3,8 @@ package com.photographer.focusstack.cr3.processing;
 import com.photographer.focusstack.cr3.raw.Cr3RawImage;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -11,6 +13,26 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests for {@link BlackLevel}.
  */
 class BlackLevelTest {
+
+    @ParameterizedTest
+    @EnumSource(Cr3RawImage.BayerPattern.class)
+    void retainedRowsUseThePedestalOfTheirNativePosition(Cr3RawImage.BayerPattern pattern) {
+        int[][] levels = new int[4][8];
+        for (int channel = 0; channel < levels.length; channel++) {
+            for (int pair = 0; pair < levels[channel].length; pair++) {
+                levels[channel][pair] = 500 + 100 * channel + pair;
+            }
+        }
+        BlackLevel nativeLevels = BlackLevel.perRow(levels);
+        // Odd crop origin, a gap in the retained rows, and an unpaired final row.
+        int[] retained = {3, 4, 5, 10, 11};
+        BlackLevel packed = nativeLevels.forSensorRows(retained.length, y -> retained[y], pattern);
+        for (int y = 0; y < retained.length; y++) {
+            for (int x = 0; x < 2; x++) {
+                assertThat(packed.levelAt(x, y, pattern)).isEqualTo(nativeLevels.levelAt(x, retained[y], pattern));
+            }
+        }
+    }
 
     @Test
     @DisplayName("Global black level returns same value for all positions")

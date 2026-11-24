@@ -26,8 +26,11 @@ public final class Cr3BatchImportProbe {
         int parallelFiles = number(args[0], 1);
         int workers = number(args[1], 0);
         String mode = args[2];
-        if (!Set.of("rgb8", "rgb16", "sensor").contains(mode)) {
-            throw new IllegalArgumentException("Mode must be rgb8, rgb16, or sensor");
+        if (!Set.of("default", "rgb8", "rgb16", "sensor").contains(mode)) {
+            throw new IllegalArgumentException("Mode must be default, rgb8, rgb16, or sensor");
+        }
+        if (mode.equals("default") && workers != 0) {
+            throw new IllegalArgumentException("ImageIO.read(File) uses automatic workers; pass 0 for default mode");
         }
         int warmup = number(args[3], 0);
         int measured = number(args[4], 1);
