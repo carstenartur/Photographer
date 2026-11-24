@@ -281,7 +281,7 @@ public class CanonCr3ImageReader extends ImageReader {
             }
             if (source.equals(bounds)) {
                 BufferedImage destination = param instanceof CanonCr3ImageReadParam cr3
-                        && !sixteen && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
+                        && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
                         && param.getSourceBands() == null && param.getDestinationBands() == null
                         ? param.getDestination() : null;
                 BufferedImage decoded = decoder.decodeRawProcessedRegion(options, null, destination);

@@ -77,6 +77,8 @@ class Cr3MemoryPolicyTest {
         assertEquals(new ImageBytes(260, 260, 260), ImageBytes.rgb(false, 65, 65, false, 1, false));
         assertEquals(new ImageBytes(520, 276, 260), ImageBytes.rgb(false, 65, 65, false, 6, false));
         assertEquals(new ImageBytes(390, 390, 390), ImageBytes.rgb(true, 65, 65, false, 1, false));
+        assertEquals(new ImageBytes(0, 0, 0), ImageBytes.rgb(true, 65, 65, false, 1, true));
+        assertEquals(new ImageBytes(130, 130, 0), ImageBytes.rgb(true, 65, 65, false, 6, true));
         assertEquals(new ImageBytes(520, 406, 390), ImageBytes.rgb(true, 65, 65, false, 6, false));
         // A partial RGB16 keeps its native Bayer halo alongside the output banks.
         assertEquals(new ImageBytes(298, 298, 168), ImageBytes.rgb(true, 65, 28, true, 1, false));

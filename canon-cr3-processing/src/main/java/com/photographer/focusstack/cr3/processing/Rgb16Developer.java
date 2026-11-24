@@ -25,14 +25,38 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
         return develop(region, orientation, maxWorkers, true);
     }
 
+    BufferedImage developInto(Rectangle region, int orientation, int maxWorkers, BufferedImage destination) {
+        validate(region);
+        int[] size = ExifOrientationTransformer.outputDimensions(region.width, region.height, orientation);
+        short[][] channels = BayerDemosaicer.rgb16DestinationBanks(destination, size[0], size[1], srgb);
+        if (channels == null) {
+            throw new IllegalArgumentException("Expected a dense, correctly sized and encoded planar RGB16 destination");
+        }
+        short[] samples = image.unsignedShorts();
+        boolean reuse = channels[1] == samples;
+        if (channels[0] == samples || channels[2] == samples || (reuse && !canReuseBayerAsGreen(region, orientation))) {
+            throw new IllegalArgumentException("Only a full, unrotated RGB16 image can reuse Bayer samples as green");
+        }
+        developStripes(channels, region, orientation, maxWorkers, reuse);
+        return destination;
+    }
+
+    private boolean canReuseBayerAsGreen(Rectangle region, int orientation) {
+        return orientation == 1 && region.equals(new Rectangle(image.width(), image.height()));
+    }
+
     private BufferedImage develop(Rectangle region, int orientation, int maxWorkers, boolean owned) {
         validate(region);
         int[] size = ExifOrientationTransformer.outputDimensions(region.width, region.height, orientation);
-        boolean reuse = owned && image.unsignedShorts() != null && orientation == 1
-                && region.equals(new Rectangle(image.width(), image.height()));
+        boolean reuse = owned && image.unsignedShorts() != null && canReuseBayerAsGreen(region, orientation);
         int sampleCount = Math.multiplyExact(size[0], size[1]);
         short[][] channels = {new short[sampleCount],
                 reuse ? image.unsignedShorts() : new short[sampleCount], new short[sampleCount]};
+        developStripes(channels, region, orientation, maxWorkers, reuse);
+        return rgbImage(channels, size[0], size[1]);
+    }
+
+    private void developStripes(short[][] channels, Rectangle region, int orientation, int maxWorkers, boolean reuse) {
         int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(region.width, region.height));
 
         // In-place stores may replace a neighbor before an adjacent stripe reads it.
@@ -52,7 +76,6 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
             double[] originalBelow = seams == null || stripe + 1 == stripes ? null : seams[stripe][1];
             developRows(channels, region, orientation, first, end, originalAbove, originalBelow);
         });
-        return rgbImage(channels, size[0], size[1]);
     }
 
     BufferedImage developSampled(Rectangle region, int xStep, int yStep, int maxWorkers) {

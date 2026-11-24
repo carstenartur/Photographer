@@ -7,7 +7,6 @@ import java.awt.Rectangle;
 import java.awt.image.BandedSampleModel;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
-import java.awt.image.DataBufferUShort;
 import java.awt.image.Raster;
 import java.awt.image.SinglePixelPackedSampleModel;
 import java.util.BitSet;
@@ -228,42 +227,17 @@ public final class ExifOrientationTransformer {
     }
 
     private static DensePixels densePixels(BufferedImage image) {
-        long count = (long) image.getWidth() * image.getHeight();
-        var raster = image.getRaster();
-        var buffer = raster.getDataBuffer();
-        if (image.getClass() != BufferedImage.class || count > Integer.MAX_VALUE
-                || raster.getSampleModelTranslateX() != 0 || raster.getSampleModelTranslateY() != 0
-                || buffer.getOffset() != 0 || buffer.getSize() != count) {
-            return null;
-        }
         var packed = Pixels.packed(image);
-        if (packed != null && buffer.getNumBanks() == 1 && packed.offset() == 0
-                && packed.stride() == image.getWidth() && packed.data().length == count) {
-            return new DensePixels(packed.data(), null);
-        }
-        if (!(buffer instanceof DataBufferUShort shorts) || shorts.getNumBanks() != 3
-                || !(raster.getSampleModel() instanceof BandedSampleModel layout)
-                || layout.getNumBands() != 3 || layout.getScanlineStride() != image.getWidth()
-                || image.getColorModel().getNumComponents() != 3) {
-            return null;
-        }
-        int[] indices = layout.getBankIndices();
-        int[] bandOffsets = layout.getBandOffsets();
-        int[] dataOffsets = shorts.getOffsets();
-        short[][] banks = shorts.getBankData();
-        for (int band = 0; band < 3; band++) {
-            if (indices[band] < 0 || indices[band] >= 3 || bandOffsets[band] != 0
-                    || dataOffsets[band] != 0 || banks[band].length != count
-                    || image.getColorModel().getComponentSize(band) != 16) {
+        if (packed != null) {
+            if (!Pixels.spansWholeBuffer(image) || image.getRaster().getDataBuffer().getNumBanks() != 1
+                    || packed.offset() != 0 || packed.stride() != image.getWidth()
+                    || packed.data().length != image.getRaster().getDataBuffer().getSize()) {
                 return null;
             }
-            for (int previous = 0; previous < band; previous++) {
-                if (indices[previous] == indices[band] || banks[previous] == banks[band]) {
-                    return null;
-                }
-            }
+            return new DensePixels(packed.data(), null);
         }
-        return new DensePixels(null, banks);
+        short[][] banks = Pixels.denseRgb16Bands(image);
+        return banks == null ? null : new DensePixels(null, banks);
     }
 
     private record DensePixels(int[] packed, short[][] banks) {
