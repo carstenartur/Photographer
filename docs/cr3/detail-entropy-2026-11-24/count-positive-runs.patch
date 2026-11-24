@@ -1,0 +1,63 @@
+--- a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java
++++ b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxWaveletDetail.java
+@@ -21,0 +22 @@
++        state.countDetailRuns();
+@@ -53,0 +55 @@
++            state.countWidth(k);
+@@ -64,0 +67 @@
++                state.countWidth(k);
+--- a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxEntropyState.java
++++ b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/CrxEntropyState.java
+@@ -18,0 +19,35 @@
++
++    // Offline fixture measurement. Each detail subband is decoded by a single worker.
++    private static final java.util.List<long[][]> runCounters =
++            new java.util.concurrent.CopyOnWriteArrayList<>();
++    private long[][] counts;
++
++    void countDetailRuns() {
++        counts = new long[][]{new long[256], new long[64], new long[32], new long[64], new long[16]};
++        runCounters.add(counts);
++    }
++
++    void countWidth(int width) {
++        counts[4][width]++;
++    }
++
++    static {
++        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
++            String[] labels = {"samples-copied", "flags-read", "initial-run-index", "row-ending-flags", "detail-rice-width"};
++            for (int series = 0; series < labels.length; series++) {
++                int size = switch (series) { case 0 -> 256; case 2 -> 32; case 4 -> 16; default -> 64; };
++                long[] totals = new long[size];
++                for (long[][] counter : runCounters) {
++                    for (int i = 0; i < size; i++) {
++                        totals[i] += counter[series][i];
++                    }
++                }
++                for (int i = 0; i < size; i++) {
++                    if (totals[i] > 0) {
++                        String bucket = String.valueOf(i) + ((series == 0 || series == 1 || series == 3) && i == size - 1 ? "+" : "");
++                        System.err.println(labels[series] + "\t" + bucket + "\t" + totals[i]);
++                    }
++                }
++            }
++        }));
++    }
+@@ -46,0 +82,2 @@
++        int flags = 0;
++        int index = runIndex;
+@@ -49,0 +87 @@
++            flags++;
+@@ -60 +98,10 @@
+-        return (int) Math.min(copies, remaining);
++        int decoded = (int) Math.min(copies, remaining);
++        if (counts != null) {
++            counts[0][Math.min(decoded, 255)]++;
++            counts[1][Math.min(flags, 63)]++;
++            counts[2][index]++;
++            if (copies >= remaining) {
++                counts[3][Math.min(flags, 63)]++;
++            }
++        }
++        return decoded;

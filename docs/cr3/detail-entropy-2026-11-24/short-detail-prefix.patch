@@ -1,0 +1,43 @@
+--- a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/BitReader.java
++++ b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/BitReader.java
+@@ -16,0 +17,28 @@
++    private static final int DETAIL_PREFIX_BITS = 5;
++    private static final int SMALL_RICE_WIDTHS = 2;
++    private static final short[] DETAIL_PREFIXES = detailPrefixes();
++
++    private static short[] detailPrefixes() {
++        int count = 1 << DETAIL_PREFIX_BITS;
++        short[] table = new short[2 * SMALL_RICE_WIDTHS * count];
++        for (int guard = 0; guard <= 1; guard++) {
++            for (int k = 0; k < SMALL_RICE_WIDTHS; k++) {
++                for (int prefix = 0; prefix < count; prefix++) {
++                    int word = prefix << (Integer.SIZE - DETAIL_PREFIX_BITS);
++                    int leading = Integer.numberOfLeadingZeros(word);
++                    int quotient = leading - guard;
++                    int length = leading + 1 + k;
++                    int index = ((guard * SMALL_RICE_WIDTHS + k) << DETAIL_PREFIX_BITS) | prefix;
++                    if (quotient < 0) {
++                        table[index] = (POSITIVE_RUN << 4) | 1;
++                    } else if (length <= DETAIL_PREFIX_BITS) {
++                        int remainder = (word >>> (Integer.SIZE - length)) & ((1 << k) - 1);
++                        int code = CrxEntropyState.packDetailCode(k, (quotient << k) + remainder, quotient);
++                        table[index] = (short) ((code << 4) | length);
++                    }
++                }
++            }
++        }
++        return table;
++    }
++
+@@ -135,0 +164,11 @@
++        if (k < SMALL_RICE_WIDTHS) {
++            int index = ((runFlag ? SMALL_RICE_WIDTHS + k : k) << DETAIL_PREFIX_BITS)
++                    | (int) (word >>> (Long.SIZE - DETAIL_PREFIX_BITS));
++            int entry = DETAIL_PREFIXES[index];
++            int count = entry & 15;
++            if (entry != 0 && count <= available) {
++                buffer = word << count;
++                available -= count;
++                return entry >> 4;
++            }
++        }
