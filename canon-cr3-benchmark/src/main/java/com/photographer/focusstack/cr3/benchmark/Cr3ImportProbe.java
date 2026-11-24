@@ -42,7 +42,7 @@ import java.util.Set;
  * {@code --subsample-x N}, {@code --subsample-y N}, and {@code --dump FILE}.
  * Memory-mode values are case-insensitive. Sampling applies to the explicit RGB modes.
  * Boolean flags include {@code --checksum} and {@code --gc-between}. For full-size
- * {@code rgb16} or {@code rgb16linear}, either {@code --staged-destination} or
+ * {@code rgb16}, {@code rgb16camera}, or {@code rgb16linear}, either {@code --staged-destination} or
  * {@code --reuse-destination} allocates one advertised destination before timing. Only
  * {@code --reuse-destination} opts into using it as decoder workspace. Repeat
  * {@code --input FILE} to rotate through captures in order. When sharing a destination, all
@@ -54,7 +54,8 @@ import java.util.Set;
  * its normal options; nonzero {@code --workers}, a nonautomatic memory policy,
  * and orientation overrides are rejected for this mode.
  * {@code rgb8}, {@code rgb16}, and {@code rgb16linear} use an ImageIO reader with
- * explicit processing options. {@code sensor} uses the ImageIO sensor path,
+ * explicit processing options. {@code rgb16camera} uses that reader with
+ * {@link Cr3DecodeOptions#cameraRendered()}. {@code sensor} uses the ImageIO sensor path,
  * while {@code sensor-path} opens the file directly through {@link Cr3Decoder}.
  * Both sensor modes preserve sensor orientation and reject orientation overrides.</p>
  */
@@ -91,7 +92,7 @@ public final class Cr3ImportProbe {
         }
         boolean reuse = workspace || staged;
         if (reuse && (!mode.startsWith("rgb16") || xStep != 1 || yStep != 1)) {
-            throw new IllegalArgumentException("A supplied destination requires a full-size rgb16 or rgb16linear read");
+            throw new IllegalArgumentException("A supplied destination requires a full-size rgb16, rgb16camera, or rgb16linear read");
         }
 
         ImageIO.scanForPlugins();
@@ -108,12 +109,14 @@ public final class Cr3ImportProbe {
                 System.gc();
             }
             Map<Long, Long> before = allocated();
+            long totalAllocatedStart = THREADS.getTotalThreadAllocatedBytes();
             long cpuStart = OS.getProcessCpuTime();
             long start = System.nanoTime();
             BufferedImage image = read(file, mode, workers, memoryMode, orientationOverride, xStep, yStep,
                     destination, workspace);
             long elapsed = System.nanoTime() - start;
             long cpu = OS.getProcessCpuTime() - cpuStart;
+            long totalAllocated = THREADS.getTotalThreadAllocatedBytes() - totalAllocatedStart;
             long allocated = allocated().entrySet().stream()
                     .mapToLong(entry -> Math.max(0, entry.getValue() - before.getOrDefault(entry.getKey(), 0L)))
                     .sum();
@@ -132,7 +135,7 @@ public final class Cr3ImportProbe {
                                 + "\"requested_memory_mode\":\"%s\",\"orientation_override\":%d,"
                                 + "\"subsample_x\":%d,\"subsample_y\":%d,\"reuse_destination\":%b,\"destination_workspace\":%b,"
                                 + "\"width\":%d,\"height\":%d,\"channels\":%d,\"bits\":%d,"
-                                + "\"total_ms\":%.6f,\"cpu_ms\":%.6f,\"allocated_bytes\":%d,"
+                                + "\"total_ms\":%.6f,\"cpu_ms\":%.6f,\"allocated_bytes\":%d,\"total_thread_allocated_bytes\":%d,"
                                 + "\"heap_used_bytes\":%d,\"maxrss_kb\":%d,"
                                 + "\"checksum_kind\":\"%s\",\"fnv1a64\":\"%016x\"}%n",
                         escape(file.toString()), mode, iteration, warmup, workers,
@@ -140,7 +143,7 @@ public final class Cr3ImportProbe {
                         xStep, yStep, reuse, workspace,
                         image.getWidth(), image.getHeight(), image.getRaster().getNumBands(),
                         image.getSampleModel().getSampleSize(0),
-                        elapsed / 1e6, cpu / 1e6, allocated, heapUsed, maxRss,
+                        elapsed / 1e6, cpu / 1e6, allocated, totalAllocated, heapUsed, maxRss,
                         checksum ? "full-u16le-or-u8" : "sampled-rows-u16le-or-u8", hash);
             }
             if (iteration == iterations - 1 && arguments.containsKey("--dump")) {
@@ -280,9 +283,10 @@ public final class Cr3ImportProbe {
     }
 
     private static void validateReadRequest(String mode, int workers, MemoryMode memoryMode, int orientationOverride) {
-        if (mode == null || !Set.of("default", "rgb8", "rgb16", "rgb16linear", "sensor", "sensor-path").contains(mode)) {
+        if (mode == null || !Set.of("default", "rgb8", "rgb16", "rgb16camera", "rgb16linear",
+                "sensor", "sensor-path").contains(mode)) {
             throw new IllegalArgumentException("Unsupported --mode: " + mode
-                    + "; expected default, rgb8, rgb16, rgb16linear, sensor, or sensor-path");
+                    + "; expected default, rgb8, rgb16, rgb16camera, rgb16linear, sensor, or sensor-path");
         }
         if (workers < 0) {
             throw new IllegalArgumentException("--workers must be an integer >= 0: " + workers);
@@ -324,15 +328,15 @@ public final class Cr3ImportProbe {
             }
             return image;
         }
-        Cr3DecodeOptions options = mode.startsWith("sensor")
-                ? Cr3DecodeOptions.rawSensor() : Cr3DecodeOptions.rawProcessed();
+        Cr3DecodeOptions options = switch (mode) {
+            case "rgb16camera" -> Cr3DecodeOptions.cameraRendered();
+            case "rgb16" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN);
+            case "rgb16linear" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                    .applySrgbConversion(false);
+            case "sensor", "sensor-path" -> Cr3DecodeOptions.rawSensor();
+            default -> Cr3DecodeOptions.rawProcessed();
+        };
         options.maxWorkers(workers).memoryMode(memoryMode);
-        if (mode.startsWith("rgb16")) {
-            options.bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN);
-        }
-        if (mode.endsWith("linear")) {
-            options.applySrgbConversion(false);
-        }
         if (mode.endsWith("-path")) {
             try (Cr3Decoder decoder = new Cr3Decoder()) {
                 decoder.setInput(file);

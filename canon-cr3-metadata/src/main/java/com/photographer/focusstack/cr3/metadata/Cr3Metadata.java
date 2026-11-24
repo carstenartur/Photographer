@@ -36,6 +36,9 @@ public final class Cr3Metadata {
     private double focalLengthMm;
     private double fNumber;
     private double exposureTime;
+    private String lensModel = "";
+    private double focusDistanceMetres;
+    private int pictureStyle = -1;
 
     // EXIF orientation (1-8, per EXIF spec; default 1 = normal)
     private int orientation = 1;
@@ -156,6 +159,28 @@ public final class Cr3Metadata {
 
     /** Sets the focal length in millimetres. */
     public void setFocalLengthMm(double focalLengthMm) { this.focalLengthMm = focalLengthMm; }
+
+    /** Returns the recorded optical lens model, or an empty string if the camera omitted it. */
+    public String lensModel() { return lensModel; }
+
+    /** Sets the lens model as recorded by the camera. */
+    public void setLensModel(String lensModel) { this.lensModel = lensModel; }
+
+    /**
+     * Returns the EXIF subject distance in metres, falling back to the midpoint of Canon’s
+     * reported lower and upper focus distances. Positive infinity denotes an explicit
+     * infinity focus. Zero denotes an unknown distance, including an open-ended interval.
+     */
+    public double focusDistanceMetres() { return focusDistanceMetres; }
+
+    /** Sets the focus distance used for lens calibration, or positive infinity for infinity focus. */
+    public void setFocusDistanceMetres(double focusDistanceMetres) { this.focusDistanceMetres = focusDistanceMetres; }
+
+    /** Returns Canon’s as-shot Picture Style code, for example 0x85 (Faithful), or -1 if absent. */
+    public int pictureStyle() { return pictureStyle; }
+
+    /** Sets the Picture Style code from the Canon ProcessingInfo directory. */
+    public void setPictureStyle(int pictureStyle) { this.pictureStyle = pictureStyle; }
 
     /** Returns the f-number (aperture). */
     public double fNumber() { return fNumber; }

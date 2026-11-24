@@ -48,3 +48,5 @@ java -cp "$classes:$jar" com.photographer.focusstack.cr3.imageio.Cr3CameraJpegPr
 ```
 
 Replace the two sample paths with `"$samples"/*.cr3 "$samples"/research/*.cr3` to measure all 13 repository originals. Inspect the `status` column before interpreting a row. Missing camera JPEGs, unsupported color profiles and incompatible framing carry no numerical score.
+
+To evaluate the separately selectable lens and tone corrections, use the [four-mode comparison](camera-rendering.md#reproduce-the-comparison).

@@ -11,6 +11,8 @@ Post-codec processing for linear CR3 RAW mosaics.
 - camera color-matrix lookup and application
 - dual-illuminant interpolation
 - linear-to-sRGB conversion
+- profile-based correction of vignetting, lateral chromatic aberration and distortion
+- camera tone curves for supported body and Picture Style combinations
 - EXIF orientation transforms
 - shared pixel helpers
 
@@ -24,6 +26,20 @@ models rather than low-level box structures.
 
 Separating this layer keeps CRX bitstream work independent from display rendering
 and prevents image-quality changes from being mixed into codec experiments.
+
+## Optical calibration data
+
+The JAR includes three sets of measured Lensfun coefficients for full-field recordings.
+The PowerShot G5 X Mark II uses its fixed-lens profile. The EOS R requires an exact
+match for the RF 24–105 mm F4 L IS USM or RF 85 mm F2 Macro IS STM.
+The registry evaluates the calibration at the recorded focal length, aperture and
+focus distance. It bounds lookups to the closest measured focus planes. For the
+G5 X Mark II both published distance planes contain the same coefficients, so
+near-focus results depend on a calibration measured at longer distances.
+
+The Java processing code uses the project's MIT license. The three profile
+tables are distributed under CC BY-SA 3.0, with their origin, modifications
+and license in `META-INF/lensfun` inside the JAR. [Data attribution](src/main/resources/META-INF/lensfun/NOTICE.txt) · [Profile license](src/main/resources/META-INF/lensfun/LICENSE-CC-BY-SA-3.0.txt)
 
 ## Compatibility contract
 

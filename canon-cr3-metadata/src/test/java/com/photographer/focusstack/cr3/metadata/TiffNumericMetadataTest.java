@@ -4,6 +4,7 @@ import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.metadata.TiffIfdParser.TagValue;
 import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.EOFException;
@@ -20,6 +21,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TiffNumericMetadataTest {
     static Stream<ByteOrder> byteOrders() {
         return Stream.of(ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"41,41,0.41", "45,43,0.44", "0,0,0", "45,0,0", "40,41,0", "65535,150,0", "65535,65535,Infinity"})
+    void distinguishesKnownAndUnknownCanonFileInfoFocusDistances(int upper, int lower, double metres) throws Exception {
+        int[] fileInfo = new int[22];
+        fileInfo[20] = upper;
+        fileInfo[21] = lower;
+        var metadata = readMetadata("CMT3", shortArrayIfd(ByteOrder.LITTLE_ENDIAN, 0x0093, fileInfo));
+        assertThat(metadata.focusDistanceMetres()).isEqualTo(metres);
+    }
+
+    @ParameterizedTest
+    @MethodSource("byteOrders")
+    void readsSubjectDistanceAndPictureStyleFromTheirCaptureDirectories(ByteOrder order) throws Exception {
+        var metres = rationalIfd(order, TiffIfdParser.TAG_SUBJECT_DISTANCE, 5, 3, 2);
+        assertThat(readMetadata("CMT2", metres).focusDistanceMetres()).isEqualTo(1.5);
+        var infinity = rationalIfd(order, TiffIfdParser.TAG_SUBJECT_DISTANCE, 5, 0xffffffffL, 1);
+        assertThat(readMetadata("CMT2", infinity).focusDistanceMetres()).isEqualTo(Double.POSITIVE_INFINITY);
+        int[] processing = new int[11];
+        processing[10] = 0x85;
+        assertThat(readMetadata("CMT3", shortArrayIfd(order, 0x00a0, processing)).pictureStyle()).isEqualTo(0x85);
+        assertThat(readMetadata("CMT3", shortArrayIfd(order, 0x00a0, new int[9])).pictureStyle()).isEqualTo(-1);
     }
 
     @ParameterizedTest

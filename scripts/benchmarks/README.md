@@ -41,9 +41,18 @@ JAR on the runtime classpath. The production CR3 modules themselves target Java
 | `default` | Actual `ImageIO.read(File)` with automatic options (sRGB16 in 0.1.9-SNAPSHOT, RGB8 in 0.1.8) |
 | `rgb8` | Explicit ImageIO processing options; RGB8 |
 | `rgb16` | Explicit ImageIO processing options; three unsigned-short sRGB bands |
+| `rgb16camera` | ImageIO with the public `Cr3DecodeOptions.cameraRendered()` preset, including available lens correction and camera tone, returning three unsigned-short sRGB bands |
 | `rgb16linear` | Same RGB16 pipeline with linear output transfer |
 | `sensor` | ImageIO, uncropped native unsigned-short Bayer image |
 | `sensor-path` | Direct `Cr3Decoder` file input, uncropped native Bayer image |
+
+To reproduce the [camera-rendering timings](../../docs/cr3/camera-rendering.md), run the
+command above with `--warmup 3 --iterations 4 --gc-between` on `sample-wide.cr3`
+and `eosr-iso-low.cr3`. For each capture, run `--mode default` and
+`--mode rgb16camera` in fresh Java 21 processes, twice per mode, using the same four
+CPU cores. For each mode and capture, calculate the median `total_ms` and
+`total_thread_allocated_bytes` in each process, then take the median of those
+two values for each metric. Divide the allocation figure by 1,048,576 to obtain MiB.
 
 `--workers N` applies to the explicit modes. `default` requires zero (automatic),
 because it deliberately uses the ordinary ImageIO call. Use the JVM processor
@@ -64,7 +73,7 @@ omitted); these fields do not claim to expose the effective automatic decision.
 in the explicit RGB modes. Both default to one. JSON records the intervals as
 `subsample_x` and `subsample_y`. [RGB subsampling measurements](../../docs/cr3/rgb-subsampling-performance.md)
 
-Use `--reuse-destination` with full-resolution `rgb16` or `rgb16linear` to benchmark a
+Use `--reuse-destination` with full-resolution `rgb16`, `rgb16camera`, or `rgb16linear` to benchmark a
 caller-owned workspace. The probe allocates an advertised 3 × 16-bit destination before
 warmup, passes it through the ImageIO read parameters on each import and verifies that
 the reader returns the same object. To measure successive frames, repeat `--input` with
@@ -101,6 +110,8 @@ serialization are outside that timer. Provider preflight opens the file before
 the loop and can warm the cache. An external process timer is required to measure
 JVM startup as well. Every warmup and measured iteration decodes a new image.
 
+`total_thread_allocated_bytes` is the HotSpot process-wide Java thread allocation
+delta, including threads that finish during the import.
 `allocated_bytes` is a delta of allocation counters from live Java threads,
 including small instrumentation costs; terminated threads may be missed. It is
 not native allocation or peak live heap. `heap_used_bytes` is a snapshot.

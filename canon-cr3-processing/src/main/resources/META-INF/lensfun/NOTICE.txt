@@ -1,0 +1,22 @@
+Lensfun lens database
+Copyright and attribution: the Lensfun project and its lens database contributors.
+Upstream also credits Tom Niemann for the original open-source PTLens database.
+https://github.com/lensfun/lensfun
+
+The three .tsv profile resources in this directory are adapted from the Lensfun
+database at commit 37238fcef563196fb798f6151cb9023968b26c40 (17 November 2026).
+They are provided under Creative Commons Attribution-ShareAlike 3.0 Unported.
+https://creativecommons.org/licenses/by-sa/3.0/
+The license text is included alongside these data in LICENSE-CC-BY-SA-3.0.txt.
+
+Photographer selected the PTLens, poly3 and PA calibration rows for the three
+lenses below and converted their XML attributes to tab-separated columns.
+The numeric coefficients are reproduced as published. Photographer's matching,
+interpolation and rendering algorithms are independently implemented in Java.
+
+canon-g5x-mark-ii.tsv — G5 X Mark II & compatibles
+https://github.com/lensfun/lensfun/blob/37238fcef563196fb798f6151cb9023968b26c40/data/db/compact-canon.xml
+
+canon-rf24-105-f4l.tsv — Canon RF 24-105mm F4L IS USM
+canon-rf85-f2-macro.tsv — Canon RF 85mm F2 MACRO IS STM
+https://github.com/lensfun/lensfun/blob/37238fcef563196fb798f6151cb9023968b26c40/data/db/mil-canon.xml

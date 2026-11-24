@@ -31,6 +31,9 @@ public final class Cr3DecodeOptions {
         copy.applyWhiteBalance = applyWhiteBalance;
         copy.applyColorMatrix = applyColorMatrix;
         copy.applySrgbConversion = applySrgbConversion;
+        copy.applyLensCorrection = applyLensCorrection;
+        copy.lensShadingStrength = lensShadingStrength;
+        copy.applyCameraTone = applyCameraTone;
         copy.cropToActiveArea = cropToActiveArea;
         copy.pedestalStrategy = pedestalStrategy;
         copy.experimentalPedestalLevel = experimentalPedestalLevel;
@@ -98,6 +101,9 @@ public final class Cr3DecodeOptions {
     private boolean applyWhiteBalance = true;
     private boolean applyColorMatrix = true;
     private boolean applySrgbConversion = true;
+    private boolean applyLensCorrection;
+    private double lensShadingStrength = 1;
+    private boolean applyCameraTone;
     private boolean cropToActiveArea = true;
     private PedestalStrategy pedestalStrategy = PedestalStrategy.DEFAULT;
     private int experimentalPedestalLevel = 0;
@@ -226,6 +232,60 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
+    /** Whether to use the matched optical profile on a cropped RAW development. */
+    public boolean applyLensCorrection() { return applyLensCorrection; }
+
+    /**
+     * Corrects supported lenses for vignetting, distortion and lateral chromatic aberration
+     * on a recognized full field of view. The optical transform precedes any requested
+     * source region or subsampling and keeps the developed image dimensions. Unknown lenses,
+     * unsupported capture geometries and full-sensor reads retain their native geometry.
+     *
+     * @param apply whether to request the optical correction
+     * @return these options
+     */
+    public Cr3DecodeOptions applyLensCorrection(boolean apply) {
+        applyLensCorrection = apply;
+        return this;
+    }
+
+    /** Fraction of the calibrated vignetting gain to use, one by default. */
+    public double lensShadingStrength() { return lensShadingStrength; }
+
+    /**
+     * Sets the amount of vignetting correction used with {@link #applyLensCorrection(boolean)}.
+     * Zero keeps the original peripheral brightness. One applies the full calibrated gain.
+     * Intermediate values blend the gains in linear light. All strengths use the same
+     * geometric mapping, lateral chromatic correction and valid field of view.
+     *
+     * @param strength finite value from zero to one, inclusive
+     * @return these options
+     * @throws IllegalArgumentException if strength is outside the supported range
+     */
+    public Cr3DecodeOptions lensShadingStrength(double strength) {
+        if (!(strength >= 0 && strength <= 1)) {
+            throw new IllegalArgumentException("lensShadingStrength must be between 0 and 1");
+        }
+        lensShadingStrength = strength;
+        return this;
+    }
+
+    /** Whether to use a camera-specific tone curve when rendering display sRGB. */
+    public boolean applyCameraTone() { return applyCameraTone; }
+
+    /**
+     * Selects the calibrated tone curve for a supported camera and Canon picture style.
+     * The curve operates on developed RAW colors and does not require a JPEG decode.
+     * Linear RGB and Bayer data retain their original tonal response.
+     *
+     * @param apply whether to request the camera tone curve
+     * @return these options
+     */
+    public Cr3DecodeOptions applyCameraTone(boolean apply) {
+        applyCameraTone = apply;
+        return this;
+    }
+
     /** Whether to crop to the active sensor area. Default is {@code true}. */
     public boolean cropToActiveArea() { return cropToActiveArea; }
 
@@ -285,6 +345,17 @@ public final class Cr3DecodeOptions {
     }
 
     /**
+     * Requests developed RGB16 with the available lens profile and camera tone curve.
+     * Both adjustments are independent and may be disabled or enabled individually.
+     * The pixels are developed from RAW sensor data.
+     *
+     * @return mutable options for camera-rendered RAW output
+     */
+    public static Cr3DecodeOptions cameraRendered() {
+        return rawProcessed(BitDepth.SIXTEEN).applyLensCorrection(true).applyCameraTone(true);
+    }
+
+    /**
      * Returns full-sensor Bayer codes in an unsigned-short, single-band raster.
      * The RAW_SENSOR mode always preserves the original extent and sample units.
      * Crop and processing settings apply only to the other RAW modes.
@@ -305,9 +376,9 @@ public final class Cr3DecodeOptions {
 
     @Override
     public String toString() {
-        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, crop=%s, pedestalStrategy=%s, experimentalPedestal=%s, maxWorkers=%s]"
+        return "Cr3DecodeOptions[mode=%s, bits=%s, blackLevel=%s, wb=%s, colorMatrix=%s, srgb=%s, lens=%s, lensShadingStrength=%s, cameraTone=%s, crop=%s, pedestalStrategy=%s, experimentalPedestal=%s, maxWorkers=%s]"
                 .formatted(outputMode, bitDepth, applyBlackLevel, applyWhiteBalance,
-                        applyColorMatrix, applySrgbConversion, cropToActiveArea,
+                        applyColorMatrix, applySrgbConversion, applyLensCorrection, lensShadingStrength, applyCameraTone, cropToActiveArea,
                         pedestalStrategy, experimentalPedestalLevel, maxWorkers);
     }
 }
