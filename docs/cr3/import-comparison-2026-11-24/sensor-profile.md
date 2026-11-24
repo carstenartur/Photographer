@@ -20,6 +20,8 @@ For EOS R lossless RAW, inspect the branches for flat neighborhoods and the pred
 
 Compare any candidate against the same revision across several warm JVMs without JFR. Check complete Bayer rasters byte for byte, then measure the normal RGB16 `ImageIO.read(File)` on the same originals.
 
+The follow-up studies record the [measured C-RAW run distributions and decoder experiments](../detail-entropy-2026-11-24/README.md) and the [lossless RAW change to Rice-width adaptation](../lossless-rice-width-2026-11-24.md).
+
 ## Reproduce the profiles
 
 On an AMD EPYC 9V74 Linux host, each file ran in its own Java 21.0.13 process on logical CPUs 4–7 with Serial GC. The probe completed twelve sensor reads before recording another 32. The recording covers the whole second probe invocation, including all worker threads and between-read activity. The filesystem cache was warm.
