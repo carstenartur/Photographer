@@ -2,7 +2,6 @@ package com.photographer.focusstack.cr3.imageio;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
-import java.awt.image.DataBuffer;
 import java.awt.image.Raster;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -15,8 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-
-import javax.imageio.ImageIO;
 
 import com.photographer.focusstack.cr3.imageio.ImageQualityHelper.ReferenceWhite;
 
@@ -32,24 +29,7 @@ public final class Cr3ColorChartProbe {
         var reference = readTable(Path.of(args[2]), "patch\tL\ta\tb");
         var regions = readTable(Path.of(args[3]), "patch\tx\ty\twidth\theight");
         var file = Path.of(args[0]).toFile();
-        try (var input = ImageIO.createImageInputStream(file)) {
-            if (input == null) {
-                throw new IOException("Cannot open " + file);
-            }
-            var readers = ImageIO.getImageReaders(input);
-            if (!readers.hasNext()) {
-                throw new IOException("No ImageIO reader accepts " + file);
-            }
-            var first = readers.next();
-            try {
-                if (!(first instanceof CanonCr3ImageReader)) {
-                    throw new IOException("Expected Photographer's CR3 reader for " + file + ", found " + first.getClass());
-                }
-            } finally {
-                first.dispose();
-            }
-        }
-        var image = ImageIO.read(file);
+        var image = ImageQualityHelper.readDefaultCr3(file);
         evaluate(image, white, reference, regions, System.out);
     }
 
@@ -75,11 +55,7 @@ public final class Cr3ColorChartProbe {
 
     static void evaluate(BufferedImage image, ReferenceWhite white, Map<String, String[]> reference,
             Map<String, String[]> regions, PrintStream report) {
-        if (image == null || !image.getColorModel().getColorSpace().isCS_sRGB()
-                || image.getRaster().getTransferType() != DataBuffer.TYPE_USHORT
-                || !Arrays.equals(image.getSampleModel().getSampleSize(), new int[]{16, 16, 16})) {
-            throw new IllegalArgumentException("Expected a developed three-channel, unsigned 16-bit sRGB image");
-        }
+        ImageQualityHelper.requireRgb16(image);
         if (!reference.keySet().equals(regions.keySet()) || reference.isEmpty()) {
             throw new IllegalArgumentException("Reference and region files must describe the same nonempty patch set");
         }

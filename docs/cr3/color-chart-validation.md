@@ -1,6 +1,6 @@
 # Measuring CR3 RGB16 color with a physical chart
 
-This procedure measures the colors returned by Photographer's default `ImageIO.read(File)` against independent patch references. It covers both RAW and C-RAW supported by the reader. The output is a comparison in CIELAB for the chosen camera, chart, lighting and exposure. The repository's G5 X Mark II fixtures have decoder reference renders and camera previews. A measured G5 X Mark II color accuracy result requires a chart recording and reference data.
+To see how closely `ImageIO.read(File)` reproduces Canon’s development of an existing photo, use the [embedded camera JPEG comparison](camera-jpeg-comparison.md). Both images come from the same exposure. To measure how the developed colors reproduce a physical subject under a known light, the procedure below compares RAW or C-RAW output against independent CIELAB references for the chart patches.
 
 ## Capture a daylight and artificial-light pair
 

@@ -1,6 +1,12 @@
 package com.photographer.focusstack.cr3.imageio;
 
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+
+import javax.imageio.ImageIO;
 
 /**
  * Self-contained SSIM and CIE ΔE2000 colour-difference helpers for
@@ -39,6 +45,36 @@ final class ImageQualityHelper {
     // ─────────────────────────────────────────────────────────────────────
     //  Public API
     // ─────────────────────────────────────────────────────────────────────
+
+    /** Verify the selected provider and exercise the same default import as an ImageIO caller. */
+    static BufferedImage readDefaultCr3(File file) throws IOException {
+        try (var input = ImageIO.createImageInputStream(file)) {
+            if (input == null) {
+                throw new IOException("Cannot open " + file);
+            }
+            var readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                throw new IOException("No ImageIO reader accepts " + file);
+            }
+            var first = readers.next();
+            try {
+                if (!(first instanceof CanonCr3ImageReader)) {
+                    throw new IOException("Expected Photographer's CR3 reader for " + file + ", found " + first.getClass());
+                }
+            } finally {
+                first.dispose();
+            }
+        }
+        return ImageIO.read(file);
+    }
+
+    static void requireRgb16(BufferedImage image) {
+        if (image == null || !image.getColorModel().getColorSpace().isCS_sRGB()
+                || image.getRaster().getTransferType() != DataBuffer.TYPE_USHORT
+                || !Arrays.equals(image.getSampleModel().getSampleSize(), new int[]{16, 16, 16})) {
+            throw new IllegalArgumentException("Expected a developed three-channel, unsigned 16-bit sRGB image");
+        }
+    }
 
     /**
      * Computes the mean SSIM on the luminance channel.

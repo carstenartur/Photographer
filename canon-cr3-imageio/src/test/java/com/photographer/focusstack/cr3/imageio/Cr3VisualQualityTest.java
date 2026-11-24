@@ -29,28 +29,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
 /**
- * Perceptual quality test for the CR3 → sRGB RAW processing pipeline.
- *
- * <p>For every {@code *.cr3} sample in the test resources directory, this test:</p>
- * <ol>
- *   <li>Extracts the embedded PRVW JPEG from the CR3 container as a ground-truth
- *       reference (same scene, same white balance, camera-rendered).</li>
- *   <li>Decodes the raw sensor data with the full pipeline (BL → crop → WB →
- *       bilinear demosaic → colour matrix → sRGB gamma).</li>
- *   <li>Down-scales the decoded image to the PRVW's dimensions using a high-quality
- *       bicubic filter so both images are at the same resolution.</li>
- *   <li>Computes structural similarity (SSIM) and mean CIE ΔE2000.</li>
- *   <li>Asserts {@code SSIM ≥ 0.02} and {@code meanΔE ≤ 85.0} as a permissive
- *       <em>regression gate</em> calibrated just below/above today's worst measured
- *       values for the dark-frame-validated {@code PATENT_BRACKET} CRX decoder.
- *       Tighten to {@code SSIM ≥ 0.90} / {@code ΔE ≤ 5.0} once the decoder matures
- *       (see the {@code SSIM_MIN} / {@code DELTA_E_MAX} field Javadoc).</li>
- *   <li>Writes side-by-side debug images to {@code target/cr3-decode-debug/} for
- *       manual inspection (not committed to version control).</li>
- * </ol>
- *
- * <p>Samples that use C-RAW (lossy) compression are skipped automatically
- * when the decoder throws a {@link Cr3Exception}.</p>
+ * Legacy regression check for the RAW processing pipeline against Canon's embedded preview.
+ * It compares an 8-bit bicubic reduction to the PRVW and writes diagnostic images.
+ * The camera has applied its own tone and color processing. The thresholds detect gross
+ * regressions and do not specify absolute color accuracy or the RGB16 import's fidelity.
+ * See {@link Cr3CameraJpegProbe} for a measurement through the public RGB16 import.
  */
 class Cr3VisualQualityTest {
 
@@ -59,25 +42,8 @@ class Cr3VisualQualityTest {
     /** Output directory for debug images (not committed). */
     private static final Path DEBUG_DIR = Path.of("target", "cr3-decode-debug");
 
-    /**
-     * Minimum SSIM required between the decoded RAW and the embedded PRVW.
-     *
-     * <p>Set to a value just below today's worst measured SSIM (≈ 0.026 for
-     * {@code sample-wb-tungsten.cr3}) so the test acts as a strict
-     * <em>regression gate</em>: any change that makes the CRX entropy
-     * decoder, prediction or pipeline noisier than today will fail.
-     * Tighten to ≥ 0.90 once the decoder is fixed (currently the Rice-Golomb
-     * adaptation rule does not match Canon's encoder; see PR notes).</p>
-     */
+    /** Historical limits for the 8-bit PRVW comparison. */
     private static final double SSIM_MIN = 0.02;
-
-    /**
-     * Maximum mean ΔE2000 allowed between the decoded RAW and the embedded PRVW.
-     *
-     * <p>Set to a value just above today's worst measured ΔE (≈ 82.3 for
-     * {@code sample-wb-tungsten.cr3}) so the test acts as a regression gate.
-     * Tighten to ≤ 5.0 once the decoder is fixed.</p>
-     */
     private static final double DELTA_E_MAX = 85.0;
 
     // ─────────────────────────────────────────────────────────────────────
@@ -135,7 +101,7 @@ class Cr3VisualQualityTest {
     private void runQualityTest(File cr3File) throws Exception {
         String name = cr3File.getName();
 
-        // ── 1. Extract the embedded PRVW JPEG (ground-truth reference) ──
+        // ── 1. Extract the embedded PRVW JPEG ──
         BufferedImage preview;
         try (ImageInputStream in = new FileImageInputStream(cr3File)) {
             Cr3Decoder decoder = new Cr3Decoder();
@@ -156,7 +122,7 @@ class Cr3VisualQualityTest {
             decoder.setInput(in);
             rawDecoded = decoder.decode(Cr3DecodeOptions.rawProcessed());
         } catch (Cr3Exception e) {
-            // C-RAW / unsupported encoding — skip gracefully
+            // Preserve the historical handling of unsupported samples.
             assumeTrue(false, name + ": RAW decode unsupported (" + e.getMessage() + "), skipping");
             return;
         }

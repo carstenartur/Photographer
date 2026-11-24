@@ -2,7 +2,7 @@
 
 Since 0.1.9, `ImageIO.read(file)` develops the full-resolution CR3 RAW or C-RAW into three unsigned 16-bit sRGB channels. Open an explicit reader to select the embedded JPEG, get the original Bayer values, or configure RAW development.
 
-RAW development uses the as-shot white balance when the capture contains supported CTMD ColorData. Its color reproduction is experimental. For the camera's rendering, including any lens correction, noise reduction and picture style applied by the camera, select the embedded JPEG. [Measure RGB16 color with a physical chart](color-chart-validation.md)
+RAW development uses the as-shot white balance when the capture contains supported CTMD ColorData. Its color reproduction is experimental. The embedded JPEG shows the camera’s own rendering, including the picture style and any corrections it applied. [Compare RGB16 with the JPEG from the same exposure](camera-jpeg-comparison.md) · [Measure RGB16 color with a physical chart](color-chart-validation.md)
 
 | Output | ImageIO call for image index `0` | Result |
 |---|---|---|

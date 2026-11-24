@@ -94,7 +94,7 @@ Each timed import opened one original and returned a fresh, full-resolution RGB1
 | PowerShot G7 X Mark III C-RAW | 237 | 642 |
 | EOS R5 Mark II C-RAW (APS-C) | 231 | 689 |
 
-Peak process memory (RSS) was 40–49% lower for Photographer across these six files. The engines apply different crops and color processing. On the EOS R their output dimensions were nearly identical and peak RSS was 239 versus 469 MiB.
+Peak process memory (RSS) was 40–49% lower for Photographer across these six files. The engines apply different crops and color processing. On the EOS R their output dimensions were nearly identical and peak RSS was 239 versus 469 MiB. For an assessment of the developed image itself, see the [comparison with Canon’s embedded camera JPEG](docs/cr3/camera-jpeg-comparison.md).
 
 For applications that only need the Bayer mosaic, the two decoders returned byte-identical sensor values on three tested originals. On G5 X Mark II RAW the timings overlapped across runs (79 versus 86 ms). LibRaw was faster on G5 X Mark II C-RAW (82 versus 58 ms) and EOS R RAW (136 versus 102 ms). [Measurements, image dimensions and reproduction](docs/cr3/import-comparison-2026-11-24/README.md) · [Earlier release comparison with LibRaw 0.22.3](docs/cr3/import-comparison-2026-11-22/README.md)
 
