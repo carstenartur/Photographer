@@ -9,6 +9,7 @@ import com.photographer.focusstack.cr3.imageio.CanonCr3ImageReader;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.io.BufferedOutputStream;
@@ -18,7 +19,9 @@ import java.lang.ref.Reference;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +41,12 @@ import java.util.Set;
  * {@code --memory-mode AUTO|LOW_MEMORY|FAST}, {@code --orientation 1..8},
  * {@code --subsample-x N}, {@code --subsample-y N}, and {@code --dump FILE}.
  * Memory-mode values are case-insensitive. Sampling applies to the explicit RGB modes.
- * Boolean flags are {@code --checksum} and {@code --gc-between}.
+ * Boolean flags include {@code --checksum} and {@code --gc-between}. For full-size
+ * {@code rgb16} or {@code rgb16linear}, either {@code --staged-destination} or
+ * {@code --reuse-destination} allocates one advertised destination before timing. Only
+ * {@code --reuse-destination} opts into using it as decoder workspace. Repeat
+ * {@code --input FILE} to rotate through captures in order. When sharing a destination, all
+ * inputs must have the same developed dimensions. Each import still opens a fresh reader.
  * The defaults are mode {@code default}, no warmup, one measured import, and an
  * automatic worker budget (zero), with automatic memory policy and camera orientation.</p>
  *
@@ -61,8 +69,8 @@ public final class Cr3ImportProbe {
     }
 
     public static void main(String[] argv) throws Exception {
-        Map<String, String> arguments = parseArguments(argv);
-        Path file = Path.of(arguments.get("--input"));
+        List<Path> files = new ArrayList<>();
+        Map<String, String> arguments = parseArguments(argv, files);
         String mode = arguments.getOrDefault("--mode", "default");
         int warmup = integerOption(arguments, "--warmup", 0, 0);
         int iterations = integerOption(arguments, "--iterations", 1, 1);
@@ -76,20 +84,34 @@ public final class Cr3ImportProbe {
             throw new IllegalArgumentException("Source subsampling requires an explicit RGB mode, received " + mode);
         }
         boolean checksum = arguments.containsKey("--checksum");
+        boolean workspace = arguments.containsKey("--reuse-destination");
+        boolean staged = arguments.containsKey("--staged-destination");
+        if (workspace && staged) {
+            throw new IllegalArgumentException("Choose one of --reuse-destination and --staged-destination");
+        }
+        boolean reuse = workspace || staged;
+        if (reuse && (!mode.startsWith("rgb16") || xStep != 1 || yStep != 1)) {
+            throw new IllegalArgumentException("A supplied destination requires a full-size rgb16 or rgb16linear read");
+        }
 
         ImageIO.scanForPlugins();
+        BufferedImage destination = null;
         if (!mode.equals("sensor-path")) {
-            verifyFirstImageIoProvider(file);
+            for (Path file : files) {
+                destination = prepareInput(file, mode, orientationOverride, reuse, destination);
+            }
         }
         THREADS.setThreadAllocatedMemoryEnabled(true);
         for (int iteration = -warmup; iteration < iterations; iteration++) {
+            Path file = files.get(Math.floorMod(iteration, files.size()));
             if (arguments.containsKey("--gc-between")) {
                 System.gc();
             }
             Map<Long, Long> before = allocated();
             long cpuStart = OS.getProcessCpuTime();
             long start = System.nanoTime();
-            BufferedImage image = read(file, mode, workers, memoryMode, orientationOverride, xStep, yStep);
+            BufferedImage image = read(file, mode, workers, memoryMode, orientationOverride, xStep, yStep,
+                    destination, workspace);
             long elapsed = System.nanoTime() - start;
             long cpu = OS.getProcessCpuTime() - cpuStart;
             long allocated = allocated().entrySet().stream()
@@ -98,6 +120,9 @@ public final class Cr3ImportProbe {
             long heapUsed = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
             long maxRss = statusKb("VmHWM");
             validateOutput(image, mode);
+            if (reuse && image != destination) {
+                throw new IOException("The ImageIO reader did not return the supplied destination");
+            }
             long hash = hash(image, checksum);
 
             if (iteration >= 0) {
@@ -105,14 +130,14 @@ public final class Cr3ImportProbe {
                         "{\"engine\":\"Photographer\",\"input\":\"%s\",\"mode\":\"%s\","
                                 + "\"iteration\":%d,\"warmup\":%d,\"workers\":%d,\"available_processors\":%d,"
                                 + "\"requested_memory_mode\":\"%s\",\"orientation_override\":%d,"
-                                + "\"subsample_x\":%d,\"subsample_y\":%d,"
+                                + "\"subsample_x\":%d,\"subsample_y\":%d,\"reuse_destination\":%b,\"destination_workspace\":%b,"
                                 + "\"width\":%d,\"height\":%d,\"channels\":%d,\"bits\":%d,"
                                 + "\"total_ms\":%.6f,\"cpu_ms\":%.6f,\"allocated_bytes\":%d,"
                                 + "\"heap_used_bytes\":%d,\"maxrss_kb\":%d,"
                                 + "\"checksum_kind\":\"%s\",\"fnv1a64\":\"%016x\"}%n",
                         escape(file.toString()), mode, iteration, warmup, workers,
                         Runtime.getRuntime().availableProcessors(), memoryMode.name(), orientationOverride,
-                        xStep, yStep,
+                        xStep, yStep, reuse, workspace,
                         image.getWidth(), image.getHeight(), image.getRaster().getNumBands(),
                         image.getSampleModel().getSampleSize(0),
                         elapsed / 1e6, cpu / 1e6, allocated, heapUsed, maxRss,
@@ -125,7 +150,8 @@ public final class Cr3ImportProbe {
         }
     }
 
-    private static void verifyFirstImageIoProvider(Path file) throws IOException {
+    private static BufferedImage prepareInput(Path file, String mode, int orientationOverride,
+                                              boolean reuse, BufferedImage destination) throws IOException {
         try (ImageInputStream stream = ImageIO.createImageInputStream(file.toFile())) {
             if (stream == null) {
                 throw new IOException("Could not open ImageIO input for " + file);
@@ -137,6 +163,31 @@ public final class Cr3ImportProbe {
             ImageReader reader = readers.next();
             try {
                 requirePhotographerReader(reader);
+                if (!reuse) {
+                    return null;
+                }
+                stream.seek(0);
+                reader.setInput(stream, false, false);
+                applyOrientation(reader, orientationOverride);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                if (destination != null) {
+                    if (destination.getWidth() != width || destination.getHeight() != height) {
+                        throw new IllegalArgumentException("A shared destination requires equal developed dimensions: " + file);
+                    }
+                    return destination;
+                }
+                var colorSpace = ColorSpace.getInstance(mode.equals("rgb16linear")
+                        ? ColorSpace.CS_LINEAR_RGB : ColorSpace.CS_sRGB);
+                var types = reader.getImageTypes(0);
+                while (types.hasNext()) {
+                    var type = types.next();
+                    if (type.getNumBands() == 3 && type.getBitsPerBand(0) == 16
+                            && colorSpace.equals(type.getColorModel().getColorSpace())) {
+                        return type.createBufferedImage(width, height);
+                    }
+                }
+                throw new IOException("No advertised full-precision destination for " + mode);
             } finally {
                 reader.dispose();
             }
@@ -169,7 +220,7 @@ public final class Cr3ImportProbe {
         }
     }
 
-    private static Map<String, String> parseArguments(String[] argv) {
+    private static Map<String, String> parseArguments(String[] argv, List<Path> files) {
         Set<String> valued = Set.of("--input", "--mode", "--warmup", "--iterations", "--workers", "--dump",
                 "--memory-mode", "--orientation", "--subsample-x", "--subsample-y");
         Map<String, String> arguments = new HashMap<>();
@@ -178,18 +229,24 @@ public final class Cr3ImportProbe {
             if (arguments.containsKey(key)) {
                 throw new IllegalArgumentException("Option specified more than once: " + key);
             }
-            if (key.equals("--checksum") || key.equals("--gc-between")) {
+            if (key.equals("--checksum") || key.equals("--gc-between") || key.equals("--reuse-destination")
+                    || key.equals("--staged-destination")) {
                 arguments.put(key, "true");
             } else if (valued.contains(key)) {
                 if (i + 1 == argv.length || argv[i + 1].startsWith("--") || argv[i + 1].isEmpty()) {
                     throw new IllegalArgumentException("Missing value for " + key);
                 }
-                arguments.put(key, argv[++i]);
+                String value = argv[++i];
+                if (key.equals("--input")) {
+                    files.add(Path.of(value));
+                } else {
+                    arguments.put(key, value);
+                }
             } else {
                 throw new IllegalArgumentException("Unknown option: " + key);
             }
         }
-        if (!arguments.containsKey("--input")) {
+        if (files.isEmpty()) {
             throw new IllegalArgumentException("--input FILE is required");
         }
         return arguments;
@@ -253,11 +310,12 @@ public final class Cr3ImportProbe {
 
     static BufferedImage read(Path file, String mode, int workers, MemoryMode memoryMode, int orientationOverride)
             throws Exception {
-        return read(file, mode, workers, memoryMode, orientationOverride, 1, 1);
+        return read(file, mode, workers, memoryMode, orientationOverride, 1, 1, null, false);
     }
 
     private static BufferedImage read(Path file, String mode, int workers, MemoryMode memoryMode,
-                                      int orientationOverride, int xStep, int yStep) throws Exception {
+                                      int orientationOverride, int xStep, int yStep, BufferedImage destination, boolean workspace)
+            throws Exception {
         validateReadRequest(mode, workers, memoryMode, orientationOverride);
         if (mode.equals("default")) {
             BufferedImage image = ImageIO.read(file.toFile());
@@ -294,18 +352,13 @@ public final class Cr3ImportProbe {
                 requirePhotographerReader(reader);
                 stream.seek(0);
                 reader.setInput(stream, false, false);
-                if (orientationOverride != 0) {
-                    var cr3 = (CanonCr3ImageReader) reader;
-                    cr3.getImageMetadata(0);
-                    var decoder = cr3.getDecoder();
-                    var metadata = decoder == null ? null : decoder.getMetadata();
-                    if (metadata == null) {
-                        throw new IOException("Cannot override orientation because CR3 metadata is unavailable");
-                    }
-                    metadata.setOrientation(orientationOverride);
-                }
+                applyOrientation(reader, orientationOverride);
                 var param = new CanonCr3ImageReadParam();
                 param.setDecodeOptions(options);
+                if (destination != null) {
+                    param.setDestination(destination);
+                    param.setUseDestinationAsWorkspace(workspace);
+                }
                 if (xStep != 1 || yStep != 1) {
                     param.setSourceSubsampling(xStep, yStep, 0, 0);
                 }
@@ -313,6 +366,19 @@ public final class Cr3ImportProbe {
             } finally {
                 reader.dispose();
             }
+        }
+    }
+
+    private static void applyOrientation(ImageReader reader, int orientationOverride) throws IOException {
+        if (orientationOverride != 0) {
+            var cr3 = (CanonCr3ImageReader) reader;
+            cr3.getImageMetadata(0);
+            var decoder = cr3.getDecoder();
+            var metadata = decoder == null ? null : decoder.getMetadata();
+            if (metadata == null) {
+                throw new IOException("Cannot override orientation because CR3 metadata is unavailable");
+            }
+            metadata.setOrientation(orientationOverride);
         }
     }
 

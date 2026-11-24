@@ -1,5 +1,7 @@
 package com.photographer.focusstack.cr3.benchmark;
 
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -108,6 +110,32 @@ class Cr3ImportProbeTest {
         assertTrue(result.output().contains("\"subsample_x\":2,\"subsample_y\":1"), result.output());
         assertTrue(result.output().contains("\"width\":1,\"height\":2,\"channels\":3,\"bits\":16"),
                 result.output());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"--reuse-destination, true", "--staged-destination, false"})
+    void reusedRgb16DestinationReportsBothInputsAndChecksTheirPixels(String option, boolean workspace) throws Exception {
+        Path first = fixture();
+        Path second = Files.copy(first, directory.resolve("second.cr3"));
+        var result = run("--input", first.toString(), "--input", second.toString(), "--mode", "rgb16linear",
+                "--orientation", "6", "--iterations", "2", option, "--checksum");
+        var rows = result.output().lines().filter(line -> line.startsWith("{")).toList();
+        assertEquals(2, rows.size());
+        assertTrue(rows.get(0).contains(Cr3ImportProbe.escape(first.toString())));
+        assertTrue(rows.get(1).contains(Cr3ImportProbe.escape(second.toString())));
+        var reference = Cr3ImportProbe.read(first, "rgb16linear", 0, Cr3DecodeOptions.MemoryMode.AUTO, 6);
+        String hash = "\"fnv1a64\":\"" + java.util.HexFormat.of().toHexDigits(Cr3ImportProbe.hash(reference, true)) + "\"";
+        for (String row : rows) {
+            assertTrue(row.contains("\"reuse_destination\":true"), row);
+            assertTrue(row.contains("\"destination_workspace\":" + workspace), row);
+            assertTrue(row.contains(hash), row);
+        }
+    }
+
+    @Test
+    void stagedAndWorkspaceDestinationRequestsAreMutuallyExclusive() {
+        assertThrows(IllegalArgumentException.class, () -> run("--input", fixture().toString(),
+                "--mode", "rgb16", "--reuse-destination", "--staged-destination"));
     }
 
     @Test
