@@ -6,7 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.Rectangle;
+import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
+import java.awt.image.ComponentColorModel;
 import java.awt.image.DataBufferInt;
 import java.awt.image.DirectColorModel;
 import java.awt.image.Raster;
@@ -155,6 +157,64 @@ public final class BayerDemosaicer {
                                                boolean srgb, int maxWorkers) {
         return new Rgb16Developer(BayerSamples.of(samples, width, height, pattern), blackLevel, sensorX, sensorY,
                 whiteBalance, whiteLevel, matrix, srgb).developOwned(region, orientation, maxWorkers);
+    }
+
+    /**
+     * Returns the writable arrays of a dense, three-bank RGB16 destination, in logical R, G, B order.
+     * Each bank spans the full image in row-major order and starts at offset zero. Changes to
+     * the returned arrays change the image. A null result lets the caller select a copying path.
+     *
+     * @param destination image to check, or null
+     * @param width required output width after orientation
+     * @param height required output height after orientation
+     * @param srgb true for sRGB encoding, false for linear RGB
+     * @return the three distinct pixel arrays, or null if the dimensions, encoding or layout differ
+     */
+    public static short[][] rgb16DestinationBanks(BufferedImage destination, int width, int height, boolean srgb) {
+        if (destination == null || destination.getWidth() != width || destination.getHeight() != height
+                || destination.getRaster().getParent() != null) {
+            return null;
+        }
+        var color = destination.getColorModel();
+        var space = ColorSpace.getInstance(srgb ? ColorSpace.CS_sRGB : ColorSpace.CS_LINEAR_RGB);
+        if (color.getClass() != ComponentColorModel.class || color.hasAlpha() || color.getColorSpace() != space) {
+            return null;
+        }
+        return Pixels.denseRgb16Bands(destination);
+    }
+
+    /**
+     * Develops straight into a caller-owned planar RGB16 image. The calibration, crop and
+     * orientation have the same meaning as in {@link #develop16Owned}. The caller must have
+     * exclusive access to the destination while this method runs. The input is read-only,
+     * except that a complete, unrotated mosaic may occupy the destination's green bank.
+     * In that case RGB values replace the original sensor codes. A failure during processing
+     * can leave the destination partially written.
+     *
+     * @param samples native unsigned Bayer codes, in row-major order
+     * @param width mosaic width
+     * @param height mosaic height
+     * @param pattern crop-local Bayer pattern
+     * @param blackLevel sensor-coordinate pedestal, or null to skip correction
+     * @param sensorX sensor column of the first mosaic sample
+     * @param sensorY sensor row of the first mosaic sample
+     * @param whiteBalance RGB gains, or null for unit gains
+     * @param whiteLevel normalization level after pedestal subtraction
+     * @param matrix camera-to-linear-RGB matrix, or null to keep camera RGB
+     * @param region rectangle of the mosaic to develop, before orientation
+     * @param orientation EXIF orientation of the result
+     * @param srgb true for sRGB encoding, false for linear RGB
+     * @param maxWorkers worker limit, or zero for automatic selection
+     * @param destination image with the oriented dimensions and matching {@link #rgb16DestinationBanks} layout
+     * @return the supplied destination
+     * @throws IllegalArgumentException if the geometry, calibration, destination layout or sample alias is invalid
+     */
+    public static BufferedImage develop16Into(short[] samples, int width, int height, Cr3RawImage.BayerPattern pattern,
+                                             BlackLevel blackLevel, int sensorX, int sensorY, double[] whiteBalance,
+                                             int whiteLevel, double[][] matrix, Rectangle region, int orientation,
+                                             boolean srgb, int maxWorkers, BufferedImage destination) {
+        return new Rgb16Developer(BayerSamples.of(samples, width, height, pattern), blackLevel, sensorX, sensorY,
+                whiteBalance, whiteLevel, matrix, srgb).developInto(region, orientation, maxWorkers, destination);
     }
 
     /**

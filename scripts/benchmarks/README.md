@@ -64,6 +64,18 @@ omitted); these fields do not claim to expose the effective automatic decision.
 in the explicit RGB modes. Both default to one. JSON records the intervals as
 `subsample_x` and `subsample_y`. [RGB subsampling measurements](../../docs/cr3/rgb-subsampling-performance.md)
 
+Use `--reuse-destination` with full-resolution `rgb16` or `rgb16linear` to benchmark a
+caller-owned workspace. The probe allocates an advertised 3 × 16-bit destination before
+warmup, passes it through the ImageIO read parameters on each import and verifies that
+the reader returns the same object. To measure successive frames, repeat `--input` with
+different captures of matching developed dimensions, for example `sample.cr3` and
+`sample-wide.cr3` from the sample directory. Each JSON record identifies the file and
+whether destination reuse was requested. For comparison, replace `--reuse-destination`
+with `--staged-destination` to supply that same preallocated buffer with the reader’s
+workspace option disabled. Both report `reuse_destination=true`. The JSON field
+`destination_workspace` records which workspace setting was used. Use at least one measured iteration per file
+and `--checksum` in a separate run to compare every output sample.
+
 For a controlled comparison of compact rotation with the normal path, run the
 following twice in fresh processes, changing `FAST` to `LOW_MEMORY` and keeping
 the input, heap, processor budget, JVM and other arguments identical:

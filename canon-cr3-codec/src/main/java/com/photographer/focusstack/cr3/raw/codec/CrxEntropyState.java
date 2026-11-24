@@ -74,11 +74,12 @@ final class CrxEntropyState {
     }
 
     static int adaptK(int k, int value) {
-        int scale = 1 << k;
-        // Prediction adaptation uses a residual of at most 21 bits and a neighbour difference.
-        // These signed differences fit in int. Their sign bits give the three threshold changes.
-        int decrease = (2 * value - scale) >> 31;
-        int increase = ((3 * scale - 1 - value) >>> 31) + ((6 * scale - 1 - value) >>> 31);
+        // Express the statistic in half-units of 2^k. Its three thresholds then
+        // stay at 1, 6 and 12 for all widths. Even a 21-bit residual plus a
+        // difference of signed approximation coefficients can safely be doubled.
+        int halfUnits = (value << 1) >>> k;
+        int decrease = (halfUnits - 1) >> 31;
+        int increase = ((5 - halfUnits) >>> 31) + ((11 - halfUnits) >>> 31);
         return Math.clamp(k + decrease + increase, 0, MAX_RICE_WIDTH);
     }
 }

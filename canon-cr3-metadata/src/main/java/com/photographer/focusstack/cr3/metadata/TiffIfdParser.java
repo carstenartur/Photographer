@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
@@ -36,6 +37,7 @@ public final class TiffIfdParser {
 
     /** Maximum number of IFD entries considered valid (sanity check). */
     private static final int MAX_IFD_ENTRY_COUNT = 1000;
+    private static final int IFD_ENTRY_BYTES = 12;
     /** Maximum length of an ASCII string tag (sanity check). */
     private static final int MAX_ASCII_STRING_LENGTH = 10000;
     /** TIFF magic number (always 42). */
@@ -208,22 +210,30 @@ public final class TiffIfdParser {
         } else {
             LOG.warn("Invalid TIFF byte order marker: 0x{}{}", Integer.toHexString(byte1),
                     Integer.toHexString(byte2));
-            input.setByteOrder(savedOrder);
             return tags;
         }
 
         input.setByteOrder(tiffOrder);
+        try {
+            readDirectory(input, boxDataOffset, boxDataSize, tags);
+        } finally {
+            input.setByteOrder(savedOrder);
+        }
+        return tags;
+    }
+
+    private static void readDirectory(ImageInputStream input, long boxDataOffset, long boxDataSize,
+                                      Map<Integer, TagValue> tags)
+            throws IOException {
         int magic = input.readUnsignedShort();
         if (magic != TIFF_MAGIC_NUMBER) {
             LOG.warn("Invalid TIFF magic number: {} (expected {})", magic, TIFF_MAGIC_NUMBER);
-            input.setByteOrder(savedOrder);
-            return tags;
+            return;
         }
 
         long ifdOffset = Integer.toUnsignedLong(input.readInt());
         if (ifdOffset == 0 || ifdOffset >= boxDataSize) {
-            input.setByteOrder(savedOrder);
-            return tags;
+            return;
         }
 
         // Read IFD entries
@@ -233,32 +243,31 @@ public final class TiffIfdParser {
 
         if (entryCount <= 0 || entryCount > MAX_IFD_ENTRY_COUNT) {
             LOG.warn("Suspicious IFD entry count: {}", entryCount);
-            input.setByteOrder(savedOrder);
-            return tags;
+            return;
         }
 
-        for (int i = 0; i < entryCount; i++) {
-            long entryOffset = ifdAbsoluteOffset + 2 + (long) i * 12;
-            if (entryOffset + 12 > boxDataOffset + boxDataSize) {
-                break;
+        // Out-of-line values interleave seeks with directory entries on the same stream.
+        // Reading the contiguous descriptors once costs at most MAX_IFD_ENTRY_COUNT * 12 bytes.
+        long availableBytes = Math.max(0L, boxDataSize - ifdOffset - Short.BYTES);
+        int completeEntries = (int) Math.min(entryCount, availableBytes / IFD_ENTRY_BYTES);
+        var directory = ByteBuffer.allocate(completeEntries * IFD_ENTRY_BYTES).order(input.getByteOrder());
+        input.readFully(directory.array());
+        long afterDirectory = input.getStreamPosition();
+        while (directory.hasRemaining()) {
+            int tagId = Short.toUnsignedInt(directory.getShort());
+            int dataType = Short.toUnsignedInt(directory.getShort());
+            long count = Integer.toUnsignedLong(directory.getInt());
+            long valueOrOffset = Integer.toUnsignedLong(directory.getInt());
+            if (!directory.hasRemaining()) {
+                // A final inline value leaves the caller just after its descriptor.
+                input.seek(afterDirectory);
             }
-            input.seek(entryOffset);
-
-            int tagId = input.readUnsignedShort();
-            int dataType = input.readUnsignedShort();
-            long count = Integer.toUnsignedLong(input.readInt());
-            // The next 4 bytes are either the value or an offset to the value
-            long valueOrOffset = Integer.toUnsignedLong(input.readInt());
-
             TagValue value = readTagValue(input, tagId, dataType, count, valueOrOffset,
                     boxDataOffset, boxDataSize);
             if (value != null) {
                 tags.put(tagId, value);
             }
         }
-
-        input.setByteOrder(savedOrder);
-        return tags;
     }
 
     private static TagValue readTagValue(ImageInputStream input, int tagId,

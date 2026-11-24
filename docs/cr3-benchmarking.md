@@ -2,6 +2,16 @@
 
 CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
+## RGB16 and Bayer imports compared with LibRaw on 2026-11-24
+
+The [six-file RGB16 comparison](cr3/import-comparison-2026-11-24/README.md) measures the default `ImageIO.read(File)` path at `6cb25a7` against LibRaw 0.21.4. It includes an independent comparison of byte-identical Bayer output on three originals, peak process memory, individual observations and instructions for reproducing the runs.
+
+Subsequent decoder measurements cover [lossless RAW prediction](cr3/lossless-rice-width-2026-11-24.md) and [C-RAW detail coefficients](cr3/detail-entropy-2026-11-24/README.md). The [color-chart procedure](cr3/color-chart-validation.md) measures developed RGB16 values against physical reference patches under a specified light.
+
+## RGB16 series, destinations and portrait development
+
+The [RGB16 series measurements](cr3/rgb16-destination-performance.md) compare ordinary supplied destinations, caller-authorized workspace reuse, and full-resolution portrait and landscape imports on the public ImageIO API. They also record the file-read counts for metadata parsing.
+
 ## RGB16 rotation, source subsampling and metadata reads
 
 The [RGB16 import study](cr3/rgb16-import-2026-11-24.md) compares compact portrait rotation, coarse source subsampling, and a series of six distinct ordinary `ImageIO.read(File)` calls. It records full-output equivalence, memory use, wall time and the number of file reads attributable to TIFF metadata changes.

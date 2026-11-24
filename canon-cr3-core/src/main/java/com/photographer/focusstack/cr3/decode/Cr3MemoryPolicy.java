@@ -24,11 +24,17 @@ final class Cr3MemoryPolicy {
         }
 
         static ImageBytes rgb(boolean sixteenBit, long areaSites, long outputSites, boolean partial,
-                              int orientation, boolean suppliedPackedSamples) {
+                              int orientation, boolean suppliedDestination) {
             boolean transpose = orientation >= 5 && orientation <= 8;
             // Only complete decoder-owned dense images take the in-place transpose path.
             long visited = transpose && !partial ? multiply(Math.ceilDiv(outputSites, 64), Long.BYTES) : 0;
             if (sixteenBit) {
+                if (suppliedDestination) {
+                    // The three caller-owned banks are already live. Only a non-identity
+                    // orientation needs a separate mosaic, which expires before returning.
+                    long mosaic = orientation == 1 ? 0 : multiply(areaSites, Short.BYTES);
+                    return new ImageBytes(mosaic, mosaic, 0);
+                }
                 long rgb = multiply(outputSites, 6);
                 long withMosaic = add(rgb, multiply(areaSites, Short.BYTES));
                 if (partial) {
@@ -38,7 +44,7 @@ final class Cr3MemoryPolicy {
                 return new ImageBytes(orientation == 1 ? rgb : withMosaic, add(rgb, visited), rgb);
             }
 
-            long packed = suppliedPackedSamples ? 0 : multiply(areaSites, Integer.BYTES);
+            long packed = suppliedDestination ? 0 : multiply(areaSites, Integer.BYTES);
             long oriented = transpose ? add(packed, multiply(outputSites, Integer.BYTES)) : packed;
             // A partial packed view uses the ordinary orientation path, with a separate transpose.
             long retained = transpose ? multiply(outputSites, Integer.BYTES) : packed;

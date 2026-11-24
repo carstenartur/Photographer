@@ -25,15 +25,44 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
         return develop(region, orientation, maxWorkers, true);
     }
 
+    BufferedImage developInto(Rectangle region, int orientation, int maxWorkers, BufferedImage destination) {
+        validate(region);
+        int[] size = ExifOrientationTransformer.outputDimensions(region.width, region.height, orientation);
+        short[][] channels = BayerDemosaicer.rgb16DestinationBanks(destination, size[0], size[1], srgb);
+        if (channels == null) {
+            throw new IllegalArgumentException("Expected a dense, correctly sized and encoded planar RGB16 destination");
+        }
+        short[] samples = image.unsignedShorts();
+        boolean reuse = channels[1] == samples;
+        if (channels[0] == samples || channels[2] == samples || (reuse && !canReuseBayerAsGreen(region, orientation))) {
+            throw new IllegalArgumentException("Only a full, unrotated RGB16 image can reuse Bayer samples as green");
+        }
+        developStripes(channels, region, orientation, maxWorkers, reuse);
+        return destination;
+    }
+
+    private boolean canReuseBayerAsGreen(Rectangle region, int orientation) {
+        return orientation == 1 && region.equals(new Rectangle(image.width(), image.height()));
+    }
+
     private BufferedImage develop(Rectangle region, int orientation, int maxWorkers, boolean owned) {
         validate(region);
         int[] size = ExifOrientationTransformer.outputDimensions(region.width, region.height, orientation);
-        boolean reuse = owned && image.unsignedShorts() != null && orientation == 1
-                && region.equals(new Rectangle(image.width(), image.height()));
+        boolean reuse = owned && image.unsignedShorts() != null && canReuseBayerAsGreen(region, orientation);
         int sampleCount = Math.multiplyExact(size[0], size[1]);
         short[][] channels = {new short[sampleCount],
                 reuse ? image.unsignedShorts() : new short[sampleCount], new short[sampleCount]};
+        developStripes(channels, region, orientation, maxWorkers, reuse);
+        return rgbImage(channels, size[0], size[1]);
+    }
+
+    private void developStripes(short[][] channels, Rectangle region, int orientation, int maxWorkers, boolean reuse) {
         int stripes = Cr3Workers.count(maxWorkers, Pixels.maxStripes(region.width, region.height));
+
+        if (orientation >= 5 && orientation <= 8) {
+            TransposedRgb16Rows.develop(this, channels, region, orientation, stripes);
+            return;
+        }
 
         // In-place stores may replace a neighbor before an adjacent stripe reads it.
         // Capture both sides of every boundary before any worker writes the green bank.
@@ -52,7 +81,6 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
             double[] originalBelow = seams == null || stripe + 1 == stripes ? null : seams[stripe][1];
             developRows(channels, region, orientation, first, end, originalAbove, originalBelow);
         });
-        return rgbImage(channels, size[0], size[1]);
     }
 
     BufferedImage developSampled(Rectangle region, int xStep, int yStep, int maxWorkers) {
@@ -85,7 +113,7 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
                 int offset = row * columns;
                 for (int column = 0; column < columns; column++) {
                     int x = region.x + column * xStep;
-                    writeBorder(channels, offset + column, above, current, below, x, verticalCount,
+                    writeInterpolatedPixel(channels, offset + column, above, current, below, x, verticalCount,
                             (x & 1) == 0 ? even : odd);
                 }
             }
@@ -158,7 +186,7 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
                 }
                 if (firstChroma + 1 < interiorEnd) {
                     for (; x < firstChroma; x++, destination += step) {
-                        writeBorder(channels, destination, above, current, below, x, verticalCount,
+                        writeInterpolatedPixel(channels, destination, above, current, below, x, verticalCount,
                                 (x & 1) == 0 ? even : odd);
                     }
                     boolean redRow = (evenChroma ? even : odd) == PixelColor.RED;
@@ -179,7 +207,7 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
                 }
             }
             for (; x < rowEnd; x++, destination += step) {
-                writeBorder(channels, destination, above, current, below, x, verticalCount,
+                writeInterpolatedPixel(channels, destination, above, current, below, x, verticalCount,
                         (x & 1) == 0 ? even : odd);
             }
             double[] old = above;
@@ -189,7 +217,7 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
         }
     }
 
-    private void writeBorder(short[][] channels, int destination, double[] above, double[] current,
+    void writeInterpolatedPixel(short[][] channels, int destination, double[] above, double[] current,
                              double[] below, int x, int verticalCount, PixelColor site) {
         int i = x + 1;
         int horizontalCount = neighbors(x, image.width());
@@ -210,8 +238,13 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
     }
 
     private void correctRow(int y, double[] row) {
+        correctRow(y, row, 0, image.width());
+    }
+
+    /** Normalizes [from, to) in source coordinates, with zero padding on both sides of the image. */
+    void correctRow(int y, double[] row, int from, int to) {
         if (y < 0 || y >= image.height()) {
-            Arrays.fill(row, 0.0);
+            Arrays.fill(row, from + 1, to + 1, 0.0);
             return;
         }
         // The pedestal uses sensor coordinates. Gains and interpolation follow the crop-local CFA.
@@ -223,18 +256,18 @@ record Rgb16Developer(BayerSamples image, BlackLevel black, int sensorX, int sen
                 case GREEN_IN_RED_ROW, GREEN_IN_BLUE_ROW -> gains[1];
                 case BLUE -> gains[2];
             };
-            for (int x = phase; x < image.width(); x += 2) {
+            for (int x = from + ((from ^ phase) & 1); x < to; x += 2) {
                 double corrected = Math.max(0.0, (double) image.sample(offset + x) - pedestal);
                 row[x + 1] = corrected * scale / whiteLevel;
             }
         }
     }
 
-    private PixelColor color(int x, int y) {
+    PixelColor color(int x, int y) {
         return BayerDemosaicer.getPixelColor(image.bayerPattern(), (y & 1) == 0, (x & 1) == 0);
     }
 
-    private static int neighbors(int position, int extent) {
+    static int neighbors(int position, int extent) {
         return (position > 0 ? 1 : 0) + (position + 1 < extent ? 1 : 0);
     }
 

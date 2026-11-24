@@ -77,9 +77,26 @@ Find the Maven modules, dependency layers and supported library interfaces in th
 
 ## Import Canon CR3 files in Java
 
-`ImageIO.read(file)` develops the full-resolution CR3 image as three unsigned 16-bit sRGB channels in 0.1.9-SNAPSHOT. Use `image.getRaster().getSample(x, y, band)` to access the full precision. The published `io.github.carstenartur:cr3-imageio:0.1.8` for Java 21 or newer defaults to RGB8 and offers RGB16 through reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
+Since 0.1.9, `ImageIO.read(file)` develops a full-resolution sRGB image with three unsigned 16-bit channels. Use `image.getRaster().getSample(x, y, band)` to access the full precision. Version 0.1.8 defaults to RGB8 and offers RGB16 through reader parameters. The standalone `cr3-core` decoder also accepts a file path directly.
 
 [Run the minimal Maven example](docs/cr3/imageio.md#run-the-minimal-example) · [ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
+
+### RGB16 import performance
+
+Each timed import opened one original and returned a fresh, full-resolution RGB16 image. The table gives median times on four AMD EPYC logical CPUs with a warm filesystem cache. Photographer used `ImageIO.read(File)` on Java 21. LibRaw used bilinear demosaicing. Each process made three warmup reads before timing.
+
+| Camera and recording | Photographer (`6cb25a7`), ms | LibRaw 0.21.4, ms |
+| --- | ---: | ---: |
+| PowerShot G5 X Mark II RAW | 229 | 685 |
+| PowerShot G5 X Mark II C-RAW | 215 | 700 |
+| EOS R RAW | 342 | 1,040 |
+| EOS R8 C-RAW | 315 | 784 |
+| PowerShot G7 X Mark III C-RAW | 237 | 642 |
+| EOS R5 Mark II C-RAW (APS-C) | 231 | 689 |
+
+Peak process memory (RSS) was 40–49% lower for Photographer across these six files. The engines apply different crops and color processing. On the EOS R their output dimensions were nearly identical and peak RSS was 239 versus 469 MiB. For an assessment of the developed image itself, see the [comparison with Canon’s embedded camera JPEG](docs/cr3/camera-jpeg-comparison.md).
+
+For applications that only need the Bayer mosaic, the two decoders returned byte-identical sensor values on three tested originals. On G5 X Mark II RAW the timings overlapped across runs (79 versus 86 ms). LibRaw was faster on G5 X Mark II C-RAW (82 versus 58 ms) and EOS R RAW (136 versus 102 ms). [Measurements, image dimensions and reproduction](docs/cr3/import-comparison-2026-11-24/README.md) · [Earlier release comparison with LibRaw 0.22.3](docs/cr3/import-comparison-2026-11-22/README.md)
 
 ## Run the web application
 

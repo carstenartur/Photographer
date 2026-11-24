@@ -8,6 +8,8 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferUShort;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +72,28 @@ class Rgb16DeveloperTest {
                 assertArrayEquals(new int[]{value, value, value}, output.getRaster()
                         .getPixel(i % output.getWidth(), i / output.getWidth(), (int[]) null),
                         "orientation " + orientation + ", pixel " + i);
+            }
+        }
+    }
+
+    @Test
+    void transposedCropsPreserveNeighborsAtTileAndImageEdges() {
+        int width = 70;
+        int height = 136;
+        int[] sites = new Random(1963).ints(width * height, 0, 16384).toArray();
+        var bayer = new Cr3RawImage(width, height, sites, 14, BayerPattern.GRBG);
+        var full = linear(bayer, new Rectangle(width, height), 1, 1);
+        // The odd origin needs neighbors outside the crop, including at tile boundaries.
+        for (var crop : List.of(new Rectangle(1, 3, width - 1, height - 3),
+                new Rectangle(31, 127, 1, 1), new Rectangle(width - 1, height - 1, 1, 1))) {
+            var view = full.getSubimage(crop.x, crop.y, crop.width, crop.height);
+            for (int orientation = 5; orientation <= 8; orientation++) {
+                var expected = ExifOrientationTransformer.apply(view, orientation);
+                var actual = linear(bayer, crop, orientation, 1);
+                assertEquals(crop.height, actual.getWidth());
+                assertEquals(crop.width, actual.getHeight());
+                assertArrayEquals(expected.getRaster().getPixels(0, 0, crop.height, crop.width, (int[]) null),
+                        actual.getRaster().getPixels(0, 0, crop.height, crop.width, (int[]) null));
             }
         }
     }

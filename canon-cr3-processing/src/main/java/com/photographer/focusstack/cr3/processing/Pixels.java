@@ -2,12 +2,14 @@ package com.photographer.focusstack.cr3.processing;
 
 import com.photographer.focusstack.cr3.raw.Cr3Workers;
 
+import java.awt.image.BandedSampleModel;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
+import java.awt.image.DataBufferUShort;
 import java.awt.image.SinglePixelPackedSampleModel;
 import java.util.function.IntUnaryOperator;
 
-/** Packed sRGB pixel access for color transforms and EXIF orientation. */
+/** Direct raster access and row partitioning for color transforms and EXIF orientation. */
 final class Pixels {
 
     private static final int MIN_PIXELS_PER_STRIPE = 256 * 1024;
@@ -36,6 +38,43 @@ final class Pixels {
             return new Packed(buffer.getData(), offset, model.getScanlineStride());
         }
         return null;
+    }
+
+    static boolean spansWholeBuffer(BufferedImage image) {
+        var raster = image.getRaster();
+        var buffer = raster.getDataBuffer();
+        return image.getClass() == BufferedImage.class
+                && raster.getSampleModelTranslateX() == 0 && raster.getSampleModelTranslateY() == 0
+                && buffer.getOffset() == 0 && buffer.getSize() == (long) image.getWidth() * image.getHeight();
+    }
+
+    /** Returns distinct, unpadded banks in logical channel order, or null for other layouts. */
+    static short[][] denseRgb16Bands(BufferedImage image) {
+        var raster = image.getRaster();
+        var buffer = raster.getDataBuffer();
+        if (!spansWholeBuffer(image) || !(buffer instanceof DataBufferUShort shorts) || shorts.getNumBanks() != 3
+                || !(raster.getSampleModel() instanceof BandedSampleModel layout)
+                || layout.getNumBands() != 3 || layout.getScanlineStride() != image.getWidth()
+                || image.getColorModel().getNumComponents() != 3) {
+            return null;
+        }
+        int[] indices = layout.getBankIndices();
+        int[] bandOffsets = layout.getBandOffsets();
+        int[] dataOffsets = shorts.getOffsets();
+        short[][] banks = shorts.getBankData();
+        for (int band = 0; band < 3; band++) {
+            if (indices[band] < 0 || indices[band] >= 3 || bandOffsets[band] != 0
+                    || dataOffsets[band] != 0 || banks[band].length != buffer.getSize()
+                    || image.getColorModel().getComponentSize(band) != 16) {
+                return null;
+            }
+            for (int previous = 0; previous < band; previous++) {
+                if (indices[previous] == indices[band] || banks[previous] == banks[band]) {
+                    return null;
+                }
+            }
+        }
+        return new short[][]{banks[indices[0]], banks[indices[1]], banks[indices[2]]};
     }
 
     static int maxStripes(int width, int height) {

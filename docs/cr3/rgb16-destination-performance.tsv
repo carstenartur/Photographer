@@ -1,0 +1,71 @@
+workload	camera	JVM	revision	wall_ms	process_cpu_ms	allocated_MiB	peak_RSS_MiB
+workspace	g5	1	base	312.43	790.00	116.90	414.61
+workspace	g5	2	base	379.58	1055.00	116.90	408.67
+workspace	g5	3	base	271.80	750.00	116.90	414.82
+workspace	g5	1	candidate	178.33	665.00	1.49	216.32
+workspace	g5	2	candidate	200.97	700.00	1.49	216.73
+workspace	g5	3	candidate	160.76	605.00	1.49	217.92
+workspace	craw	1	base	338.06	920.00	118.22	417.51
+workspace	craw	2	base	272.47	740.00	118.22	421.07
+workspace	craw	3	base	319.50	860.00	118.22	419.82
+workspace	craw	1	candidate	200.99	670.00	2.81	221.73
+workspace	craw	2	candidate	246.44	735.00	2.81	224.92
+workspace	craw	3	candidate	190.39	625.00	2.81	212.63
+workspace	eos	1	base	425.66	1225.00	175.42	583.62
+workspace	eos	2	base	439.08	1220.00	175.42	593.95
+workspace	eos	3	base	461.01	1280.00	175.42	591.89
+workspace	eos	1	candidate	313.35	1085.00	1.69	286.19
+workspace	eos	2	candidate	314.57	1130.00	1.69	288.09
+workspace	eos	3	candidate	307.42	1045.00	1.69	296.79
+staged	g5	1	base	289.28	815.00	116.90	416.38
+staged	g5	2	base	293.98	860.00	116.90	424.72
+staged	g5	3	base	260.36	735.00	116.90	414.36
+staged	g5	1	candidate	200.45	670.00	116.84	416.19
+staged	g5	2	candidate	235.02	775.00	116.84	420.39
+staged	g5	3	candidate	243.04	750.00	116.84	416.58
+staged	craw	1	base	249.19	675.00	118.22	421.75
+staged	craw	2	base	301.05	710.00	118.22	420.82
+staged	craw	3	base	300.63	775.00	118.22	411.40
+staged	craw	1	candidate	244.13	655.00	118.16	422.32
+staged	craw	2	candidate	214.57	680.00	118.16	423.76
+staged	craw	3	candidate	211.94	675.00	118.16	418.11
+staged	eos	1	base	470.89	1310.00	175.42	583.79
+staged	eos	2	base	423.08	1215.00	175.42	589.58
+staged	eos	3	base	406.38	1160.00	175.42	592.28
+staged	eos	1	candidate	380.88	1270.00	175.34	592.01
+staged	eos	2	candidate	335.50	1140.00	175.34	585.72
+staged	eos	3	candidate	383.18	1210.00	175.34	583.66
+portrait	g5	1	base	281.52	950.00	154.95	219.14
+portrait	g5	2	base	319.33	1010.00	154.95	219.31
+portrait	g5	3	base	381.57	1270.00	154.95	212.56
+portrait	g5	1	candidate	340.70	1050.00	154.95	207.42
+portrait	g5	2	candidate	280.27	930.00	154.95	207.45
+portrait	g5	3	candidate	308.74	950.00	154.95	209.35
+portrait	craw	1	base	329.25	1040.00	156.36	224.09
+portrait	craw	2	base	367.78	1190.00	156.36	222.83
+portrait	craw	3	base	308.88	1040.00	156.36	214.28
+portrait	craw	1	candidate	281.97	890.00	156.36	211.79
+portrait	craw	2	candidate	224.47	760.00	156.36	212.23
+portrait	craw	3	candidate	287.19	890.00	156.36	213.35
+portrait	eos	1	base	429.48	1410.00	232.92	288.84
+portrait	eos	2	base	509.71	1670.00	232.92	290.35
+portrait	eos	3	base	495.98	1660.00	232.92	298.78
+portrait	eos	1	candidate	435.33	1460.00	232.92	287.68
+portrait	eos	2	candidate	445.66	1420.00	232.92	287.52
+portrait	eos	3	candidate	476.07	1540.00	232.92	295.89
+six originals	series	1	base	1698.86	4910.00	757.45	376.93
+six originals	series	2	base	1954.68	5850.00	757.45	401.25
+six originals	series	3	base	1891.30	5895.00	757.45	384.22
+six originals	series	4	base	1925.00	5830.00	757.45	294.13
+six originals	series	1	candidate	2139.25	6575.00	757.46	381.11
+six originals	series	2	candidate	1863.93	5425.00	757.46	393.27
+six originals	series	3	candidate	1988.67	6105.00	757.46	392.24
+six originals	series	4	candidate	2026.64	5800.00	757.46	295.11
+six originals, reverse order	series	1	base	1692.62	5215.00	757.45	303.22
+six originals, reverse order	series	2	base	1531.71	4875.00	757.45	372.99
+six originals, reverse order	series	3	base	1759.66	5625.00	757.45	366.02
+six originals, reverse order	series	4	base	1589.24	5270.00	757.45	385.72
+six originals, reverse order	series	1	candidate	1755.25	5230.00	757.46	548.70
+six originals, reverse order	series	2	candidate	1638.41	4990.00	757.46	378.09
+six originals, reverse order	series	3	candidate	1640.98	5370.00	757.46	360.60
+six originals, reverse order	series	4	candidate	1509.58	4760.00	757.46	380.66

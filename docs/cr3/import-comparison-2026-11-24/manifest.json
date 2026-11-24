@@ -1,0 +1,69 @@
+{
+  "repository": "https://github.com/carstenartur/Photographer",
+  "revision": "6cb25a7ea38461e4141ca61ab23461099c2d630a",
+  "tree": "4e386e87adee8c6314fafbccc33cb0e4359649a9",
+  "java": "openjdk version \"21.0.13\" 2026-10-20\nOpenJDK Runtime Environment (build 21.0.13+9-1-deb13u2-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13+9-1-deb13u2-Debian, mixed mode, sharing)",
+  "gcc": "gcc (Debian 14.2.0-19) 14.2.0",
+  "libraw": "LibRaw 0.21.4-Release; public-header 0.21.4-Release; capabilities 128",
+  "kernel": "Linux 6.18.57 x86_64 GNU/Linux",
+  "tools_sha256": {
+    "libraw_r.so.23.0.0": "d7f9c71246a262895cc27c42f7447dbd5107867a8f74875299975ede0246d523",
+    "libraw-bench": "b3f7455cd89858b07cf0d96997cc76edd796275f4438140a6805e61971e5277a",
+    "libraw_bench.c": "a6088ea36db2f3e8493cc7f64b4756a5d719f2047cda18e57ad98ed5069fd503",
+    "java": "1a7e0b17c39003c75b457d686775ccb032e56fa9c8afe3c492d8eb3715e8951a",
+    "Cr3ImportProbe.class": "8c8eb6e03b4aac7bc49750cfdf1144cfc4a4e874df09f6e40693e991ec5d8c78",
+    "Cr3ImportProbe.java": "2ffd5e78a7e0e5de5a85feb7647ce534d959d2055fe72585a045a984c10b1c1b"
+  },
+  "headers_sha256": {
+    "libraw_types.h": "d83c7b9c7a8ea035b12f1d7b70f8ed686bae360da5b56c3fdf48dac397b6402d",
+    "libraw_const.h": "00ad97e07ce41da9a1fbff19bc901cb9ecbdfe0c40478262dc946813841193d6",
+    "libraw_version.h": "9e2697188fc090d4276b61f1409b7d6b2f84bb69a47d6e0598fd95985b4e2386"
+  },
+  "headers_origin": "https://github.com/LibRaw/LibRaw/tree/0.21.4/libraw",
+  "input_sha256": {
+    "g5-raw": {
+      "name": "sample.cr3",
+      "sha256": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95"
+    },
+    "g5-craw": {
+      "name": "g5xm2-detail-iso1600-ss0p4s-ff1p6-iq3-20260511-201012-02.cr3",
+      "sha256": "e3b30d62772103c8ef88008d084cc75036cb7dd6723b874e71bb782bab16034c"
+    },
+    "eos-r-raw": {
+      "name": "eosr-iso-low.cr3",
+      "sha256": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+    },
+    "r8-craw": {
+      "name": "6587.cr3",
+      "sha256": "df33cf394573645ce03dea1b2e9f0b5cc2b7734e9e3391ee7114151414cf2812"
+    },
+    "g7iii-craw": {
+      "name": "6054.cr3",
+      "sha256": "29fa26718f2791f8dc3a69d8517d0575f8cf165492253671e7b1a5151a512f02"
+    },
+    "r5ii-apsc-craw": {
+      "name": "7884.cr3",
+      "sha256": "6a597497776a6abbfab8fcf12d0086ac7a3f8afea2879d61accf6bbf48d357d7"
+    }
+  },
+  "byte_equal_sensor_outputs": {
+    "eos-r-raw": {
+      "width": 6888,
+      "height": 4546,
+      "fnv1a64": "bfdafa4cdea7ee7c",
+      "sha256_of_complete_pgm": "bef10b106418cf20907a68463f15100edd14865a9d8154b5d97788959682f85e"
+    },
+    "g5-craw": {
+      "width": 5632,
+      "height": 3710,
+      "fnv1a64": "a90bf97e45a21c71",
+      "sha256_of_complete_pgm": "36084b240b96891b84ae964a8b93811e80c5d93032422ea32c63354bcc350ed9"
+    },
+    "g5-raw": {
+      "width": 5632,
+      "height": 3710,
+      "fnv1a64": "bbb2c3b2ecb4e45b",
+      "sha256_of_complete_pgm": "23a7d6c48954e61d79876bbf97508cb64aa693ff2060d5017f307cb30f9276ce"
+    }
+  }
+}

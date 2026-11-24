@@ -6,6 +6,8 @@ import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import java.awt.color.ColorSpace;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferUShort;
+import java.awt.image.Raster;
 import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 import javax.imageio.IIOException;
@@ -266,6 +268,142 @@ class CanonCr3DestinationTest {
             assertEquals(2, image.getHeight());
             assertEquals(BufferedImage.TYPE_INT_RGB, image.getType());
             assertEquals(Cr3DecodeOptions.OutputMode.PREVIEW, param.getDecodeOptions().outputMode());
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void rgb16WorkspaceWritesEveryLogicalBandInCameraOrientation(boolean srgb) throws Exception {
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        var sensor = Raster.createInterleavedRaster(DataBuffer.TYPE_USHORT, 14, 12, 1, null);
+        for (int y = 0; y < sensor.getHeight(); y++) {
+            for (int x = 0; x < sensor.getWidth(); x++) {
+                sensor.setSample(x, y, 0, (4711 * x + 3079 * y + 17 * x * y) & 16383);
+            }
+        }
+        byte[] file = Cr3InclusiveActiveAreaTest.sensorFile(sensor, 4, 1, 12, 10, 48);
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(file))) {
+            reader.setInput(input);
+            var metadata = ((Cr3ImageMetadata) reader.getImageMetadata(0)).getCr3Metadata();
+            metadata.setWhiteBalanceMultipliers(new double[]{1.31, 0.93, 1.17});
+            for (int orientation = 1; orientation <= 8; orientation++) {
+                metadata.setOrientation(orientation);
+                var param = reader.getDefaultReadParam();
+                var options = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                        .applySrgbConversion(srgb);
+                param.setDecodeOptions(options);
+                BufferedImage expected = reader.read(0, param);
+                int width = expected.getWidth();
+                int height = expected.getHeight();
+                for (int[] banks : new int[][]{{0, 1, 2}, {2, 0, 1}}) {
+                    var type = ImageTypeSpecifier.createBanded(expected.getColorModel().getColorSpace(),
+                            banks, new int[3], DataBuffer.TYPE_USHORT, false, false);
+                    BufferedImage supplied = type.createBufferedImage(width, height);
+                    for (short[] bank : ((DataBufferUShort) supplied.getRaster().getDataBuffer()).getBankData()) {
+                        Arrays.fill(bank, (short) 0xace1);
+                    }
+                    param.setUseDestinationAsWorkspace(true);
+                    param.setDestination(supplied);
+                    assertSame(supplied, reader.read(0, param));
+                    assertArrayEquals(expected.getRaster().getPixels(0, 0, width, height, (int[]) null),
+                            supplied.getRaster().getPixels(0, 0, width, height, (int[]) null));
+                }
+            }
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @Test
+    void workspaceOptInPreservesParentPixelsAndUnselectedBandsOfCallerView() throws Exception {
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(fourSites()))) {
+            reader.setInput(input);
+            var expected = reader.read(0);
+            var parent = rgb16(true).createBufferedImage(4, 4);
+            for (short[] bank : ((DataBufferUShort) parent.getRaster().getDataBuffer()).getBankData()) {
+                Arrays.fill(bank, (short) 0xace1);
+            }
+            var view = parent.getSubimage(1, 1, 2, 2);
+            var param = reader.getDefaultReadParam();
+            param.setDestination(view);
+            param.setUseDestinationAsWorkspace(true);
+            param.setSourceBands(new int[]{2, 0});
+            param.setDestinationBands(new int[]{0, 2});
+            assertSame(view, reader.read(0, param));
+            for (int y = 0; y < 4; y++) {
+                for (int x = 0; x < 4; x++) {
+                    int[] pixel = {0xace1, 0xace1, 0xace1};
+                    if (x >= 1 && x <= 2 && y >= 1 && y <= 2) {
+                        pixel[0] = expected.getRaster().getSample(x - 1, y - 1, 2);
+                        pixel[2] = expected.getRaster().getSample(x - 1, y - 1, 0);
+                    }
+                    assertArrayEquals(pixel, parent.getRaster().getPixel(x, y, (int[]) null));
+                }
+            }
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void standardDestinationCopiesPermutedRgb16BanksAndPreservesPixelsOutsideAChild(boolean child)
+            throws Exception {
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(fourSites()))) {
+            reader.setInput(input);
+            var metadata = ((Cr3ImageMetadata) reader.getImageMetadata(0)).getCr3Metadata();
+            metadata.setWhiteBalanceMultipliers(new double[]{1.25, 1.0, 0.75});
+            var expected = reader.read(0);
+            var type = ImageTypeSpecifier.createBanded(expected.getColorModel().getColorSpace(),
+                    new int[]{2, 0, 1}, new int[3], DataBuffer.TYPE_USHORT, false, false);
+            int size = child ? 4 : 2;
+            int margin = child ? 1 : 0;
+            var parent = type.createBufferedImage(size, size);
+            for (short[] bank : ((DataBufferUShort) parent.getRaster().getDataBuffer()).getBankData()) {
+                Arrays.fill(bank, (short) 0xace1);
+            }
+            var target = child ? parent.getSubimage(margin, margin, 2, 2) : parent;
+            var param = new ImageReadParam();
+            param.setDestination(target);
+
+            assertSame(target, reader.read(0, param));
+
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    boolean inside = x >= margin && x < margin + 2 && y >= margin && y < margin + 2;
+                    int[] pixel = inside ? expected.getRaster().getPixel(x - margin, y - margin, (int[]) null)
+                            : new int[]{0xace1, 0xace1, 0xace1};
+                    assertArrayEquals(pixel, parent.getRaster().getPixel(x, y, (int[]) null));
+                }
+            }
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void damagedRawLeavesOrdinaryAndInterleavedCallerDestinationsUntouched(boolean interleaved) throws Exception {
+        byte[] bytes = fourSites();
+        Arrays.fill(bytes, bytes.length - 2, bytes.length, (byte) 0xff);
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+            reader.setInput(input);
+            var workspace = reader.getDefaultReadParam();
+            workspace.setUseDestinationAsWorkspace(true);
+            ImageReadParam param = interleaved ? workspace : new ImageReadParam();
+            var type = interleaved ? ImageTypeSpecifier.createInterleaved(ColorSpace.getInstance(ColorSpace.CS_sRGB),
+                    new int[]{0, 1, 2}, DataBuffer.TYPE_USHORT, false, false) : rgb16(true);
+            var supplied = type.createBufferedImage(2, 2);
+            int[] before = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120};
+            supplied.getRaster().setPixels(0, 0, 2, 2, before);
+            param.setDestination(supplied);
+            assertThrows(IIOException.class, () -> reader.read(0, param));
+            assertArrayEquals(before, supplied.getRaster().getPixels(0, 0, 2, 2, (int[]) null));
         } finally {
             reader.dispose();
         }
