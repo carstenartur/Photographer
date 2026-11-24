@@ -91,6 +91,37 @@ class TiffNumericMetadataTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("byteOrders")
+    void readsCompleteDescriptorsInsideTheBoxAfterFollowingAnExternalValue(ByteOrder order) throws IOException {
+        // The string occupies the gap between the TIFF header and the IFD.
+        var data = ByteBuffer.allocate(64).order(order);
+        data.putShort(order == ByteOrder.BIG_ENDIAN ? (short) 0x4d4d : (short) 0x4949);
+        data.putShort((short) 42).putInt(16);
+        data.put(new byte[]{'C', 'a', 'n', 'o', 'n', 0});
+        data.position(16);
+        data.putShort((short) 3);
+        data.putShort((short) 1).putShort((short) 2).putInt(6).putInt(8);
+        data.putShort((short) 2).putShort((short) 4).putInt(1).putInt(42);
+        data.putShort((short) 3).putShort((short) 4).putInt(1).putInt(99);
+        int endOfSecondDescriptor = 16 + 2 + 2 * 12;
+        try (var input = Cr3TestData.toImageInputStream(data.array())) {
+            input.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+            var tags = TiffIfdParser.parseIfd(input, 0, endOfSecondDescriptor + 11);
+            assertThat(tags).containsOnlyKeys(1, 2);
+            assertThat(tags.get(1)).isEqualTo(new TagValue.StringValue("Canon"));
+            assertThat(tags.get(2)).isEqualTo(new TagValue.LongValue(42));
+            assertThat(input.getStreamPosition()).isEqualTo(endOfSecondDescriptor);
+            assertThat(input.getByteOrder()).isEqualTo(ByteOrder.LITTLE_ENDIAN);
+        }
+        try (var input = Cr3TestData.toImageInputStream(Arrays.copyOf(data.array(), endOfSecondDescriptor + 11))) {
+            input.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+            assertThatThrownBy(() -> TiffIfdParser.parseIfd(input, 0, data.capacity()))
+                    .isInstanceOf(EOFException.class);
+            assertThat(input.getByteOrder()).isEqualTo(ByteOrder.LITTLE_ENDIAN);
+        }
+    }
+
     private static byte[] shortArrayIfd(ByteOrder order, int tag, int[] words) {
         int offset = 26; // TIFF header, directory entry and next-IFD pointer
         boolean inline = words.length <= 2;
