@@ -21,12 +21,14 @@ classification is maintained in
 
 Use standard ImageIO APIs to load the developed photograph or request the
 embedded JPEG. The [ImageIO guide](../docs/cr3/imageio.md) describes the
-available output modes. In 0.1.9-SNAPSHOT, the default is full-resolution
+available output modes. Since 0.1.9, the default has been full-resolution
 sRGB with three unsigned 16-bit bands. Read channel values through the raster.
 For RGB8, select `BitDepth.EIGHT` on the default read parameters or request
 the advertised `TYPE_INT_RGB` destination. Version 0.1.8 requires explicit
-`BitDepth.SIXTEEN` for RGB16. The [destination rules](../docs/cr3/imageio.md#standard-imageio-regions-and-destinations)
-describe mutable settings and destination reuse.
+`BitDepth.SIXTEEN` for RGB16. For a sequence of full-frame reads the current checkout can
+develop directly into one caller-supplied, three-bank RGB16 image. The example creates
+an advertised sRGB or linear RGB destination and reuses it across files of matching size.
+[Reuse an RGB16 destination](../docs/cr3/imageio.md#reuse-an-rgb16-destination)
 
 ## Key types
 

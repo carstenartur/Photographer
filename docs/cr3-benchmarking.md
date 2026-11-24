@@ -2,6 +2,10 @@
 
 CR3 pull-request performance checks compare the base and head revisions on the same host. Longitudinal `main` history remains useful for trends and component localisation, but it is not used as the causal pull-request baseline.
 
+## RGB16 series, destinations and portrait development
+
+The [RGB16 series measurements](cr3/rgb16-destination-performance.md) compare ordinary supplied destinations, caller-authorized workspace reuse, and full-resolution portrait and landscape imports on the public ImageIO API. They also record the file-read counts for metadata parsing.
+
 ## RGB16 rotation, source subsampling and metadata reads
 
 The [RGB16 import study](cr3/rgb16-import-2026-11-24.md) compares compact portrait rotation, coarse source subsampling, and a series of six distinct ordinary `ImageIO.read(File)` calls. It records full-output equivalence, memory use, wall time and the number of file reads attributable to TIFF metadata changes.
