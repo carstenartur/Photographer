@@ -43,6 +43,8 @@ an advertised sRGB or linear RGB destination and reuses it across files of match
 
 See the [Java ImageIO guide](../docs/cr3/imageio.md) for the Maven setup, runnable examples and read parameters for embedded JPEG, thumbnail, processed RGB, linear Bayer and original sensor samples. The [CR3 import guide](../docs/cr3/import.md) covers the standalone decoder, original JPEG byte extraction and captured frames in Photographer.
 
+For full-resolution RGB16 and native Bayer import times and peak memory, see the [comparison with LibRaw](../docs/cr3/import-comparison-2026-11-24/README.md).
+
 The [CR3 writer example](../docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) shows how to select a built-in camera profile and write a matching native sensor mosaic.
 
 The [DNG examples](../docs/cr3/imageio.md#write-and-read-a-bayer-dng) show how to export a full native sensor image or an explicit raster with calibration, and how to read the sensor values back.
