@@ -120,8 +120,10 @@ taskset -c 0-3 java -Xms24m -Xmx768m -XX:+UseSerialGC -XX:ActiveProcessorCount=4
 ```
 
 The arguments are concurrent files, decoder workers per file, output mode
-(`rgb8`, `rgb16` or `sensor`), warmup batches, measured batches and file paths.
+(`default`, `rgb8`, `rgb16` or `sensor`), warmup batches, measured batches and file paths.
 A worker count of zero uses the decoder's automatic processor-based limit.
+Use `1 0 default` to measure successive calls to `ImageIO.read(File)` on distinct
+originals. The reader chooses its normal RGB16 output and worker count for each file.
 The probe requests GC between batches, outside batch timing. Run a separate
 `0 1 --checksum` batch (replacing the warmup and measured counts) to verify the
 dimensions, precision and full image fingerprint for each input. Use the
