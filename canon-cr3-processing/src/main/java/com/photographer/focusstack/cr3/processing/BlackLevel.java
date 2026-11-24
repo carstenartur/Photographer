@@ -1,6 +1,10 @@
 package com.photographer.focusstack.cr3.processing;
 
+import com.photographer.focusstack.cr3.raw.Cr3RawImage.BayerPattern;
+
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.IntUnaryOperator;
 
 /**
  * Represents a black level configuration that may be global, per-channel, or per-row.
@@ -12,10 +16,11 @@ import java.util.Arrays;
  * <ul>
  *   <li><b>Global</b>: single value for all pixels (simplest, least accurate)</li>
  *   <li><b>Per-channel</b>: 4 values for R, Gr, Gb, B Bayer channels</li>
- *   <li><b>Per-row</b>: black level varies by row (future — from OB estimation)</li>
+ *   <li><b>Per-row</b>: one pedestal per Bayer channel and row pair, estimated from optically masked pixels</li>
  * </ul>
  *
- * <p>Priority: per-channel from MakerNote &gt; global default</p>
+ * <p>Normal RAW development uses optical-black estimates when available, then MakerNote
+ * per-channel levels, then the global default.</p>
  */
 public final class BlackLevel {
 
@@ -194,6 +199,44 @@ public final class BlackLevel {
             }
         }
         return (min == Integer.MAX_VALUE) ? DEFAULT_14BIT : min;
+    }
+
+    /**
+     * Projects the calibration of selected native rows onto a new, zero-based row grid.
+     * Column coordinates retain their original parity. Each row uses its original per-channel
+     * pedestal even when its position in the new grid has a different parity.
+     *
+     * @param height number of retained rows, at least one
+     * @param sensorRowAt maps a retained zero-based row to its nonnegative native sensor row
+     * @param pattern Bayer pattern used for both calibrations
+     * @return calibration addressed by native column and retained row
+     */
+    public BlackLevel forSensorRows(int height, IntUnaryOperator sensorRowAt, BayerPattern pattern) {
+        if (height < 1) {
+            throw new IllegalArgumentException("At least one retained sensor row is required");
+        }
+        Objects.requireNonNull(sensorRowAt);
+        Objects.requireNonNull(pattern);
+        if (mode == Mode.GLOBAL) {
+            return this;
+        }
+        int pairs = Math.ceilDiv(height, 2);
+        int[][] selected = new int[4][pairs];
+        for (int pair = 0; pair < pairs; pair++) {
+            for (int parity = 0; parity < 2; parity++) {
+                int row = 2 * pair + parity;
+                // An incomplete last pair repeats the final actual pedestal in its unused entries.
+                int sensorRow = sensorRowAt.applyAsInt(Math.min(row, height - 1));
+                if (sensorRow < 0) {
+                    throw new IllegalArgumentException("Sensor row must be nonnegative");
+                }
+                for (int x = 0; x < 2; x++) {
+                    int channel = bayerChannelIndex(x, row, pattern);
+                    selected[channel][pair] = levelAt(x, sensorRow, pattern);
+                }
+            }
+        }
+        return new BlackLevel(Mode.PER_ROW, 0, null, selected);
     }
 
     /**

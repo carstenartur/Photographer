@@ -49,6 +49,34 @@ class Cr3RgbSubsamplingTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"5, 8, 1, 2, true, AUTO", "8, 5, 2, 1, false, LOW_MEMORY",
+            "2, 7, 1, 3, false, AUTO", "9, 1, 3, 0, true, AUTO",
+            "2147483647, 5, 2, 1, true, AUTO", "7, 2147483647, 1, 2, false, AUTO",
+            "2147483647, 2147483647, 2, 1, true, AUTO"})
+    void coarseRgb16GridsRetainNativeNeighborsAndRowCalibration(int xStep, int yStep,
+            int xOffset, int yOffset, boolean srgb, Cr3DecodeOptions.MemoryMode memory) throws Exception {
+        var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+        try (var input = fixture(68, 54, 5, 3, 64, 50)) {
+            reader.setInput(input);
+            var metadata = ((Cr3ImageMetadata) reader.getImageMetadata(0)).getCr3Metadata();
+            metadata.setWhiteBalanceMultipliers(new double[]{1.25, 1.1, 0.7501});
+            for (int orientation = 1; orientation <= 8; orientation++) {
+                metadata.setOrientation(orientation);
+                var param = reader.getDefaultReadParam();
+                param.setDecodeOptions(Cr3DecodeOptions.rawProcessed().bitDepth(BitDepth.SIXTEEN)
+                        .applySrgbConversion(srgb).memoryMode(memory));
+                var full = reader.read(0, param);
+                var bounds = full.getRaster().getBounds();
+                assertSampledRead(reader, param, full, bounds, xStep, yStep, 0, 0);
+                var inset = new Rectangle(1, 3, bounds.width - 3, bounds.height - 4);
+                assertSampledRead(reader, param, full, inset, xStep, yStep, xOffset, yOffset);
+            }
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @ParameterizedTest
     @EnumSource(BitDepth.class)
     void retainsClippedDestinationOffsetsAndBandMappings(BitDepth depth) throws Exception {
         var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
@@ -109,17 +137,22 @@ class Cr3RgbSubsamplingTest {
     }
 
     private static MemoryCacheImageInputStream fixture() throws Exception {
-        var sensor = Raster.createInterleavedRaster(DataBuffer.TYPE_USHORT, 18, 12, 1, null);
+        return fixture(18, 12, 4, 1, 14, 9);
+    }
+
+    private static MemoryCacheImageInputStream fixture(int width, int height, int left, int top,
+                                                       int right, int bottom) throws Exception {
+        var sensor = Raster.createInterleavedRaster(DataBuffer.TYPE_USHORT, width, height, 1, null);
         for (int y = 0; y < sensor.getHeight(); y++) {
             for (int x = 0; x < sensor.getWidth(); x++) {
                 int value = 463 + 13 * y + 5 * x;
-                if (x >= 4) {
+                if (x >= left) {
                     value += (1673 * x + 1171 * y + 19 * x * y) % 13000;
                 }
                 sensor.setSample(x, y, 0, value);
             }
         }
-        byte[] bytes = Cr3InclusiveActiveAreaTest.sensorFile(sensor, 4, 1, 14, 9, 48);
+        byte[] bytes = Cr3InclusiveActiveAreaTest.sensorFile(sensor, left, top, right, bottom, 48);
         return new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes));
     }
 }
