@@ -350,20 +350,58 @@ class CanonCr3DestinationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
+    void standardDestinationCopiesPermutedRgb16BanksAndPreservesPixelsOutsideAChild(boolean child)
+            throws Exception {
+        var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(fourSites()))) {
+            reader.setInput(input);
+            var metadata = ((Cr3ImageMetadata) reader.getImageMetadata(0)).getCr3Metadata();
+            metadata.setWhiteBalanceMultipliers(new double[]{1.25, 1.0, 0.75});
+            var expected = reader.read(0);
+            var type = ImageTypeSpecifier.createBanded(expected.getColorModel().getColorSpace(),
+                    new int[]{2, 0, 1}, new int[3], DataBuffer.TYPE_USHORT, false, false);
+            int size = child ? 4 : 2;
+            int margin = child ? 1 : 0;
+            var parent = type.createBufferedImage(size, size);
+            for (short[] bank : ((DataBufferUShort) parent.getRaster().getDataBuffer()).getBankData()) {
+                Arrays.fill(bank, (short) 0xace1);
+            }
+            var target = child ? parent.getSubimage(margin, margin, 2, 2) : parent;
+            var param = new ImageReadParam();
+            param.setDestination(target);
+
+            assertSame(target, reader.read(0, param));
+
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    boolean inside = x >= margin && x < margin + 2 && y >= margin && y < margin + 2;
+                    int[] pixel = inside ? expected.getRaster().getPixel(x - margin, y - margin, (int[]) null)
+                            : new int[]{0xace1, 0xace1, 0xace1};
+                    assertArrayEquals(pixel, parent.getRaster().getPixel(x, y, (int[]) null));
+                }
+            }
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     void damagedRawLeavesOrdinaryAndInterleavedCallerDestinationsUntouched(boolean interleaved) throws Exception {
         byte[] bytes = fourSites();
         Arrays.fill(bytes, bytes.length - 2, bytes.length, (byte) 0xff);
         var reader = (CanonCr3ImageReader) new CanonCr3ImageReaderSpi().createReaderInstance();
         try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
             reader.setInput(input);
-            var param = reader.getDefaultReadParam();
+            var workspace = reader.getDefaultReadParam();
+            workspace.setUseDestinationAsWorkspace(true);
+            ImageReadParam param = interleaved ? workspace : new ImageReadParam();
             var type = interleaved ? ImageTypeSpecifier.createInterleaved(ColorSpace.getInstance(ColorSpace.CS_sRGB),
                     new int[]{0, 1, 2}, DataBuffer.TYPE_USHORT, false, false) : rgb16(true);
             var supplied = type.createBufferedImage(2, 2);
             int[] before = {10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120};
             supplied.getRaster().setPixels(0, 0, 2, 2, before);
             param.setDestination(supplied);
-            param.setUseDestinationAsWorkspace(interleaved);
             assertThrows(IIOException.class, () -> reader.read(0, param));
             assertArrayEquals(before, supplied.getRaster().getPixels(0, 0, 2, 2, (int[]) null));
         } finally {

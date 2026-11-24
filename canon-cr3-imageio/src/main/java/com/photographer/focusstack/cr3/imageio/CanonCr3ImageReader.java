@@ -6,6 +6,7 @@ import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions.OutputMode;
 import com.photographer.focusstack.cr3.decode.Cr3Decoder;
 import com.photographer.focusstack.cr3.metadata.Cr3Metadata;
 import com.photographer.focusstack.cr3.preview.Cr3PreviewExtractor;
+import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
 import com.photographer.focusstack.dng.imageio.DngImageMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -280,12 +281,19 @@ public class CanonCr3ImageReader extends ImageReader {
                         regions.destination()), 1, 1);
             }
             if (source.equals(bounds)) {
-                BufferedImage destination = param instanceof CanonCr3ImageReadParam cr3
-                        && cr3.usesDestinationAsWorkspace() && regions.destination().equals(bounds)
-                        && param.getSourceBands() == null && param.getDestinationBands() == null
-                        ? param.getDestination() : null;
-                BufferedImage decoded = decoder.decodeRawProcessedRegion(options, null, destination);
-                return decoded == destination ? decoded : copyImage(param, decoded, regions, 1, 1);
+                BufferedImage target = param.getDestination();
+                boolean fullDestination = target != null && regions.destination().equals(bounds)
+                        && param.getSourceBands() == null && param.getDestinationBands() == null;
+                BufferedImage workspace = fullDestination && param instanceof CanonCr3ImageReadParam cr3
+                        && cr3.usesDestinationAsWorkspace() ? target : null;
+                BufferedImage decoded = decoder.decodeRawProcessedRegion(options, null, workspace);
+                if (decoded == target) {
+                    return decoded;
+                }
+                if (sixteen && fullDestination && copyRgb16Banks(decoded, target, options.applySrgbConversion())) {
+                    return target;
+                }
+                return copyImage(param, decoded, regions, 1, 1);
             }
             BufferedImage decoded = decoder.decodeRawProcessedRegion(options, source);
             // The decoder returns the source region with a zero-based raster.
@@ -294,6 +302,29 @@ public class CanonCr3ImageReader extends ImageReader {
         } catch (Cr3Exception e) {
             throw decodeError(options, e);
         }
+    }
+
+    /** Copy a complete successfully staged image into a distinct, compatible destination. */
+    private static boolean copyRgb16Banks(BufferedImage decoded, BufferedImage target, boolean srgb) {
+        // A caller-defined raster can customize the writes performed by setRect.
+        if (target.getRaster().getClass().getModule() != Raster.class.getModule()) {
+            return false;
+        }
+        int width = decoded.getWidth();
+        int height = decoded.getHeight();
+        short[][] to = BayerDemosaicer.rgb16DestinationBanks(target, width, height, srgb);
+        if (to == null) {
+            return false;
+        }
+        short[][] from = BayerDemosaicer.rgb16DestinationBanks(decoded, width, height, srgb);
+        if (from == null) {
+            return false;
+        }
+        // The decoder created these source banks independently of the caller's destination.
+        for (int band = 0; band < from.length; band++) {
+            System.arraycopy(from[band], 0, to[band], 0, from[band].length);
+        }
+        return true;
     }
 
     private static void checkRgbDestination(ImageReadParam param, Cr3DecodeOptions options) throws IIOException {
