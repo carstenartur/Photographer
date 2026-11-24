@@ -6,12 +6,16 @@ import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TiffNumericMetadataTest {
     static Stream<ByteOrder> byteOrders() {
@@ -59,6 +63,46 @@ class TiffNumericMetadataTest {
         tiff.putShort((short) TiffIfdParser.TAG_GPS_ALTITUDE).putShort((short) 5).putInt(1).putInt(38);
         tiff.putInt(0).putInt(30).putInt(1);
         assertThat(readMetadata("CMT4", tiff.array()).gpsAltitude()).isEqualTo(-30.0);
+    }
+
+    @ParameterizedTest
+    @MethodSource("byteOrders")
+    void readsOddAndEvenUnsignedShortArrays(ByteOrder order) throws IOException {
+        int tag = 0x4001;
+        var single = (TagValue.IntValue) readTag(shortArrayIfd(order, tag, new int[]{0xffff}), tag);
+        assertThat(single.value()).isEqualTo(0xffff);
+        for (int count : new int[]{2, 3, 4, 1023, 1024, 1025, 8192}) {
+            int[] words = IntStream.range(0, count).map(i -> (0xffff - i * 32767) & 0xffff).toArray();
+            var value = (TagValue.IntArrayValue) readTag(shortArrayIfd(order, tag, words), tag);
+            assertThat(value.values()).containsExactly(words);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("byteOrders")
+    void rejectsShortArraysTruncatedInsideAWordOrBeforeTheOddTail(ByteOrder order) throws IOException {
+        byte[] complete = shortArrayIfd(order, 0x4001, new int[]{0xffff, 0x8000, 0x1234, 0x4321, 0x7fff});
+        for (int missing : new int[]{1, 2, 3}) {
+            byte[] truncated = Arrays.copyOf(complete, complete.length - missing);
+            try (var input = Cr3TestData.toImageInputStream(truncated)) {
+                assertThatThrownBy(() -> TiffIfdParser.parseIfd(input, 0, complete.length))
+                        .isInstanceOf(EOFException.class);
+            }
+        }
+    }
+
+    private static byte[] shortArrayIfd(ByteOrder order, int tag, int[] words) {
+        int offset = 26; // TIFF header, directory entry and next-IFD pointer
+        boolean inline = words.length <= 2;
+        var tiff = startIfd(order, 1, offset + (inline ? 0 : words.length * Short.BYTES));
+        tiff.putShort((short) tag).putShort((short) 3).putInt(words.length);
+        if (!inline) {
+            tiff.putInt(offset).putInt(0);
+        }
+        for (int word : words) {
+            tiff.putShort((short) word);
+        }
+        return tiff.array();
     }
 
     private static TagValue readTag(byte[] tiff, int tag) throws IOException {
