@@ -4,7 +4,7 @@ import java.awt.image.BufferedImage;
 
 /**
  * Self-contained SSIM and CIE ΔE2000 colour-difference helpers for
- * perceptual quality comparison of decoded RAW vs embedded JPEG previews.
+ * RAW/preview regressions and physical RGB16 color-chart measurements.
  *
  * <p>No runtime dependencies beyond the JDK are required; this class lives
  * entirely in {@code src/test/java}.</p>
@@ -162,19 +162,33 @@ final class ImageQualityHelper {
 
     /** Converts packed sRGB int to CIELAB double[3] = {L*, a*, b*}. */
     private static double[] srgbToLab(int rgb) {
-        double r = srgbToLinear((rgb >> 16) & 0xFF);
-        double g = srgbToLinear((rgb >> 8) & 0xFF);
-        double bv = srgbToLinear(rgb & 0xFF);
+        return linearSrgbToLab(srgbToLinear(((rgb >> 16) & 0xFF) / 255.0),
+                srgbToLinear(((rgb >> 8) & 0xFF) / 255.0), srgbToLinear((rgb & 0xFF) / 255.0),
+                ReferenceWhite.D65);
+    }
+
+    enum ReferenceWhite { D65, D50 }
+
+    static double[] linearSrgbToLab(double r, double g, double bv, ReferenceWhite white) {
 
         // sRGB → XYZ D65
         double x = M_R[0] * r + M_R[1] * g + M_R[2] * bv;
         double y = M_G[0] * r + M_G[1] * g + M_G[2] * bv;
         double z = M_B[0] * r + M_B[1] * g + M_B[2] * bv;
 
-        // XYZ → Lab
-        double fx = labF(x / XN);
+        // Bradford adaptation for target data reported relative to the D50/2° white.
+        if (white == ReferenceWhite.D50) {
+            return xyzToLab(1.0478112 * x + 0.0228866 * y - 0.0501270 * z,
+                    0.0295424 * x + 0.9904844 * y - 0.0170491 * z,
+                    -0.0092345 * x + 0.0150436 * y + 0.7521316 * z, 0.96422, 0.82521);
+        }
+        return xyzToLab(x, y, z, XN, ZN);
+    }
+
+    private static double[] xyzToLab(double x, double y, double z, double xn, double zn) {
+        double fx = labF(x / xn);
         double fy = labF(y / YN);
-        double fz = labF(z / ZN);
+        double fz = labF(z / zn);
 
         return new double[]{
                 116.0 * fy - 16.0,   // L*
@@ -183,8 +197,7 @@ final class ImageQualityHelper {
         };
     }
 
-    private static double srgbToLinear(int v8) {
-        double c = v8 / 255.0;
+    static double srgbToLinear(double c) {
         return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     }
 
