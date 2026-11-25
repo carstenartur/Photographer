@@ -21,6 +21,8 @@ on:
       - 'scripts/test_compare_jmh.py'
       - 'scripts/run_jmh_compare_refs.py'
       - 'scripts/test_run_jmh_compare_refs.py'
+      - 'scripts/run_maven_with_retry.py'
+      - 'scripts/test_run_maven_with_retry.py'
       - 'scripts/prepare_jmh_history.py'
       - 'scripts/test_prepare_jmh_history.py'
       - '.github/workflows/cr3-benchmark.yml'
@@ -44,6 +46,8 @@ on:
       - 'scripts/test_compare_jmh.py'
       - 'scripts/run_jmh_compare_refs.py'
       - 'scripts/test_run_jmh_compare_refs.py'
+      - 'scripts/run_maven_with_retry.py'
+      - 'scripts/test_run_maven_with_retry.py'
       - 'scripts/prepare_jmh_history.py'
       - 'scripts/test_prepare_jmh_history.py'
       - '.github/workflows/cr3-benchmark.yml'
@@ -136,6 +140,7 @@ jobs:
         run: |
           python3 scripts/test_compare_jmh.py
           python3 scripts/test_run_jmh_compare_refs.py
+          python3 scripts/test_run_maven_with_retry.py
           python3 scripts/test_prepare_jmh_history.py
 
       - name: Build the RAW focus-stack benchmark profiles
@@ -210,7 +215,7 @@ jobs:
       - name: Build full benchmark suite
         if: github.event_name != 'pull_request'
         run: >-
-          mvn -B --no-transfer-progress -DskipTests
+          python3 scripts/run_maven_with_retry.py -B --no-transfer-progress -DskipTests
           -P benchmarks
           -pl canon-cr3-benchmark -am
           package

@@ -1,0 +1,359 @@
+{
+  "statistic": "Median of the two per-fork medians; each fresh JVM has three warmups and five measured invocations. Pooled medians are secondary only.",
+  "imports": [
+    {
+      "jdk": 21,
+      "camera": "g5",
+      "input": "sample.cr3",
+      "baseline": {
+        "median_ms": 744.1496050000001,
+        "median_cpu_ms": 2670.0,
+        "median_allocated_bytes": 163083792.0,
+        "peak_rss_kib": 390388,
+        "full_fnv1a64": "f334ac23d6d550ca",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 781.451871,
+            "median_cpu_ms": 2780.0,
+            "median_allocated_bytes": 163083792,
+            "min_ms": 774.980969,
+            "max_ms": 899.523337,
+            "peak_rss_kib": 389880
+          },
+          {
+            "fork": 2,
+            "median_ms": 706.847339,
+            "median_cpu_ms": 2560.0,
+            "median_allocated_bytes": 163083792,
+            "min_ms": 699.947137,
+            "max_ms": 763.128029,
+            "peak_rss_kib": 390388
+          }
+        ],
+        "secondary_pooled_median_ms": 769.054499
+      },
+      "optimized": {
+        "median_ms": 671.359438,
+        "median_cpu_ms": 2315.0,
+        "median_allocated_bytes": 163313672.0,
+        "peak_rss_kib": 392364,
+        "full_fnv1a64": "f334ac23d6d550ca",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 661.643124,
+            "median_cpu_ms": 2290.0,
+            "median_allocated_bytes": 163313672,
+            "min_ms": 629.960183,
+            "max_ms": 691.20429,
+            "peak_rss_kib": 387876
+          },
+          {
+            "fork": 2,
+            "median_ms": 681.075752,
+            "median_cpu_ms": 2340.0,
+            "median_allocated_bytes": 163313672,
+            "min_ms": 650.733431,
+            "max_ms": 720.046266,
+            "peak_rss_kib": 392364
+          }
+        ],
+        "secondary_pooled_median_ms": 671.268467
+      },
+      "elapsed_reduction_percent": 9.781657681589461,
+      "cpu_reduction_percent": 13.295880149812733,
+      "allocation_delta_bytes": 229880.0,
+      "bit_exact_fingerprint": true
+    },
+    {
+      "jdk": 21,
+      "camera": "eos",
+      "input": "eosr-iso-low.cr3",
+      "baseline": {
+        "median_ms": 1207.582721,
+        "median_cpu_ms": 4220.0,
+        "median_allocated_bytes": 244910416.0,
+        "peak_rss_kib": 373164,
+        "full_fnv1a64": "293eb25bccb09add",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 1224.809705,
+            "median_cpu_ms": 4270.0,
+            "median_allocated_bytes": 244910416,
+            "min_ms": 1205.465434,
+            "max_ms": 1243.417314,
+            "peak_rss_kib": 372148
+          },
+          {
+            "fork": 2,
+            "median_ms": 1190.355737,
+            "median_cpu_ms": 4170.0,
+            "median_allocated_bytes": 244910416,
+            "min_ms": 1171.930784,
+            "max_ms": 1209.347386,
+            "peak_rss_kib": 373164
+          }
+        ],
+        "secondary_pooled_median_ms": 1205.8679145
+      },
+      "optimized": {
+        "median_ms": 1023.1440785,
+        "median_cpu_ms": 3525.0,
+        "median_allocated_bytes": 245140296.0,
+        "peak_rss_kib": 375300,
+        "full_fnv1a64": "293eb25bccb09add",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 1023.452768,
+            "median_cpu_ms": 3540.0,
+            "median_allocated_bytes": 245140296,
+            "min_ms": 1012.882985,
+            "max_ms": 1049.588538,
+            "peak_rss_kib": 373816
+          },
+          {
+            "fork": 2,
+            "median_ms": 1022.835389,
+            "median_cpu_ms": 3510.0,
+            "median_allocated_bytes": 245140296,
+            "min_ms": 983.692222,
+            "max_ms": 1113.14219,
+            "peak_rss_kib": 375300
+          }
+        ],
+        "secondary_pooled_median_ms": 1023.1440785
+      },
+      "elapsed_reduction_percent": 15.273375421210588,
+      "cpu_reduction_percent": 16.46919431279621,
+      "allocation_delta_bytes": 229880.0,
+      "bit_exact_fingerprint": true
+    },
+    {
+      "jdk": 25,
+      "camera": "g5",
+      "input": "sample.cr3",
+      "baseline": {
+        "median_ms": 900.8672985000001,
+        "median_cpu_ms": 2840.0,
+        "median_allocated_bytes": 163080612.0,
+        "peak_rss_kib": 785460,
+        "full_fnv1a64": "f334ac23d6d550ca",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 890.781934,
+            "median_cpu_ms": 2750.0,
+            "median_allocated_bytes": 163080640,
+            "min_ms": 721.496531,
+            "max_ms": 1064.921542,
+            "peak_rss_kib": 785460
+          },
+          {
+            "fork": 2,
+            "median_ms": 910.952663,
+            "median_cpu_ms": 2930.0,
+            "median_allocated_bytes": 163080584,
+            "min_ms": 734.392674,
+            "max_ms": 1135.428856,
+            "peak_rss_kib": 784332
+          }
+        ],
+        "secondary_pooled_median_ms": 900.8672985000001
+      },
+      "optimized": {
+        "median_ms": 728.6228189999999,
+        "median_cpu_ms": 2300.0,
+        "median_allocated_bytes": 163310472.0,
+        "peak_rss_kib": 786440,
+        "full_fnv1a64": "f334ac23d6d550ca",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 718.632531,
+            "median_cpu_ms": 2230.0,
+            "median_allocated_bytes": 163310472,
+            "min_ms": 534.584741,
+            "max_ms": 846.991395,
+            "peak_rss_kib": 785528
+          },
+          {
+            "fork": 2,
+            "median_ms": 738.613107,
+            "median_cpu_ms": 2370.0,
+            "median_allocated_bytes": 163310472,
+            "min_ms": 566.21228,
+            "max_ms": 902.037121,
+            "peak_rss_kib": 786440
+          }
+        ],
+        "secondary_pooled_median_ms": 728.6228189999999
+      },
+      "elapsed_reduction_percent": 19.119850369393788,
+      "cpu_reduction_percent": 19.01408450704225,
+      "allocation_delta_bytes": 229860.0,
+      "bit_exact_fingerprint": true
+    },
+    {
+      "jdk": 25,
+      "camera": "eos",
+      "input": "eosr-iso-low.cr3",
+      "baseline": {
+        "median_ms": 1148.4622995,
+        "median_cpu_ms": 4150.0,
+        "median_allocated_bytes": 244907280.0,
+        "peak_rss_kib": 746468,
+        "full_fnv1a64": "293eb25bccb09add",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 1150.964802,
+            "median_cpu_ms": 4100.0,
+            "median_allocated_bytes": 244907264,
+            "min_ms": 1101.58131,
+            "max_ms": 1823.015147,
+            "peak_rss_kib": 746468
+          },
+          {
+            "fork": 2,
+            "median_ms": 1145.959797,
+            "median_cpu_ms": 4200.0,
+            "median_allocated_bytes": 244907296,
+            "min_ms": 1106.393894,
+            "max_ms": 1982.644573,
+            "peak_rss_kib": 745088
+          }
+        ],
+        "secondary_pooled_median_ms": 1148.4622995
+      },
+      "optimized": {
+        "median_ms": 958.11282,
+        "median_cpu_ms": 3430.0,
+        "median_allocated_bytes": 245137152.0,
+        "peak_rss_kib": 751432,
+        "full_fnv1a64": "293eb25bccb09add",
+        "forks": [
+          {
+            "fork": 1,
+            "median_ms": 935.555329,
+            "median_cpu_ms": 3390.0,
+            "median_allocated_bytes": 245137152,
+            "min_ms": 920.325609,
+            "max_ms": 1671.893695,
+            "peak_rss_kib": 751432
+          },
+          {
+            "fork": 2,
+            "median_ms": 980.670311,
+            "median_cpu_ms": 3470.0,
+            "median_allocated_bytes": 245137152,
+            "min_ms": 939.607529,
+            "max_ms": 1710.145499,
+            "peak_rss_kib": 745668
+          }
+        ],
+        "secondary_pooled_median_ms": 962.891474
+      },
+      "elapsed_reduction_percent": 16.574290647840286,
+      "cpu_reduction_percent": 17.34939759036145,
+      "allocation_delta_bytes": 229872.0,
+      "bit_exact_fingerprint": true
+    }
+  ],
+  "stages_java25": [
+    {
+      "camera": "g5",
+      "baseline": {
+        "median_optical_ms": 554.7657234999999,
+        "median_tone_ms": 21.2147045,
+        "optical_sha256": "a2f93b9c92c94080e30b9918a91c6dc91ffb8493dbcaaffabf0ef45fb5ca4e66",
+        "tone_sha256": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d",
+        "forks": [
+          {
+            "fork": 1,
+            "median_optical_ms": 570.202279,
+            "median_tone_ms": 21.756565
+          },
+          {
+            "fork": 2,
+            "median_optical_ms": 539.329168,
+            "median_tone_ms": 20.672844
+          }
+        ]
+      },
+      "optimized": {
+        "median_optical_ms": 345.75361399999997,
+        "median_tone_ms": 20.831498,
+        "optical_sha256": "a2f93b9c92c94080e30b9918a91c6dc91ffb8493dbcaaffabf0ef45fb5ca4e66",
+        "tone_sha256": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d",
+        "forks": [
+          {
+            "fork": 1,
+            "median_optical_ms": 342.783701,
+            "median_tone_ms": 20.7408
+          },
+          {
+            "fork": 2,
+            "median_optical_ms": 348.723527,
+            "median_tone_ms": 20.922196
+          }
+        ]
+      },
+      "optical_reduction_percent": 37.67574322749231
+    },
+    {
+      "camera": "eos",
+      "baseline": {
+        "median_optical_ms": 776.2073715,
+        "median_tone_ms": 68.7320095,
+        "optical_sha256": "cbe29a34ef36d917d364dbb3877594e165cc3e7973a5de9cd8d7904b30b828f4",
+        "tone_sha256": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b",
+        "forks": [
+          {
+            "fork": 1,
+            "median_optical_ms": 778.742485,
+            "median_tone_ms": 68.426545
+          },
+          {
+            "fork": 2,
+            "median_optical_ms": 773.672258,
+            "median_tone_ms": 69.037474
+          }
+        ]
+      },
+      "optimized": {
+        "median_optical_ms": 594.1708960000001,
+        "median_tone_ms": 68.72152249999999,
+        "optical_sha256": "cbe29a34ef36d917d364dbb3877594e165cc3e7973a5de9cd8d7904b30b828f4",
+        "tone_sha256": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b",
+        "forks": [
+          {
+            "fork": 1,
+            "median_optical_ms": 618.270037,
+            "median_tone_ms": 69.418337
+          },
+          {
+            "fork": 2,
+            "median_optical_ms": 570.071755,
+            "median_tone_ms": 68.024708
+          }
+        ]
+      },
+      "optical_reduction_percent": 23.452041578556425
+    }
+  ],
+  "neutral_linear_compatibility": {
+    "input": "sample-wide.cr3",
+    "mode": "rgb16linear",
+    "full_fnv1a64": "f403f4543749ba88",
+    "exact": true,
+    "timings_excluded": true
+  },
+  "java21_synthetic_optical_goldens": {
+    "cases": 10,
+    "exact": true,
+    "details": "jdk21-optical-goldens.json"
+  }
+}

@@ -4,6 +4,8 @@ Each CR3 can provide two views of the same exposure. `ImageIO.read(File)` develo
 
 ## Results
 
+These historical results describe the neutral rendering before supported lens and camera tone profiles became the default. Use `--render neutral` to reproduce this baseline, and `--render default` to measure the current ImageIO behavior. The [profiled rendering study](camera-rendering.md) records the improvements and remaining differences.
+
 All 13 repository originals and six public originals were examined. Sixteen produced measurable pairs using the large JPEG track. The table reports the median and 90th percentile of 48 regional color differences (CIEDE2000) for selected exposures. The last column measures lightness in CIELAB units. A negative value means that Photographer rendered the typical region darker than the camera did.
 
 | Camera | Original | Median ΔE00 | 90th percentile ΔE00 | Median ΔL* (Photographer − Canon) |
@@ -44,7 +46,7 @@ javac --release 21 -cp "$jar" -d "$classes" \
     "$src/ImageQualityHelper.java" "$src/Cr3CameraJpegTags.java" "$src/Cr3CameraJpegProbe.java"
 samples=canon-cr3-imageio/src/test/resources/samples
 java -cp "$classes:$jar" com.photographer.focusstack.cr3.imageio.Cr3CameraJpegProbe \
-    "$samples/sample.cr3" "$samples/sample-wide.cr3" > comparison.tsv
+    --render neutral "$samples/sample.cr3" "$samples/sample-wide.cr3" > comparison.tsv
 ```
 
 Replace the two sample paths with `"$samples"/*.cr3 "$samples"/research/*.cr3` to measure all 13 repository originals. Inspect the `status` column before interpreting a row. Missing camera JPEGs, unsupported color profiles and incompatible framing carry no numerical score.

@@ -37,12 +37,19 @@ class Cr3DecodeOptionsTest {
     }
 
     @Test
-    @DisplayName("rawProcessed factory should set RAW_PROCESSED mode")
+    @DisplayName("rawProcessed includes the supported camera development stages")
     void rawProcessedOptions() {
         Cr3DecodeOptions opts = Cr3DecodeOptions.rawProcessed();
         assertThat(opts.outputMode()).isEqualTo(Cr3DecodeOptions.OutputMode.RAW_PROCESSED);
-        assertThat(opts.applyLensCorrection()).isFalse();
-        assertThat(opts.applyCameraTone()).isFalse();
+        assertThat(opts.applyLensCorrection()).isTrue();
+        assertThat(opts.applyCameraTone()).isTrue();
+    }
+
+    @Test
+    void selectingProcessedRawOnDefaultOptionsKeepsTheNormalDevelopmentStages() {
+        var options = Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.RAW_PROCESSED);
+        assertThat(options.applyLensCorrection()).isTrue();
+        assertThat(options.applyCameraTone()).isTrue();
     }
 
     @Test
@@ -62,7 +69,7 @@ class Cr3DecodeOptionsTest {
 
     @Test
     void shadingAmountDoesNotSelectTheLensAndRejectsInvalidValues() {
-        var neutral = Cr3DecodeOptions.rawProcessed();
+        var neutral = Cr3DecodeOptions.rawProcessed().applyLensCorrection(false).applyCameraTone(false);
         assertThat(neutral.lensShadingStrength()).isEqualTo(1);
         var copy = neutral.lensShadingStrength(0.4).copy();
         assertThat(copy.lensShadingStrength()).isEqualTo(0.4);
@@ -83,6 +90,8 @@ class Cr3DecodeOptionsTest {
         assertThat(opts.applyWhiteBalance()).isFalse();
         assertThat(opts.applyColorMatrix()).isFalse();
         assertThat(opts.applySrgbConversion()).isFalse();
+        assertThat(opts.applyLensCorrection()).isFalse();
+        assertThat(opts.applyCameraTone()).isFalse();
     }
 
     @Test

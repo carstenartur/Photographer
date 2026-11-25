@@ -1,0 +1,5 @@
+{"input":"sample.cr3","iteration":0,"warmup":3,"workers":4,"optical_ms":339.207336,"tone_ms":20.763397,"optical_sha256":"","tone_sha256":""}
+{"input":"sample.cr3","iteration":1,"warmup":3,"workers":4,"optical_ms":405.484325,"tone_ms":19.908631,"optical_sha256":"","tone_sha256":""}
+{"input":"sample.cr3","iteration":2,"warmup":3,"workers":4,"optical_ms":334.907031,"tone_ms":20.922196,"optical_sha256":"","tone_sha256":""}
+{"input":"sample.cr3","iteration":3,"warmup":3,"workers":4,"optical_ms":348.723527,"tone_ms":25.371265,"optical_sha256":"","tone_sha256":""}
+{"input":"sample.cr3","iteration":4,"warmup":3,"workers":4,"optical_ms":349.829373,"tone_ms":28.575086,"optical_sha256":"a2f93b9c92c94080e30b9918a91c6dc91ffb8493dbcaaffabf0ef45fb5ca4e66","tone_sha256":"8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d"}

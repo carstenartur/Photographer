@@ -83,9 +83,9 @@ Since 0.1.9, `ImageIO.read(file)` develops a full-resolution sRGB image with thr
 
 ### Camera-like RGB16 development
 
-The development branch offers an opt-in `Cr3DecodeOptions.cameraRendered()` preset for the **PowerShot G5 X Mark II** and **EOS R**. It applies the available lens and tone profiles to the RAW pixels. The table compares their appearance with the embedded camera JPEG across 48 image regions. Smaller median ΔE00 indicates a closer match on that exposure.
+The current development version includes the available lens and camera tone profiles in normal RAW development, including `ImageIO.read(file)` and the ImageJ color importer. Profiles cover the **PowerShot G5 X Mark II** and **EOS R** combinations listed in the guide. Each stage can be disabled through the read parameters; `cameraRendered()` remains an explicit RGB16 factory for the same rendering. The table compares the earlier neutral rendering with the profiled default against the embedded camera JPEG across 48 image regions. Smaller median ΔE00 indicates a closer match on that exposure.
 
-| Original | Default RGB16 | Camera preset |
+| Original | Neutral RGB16 | Profiled RGB16 default |
 | --- | ---: | ---: |
 | G5 X Mark II, dim interior | 10.04 | 4.96 |
 | EOS R, RF 85 mm F2 Macro, plant | 21.26 | 6.44 |
@@ -96,7 +96,7 @@ The high-ISO example reaches 1.99 with lens shading set to zero and the other co
 
 ### RGB16 import performance
 
-Each timed import opened one original and returned a fresh, full-resolution RGB16 image. The table gives median times on four AMD EPYC logical CPUs with a warm filesystem cache. Photographer used `ImageIO.read(File)` on Java 21. LibRaw used bilinear demosaicing. Each process made three warmup reads before timing.
+The following historical comparison measures neutral RGB16 at commit `6cb25a7`, before lens and camera tone profiles became the default. Each timed import opened one original and returned a fresh, full-resolution RGB16 image. The table gives median times on four AMD EPYC logical CPUs with a warm filesystem cache. Photographer used `ImageIO.read(File)` on Java 21. LibRaw used bilinear demosaicing. Each process made three warmup reads before timing. See [profiled rendering and its import cost](docs/cr3/camera-rendering.md#import-cost) for the current processing path.
 
 | Camera and recording | Photographer (`6cb25a7`), ms | LibRaw 0.21.4, ms |
 | --- | ---: | ---: |

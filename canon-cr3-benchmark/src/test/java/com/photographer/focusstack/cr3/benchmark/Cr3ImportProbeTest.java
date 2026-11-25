@@ -46,7 +46,7 @@ class Cr3ImportProbeTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"rgb8,3,8", "rgb16,3,16", "rgb16camera,3,16", "rgb16linear,3,16", "sensor,1,16", "sensor-path,1,16"})
+    @CsvSource({"rgb8,3,8", "rgb16,3,16", "rgb16camera,3,16", "rgb16neutral,3,16", "rgb16linear,3,16", "sensor,1,16", "sensor-path,1,16"})
     void forcedMemoryPolicyKeepsTheRequestedPrecision(String mode, int channels, int bits) throws Exception {
         var result = assertDoesNotThrow(() -> run("--input", fixture().toString(), "--mode", mode,
                 "--memory-mode", "LOW_MEMORY"));

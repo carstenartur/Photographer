@@ -24,6 +24,8 @@ on:
       - 'release/canon-cr3-consumer/**'
       - 'scripts/cr3_repository.py'
       - 'scripts/test_cr3_repository.py'
+      - 'scripts/run_maven_with_retry.py'
+      - 'scripts/test_run_maven_with_retry.py'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
       - 'scripts/validate_cr3_source_coordinates.py'
@@ -54,6 +56,8 @@ on:
       - 'release/canon-cr3-consumer/**'
       - 'scripts/cr3_repository.py'
       - 'scripts/test_cr3_repository.py'
+      - 'scripts/run_maven_with_retry.py'
+      - 'scripts/test_run_maven_with_retry.py'
       - 'scripts/validate_cr3_central_bundle.py'
       - 'scripts/test_validate_cr3_central_bundle.py'
       - 'scripts/validate_cr3_source_coordinates.py'
@@ -102,6 +106,7 @@ jobs:
 
       - name: Verify the independent Git-backed Maven release and consumer
         run: |
+          python3 scripts/test_run_maven_with_retry.py
           python3 scripts/test_cr3_repository.py
           python3 scripts/cr3_repository.py "$CR3_RELEASE_VERSION"
 

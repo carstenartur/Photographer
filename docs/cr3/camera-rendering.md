@@ -4,15 +4,21 @@ Use this rendering for a display image developed from CR3 sensor samples, with l
 
 ## ImageIO
 
-On a `CanonCr3ImageReader` with its input set, select the preset:
+The normal ImageIO read includes the supported optical profiles and photographic tone curve:
 
 ```java
-var param = reader.getDefaultReadParam();
-param.setDecodeOptions(Cr3DecodeOptions.cameraRendered());
-BufferedImage developed = reader.read(0, param);
+BufferedImage developed = ImageIO.read(file);
 ```
 
-The [complete ImageIO example](imageio.md#run-a-selected-read-mode) opens and closes the reader and stream. Pass `camera` as its mode. The one-line `ImageIO.read(file)` continues to return ordinary RGB16. To request only one correction, start with the ImageIO default parameters and call `param.getDecodeOptions().applyLensCorrection(true)` or `param.getDecodeOptions().applyCameraTone(true)`. Native sensor reads, Bayer DNG export and the explicit JPEG preview each retain their original pixel source.
+The [complete ImageIO example](imageio.md#run-a-selected-read-mode) opens and closes the reader and stream. Its `rgb` and `camera` modes now select the same full RGB16 development. The core `rawProcessed()` factories and ImageJ color importer also include the supported profiles. To disable either stage, modify the default parameters; disabling both restores the earlier neutral rendering:
+
+```java
+var param = new CanonCr3ImageReadParam();
+param.getDecodeOptions().applyLensCorrection(false).applyCameraTone(false);
+BufferedImage neutral = reader.read(0, param);
+```
+
+Keep one flag enabled to use that stage independently. `Cr3DecodeOptions.cameraRendered()` remains an explicit factory for the same RGB16 defaults. Native sensor reads, Bayer DNG export and the explicit JPEG preview each retain their original pixel source.
 
 ## Which profiles apply?
 
@@ -35,7 +41,7 @@ The shared tone curve was fitted from developed RGB16 and the camera JPEGs of se
 
 The table reports the median and 90th percentile of the color difference across 48 regions in the center 75% of the frame. A smaller ΔE00 means a closer match to the JPEG from the same exposure. The wide-angle wall and the RF 85 mm plant contributed to the tone fit. The other examples below are independent scenes. Each raw.pixls.us series can include several exposures of the same subject. [Results by file, SHA-256 and rendering mode](camera-rendering-measurements.tsv) · [Source for the two Standard exposures](https://photorec.tv/content/2018/09/canon-eos-r-sample-gallery)
 
-| Camera and scene | Recorded style | Median ΔE00, default → camera | 90th percentile, default → camera |
+| Camera and scene | Recorded style | Median ΔE00, neutral → profiled | 90th percentile, neutral → profiled |
 | --- | --- | ---: | ---: |
 | G5 X II, wide-angle wall | Faithful | 21.16 → 7.97 | 22.45 → 9.26 |
 | G5 X II, dim interior | Faithful | 10.04 → 4.96 | 11.77 → 6.33 |
@@ -51,14 +57,53 @@ Geometric alignment was checked separately on 512-pixel-wide images using the sa
 
 ## Import cost
 
-These are full-resolution file imports on four logical CPUs with OpenJDK 21.0.13, Serial GC and a 768 MiB heap. For elapsed time, two fresh JVMs per configuration each ran three warmups and four measured imports. Values are medians of the two fork medians on a shared host. Peak resident memory was measured separately on a single cold import. The neutral import and the camera preset both return three 16-bit channels.
+### Optimization measured on 25 November 2026
 
-| Original | Elapsed time, default → camera | CPU time, default → camera | Allocated per import, default → camera | Cold peak RSS, default → camera |
+The current implementation reuses shaded source values within bounded tiles. The
+comparison below runs the **same profiled RGB16 development** before and after
+that optimization; the change of default does not account for the improvement.
+The G5 image is the dim interior, `sample.cr3`, and the EOS image is
+`eosr-iso-low.cr3`. These are warm complete-file imports on Java 21.0.13.1 with
+four workers, four processors exposed to the JVM, Serial GC and a 768 MiB heap.
+Each arm ran in two fresh JVMs, with three warmups and five measured imports per
+fork. Each value is the median of the two fork medians.
+
+| Capture | Original profiled import | Optimized import | Elapsed-time reduction | CPU time, original → optimized | Allocated per import, original → optimized |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| G5 X II interior, 5496 × 3668 | 744.1 ms | 671.4 ms | 9.8% | 2670 → 2315 ms | 155.53 → 155.75 MiB |
+| EOS R, 6744 × 4500 | 1207.6 ms | 1023.1 ms | 15.3% | 4220 → 3525 ms | 233.56 → 233.78 MiB |
+
+Complete image fingerprints are unchanged on both Java 21 and Java 25. The
+additional allocation is about 0.22 MiB per four-worker import. The tile holds
+at most 1,024 mapped output sites and 4,096 shaded source values; its array
+payload is 56 KiB per worker, with 64 KiB reserved in heap planning. Larger
+source footprints use the original scalar sampler. One temporary output
+channel is still reused across all three bands. The planner also accounts for
+lookup tables and their first initialization.
+
+On Java 25 the same complete-import comparison reduced elapsed time by 19.1%
+and 16.6%, respectively. Isolated Java 25 optical-stage measurements fell from
+554.8 to 345.8 ms on the G5 and from 776.2 to 594.2 ms on the EOS R. Those stage
+figures exclude RAW decoding and tone processing. The shared host showed
+variation between forks: for example, G5 Java 21 baseline medians were 781.5
+and 706.8 ms, versus 661.6 and 681.1 ms after optimization. These measurements
+describe these inputs and settings, not a universal speedup.
+
+[Raw measurements, source hashes, fork results and reproduction](camera-rendering-performance-2026-11-25/README.md)
+
+### Historical cost of enabling the profiles
+
+The following baseline was recorded before the default change and performance work, at the original PR #457 implementation. Its former `default` mode is now the explicit neutral rendering. These are full-resolution file imports on four logical CPUs with OpenJDK 21.0.13, Serial GC and a 768 MiB heap. For elapsed time, two fresh JVMs per configuration each ran three warmups and four measured imports. Values are medians of the two fork medians on a shared host. Peak resident memory was measured separately on a single cold import. The neutral import and the camera preset both return three 16-bit channels.
+
+This earlier run uses a different JVM/host session and G5 capture; do not derive
+an optimization speedup by comparing its absolute times with the table above.
+
+| Original | Elapsed time, neutral → profiled | CPU time, neutral → profiled | Allocated per import, neutral → profiled | Cold peak RSS, neutral → profiled |
 | --- | ---: | ---: | ---: | ---: |
 | G5 X II, 5496 × 3668 | 0.61 → 2.07 s | 0.84 → 2.99 s | 116.93 → 155.70 MiB | 180 → 221 MiB |
 | EOS R, 6744 × 4500 | 0.82 → 2.64 s | 1.20 → 4.79 s | 175.34 → 233.56 MiB | 237 → 289 MiB |
 
-The optical remap reuses one temporary 16-bit channel across red, green and blue. The larger elapsed times include this remap and the tone stage. Neutral RGB16 output hashes matched the previous implementation on ten imports, and native Bayer hashes matched for RAW and C-RAW from both bodies. To repeat the timing, use the [public import probe](../../scripts/benchmarks/README.md#java-probe) with `--mode default` and `--mode rgb16camera` on the same originals.
+The optical remap reuses one temporary 16-bit channel across red, green and blue. The larger elapsed times include this remap and the tone stage. Neutral RGB16 output hashes matched the previous implementation on ten imports, and native Bayer hashes matched for RAW and C-RAW from both bodies. To repeat the timing, use the [public import probe](../../scripts/benchmarks/README.md#java-probe) with `--mode rgb16neutral` and `--mode default` on the same originals. Compare original and optimized implementations with `--mode rgb16camera` on both; otherwise a changed default would mix different workloads.
 
 ## Reproduce the comparison
 
@@ -66,10 +111,10 @@ Build the benchmark JAR and compile the comparison tool as described in the [sam
 
 ```bash
 samples=canon-cr3-imageio/src/test/resources/samples
-for mode in default lens tone camera; do
+for mode in neutral lens tone camera; do
     java -cp "$classes:$jar" com.photographer.focusstack.cr3.imageio.Cr3CameraJpegProbe \
         --render "$mode" "$samples/sample-wide.cr3" "$samples/eosr-iso-low.cr3" > "$mode.tsv"
 done
 ```
 
-Each row reports signed lightness and color shifts relative to the camera JPEG as well as median and 90th-percentile CIEDE2000. The 48 regional means describe broad image appearance. A change in framing can move content between the regions.
+The committed 44-row comparison predates the default change: rows labeled `default` there describe neutral rendering, reproduced with `--render neutral` today. `--render default` now measures the profiled ImageIO default. Each row reports signed lightness and color shifts relative to the camera JPEG as well as median and 90th-percentile CIEDE2000. The 48 regional means describe broad image appearance. A change in framing can move content between the regions.

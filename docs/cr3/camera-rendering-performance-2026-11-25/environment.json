@@ -1,0 +1,79 @@
+{
+  "baseline_ref": "baebb9c69eadf2a36cb99c4c52e9703a291967a7",
+  "jars_sha256": {
+    "baseline": "5bc3258e780af0bf4c241ced0bf7b49b8bd6fb4981bbbe9bfb8546aec3879df8",
+    "optimized": "d3ac503c493b8d08ca99e4948e50de88cdf7e75bbcdbc8c60231c3e813c66a49"
+  },
+  "java_versions": {
+    "java25": [
+      "openjdk version \"25.0.5\" 2026-10-20 LTS",
+      "OpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)",
+      "OpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+    ],
+    "java21": [
+      "openjdk version \"21.0.13.1\" 2026-11-17",
+      "OpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)",
+      "OpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)"
+    ]
+  },
+  "os": "Linux",
+  "kernel": "6.18.57",
+  "architecture": "x86_64",
+  "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+  "jvm_flags": [
+    "-Xmx768m",
+    "-XX:+UseSerialGC",
+    "-XX:ActiveProcessorCount=4"
+  ],
+  "workers": 4,
+  "timed_forks": 2,
+  "warmup_per_fork": 3,
+  "measured_per_fork": 5,
+  "timing_scope": "Fresh full-file reader/input per invocation; validation, full fingerprint, and diagnostics outside timer.",
+  "memory_metrics": "Probe total_thread_allocated_bytes includes all Java threads; maxrss_kb is process-lifetime Linux VmHWM.",
+  "inputs_sha256": {
+    "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+    "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+    "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3": "da35045099960ca2743da38effb984e296da6cb5bca07fa340990a90f0faa1ff"
+  },
+  "sources_sha256": {
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": {
+      "baseline": "6e9e85221fcb1e8741221155116dc51b1e379a13a8f1fb49f7c65836f82d23e6",
+      "optimized": "185a6540cbbce335d5d358a7ab7dca22a261dda394f8932fdf6b87cfe55f26f0"
+    },
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/Srgb16Encoder.java": {
+      "baseline": "f5dc4d36a11afb529470f64107cdabb1dda971ec86fec0b992fc9cffaa36ce21",
+      "optimized": "b2333d5f37544720c7429b2357bee68eea044456ef84d500de447604cb085ba5"
+    },
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": {
+      "baseline": "76e2f43c75fa50b21fa761845c36e64cc2ad0e5be9b8b3b5bbac7d4bcd922709",
+      "optimized": "90d4724605799b8422214de42ddc7c20106c65874eb074de33a0c62eca7f6750"
+    },
+    "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": {
+      "baseline": "14868a8ec0a6480ee41265a18600c4eed5d66819f43a3e394f0f7e0d1f004786",
+      "optimized": "97a800f695dabd8bac2973683bf8453ed9fa6b7dd360eb06a016e6cc1f21b644"
+    },
+    "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3DecodeOptions.java": {
+      "baseline": "95d82b607742fca3ebafc7a66da8be0e7603522f4ec12adc53319da5ca41045f",
+      "optimized": "9ae268cec879f67629f2ae01a52469dc87a14d389b9973b1af18657f6fbb286e"
+    },
+    "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": {
+      "baseline": "bc2b1fdc4f1fe61808e68925feea32ac02f8dcda2440981050dfd9e59d71765f",
+      "optimized": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27"
+    }
+  },
+  "timed_jdks": [
+    21,
+    25
+  ],
+  "java21_probe": "Current Cr3ImportProbe source compiled once with --release21 against original public JAR; same helper overlay used for both arms.",
+  "java21_harness_setup": "The bundled helper is Java25 bytecode. An initial untimed launch stopped before any import; the Java21 helper overlay was then compiled and all recorded Java21 imports used it.",
+  "measurement_sources_sha256": {
+    "OpticalStagesProbe.java": "3c199f561e350239ab9d9a02108c039ceb04a6717dd732c0dd07dccd77cba5d1",
+    "OpticalGoldenProbe.java": "2c2a3ac1b3b5b9292cba8106c5fdf9055dd24477c7800102e18d5aa818faaca1",
+    "Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+    "run_measurements.py": "7bcc960f51acdd5c4c89e5428b74a5b991003f676c592173d8f4a6ed0810a743"
+  },
+  "optimized_sources_unchanged_after_measurement": true,
+  "aggregation": "Median of the two per-fork medians; each fresh JVM has three warmups and five measured invocations. Pooled medians are secondary only."
+}

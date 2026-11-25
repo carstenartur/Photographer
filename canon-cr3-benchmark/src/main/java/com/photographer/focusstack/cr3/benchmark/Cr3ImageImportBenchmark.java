@@ -68,7 +68,7 @@ public class Cr3ImageImportBenchmark {
         return read(param);
     }
 
-    /** Same RGB16 development without the transfer function, to isolate its full-import cost. */
+    /** Linear RGB16 development with supported optics; the display tone curve is bypassed. */
     @Benchmark
     public BufferedImage importLinearRgb16ViaImageIo() throws IOException {
         CanonCr3ImageReadParam param = new CanonCr3ImageReadParam();

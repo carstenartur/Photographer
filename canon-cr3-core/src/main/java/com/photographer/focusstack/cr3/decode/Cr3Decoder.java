@@ -405,11 +405,12 @@ public final class Cr3Decoder implements AutoCloseable {
             Rectangle region = outputRegion == null ? bounds : outputRegion;
             boolean select = !bounds.equals(region) || xStep != 1 || yStep != 1;
             int sampleBytes = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN ? 2 : 1;
-            long planeBytes = (long) fullArea.width * fullArea.height * sampleBytes;
+            long opticalBytes = OpticalCorrection.estimatedWorkspaceBytes(bounds.width, bounds.height,
+                    sampleBytes * Byte.SIZE, options.maxWorkers());
             long selectionBytes = select ? (long) Math.ceilDiv(region.width, xStep)
                     * Math.ceilDiv(region.height, yStep) * (sampleBytes == 2 ? 6 : 4) : 0;
             // Remapping and extracting the requested raster are successive allocations.
-            long workspace = Math.max(planeBytes, selectionBytes);
+            long workspace = Math.max(opticalBytes, selectionBytes);
             var planned = options.copy().postDecodeMemoryBytes(Math.max(options.postDecodeMemoryBytes(), workspace));
             rgb = developRegion(planned, null, select ? null : destination, 1, 1, track, fullArea, bounds);
             rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),

@@ -1,0 +1,357 @@
+{
+  "scope": "Exploratory Java25 stage measurements, one fork; final results are in summary.json.",
+  "baseline_optical_ms": {
+    "g5": 467.09459,
+    "eos": 799.123227
+  },
+  "candidates": [
+    {
+      "candidate": "Reuse adjacent cell taps",
+      "decision": "Rejected: G5 optical stage regressed; retained the measured results rather than promoting the tap-reuse branch.",
+      "results": {
+        "g5": {
+          "median_optical_ms": 517.74826,
+          "iterations": [
+            {
+              "input": "sample.cr3",
+              "iteration": 0,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 531.198665,
+              "tone_ms": 21.930611,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 1,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 509.323386,
+              "tone_ms": 19.85608,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 2,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 517.74826,
+              "tone_ms": 20.539181,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 3,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 495.755203,
+              "tone_ms": 20.166037,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 4,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 520.996561,
+              "tone_ms": 21.556694,
+              "optical_sha256": "a2f93b9c92c94080e30b9918a91c6dc91ffb8493dbcaaffabf0ef45fb5ca4e66",
+              "tone_sha256": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d"
+            }
+          ]
+        },
+        "eos": {
+          "median_optical_ms": 797.934869,
+          "iterations": [
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 0,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 782.417205,
+              "tone_ms": 70.94959,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 1,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 799.28979,
+              "tone_ms": 69.677648,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 2,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 696.95365,
+              "tone_ms": 68.424463,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 3,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 797.934869,
+              "tone_ms": 66.75299,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 4,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 830.338409,
+              "tone_ms": 74.61888,
+              "optical_sha256": "cbe29a34ef36d917d364dbb3877594e165cc3e7973a5de9cd8d7904b30b828f4",
+              "tone_sha256": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "candidate": "32x32 output tiles",
+      "decision": "Selected: passed the predeclared 20% optical improvement target on both bodies.",
+      "results": {
+        "g5": {
+          "median_optical_ms": 363.775276,
+          "iterations": [
+            {
+              "input": "sample.cr3",
+              "iteration": 0,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 405.985534,
+              "tone_ms": 26.277621,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 1,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 368.532861,
+              "tone_ms": 19.949151,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 2,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 363.775276,
+              "tone_ms": 21.060566,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 3,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 335.131529,
+              "tone_ms": 20.231339,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 4,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 335.883005,
+              "tone_ms": 34.898509,
+              "optical_sha256": "a2f93b9c92c94080e30b9918a91c6dc91ffb8493dbcaaffabf0ef45fb5ca4e66",
+              "tone_sha256": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d"
+            }
+          ]
+        },
+        "eos": {
+          "median_optical_ms": 620.197631,
+          "iterations": [
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 0,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 755.090119,
+              "tone_ms": 70.73918,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 1,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 703.537934,
+              "tone_ms": 67.75953,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 2,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 568.861632,
+              "tone_ms": 70.181815,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 3,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 586.913948,
+              "tone_ms": 69.532885,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 4,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 620.197631,
+              "tone_ms": 68.939556,
+              "optical_sha256": "cbe29a34ef36d917d364dbb3877594e165cc3e7973a5de9cd8d7904b30b828f4",
+              "tone_sha256": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "candidate": "16x16 output tiles",
+      "decision": "Rejected as the general size: G5 slowed versus32x32 while EOS improved; retained one common32x32 size.",
+      "results": {
+        "g5": {
+          "median_optical_ms": 385.189257,
+          "iterations": [
+            {
+              "input": "sample.cr3",
+              "iteration": 0,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 419.643378,
+              "tone_ms": 19.970352,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 1,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 360.506659,
+              "tone_ms": 20.281367,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 2,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 426.33195,
+              "tone_ms": 22.670463,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 3,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 377.108067,
+              "tone_ms": 25.518799,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "sample.cr3",
+              "iteration": 4,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 385.189257,
+              "tone_ms": 36.743691,
+              "optical_sha256": "a2f93b9c92c94080e30b9918a91c6dc91ffb8493dbcaaffabf0ef45fb5ca4e66",
+              "tone_sha256": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d"
+            }
+          ]
+        },
+        "eos": {
+          "median_optical_ms": 571.572613,
+          "iterations": [
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 0,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 604.103149,
+              "tone_ms": 67.397389,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 1,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 571.900253,
+              "tone_ms": 100.881447,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 2,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 571.572613,
+              "tone_ms": 69.345072,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 3,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 563.687006,
+              "tone_ms": 67.447133,
+              "optical_sha256": "",
+              "tone_sha256": ""
+            },
+            {
+              "input": "eosr-iso-low.cr3",
+              "iteration": 4,
+              "warmup": 3,
+              "workers": 4,
+              "optical_ms": 561.463719,
+              "tone_ms": 73.792042,
+              "optical_sha256": "cbe29a34ef36d917d364dbb3877594e165cc3e7973a5de9cd8d7904b30b828f4",
+              "tone_sha256": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

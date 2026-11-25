@@ -29,6 +29,8 @@ on:
       - 'scripts/build_cr3_fiji_site.py'
       - 'scripts/publish_cr3_fiji_site.py'
       - 'scripts/test_publish_cr3_fiji_site.py'
+      - 'scripts/run_maven_with_retry.py'
+      - 'scripts/test_run_maven_with_retry.py'
       - '.github/workflows/cr3-fiji-distribution.yml'
 
 permissions:
@@ -96,8 +98,20 @@ jobs:
           java-version: '25'
           cache: maven
 
+      - name: Read Maven retry tooling from the workflow revision
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          # Historical release tags may predate the retry helper.
+          mkdir -p "$RUNNER_TEMP/maven-retry"
+          git show "$WORKFLOW_SHA:scripts/run_maven_with_retry.py" > "$RUNNER_TEMP/maven-retry/run_maven_with_retry.py"
+          git show "$WORKFLOW_SHA:scripts/test_run_maven_with_retry.py" > "$RUNNER_TEMP/maven-retry/test_run_maven_with_retry.py"
+
       - name: Test update-site publication
-        run: python3 -m unittest discover -s scripts -p 'test_publish_cr3_fiji_site.py'
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_publish_cr3_fiji_site.py'
+          python3 "$RUNNER_TEMP/maven-retry/test_run_maven_with_retry.py"
 
       - name: Reuse immutable Fiji archives on a release retry
         if: needs.source.outputs.tag != ''
@@ -179,7 +193,7 @@ jobs:
       - name: Build the Fiji installation and update-site archives
         if: steps.previous.outputs.reused != 'true'
         run: >-
-          mvn -B -ntp -pl cr3-imagej -am verify -Pfiji-update-site
+          python3 "$RUNNER_TEMP/maven-retry/run_maven_with_retry.py" -B -ntp -pl cr3-imagej -am verify -Pfiji-update-site
           -Dfiji.directory="$RUNNER_TEMP/Fiji" -Djava.awt.headless=true
 
       - name: Run the installed plugin on Fiji's Java 21 runtime
