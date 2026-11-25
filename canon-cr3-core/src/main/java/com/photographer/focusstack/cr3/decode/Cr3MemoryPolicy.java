@@ -52,31 +52,34 @@ final class Cr3MemoryPolicy {
         }
     }
 
-    /** Codec and processing stages each clamp the shared worker limit to their own work items. */
-    record Estimate(ImageBytes pixels, long fixedBytes, long codecBytesPerWorker, int codecItems,
+    /**
+     * Codec and processing stages clamp the worker limit to their own work items.
+     * Shared first-use storage remains live through development and later copies.
+     */
+    record Estimate(ImageBytes pixels, long fixedBytes, long sharedBytes, long codecBytesPerWorker, int codecItems,
                     long processingBytesPerWorker, int processingItems) {
         static Estimate forTrack(ImageBytes pixels, int width, int height, int tileWidth,
-                                 boolean lossy, int processingWidth) {
+                                 boolean lossy, int processingWidth, long sharedBytes) {
             // Profile and directory validation precede planning. RAW retains two predictor rows;
             // C-RAW retains entropy windows and a bounded three-level wavelet cascade.
             int columns = Math.min(width, tileWidth) / 2;
             long codec = lossy ? 160L * 1024 + 64L * (columns + 16L) : 32L * 1024 + 8L * columns;
             int tilePlanes = (int) Math.min(Integer.MAX_VALUE, 4L * Math.ceilDiv(width, tileWidth));
             long processing = processingWidth == 0 ? 0 : 40L * (processingWidth + 2L);
-            return new Estimate(pixels, MIB + 32L * height, codec, tilePlanes, processing,
+            return new Estimate(pixels, MIB + 32L * height, sharedBytes, codec, tilePlanes, processing,
                     processingWidth == 0 ? 0 : height);
         }
 
         long bytes(long imageBytes, int workers) {
             long codec = multiply(codecBytesPerWorker, Math.min(workers, codecItems));
             long processing = multiply(processingBytesPerWorker, Math.min(workers, processingItems));
-            return add(add(imageBytes, fixedBytes), add(codec, processing));
+            return add(sharedBytes, add(add(imageBytes, fixedBytes), add(codec, processing)));
         }
 
         long peakBytes(long imageBytes, int workers, long postDecode) {
             // A later destination coexists with the returned pixels. Codec rows, old Bayer
             // storage and orientation scratch from completed stages have left scope by then.
-            return Math.max(bytes(imageBytes, workers), add(pixels.retained, postDecode));
+            return Math.max(bytes(imageBytes, workers), add(sharedBytes, add(pixels.retained, postDecode)));
         }
 
         /** Zero retains the requested normal path. Otherwise return the compact per-stage limit. */

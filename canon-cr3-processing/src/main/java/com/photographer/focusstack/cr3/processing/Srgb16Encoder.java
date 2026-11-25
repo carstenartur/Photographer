@@ -2,10 +2,15 @@ package com.photographer.focusstack.cr3.processing;
 
 /** Final sRGB quantization without a power evaluation for every channel. */
 final class Srgb16Encoder {
-    private static final int INTERVALS = 1 << 14;
+    // Fifteen leading mantissa bits in each exponent range from 2^-9 through 1.
+    // The remaining input bits still participate in the exact boundary comparison.
+    private static final int SEED_COUNT = 9 * 32768;
+    private static final int BUCKET_SHIFT = 37;
+    private static final long BASE_BITS = 0x3f60000000000000L; // 2^-9.
+    private static final long BUCKET_BITS = 1L << BUCKET_SHIFT;
     private static final int MAX_CODE = 65535;
     // A constant expression lets memory planning reserve first-use tables without initializing them.
-    static final long TABLE_BYTES = (INTERVALS + 1L) * Double.BYTES + (MAX_CODE + 2L) * Long.BYTES;
+    static final long TABLE_BYTES = (long) SEED_COUNT * Short.BYTES + (MAX_CODE + 2L) * Long.BYTES;
     // For p = x^(1.0/2.4), pow's one-ulp error and the three rounded operations
     // bound each forward error by 2.51 * 2^-52 * 1.055 * p * MAX_CODE.
     // Two allowed evaluations can move a boundary by less than 27 input ulps,
@@ -27,29 +32,17 @@ final class Srgb16Encoder {
             return (short) referenceCode(linear);
         }
 
-        double position = linear * INTERVALS;
-        int bucket = (int) position;
-        double lower = Tables.CURVE[bucket];
-        int code = (int) (lower + (Tables.CURVE[bucket + 1] - lower) * (position - bucket) + 0.5);
-
-        // Interpolation only proposes a code. Compare the original, continuous
-        // input with the actual output-rounding boundaries; never quantize it first.
         long bits = Double.doubleToRawLongBits(linear);
-        if (bits - Tables.BOUNDARIES[code] > BOUNDARY_GUARD_ULPS
-                && Tables.BOUNDARIES[code + 1] - bits > BOUNDARY_GUARD_ULPS) {
-            return (short) code;
-        }
-        while (bits < Tables.BOUNDARIES[code]) {
-            code--;
-        }
-        while (bits >= Tables.BOUNDARIES[code + 1]) {
-            code++;
-        }
-        if (bits - Tables.BOUNDARIES[code] <= BOUNDARY_GUARD_ULPS
-                || Tables.BOUNDARIES[code + 1] - bits <= BOUNDARY_GUARD_ULPS) {
+        int bucket = (int) ((bits - BASE_BITS) >>> BUCKET_SHIFT);
+        int code = Tables.SEEDS[bucket] & 0xffff;
+        if (code == 0) {
             return (short) referenceCode(linear);
         }
-        return (short) code;
+        long distance = Tables.BOUNDARIES[code + 1] - bits;
+        // Both raw encodings are nonnegative, so their difference cannot overflow
+        // or equal Long.MIN_VALUE. The absolute-value guard is therefore exact.
+        if (Math.abs(distance) <= BOUNDARY_GUARD_ULPS) return (short) referenceCode(linear);
+        return (short) (code + (int) (distance >>> 63));
     }
 
     private static int referenceCode(double linear) {
@@ -58,17 +51,31 @@ final class Srgb16Encoder {
 
     /** Built only for sRGB output; linear development allocates neither table. */
     private static final class Tables {
-        private static final double[] CURVE = new double[INTERVALS + 1];
         private static final long[] BOUNDARIES = new long[MAX_CODE + 2];
+        private static final short[] SEEDS = new short[SEED_COUNT];
 
         static {
-            for (int i = 0; i <= INTERVALS; i++) {
-                CURVE[i] = MAX_CODE * SrgbConverter.linearToSrgb((double) i / INTERVALS);
-            }
             for (int code = 1; code <= MAX_CODE; code++) {
                 BOUNDARIES[code] = boundary(code);
             }
             BOUNDARIES[MAX_CODE + 1] = Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
+            int code = 0;
+            for (int bucket = 0; bucket < SEED_COUNT; bucket++) {
+                long first = BASE_BITS + ((long) bucket << BUCKET_SHIFT);
+                long end = first + BUCKET_BITS; // Exclusive: its predecessor belongs to this bucket.
+                while (code < MAX_CODE && BOUNDARIES[code + 1] <= first) code++;
+                // Certify the entire bucket against the original exact transitions.
+                // Its first input is more than 32 representable steps above code's
+                // transition. Because end is exclusive, its last input is at least
+                // 33 steps below code+2's transition. Only code or code+1 is possible,
+                // including the permitted variation between pow implementations.
+                // Zero marks an uncertified bucket; nonlinear inputs have positive codes.
+                // The max-code case uses the positive-infinity upper sentinel.
+                if (code > 0 && first > BOUNDARIES[code] + BOUNDARY_GUARD_ULPS
+                        && end <= BOUNDARIES[Math.min(code + 2, MAX_CODE + 1)] - BOUNDARY_GUARD_ULPS) {
+                    SEEDS[bucket] = (short) code;
+                }
+            }
         }
 
         private static long boundary(int code) {

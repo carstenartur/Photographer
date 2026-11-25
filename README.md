@@ -96,6 +96,8 @@ The high-ISO example reaches 1.99 with lens shading set to zero and the other co
 
 ### RGB16 import performance
 
+The current fully profiled RGB16 default has a further exact sRGB quantization optimization. Paired complete imports against `567983ff` on Java 21 and 25 with Serial GC reduced median elapsed time by 7–26% across three recordings, with 10–22% less CPU time. The comparison uses four logical CPUs, a warm JVM, unchanged full-image fingerprints, and no Vector API flag. [Measurements, memory accounting and reproduction](docs/cr3/srgb-quantization-performance-2026-11-25/README.md)
+
 The following historical comparison measures neutral RGB16 at commit `6cb25a7`, before lens and camera tone profiles became the default. Each timed import opened one original and returned a fresh, full-resolution RGB16 image. The table gives median times on four AMD EPYC logical CPUs with a warm filesystem cache. Photographer used `ImageIO.read(File)` on Java 21. LibRaw used bilinear demosaicing. Each process made three warmup reads before timing. See [profiled rendering and its import cost](docs/cr3/camera-rendering.md#import-cost) for the current processing path.
 
 | Camera and recording | Photographer (`6cb25a7`), ms | LibRaw 0.21.4, ms |

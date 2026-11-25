@@ -12,7 +12,7 @@ class OpticalCorrectionWorkspaceTest {
         // tables: direct RGB8 callers need the forward encoder as well as its inverse.
         long radialTables = 2L * 16386 * Double.BYTES;
         long inverseTables = (65536L + 256) * Double.BYTES;
-        long encoderTables = 16385L * Double.BYTES + 65537L * Long.BYTES;
+        long encoderTables = 294912L * Short.BYTES + 65537L * Long.BYTES;
         long axesAndWriteRow = (long) (width + height) * Double.BYTES + (long) width * Integer.BYTES;
         for (int bits : new int[]{8, 16}) {
             for (int limit : new int[]{1, 2, 4, 0}) {

@@ -1,12 +1,14 @@
 package com.photographer.focusstack.cr3.processing;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Preserve the original continuous transfer and final rounding, especially at half codes. */
+@Isolated("Temporarily replaces encoder seed entries to exercise the exception fallback")
 class Srgb16EncoderTest {
     @Test
     void preservesClippingSpecialValuesAndTheTransferJoin() {
@@ -73,6 +75,34 @@ class Srgb16EncoderTest {
                 assertSameCode(Double.longBitsToDouble(above + offset));
             }
             below = above;
+        }
+    }
+
+    @Test
+    void preservesBothSidesOfEveryDirectSeedBucketEdge() {
+        for (int edge = 0; edge <= 294912; edge++) {
+            double value = Double.longBitsToDouble(0x3f60000000000000L + ((long) edge << 37));
+            assertSameCode(Math.nextDown(value));
+            assertSameCode(value);
+            assertSameCode(Math.nextUp(value));
+        }
+    }
+
+    @Test
+    void preservesCodesInExceptionBuckets() throws Exception {
+        Class<?> table = Class.forName("com.photographer.focusstack.cr3.processing.Srgb16Encoder$Tables");
+        var field = table.getDeclaredField("SEEDS");
+        field.setAccessible(true);
+        short[] seeds = (short[]) field.get(null);
+        for (double value : new double[]{Math.nextUp(0.0031308), 0.37, 0.5, Math.nextDown(1.0)}) {
+            int bucket = (int) ((Double.doubleToRawLongBits(value) - 0x3f60000000000000L) >>> 37);
+            short original = seeds[bucket];
+            try {
+                seeds[bucket] = 0;
+                assertSameCode(value);
+            } finally {
+                seeds[bucket] = original;
+            }
         }
     }
 

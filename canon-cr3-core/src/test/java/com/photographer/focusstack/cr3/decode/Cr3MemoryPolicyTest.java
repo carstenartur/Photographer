@@ -2,6 +2,7 @@ package com.photographer.focusstack.cr3.decode;
 
 import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.Estimate;
 import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.ImageBytes;
+import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -11,6 +12,7 @@ import java.awt.Rectangle;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 import static com.photographer.focusstack.cr3.decode.Cr3DecodeOptions.MemoryMode.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,7 +23,131 @@ class Cr3MemoryPolicyTest {
     // At four workers the normal path needs 84 MiB, the compact path needs 44 MiB.
     // Per worker: 4 MiB for decoding and 1 MiB for processing.
     private static final Estimate ESTIMATE = new Estimate(new ImageBytes(60 * MIB, 20 * MIB, 20 * MIB),
-            4 * MIB, 4 * MIB, 4, MIB, 4);
+            4 * MIB, 0, 4 * MIB, 4, MIB, 4);
+
+    @Test
+    void sharedTablesChangeTheWorkingPeakOnceWithoutMultiplyingByWorkers() {
+        var estimate = new Estimate(ESTIMATE.pixels(), ESTIMATE.fixedBytes(), 3 * MIB,
+                ESTIMATE.codecBytesPerWorker(), ESTIMATE.codecItems(),
+                ESTIMATE.processingBytesPerWorker(), ESTIMATE.processingItems());
+        var options = Cr3DecodeOptions.rawProcessed();
+        // Four-worker development takes 84 + 3 MiB, with the same 10 MiB reserve.
+        assertEquals(0, estimate.compactWorkers(options, 4, 97 * MIB, 100 * MIB));
+        assertEquals(4, estimate.compactWorkers(options, 4, 97 * MIB - 1, 100 * MIB));
+        // The compact layout takes 44 + 3 MiB with four workers, 39 + 3 with three.
+        assertEquals(4, estimate.compactWorkers(options, 4, 57 * MIB, 100 * MIB));
+        assertEquals(3, estimate.compactWorkers(options, 4, 57 * MIB - 1, 100 * MIB));
+    }
+
+    @Test
+    void sharedTablesStayLiveThroughALaterCallerCopy() {
+        var estimate = new Estimate(new ImageBytes(20 * MIB, 10 * MIB, 10 * MIB),
+                4 * MIB, 3 * MIB, 4 * MIB, 4, MIB, 4);
+        var options = Cr3DecodeOptions.rawProcessed().postDecodeMemoryBytes(60 * MIB);
+        // Development needs at most 47 MiB. The copy retains 10 + 60 + 3 MiB.
+        assertEquals(73 * MIB, estimate.peakBytes(20 * MIB, 4, 60 * MIB));
+        assertEquals(0, estimate.compactWorkers(options, 4, 83 * MIB, 100 * MIB));
+        assertEquals(1, estimate.compactWorkers(options, 4, 83 * MIB - 1, 100 * MIB));
+    }
+
+    @Test
+    void reservesSharedEncoderStorageForSrgb16DevelopmentWithoutLensCorrection() throws Exception {
+        var options = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                .applyLensCorrection(false).applyCameraTone(false);
+        long linear = reportedPeak(options.copy().applySrgbConversion(false));
+        long srgb = reportedPeak(options.copy().applySrgbConversion(true));
+        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(), srgb - linear,
+                "The first sRGB16 development needs shared encoder storage");
+        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
+                reportedPeak(options.copy().applySrgbConversion(true), 2, 2)
+                        - reportedPeak(options.copy().applySrgbConversion(false), 2, 2),
+                "Subsampled RGB16 needs the same one-time tables");
+    }
+
+    @Test
+    void reservesSharedEncoderStorageForSrgb8ToneWithoutChargingNeutralOrRawReads() throws Exception {
+        var neutral = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.EIGHT)
+                .applyLensCorrection(false).applyCameraTone(false);
+        long linear = reportedPeak(neutral.copy().applySrgbConversion(false));
+        long srgb = reportedPeak(neutral.copy().applySrgbConversion(true));
+        assertEquals(linear, srgb, "Neutral RGB8 uses its existing transfer path");
+        assertEquals(reportedPeak(neutral.copy().applySrgbConversion(false), 2, 2),
+                reportedPeak(neutral.copy().applySrgbConversion(true), 2, 2),
+                "Neutral RGB8 subsampling does not implicitly develop RGB16");
+        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
+                reportedPeak(neutral.copy().applyCameraTone(true)) - srgb,
+                "Supported RGB8 camera tone can first initialize the shared encoder");
+        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
+                reportedPeak(neutral.copy().applyLensCorrection(true)) - srgb,
+                "RGB8 lens correction can first initialize the shared encoder");
+        assertEquals(srgb, reportedPeak(neutral.copy().applyLensCorrection(true).cropToActiveArea(false)),
+                "Uncropped RGB8 bypasses lens correction");
+        assertEquals(linear, reportedPeak(neutral.copy().applyCameraTone(true).applySrgbConversion(false)));
+        for (var raw : new Cr3DecodeOptions[]{Cr3DecodeOptions.rawSensor(), Cr3DecodeOptions.rawLinear()}) {
+            assertEquals(reportedPeak(raw.copy().applySrgbConversion(false)),
+                    reportedPeak(raw.copy().applySrgbConversion(true).applyCameraTone(true)
+                            .bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)),
+                    "Bayer reads do not develop RGB even when unrelated flags are enabled");
+        }
+    }
+
+    @Test
+    void opticalPlanningDeduplicatesOnlyItsOwnSharedTables() throws Exception {
+        long tables = BayerDemosaicer.estimateSrgb16TableBytes();
+        for (var depth : Cr3DecodeOptions.BitDepth.values()) {
+            var options = Cr3DecodeOptions.rawProcessed(depth).applyCameraTone(true)
+                    .postDecodeMemoryBytes(MIB);
+            long optical = 3 * MIB + tables;
+            assertEquals(3 * MIB, Cr3Decoder.opticalMemoryOptions(options, optical, 2 * MIB, 1024)
+                    .postDecodeMemoryBytes());
+            assertEquals(5 * MIB, Cr3Decoder.opticalMemoryOptions(options, optical, 5 * MIB, 1024)
+                    .postDecodeMemoryBytes(), "The selection allocation excludes no shared tables");
+            assertEquals(4 * MIB, Cr3Decoder.opticalMemoryOptions(options.copy().postDecodeMemoryBytes(4 * MIB),
+                    optical, 2 * MIB, 1024).postDecodeMemoryBytes(), "The caller's copy estimate stays intact");
+            assertEquals(MIB, options.postDecodeMemoryBytes(), "Planning leaves caller options unchanged");
+        }
+        var lensOnly8 = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.EIGHT).applyCameraTone(false);
+        assertEquals(3 * MIB, Cr3Decoder.opticalMemoryOptions(lensOnly8, 3 * MIB + tables, 0, 1024)
+                .postDecodeMemoryBytes(), "Lens-only RGB8 retains the encoder in shared storage");
+        // The tiny decoded fixture keeps four packed pixels. A larger selection or
+        // caller copy dominates the later peak, but the encoder remains live as well.
+        assertEquals(4L * Integer.BYTES + 5 * MIB + tables,
+                reportedPeak(Cr3Decoder.opticalMemoryOptions(lensOnly8, 3 * MIB + tables, 5 * MIB, 2)));
+        assertEquals(4L * Integer.BYTES + 6 * MIB + tables,
+                reportedPeak(Cr3Decoder.opticalMemoryOptions(lensOnly8.copy().postDecodeMemoryBytes(6 * MIB),
+                        3 * MIB + tables, 5 * MIB, 2)));
+        assertEquals(3 * MIB + tables, Cr3Decoder.opticalMemoryOptions(lensOnly8.copy().applySrgbConversion(false),
+                3 * MIB + tables, 0, 1024).postDecodeMemoryBytes(), "No shared addition means no subtraction");
+    }
+
+    private static long reportedPeak(Cr3DecodeOptions options) throws Exception {
+        return reportedPeak(options, 1, 1);
+    }
+
+    private static long reportedPeak(Cr3DecodeOptions options, int xStep, int yStep) throws Exception {
+        var output = new ByteArrayOutputStream();
+        PrintStream previous = System.err;
+        try (var error = new PrintStream(output, true, StandardCharsets.UTF_8);
+             var source = Cr3DecoderTest.class.getResourceAsStream("four-sites.cr3");
+             var input = new MemoryCacheImageInputStream(source);
+             var decoder = new Cr3Decoder()) {
+            System.setErr(error);
+            decoder.setInput(input);
+            var requested = options.copy().memoryMode(LOW_MEMORY).maxWorkers(1);
+            if (xStep == 1 && yStep == 1) {
+                decoder.decode(requested);
+            } else {
+                decoder.decodeRawProcessedRegion(requested, null, xStep, yStep);
+            }
+        } finally {
+            System.setErr(previous);
+        }
+        var match = Pattern.compile("estimated normal-path heap (\\d+) bytes").matcher(output.toString(StandardCharsets.UTF_8));
+        assertTrue(match.find(), "Expected one real memory-planning diagnostic: " + output);
+        long bytes = Long.parseLong(match.group(1));
+        assertFalse(match.find(), "The decoder should plan only once");
+        return bytes;
+    }
 
     @Test
     void automaticSelectionUsesTheLargestCompactLimitThatKeepsTheReserve() {
@@ -43,14 +169,14 @@ class Cr3MemoryPolicyTest {
         // 40 MiB of haloed packed storage, a 36 MiB rotated output, and a separate
         // 42 MiB destination. Only the detached 36 MiB result survives to the copy.
         var pixels = ImageBytes.rgb(false, 10 * MIB, 9 * MIB, true, 6, false);
-        var rotated = new Estimate(pixels, MIB, MIB / 4, 4, 0, 0);
+        var rotated = new Estimate(pixels, MIB, 0, MIB / 4, 4, 0, 0);
         var caller = Cr3DecodeOptions.rawProcessed().postDecodeMemoryBytes(42 * MIB);
         // Four-worker development and subsequent copy both peak at 78 MiB.
         assertEquals(0, rotated.compactWorkers(caller, 4, 88 * MIB, 100 * MIB));
         assertEquals(1, rotated.compactWorkers(caller, 4, 88 * MIB - 1, 100 * MIB));
         // The nonrotated subimage retains its 40 MiB parent, requiring 82 MiB at copy time.
         var view = new Estimate(ImageBytes.rgb(false, 10 * MIB, 9 * MIB, true, 1, false),
-                MIB, MIB / 4, 4, 0, 0);
+                MIB, 0, MIB / 4, 4, 0, 0);
         assertEquals(1, view.compactWorkers(caller, 4, 91 * MIB, 100 * MIB));
         assertEquals(0, view.compactWorkers(caller, 4, 92 * MIB, 100 * MIB));
         assertEquals(42 * MIB, caller.copy().postDecodeMemoryBytes());
@@ -94,25 +220,29 @@ class Cr3MemoryPolicyTest {
     void budgetsCodecWindowsProcessingRowsAndOpticalBlackEvenForCompactReads() {
         // Two tiles, four Bayer phases each. At limit 11 only eight codec workers need scratch.
         var pixels = new ImageBytes(100, 80, 80);
-        var raw = Estimate.forTrack(pixels, 1024, 600, 512, false, 120);
-        var craw = Estimate.forTrack(pixels, 1024, 600, 512, true, 120);
+        var raw = Estimate.forTrack(pixels, 1024, 600, 512, false, 120, 0);
+        var craw = Estimate.forTrack(pixels, 1024, 600, 512, true, 120, 0);
         long fixed = MIB + 32L * 600;
         assertEquals(80 + fixed + 8 * (32768 + 8 * 256) + 11 * 40 * 122, raw.bytes(80, 11));
         assertEquals(80 + fixed + 8 * (163840 + 64 * 272) + 11 * 40 * 122, craw.bytes(80, 11));
-        var nativeRaw = Estimate.forTrack(pixels, 1024, 600, 512, false, 0);
+        var nativeRaw = Estimate.forTrack(pixels, 1024, 600, 512, false, 0, 0);
         assertEquals(80 + fixed + 8 * (32768 + 8 * 256), nativeRaw.bytes(80, 11));
     }
 
     @Test
     void invalidOrOverflowingEstimatesCannotCreateHeadroom() {
         var options = Cr3DecodeOptions.rawProcessed();
-        var negative = new Estimate(new ImageBytes(-1, -1, -1), 0, 1, 8, 0, 0);
+        var negative = new Estimate(new ImageBytes(-1, -1, -1), 0, 0, 1, 8, 0, 0);
         assertEquals(1, negative.compactWorkers(options, 8, Long.MAX_VALUE, Long.MAX_VALUE));
         var oversized = ImageBytes.rgb(true, Long.MAX_VALUE, Long.MAX_VALUE, false, 6, false);
         assertEquals(new ImageBytes(Long.MAX_VALUE, Long.MAX_VALUE, Long.MAX_VALUE), oversized);
-        var overflow = new Estimate(new ImageBytes(10, 10, 10), 2, Long.MAX_VALUE / 2, 8, 0, 0);
+        var overflow = new Estimate(new ImageBytes(10, 10, 10), 2, 0, Long.MAX_VALUE / 2, 8, 0, 0);
         assertEquals(Long.MAX_VALUE, overflow.bytes(10, 4));
         assertEquals(1, overflow.compactWorkers(options, 8, Long.MAX_VALUE, Long.MAX_VALUE));
+        var sharedOverflow = new Estimate(new ImageBytes(10, 10, 10), 2, Long.MAX_VALUE, 0, 1, 0, 1);
+        assertEquals(Long.MAX_VALUE, sharedOverflow.bytes(10, 1));
+        assertEquals(Long.MAX_VALUE, sharedOverflow.peakBytes(10, 1, Long.MAX_VALUE));
+        assertEquals(1, sharedOverflow.compactWorkers(options, 1, Long.MAX_VALUE, Long.MAX_VALUE));
     }
 
     @Test
@@ -123,7 +253,7 @@ class Cr3MemoryPolicyTest {
         PrintStream previous = System.err;
         try (var error = new PrintStream(output, true, StandardCharsets.UTF_8)) {
             System.setErr(error);
-            var estimate = Estimate.forTrack(new ImageBytes(1024, 1024, 1024), 128, 128, 128, false, 128);
+            var estimate = Estimate.forTrack(new ImageBytes(1024, 1024, 1024), 128, 128, 128, false, 128, 0);
             var selected = Cr3MemoryPolicy.apply(options, estimate);
             assertNotSame(options, selected);
             assertEquals(Math.min(4, Runtime.getRuntime().availableProcessors()), selected.maxWorkers());

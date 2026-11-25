@@ -57,7 +57,28 @@ Geometric alignment was checked separately on 512-pixel-wide images using the sa
 
 ## Import cost
 
-### Optimization measured on 25 November 2026
+### Further exact sRGB quantization, 25 November 2026
+
+The subsequent quantization change was compared with `567983ff`, which already
+includes the optical tile optimization below. It keeps the normal profiled
+`ImageIO.read(File)` output. Three fresh JVMs per arm, five warmups and seven
+measurements per JVM on four pinned CPUs, with Serial GC and a 768 MiB heap,
+gave the following Java 21 medians:
+
+| Capture | Baseline | Updated | Elapsed reduction | CPU reduction |
+| --- | ---: | ---: | ---: | ---: |
+| G5 X II interior | 667.6 ms | 575.2 ms | 13.8% | 18.2% |
+| G5 X II wide scene | 750.5 ms | 556.8 ms | 25.8% | 22.2% |
+| EOS R | 1067.6 ms | 977.3 ms | 8.5% | 10.4% |
+
+Java 25 elapsed reductions were 9.0%, 13.4% and 7.1%, respectively. All measured
+full-image fingerprints match; individual forks remain noisy. The new direct
+seed table retains exact output-boundary checks and needs no Vector API module.
+Its additional 448 KiB of fixed shared array payload is included in memory
+planning across development and later copies.
+[Both runtimes, all forks, raw records and reproduction](srgb-quantization-performance-2026-11-25/README.md)
+
+### Earlier optical tile optimization, 25 November 2026
 
 The current implementation reuses shaded source values within bounded tiles. The
 comparison below runs the **same profiled RGB16 development** before and after
