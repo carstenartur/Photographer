@@ -22,7 +22,7 @@ classification is maintained in
 Use standard ImageIO APIs to load the developed photograph or request the
 embedded JPEG. The [ImageIO guide](../docs/cr3/imageio.md) describes the
 available output modes. Since 0.1.9, the default has been full-resolution
-sRGB with three unsigned 16-bit bands. Read channel values through the raster.
+sRGB with three unsigned 16-bit bands. The current development version applies supported lens and camera tone profiles by default. Set `param.getDecodeOptions().applyLensCorrection(false).applyCameraTone(false)` for the earlier neutral rendering, or disable either stage independently. Read channel values through the raster.
 For RGB8, select `BitDepth.EIGHT` on the default read parameters or request
 the advertised `TYPE_INT_RGB` destination. Version 0.1.8 requires explicit
 `BitDepth.SIXTEEN` for RGB16. For a sequence of full-frame reads the current checkout can

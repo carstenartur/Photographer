@@ -24,7 +24,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * End-to-end benchmark of the full RAW processing pipeline:
  * {@code Cr3Decoder.decode(Cr3DecodeOptions.rawProcessed())} —
- * CRX entropy → black-level → crop → WB → demosaic → colour matrix → sRGB.
+ * CRX entropy → black-level → crop → WB → demosaic → colour matrix → sRGB,
+ * followed by supported optical correction and camera tone profiles.
  */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)

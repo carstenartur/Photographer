@@ -1,11 +1,19 @@
 # RGB source subsampling performance
 
-The ImageIO reader develops only the RGB sample sites selected by
+With optical correction disabled or no matching lens profile, the ImageIO reader
+develops only the RGB sample sites selected by
 `ImageReadParam.setSourceSubsampling`. The requested grid stays in oriented
 output coordinates. Reconstruction retains full-resolution Bayer neighbours,
 EXIF orientation and the optical-black calibration used by ordinary reads.
 For the selected sites, RGB8 and RGB16 use their usual interpolation and
 rounding. [ImageIO source regions and destinations](imageio.md#standard-imageio-regions-and-destinations)
+
+The measurements below describe neutral development before supported lens and
+tone profiles became the default. A supported optical profile requires the full
+developed field for the remap before selecting the requested grid. Its time and
+memory therefore differ from this sampled-only path. Use `rgb16neutral` in the
+current import probe to reproduce the neutral RGB16 workload, or disable
+`applyLensCorrection` and `applyCameraTone` explicitly through the public options.
 
 ## Complete imports with a 2 × 3 source grid
 
@@ -52,6 +60,6 @@ classpaths, the same CPU affinity and GC, and alternate their process order.
 taskset -c 4-7 java -Xms24m -Xmx768m -XX:+UseSerialGC -XX:ActiveProcessorCount=4 \
   -cp "$java21_probe_classes:canon-cr3-benchmark/target/benchmarks.jar" \
   com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe \
-  --input "$cr3" --mode rgb16 --subsample-x 2 --subsample-y 3 \
+  --input "$cr3" --mode rgb16neutral --subsample-x 2 --subsample-y 3 \
   --warmup 4 --iterations 7 --gc-between --checksum
 ```

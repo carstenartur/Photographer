@@ -111,7 +111,7 @@ The actual POM graph has some direct dependencies in addition to this simplified
 | Headless entry point | Decode options and result |
 | --- | --- |
 | `Cr3SensorImporter.open(Path)` | `Cr3DecodeOptions.rawSensor()` returns the entire Bayer mosaic. `ShortProcessor` adopts the packed unsigned-short grayscale raster. The `ImagePlus` carries available calibration as properties and ignores ImageJ global calibration. |
-| `Cr3ColorImporter.open(Path)` | `Cr3DecodeOptions.rawProcessed().bitDepth(SIXTEEN)` develops the active area to oriented sRGB. `CompositeImage` has three 16-bit channels in R, G, B order, one slice and one frame. Each channel's initial display range is 0–65535. |
+| `Cr3ColorImporter.open(Path)` | `Cr3DecodeOptions.rawProcessed().bitDepth(SIXTEEN)` develops the active area to oriented sRGB with supported lens correction and camera tone enabled by default. `CompositeImage` has three 16-bit channels in R, G, B order, one slice and one frame. Each channel's initial display range is 0–65535. |
 
 **Ownership.** The color adapter can give ImageJ the decoded banks because it exclusively owns the source raster. It adopts three distinct unsigned-short banks in raster band order when each array contains exactly one tightly packed plane with zero offsets. For a valid strided or interleaved raster it copies the samples into three new planes using one row of scratch. It rejects an incompatible band count, transfer type or sample depth. The arrays stay live with the ImageJ stack after the reader closes. Rendering a composite can also allocate a packed display image. The 6 bytes per output pixel for RGB16 cover only the three retained sample planes.
 

@@ -49,15 +49,17 @@ public final class Cr3CameraJpegProbe {
         if (args.length >= 2 && args[0].equals("--render")) {
             options = switch (args[1]) {
                 case "default" -> null;
-                case "lens" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN).applyLensCorrection(true);
-                case "tone" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN).applyCameraTone(true);
+                case "neutral" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                        .applyLensCorrection(false).applyCameraTone(false);
+                case "lens" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN).applyCameraTone(false);
+                case "tone" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN).applyLensCorrection(false);
                 case "camera" -> Cr3DecodeOptions.cameraRendered();
                 default -> throw new IllegalArgumentException("Unknown rendering: " + args[1]);
             };
             firstFile = 2;
         }
         if (firstFile == args.length || args[firstFile].startsWith("--")) {
-            throw new IllegalArgumentException("Usage: Cr3CameraJpegProbe [--render default|lens|tone|camera] FILE.cr3 ...");
+            throw new IllegalArgumentException("Usage: Cr3CameraJpegProbe [--render default|neutral|lens|tone|camera] FILE.cr3 ...");
         }
         System.out.println(HEADER);
         boolean failed = false;

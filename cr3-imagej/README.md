@@ -25,7 +25,7 @@ int sensorCode = image.getProcessor().get(100, 200);
 
 ## Open a color image
 
-In **0.1.8 or later**, choose **File › Import › CR3 Color Image...** to develop the active area of a supported RAW or C-RAW capture into a three-channel, EXIF-oriented sRGB composite. The red, green and blue planes each store unsigned 16-bit values and share an initial display range of 0–65535. RAW color rendering is experimental.
+In **0.1.8 or later**, choose **File › Import › CR3 Color Image...** to develop the active area of a supported RAW or C-RAW capture into a three-channel, EXIF-oriented sRGB composite. The red, green and blue planes each store unsigned 16-bit values and share an initial display range of 0–65535. The current development version also applies the supported lens and camera tone profiles by default, matching normal ImageIO RGB16 reads. [Profile coverage and independent controls](../docs/cr3/camera-rendering.md). RAW color rendering is experimental.
 
 The [Groovy example](examples/open-cr3-color.groovy) offers the camera JPEG and the 16-bit RAW composite. A headless Java caller can read individual developed values directly:
 

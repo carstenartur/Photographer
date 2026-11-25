@@ -38,19 +38,22 @@ JAR on the runtime classpath. The production CR3 modules themselves target Java
 
 | Mode | Public import and output |
 | --- | --- |
-| `default` | Actual `ImageIO.read(File)` with automatic options (sRGB16 in 0.1.9-SNAPSHOT, RGB8 in 0.1.8) |
+| `default` | Actual `ImageIO.read(File)` with automatic options: RGB16 since 0.1.9; current development includes supported lens and tone profiles |
 | `rgb8` | Explicit ImageIO processing options; RGB8 |
 | `rgb16` | Explicit ImageIO processing options; three unsigned-short sRGB bands |
-| `rgb16camera` | ImageIO with the public `Cr3DecodeOptions.cameraRendered()` preset, including available lens correction and camera tone, returning three unsigned-short sRGB bands |
-| `rgb16linear` | Same RGB16 pipeline with linear output transfer |
+| `rgb16camera` | Explicit `cameraRendered()` RGB16 factory; same rendering as the current default |
+| `rgb16neutral` | RGB16 with optical profiles and photographic tone explicitly disabled; useful for reproducing the earlier neutral rendering |
+| `rgb16linear` | Neutral RGB16 with linear transfer; optical profiles and photographic tone explicitly disabled |
 | `sensor` | ImageIO, uncropped native unsigned-short Bayer image |
 | `sensor-path` | Direct `Cr3Decoder` file input, uncropped native Bayer image |
 
 To reproduce the [camera-rendering timings](../../docs/cr3/camera-rendering.md), run the
 command above with `--warmup 3 --iterations 4 --gc-between` on `sample-wide.cr3`
-and `eosr-iso-low.cr3`. For each capture, run `--mode default` and
-`--mode rgb16camera` in fresh Java 21 processes, twice per mode, using the same four
-CPU cores. For each mode and capture, calculate the median `total_ms` and
+and `eosr-iso-low.cr3`. For each capture, run `--mode rgb16neutral` and
+`--mode default` in fresh processes, twice per mode, using the same four
+CPU cores and the same JDK. The historical report used Java 21. To measure
+processing optimizations against the original opt-in implementation, use
+`--mode rgb16camera` for both revisions so the workloads are identical. For each mode and capture, calculate the median `total_ms` and
 `total_thread_allocated_bytes` in each process, then take the median of those
 two values for each metric. Divide the allocation figure by 1,048,576 to obtain MiB.
 
@@ -73,7 +76,7 @@ omitted); these fields do not claim to expose the effective automatic decision.
 in the explicit RGB modes. Both default to one. JSON records the intervals as
 `subsample_x` and `subsample_y`. [RGB subsampling measurements](../../docs/cr3/rgb-subsampling-performance.md)
 
-Use `--reuse-destination` with full-resolution `rgb16`, `rgb16camera`, or `rgb16linear` to benchmark a
+Use `--reuse-destination` with full-resolution `rgb16`, `rgb16camera`, `rgb16neutral`, or `rgb16linear` to benchmark a
 caller-owned workspace. The probe allocates an advertised 3 × 16-bit destination before
 warmup, passes it through the ImageIO read parameters on each import and verifies that
 the reader returns the same object. To measure successive frames, repeat `--input` with
@@ -187,9 +190,12 @@ the complete argument list and `--selftest` for a small public-API Bayer input.
 | Java workload | LibRaw settings |
 | --- | --- |
 | `sensor` | `--mode sensor` |
-| `rgb8` | `--mode rgb8 --transfer srgb` |
 | `rgb16linear` | `--mode rgb16 --transfer linear` |
-| `default` (0.1.9-SNAPSHOT) or `rgb16` | `--mode rgb16 --transfer srgb` |
+| `rgb16neutral` (earlier `default` before profiled development) | `--mode rgb16 --transfer srgb` |
+
+The Java `default`, `rgb8`, `rgb16` and `rgb16camera` modes include supported
+optical and tone profiles. Their workload differs from this unprofiled LibRaw
+comparison; use the explicit neutral modes above for that comparison.
 
 Specify the transfer explicitly: the C client's bare `rgb16` default is linear.
 Quality 0 requests bilinear demosaicing. Camera WB, no auto brightness and a

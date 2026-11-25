@@ -4,15 +4,21 @@ Use this rendering for a display image developed from CR3 sensor samples, with l
 
 ## ImageIO
 
-On a `CanonCr3ImageReader` with its input set, select the preset:
+The normal ImageIO read includes the supported optical profiles and photographic tone curve:
 
 ```java
-var param = reader.getDefaultReadParam();
-param.setDecodeOptions(Cr3DecodeOptions.cameraRendered());
-BufferedImage developed = reader.read(0, param);
+BufferedImage developed = ImageIO.read(file);
 ```
 
-The [complete ImageIO example](imageio.md#run-a-selected-read-mode) opens and closes the reader and stream. Pass `camera` as its mode. The one-line `ImageIO.read(file)` continues to return ordinary RGB16. To request only one correction, start with the ImageIO default parameters and call `param.getDecodeOptions().applyLensCorrection(true)` or `param.getDecodeOptions().applyCameraTone(true)`. Native sensor reads, Bayer DNG export and the explicit JPEG preview each retain their original pixel source.
+The [complete ImageIO example](imageio.md#run-a-selected-read-mode) opens and closes the reader and stream. Its `rgb` and `camera` modes now select the same full RGB16 development. The core `rawProcessed()` factories and ImageJ color importer also include the supported profiles. To disable either stage, modify the default parameters; disabling both restores the earlier neutral rendering:
+
+```java
+var param = new CanonCr3ImageReadParam();
+param.getDecodeOptions().applyLensCorrection(false).applyCameraTone(false);
+BufferedImage neutral = reader.read(0, param);
+```
+
+Keep one flag enabled to use that stage independently. `Cr3DecodeOptions.cameraRendered()` remains an explicit factory for the same RGB16 defaults. Native sensor reads, Bayer DNG export and the explicit JPEG preview each retain their original pixel source.
 
 ## Which profiles apply?
 
@@ -35,7 +41,7 @@ The shared tone curve was fitted from developed RGB16 and the camera JPEGs of se
 
 The table reports the median and 90th percentile of the color difference across 48 regions in the center 75% of the frame. A smaller ΔE00 means a closer match to the JPEG from the same exposure. The wide-angle wall and the RF 85 mm plant contributed to the tone fit. The other examples below are independent scenes. Each raw.pixls.us series can include several exposures of the same subject. [Results by file, SHA-256 and rendering mode](camera-rendering-measurements.tsv) · [Source for the two Standard exposures](https://photorec.tv/content/2018/09/canon-eos-r-sample-gallery)
 
-| Camera and scene | Recorded style | Median ΔE00, default → camera | 90th percentile, default → camera |
+| Camera and scene | Recorded style | Median ΔE00, neutral → profiled | 90th percentile, neutral → profiled |
 | --- | --- | ---: | ---: |
 | G5 X II, wide-angle wall | Faithful | 21.16 → 7.97 | 22.45 → 9.26 |
 | G5 X II, dim interior | Faithful | 10.04 → 4.96 | 11.77 → 6.33 |
@@ -51,14 +57,14 @@ Geometric alignment was checked separately on 512-pixel-wide images using the sa
 
 ## Import cost
 
-These are full-resolution file imports on four logical CPUs with OpenJDK 21.0.13, Serial GC and a 768 MiB heap. For elapsed time, two fresh JVMs per configuration each ran three warmups and four measured imports. Values are medians of the two fork medians on a shared host. Peak resident memory was measured separately on a single cold import. The neutral import and the camera preset both return three 16-bit channels.
+The following baseline was recorded before the default change and performance work, at the original PR #457 implementation. Its former `default` mode is now the explicit neutral rendering. These are full-resolution file imports on four logical CPUs with OpenJDK 21.0.13, Serial GC and a 768 MiB heap. For elapsed time, two fresh JVMs per configuration each ran three warmups and four measured imports. Values are medians of the two fork medians on a shared host. Peak resident memory was measured separately on a single cold import. The neutral import and the camera preset both return three 16-bit channels.
 
-| Original | Elapsed time, default → camera | CPU time, default → camera | Allocated per import, default → camera | Cold peak RSS, default → camera |
+| Original | Elapsed time, neutral → profiled | CPU time, neutral → profiled | Allocated per import, neutral → profiled | Cold peak RSS, neutral → profiled |
 | --- | ---: | ---: | ---: | ---: |
 | G5 X II, 5496 × 3668 | 0.61 → 2.07 s | 0.84 → 2.99 s | 116.93 → 155.70 MiB | 180 → 221 MiB |
 | EOS R, 6744 × 4500 | 0.82 → 2.64 s | 1.20 → 4.79 s | 175.34 → 233.56 MiB | 237 → 289 MiB |
 
-The optical remap reuses one temporary 16-bit channel across red, green and blue. The larger elapsed times include this remap and the tone stage. Neutral RGB16 output hashes matched the previous implementation on ten imports, and native Bayer hashes matched for RAW and C-RAW from both bodies. To repeat the timing, use the [public import probe](../../scripts/benchmarks/README.md#java-probe) with `--mode default` and `--mode rgb16camera` on the same originals.
+The optical remap reuses one temporary 16-bit channel across red, green and blue. The larger elapsed times include this remap and the tone stage. Neutral RGB16 output hashes matched the previous implementation on ten imports, and native Bayer hashes matched for RAW and C-RAW from both bodies. To repeat the timing, use the [public import probe](../../scripts/benchmarks/README.md#java-probe) with `--mode rgb16neutral` and `--mode default` on the same originals. Compare original and optimized implementations with `--mode rgb16camera` on both; otherwise a changed default would mix different workloads.
 
 ## Reproduce the comparison
 
@@ -66,10 +72,10 @@ Build the benchmark JAR and compile the comparison tool as described in the [sam
 
 ```bash
 samples=canon-cr3-imageio/src/test/resources/samples
-for mode in default lens tone camera; do
+for mode in neutral lens tone camera; do
     java -cp "$classes:$jar" com.photographer.focusstack.cr3.imageio.Cr3CameraJpegProbe \
         --render "$mode" "$samples/sample-wide.cr3" "$samples/eosr-iso-low.cr3" > "$mode.tsv"
 done
 ```
 
-Each row reports signed lightness and color shifts relative to the camera JPEG as well as median and 90th-percentile CIEDE2000. The 48 regional means describe broad image appearance. A change in framing can move content between the regions.
+The committed 44-row comparison predates the default change: rows labeled `default` there describe neutral rendering, reproduced with `--render neutral` today. `--render default` now measures the profiled ImageIO default. Each row reports signed lightness and color shifts relative to the camera JPEG as well as median and 90th-percentile CIEDE2000. The 48 regional means describe broad image appearance. A change in framing can move content between the regions.

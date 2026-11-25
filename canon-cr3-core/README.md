@@ -58,12 +58,12 @@ than duplicated here. Applications that need only file inspection should depend 
 Factory shortcuts: `Cr3DecodeOptions.defaults()`,
 `Cr3DecodeOptions.rawProcessed()`, `Cr3DecodeOptions.rawLinear()` and `Cr3DecodeOptions.rawSensor()`.
 
-The 16-bit color path keeps fractional values through black-level subtraction,
-white balance, demosaicing and color conversion, and rounds only the final output
-to `0..65535`. It returns a banded RGB `BufferedImage`; read the full-depth samples
+The base 16-bit color path keeps fractional values through black-level subtraction,
+white balance, demosaicing and color conversion, then quantizes to `0..65535`.
+The subsequent optical and camera tone stages operate on those developed RGB16 values. It returns a banded RGB `BufferedImage`; read the full-depth samples
 through `image.getRaster()`, since `getRGB()` converts to eight bits per channel.
 Disable `applySrgbConversion` to retain linear RGB with a matching color model.
-Use version 0.1.8 or later for developed RGB16. The core factory `rawProcessed()` selects eight-bit RGB. The ImageIO reader defaults to RGB16 in 0.1.9-SNAPSHOT.
+Use version 0.1.8 or later for developed RGB16. The core factory `rawProcessed()` selects eight-bit RGB. The ImageIO reader defaults to RGB16 in 0.1.9-SNAPSHOT. The current development version enables supported lens correction and camera tone in both processed-RAW factories. `cameraRendered()` is equivalent to `rawProcessed(BitDepth.SIXTEEN)`. Disable either stage with `applyLensCorrection(false)` or `applyCameraTone(false)`; disable both for the earlier neutral output. Linear RGB skips the display tone curve.
 
 `experimentalPedestal(int)` and
 `PedestalStrategy.EXPERIMENTAL_REFERENCE_MATCH` are research-only controls. They

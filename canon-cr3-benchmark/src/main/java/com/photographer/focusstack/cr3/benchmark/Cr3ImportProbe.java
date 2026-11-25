@@ -42,7 +42,7 @@ import java.util.Set;
  * {@code --subsample-x N}, {@code --subsample-y N}, and {@code --dump FILE}.
  * Memory-mode values are case-insensitive. Sampling applies to the explicit RGB modes.
  * Boolean flags include {@code --checksum} and {@code --gc-between}. For full-size
- * {@code rgb16}, {@code rgb16camera}, or {@code rgb16linear}, either {@code --staged-destination} or
+ * {@code rgb16}, {@code rgb16camera}, {@code rgb16neutral}, or {@code rgb16linear}, either {@code --staged-destination} or
  * {@code --reuse-destination} allocates one advertised destination before timing. Only
  * {@code --reuse-destination} opts into using it as decoder workspace. Repeat
  * {@code --input FILE} to rotate through captures in order. When sharing a destination, all
@@ -55,7 +55,10 @@ import java.util.Set;
  * and orientation overrides are rejected for this mode.
  * {@code rgb8}, {@code rgb16}, and {@code rgb16linear} use an ImageIO reader with
  * explicit processing options. {@code rgb16camera} uses that reader with
- * {@link Cr3DecodeOptions#cameraRendered()}. {@code sensor} uses the ImageIO sensor path,
+ * {@link Cr3DecodeOptions#cameraRendered()}, equivalent to current RGB16 defaults.
+ * {@code rgb16neutral} explicitly disables lens correction and camera tone;
+ * {@code rgb16linear} keeps that neutral development with linear transfer.
+ * {@code sensor} uses the ImageIO sensor path,
  * while {@code sensor-path} opens the file directly through {@link Cr3Decoder}.
  * Both sensor modes preserve sensor orientation and reject orientation overrides.</p>
  */
@@ -92,7 +95,7 @@ public final class Cr3ImportProbe {
         }
         boolean reuse = workspace || staged;
         if (reuse && (!mode.startsWith("rgb16") || xStep != 1 || yStep != 1)) {
-            throw new IllegalArgumentException("A supplied destination requires a full-size rgb16, rgb16camera, or rgb16linear read");
+            throw new IllegalArgumentException("A supplied destination requires a full-size rgb16, rgb16camera, rgb16neutral, or rgb16linear read");
         }
 
         ImageIO.scanForPlugins();
@@ -283,10 +286,10 @@ public final class Cr3ImportProbe {
     }
 
     private static void validateReadRequest(String mode, int workers, MemoryMode memoryMode, int orientationOverride) {
-        if (mode == null || !Set.of("default", "rgb8", "rgb16", "rgb16camera", "rgb16linear",
+        if (mode == null || !Set.of("default", "rgb8", "rgb16", "rgb16camera", "rgb16neutral", "rgb16linear",
                 "sensor", "sensor-path").contains(mode)) {
             throw new IllegalArgumentException("Unsupported --mode: " + mode
-                    + "; expected default, rgb8, rgb16, rgb16camera, rgb16linear, sensor, or sensor-path");
+                    + "; expected default, rgb8, rgb16, rgb16camera, rgb16neutral, rgb16linear, sensor, or sensor-path");
         }
         if (workers < 0) {
             throw new IllegalArgumentException("--workers must be an integer >= 0: " + workers);
@@ -330,9 +333,11 @@ public final class Cr3ImportProbe {
         }
         Cr3DecodeOptions options = switch (mode) {
             case "rgb16camera" -> Cr3DecodeOptions.cameraRendered();
+            case "rgb16neutral" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN)
+                    .applyLensCorrection(false).applyCameraTone(false);
             case "rgb16" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN);
             case "rgb16linear" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN)
-                    .applySrgbConversion(false);
+                    .applyLensCorrection(false).applyCameraTone(false).applySrgbConversion(false);
             case "sensor", "sensor-path" -> Cr3DecodeOptions.rawSensor();
             default -> Cr3DecodeOptions.rawProcessed();
         };

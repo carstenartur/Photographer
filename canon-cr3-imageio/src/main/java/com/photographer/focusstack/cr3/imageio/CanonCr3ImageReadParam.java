@@ -10,9 +10,10 @@ import java.util.Objects;
  *
  * <p>Extends {@link ImageReadParam} with CR3-specific options like output mode
  * and processing pipeline control. The default develops a full-resolution RAW
- * three-channel 16-bit sRGB image. Use {@link #setPreviewOnly(boolean) setPreviewOnly(true)} for the
- * camera's embedded JPEG. To render the RAW with the supported lens and tone profiles,
- * use {@code param.setDecodeOptions(Cr3DecodeOptions.cameraRendered())}.</p>
+ * three-channel 16-bit sRGB image with the supported lens and camera tone profiles.
+ * Disable these stages independently through {@code getDecodeOptions().applyLensCorrection(false)}
+ * and {@code getDecodeOptions().applyCameraTone(false)}. Use
+ * {@link #setPreviewOnly(boolean) setPreviewOnly(true)} for the camera's embedded JPEG.</p>
  *
  * <p><strong>API status:</strong> preview selection is supported for external
  * consumers. Full-RAW and processing controls are experimental while the CRX

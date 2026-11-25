@@ -9,10 +9,13 @@ import java.awt.image.Raster;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Objects;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
 import javax.imageio.stream.FileImageInputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -23,6 +26,49 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Checks the public ImageIO parameter on real captures with measured lens profiles. */
 class Cr3CameraRenderingIT {
     private static final Rectangle WINDOW = new Rectangle(1127, 903, 43, 29);
+
+    @ParameterizedTest
+    @ValueSource(strings = {"sample-wide.cr3", "eosr-iso-low.cr3"})
+    void defaultImageIoReadsIncludeProfilesAndAllowAnExplicitNeutralOptOut(String name) throws Exception {
+        var file = Path.of(Objects.requireNonNull(getClass().getResource("/samples/" + name)).toURI()).toFile();
+        var reader = new CanonCr3ImageReader(new CanonCr3ImageReaderSpi());
+        try (var input = openFixture(name)) {
+            reader.setInput(input);
+            var camera = reader.getDefaultReadParam();
+            camera.setDecodeOptions(Cr3DecodeOptions.cameraRendered());
+            camera.setSourceRegion(WINDOW);
+            int[] expected = pixels(reader.read(0, camera));
+
+            var defaults = reader.getDefaultReadParam();
+            defaults.setSourceRegion(WINDOW);
+            assertArrayEquals(expected, pixels(reader.read(0, defaults)), "default CR3 parameters");
+            var plain = new ImageReadParam();
+            plain.setSourceRegion(WINDOW);
+            assertArrayEquals(expected, pixels(reader.read(0, plain)), "ordinary ImageReadParam");
+            assertArrayEquals(expected, window(reader.read(0, null)), "null read parameters");
+            var image = ImageIO.read(file);
+            assertArrayEquals(new int[]{16, 16, 16}, image.getSampleModel().getSampleSize());
+            assertArrayEquals(expected, window(image), "ImageIO.read(File)");
+
+            // Both controls remain independent and survive the temporary preview selection.
+            defaults.getDecodeOptions().applyLensCorrection(false).applyCameraTone(false);
+            defaults.setPreviewOnly(true);
+            defaults.setPreviewOnly(false);
+            int[] neutral = pixels(reader.read(0, defaults));
+            assertFalse(Arrays.equals(expected, neutral), "the matched profiles must affect the default pixels");
+            assertFalse(defaults.getDecodeOptions().applyLensCorrection());
+            assertFalse(defaults.getDecodeOptions().applyCameraTone());
+            defaults.getDecodeOptions().applyLensCorrection(true);
+            assertFalse(Arrays.equals(neutral, pixels(reader.read(0, defaults))), "lens correction can be restored alone");
+            assertFalse(defaults.getDecodeOptions().applyCameraTone());
+        } finally {
+            reader.dispose();
+        }
+    }
+
+    private static int[] window(BufferedImage image) {
+        return image.getRaster().getPixels(WINDOW.x, WINDOW.y, WINDOW.width, WINDOW.height, (int[]) null);
+    }
 
     @ParameterizedTest
     @CsvSource({"sample-wide.cr3,SIXTEEN,6", "eosr-iso-low.cr3,EIGHT,1"})
@@ -127,7 +173,8 @@ class Cr3CameraRenderingIT {
             var meta = ((Cr3ImageMetadata) reader.getImageMetadata(0)).getCr3Metadata();
             var param = reader.getDefaultReadParam();
             param.setSourceRegion(WINDOW);
-            var neutral = Cr3DecodeOptions.rawProcessed(BitDepth.SIXTEEN);
+            var neutral = Cr3DecodeOptions.rawProcessed(BitDepth.SIXTEEN)
+                    .applyLensCorrection(false).applyCameraTone(false);
             param.setDecodeOptions(neutral.copy().applySrgbConversion(false));
             int[] linear = pixels(reader.read(0, param));
             int[] bayer = pixels(reader.readRaster(0, param));

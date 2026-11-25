@@ -101,9 +101,9 @@ public final class Cr3DecodeOptions {
     private boolean applyWhiteBalance = true;
     private boolean applyColorMatrix = true;
     private boolean applySrgbConversion = true;
-    private boolean applyLensCorrection;
+    private boolean applyLensCorrection = true;
     private double lensShadingStrength = 1;
-    private boolean applyCameraTone;
+    private boolean applyCameraTone = true;
     private boolean cropToActiveArea = true;
     private PedestalStrategy pedestalStrategy = PedestalStrategy.DEFAULT;
     private int experimentalPedestalLevel = 0;
@@ -232,7 +232,7 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
-    /** Whether to use the matched optical profile on a cropped RAW development. */
+    /** Whether to use the matched optical profile; enabled by default for processed RAW. */
     public boolean applyLensCorrection() { return applyLensCorrection; }
 
     /**
@@ -270,7 +270,7 @@ public final class Cr3DecodeOptions {
         return this;
     }
 
-    /** Whether to use a camera-specific tone curve when rendering display sRGB. */
+    /** Whether to use a camera tone curve for display sRGB; enabled by default for processed RAW. */
     public boolean applyCameraTone() { return applyCameraTone; }
 
     /**
@@ -332,12 +332,17 @@ public final class Cr3DecodeOptions {
         return new Cr3DecodeOptions();
     }
 
-    /** Creates options for full RAW processing. */
+    /** Creates eight-bit RAW processing options with available lens and camera tone profiles enabled. */
     public static Cr3DecodeOptions rawProcessed() {
         return rawProcessed(BitDepth.EIGHT);
     }
 
-    /** Creates RAW processing options with a default depth that a destination may override. */
+    /**
+     * Creates RAW processing options with available lens and camera tone profiles enabled
+     * and a default depth that a destination may override. Disable either stage independently
+     * with {@link #applyLensCorrection(boolean)} or {@link #applyCameraTone(boolean)}.
+     * Unsupported camera, lens and picture-style combinations retain their established fallback.
+     */
     public static Cr3DecodeOptions rawProcessed(BitDepth defaultDepth) {
         var options = new Cr3DecodeOptions().outputMode(OutputMode.RAW_PROCESSED);
         options.bitDepth = Objects.requireNonNull(defaultDepth, "defaultDepth");
@@ -345,14 +350,15 @@ public final class Cr3DecodeOptions {
     }
 
     /**
-     * Requests developed RGB16 with the available lens profile and camera tone curve.
+     * Requests the normal developed RGB16 output with the available lens profile and camera tone curve.
+     * This is equivalent to {@code rawProcessed(BitDepth.SIXTEEN)} and the ImageIO default.
      * Both adjustments are independent and may be disabled or enabled individually.
      * The pixels are developed from RAW sensor data.
      *
      * @return mutable options for camera-rendered RAW output
      */
     public static Cr3DecodeOptions cameraRendered() {
-        return rawProcessed(BitDepth.SIXTEEN).applyLensCorrection(true).applyCameraTone(true);
+        return rawProcessed(BitDepth.SIXTEEN);
     }
 
     /**
@@ -371,6 +377,8 @@ public final class Cr3DecodeOptions {
                 .applyBlackLevel(true)
                 .applyWhiteBalance(false)
                 .applyColorMatrix(false)
+                .applyLensCorrection(false)
+                .applyCameraTone(false)
                 .applySrgbConversion(false);
     }
 
