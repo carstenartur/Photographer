@@ -410,8 +410,7 @@ public final class Cr3Decoder implements AutoCloseable {
             long selectionBytes = select ? (long) Math.ceilDiv(region.width, xStep)
                     * Math.ceilDiv(region.height, yStep) * (sampleBytes == 2 ? 6 : 4) : 0;
             // Remapping and extracting the requested raster are successive allocations.
-            long workspace = Math.max(opticalBytes, selectionBytes);
-            var planned = options.copy().postDecodeMemoryBytes(Math.max(options.postDecodeMemoryBytes(), workspace));
+            var planned = opticalMemoryOptions(options, opticalBytes, selectionBytes, fullArea.width);
             rgb = developRegion(planned, null, select ? null : destination, 1, 1, track, fullArea, bounds);
             rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
                     options.lensShadingStrength());
@@ -663,8 +662,28 @@ public final class Cr3Decoder implements AutoCloseable {
                                                   ImageBytes imageBytes, int processingWidth) {
         var cmp = track.source.cmp1();
         var estimate = Cr3MemoryPolicy.Estimate.forTrack(imageBytes, track.width, track.height,
-                cmp.tileWidth(), CrxLossyDecoder.isLossy(cmp), processingWidth);
+                cmp.tileWidth(), CrxLossyDecoder.isLossy(cmp), processingWidth,
+                sharedProcessingBytes(options, processingWidth));
         return Cr3MemoryPolicy.apply(options, estimate);
+    }
+
+    private static long sharedProcessingBytes(Cr3DecodeOptions options, int processingWidth) {
+        // RGB16 development and RGB8 tone or optical processing can first initialize
+        // this encoder. Reserve conservatively even if no matching profile is found.
+        // Bayer-only, linear and neutral RGB8 reads need no shared encoder storage.
+        return processingWidth > 0 && options.applySrgbConversion()
+                && (options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN || options.applyCameraTone()
+                    || (options.applyLensCorrection() && options.cropToActiveArea()))
+                ? BayerDemosaicer.estimateSrgb16TableBytes() : 0;
+    }
+
+    static Cr3DecodeOptions opticalMemoryOptions(Cr3DecodeOptions options, long opticalBytes,
+                                                 long selectionBytes, int processingWidth) {
+        // The optical estimate already includes the encoder. Deduplicate only
+        // that component; the caller's copy and selection are separate storage.
+        long opticalOnly = Math.max(0, opticalBytes - sharedProcessingBytes(options, processingWidth));
+        long workspace = Math.max(opticalOnly, selectionBytes);
+        return options.copy().postDecodeMemoryBytes(Math.max(options.postDecodeMemoryBytes(), workspace));
     }
 
     private Rectangle processedArea(Cr3DecodeOptions options, RawTrack track) {

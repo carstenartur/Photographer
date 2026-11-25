@@ -1,0 +1,744 @@
+{
+  "scope": "Exploratory screening summaries, not final performance claims. Protocols and host contention differ; compare only paired arms within each experiment. Rejected prototypes are not shipped.",
+  "baseline_ref": "567983ff58790dd1390c3bd89c986429d09e7cbf",
+  "profile": {
+    "scope": "Java25 ExecutionSample counts. Output hashing is outside import timing but present in the recording. Line attribution is not an isolated cost measurement.",
+    "results": {
+      "g5": {
+        "camera": "g5",
+        "sample_count": 3202,
+        "encoder_top_count": 2088,
+        "encoder_callers": {
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.quantize": 260,
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile": 1828
+        },
+        "encoder_lines": {
+          "46": 2088
+        }
+      },
+      "eos": {
+        "camera": "eos",
+        "sample_count": 5507,
+        "encoder_top_count": 3186,
+        "encoder_callers": {
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.quantize": 121,
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile": 3014,
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain": 51
+        },
+        "encoder_lines": {
+          "46": 3134,
+          "27": 50,
+          "50": 2
+        }
+      }
+    }
+  },
+  "simd": {
+    "baseline_ref": "567983ff58790dd1390c3bd89c986429d09e7cbf",
+    "baseline_jar_sha256": "d3ac503c493b8d08ca99e4948e50de88cdf7e75bbcdbc8c60231c3e813c66a49",
+    "decision": "Reject all SIMD candidates; no retained production/test changes.",
+    "hypotheses": [
+      {
+        "candidate": "normalization-only",
+        "decision": "not implemented after full-import profiling showed correctRow was not a prominent sampled leaf",
+        "baseline_double_digest": "c3651abc7fb2c69a6018484e0c2c864997d84435cf89659f77a3a5d723511893"
+      },
+      {
+        "candidate": "interpolation256_boxed",
+        "decision": "reject; Vector-valued helper escape causes 48 additional bytes per output pixel",
+        "causal_check": "Forcing only store to inline with CompileCommand reduces G5 allocation from 1129726816 to 163310704 bytes; original data g5-force-inline.jsonl"
+      },
+      {
+        "candidate": "interpolation256_inline",
+        "decision": "reject; no extra warm allocation but full-import wall medians regress for both cameras"
+      },
+      {
+        "candidate": "batched256",
+        "decision": "reject; CPU neutral for G5 and worse for EOS, elapsed measurements show host scheduling variance"
+      },
+      {
+        "candidate": "batched512",
+        "decision": "reject after pinned confirmation; isolated G5 wall improvement does not extend to EOS/sample-wide and does not reduce G5 CPU time"
+      }
+    ],
+    "screen_config": {
+      "java": "25.0.5",
+      "module": "jdk.incubator.vector",
+      "heap_initial_mib": 24,
+      "heap_max_mib": 768,
+      "gc": "Serial",
+      "available_processors": 4,
+      "workers": 0,
+      "full_hash_outside_timer": true,
+      "gc_between": true,
+      "initial_warmup": 6,
+      "initial_measured": 6,
+      "pinned_confirmation": {
+        "cpus": "4-7",
+        "warmup": 5,
+        "measured": 7,
+        "order": "baseline,candidate"
+      }
+    },
+    "exactness": {
+      "full_development_golden": "b4da6034f70cdbc69733a79a16e3a87b15cf092af2e58ae599ea22537a73f34c",
+      "baseline_scope": "all four CFA patterns, int/unsigned-short samples, width 1/2/7/8/9/15/16/17/33/65, height 7, full/cropped, calibrated/uncalibrated, linear/sRGB, EXIF1-8",
+      "focused_tests": "22 focused vector-profile tests passed on first interpolation prototype; log ../rgb16-vector-green.log",
+      "batched256_reference_comparisons": 8505108,
+      "batched512_reference_comparisons": 17010216,
+      "mixed_lane_baseline_cases": 240,
+      "mixed_lane_baseline_comparisons": 5760,
+      "mixed_scope": "NaN/infinities/clipping/toe/unsafe boundary values individually in lanes0-7, step+1/-1; expected values from independently loaded frozen baseline developer",
+      "final_log": "batched512/mixed-lanes.log"
+    },
+    "memory": {
+      "no_vector_boxing_after_inline_fix": true,
+      "batch256_temporary_index_array_payload": 16,
+      "batch512_temporary_index_array_payload": 32,
+      "batch512_measured_array_bytes_per_row": 48,
+      "batch512_confirmation_extra_allocated_bytes": {
+        "g5": 175968,
+        "eos": 215904,
+        "wide": 175968
+      },
+      "batch512_confirmation_rss_mib": {
+        "g5": [
+          262.68,
+          284.22
+        ],
+        "eos": [
+          362.45,
+          386.35
+        ],
+        "wide": [
+          264.65,
+          286.89
+        ]
+      },
+      "cold_first_import_timing": "not performed because warm-screen promotion criterion failed"
+    },
+    "review": "srgb_review found no arithmetic/mask blocker under current \u00b11-step callsite. Promotion would need explicit step guard, per-stripe workspace budgeting, package-private table access replacing scratch reflection. No promotion performed.",
+    "screens": {
+      "interpolation256_boxed": [
+        {
+          "input": "g5",
+          "variant": "baseline",
+          "wall_ms": 768.631997,
+          "cpu_ms": 2390.0,
+          "allocated_bytes": 163310440.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "g5",
+          "variant": "candidate",
+          "wall_ms": 731.633019,
+          "cpu_ms": 2450.0,
+          "allocated_bytes": 1129726816.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "baseline",
+          "wall_ms": 1173.4312685,
+          "cpu_ms": 3860.0,
+          "allocated_bytes": 245137180.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "candidate",
+          "wall_ms": 1197.479072,
+          "cpu_ms": 3775.0,
+          "allocated_bytes": 1700330080.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "interpolation256_inline": [
+        {
+          "input": "g5",
+          "variant": "baseline",
+          "wall_ms": 608.2089040000001,
+          "cpu_ms": 2115.0,
+          "allocated_bytes": 163310560.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "g5",
+          "variant": "candidate",
+          "wall_ms": 661.5388419999999,
+          "cpu_ms": 2250.0,
+          "allocated_bytes": 163310440.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "baseline",
+          "wall_ms": 1096.0940150000001,
+          "cpu_ms": 3755.0,
+          "allocated_bytes": 245137120.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "candidate",
+          "wall_ms": 1140.704174,
+          "cpu_ms": 3625.0,
+          "allocated_bytes": 245137120.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "batched256": [
+        {
+          "input": "g5",
+          "variant": "baseline",
+          "wall_ms": 750.0570695,
+          "cpu_ms": 2500.0,
+          "allocated_bytes": 163310440.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "g5",
+          "variant": "candidate",
+          "wall_ms": 1648.6181225,
+          "cpu_ms": 2505.0,
+          "allocated_bytes": 163427752.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "baseline",
+          "wall_ms": 1372.3784165000002,
+          "cpu_ms": 3585.0,
+          "allocated_bytes": 245137120.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "candidate",
+          "wall_ms": 1161.9994575,
+          "cpu_ms": 3830.0,
+          "allocated_bytes": 245281056.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "batched512": [
+        {
+          "input": "g5",
+          "variant": "candidate",
+          "wall_ms": 647.470096,
+          "cpu_ms": 2205.0,
+          "allocated_bytes": 163486408.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "g5",
+          "variant": "baseline",
+          "wall_ms": 746.333644,
+          "cpu_ms": 2465.0,
+          "allocated_bytes": 163310440.0,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "candidate",
+          "wall_ms": 1064.0372164999999,
+          "cpu_ms": 3665.0,
+          "allocated_bytes": 245353024.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "baseline",
+          "wall_ms": 1047.4797475,
+          "cpu_ms": 3625.0,
+          "allocated_bytes": 245137120.0,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "batched512_pinned_confirmation": [
+        {
+          "input": "g5",
+          "variant": "baseline",
+          "wall_ms": 674.212952,
+          "cpu_ms": 2180.0,
+          "allocated_bytes": 163310440,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "g5",
+          "variant": "candidate",
+          "wall_ms": 636.471045,
+          "cpu_ms": 2190.0,
+          "allocated_bytes": 163486408,
+          "hashes": [
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "baseline",
+          "wall_ms": 1038.790259,
+          "cpu_ms": 3500.0,
+          "allocated_bytes": 245137120,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "input": "eos",
+          "variant": "candidate",
+          "wall_ms": 1080.095926,
+          "cpu_ms": 3550.0,
+          "allocated_bytes": 245353024,
+          "hashes": [
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "input": "wide",
+          "variant": "baseline",
+          "wall_ms": 700.132491,
+          "cpu_ms": 2260.0,
+          "allocated_bytes": 163490880,
+          "hashes": [
+            "1940a760b67566d0"
+          ]
+        },
+        {
+          "input": "wide",
+          "variant": "candidate",
+          "wall_ms": 717.486437,
+          "cpu_ms": 2240.0,
+          "allocated_bytes": 163666848,
+          "hashes": [
+            "1940a760b67566d0"
+          ]
+        }
+      ]
+    },
+    "source_sha256": {
+      "batched-src/Rgb16BatchProbe.java": "dc2ed26327a3b3a3e93fad1651993c2193db9f3c0e235a5e22736bd0af9823e6",
+      "batched-src/Rgb16Vectors.java": "9feed0f64d1263fde27d421d55e39072aab2a1502d886946bb1fbbf1c2c0ca1e",
+      "batched512-src/Rgb16BatchProbe.java": "68a69712b099227cc332d8a8acb3e79e2b637e3036b6dc271967e5e989056959",
+      "batched512-src/Rgb16Vectors.java": "971e75fb06a49c6ece8a72965c5facf12e4f53204ce7caf14a227417709217b0",
+      "common-src/Rgb16Developer.java": "71dc0dffeccb3b05d5a57758d966173b6d895c325d77499fdcc7bd8499e6dbe9",
+      "common-src/Rgb16VectorTest.java": "35f8c4d7898220a5da9c3664cefbff8bb1065f2ffbd87fdf3caab7a9379189fe",
+      "common-src/Rgb16Vectors.java": "e94ea1aa4fcf42cd44fc413163ee0b1ee87d0d91112fb603c1e55870be335ac3"
+    }
+  },
+  "optical_and_tone": {
+    "scope": "Exploratory isolated stage screens; no claim of complete-import improvement.",
+    "baseline_commit": "567983ff58790dd1390c3bd89c986429d09e7cbf",
+    "java": "OpenJDK 21.0.13.1, four active processors, four requested workers",
+    "flags": [
+      "-Xmx768m",
+      "-XX:+UseSerialGC",
+      "-XX:ActiveProcessorCount=4"
+    ],
+    "warmup": 4,
+    "measured_iterations": 7,
+    "hypotheses": [
+      {
+        "candidate": "tone-hoist",
+        "hypothesis": "Hoist the shared per-pixel peak branch/cutoff/scale and group the common all-power RGB case.",
+        "decision": "Rejected. No repeatable stage improvement, G5 regression. All six synthetic peak/raster hashes and both full-image tone hashes match baseline."
+      },
+      {
+        "candidate": "optical-split",
+        "hypothesis": "Separating coordinate setup, source shading and interpolation can improve JIT specialization without changing arithmetic.",
+        "decision": "Rejected. No useful stage improvement in the single screen. G5 fork had simultaneous slowdown in unchanged tone; do not attribute all regression to the refactor. All ten fixed optical golden hashes and both full-image hashes match.",
+        "workspace_change": "Four rectangle int fields per worker, within the existing 64 KiB per-worker reserve; no new arrays."
+      }
+    ],
+    "production_changes": "None; experiments remain unpromoted.",
+    "source_sha256": {
+      "tone-hoist/CameraToneCurve.java": "4be76aeaa13dc2faa1738264126bd7760054f500cfbf0fea255ac416faf1ccf3",
+      "optical-split/OpticalCorrection.java": "bd54abebed905ef06485fb104b915a9312794d78b25d474327bde2a990421e27",
+      "ToneGoldenProbe.java": "1f68575071652a6af1b8b00c65676fe7022a09cd6e0cc11aa2c1c0dead956dd8",
+      "stages.py": "905cd81dfe405f4ce5bcde1896920eca612a8a060264ef28b3e4d9c662d0c61c"
+    },
+    "runs": [
+      {
+        "file": "jdk21-baseline-eos-fork1.jsonl",
+        "optical_median_ms": 639.838931,
+        "tone_median_ms": 72.383756,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-baseline-eos-fork2.jsonl",
+        "optical_median_ms": 617.029948,
+        "tone_median_ms": 71.221127,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-baseline-g5-fork1.jsonl",
+        "optical_median_ms": 360.900408,
+        "tone_median_ms": 21.140016,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-baseline-g5-fork2.jsonl",
+        "optical_median_ms": 358.180481,
+        "tone_median_ms": 20.924316,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-optical-split-eos-fork1.jsonl",
+        "optical_median_ms": 668.320727,
+        "tone_median_ms": 76.759366,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-optical-split-g5-fork1.jsonl",
+        "optical_median_ms": 672.730653,
+        "tone_median_ms": 44.726684,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-tone-hoist-eos-fork1.jsonl",
+        "optical_median_ms": 625.380412,
+        "tone_median_ms": 71.201316,
+        "measured_iterations": 7
+      },
+      {
+        "file": "jdk21-tone-hoist-g5-fork1.jsonl",
+        "optical_median_ms": 381.595297,
+        "tone_median_ms": 28.186856,
+        "measured_iterations": 7
+      }
+    ]
+  },
+  "one_sided_uniform_seed": {
+    "decision": "Rejected: substantial complete-import regressions.",
+    "summary": [
+      {
+        "camera": "g5",
+        "kind": "stages",
+        "baseline": 368.774895,
+        "prototype": 406.18357,
+        "reduction_percent": -10.144040580636581,
+        "exact_hash": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d"
+      },
+      {
+        "camera": "g5",
+        "kind": "import",
+        "baseline": 628.835844,
+        "prototype": 905.0741495,
+        "reduction_percent": -43.92852413482971,
+        "exact_hash": "f334ac23d6d550ca"
+      },
+      {
+        "camera": "eos",
+        "kind": "stages",
+        "baseline": 684.351847,
+        "prototype": 693.809812,
+        "reduction_percent": -1.3820325087834373,
+        "exact_hash": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b"
+      },
+      {
+        "camera": "eos",
+        "kind": "import",
+        "baseline": 1089.8110625,
+        "prototype": 1342.2386805,
+        "reduction_percent": -23.162511988173208,
+        "exact_hash": "293eb25bccb09add"
+      }
+    ]
+  },
+  "one_sided_single_increment": {
+    "decision": "Rejected: mixed stage results and no repeatable general full-import benefit.",
+    "summary": [
+      {
+        "camera": "g5",
+        "kind": "stages",
+        "baseline": 461.008276,
+        "prototype": 414.536787,
+        "reduction_percent": 10.080402330998506,
+        "exact_hash": "8b8490cb5c7c2de5dc86949c96bd3da12282aed6338122c4e58375ad9009338d"
+      },
+      {
+        "camera": "g5",
+        "kind": "import",
+        "baseline": 644.598653,
+        "prototype": 715.9680465,
+        "reduction_percent": -11.07191167214554,
+        "exact_hash": "f334ac23d6d550ca"
+      },
+      {
+        "camera": "eos",
+        "kind": "stages",
+        "baseline": 646.298249,
+        "prototype": 676.99021,
+        "reduction_percent": -4.748885061577823,
+        "exact_hash": "6258a6e2b52205283df6bbe78ad11f6b86526f4bb45443559f3b07b2bd80239b"
+      },
+      {
+        "camera": "eos",
+        "kind": "import",
+        "baseline": 1061.0201525,
+        "prototype": 1043.8181755,
+        "reduction_percent": 1.621267697834794,
+        "exact_hash": "293eb25bccb09add"
+      }
+    ]
+  },
+  "exponent_interpolated_seed": {
+    "scope": "One-fork exploratory paired full-import screen; not a final performance claim.",
+    "baseline_commit": "567983ff58790dd1390c3bd89c986429d09e7cbf",
+    "source_sha256": "a3a68c27c54f9cb837278450aaf6352b1c7ad8ce0073859f9d0f2ab5a0f8f11e",
+    "results": [
+      {
+        "camera": "g5",
+        "baseline_ms": 767.592555,
+        "prototype_ms": 770.037502,
+        "reduction_percent": -0.318521458301535,
+        "baseline_cpu_ms": 2430.0,
+        "prototype_cpu_ms": 2460.0,
+        "exact_full_output_fingerprint": "f334ac23d6d550ca"
+      },
+      {
+        "camera": "eos",
+        "baseline_ms": 1121.222171,
+        "prototype_ms": 1255.98029,
+        "reduction_percent": -12.018859641333313,
+        "baseline_cpu_ms": 3850.0,
+        "prototype_cpu_ms": 4140.0,
+        "exact_full_output_fingerprint": "293eb25bccb09add"
+      }
+    ],
+    "decision": "Rejected after the bounded paired screen: no G5 benefit and a substantial EOS regression. No production edits; no additional forks.",
+    "validation": {
+      "java21": "PASS: four existing tests and three adversarial tests on21.0.13.1",
+      "java25": "PASS: four existing tests and three adversarial tests on25.0.5",
+      "coverage": "Native codes, continuous samples, quantization boundaries and guards, uniform knots, bias-sized output offsets, all9217 exponent-indexed knots and adjacent doubles.",
+      "full_output_fingerprints_match": true
+    },
+    "source_hashes": {
+      "Srgb16Encoder.java": "a3a68c27c54f9cb837278450aaf6352b1c7ad8ce0073859f9d0f2ab5a0f8f11e",
+      "Srgb16Encoder.original.java": "b2333d5f37544720c7429b2357bee68eea044456ef84d500de447604cb085ba5",
+      "Srgb16EncoderTest.java": "6af276c9a1b17507008d5294b91d32114dd5690e3c01f1390807bdada99f7e55",
+      "Srgb16ExactnessProbe.java": "328df1496df590db16dbcb6bb062d8da2580ad419a7f0b9e9891926712978b48",
+      "validate.py": "06fea30f9f05fe6282b98e5425f8a03e96ffdf2ffda66a504e0377e591aa1d01",
+      "run_screen.py": "2ec6b3a48c8dd846a6839902e4279de72fadeadc82cdc0918cd0d330fc878cf3"
+    }
+  },
+  "direct_seed_with_signed_branches": {
+    "decision": "Promising initial candidate, superseded by absolute-distance guard and sign-bit selection. Preserve mixed first-import evidence.",
+    "screen": {
+      "scope": "One-fork exploratory paired full-import screen with CPUs4-7, five warmups and five measurements; not a final performance claim.",
+      "baseline_commit": "567983ff58790dd1390c3bd89c986429d09e7cbf",
+      "source_sha256": "fc62525d945fd289020d92f387f2f8c5bd6aae617132dea3824df1e869c87bc5",
+      "results": [
+        {
+          "camera": "g5",
+          "baseline_ms": 813.608613,
+          "prototype_ms": 631.51382,
+          "reduction_percent": 22.38112897165212,
+          "baseline_cpu_ms": 2540.0,
+          "prototype_cpu_ms": 2120.0,
+          "exact_full_output_fingerprint": "f334ac23d6d550ca"
+        },
+        {
+          "camera": "eos",
+          "baseline_ms": 1050.223514,
+          "prototype_ms": 1077.809438,
+          "reduction_percent": -2.6266717162838127,
+          "baseline_cpu_ms": 3520.0,
+          "prototype_cpu_ms": 3600.0,
+          "exact_full_output_fingerprint": "293eb25bccb09add"
+        }
+      ]
+    },
+    "confirmation": {
+      "scope": "One pinned confirmation fork with reversed G5/EOS arm order, seven warmups and seven measurements. Java 21 additionally checks the wide G5 scene.",
+      "source_sha256": "fc62525d945fd289020d92f387f2f8c5bd6aae617132dea3824df1e869c87bc5",
+      "results": [
+        {
+          "runtime": "java21",
+          "camera": "g5",
+          "baseline_ms": 733.827118,
+          "prototype_ms": 616.092681,
+          "reduction_percent": 16.043892915933377,
+          "baseline_cpu_ms": 2450.0,
+          "prototype_cpu_ms": 2110.0,
+          "cpu_reduction_percent": 13.877551020408163,
+          "full_output_fingerprint": "f334ac23d6d550ca"
+        },
+        {
+          "runtime": "java21",
+          "camera": "eos",
+          "baseline_ms": 1531.655018,
+          "prototype_ms": 1012.748808,
+          "reduction_percent": 33.87879149689829,
+          "baseline_cpu_ms": 3660.0,
+          "prototype_cpu_ms": 3440.0,
+          "cpu_reduction_percent": 6.010928961748629,
+          "full_output_fingerprint": "293eb25bccb09add"
+        },
+        {
+          "runtime": "java21",
+          "camera": "wide",
+          "baseline_ms": 738.953199,
+          "prototype_ms": 701.32945,
+          "reduction_percent": 5.091492810493959,
+          "baseline_cpu_ms": 2440.0,
+          "prototype_cpu_ms": 2350.0,
+          "cpu_reduction_percent": 3.688524590163933,
+          "full_output_fingerprint": "1940a760b67566d0"
+        },
+        {
+          "runtime": "java25",
+          "camera": "g5",
+          "baseline_ms": 889.027435,
+          "prototype_ms": 603.021687,
+          "reduction_percent": 32.17063239448847,
+          "baseline_cpu_ms": 2210.0,
+          "prototype_cpu_ms": 2040.0,
+          "cpu_reduction_percent": 7.692307692307687,
+          "full_output_fingerprint": "f334ac23d6d550ca"
+        },
+        {
+          "runtime": "java25",
+          "camera": "eos",
+          "baseline_ms": 1039.362991,
+          "prototype_ms": 955.475269,
+          "reduction_percent": 8.071070716043993,
+          "baseline_cpu_ms": 3660.0,
+          "prototype_cpu_ms": 3350.0,
+          "cpu_reduction_percent": 8.469945355191255,
+          "full_output_fingerprint": "293eb25bccb09add"
+        }
+      ]
+    },
+    "cold": {
+      "scope": "First table use after converter/logger initialization, plus one fresh-JVM first-import pair per camera/runtime. File caches are not flushed. Process time also includes output hashing.",
+      "source_sha256": "fc62525d945fd289020d92f387f2f8c5bd6aae617132dea3824df1e869c87bc5",
+      "table_first_use": [
+        {
+          "runtime": "java21",
+          "arm": "baseline",
+          "median_ms": 21.197822,
+          "median_thread_allocated_bytes": 671008
+        },
+        {
+          "runtime": "java21",
+          "arm": "prototype",
+          "median_ms": 22.002233,
+          "median_thread_allocated_bytes": 1124656
+        },
+        {
+          "runtime": "java25",
+          "arm": "baseline",
+          "median_ms": 20.373362,
+          "median_thread_allocated_bytes": 669200
+        },
+        {
+          "runtime": "java25",
+          "arm": "prototype",
+          "median_ms": 23.609231,
+          "median_thread_allocated_bytes": 1124688
+        }
+      ],
+      "first_imports": [
+        {
+          "runtime": "java21",
+          "camera": "g5",
+          "baseline_ms": 1645.797275,
+          "prototype_ms": 2279.86827,
+          "baseline_cpu_ms": 4990.0,
+          "prototype_cpu_ms": 5200.0,
+          "full_output_fingerprint": "f334ac23d6d550ca"
+        },
+        {
+          "runtime": "java21",
+          "camera": "eos",
+          "baseline_ms": 2591.439418,
+          "prototype_ms": 2531.337374,
+          "baseline_cpu_ms": 5990.0,
+          "prototype_cpu_ms": 5850.0,
+          "full_output_fingerprint": "293eb25bccb09add"
+        },
+        {
+          "runtime": "java25",
+          "camera": "g5",
+          "baseline_ms": 1508.538138,
+          "prototype_ms": 1867.628872,
+          "baseline_cpu_ms": 4980.0,
+          "prototype_cpu_ms": 5900.0,
+          "full_output_fingerprint": "f334ac23d6d550ca"
+        },
+        {
+          "runtime": "java25",
+          "camera": "eos",
+          "baseline_ms": 1804.68978,
+          "prototype_ms": 1748.89424,
+          "baseline_cpu_ms": 6080.0,
+          "prototype_cpu_ms": 5820.0,
+          "full_output_fingerprint": "293eb25bccb09add"
+        }
+      ]
+    }
+  },
+  "direct_seed_with_sign_bit": {
+    "decision": "Selected for integrated multi-fork verification, not accepted solely from this screen. Final measurements are separate.",
+    "screen": {
+      "scope": "One-fork exploratory paired full-import screen with CPUs4-7, five warmups and five measurements; not a final performance claim.",
+      "baseline_commit": "567983ff58790dd1390c3bd89c986429d09e7cbf",
+      "source_sha256": "8092d4c6dc89bb6f34db21d576f0491750b06417052c9f39e9f120d22a216189",
+      "results": [
+        {
+          "camera": "g5",
+          "baseline_ms": 672.711675,
+          "prototype_ms": 580.951921,
+          "reduction_percent": 13.640279693376812,
+          "baseline_cpu_ms": 2240.0,
+          "prototype_cpu_ms": 1880.0,
+          "exact_full_output_fingerprint": "f334ac23d6d550ca"
+        },
+        {
+          "camera": "eos",
+          "baseline_ms": 1114.375885,
+          "prototype_ms": 1031.108635,
+          "reduction_percent": 7.472097262765143,
+          "baseline_cpu_ms": 3680.0,
+          "prototype_cpu_ms": 3440.0,
+          "exact_full_output_fingerprint": "293eb25bccb09add"
+        }
+      ]
+    }
+  }
+}

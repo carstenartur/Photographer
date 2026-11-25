@@ -1,0 +1,126 @@
+{
+  "candidate_jar_sha256": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+  "cr3_benchmark_reactor": {
+    "command": "mvn -B --no-transfer-progress -Pbenchmarks -pl canon-cr3-benchmark -am verify -Djava.awt.headless=true",
+    "result": "BUILD SUCCESS",
+    "tests": 841,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 4,
+    "scope": "Includes processing/core/ImageIO and benchmark tests. Followed by lens-only RGB8 memory regression fix and targeted green package."
+  },
+  "final_lens_memory_regression": {
+    "command": "mvn -B --no-transfer-progress -Pbenchmarks -pl canon-cr3-benchmark -am package -Dtest=Cr3MemoryPolicyTest,CanonCr3MemoryModeTest -Dsurefire.failIfNoSpecifiedTests=false -Djava.awt.headless=true",
+    "result": "BUILD SUCCESS",
+    "tests": 21
+  },
+  "canonical_local_product": {
+    "command": "bash scripts/verify-product.sh",
+    "result": "BLOCKED_BY_ENVIRONMENT",
+    "all_modules_before_app": "SUCCESS",
+    "cr3_final_source_counts": {
+      "canon-cr3-container": {
+        "surefire": {
+          "tests": 132,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      "canon-cr3-metadata": {
+        "surefire": {
+          "tests": 79,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      "canon-cr3-codec": {
+        "surefire": {
+          "tests": 128,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1
+        }
+      },
+      "canon-cr3-processing": {
+        "surefire": {
+          "tests": 168,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1
+        },
+        "failsafe": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      "canon-cr3-core": {
+        "surefire": {
+          "tests": 50,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      "canon-cr3-imageio": {
+        "surefire": {
+          "tests": 239,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "failsafe": {
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 2
+        }
+      },
+      "cr3-imagej": {
+        "surefire": {
+          "tests": 7,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      },
+      "canon-cr3-cli": {
+        "surefire": {
+          "tests": 17,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        }
+      }
+    },
+    "app_failsafe_tests": 77,
+    "app_failsafe_failures": 0,
+    "app_failsafe_errors": 57,
+    "reason": "Docker is unavailable; Testcontainers initialization and subsequent class-initialization failures. Canonical command ran without skip flags. Hosted exact-head full product gate is required before merge."
+  },
+  "packaged_exactness": {
+    "runtimes": [
+      "Java21.0.13.1",
+      "Java25.0.5",
+      "Java25.0.5 with Vector API module"
+    ],
+    "checks_per_runtime": 7,
+    "result": "PASS",
+    "source": "additional-results.json"
+  },
+  "full_default_imports": {
+    "warm_serial_measured": 252,
+    "warm_g1_measured": 84,
+    "first_import_measured": 24,
+    "constrained_g1_heap_measured": 8,
+    "all_368_output_identities_match": true
+  },
+  "independent_review": {
+    "numerical_certification": "No unresolved issue",
+    "complete_source_diff": "Approved subject to final runtime/CI gates; lens-only RGB8 lifetime issue fixed with red-to-green test",
+    "warm_evidence": "All 252 records, 36 fork summaries, 6 aggregates, source/JAR/input hashes and published copies independently reproduced; AUTO worker diagnostics retained"
+  }
+}

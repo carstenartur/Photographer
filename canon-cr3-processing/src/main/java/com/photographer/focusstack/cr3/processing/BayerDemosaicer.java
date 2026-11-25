@@ -253,6 +253,18 @@ public final class BayerDemosaicer {
     }
 
     /**
+     * Estimates the array payload first allocated by the shared 16-bit sRGB encoder.
+     * The tables are initialized lazily and shared across imports and workers; asking
+     * for this estimate does not initialize them. Linear development needs none of
+     * this storage. Object headers and garbage-collector reserves are not included.
+     *
+     * @return shared first-use table payload in bytes
+     */
+    public static long estimateSrgb16TableBytes() {
+        return Srgb16Encoder.TABLE_BYTES;
+    }
+
+    /**
      * Demosaics in place, dividing large images into independently processed row stripes.
      *
      * @param rawImage the exclusively owned Bayer image whose storage may be overwritten
