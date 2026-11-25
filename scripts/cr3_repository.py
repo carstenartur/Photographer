@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from threading import Thread
 import xml.etree.ElementTree as ET
@@ -169,7 +170,8 @@ def verify_consumer(root: Path, stage: Path, version: str):
         cache = Path(tmp) / 'repository'
         jars = Path(tmp) / 'jars'
         with serve_stage(stage) as (url, served):
-            subprocess.run(['mvn', '-B', '-ntp', '-f', str(root / 'release/canon-cr3-consumer/pom.xml'),
+            subprocess.run([sys.executable, str(Path(__file__).with_name('run_maven_with_retry.py')),
+                            '-B', '-ntp', '-f', str(root / 'release/canon-cr3-consumer/pom.xml'),
                             '-Pphotographer-releases', '-Dphotographer.repository.url=' + url,
                             '-Dcr3.version=' + version, '-Dmaven.repo.local=' + str(cache),
                             '-DoutputDirectory=' + str(jars),
