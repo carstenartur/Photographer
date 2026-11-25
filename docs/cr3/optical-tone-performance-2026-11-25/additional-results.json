@@ -1,0 +1,3411 @@
+{
+  "final-g1": {
+    "environment": {
+      "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+      "jars_sha256": {
+        "baseline": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+        "candidate": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a"
+      },
+      "source_sha256": {
+        "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+        "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+        "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+        "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+        "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+        "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3": "da35045099960ca2743da38effb984e296da6cb5bca07fa340990a90f0faa1ff"
+      },
+      "jvm_versions": {
+        "java21": "openjdk version \"21.0.13.1\" 2026-11-17\nOpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)",
+        "java25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+      },
+      "jvm_flags": [
+        "-Xmx768m",
+        "-XX:+UseG1GC",
+        "-XX:ActiveProcessorCount=4"
+      ],
+      "configurations": [
+        "jdk21",
+        "jdk25"
+      ],
+      "vector_option": "--add-modules=jdk.incubator.vector",
+      "cpu_affinity": "4-7",
+      "available_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+      "available_processors": 4,
+      "requested_workers": 0,
+      "forks": 2,
+      "warmup": 5,
+      "iterations": 7,
+      "mode": "default",
+      "timing_scope": "Fresh ImageIO.read(File) per invocation; validation and complete hashing outside timer.",
+      "cache_scope": "Fresh JVM per arm/fork; filesystem caches are not flushed. Zero warmup is a first-import measurement, not cold storage.",
+      "aggregation": "Median of per-fork medians; raw records and each fork median retained.",
+      "rss_scope": "Process lifetime high-water mark including warmup; not live workspace or a cold-start measure."
+    },
+    "runs": [
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 585.460155,
+          "cpu_ms": 1960.0,
+          "total_thread_allocated_bytes": 163313608,
+          "heap_used_bytes": 340954392,
+          "maxrss_kb": 830700
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 616.149096,
+          "cpu_ms": 2010.0,
+          "total_thread_allocated_bytes": 163313496,
+          "heap_used_bytes": 341032528,
+          "maxrss_kb": 830328
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1008.631908,
+          "cpu_ms": 3430.0,
+          "total_thread_allocated_bytes": 245140240,
+          "heap_used_bytes": 256087336,
+          "maxrss_kb": 856416
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1071.849053,
+          "cpu_ms": 3530.0,
+          "total_thread_allocated_bytes": 245140176,
+          "heap_used_bytes": 256078896,
+          "maxrss_kb": 852680
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample-wide.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-sample-wide-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 692.021415,
+          "cpu_ms": 2070.0,
+          "total_thread_allocated_bytes": 163494048,
+          "heap_used_bytes": 341238296,
+          "maxrss_kb": 829032
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample-wide.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-sample-wide-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 797.061723,
+          "cpu_ms": 2810.0,
+          "total_thread_allocated_bytes": 163493936,
+          "heap_used_bytes": 340131704,
+          "maxrss_kb": 823932
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 676.694214,
+          "cpu_ms": 2270.0,
+          "total_thread_allocated_bytes": 163310416,
+          "heap_used_bytes": 339736000,
+          "maxrss_kb": 843980
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 561.687853,
+          "cpu_ms": 1930.0,
+          "total_thread_allocated_bytes": 163310352,
+          "heap_used_bytes": 339662432,
+          "maxrss_kb": 839484
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 996.058679,
+          "cpu_ms": 3430.0,
+          "total_thread_allocated_bytes": 245137096,
+          "heap_used_bytes": 254822312,
+          "maxrss_kb": 862332
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1149.205811,
+          "cpu_ms": 3880.0,
+          "total_thread_allocated_bytes": 245137032,
+          "heap_used_bytes": 254836216,
+          "maxrss_kb": 859172
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample-wide.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-sample-wide-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 676.165473,
+          "cpu_ms": 2410.0,
+          "total_thread_allocated_bytes": 163490856,
+          "heap_used_bytes": 340168856,
+          "maxrss_kb": 840380
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample-wide.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-sample-wide-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 741.506525,
+          "cpu_ms": 2430.0,
+          "total_thread_allocated_bytes": 163490792,
+          "heap_used_bytes": 339837752,
+          "maxrss_kb": 832888
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample-wide.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk25-sample-wide-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 594.49648,
+          "cpu_ms": 1890.0,
+          "total_thread_allocated_bytes": 163490792,
+          "heap_used_bytes": 339840080,
+          "maxrss_kb": 844448
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample-wide.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk25-sample-wide-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 763.732071,
+          "cpu_ms": 2590.0,
+          "total_thread_allocated_bytes": 163490856,
+          "heap_used_bytes": 339855152,
+          "maxrss_kb": 840272
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk25-eosr-iso-low-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1152.948657,
+          "cpu_ms": 3520.0,
+          "total_thread_allocated_bytes": 245137032,
+          "heap_used_bytes": 254856808,
+          "maxrss_kb": 862264
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk25-eosr-iso-low-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1247.474031,
+          "cpu_ms": 3940.0,
+          "total_thread_allocated_bytes": 245137096,
+          "heap_used_bytes": 254861040,
+          "maxrss_kb": 850860
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk25-sample-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 635.097141,
+          "cpu_ms": 2130.0,
+          "total_thread_allocated_bytes": 163310352,
+          "heap_used_bytes": 339712840,
+          "maxrss_kb": 839208
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk25-sample-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 711.007726,
+          "cpu_ms": 2370.0,
+          "total_thread_allocated_bytes": 163310416,
+          "heap_used_bytes": 339648080,
+          "maxrss_kb": 830984
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample-wide.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk21-sample-wide-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 716.587883,
+          "cpu_ms": 2520.0,
+          "total_thread_allocated_bytes": 163493904,
+          "heap_used_bytes": 341184224,
+          "maxrss_kb": 825984
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample-wide.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk21-sample-wide-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 688.832916,
+          "cpu_ms": 2260.0,
+          "total_thread_allocated_bytes": 163494048,
+          "heap_used_bytes": 340891752,
+          "maxrss_kb": 830284
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk21-eosr-iso-low-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1026.670036,
+          "cpu_ms": 3530.0,
+          "total_thread_allocated_bytes": 245140176,
+          "heap_used_bytes": 256080960,
+          "maxrss_kb": 847720
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk21-eosr-iso-low-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1110.266742,
+          "cpu_ms": 3800.0,
+          "total_thread_allocated_bytes": 245140240,
+          "heap_used_bytes": 256080960,
+          "maxrss_kb": 851592
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk21-sample-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 751.100566,
+          "cpu_ms": 2650.0,
+          "total_thread_allocated_bytes": 163313544,
+          "heap_used_bytes": 340787312,
+          "maxrss_kb": 831088
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk21-sample-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "5",
+          "--iterations",
+          "7",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 730.624483,
+          "cpu_ms": 2340.0,
+          "total_thread_allocated_bytes": 163313560,
+          "heap_used_bytes": 340767400,
+          "maxrss_kb": 833524
+        }
+      }
+    ],
+    "summary": {
+      "comparisons": [
+        {
+          "configuration": "jdk21",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 658.042319,
+            "cpu_ms": 2150.0,
+            "total_thread_allocated_bytes": 163313584.0,
+            "heap_used_bytes": 340860896.0,
+            "maxrss_kb": 833524,
+            "fork_total_ms": [
+              585.460155,
+              730.624483
+            ]
+          },
+          "candidate": {
+            "total_ms": 683.624831,
+            "cpu_ms": 2330.0,
+            "total_thread_allocated_bytes": 163313520.0,
+            "heap_used_bytes": 340909920.0,
+            "maxrss_kb": 831088,
+            "fork_total_ms": [
+              616.149096,
+              751.100566
+            ]
+          },
+          "time_reduction_percent": -3.887669722955911,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk21",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 1059.449325,
+            "cpu_ms": 3615.0,
+            "total_thread_allocated_bytes": 245140240.0,
+            "heap_used_bytes": 256084148.0,
+            "maxrss_kb": 856416,
+            "fork_total_ms": [
+              1008.631908,
+              1110.266742
+            ]
+          },
+          "candidate": {
+            "total_ms": 1049.2595445,
+            "cpu_ms": 3530.0,
+            "total_thread_allocated_bytes": 245140176.0,
+            "heap_used_bytes": 256079928.0,
+            "maxrss_kb": 852680,
+            "fork_total_ms": [
+              1071.849053,
+              1026.670036
+            ]
+          },
+          "time_reduction_percent": 0.9617997066542205,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "configuration": "jdk21",
+          "sample": "sample-wide.cr3",
+          "baseline": {
+            "total_ms": 690.4271655,
+            "cpu_ms": 2165.0,
+            "total_thread_allocated_bytes": 163494048.0,
+            "heap_used_bytes": 341065024.0,
+            "maxrss_kb": 830284,
+            "fork_total_ms": [
+              692.021415,
+              688.832916
+            ]
+          },
+          "candidate": {
+            "total_ms": 756.824803,
+            "cpu_ms": 2665.0,
+            "total_thread_allocated_bytes": 163493920.0,
+            "heap_used_bytes": 340657964.0,
+            "maxrss_kb": 825984,
+            "fork_total_ms": [
+              797.061723,
+              716.587883
+            ]
+          },
+          "time_reduction_percent": -9.616892384574061,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "1940a760b67566d0"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 693.85097,
+            "cpu_ms": 2320.0,
+            "total_thread_allocated_bytes": 163310416.0,
+            "heap_used_bytes": 339692040.0,
+            "maxrss_kb": 843980,
+            "fork_total_ms": [
+              676.694214,
+              711.007726
+            ]
+          },
+          "candidate": {
+            "total_ms": 598.392497,
+            "cpu_ms": 2030.0,
+            "total_thread_allocated_bytes": 163310352.0,
+            "heap_used_bytes": 339687636.0,
+            "maxrss_kb": 839484,
+            "fork_total_ms": [
+              561.687853,
+              635.097141
+            ]
+          },
+          "time_reduction_percent": 13.757777552721429,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 1121.766355,
+            "cpu_ms": 3685.0,
+            "total_thread_allocated_bytes": 245137096.0,
+            "heap_used_bytes": 254841676.0,
+            "maxrss_kb": 862332,
+            "fork_total_ms": [
+              996.058679,
+              1247.474031
+            ]
+          },
+          "candidate": {
+            "total_ms": 1151.0772339999999,
+            "cpu_ms": 3700.0,
+            "total_thread_allocated_bytes": 245137032.0,
+            "heap_used_bytes": 254846512.0,
+            "maxrss_kb": 862264,
+            "fork_total_ms": [
+              1149.205811,
+              1152.948657
+            ]
+          },
+          "time_reduction_percent": -2.6129219216955324,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "sample-wide.cr3",
+          "baseline": {
+            "total_ms": 719.948772,
+            "cpu_ms": 2500.0,
+            "total_thread_allocated_bytes": 163490856.0,
+            "heap_used_bytes": 340012004.0,
+            "maxrss_kb": 840380,
+            "fork_total_ms": [
+              676.165473,
+              763.732071
+            ]
+          },
+          "candidate": {
+            "total_ms": 668.0015025,
+            "cpu_ms": 2160.0,
+            "total_thread_allocated_bytes": 163490792.0,
+            "heap_used_bytes": 339838916.0,
+            "maxrss_kb": 844448,
+            "fork_total_ms": [
+              741.506525,
+              594.49648
+            ]
+          },
+          "time_reduction_percent": 7.215411918224646,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "1940a760b67566d0"
+          ]
+        }
+      ],
+      "all_outputs_equal": true
+    },
+    "diagnostics": [
+      {
+        "file": "jdk21-sample-baseline-fork1.stderr",
+        "sha256": "bfc8414365493befa3dc72836e0dedc216bd55e455d3ad3cda3cda2ced6fc4a2",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 132527744 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131735120 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-candidate-fork1.stderr",
+        "sha256": "705a65cf318285357ceaba7ad3fee98955befa7c4db6bbf70059f8307b1391cf",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 132598584 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131672888 bytes).\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "bdfdc57a69d40f0b270199cc4809b8e14053f2bc759d1643a7ce3fa7dc172f64",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 303932368 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 58565584 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 304385992 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 59631680 bytes).\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "a1d9276467bf05afe75ba47c3933610c6f9e3b667020da28de275402b6838f2b",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 303815336 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 58464952 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 304267424 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 59513112 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-wide-baseline-fork1.stderr",
+        "sha256": "0fd96b55f8f2d88fbe32d9aefacec339cc27ac64280eb0d57badbf10dd3a29de",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131300504 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131383584 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-wide-candidate-fork1.stderr",
+        "sha256": "586cc343b4b3b707b289ba43ac68e3f714531f39cda7034a552819f65fc0f78a",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131418440 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 130896288 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-baseline-fork1.stderr",
+        "sha256": "49c27ad570edb4b7c671f4cbdc4b59dd7a1162d7249ff415a828a5bea6270aa0",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 130801032 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 132564080 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-candidate-fork1.stderr",
+        "sha256": "d0774c3c23ebfb6b16b2c9215c38395a6b41157a0633ca3d1a273efbd49c2331",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 130883880 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 132557168 bytes).\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "afe6fbb5302f437ba1ec2d719d29a12d30bdffcfb63620343bc253a094f22558",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 302717088 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 57781640 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 305021512 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 60111064 bytes).\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "e637833798622e7226f3056a3fc3e058e28503d2261fcfe30edb57eefb678700",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 302812320 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 57223480 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 304847552 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 60116800 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-wide-baseline-fork1.stderr",
+        "sha256": "c4f85f1e5ac0ed0f1d747b183f048921ea021e1b3fa9ee6b7cb49bfbdfc162c9",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 130257320 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131163648 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-wide-candidate-fork1.stderr",
+        "sha256": "b0366c77af5e3efe14c1cbf89d3f3a52be15850e72fe86f0f633ab795f6406d6",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 129720216 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131514664 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-wide-candidate-fork2.stderr",
+        "sha256": "e750304227cbed4ef563ca941452bde59f9dfaae3683dabee6b05f4019a055d4",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 130295416 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131494832 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-wide-baseline-fork2.stderr",
+        "sha256": "468f9c65f9cf39381404ff16c442e7c24e3254d08b35c08ca073f4d01cd40f55",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 130229960 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131515928 bytes).\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-candidate-fork2.stderr",
+        "sha256": "8cf879b0bc54e63238cb942692c7caaa00ebaabb075d4b280ad7f7a8fbb1c017",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 302600248 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 57838696 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 304935304 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 59967640 bytes).\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-baseline-fork2.stderr",
+        "sha256": "13b417f1990d985e9fe6ab1e6fdbe3f01295188efa5b7ba79e7578d36cc78d4e",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 302712048 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 57776600 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 305120360 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 59889088 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-candidate-fork2.stderr",
+        "sha256": "6b5c3c14136518a97a0bdaa6215e30f859befc5d49ffcd759f17f1a243fd07c6",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 130882824 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 132506760 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-baseline-fork2.stderr",
+        "sha256": "7930dc208d747fd3c9636754e7ca1dc8a7ef3d80e092d248525a1218fda17806",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 130932040 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 132571520 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-wide-candidate-fork2.stderr",
+        "sha256": "f32582e3f6b87b66ba56221af7a7585d1dac01ae1d3398c625959fcae2cacc80",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131719712 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131211864 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-wide-baseline-fork2.stderr",
+        "sha256": "250eb5d082fce5f92fb017d398abd67e6124b319ab2d3779349277c938af0053",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131322992 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 130823400 bytes).\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-candidate-fork2.stderr",
+        "sha256": "cb801dcc9f1960360b65a60a97a71185d6b5d44c1eda5a9ef73c13d96bc5fa79",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 303597680 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 58404792 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 304329080 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 59574768 bytes).\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-baseline-fork2.stderr",
+        "sha256": "4502cbc2d75e46013f9f89ec386caec878d8dadc7e0a1586c898906fb02fc41b",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 303863432 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 58241808 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 304385992 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 59631680 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-candidate-fork2.stderr",
+        "sha256": "4315b085c2dc826af82ff1d717ea916a577783fb8d7d6c677f843cc9aa180ab7",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 132706240 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 131270352 bytes).\n"
+      },
+      {
+        "file": "jdk21-sample-baseline-fork2.stderr",
+        "sha256": "a21857c5b1bb6f142b01817c0dd9824629cd3d861bf4843bce8dee7731ad0b67",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 132506656 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 163538792 bytes, available 131715120 bytes).\n"
+      }
+    ]
+  },
+  "final-cold": {
+    "environment": {
+      "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+      "jars_sha256": {
+        "baseline": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+        "candidate": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a"
+      },
+      "source_sha256": {
+        "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+        "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+        "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+        "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+        "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "jvm_versions": {
+        "java21": "openjdk version \"21.0.13.1\" 2026-11-17\nOpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)",
+        "java25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+      },
+      "jvm_flags": [
+        "-Xmx768m",
+        "-XX:+UseSerialGC",
+        "-XX:ActiveProcessorCount=4"
+      ],
+      "configurations": [
+        "jdk21",
+        "jdk25"
+      ],
+      "vector_option": "--add-modules=jdk.incubator.vector",
+      "cpu_affinity": "4-7",
+      "available_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+      "available_processors": 4,
+      "requested_workers": 0,
+      "forks": 3,
+      "warmup": 0,
+      "iterations": 1,
+      "mode": "default",
+      "timing_scope": "Fresh ImageIO.read(File) per invocation; validation and complete hashing outside timer.",
+      "cache_scope": "Fresh JVM per arm/fork; filesystem caches are not flushed. Zero warmup is a first-import measurement, not cold storage.",
+      "aggregation": "Median of per-fork medians; raw records and each fork median retained.",
+      "rss_scope": "Process lifetime high-water mark including warmup; not live workspace or a cold-start measure."
+    },
+    "runs": [
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1575.930426,
+          "cpu_ms": 5170.0,
+          "total_thread_allocated_bytes": 171558192,
+          "heap_used_bytes": 169097200,
+          "maxrss_kb": 233444
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1551.972677,
+          "cpu_ms": 4860.0,
+          "total_thread_allocated_bytes": 171572336,
+          "heap_used_bytes": 169250056,
+          "maxrss_kb": 234328
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2356.714873,
+          "cpu_ms": 7430.0,
+          "total_thread_allocated_bytes": 253396088,
+          "heap_used_bytes": 252937344,
+          "maxrss_kb": 309576
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2281.252349,
+          "cpu_ms": 7710.0,
+          "total_thread_allocated_bytes": 253410624,
+          "heap_used_bytes": 252937904,
+          "maxrss_kb": 309252
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2036.717005,
+          "cpu_ms": 7000.0,
+          "total_thread_allocated_bytes": 171633536,
+          "heap_used_bytes": 128013280,
+          "maxrss_kb": 238800
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1614.346907,
+          "cpu_ms": 5240.0,
+          "total_thread_allocated_bytes": 171644464,
+          "heap_used_bytes": 168897688,
+          "maxrss_kb": 277472
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2004.606321,
+          "cpu_ms": 6260.0,
+          "total_thread_allocated_bytes": 253459736,
+          "heap_used_bytes": 253220104,
+          "maxrss_kb": 309476
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2189.72596,
+          "cpu_ms": 7330.0,
+          "total_thread_allocated_bytes": 253469968,
+          "heap_used_bytes": 253220656,
+          "maxrss_kb": 320896
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk25-eosr-iso-low-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2298.939506,
+          "cpu_ms": 7500.0,
+          "total_thread_allocated_bytes": 253470176,
+          "heap_used_bytes": 252347696,
+          "maxrss_kb": 323016
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk25-eosr-iso-low-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2101.874749,
+          "cpu_ms": 6330.0,
+          "total_thread_allocated_bytes": 253458368,
+          "heap_used_bytes": 250601224,
+          "maxrss_kb": 321444
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk25-sample-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1564.685039,
+          "cpu_ms": 4880.0,
+          "total_thread_allocated_bytes": 171644456,
+          "heap_used_bytes": 168892488,
+          "maxrss_kb": 277912
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk25-sample-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1547.630586,
+          "cpu_ms": 5090.0,
+          "total_thread_allocated_bytes": 171634248,
+          "heap_used_bytes": 128008048,
+          "maxrss_kb": 237584
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk21-eosr-iso-low-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2193.247652,
+          "cpu_ms": 7240.0,
+          "total_thread_allocated_bytes": 253409392,
+          "heap_used_bytes": 252937856,
+          "maxrss_kb": 312408
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk21-eosr-iso-low-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2008.841647,
+          "cpu_ms": 6560.0,
+          "total_thread_allocated_bytes": 253395376,
+          "heap_used_bytes": 250450200,
+          "maxrss_kb": 310596
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 2,
+        "file": "jdk21-sample-candidate-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1789.360622,
+          "cpu_ms": 5510.0,
+          "total_thread_allocated_bytes": 171572272,
+          "heap_used_bytes": 169386224,
+          "maxrss_kb": 233360
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 2,
+        "file": "jdk21-sample-baseline-fork2.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1712.968426,
+          "cpu_ms": 5370.0,
+          "total_thread_allocated_bytes": 171558912,
+          "heap_used_bytes": 169248632,
+          "maxrss_kb": 234808
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 3,
+        "file": "jdk21-sample-baseline-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1725.241637,
+          "cpu_ms": 5450.0,
+          "total_thread_allocated_bytes": 171558112,
+          "heap_used_bytes": 169385400,
+          "maxrss_kb": 232168
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 3,
+        "file": "jdk21-sample-candidate-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1693.239058,
+          "cpu_ms": 5090.0,
+          "total_thread_allocated_bytes": 171570784,
+          "heap_used_bytes": 169099456,
+          "maxrss_kb": 231196
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 3,
+        "file": "jdk21-eosr-iso-low-baseline-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2075.215181,
+          "cpu_ms": 6800.0,
+          "total_thread_allocated_bytes": 253395664,
+          "heap_used_bytes": 250450200,
+          "maxrss_kb": 293724
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 3,
+        "file": "jdk21-eosr-iso-low-candidate-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1952.829362,
+          "cpu_ms": 6250.0,
+          "total_thread_allocated_bytes": 253408392,
+          "heap_used_bytes": 252937904,
+          "maxrss_kb": 295748
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 3,
+        "file": "jdk25-sample-baseline-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1465.060151,
+          "cpu_ms": 4630.0,
+          "total_thread_allocated_bytes": 171631928,
+          "heap_used_bytes": 128007952,
+          "maxrss_kb": 237452
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 3,
+        "file": "jdk25-sample-candidate-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1819.628179,
+          "cpu_ms": 5670.0,
+          "total_thread_allocated_bytes": 171645584,
+          "heap_used_bytes": 168891464,
+          "maxrss_kb": 277260
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 3,
+        "file": "jdk25-eosr-iso-low-baseline-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2345.672605,
+          "cpu_ms": 7280.0,
+          "total_thread_allocated_bytes": 253458904,
+          "heap_used_bytes": 252346416,
+          "maxrss_kb": 319556
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 3,
+        "file": "jdk25-eosr-iso-low-candidate-fork3.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2492.246882,
+          "cpu_ms": 8310.0,
+          "total_thread_allocated_bytes": 253472216,
+          "heap_used_bytes": 253220656,
+          "maxrss_kb": 322248
+        }
+      }
+    ],
+    "summary": {
+      "comparisons": [
+        {
+          "configuration": "jdk21",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 1712.968426,
+            "cpu_ms": 5370.0,
+            "total_thread_allocated_bytes": 171558192,
+            "heap_used_bytes": 169248632,
+            "maxrss_kb": 234808,
+            "fork_total_ms": [
+              1575.930426,
+              1712.968426,
+              1725.241637
+            ]
+          },
+          "candidate": {
+            "total_ms": 1693.239058,
+            "cpu_ms": 5090.0,
+            "total_thread_allocated_bytes": 171572272,
+            "heap_used_bytes": 169250056,
+            "maxrss_kb": 234328,
+            "fork_total_ms": [
+              1551.972677,
+              1789.360622,
+              1693.239058
+            ]
+          },
+          "time_reduction_percent": 1.1517648370244826,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk21",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 2075.215181,
+            "cpu_ms": 6800.0,
+            "total_thread_allocated_bytes": 253395664,
+            "heap_used_bytes": 250450200,
+            "maxrss_kb": 310596,
+            "fork_total_ms": [
+              2356.714873,
+              2008.841647,
+              2075.215181
+            ]
+          },
+          "candidate": {
+            "total_ms": 2193.247652,
+            "cpu_ms": 7240.0,
+            "total_thread_allocated_bytes": 253409392,
+            "heap_used_bytes": 252937904,
+            "maxrss_kb": 312408,
+            "fork_total_ms": [
+              2281.252349,
+              2193.247652,
+              1952.829362
+            ]
+          },
+          "time_reduction_percent": -5.687722029053521,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 1547.630586,
+            "cpu_ms": 5090.0,
+            "total_thread_allocated_bytes": 171633536,
+            "heap_used_bytes": 128008048,
+            "maxrss_kb": 238800,
+            "fork_total_ms": [
+              2036.717005,
+              1547.630586,
+              1465.060151
+            ]
+          },
+          "candidate": {
+            "total_ms": 1614.346907,
+            "cpu_ms": 5240.0,
+            "total_thread_allocated_bytes": 171644464,
+            "heap_used_bytes": 168892488,
+            "maxrss_kb": 277912,
+            "fork_total_ms": [
+              1614.346907,
+              1564.685039,
+              1819.628179
+            ]
+          },
+          "time_reduction_percent": -4.310868601559159,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 2101.874749,
+            "cpu_ms": 6330.0,
+            "total_thread_allocated_bytes": 253458904,
+            "heap_used_bytes": 252346416,
+            "maxrss_kb": 321444,
+            "fork_total_ms": [
+              2004.606321,
+              2101.874749,
+              2345.672605
+            ]
+          },
+          "candidate": {
+            "total_ms": 2298.939506,
+            "cpu_ms": 7500.0,
+            "total_thread_allocated_bytes": 253470176,
+            "heap_used_bytes": 253220656,
+            "maxrss_kb": 323016,
+            "fork_total_ms": [
+              2189.72596,
+              2298.939506,
+              2492.246882
+            ]
+          },
+          "time_reduction_percent": -9.375666037843434,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "all_outputs_equal": true
+    },
+    "diagnostics": [
+      {
+        "file": "jdk21-sample-baseline-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-sample-candidate-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-baseline-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-candidate-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-candidate-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-baseline-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-candidate-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-baseline-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-candidate-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-baseline-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-sample-candidate-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-sample-baseline-fork2.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-sample-baseline-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-sample-candidate-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-baseline-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-candidate-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-baseline-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-candidate-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-baseline-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-candidate-fork3.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      }
+    ]
+  },
+  "final-low-heap": {
+    "environment": {
+      "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+      "jars_sha256": {
+        "baseline": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+        "candidate": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a"
+      },
+      "source_sha256": {
+        "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+        "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+        "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+        "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+        "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "jvm_versions": {
+        "java21": "openjdk version \"21.0.13.1\" 2026-11-17\nOpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)",
+        "java25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+      },
+      "jvm_flags": [
+        "-Xmx256m",
+        "-XX:+UseG1GC",
+        "-XX:ActiveProcessorCount=4"
+      ],
+      "configurations": [
+        "jdk21",
+        "jdk25"
+      ],
+      "vector_option": "--add-modules=jdk.incubator.vector",
+      "cpu_affinity": "4-7",
+      "available_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+      "available_processors": 4,
+      "requested_workers": 0,
+      "forks": 1,
+      "warmup": 0,
+      "iterations": 1,
+      "mode": "default",
+      "timing_scope": "Fresh ImageIO.read(File) per invocation; validation and complete hashing outside timer.",
+      "cache_scope": "Fresh JVM per arm/fork; filesystem caches are not flushed. Zero warmup is a first-import measurement, not cold storage.",
+      "aggregation": "Median of per-fork medians; raw records and each fork median retained.",
+      "rss_scope": "Process lifetime high-water mark including warmup; not live workspace or a cold-start measure."
+    },
+    "runs": [
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1670.370225,
+          "cpu_ms": 5320.0,
+          "total_thread_allocated_bytes": 171568504,
+          "heap_used_bytes": 174673568,
+          "maxrss_kb": 242864
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1634.76582,
+          "cpu_ms": 5150.0,
+          "total_thread_allocated_bytes": 171582704,
+          "heap_used_bytes": 174868432,
+          "maxrss_kb": 241528
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk21-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2786.165368,
+          "cpu_ms": 6650.0,
+          "total_thread_allocated_bytes": 253042936,
+          "heap_used_bytes": 254633960,
+          "maxrss_kb": 318136
+        }
+      },
+      {
+        "configuration": "jdk21",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk21-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2565.051495,
+          "cpu_ms": 6160.0,
+          "total_thread_allocated_bytes": 253057752,
+          "heap_used_bytes": 254634528,
+          "maxrss_kb": 321916
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1643.66927,
+          "cpu_ms": 5030.0,
+          "total_thread_allocated_bytes": 171632688,
+          "heap_used_bytes": 175754984,
+          "maxrss_kb": 250032
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1548.21235,
+          "cpu_ms": 4990.0,
+          "total_thread_allocated_bytes": 171643904,
+          "heap_used_bytes": 175875016,
+          "maxrss_kb": 249488
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2362.583552,
+          "cpu_ms": 5200.0,
+          "total_thread_allocated_bytes": 252841272,
+          "heap_used_bytes": 254631712,
+          "maxrss_kb": 323788
+        }
+      },
+      {
+        "configuration": "jdk25",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2228.799331,
+          "cpu_ms": 5050.0,
+          "total_thread_allocated_bytes": 252853056,
+          "heap_used_bytes": 254586696,
+          "maxrss_kb": 327996
+        }
+      }
+    ],
+    "summary": {
+      "comparisons": [
+        {
+          "configuration": "jdk21",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 1670.370225,
+            "cpu_ms": 5320.0,
+            "total_thread_allocated_bytes": 171568504,
+            "heap_used_bytes": 174673568,
+            "maxrss_kb": 242864,
+            "fork_total_ms": [
+              1670.370225
+            ]
+          },
+          "candidate": {
+            "total_ms": 1634.76582,
+            "cpu_ms": 5150.0,
+            "total_thread_allocated_bytes": 171582704,
+            "heap_used_bytes": 174868432,
+            "maxrss_kb": 241528,
+            "fork_total_ms": [
+              1634.76582
+            ]
+          },
+          "time_reduction_percent": 2.1315277575664315,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk21",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 2786.165368,
+            "cpu_ms": 6650.0,
+            "total_thread_allocated_bytes": 253042936,
+            "heap_used_bytes": 254633960,
+            "maxrss_kb": 318136,
+            "fork_total_ms": [
+              2786.165368
+            ]
+          },
+          "candidate": {
+            "total_ms": 2565.051495,
+            "cpu_ms": 6160.0,
+            "total_thread_allocated_bytes": 253057752,
+            "heap_used_bytes": 254634528,
+            "maxrss_kb": 321916,
+            "fork_total_ms": [
+              2565.051495
+            ]
+          },
+          "time_reduction_percent": 7.936136007559469,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 1643.66927,
+            "cpu_ms": 5030.0,
+            "total_thread_allocated_bytes": 171632688,
+            "heap_used_bytes": 175754984,
+            "maxrss_kb": 250032,
+            "fork_total_ms": [
+              1643.66927
+            ]
+          },
+          "candidate": {
+            "total_ms": 1548.21235,
+            "cpu_ms": 4990.0,
+            "total_thread_allocated_bytes": 171643904,
+            "heap_used_bytes": 175875016,
+            "maxrss_kb": 249488,
+            "fork_total_ms": [
+              1548.21235
+            ]
+          },
+          "time_reduction_percent": 5.807550323064692,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk25",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 2362.583552,
+            "cpu_ms": 5200.0,
+            "total_thread_allocated_bytes": 252841272,
+            "heap_used_bytes": 254631712,
+            "maxrss_kb": 323788,
+            "fork_total_ms": [
+              2362.583552
+            ]
+          },
+          "candidate": {
+            "total_ms": 2228.799331,
+            "cpu_ms": 5050.0,
+            "total_thread_allocated_bytes": 252853056,
+            "heap_used_bytes": 254586696,
+            "maxrss_kb": 327996,
+            "fork_total_ms": [
+              2228.799331
+            ]
+          },
+          "time_reduction_percent": 5.662623905374575,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "all_outputs_equal": true
+    },
+    "diagnostics": [
+      {
+        "file": "jdk21-sample-baseline-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-sample-candidate-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "7c4d23d38919cfdc4790acd3d80190ee9b83697fe3656eb55c10924ddb624935",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 259719696 bytes).\n"
+      },
+      {
+        "file": "jdk21-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "7066bc00e0bc52417055ff54bad050dc1f705abc75957ef3d00c94d52aa019e5",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 259719080 bytes).\n"
+      },
+      {
+        "file": "jdk25-sample-baseline-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-sample-candidate-fork1.stderr",
+        "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "310894a8ebde2fb35807de4d224b7b055d7f9591b9b4e77247339f16e0b784ba",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 259900104 bytes).\n"
+      },
+      {
+        "file": "jdk25-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "b8652bc484fcd16912d5b24675d795c73b782cbad474b62e2823c6d08d99da50",
+        "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 259900104 bytes).\n"
+      }
+    ]
+  },
+  "vector-smoke": {
+    "environment": {
+      "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+      "jars_sha256": {
+        "baseline": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+        "candidate": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a"
+      },
+      "source_sha256": {
+        "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+        "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+        "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+        "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+        "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+        "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+        "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "jvm_versions": {
+        "java21": "openjdk version \"21.0.13.1\" 2026-11-17\nOpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)",
+        "java25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+      },
+      "jvm_flags": [
+        "-Xmx768m",
+        "-XX:+UseSerialGC",
+        "-XX:ActiveProcessorCount=4"
+      ],
+      "configurations": [
+        "jdk25-vector"
+      ],
+      "vector_option": "--add-modules=jdk.incubator.vector",
+      "cpu_affinity": "4-7",
+      "available_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+      "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+      "available_processors": 4,
+      "requested_workers": 0,
+      "forks": 1,
+      "warmup": 0,
+      "iterations": 1,
+      "mode": "default",
+      "timing_scope": "Fresh ImageIO.read(File) per invocation; validation and complete hashing outside timer.",
+      "cache_scope": "Fresh JVM per arm/fork; filesystem caches are not flushed. Zero warmup is a first-import measurement, not cold storage.",
+      "aggregation": "Median of per-fork medians; raw records and each fork median retained.",
+      "rss_scope": "Process lifetime high-water mark including warmup; not live workspace or a cold-start measure."
+    },
+    "runs": [
+      {
+        "configuration": "jdk25-vector",
+        "sample": "sample.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-vector-sample-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "--add-modules=jdk.incubator.vector",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1257.144231,
+          "cpu_ms": 3830.0,
+          "total_thread_allocated_bytes": 171624696,
+          "heap_used_bytes": 128227912,
+          "maxrss_kb": 225692
+        }
+      },
+      {
+        "configuration": "jdk25-vector",
+        "sample": "sample.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-vector-sample-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "--add-modules=jdk.incubator.vector",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 1476.231981,
+          "cpu_ms": 4600.0,
+          "total_thread_allocated_bytes": 171634800,
+          "heap_used_bytes": 169104568,
+          "maxrss_kb": 278224
+        }
+      },
+      {
+        "configuration": "jdk25-vector",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "baseline",
+        "fork": 1,
+        "file": "jdk25-vector-eosr-iso-low-baseline-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "--add-modules=jdk.incubator.vector",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2115.958233,
+          "cpu_ms": 6650.0,
+          "total_thread_allocated_bytes": 253450944,
+          "heap_used_bytes": 253433288,
+          "maxrss_kb": 322336
+        }
+      },
+      {
+        "configuration": "jdk25-vector",
+        "sample": "eosr-iso-low.cr3",
+        "arm": "candidate",
+        "fork": 1,
+        "file": "jdk25-vector-eosr-iso-low-candidate-fork1.jsonl",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4",
+          "--add-modules=jdk.incubator.vector",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar",
+          "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+          "--input",
+          "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+          "--mode",
+          "default",
+          "--warmup",
+          "0",
+          "--iterations",
+          "1",
+          "--workers",
+          "0",
+          "--checksum"
+        ],
+        "medians": {
+          "total_ms": 2086.360337,
+          "cpu_ms": 6740.0,
+          "total_thread_allocated_bytes": 253460944,
+          "heap_used_bytes": 251687944,
+          "maxrss_kb": 323048
+        }
+      }
+    ],
+    "summary": {
+      "comparisons": [
+        {
+          "configuration": "jdk25-vector",
+          "sample": "sample.cr3",
+          "baseline": {
+            "total_ms": 1257.144231,
+            "cpu_ms": 3830.0,
+            "total_thread_allocated_bytes": 171624696,
+            "heap_used_bytes": 128227912,
+            "maxrss_kb": 225692,
+            "fork_total_ms": [
+              1257.144231
+            ]
+          },
+          "candidate": {
+            "total_ms": 1476.231981,
+            "cpu_ms": 4600.0,
+            "total_thread_allocated_bytes": 171634800,
+            "heap_used_bytes": 169104568,
+            "maxrss_kb": 278224,
+            "fork_total_ms": [
+              1476.231981
+            ]
+          },
+          "time_reduction_percent": -17.427415613698184,
+          "output_identity": [
+            5496,
+            3668,
+            3,
+            16,
+            "f334ac23d6d550ca"
+          ]
+        },
+        {
+          "configuration": "jdk25-vector",
+          "sample": "eosr-iso-low.cr3",
+          "baseline": {
+            "total_ms": 2115.958233,
+            "cpu_ms": 6650.0,
+            "total_thread_allocated_bytes": 253450944,
+            "heap_used_bytes": 253433288,
+            "maxrss_kb": 322336,
+            "fork_total_ms": [
+              2115.958233
+            ]
+          },
+          "candidate": {
+            "total_ms": 2086.360337,
+            "cpu_ms": 6740.0,
+            "total_thread_allocated_bytes": 253460944,
+            "heap_used_bytes": 251687944,
+            "maxrss_kb": 323048,
+            "fork_total_ms": [
+              2086.360337
+            ]
+          },
+          "time_reduction_percent": 1.3987939619222067,
+          "output_identity": [
+            6744,
+            4500,
+            3,
+            16,
+            "293eb25bccb09add"
+          ]
+        }
+      ],
+      "all_outputs_equal": true
+    },
+    "diagnostics": [
+      {
+        "file": "jdk25-vector-sample-baseline-fork1.stderr",
+        "sha256": "9452d744ff27f10542bd5ed4ea5b3d1dee81c06c4f80e8b4661f23e304919da1",
+        "text": "WARNING: Using incubator modules: jdk.incubator.vector\nSLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-vector-sample-candidate-fork1.stderr",
+        "sha256": "9452d744ff27f10542bd5ed4ea5b3d1dee81c06c4f80e8b4661f23e304919da1",
+        "text": "WARNING: Using incubator modules: jdk.incubator.vector\nSLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-vector-eosr-iso-low-baseline-fork1.stderr",
+        "sha256": "9452d744ff27f10542bd5ed4ea5b3d1dee81c06c4f80e8b4661f23e304919da1",
+        "text": "WARNING: Using incubator modules: jdk.incubator.vector\nSLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "file": "jdk25-vector-eosr-iso-low-candidate-fork1.stderr",
+        "sha256": "9452d744ff27f10542bd5ed4ea5b3d1dee81c06c4f80e8b4661f23e304919da1",
+        "text": "WARNING: Using incubator modules: jdk.incubator.vector\nSLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      }
+    ]
+  },
+  "scope": "Rejected portable fusion d61; not the retained memory-only revision. Timings are not acceptance evidence for current source.",
+  "packaged_checks": {
+    "jar_sha256": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a",
+    "runs": [
+      {
+        "runtime": "jdk21",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+          "-Xmx512m",
+          "-XX:ActiveProcessorCount=4",
+          "-Djava.awt.headless=true",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar:/home/agent/.m2/repository/org/junit/jupiter/junit-jupiter-api/6.0.3/junit-jupiter-api-6.0.3.jar:/home/agent/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/home/agent/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/home/agent/.m2/repository/org/junit/platform/junit-platform-commons/6.1.3/junit-platform-commons-6.1.3.jar:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/packaged-validation/classes",
+          "com.photographer.focusstack.cr3.processing.OpticalToneChecks"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS processing checks=21, java=21.0.13.1+2-1-deb13u1-Debian\n",
+        "stderr": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "runtime": "jdk25",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx512m",
+          "-XX:ActiveProcessorCount=4",
+          "-Djava.awt.headless=true",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar:/home/agent/.m2/repository/org/junit/jupiter/junit-jupiter-api/6.0.3/junit-jupiter-api-6.0.3.jar:/home/agent/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/home/agent/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/home/agent/.m2/repository/org/junit/platform/junit-platform-commons/6.1.3/junit-platform-commons-6.1.3.jar:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/packaged-validation/classes",
+          "com.photographer.focusstack.cr3.processing.OpticalToneChecks"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS processing checks=21, java=25.0.5+8-LTS\n",
+        "stderr": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      },
+      {
+        "runtime": "jdk25-vector",
+        "command": [
+          "taskset",
+          "-c",
+          "4-7",
+          "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+          "-Xmx512m",
+          "-XX:ActiveProcessorCount=4",
+          "-Djava.awt.headless=true",
+          "--add-modules=jdk.incubator.vector",
+          "-cp",
+          "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/candidate/benchmarks.jar:/home/agent/.m2/repository/org/junit/jupiter/junit-jupiter-api/6.0.3/junit-jupiter-api-6.0.3.jar:/home/agent/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/home/agent/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/home/agent/.m2/repository/org/junit/platform/junit-platform-commons/6.1.3/junit-platform-commons-6.1.3.jar:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/packaged-validation/classes",
+          "com.photographer.focusstack.cr3.processing.OpticalToneChecks"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS processing checks=21, java=25.0.5+8-LTS\n",
+        "stderr": "WARNING: Using incubator modules: jdk.incubator.vector\nSLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+      }
+    ]
+  }
+}

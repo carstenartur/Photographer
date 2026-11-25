@@ -1,0 +1,97 @@
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/Srgb16Encoder.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/Srgb16Encoder.java
+@@ -2,15 +2,15 @@
+ 
+ /** Final sRGB quantization without a power evaluation for every channel. */
+ final class Srgb16Encoder {
+-    // Fifteen leading mantissa bits in each exponent range from 2^-9 through 1.
++    // Per-exponent mantissa widths: 12,12,12,13,13,14,14,14,15 from 2^-9 through 1.
+     // The remaining input bits still participate in the exact boundary comparison.
+-    private static final int SEED_COUNT = 9 * 32768;
+-    private static final int BUCKET_SHIFT = 37;
++    private static final int EXPONENT_COUNT = 9;
++    private static final int SEED_COUNT = 110_592;
+     private static final long BASE_BITS = 0x3f60000000000000L; // 2^-9.
+-    private static final long BUCKET_BITS = 1L << BUCKET_SHIFT;
+     private static final int MAX_CODE = 65535;
+     // A constant expression lets memory planning reserve first-use tables without initializing them.
+-    static final long TABLE_BYTES = (long) SEED_COUNT * Short.BYTES + (MAX_CODE + 2L) * Long.BYTES;
++    static final long TABLE_BYTES = (long) SEED_COUNT * Short.BYTES
++            + (MAX_CODE + 2L) * Long.BYTES + (long) EXPONENT_COUNT * Integer.BYTES;
+     // For p = x^(1.0/2.4), pow's one-ulp error and the three rounded operations
+     // bound each forward error by 2.51 * 2^-52 * 1.055 * p * MAX_CODE.
+     // Two allowed evaluations can move a boundary by less than 27 input ulps,
+@@ -33,7 +33,11 @@
+         }
+ 
+         long bits = Double.doubleToRawLongBits(linear);
+-        int bucket = (int) ((bits - BASE_BITS) >>> BUCKET_SHIFT);
++        long relative = bits - BASE_BITS;
++        int descriptor = Tables.DESCRIPTORS[(int) (relative >>> 52)];
++        // The signed high bits hold the index bias. Java masks the long shift's
++        // distance to the descriptor's low six bits, which hold 52 - mantissaWidth.
++        int bucket = (descriptor >> 6) + (int) (relative >>> descriptor);
+         int code = Tables.SEEDS[bucket] & 0xffff;
+         if (code == 0) {
+             return (short) referenceCode(linear);
+@@ -49,10 +53,18 @@
+         return (int) Math.round(MAX_CODE * SrgbConverter.linearToSrgb(linear));
+     }
+ 
+-    /** Built only for sRGB output; linear development allocates neither table. */
++    /** Built only for sRGB output; linear development allocates none of these arrays. */
+     private static final class Tables {
+         private static final long[] BOUNDARIES = new long[MAX_CODE + 2];
+         private static final short[] SEEDS = new short[SEED_COUNT];
++        // descriptor = (bias << 6) | shift, where
++        // bias = firstSeedIndex - exponentIndex * (1 << mantissaWidth).
++        private static final int[] DESCRIPTORS = {
++                40, 40, 40,
++                (-12_288 << 6) | 39, (-12_288 << 6) | 39,
++                (-53_248 << 6) | 38, (-53_248 << 6) | 38, (-53_248 << 6) | 38,
++                (-184_320 << 6) | 37
++        };
+ 
+         static {
+             for (int code = 1; code <= MAX_CODE; code++) {
+@@ -60,20 +72,26 @@
+             }
+             BOUNDARIES[MAX_CODE + 1] = Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
+             int code = 0;
+-            for (int bucket = 0; bucket < SEED_COUNT; bucket++) {
+-                long first = BASE_BITS + ((long) bucket << BUCKET_SHIFT);
+-                long end = first + BUCKET_BITS; // Exclusive: its predecessor belongs to this bucket.
+-                while (code < MAX_CODE && BOUNDARIES[code + 1] <= first) code++;
+-                // Certify the entire bucket against the original exact transitions.
+-                // Its first input is more than 32 representable steps above code's
+-                // transition. Because end is exclusive, its last input is at least
+-                // 33 steps below code+2's transition. Only code or code+1 is possible,
+-                // including the permitted variation between pow implementations.
+-                // Zero marks an uncertified bucket; nonlinear inputs have positive codes.
+-                // The max-code case uses the positive-infinity upper sentinel.
+-                if (code > 0 && first > BOUNDARIES[code] + BOUNDARY_GUARD_ULPS
+-                        && end <= BOUNDARIES[Math.min(code + 2, MAX_CODE + 1)] - BOUNDARY_GUARD_ULPS) {
+-                    SEEDS[bucket] = (short) code;
++            int bucket = 0;
++            for (int exponent = 0; exponent < EXPONENT_COUNT; exponent++) {
++                int shift = DESCRIPTORS[exponent] & 63;
++                long bucketBits = 1L << shift;
++                long first = BASE_BITS + ((long) exponent << 52);
++                long exponentEnd = first + (1L << 52);
++                for (; first < exponentEnd; first += bucketBits, bucket++) {
++                    long end = first + bucketBits; // Exclusive: its predecessor belongs to this bucket.
++                    while (code < MAX_CODE && BOUNDARIES[code + 1] <= first) code++;
++                    // Certify the entire bucket against the original exact transitions.
++                    // Its first input is more than 32 representable steps above code's
++                    // transition. Because end is exclusive, its last input is at least
++                    // 33 steps below code+2's transition. Only code or code+1 is possible,
++                    // including the permitted variation between pow implementations.
++                    // Zero marks an uncertified bucket; nonlinear inputs have positive codes.
++                    // The max-code case uses the positive-infinity upper sentinel.
++                    if (code > 0 && first > BOUNDARIES[code] + BOUNDARY_GUARD_ULPS
++                            && end <= BOUNDARIES[Math.min(code + 2, MAX_CODE + 1)] - BOUNDARY_GUARD_ULPS) {
++                        SEEDS[bucket] = (short) code;
++                    }
+                 }
+             }
+         }

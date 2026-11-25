@@ -1,0 +1,117 @@
+--- a/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
++++ b/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
+@@ -397,6 +397,7 @@
+                         .orElse(null)
+                 : null;
+         BufferedImage rgb;
++        boolean toneApplied = false;
+         if (lens == null) {
+             rgb = developRegion(options, outputRegion, destination, xStep, yStep, track, fullArea, bounds);
+         } else {
+@@ -412,13 +413,22 @@
+             // Remapping and extracting the requested raster are successive allocations.
+             var planned = opticalMemoryOptions(options, opticalBytes, selectionBytes, fullArea.width);
+             rgb = developRegion(planned, null, select ? null : destination, 1, 1, track, fullArea, bounds);
+-            rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
+-                    options.lensShadingStrength());
++            boolean combined = !select && sampleBytes == 2 && options.applyCameraTone()
++                    && options.applySrgbConversion() && metadata != null
++                    && CameraToneCurve.supports(metadata.cameraModel(), metadata.pictureStyle());
++            if (combined) {
++                rgb = lens.applyToOwnedAndTone(rgb, true, options.maxWorkers(), options.lensShadingStrength(),
++                        metadata.cameraModel(), metadata.pictureStyle());
++                toneApplied = true;
++            } else {
++                rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
++                        options.lensShadingStrength());
++            }
+             if (select) {
+                 rgb = selectRgbSamples(rgb, region, xStep, yStep);
+             }
+         }
+-        if (options.applyCameraTone() && options.applySrgbConversion() && metadata != null) {
++        if (!toneApplied && options.applyCameraTone() && options.applySrgbConversion() && metadata != null) {
+             CameraToneCurve.apply(rgb, metadata.cameraModel(), metadata.pictureStyle(), options.maxWorkers());
+         }
+         return rgb;
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java
+@@ -48,7 +48,7 @@
+             Cr3Workers.run(stripes, stripe -> {
+                 int first = width * Pixels.stripeStart(stripe, height, stripes);
+                 int end = width * Pixels.stripeStart(stripe + 1, height, stripes);
+-                transform16(bands[0], bands[1], bands[2], first, end);
++                transform16(bands[0], bands[1], bands[2], bands[2], first, end);
+             });
+         } else if (bits == 8) {
+             Pixels.transform(image, maxWorkers, CameraToneCurve::transform8);
+@@ -71,13 +71,13 @@
+         return true;
+     }
+ 
+-    private static void transform16(short[] red, short[] green, short[] blue, int first, int end) {
++    static void transform16(short[] red, short[] green, short[] blueInput, short[] blueOutput, int first, int end) {
+         for (int i = first; i < end; i++) {
+-            int r = Short.toUnsignedInt(red[i]), g = Short.toUnsignedInt(green[i]), b = Short.toUnsignedInt(blue[i]);
++            int r = Short.toUnsignedInt(red[i]), g = Short.toUnsignedInt(green[i]), b = Short.toUnsignedInt(blueInput[i]);
+             int peak = Math.max(r, Math.max(g, b));
+             red[i] = (short) applyGain(r, peak);
+             green[i] = (short) applyGain(g, peak);
+-            blue[i] = (short) applyGain(b, peak);
++            blueOutput[i] = (short) applyGain(b, peak);
+         }
+     }
+ 
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
+@@ -86,6 +86,33 @@
+      * @return the input image after correction
+      */
+     public BufferedImage applyToOwned(BufferedImage image, boolean srgb, int maxWorkers, double shadingStrength) {
++        return apply(image, srgb, maxWorkers, shadingStrength, false);
++    }
++
++    /**
++     * Applies optics and supported display tone to a complete image, preserving its
++     * object identity. Dense RGB16 combines the last optical plane commit with the
++     * tone traversal. All other cases retain the sequential public operations.
++     * Region selection must precede an independent tone operation when the caller
++     * requests only part of the complete optical field.
++     */
++    public BufferedImage applyToOwnedAndTone(BufferedImage image, boolean srgb, int maxWorkers,
++                                             double shadingStrength, String cameraModel, int pictureStyle) {
++        boolean tone = srgb && CameraToneCurve.supports(cameraModel, pictureStyle);
++        boolean identity = a == 0 && b == 0 && c == 0 && redScale == 1
++                && blueScale == 1 && k1 == 0 && k2 == 0 && k3 == 0;
++        if (!tone || image.getWidth() < 2 || image.getHeight() < 2 || identity
++                || !image.getColorModel().getColorSpace().isCS_sRGB()
++                || Pixels.denseRgb16Bands(image) == null) {
++            BufferedImage result = applyToOwned(image, srgb, maxWorkers, shadingStrength);
++            if (tone) CameraToneCurve.apply(result, cameraModel, pictureStyle, maxWorkers);
++            return result;
++        }
++        return apply(image, srgb, maxWorkers, shadingStrength, true);
++    }
++
++    private BufferedImage apply(BufferedImage image, boolean srgb, int maxWorkers,
++                                double shadingStrength, boolean fuseTone) {
+         if (!Double.isFinite(shadingStrength) || shadingStrength < 0 || shadingStrength > 1) {
+             throw new IllegalArgumentException("Shading strength must be in [0, 1]");
+         }
+@@ -129,7 +156,15 @@
+                 int end = Pixels.stripeStart(worker + 1, height, workers);
+                 frame.renderStripe(first, end, colorScale, source, decode, output16, output8, tiles[worker]);
+             });
+-            if (banks != null) {
++            if (fuseTone && band == 2) {
++                // Every blue source read has finished. Red and green are already
++                // corrected; tone reads the blue scratch plane and commits its result.
++                Cr3Workers.run(workers, worker -> {
++                    int first = width * Pixels.stripeStart(worker, height, workers);
++                    int end = width * Pixels.stripeStart(worker + 1, height, workers);
++                    CameraToneCurve.transform16(banks[0], banks[1], output16, banks[2], first, end);
++                });
++            } else if (banks != null) {
+                 System.arraycopy(output16, 0, banks[band], 0, count);
+             } else {
+                 writeBand(raster, band, width, height, output16, output8);

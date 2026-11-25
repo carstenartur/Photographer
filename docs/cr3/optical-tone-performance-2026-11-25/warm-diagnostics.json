@@ -1,0 +1,182 @@
+[
+  {
+    "file": "jdk21-sample-baseline-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-candidate-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-eosr-iso-low-baseline-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-eosr-iso-low-candidate-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-wide-baseline-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-wide-candidate-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-sample-baseline-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-sample-candidate-fork1.stderr",
+    "sha256": "361d69b00eccef081eff3e5813124ee67d06e8bfbb712c2143f67a0b6d5874fc",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 206578888 bytes).\n"
+  },
+  {
+    "file": "jdk25-eosr-iso-low-baseline-fork1.stderr",
+    "sha256": "1473b70eda9ee675de51aa1f74d5f4feb29d4d01ebcb6538a3180593c4338a2b",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 285515040 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 215989728 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 219348960 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 218301696 bytes).\n"
+  },
+  {
+    "file": "jdk25-eosr-iso-low-candidate-fork1.stderr",
+    "sha256": "df9fc665b9342547a706394ca1e693f4666cd74488d206cf7552de9cbef309fe",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 285514808 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 215989512 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 219348728 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 220375856 bytes).\n"
+  },
+  {
+    "file": "jdk25-sample-wide-baseline-fork1.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-sample-wide-candidate-fork1.stderr",
+    "sha256": "292736ecdf8a84f03f0bb3f6f1291f75a340b1bfeee73731a76283cba26d6a60",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 206217152 bytes).\n"
+  },
+  {
+    "file": "jdk25-sample-wide-candidate-fork2.stderr",
+    "sha256": "747dff73461d96b6fe13adfce7a7d8b1c2b40c465b3a3a69fbafaf6b5170e476",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 206217024 bytes).\n"
+  },
+  {
+    "file": "jdk25-sample-wide-baseline-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-eosr-iso-low-candidate-fork2.stderr",
+    "sha256": "612bff4a628d2d12b0fa734f090a1571f030ae0c5068c44cd43004b8009b6135",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 285514808 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 215989512 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 219348728 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 220449272 bytes).\n"
+  },
+  {
+    "file": "jdk25-eosr-iso-low-baseline-fork2.stderr",
+    "sha256": "f5e1c96d560d66c692083c8ae361142f95949e4716feaa5f9a11884db2c02a0f",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 285514992 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 215989680 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 219348912 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 220449456 bytes).\n"
+  },
+  {
+    "file": "jdk25-sample-candidate-fork2.stderr",
+    "sha256": "319b029b774c0b6d0a9c859f445eb2ec587dc14147d3e82e44693ba4679d2988",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 206578824 bytes).\n"
+  },
+  {
+    "file": "jdk25-sample-baseline-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-wide-candidate-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-wide-baseline-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-eosr-iso-low-candidate-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-eosr-iso-low-baseline-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-candidate-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-baseline-fork2.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-baseline-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-candidate-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-eosr-iso-low-baseline-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-eosr-iso-low-candidate-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-wide-baseline-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk21-sample-wide-candidate-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-sample-baseline-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-sample-candidate-fork3.stderr",
+    "sha256": "817d7fead3eedbec9675dde8f12b336c1eecf5d48c07725ae8fdbf134e992a12",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 206578688 bytes).\n"
+  },
+  {
+    "file": "jdk25-eosr-iso-low-baseline-fork3.stderr",
+    "sha256": "f5e1c96d560d66c692083c8ae361142f95949e4716feaa5f9a11884db2c02a0f",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 285514992 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 215989680 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 219348912 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 245069800 bytes, available 220449456 bytes).\n"
+  },
+  {
+    "file": "jdk25-eosr-iso-low-candidate-fork3.stderr",
+    "sha256": "ba0ef1c8be0457cd6fd0e7d1f295863df3135a2512fa09ed45866dd44f9b1f28",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 285514808 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 215989504 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 219348728 bytes).\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 246904808 bytes, available 218301216 bytes).\n"
+  },
+  {
+    "file": "jdk25-sample-wide-baseline-fork3.stderr",
+    "sha256": "2c58b87a0350a39bb1c3b5f4891defeeb9a785e84aa11a466dc9ddb21253bf58",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\n"
+  },
+  {
+    "file": "jdk25-sample-wide-candidate-fork3.stderr",
+    "sha256": "e2dd636616a8c07f7be11b028714cbfd6b8f603f596777d318e66168a68fd1c2",
+    "text": "SLF4J(W): No SLF4J providers were found.\nSLF4J(W): Defaulting to no-operation (NOP) logger implementation\nSLF4J(W): See https://www.slf4j.org/codes.html#noProviders for further details.\nCR3 low-memory: limited heap headroom; compact RAW processing, worker limit 1. Resolution and sample precision are preserved (estimated normal-path heap 165373800 bytes, available 206217160 bytes).\n"
+  }
+]

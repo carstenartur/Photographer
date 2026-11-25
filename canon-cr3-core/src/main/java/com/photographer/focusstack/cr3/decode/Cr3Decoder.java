@@ -668,6 +668,15 @@ public final class Cr3Decoder implements AutoCloseable {
     }
 
     private static long sharedProcessingBytes(Cr3DecodeOptions options, int processingWidth) {
+        // Tone tables remain shared across imports and later image copies.
+        // Conservatively reserve first use alongside development and the largest
+        // later workspace, even if sequential optical scratch can be reclaimed first.
+        long toneBytes = processingWidth > 0 && options.applySrgbConversion() && options.applyCameraTone()
+                ? CameraToneCurve.estimateTableBytes() : 0;
+        return sharedEncoderBytes(options, processingWidth) + toneBytes;
+    }
+
+    private static long sharedEncoderBytes(Cr3DecodeOptions options, int processingWidth) {
         // RGB16 development and RGB8 tone or optical processing can first initialize
         // this encoder. Reserve conservatively even if no matching profile is found.
         // Bayer-only, linear and neutral RGB8 reads need no shared encoder storage.
@@ -681,7 +690,7 @@ public final class Cr3Decoder implements AutoCloseable {
                                                  long selectionBytes, int processingWidth) {
         // The optical estimate already includes the encoder. Deduplicate only
         // that component; the caller's copy and selection are separate storage.
-        long opticalOnly = Math.max(0, opticalBytes - sharedProcessingBytes(options, processingWidth));
+        long opticalOnly = Math.max(0, opticalBytes - sharedEncoderBytes(options, processingWidth));
         long workspace = Math.max(opticalOnly, selectionBytes);
         return options.copy().postDecodeMemoryBytes(Math.max(options.postDecodeMemoryBytes(), workspace));
     }

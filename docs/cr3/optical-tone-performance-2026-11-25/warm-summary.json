@@ -1,0 +1,221 @@
+{
+  "comparisons": [
+    {
+      "configuration": "jdk21",
+      "sample": "sample.cr3",
+      "baseline": {
+        "total_ms": 691.603257,
+        "cpu_ms": 2210.0,
+        "total_thread_allocated_bytes": 163313560,
+        "heap_used_bytes": 168988432,
+        "maxrss_kb": 395052,
+        "fork_total_ms": [
+          691.603257,
+          623.467403,
+          701.154576
+        ]
+      },
+      "candidate": {
+        "total_ms": 662.777431,
+        "cpu_ms": 2100.0,
+        "total_thread_allocated_bytes": 163313496,
+        "heap_used_bytes": 169013544,
+        "maxrss_kb": 397724,
+        "fork_total_ms": [
+          711.930225,
+          628.893584,
+          662.777431
+        ]
+      },
+      "time_reduction_percent": 4.16797140676276,
+      "output_identity": [
+        5496,
+        3668,
+        3,
+        16,
+        "f334ac23d6d550ca"
+      ]
+    },
+    {
+      "configuration": "jdk21",
+      "sample": "eosr-iso-low.cr3",
+      "baseline": {
+        "total_ms": 1168.587295,
+        "cpu_ms": 3750.0,
+        "total_thread_allocated_bytes": 245140240,
+        "heap_used_bytes": 251016392,
+        "maxrss_kb": 382252,
+        "fork_total_ms": [
+          1168.587295,
+          1235.704936,
+          1147.572744
+        ]
+      },
+      "candidate": {
+        "total_ms": 1065.505157,
+        "cpu_ms": 3400.0,
+        "total_thread_allocated_bytes": 245140176,
+        "heap_used_bytes": 251016728,
+        "maxrss_kb": 376968,
+        "fork_total_ms": [
+          1065.505157,
+          1185.716983,
+          990.695755
+        ]
+      },
+      "time_reduction_percent": 8.821090083817829,
+      "output_identity": [
+        6744,
+        4500,
+        3,
+        16,
+        "293eb25bccb09add"
+      ]
+    },
+    {
+      "configuration": "jdk21",
+      "sample": "sample-wide.cr3",
+      "baseline": {
+        "total_ms": 701.401497,
+        "cpu_ms": 2180.0,
+        "total_thread_allocated_bytes": 163494032,
+        "heap_used_bytes": 291141744,
+        "maxrss_kb": 434916,
+        "fork_total_ms": [
+          930.502608,
+          701.401497,
+          661.014074
+        ]
+      },
+      "candidate": {
+        "total_ms": 753.651421,
+        "cpu_ms": 2510.0,
+        "total_thread_allocated_bytes": 163493968,
+        "heap_used_bytes": 291142056,
+        "maxrss_kb": 432680,
+        "fork_total_ms": [
+          753.651421,
+          797.930884,
+          641.349212
+        ]
+      },
+      "time_reduction_percent": -7.449360205742495,
+      "output_identity": [
+        5496,
+        3668,
+        3,
+        16,
+        "1940a760b67566d0"
+      ]
+    },
+    {
+      "configuration": "jdk25",
+      "sample": "sample.cr3",
+      "baseline": {
+        "total_ms": 602.831402,
+        "cpu_ms": 2060.0,
+        "total_thread_allocated_bytes": 163310416,
+        "heap_used_bytes": 454630848,
+        "maxrss_kb": 793552,
+        "fork_total_ms": [
+          684.156176,
+          602.831402,
+          581.301241
+        ]
+      },
+      "candidate": {
+        "total_ms": 576.89862,
+        "cpu_ms": 1960.0,
+        "total_thread_allocated_bytes": 163310400,
+        "heap_used_bytes": 414291320,
+        "maxrss_kb": 797728,
+        "fork_total_ms": [
+          614.289198,
+          576.89862,
+          545.448126
+        ]
+      },
+      "time_reduction_percent": 4.301829983302685,
+      "output_identity": [
+        5496,
+        3668,
+        3,
+        16,
+        "f334ac23d6d550ca"
+      ]
+    },
+    {
+      "configuration": "jdk25",
+      "sample": "eosr-iso-low.cr3",
+      "baseline": {
+        "total_ms": 1150.548638,
+        "cpu_ms": 3540.0,
+        "total_thread_allocated_bytes": 245137096,
+        "heap_used_bytes": 436909296,
+        "maxrss_kb": 753624,
+        "fork_total_ms": [
+          1085.613312,
+          1150.548638,
+          1304.609544
+        ]
+      },
+      "candidate": {
+        "total_ms": 1041.512827,
+        "cpu_ms": 3300.0,
+        "total_thread_allocated_bytes": 245137032,
+        "heap_used_bytes": 436909480,
+        "maxrss_kb": 754352,
+        "fork_total_ms": [
+          1079.322323,
+          1041.512827,
+          982.044469
+        ]
+      },
+      "time_reduction_percent": 9.47685368517206,
+      "output_identity": [
+        6744,
+        4500,
+        3,
+        16,
+        "293eb25bccb09add"
+      ]
+    },
+    {
+      "configuration": "jdk25",
+      "sample": "sample-wide.cr3",
+      "baseline": {
+        "total_ms": 671.221252,
+        "cpu_ms": 2380.0,
+        "total_thread_allocated_bytes": 163490976,
+        "heap_used_bytes": 454995968,
+        "maxrss_kb": 789192,
+        "fork_total_ms": [
+          671.221252,
+          710.360833,
+          641.902881
+        ]
+      },
+      "candidate": {
+        "total_ms": 623.423045,
+        "cpu_ms": 1990.0,
+        "total_thread_allocated_bytes": 163490840,
+        "heap_used_bytes": 414653784,
+        "maxrss_kb": 794780,
+        "fork_total_ms": [
+          580.216179,
+          623.423045,
+          634.406808
+        ]
+      },
+      "time_reduction_percent": 7.121080695460469,
+      "output_identity": [
+        5496,
+        3668,
+        3,
+        16,
+        "1940a760b67566d0"
+      ]
+    }
+  ],
+  "all_outputs_equal": true
+}

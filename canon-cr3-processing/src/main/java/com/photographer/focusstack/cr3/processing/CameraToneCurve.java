@@ -19,6 +19,15 @@ public final class CameraToneCurve {
 
     private CameraToneCurve() {}
 
+    /**
+     * Returns the array payload first allocated by supported display tone. These
+     * tables are shared across imports and workers. Querying this estimate does
+     * not initialize them; array headers and collector reserves are not included.
+     */
+    public static long estimateTableBytes() {
+        return (MAX + 1L) * (3 * Double.BYTES + Integer.BYTES);
+    }
+
     /** Returns whether this camera and recorded Canon Picture Style have been evaluated. */
     public static boolean supports(String cameraModel, int pictureStyle) {
         if (cameraModel == null) return false;

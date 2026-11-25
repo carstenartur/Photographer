@@ -2,6 +2,7 @@ package com.photographer.focusstack.cr3.imageio;
 
 import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
 import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
+import com.photographer.focusstack.cr3.processing.CameraToneCurve;
 import com.photographer.focusstack.cr3.testutil.Cr3TestData;
 import org.junit.jupiter.api.Test;
 
@@ -59,8 +60,9 @@ class CanonCr3MemoryModeTest {
                 assertEquals(902, image.getHeight());
                 int bands = bayer ? 1 : 3;
                 // The decoded result, automatic target, transfer row and caller hint coexist
-                // with the first-use encoder tables for sRGB16, but not for Bayer output.
-                long shared = bayer ? 0 : BayerDemosaicer.estimateSrgb16TableBytes();
+                // with first-use encoder and enabled tone tables, but not for Bayer output.
+                long shared = bayer ? 0 : BayerDemosaicer.estimateSrgb16TableBytes()
+                        + CameraToneCurve.estimateTableBytes();
                 long peak = (4L + 902L * 902) * 2 * bands + 2 * 4 * bands + 4096 + shared;
                 assertTrue(messages.toString(StandardCharsets.UTF_8).contains("estimated normal-path heap " + peak
                         + " bytes"), messages::toString);

@@ -1,0 +1,11 @@
+{
+  "source_sha256": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+  "common_probe_class_sha256": "4e6d05c333d91954d916870d74578a1a03b4af1b55c75127e12fd80971653556",
+  "disassembly_sha256": {
+    "common": "4daad51a634014ad61e0d10d9beee7b5cdb0f788b690287d529d0988587b01e5",
+    "baseline": "4daad51a634014ad61e0d10d9beee7b5cdb0f788b690287d529d0988587b01e5",
+    "candidate": "4daad51a634014ad61e0d10d9beee7b5cdb0f788b690287d529d0988587b01e5"
+  },
+  "all_disassembly_equal": true,
+  "comparison_scope": "javap -c -p (methods and bytecode, excludes debug tables); analysis pinned to CPU0 outside measurement CPUs4-7"
+}

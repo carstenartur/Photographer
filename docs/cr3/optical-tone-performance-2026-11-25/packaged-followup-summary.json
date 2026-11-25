@@ -1,0 +1,1188 @@
+{
+  "schema": "photographer.cr3.packaged-followup-summary.v1",
+  "scope": "Summary-only follow-up for the frozen portable fusion candidate d61. This is a failed portable performance gate, not a successful production selection.",
+  "original_source_path_base": "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput",
+  "path_convention": "original_path values are historical receipt coordinates, not links to files bundled here.",
+  "candidate_identity": {
+    "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+    "jar_sha256": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a",
+    "source_sha256": {
+      "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+      "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+      "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+      "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+      "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+      "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+      "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+      "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+      "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+    },
+    "build_command": [
+      "bash",
+      "/workspace/scratch/80a209e8f5df/run-maven.sh",
+      "-B",
+      "--no-transfer-progress",
+      "-Pbenchmarks",
+      "-pl",
+      "canon-cr3-benchmark",
+      "-am",
+      "package",
+      "-DskipTests"
+    ],
+    "scope": "Final fusion with shared tone-table reserve; no rejected encoder or codec changes."
+  },
+  "candidate_identity_receipt": {
+    "original_path": "candidate/identity.json",
+    "sha256": "e3240e9aa3809b8498f4989c8c09102010eb89596ac804137bf674b88e34d7be",
+    "bytes": 2036
+  },
+  "baseline_jar_sha256": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+  "jvm_versions": {
+    "java21": "openjdk version \"21.0.13.1\" 2026-11-17\nOpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)",
+    "java25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+  },
+  "groups": [
+    {
+      "group": "final-warm",
+      "fresh_processes": 36,
+      "recorded_imports": 252,
+      "configured_warmup_invocations": 180,
+      "protocol": {
+        "configurations": [
+          "jdk21",
+          "jdk25"
+        ],
+        "jvm_flags": [
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4"
+        ],
+        "forks": 3,
+        "warmup": 5,
+        "iterations": 7,
+        "requested_workers": 0,
+        "available_processors": 4,
+        "cpu_affinity": "4-7",
+        "mode": "default"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+        "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3": "da35045099960ca2743da38effb984e296da6cb5bca07fa340990a90f0faa1ff"
+      },
+      "source_receipts": {
+        "environment": {
+          "original_path": "final-warm/environment.json",
+          "sha256": "bae3ac1ad0337e98cad2860d68db77981a069d710ccbede73f1d739d657167fd",
+          "bytes": 3689
+        },
+        "runs": {
+          "original_path": "final-warm/runs.json",
+          "sha256": "4188fc1f83cb3e01106242fd7e47b7318b2972482ab95b113a3c8a0bb0982bea",
+          "bytes": 36480
+        },
+        "summary": {
+          "original_path": "final-warm/summary.json",
+          "sha256": "7be4868097e55c9ca5fa77fb53fb2af24122e442bb784a186117126ed094173f",
+          "bytes": 5212
+        }
+      },
+      "recorded_summary": {
+        "comparisons": [
+          {
+            "configuration": "jdk21",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 691.603257,
+              "cpu_ms": 2210.0,
+              "total_thread_allocated_bytes": 163313560,
+              "heap_used_bytes": 168988432,
+              "maxrss_kb": 395052,
+              "fork_total_ms": [
+                691.603257,
+                623.467403,
+                701.154576
+              ]
+            },
+            "candidate": {
+              "total_ms": 662.777431,
+              "cpu_ms": 2100.0,
+              "total_thread_allocated_bytes": 163313496,
+              "heap_used_bytes": 169013544,
+              "maxrss_kb": 397724,
+              "fork_total_ms": [
+                711.930225,
+                628.893584,
+                662.777431
+              ]
+            },
+            "time_reduction_percent": 4.16797140676276,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk21",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 1168.587295,
+              "cpu_ms": 3750.0,
+              "total_thread_allocated_bytes": 245140240,
+              "heap_used_bytes": 251016392,
+              "maxrss_kb": 382252,
+              "fork_total_ms": [
+                1168.587295,
+                1235.704936,
+                1147.572744
+              ]
+            },
+            "candidate": {
+              "total_ms": 1065.505157,
+              "cpu_ms": 3400.0,
+              "total_thread_allocated_bytes": 245140176,
+              "heap_used_bytes": 251016728,
+              "maxrss_kb": 376968,
+              "fork_total_ms": [
+                1065.505157,
+                1185.716983,
+                990.695755
+              ]
+            },
+            "time_reduction_percent": 8.821090083817829,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          },
+          {
+            "configuration": "jdk21",
+            "sample": "sample-wide.cr3",
+            "baseline": {
+              "total_ms": 701.401497,
+              "cpu_ms": 2180.0,
+              "total_thread_allocated_bytes": 163494032,
+              "heap_used_bytes": 291141744,
+              "maxrss_kb": 434916,
+              "fork_total_ms": [
+                930.502608,
+                701.401497,
+                661.014074
+              ]
+            },
+            "candidate": {
+              "total_ms": 753.651421,
+              "cpu_ms": 2510.0,
+              "total_thread_allocated_bytes": 163493968,
+              "heap_used_bytes": 291142056,
+              "maxrss_kb": 432680,
+              "fork_total_ms": [
+                753.651421,
+                797.930884,
+                641.349212
+              ]
+            },
+            "time_reduction_percent": -7.449360205742495,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "1940a760b67566d0"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 602.831402,
+              "cpu_ms": 2060.0,
+              "total_thread_allocated_bytes": 163310416,
+              "heap_used_bytes": 454630848,
+              "maxrss_kb": 793552,
+              "fork_total_ms": [
+                684.156176,
+                602.831402,
+                581.301241
+              ]
+            },
+            "candidate": {
+              "total_ms": 576.89862,
+              "cpu_ms": 1960.0,
+              "total_thread_allocated_bytes": 163310400,
+              "heap_used_bytes": 414291320,
+              "maxrss_kb": 797728,
+              "fork_total_ms": [
+                614.289198,
+                576.89862,
+                545.448126
+              ]
+            },
+            "time_reduction_percent": 4.301829983302685,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 1150.548638,
+              "cpu_ms": 3540.0,
+              "total_thread_allocated_bytes": 245137096,
+              "heap_used_bytes": 436909296,
+              "maxrss_kb": 753624,
+              "fork_total_ms": [
+                1085.613312,
+                1150.548638,
+                1304.609544
+              ]
+            },
+            "candidate": {
+              "total_ms": 1041.512827,
+              "cpu_ms": 3300.0,
+              "total_thread_allocated_bytes": 245137032,
+              "heap_used_bytes": 436909480,
+              "maxrss_kb": 754352,
+              "fork_total_ms": [
+                1079.322323,
+                1041.512827,
+                982.044469
+              ]
+            },
+            "time_reduction_percent": 9.47685368517206,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "sample-wide.cr3",
+            "baseline": {
+              "total_ms": 671.221252,
+              "cpu_ms": 2380.0,
+              "total_thread_allocated_bytes": 163490976,
+              "heap_used_bytes": 454995968,
+              "maxrss_kb": 789192,
+              "fork_total_ms": [
+                671.221252,
+                710.360833,
+                641.902881
+              ]
+            },
+            "candidate": {
+              "total_ms": 623.423045,
+              "cpu_ms": 1990.0,
+              "total_thread_allocated_bytes": 163490840,
+              "heap_used_bytes": 414653784,
+              "maxrss_kb": 794780,
+              "fork_total_ms": [
+                580.216179,
+                623.423045,
+                634.406808
+              ]
+            },
+            "time_reduction_percent": 7.121080695460469,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "1940a760b67566d0"
+            ]
+          }
+        ],
+        "all_outputs_equal": true
+      }
+    },
+    {
+      "group": "final-cold",
+      "fresh_processes": 24,
+      "recorded_imports": 24,
+      "configured_warmup_invocations": 0,
+      "protocol": {
+        "configurations": [
+          "jdk21",
+          "jdk25"
+        ],
+        "jvm_flags": [
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4"
+        ],
+        "forks": 3,
+        "warmup": 0,
+        "iterations": 1,
+        "requested_workers": 0,
+        "available_processors": 4,
+        "cpu_affinity": "4-7",
+        "mode": "default"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "source_receipts": {
+        "environment": {
+          "original_path": "final-cold/environment.json",
+          "sha256": "8f0338cd21e18899e5fe51c0436a9d5c4b89c71ceb6eaa931fa2d7892183e80e",
+          "bytes": 3553
+        },
+        "runs": {
+          "original_path": "final-cold/runs.json",
+          "sha256": "22a0d10b654b1a0887257c2d33614061b6aea616c6bd20ab476ed53efcd88e8b",
+          "bytes": 24290
+        },
+        "summary": {
+          "original_path": "final-cold/summary.json",
+          "sha256": "75a6debbb70abda1686fc3e619405034f746321270186c39ec813510e92389f5",
+          "bytes": 3518
+        }
+      },
+      "recorded_summary": {
+        "comparisons": [
+          {
+            "configuration": "jdk21",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 1712.968426,
+              "cpu_ms": 5370.0,
+              "total_thread_allocated_bytes": 171558192,
+              "heap_used_bytes": 169248632,
+              "maxrss_kb": 234808,
+              "fork_total_ms": [
+                1575.930426,
+                1712.968426,
+                1725.241637
+              ]
+            },
+            "candidate": {
+              "total_ms": 1693.239058,
+              "cpu_ms": 5090.0,
+              "total_thread_allocated_bytes": 171572272,
+              "heap_used_bytes": 169250056,
+              "maxrss_kb": 234328,
+              "fork_total_ms": [
+                1551.972677,
+                1789.360622,
+                1693.239058
+              ]
+            },
+            "time_reduction_percent": 1.1517648370244826,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk21",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 2075.215181,
+              "cpu_ms": 6800.0,
+              "total_thread_allocated_bytes": 253395664,
+              "heap_used_bytes": 250450200,
+              "maxrss_kb": 310596,
+              "fork_total_ms": [
+                2356.714873,
+                2008.841647,
+                2075.215181
+              ]
+            },
+            "candidate": {
+              "total_ms": 2193.247652,
+              "cpu_ms": 7240.0,
+              "total_thread_allocated_bytes": 253409392,
+              "heap_used_bytes": 252937904,
+              "maxrss_kb": 312408,
+              "fork_total_ms": [
+                2281.252349,
+                2193.247652,
+                1952.829362
+              ]
+            },
+            "time_reduction_percent": -5.687722029053521,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 1547.630586,
+              "cpu_ms": 5090.0,
+              "total_thread_allocated_bytes": 171633536,
+              "heap_used_bytes": 128008048,
+              "maxrss_kb": 238800,
+              "fork_total_ms": [
+                2036.717005,
+                1547.630586,
+                1465.060151
+              ]
+            },
+            "candidate": {
+              "total_ms": 1614.346907,
+              "cpu_ms": 5240.0,
+              "total_thread_allocated_bytes": 171644464,
+              "heap_used_bytes": 168892488,
+              "maxrss_kb": 277912,
+              "fork_total_ms": [
+                1614.346907,
+                1564.685039,
+                1819.628179
+              ]
+            },
+            "time_reduction_percent": -4.310868601559159,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 2101.874749,
+              "cpu_ms": 6330.0,
+              "total_thread_allocated_bytes": 253458904,
+              "heap_used_bytes": 252346416,
+              "maxrss_kb": 321444,
+              "fork_total_ms": [
+                2004.606321,
+                2101.874749,
+                2345.672605
+              ]
+            },
+            "candidate": {
+              "total_ms": 2298.939506,
+              "cpu_ms": 7500.0,
+              "total_thread_allocated_bytes": 253470176,
+              "heap_used_bytes": 253220656,
+              "maxrss_kb": 323016,
+              "fork_total_ms": [
+                2189.72596,
+                2298.939506,
+                2492.246882
+              ]
+            },
+            "time_reduction_percent": -9.375666037843434,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          }
+        ],
+        "all_outputs_equal": true
+      }
+    },
+    {
+      "group": "final-g1",
+      "fresh_processes": 24,
+      "recorded_imports": 168,
+      "configured_warmup_invocations": 120,
+      "protocol": {
+        "configurations": [
+          "jdk21",
+          "jdk25"
+        ],
+        "jvm_flags": [
+          "-Xmx768m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4"
+        ],
+        "forks": 2,
+        "warmup": 5,
+        "iterations": 7,
+        "requested_workers": 0,
+        "available_processors": 4,
+        "cpu_affinity": "4-7",
+        "mode": "default"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+        "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3": "da35045099960ca2743da38effb984e296da6cb5bca07fa340990a90f0faa1ff"
+      },
+      "source_receipts": {
+        "environment": {
+          "original_path": "final-g1/environment.json",
+          "sha256": "3520ad7355e03561aaf28bb79a55c28321f2eb1b41beae6a48b6c2f7160c3004",
+          "bytes": 3685
+        },
+        "runs": {
+          "original_path": "final-g1/runs.json",
+          "sha256": "2a640bcbce067e6f298a80b78cd1858762a1dcdad5d39595871096fd33ddc4b0",
+          "bytes": 24225
+        },
+        "summary": {
+          "original_path": "final-g1/summary.json",
+          "sha256": "1362f8a2852258b0b73de04d021202df116bf9aa2b10e63f0c89f9089ba2cd61",
+          "bytes": 5010
+        }
+      },
+      "recorded_summary": {
+        "comparisons": [
+          {
+            "configuration": "jdk21",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 658.042319,
+              "cpu_ms": 2150.0,
+              "total_thread_allocated_bytes": 163313584.0,
+              "heap_used_bytes": 340860896.0,
+              "maxrss_kb": 833524,
+              "fork_total_ms": [
+                585.460155,
+                730.624483
+              ]
+            },
+            "candidate": {
+              "total_ms": 683.624831,
+              "cpu_ms": 2330.0,
+              "total_thread_allocated_bytes": 163313520.0,
+              "heap_used_bytes": 340909920.0,
+              "maxrss_kb": 831088,
+              "fork_total_ms": [
+                616.149096,
+                751.100566
+              ]
+            },
+            "time_reduction_percent": -3.887669722955911,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk21",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 1059.449325,
+              "cpu_ms": 3615.0,
+              "total_thread_allocated_bytes": 245140240.0,
+              "heap_used_bytes": 256084148.0,
+              "maxrss_kb": 856416,
+              "fork_total_ms": [
+                1008.631908,
+                1110.266742
+              ]
+            },
+            "candidate": {
+              "total_ms": 1049.2595445,
+              "cpu_ms": 3530.0,
+              "total_thread_allocated_bytes": 245140176.0,
+              "heap_used_bytes": 256079928.0,
+              "maxrss_kb": 852680,
+              "fork_total_ms": [
+                1071.849053,
+                1026.670036
+              ]
+            },
+            "time_reduction_percent": 0.9617997066542205,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          },
+          {
+            "configuration": "jdk21",
+            "sample": "sample-wide.cr3",
+            "baseline": {
+              "total_ms": 690.4271655,
+              "cpu_ms": 2165.0,
+              "total_thread_allocated_bytes": 163494048.0,
+              "heap_used_bytes": 341065024.0,
+              "maxrss_kb": 830284,
+              "fork_total_ms": [
+                692.021415,
+                688.832916
+              ]
+            },
+            "candidate": {
+              "total_ms": 756.824803,
+              "cpu_ms": 2665.0,
+              "total_thread_allocated_bytes": 163493920.0,
+              "heap_used_bytes": 340657964.0,
+              "maxrss_kb": 825984,
+              "fork_total_ms": [
+                797.061723,
+                716.587883
+              ]
+            },
+            "time_reduction_percent": -9.616892384574061,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "1940a760b67566d0"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 693.85097,
+              "cpu_ms": 2320.0,
+              "total_thread_allocated_bytes": 163310416.0,
+              "heap_used_bytes": 339692040.0,
+              "maxrss_kb": 843980,
+              "fork_total_ms": [
+                676.694214,
+                711.007726
+              ]
+            },
+            "candidate": {
+              "total_ms": 598.392497,
+              "cpu_ms": 2030.0,
+              "total_thread_allocated_bytes": 163310352.0,
+              "heap_used_bytes": 339687636.0,
+              "maxrss_kb": 839484,
+              "fork_total_ms": [
+                561.687853,
+                635.097141
+              ]
+            },
+            "time_reduction_percent": 13.757777552721429,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 1121.766355,
+              "cpu_ms": 3685.0,
+              "total_thread_allocated_bytes": 245137096.0,
+              "heap_used_bytes": 254841676.0,
+              "maxrss_kb": 862332,
+              "fork_total_ms": [
+                996.058679,
+                1247.474031
+              ]
+            },
+            "candidate": {
+              "total_ms": 1151.0772339999999,
+              "cpu_ms": 3700.0,
+              "total_thread_allocated_bytes": 245137032.0,
+              "heap_used_bytes": 254846512.0,
+              "maxrss_kb": 862264,
+              "fork_total_ms": [
+                1149.205811,
+                1152.948657
+              ]
+            },
+            "time_reduction_percent": -2.6129219216955324,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "sample-wide.cr3",
+            "baseline": {
+              "total_ms": 719.948772,
+              "cpu_ms": 2500.0,
+              "total_thread_allocated_bytes": 163490856.0,
+              "heap_used_bytes": 340012004.0,
+              "maxrss_kb": 840380,
+              "fork_total_ms": [
+                676.165473,
+                763.732071
+              ]
+            },
+            "candidate": {
+              "total_ms": 668.0015025,
+              "cpu_ms": 2160.0,
+              "total_thread_allocated_bytes": 163490792.0,
+              "heap_used_bytes": 339838916.0,
+              "maxrss_kb": 844448,
+              "fork_total_ms": [
+                741.506525,
+                594.49648
+              ]
+            },
+            "time_reduction_percent": 7.215411918224646,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "1940a760b67566d0"
+            ]
+          }
+        ],
+        "all_outputs_equal": true
+      }
+    },
+    {
+      "group": "final-low-heap",
+      "fresh_processes": 8,
+      "recorded_imports": 8,
+      "configured_warmup_invocations": 0,
+      "protocol": {
+        "configurations": [
+          "jdk21",
+          "jdk25"
+        ],
+        "jvm_flags": [
+          "-Xmx256m",
+          "-XX:+UseG1GC",
+          "-XX:ActiveProcessorCount=4"
+        ],
+        "forks": 1,
+        "warmup": 0,
+        "iterations": 1,
+        "requested_workers": 0,
+        "available_processors": 4,
+        "cpu_affinity": "4-7",
+        "mode": "default"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "source_receipts": {
+        "environment": {
+          "original_path": "final-low-heap/environment.json",
+          "sha256": "8752548404be557c9655b6dd71c838a759394f96be07d10b62a6a842e8ae8af9",
+          "bytes": 3549
+        },
+        "runs": {
+          "original_path": "final-low-heap/runs.json",
+          "sha256": "14ae2d309e3993fb45e06ac26ac4a19d34eb9ad03f3f3cad5839ae2b2c9878da",
+          "bytes": 8064
+        },
+        "summary": {
+          "original_path": "final-low-heap/summary.json",
+          "sha256": "db47d6e4a9630f676cb1942a641712250f0155c5dacd095d82ce00cf36e0c269",
+          "bytes": 3142
+        }
+      },
+      "recorded_summary": {
+        "comparisons": [
+          {
+            "configuration": "jdk21",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 1670.370225,
+              "cpu_ms": 5320.0,
+              "total_thread_allocated_bytes": 171568504,
+              "heap_used_bytes": 174673568,
+              "maxrss_kb": 242864,
+              "fork_total_ms": [
+                1670.370225
+              ]
+            },
+            "candidate": {
+              "total_ms": 1634.76582,
+              "cpu_ms": 5150.0,
+              "total_thread_allocated_bytes": 171582704,
+              "heap_used_bytes": 174868432,
+              "maxrss_kb": 241528,
+              "fork_total_ms": [
+                1634.76582
+              ]
+            },
+            "time_reduction_percent": 2.1315277575664315,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk21",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 2786.165368,
+              "cpu_ms": 6650.0,
+              "total_thread_allocated_bytes": 253042936,
+              "heap_used_bytes": 254633960,
+              "maxrss_kb": 318136,
+              "fork_total_ms": [
+                2786.165368
+              ]
+            },
+            "candidate": {
+              "total_ms": 2565.051495,
+              "cpu_ms": 6160.0,
+              "total_thread_allocated_bytes": 253057752,
+              "heap_used_bytes": 254634528,
+              "maxrss_kb": 321916,
+              "fork_total_ms": [
+                2565.051495
+              ]
+            },
+            "time_reduction_percent": 7.936136007559469,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 1643.66927,
+              "cpu_ms": 5030.0,
+              "total_thread_allocated_bytes": 171632688,
+              "heap_used_bytes": 175754984,
+              "maxrss_kb": 250032,
+              "fork_total_ms": [
+                1643.66927
+              ]
+            },
+            "candidate": {
+              "total_ms": 1548.21235,
+              "cpu_ms": 4990.0,
+              "total_thread_allocated_bytes": 171643904,
+              "heap_used_bytes": 175875016,
+              "maxrss_kb": 249488,
+              "fork_total_ms": [
+                1548.21235
+              ]
+            },
+            "time_reduction_percent": 5.807550323064692,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk25",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 2362.583552,
+              "cpu_ms": 5200.0,
+              "total_thread_allocated_bytes": 252841272,
+              "heap_used_bytes": 254631712,
+              "maxrss_kb": 323788,
+              "fork_total_ms": [
+                2362.583552
+              ]
+            },
+            "candidate": {
+              "total_ms": 2228.799331,
+              "cpu_ms": 5050.0,
+              "total_thread_allocated_bytes": 252853056,
+              "heap_used_bytes": 254586696,
+              "maxrss_kb": 327996,
+              "fork_total_ms": [
+                2228.799331
+              ]
+            },
+            "time_reduction_percent": 5.662623905374575,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          }
+        ],
+        "all_outputs_equal": true
+      }
+    },
+    {
+      "group": "vector-smoke",
+      "fresh_processes": 4,
+      "recorded_imports": 4,
+      "configured_warmup_invocations": 0,
+      "protocol": {
+        "configurations": [
+          "jdk25-vector"
+        ],
+        "jvm_flags": [
+          "-Xmx768m",
+          "-XX:+UseSerialGC",
+          "-XX:ActiveProcessorCount=4"
+        ],
+        "forks": 1,
+        "warmup": 0,
+        "iterations": 1,
+        "requested_workers": 0,
+        "available_processors": 4,
+        "cpu_affinity": "4-7",
+        "mode": "default"
+      },
+      "inputs_sha256": {
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3"
+      },
+      "source_receipts": {
+        "environment": {
+          "original_path": "vector-smoke/environment.json",
+          "sha256": "b5c1c585cf1df5abbd1188e601367706431597536e89f2a8db14ef1d651580ef",
+          "bytes": 3547
+        },
+        "runs": {
+          "original_path": "vector-smoke/runs.json",
+          "sha256": "84242fd2dbb00d0d33803f816b0901fa604ce191c58b9c169a640180e66740d7",
+          "bytes": 4325
+        },
+        "summary": {
+          "original_path": "vector-smoke/summary.json",
+          "sha256": "42a3661d23f6128d96266b374d35bd0463c9be674f6725459a975b8de42bed61",
+          "bytes": 1618
+        }
+      },
+      "recorded_summary": {
+        "comparisons": [
+          {
+            "configuration": "jdk25-vector",
+            "sample": "sample.cr3",
+            "baseline": {
+              "total_ms": 1257.144231,
+              "cpu_ms": 3830.0,
+              "total_thread_allocated_bytes": 171624696,
+              "heap_used_bytes": 128227912,
+              "maxrss_kb": 225692,
+              "fork_total_ms": [
+                1257.144231
+              ]
+            },
+            "candidate": {
+              "total_ms": 1476.231981,
+              "cpu_ms": 4600.0,
+              "total_thread_allocated_bytes": 171634800,
+              "heap_used_bytes": 169104568,
+              "maxrss_kb": 278224,
+              "fork_total_ms": [
+                1476.231981
+              ]
+            },
+            "time_reduction_percent": -17.427415613698184,
+            "output_identity": [
+              5496,
+              3668,
+              3,
+              16,
+              "f334ac23d6d550ca"
+            ]
+          },
+          {
+            "configuration": "jdk25-vector",
+            "sample": "eosr-iso-low.cr3",
+            "baseline": {
+              "total_ms": 2115.958233,
+              "cpu_ms": 6650.0,
+              "total_thread_allocated_bytes": 253450944,
+              "heap_used_bytes": 253433288,
+              "maxrss_kb": 322336,
+              "fork_total_ms": [
+                2115.958233
+              ]
+            },
+            "candidate": {
+              "total_ms": 2086.360337,
+              "cpu_ms": 6740.0,
+              "total_thread_allocated_bytes": 253460944,
+              "heap_used_bytes": 251687944,
+              "maxrss_kb": 323048,
+              "fork_total_ms": [
+                2086.360337
+              ]
+            },
+            "time_reduction_percent": 1.3987939619222067,
+            "output_identity": [
+              6744,
+              4500,
+              3,
+              16,
+              "293eb25bccb09add"
+            ]
+          }
+        ],
+        "all_outputs_equal": true
+      }
+    }
+  ],
+  "negative_comparisons": [
+    {
+      "group": "final-warm",
+      "configuration": "jdk21",
+      "sample": "sample-wide.cr3",
+      "time_reduction_percent": -7.449360205742495,
+      "cpu_reduction_percent": -15.13761467889909
+    },
+    {
+      "group": "final-cold",
+      "configuration": "jdk21",
+      "sample": "eosr-iso-low.cr3",
+      "time_reduction_percent": -5.687722029053521,
+      "cpu_reduction_percent": -6.470588235294117
+    },
+    {
+      "group": "final-cold",
+      "configuration": "jdk25",
+      "sample": "sample.cr3",
+      "time_reduction_percent": -4.310868601559159,
+      "cpu_reduction_percent": -2.946954813359537
+    },
+    {
+      "group": "final-cold",
+      "configuration": "jdk25",
+      "sample": "eosr-iso-low.cr3",
+      "time_reduction_percent": -9.375666037843434,
+      "cpu_reduction_percent": -18.483412322274884
+    },
+    {
+      "group": "final-g1",
+      "configuration": "jdk21",
+      "sample": "sample.cr3",
+      "time_reduction_percent": -3.887669722955911,
+      "cpu_reduction_percent": -8.372093023255811
+    },
+    {
+      "group": "final-g1",
+      "configuration": "jdk21",
+      "sample": "sample-wide.cr3",
+      "time_reduction_percent": -9.616892384574061,
+      "cpu_reduction_percent": -23.094688221709013
+    },
+    {
+      "group": "final-g1",
+      "configuration": "jdk25",
+      "sample": "eosr-iso-low.cr3",
+      "time_reduction_percent": -2.6129219216955324,
+      "cpu_reduction_percent": -0.4070556309362372
+    },
+    {
+      "group": "vector-smoke",
+      "configuration": "jdk25-vector",
+      "sample": "sample.cr3",
+      "time_reduction_percent": -17.427415613698184,
+      "cpu_reduction_percent": -20.10443864229765
+    },
+    {
+      "group": "vector-smoke",
+      "configuration": "jdk25-vector",
+      "sample": "eosr-iso-low.cr3",
+      "time_reduction_percent": 1.3987939619222067,
+      "cpu_reduction_percent": -1.3533834586466176
+    }
+  ],
+  "decision": {
+    "status": "NOT_PUBLISHED_AS_IS",
+    "reason": "The Java 21 wide-capture elapsed and CPU median regressions recur in both Serial GC and G1. Numerical checks passed, but the complete-import performance benefit is not portable across the tested inputs and runtimes.",
+    "authority": "Root decision after all five frozen-d61 groups completed.",
+    "causal_limit": "These full-import observations do not establish the cause. Bounded stage diagnosis and any successor candidate are separate work and are excluded."
+  },
+  "audit": {
+    "groups": 5,
+    "fresh_processes": 96,
+    "recorded_imports": 456,
+    "comparison_cells": 22,
+    "configured_warmup_invocations": 300,
+    "recorded_imports_by_runtime": {
+      "jdk21": 226,
+      "jdk25": 226,
+      "jdk25-vector": 4
+    },
+    "recorded_imports_by_input": {
+      "sample.cr3": 158,
+      "eosr-iso-low.cr3": 158,
+      "sample-wide.cr3": 140
+    },
+    "recorded_imports_by_arm": {
+      "baseline": 228,
+      "candidate": 228
+    },
+    "all_output_identities_equal_by_input": true,
+    "all_recorded_medians_recomputed": true,
+    "observed_output_identities": {
+      "eosr-iso-low.cr3": {
+        "width": 6744,
+        "height": 4500,
+        "channels": 3,
+        "bits": 16,
+        "fnv1a64": "293eb25bccb09add"
+      },
+      "sample-wide.cr3": {
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "fnv1a64": "1940a760b67566d0"
+      },
+      "sample.cr3": {
+        "width": 5496,
+        "height": 3668,
+        "channels": 3,
+        "bits": 16,
+        "fnv1a64": "f334ac23d6d550ca"
+      }
+    },
+    "new_java_or_benchmark_executions": 0,
+    "independent_read_only_audit": {
+      "reviewer": "/root/previous_benchmark_audit",
+      "result": "All 456 raw fingerprints, run/group elapsed and CPU medians, counts and reductions independently reproduced; no missing files, duplicate process keys or error/OOM diagnostics found.",
+      "scope": "Frozen receipt consistency only; no current binary/input rehash or new Java/build/benchmark execution."
+    }
+  },
+  "limits": [
+    "All counts are recorded import observations; warmup invocations and stage/unit checks are not included.",
+    "The final-cold group measures the first import in a fresh JVM with filesystem caches unflushed; it is not a cold-storage measurement.",
+    "The low-heap and vector groups have one fork per arm/input and establish compatibility checks, not stable performance estimates.",
+    "Only compare a candidate with its control in the same group. No absolute timing ranking across groups is justified.",
+    "Final raw records and stderr remain in the separately retained packaged phase; this summary does not append them to investigation-records.jsonl or investigation-stderr.json."
+  ],
+  "assembly_script_receipt": {
+    "original_path": "assemble_followup_summary.py",
+    "sha256": "3b7978024fefc399e78d51e1db92a5a967cb7ca75d4942a65f40e45283f85a52",
+    "bytes": 8152
+  }
+}

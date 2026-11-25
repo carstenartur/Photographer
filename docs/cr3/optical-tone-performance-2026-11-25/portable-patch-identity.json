@@ -1,0 +1,19 @@
+{
+  "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+  "patch_sha256": "cb900d1252843348c323f0658f8e104c153333c535efe4e3f52d7abc71e49b14",
+  "source_sha256": {
+    "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+    "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+    "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+    "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+    "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+    "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+    "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+  },
+  "result": "All frozen candidate source identities reconstruct from the committed baseline and final-portable-fusion.patch; no production checkout files were changed.",
+  "scope": "Historical rejected portable fusion; not the retained memory-only correction.",
+  "status": "REJECTED",
+  "candidate_jar_sha256": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a"
+}
