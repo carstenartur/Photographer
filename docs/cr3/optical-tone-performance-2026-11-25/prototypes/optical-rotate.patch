@@ -1,0 +1,100 @@
+--- a/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
++++ b/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
+@@ -412,8 +412,11 @@
+             // Remapping and extracting the requested raster are successive allocations.
+             var planned = opticalMemoryOptions(options, opticalBytes, selectionBytes, fullArea.width);
+             rgb = developRegion(planned, null, select ? null : destination, 1, 1, track, fullArea, bounds);
+-            rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
+-                    options.lensShadingStrength());
++            rgb = destination == null
++                    ? lens.applyConsuming(rgb, options.applySrgbConversion(), options.maxWorkers(),
++                            options.lensShadingStrength())
++                    : lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
++                            options.lensShadingStrength());
+             if (select) {
+                 rgb = selectRgbSamples(rgb, region, xStep, yStep);
+             }
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
+@@ -3,8 +3,11 @@
+ import com.photographer.focusstack.cr3.raw.Cr3Workers;
+ 
+ import java.awt.image.BufferedImage;
++import java.awt.image.DataBufferUShort;
++import java.awt.image.Raster;
+ import java.awt.image.WritableRaster;
+ import java.util.Arrays;
++import java.util.Hashtable;
+ 
+ /**
+  * Centered rectilinear lens calibration at one focal length, aperture and focus distance.
+@@ -86,6 +89,23 @@
+      * @return the input image after correction
+      */
+     public BufferedImage applyToOwned(BufferedImage image, boolean srgb, int maxWorkers, double shadingStrength) {
++        return apply(image, srgb, maxWorkers, shadingStrength, false);
++    }
++
++    /**
++     * Consumes an exclusively owned image and returns its corrected replacement.
++     * Dense RGB16 processing rotates the original channel arrays through one scratch
++     * plane. The caller must discard the supplied image and retain only the return
++     * value: the original image no longer describes the corrected RGB channels.
++     * Other layouts retain the in-place behavior of {@link #applyToOwned}.
++     */
++    public BufferedImage applyConsuming(BufferedImage image, boolean srgb, int maxWorkers,
++                                       double shadingStrength) {
++        return apply(image, srgb, maxWorkers, shadingStrength, true);
++    }
++
++    private BufferedImage apply(BufferedImage image, boolean srgb, int maxWorkers,
++                                double shadingStrength, boolean consume) {
+         if (!Double.isFinite(shadingStrength) || shadingStrength < 0 || shadingStrength > 1) {
+             throw new IllegalArgumentException("Shading strength must be in [0, 1]");
+         }
+@@ -104,6 +124,7 @@
+ 
+         Frame frame = new Frame(width, height, shadingStrength);
+         short[][] banks = Pixels.denseRgb16Bands(image);
++        boolean rotate = consume && banks != null;
+         int count = Math.multiplyExact(width, height);
+         short[] output16 = bits == 16 ? new short[count] : null;
+         byte[] output8 = bits == 8 ? new byte[count] : null;
+@@ -124,18 +145,34 @@
+             } else {
+                 source = (x, y) -> raster.getSample(x, y, channel);
+             }
++            short[] target16 = output16;
+             Cr3Workers.run(workers, worker -> {
+                 int first = Pixels.stripeStart(worker, height, workers);
+                 int end = Pixels.stripeStart(worker + 1, height, workers);
+-                frame.renderStripe(first, end, colorScale, source, decode, output16, output8, tiles[worker]);
++                frame.renderStripe(first, end, colorScale, source, decode, target16, output8, tiles[worker]);
+             });
+-            if (banks != null) {
++            if (rotate) {
++                // The full source plane is no longer needed after the worker barrier.
++                // Reuse it for the next channel instead of copying this result back.
++                short[] retired = banks[band];
++                banks[band] = output16;
++                output16 = retired;
++            } else if (banks != null) {
+                 System.arraycopy(output16, 0, banks[band], 0, count);
+             } else {
+                 writeBand(raster, band, width, height, output16, output8);
+             }
+         }
+-        return image;
++        if (!rotate) return image;
++        var corrected = Raster.createBandedRaster(new DataBufferUShort(banks, count),
++                width, height, width, new int[]{0, 1, 2}, new int[3], null);
++        String[] propertyNames = image.getPropertyNames();
++        Hashtable<String, Object> properties = null;
++        if (propertyNames != null) {
++            properties = new Hashtable<>();
++            for (String name : propertyNames) properties.put(name, image.getProperty(name));
++        }
++        return new BufferedImage(image.getColorModel(), corrected, image.isAlphaPremultiplied(), properties);
+     }
+ 
+     private static void writeBand(WritableRaster raster, int band, int width, int height, short[] high, byte[] low) {

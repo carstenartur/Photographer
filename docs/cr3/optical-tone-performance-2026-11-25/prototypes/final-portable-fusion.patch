@@ -1,0 +1,553 @@
+diff --git a/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java b/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
+index 87dc1b5..08b9ffc 100644
+--- a/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
++++ b/canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java
+@@ -397,6 +397,7 @@ public final class Cr3Decoder implements AutoCloseable {
+                         .orElse(null)
+                 : null;
+         BufferedImage rgb;
++        boolean toneApplied = false;
+         if (lens == null) {
+             rgb = developRegion(options, outputRegion, destination, xStep, yStep, track, fullArea, bounds);
+         } else {
+@@ -412,13 +413,22 @@ public final class Cr3Decoder implements AutoCloseable {
+             // Remapping and extracting the requested raster are successive allocations.
+             var planned = opticalMemoryOptions(options, opticalBytes, selectionBytes, fullArea.width);
+             rgb = developRegion(planned, null, select ? null : destination, 1, 1, track, fullArea, bounds);
+-            rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
+-                    options.lensShadingStrength());
++            boolean combined = !select && sampleBytes == 2 && options.applyCameraTone()
++                    && options.applySrgbConversion() && metadata != null
++                    && CameraToneCurve.supports(metadata.cameraModel(), metadata.pictureStyle());
++            if (combined) {
++                rgb = lens.applyToOwnedAndTone(rgb, true, options.maxWorkers(), options.lensShadingStrength(),
++                        metadata.cameraModel(), metadata.pictureStyle());
++                toneApplied = true;
++            } else {
++                rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
++                        options.lensShadingStrength());
++            }
+             if (select) {
+                 rgb = selectRgbSamples(rgb, region, xStep, yStep);
+             }
+         }
+-        if (options.applyCameraTone() && options.applySrgbConversion() && metadata != null) {
++        if (!toneApplied && options.applyCameraTone() && options.applySrgbConversion() && metadata != null) {
+             CameraToneCurve.apply(rgb, metadata.cameraModel(), metadata.pictureStyle(), options.maxWorkers());
+         }
+         return rgb;
+@@ -668,6 +678,15 @@ public final class Cr3Decoder implements AutoCloseable {
+     }
+ 
+     private static long sharedProcessingBytes(Cr3DecodeOptions options, int processingWidth) {
++        // Combined optical/tone processing keeps the blue scratch plane live
++        // during tone's first table initialization. Charge its shared storage
++        // alongside development and whichever later copy requires the most space.
++        long toneBytes = processingWidth > 0 && options.applySrgbConversion() && options.applyCameraTone()
++                ? CameraToneCurve.estimateTableBytes() : 0;
++        return sharedEncoderBytes(options, processingWidth) + toneBytes;
++    }
++
++    private static long sharedEncoderBytes(Cr3DecodeOptions options, int processingWidth) {
+         // RGB16 development and RGB8 tone or optical processing can first initialize
+         // this encoder. Reserve conservatively even if no matching profile is found.
+         // Bayer-only, linear and neutral RGB8 reads need no shared encoder storage.
+@@ -681,7 +700,7 @@ public final class Cr3Decoder implements AutoCloseable {
+                                                  long selectionBytes, int processingWidth) {
+         // The optical estimate already includes the encoder. Deduplicate only
+         // that component; the caller's copy and selection are separate storage.
+-        long opticalOnly = Math.max(0, opticalBytes - sharedProcessingBytes(options, processingWidth));
++        long opticalOnly = Math.max(0, opticalBytes - sharedEncoderBytes(options, processingWidth));
+         long workspace = Math.max(opticalOnly, selectionBytes);
+         return options.copy().postDecodeMemoryBytes(Math.max(options.postDecodeMemoryBytes(), workspace));
+     }
+diff --git a/canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java b/canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java
+index 6812610..ff35dea 100644
+--- a/canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java
++++ b/canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java
+@@ -3,6 +3,7 @@ package com.photographer.focusstack.cr3.decode;
+ import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.Estimate;
+ import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.ImageBytes;
+ import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
++import com.photographer.focusstack.cr3.processing.CameraToneCurve;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.params.ParameterizedTest;
+ import org.junit.jupiter.params.provider.EnumSource;
+@@ -64,6 +65,29 @@ class Cr3MemoryPolicyTest {
+                 "Subsampled RGB16 needs the same one-time tables");
+     }
+ 
++    @Test
++    void reservesToneTablesAlongsideOpticalWorkAndLaterCopies() throws Exception {
++        // Three double tables and one int table coexist with the blue optical
++        // scratch during combined processing, and remain live through later copies.
++        long toneTables = 65536L * (3 * Double.BYTES + Integer.BYTES);
++        long encoderTables = BayerDemosaicer.estimateSrgb16TableBytes();
++        for (var depth : Cr3DecodeOptions.BitDepth.values()) {
++            var neutral = Cr3DecodeOptions.rawProcessed(depth)
++                    .applyLensCorrection(false).applyCameraTone(false);
++            var toned = neutral.copy().applyCameraTone(true);
++            long extraEncoder = depth == Cr3DecodeOptions.BitDepth.EIGHT ? encoderTables : 0;
++            assertEquals(toneTables + extraEncoder, reportedPeak(toned) - reportedPeak(neutral),
++                    "Tone first use must reserve every shared array at " + depth);
++            long retainedPixels = 4L * (depth == Cr3DecodeOptions.BitDepth.EIGHT ? 4 : 6);
++            for (long laterCopy : new long[]{0, 5 * MIB}) {
++                var planned = Cr3Decoder.opticalMemoryOptions(toned,
++                        3 * MIB + encoderTables, laterCopy, 2);
++                assertEquals(retainedPixels + Math.max(3 * MIB, laterCopy) + encoderTables + toneTables,
++                        reportedPeak(planned), "Only the encoder is already in the optical estimate");
++            }
++        }
++    }
++
+     @Test
+     void reservesSharedEncoderStorageForSrgb8ToneWithoutChargingNeutralOrRawReads() throws Exception {
+         var neutral = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.EIGHT)
+@@ -74,9 +98,9 @@ class Cr3MemoryPolicyTest {
+         assertEquals(reportedPeak(neutral.copy().applySrgbConversion(false), 2, 2),
+                 reportedPeak(neutral.copy().applySrgbConversion(true), 2, 2),
+                 "Neutral RGB8 subsampling does not implicitly develop RGB16");
+-        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
++        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes() + CameraToneCurve.estimateTableBytes(),
+                 reportedPeak(neutral.copy().applyCameraTone(true)) - srgb,
+-                "Supported RGB8 camera tone can first initialize the shared encoder");
++                "RGB8 camera tone can first initialize both shared transfer and tone tables");
+         assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
+                 reportedPeak(neutral.copy().applyLensCorrection(true)) - srgb,
+                 "RGB8 lens correction can first initialize the shared encoder");
+diff --git a/canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java b/canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java
+index e867128..5d44f31 100644
+--- a/canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java
++++ b/canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java
+@@ -2,6 +2,7 @@ package com.photographer.focusstack.cr3.imageio;
+ 
+ import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+ import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
++import com.photographer.focusstack.cr3.processing.CameraToneCurve;
+ import com.photographer.focusstack.cr3.testutil.Cr3TestData;
+ import org.junit.jupiter.api.Test;
+ 
+@@ -59,8 +60,9 @@ class CanonCr3MemoryModeTest {
+                 assertEquals(902, image.getHeight());
+                 int bands = bayer ? 1 : 3;
+                 // The decoded result, automatic target, transfer row and caller hint coexist
+-                // with the first-use encoder tables for sRGB16, but not for Bayer output.
+-                long shared = bayer ? 0 : BayerDemosaicer.estimateSrgb16TableBytes();
++                // with first-use encoder and enabled tone tables, but not for Bayer output.
++                long shared = bayer ? 0 : BayerDemosaicer.estimateSrgb16TableBytes()
++                        + CameraToneCurve.estimateTableBytes();
+                 long peak = (4L + 902L * 902) * 2 * bands + 2 * 4 * bands + 4096 + shared;
+                 assertTrue(messages.toString(StandardCharsets.UTF_8).contains("estimated normal-path heap " + peak
+                         + " bytes"), messages::toString);
+diff --git a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java
+index ead5145..f940428 100644
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java
+@@ -19,6 +19,15 @@ public final class CameraToneCurve {
+ 
+     private CameraToneCurve() {}
+ 
++    /**
++     * Returns the array payload first allocated by supported display tone. These
++     * tables are shared across imports and workers. Querying this estimate does
++     * not initialize them; array headers and collector reserves are not included.
++     */
++    public static long estimateTableBytes() {
++        return (MAX + 1L) * (3 * Double.BYTES + Integer.BYTES);
++    }
++
+     /** Returns whether this camera and recorded Canon Picture Style have been evaluated. */
+     public static boolean supports(String cameraModel, int pictureStyle) {
+         if (cameraModel == null) return false;
+@@ -48,7 +57,7 @@ public final class CameraToneCurve {
+             Cr3Workers.run(stripes, stripe -> {
+                 int first = width * Pixels.stripeStart(stripe, height, stripes);
+                 int end = width * Pixels.stripeStart(stripe + 1, height, stripes);
+-                transform16(bands[0], bands[1], bands[2], first, end);
++                transform16(bands[0], bands[1], bands[2], bands[2], first, end);
+             });
+         } else if (bits == 8) {
+             Pixels.transform(image, maxWorkers, CameraToneCurve::transform8);
+@@ -71,13 +80,13 @@ public final class CameraToneCurve {
+         return true;
+     }
+ 
+-    private static void transform16(short[] red, short[] green, short[] blue, int first, int end) {
++    static void transform16(short[] red, short[] green, short[] blueInput, short[] blueOutput, int first, int end) {
+         for (int i = first; i < end; i++) {
+-            int r = Short.toUnsignedInt(red[i]), g = Short.toUnsignedInt(green[i]), b = Short.toUnsignedInt(blue[i]);
++            int r = Short.toUnsignedInt(red[i]), g = Short.toUnsignedInt(green[i]), b = Short.toUnsignedInt(blueInput[i]);
+             int peak = Math.max(r, Math.max(g, b));
+             red[i] = (short) applyGain(r, peak);
+             green[i] = (short) applyGain(g, peak);
+-            blue[i] = (short) applyGain(b, peak);
++            blueOutput[i] = (short) applyGain(b, peak);
+         }
+     }
+ 
+diff --git a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
+index 13fcabe..adc1c4e 100644
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java
+@@ -86,6 +86,36 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
+      * @return the input image after correction
+      */
+     public BufferedImage applyToOwned(BufferedImage image, boolean srgb, int maxWorkers, double shadingStrength) {
++        return apply(image, srgb, maxWorkers, shadingStrength, false);
++    }
++
++    /**
++     * Applies optics and supported display tone to a complete image, preserving its
++     * object identity. Dense RGB16 combines the last optical plane commit with the
++     * tone traversal. All other cases retain the sequential public operations.
++     * Region selection must precede an independent tone operation when the caller
++     * requests only part of the complete optical field.
++     * For combined first use, add {@link CameraToneCurve#estimateTableBytes()} to
++     * {@link #estimatedWorkspaceBytes(int, int, int, int)}: the tone tables coexist
++     * with the optical scratch plane.
++     */
++    public BufferedImage applyToOwnedAndTone(BufferedImage image, boolean srgb, int maxWorkers,
++                                             double shadingStrength, String cameraModel, int pictureStyle) {
++        boolean tone = srgb && CameraToneCurve.supports(cameraModel, pictureStyle);
++        boolean identity = a == 0 && b == 0 && c == 0 && redScale == 1
++                && blueScale == 1 && k1 == 0 && k2 == 0 && k3 == 0;
++        if (!tone || image.getWidth() < 2 || image.getHeight() < 2 || identity
++                || !image.getColorModel().getColorSpace().isCS_sRGB()
++                || Pixels.denseRgb16Bands(image) == null) {
++            BufferedImage result = applyToOwned(image, srgb, maxWorkers, shadingStrength);
++            if (tone) CameraToneCurve.apply(result, cameraModel, pictureStyle, maxWorkers);
++            return result;
++        }
++        return apply(image, srgb, maxWorkers, shadingStrength, true);
++    }
++
++    private BufferedImage apply(BufferedImage image, boolean srgb, int maxWorkers,
++                                double shadingStrength, boolean fuseTone) {
+         if (!Double.isFinite(shadingStrength) || shadingStrength < 0 || shadingStrength > 1) {
+             throw new IllegalArgumentException("Shading strength must be in [0, 1]");
+         }
+@@ -129,7 +159,15 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
+                 int end = Pixels.stripeStart(worker + 1, height, workers);
+                 frame.renderStripe(first, end, colorScale, source, decode, output16, output8, tiles[worker]);
+             });
+-            if (banks != null) {
++            if (fuseTone && band == 2) {
++                // Every blue source read has finished. Red and green are already
++                // corrected; tone reads the blue scratch plane and commits its result.
++                Cr3Workers.run(workers, worker -> {
++                    int first = width * Pixels.stripeStart(worker, height, workers);
++                    int end = width * Pixels.stripeStart(worker + 1, height, workers);
++                    CameraToneCurve.transform16(banks[0], banks[1], output16, banks[2], first, end);
++                });
++            } else if (banks != null) {
+                 System.arraycopy(output16, 0, banks[band], 0, count);
+             } else {
+                 writeBand(raster, band, width, height, output16, output8);
+diff --git a/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java b/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java
+new file mode 100644
+index 0000000..8ee1921
+--- /dev/null
++++ b/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java
+@@ -0,0 +1,58 @@
++package com.photographer.focusstack.cr3.processing;
++
++import org.junit.jupiter.api.Test;
++
++import java.lang.reflect.Array;
++import java.lang.reflect.Modifier;
++import java.net.URL;
++import java.net.URLClassLoader;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++class CameraToneMemoryEstimateTest {
++    @Test
++    void firstUseEstimateCoversEveryActualToneArray() throws Exception {
++        // Inspect the owning arrays, so a new or enlarged table cannot escape the estimate.
++        Class<?> tables = Class.forName(CameraToneCurve.class.getName() + "$Tables");
++        long payload = 0;
++        for (var field : tables.getDeclaredFields()) {
++            if (!Modifier.isStatic(field.getModifiers()) || !field.getType().isArray()) continue;
++            int elementBytes = switch (field.getType().componentType().getName()) {
++                case "double", "long" -> Long.BYTES;
++                case "int", "float" -> Integer.BYTES;
++                case "short", "char" -> Short.BYTES;
++                case "byte", "boolean" -> Byte.BYTES;
++                default -> throw new AssertionError("Unaccounted tone storage: " + field);
++            };
++            field.setAccessible(true);
++            payload += (long) Array.getLength(field.get(null)) * elementBytes;
++        }
++        assertTrue(payload > 0, "The owning tone tables must be inspected");
++        assertEquals(payload, CameraToneCurve.estimateTableBytes());
++    }
++
++    @Test
++    void estimateAndCoverageQueriesDoNotLoadToneTablesAtStartup() throws Exception {
++        String owner = CameraToneCurve.class.getName();
++        URL location = CameraToneCurve.class.getProtectionDomain().getCodeSource().getLocation();
++        // A fresh loader keeps this independent of test order and already initialized tables.
++        try (var loader = new URLClassLoader(new URL[]{location}, ClassLoader.getPlatformClassLoader()) {
++            @Override
++            protected Class<?> findClass(String name) throws ClassNotFoundException {
++                if (name.equals(owner + "$Tables")) {
++                    throw new AssertionError("Estimation and coverage queries must not initialize tone storage");
++                }
++                return super.findClass(name);
++            }
++        }) {
++            Class<?> isolated = Class.forName(owner, true, loader);
++            assertNotSame(CameraToneCurve.class, isolated);
++            assertEquals(CameraToneCurve.estimateTableBytes(),
++                    (long) isolated.getMethod("estimateTableBytes").invoke(null));
++            assertEquals(Boolean.TRUE, isolated.getMethod("supports", String.class, int.class)
++                    .invoke(null, "Canon PowerShot G5 X Mark II", 0x85));
++            assertEquals(Boolean.FALSE, isolated.getMethod("supports", String.class, int.class)
++                    .invoke(null, "Unprofiled camera", 0x85));
++        }
++    }
++}
+diff --git a/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java b/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java
+new file mode 100644
+index 0000000..34f4ba9
+--- /dev/null
++++ b/canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java
+@@ -0,0 +1,201 @@
++package com.photographer.focusstack.cr3.processing;
++
++import org.junit.jupiter.api.Test;
++
++import java.awt.Transparency;
++import java.awt.color.ColorSpace;
++import java.awt.image.BandedSampleModel;
++import java.awt.image.BufferedImage;
++import java.awt.image.ComponentColorModel;
++import java.awt.image.DataBuffer;
++import java.awt.image.DataBufferUShort;
++import java.awt.image.Raster;
++import java.util.Arrays;
++
++import static org.junit.jupiter.api.Assertions.*;
++
++class OpticalToneFusionTest {
++    private static final String G5 = "Canon PowerShot G5 X Mark II";
++    private static final OpticalCorrection IDENTITY = new OpticalCorrection(0, 0, 0, 1, 1, 0, 0, 0);
++    private static final OpticalCorrection LENS = new OpticalCorrection(.03, -.12, .02, 1.001, .999, -.6, .05, -.01);
++
++    @Test
++    void matchesSequentialCorrectionAcrossLayoutsAndWorkerCounts() {
++        for (Layout layout : Layout.values()) {
++            for (int workers : new int[]{1, 4}) {
++                compare(layout, 79, 61, true, workers, G5, 0x85);
++            }
++        }
++        // More than 256K pixels; up to three stripes with boundaries off the tile grid.
++        for (Layout layout : new Layout[]{Layout.DENSE16, Layout.PERMUTED16}) {
++            for (int workers : new int[]{1, 4}) {
++                compare(layout, 1024, 773, true, workers, G5, 0x85);
++            }
++        }
++    }
++
++    @Test
++    void leavesLinearLightToneDisabled() {
++        compare(Layout.DENSE16, 79, 61, false, 4, G5, 0x85);
++    }
++
++    @Test
++    void metadataSelectsTheSameSupportedAndUnsupportedTonePaths() {
++        String[] cameras = {null, "Unprofiled camera", G5, "Canon EOS R", "Canon EOS R"};
++        int[] styles = {0x85, 0x85, -1, 0x81, 0x86};
++        for (int i = 0; i < cameras.length; i++) {
++            compare(Layout.PERMUTED16, 31, 33, true, 4, cameras[i], styles[i]);
++        }
++    }
++
++    @Test
++    void identityAndSinglePixelFallbackApplyToneExactlyOnce() {
++        assertToneOnce(IDENTITY, 31, 33);
++        assertToneOnce(IDENTITY, 1, 1);
++        assertToneOnce(LENS, 1, 1);
++    }
++
++    @Test
++    void rejectsInvalidStrengthWorkersAndSampleLayout() {
++        for (double strength : new double[]{Double.NaN, -.1, 1.1, Double.POSITIVE_INFINITY}) {
++            assertThrows(IllegalArgumentException.class, () -> LENS.applyToOwnedAndTone(
++                    fixture(Layout.DENSE16, 7, 5, true).image(), true, 1, strength, G5, 0x85));
++        }
++        assertThrows(IllegalArgumentException.class, () -> LENS.applyToOwnedAndTone(
++                fixture(Layout.DENSE16, 7, 5, true).image(), true, -1, 1, G5, 0x85));
++        assertThrows(IllegalArgumentException.class, () -> LENS.applyToOwnedAndTone(
++                new BufferedImage(7, 5, BufferedImage.TYPE_USHORT_GRAY), true, 1, 1, G5, 0x85));
++    }
++
++    @Test
++    void incompatibleColorSpaceStillFailsAfterTheSameOpticalMutation() {
++        var expected = fixture(Layout.DENSE16, 31, 33, false).image();
++        var actual = fixture(Layout.DENSE16, 31, 33, false).image();
++        LENS.applyToOwned(expected, true, 1, .35);
++        assertThrows(IllegalArgumentException.class, () -> CameraToneCurve.apply(expected, G5, 0x85, 1));
++        assertThrows(IllegalArgumentException.class,
++                () -> LENS.applyToOwnedAndTone(actual, true, 1, .35, G5, 0x85));
++        assertPixels(expected, actual, "optics before rejected tone");
++    }
++
++    private static void compare(Layout layout, int width, int height, boolean srgb, int workers,
++                                String camera, int style) {
++        Fixture expected = fixture(layout, width, height, srgb);
++        Fixture candidate = fixture(layout, width, height, srgb);
++        var raster = candidate.image().getRaster();
++        var model = candidate.image().getColorModel();
++        short[][] before = Pixels.denseRgb16Bands(candidate.image());
++        LENS.applyToOwned(expected.image(), srgb, workers, .35);
++        if (srgb) CameraToneCurve.apply(expected.image(), camera, style, workers);
++
++        var actual = LENS.applyToOwnedAndTone(candidate.image(), srgb, workers, .35, camera, style);
++        String label = layout + ", " + width + "x" + height + ", workers=" + workers
++                + ", srgb=" + srgb + ", camera=" + camera + ", style=" + style;
++        assertSame(candidate.image(), actual, label);
++        assertSame(raster, actual.getRaster(), label);
++        assertSame(model, actual.getColorModel(), label);
++        assertPixels(expected.image(), actual, label);
++        if (before != null) {
++            short[][] after = Pixels.denseRgb16Bands(actual);
++            assertNotNull(after, label);
++            for (int band = 0; band < 3; band++) assertSame(before[band], after[band], label);
++        }
++        if (expected.parent() != null) {
++            assertPixels(expected.parent(), candidate.parent(), label + ", including untouched borders");
++        }
++        if (layout == Layout.PADDED16) {
++            var expectedData = (DataBufferUShort) expected.image().getRaster().getDataBuffer();
++            var actualData = (DataBufferUShort) actual.getRaster().getDataBuffer();
++            for (int band = 0; band < 3; band++) {
++                assertArrayEquals(expectedData.getData(band), actualData.getData(band), label + ", padding");
++            }
++        }
++    }
++
++    private static void assertToneOnce(OpticalCorrection correction, int width, int height) {
++        var expected = fixture(Layout.DENSE16, width, height, true).image();
++        var actual = fixture(Layout.DENSE16, width, height, true).image();
++        int[] input = {10000, 17000, 23000};
++        expected.getRaster().setPixel(0, 0, input);
++        actual.getRaster().setPixel(0, 0, input);
++        assertTrue(CameraToneCurve.apply(expected, G5, 0x85, 4));
++        int[] once = expected.getRaster().getPixel(0, 0, (int[]) null);
++        assertFalse(Arrays.equals(input, once), "The fixture must detect missing tone");
++        assertSame(actual, correction.applyToOwnedAndTone(actual, true, 4, 1, G5, 0x85));
++        assertPixels(expected, actual, "tone exactly once after optical early return");
++        CameraToneCurve.apply(expected, G5, 0x85, 4);
++        assertFalse(Arrays.equals(once, expected.getRaster().getPixel(0, 0, (int[]) null)),
++                "The fixture must detect repeated tone");
++    }
++
++    private enum Layout {
++        DENSE16, PERMUTED16, INTERLEAVED16, TRANSLATED16, PADDED16,
++        PACKED8, INTERLEAVED8, TRANSLATED8
++    }
++
++    private record Fixture(BufferedImage image, BufferedImage parent) {}
++
++    private static Fixture fixture(Layout layout, int width, int height, boolean srgb) {
++        boolean eight = layout == Layout.PACKED8 || layout == Layout.INTERLEAVED8 || layout == Layout.TRANSLATED8;
++        var space = ColorSpace.getInstance(srgb ? ColorSpace.CS_sRGB : ColorSpace.CS_LINEAR_RGB);
++        var model = new ComponentColorModel(space, false, false, Transparency.OPAQUE,
++                eight ? DataBuffer.TYPE_BYTE : DataBuffer.TYPE_USHORT);
++        BufferedImage parent = null;
++        BufferedImage image;
++        switch (layout) {
++            case PACKED8 -> image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
++            case INTERLEAVED8, INTERLEAVED16 -> image = new BufferedImage(model,
++                    model.createCompatibleWritableRaster(width, height), false, null);
++            case TRANSLATED8, TRANSLATED16 -> {
++                parent = new BufferedImage(model, model.createCompatibleWritableRaster(width + 11, height + 9),
++                        false, null);
++                fill(parent);
++                image = parent.getSubimage(5, 3, width, height);
++            }
++            case PADDED16 -> {
++                int stride = width + 5;
++                var samples = new BandedSampleModel(DataBuffer.TYPE_USHORT, width, height, stride,
++                        new int[]{0, 1, 2}, new int[3]);
++                var data = new DataBufferUShort(new short[3][stride * height], stride * height);
++                image = new BufferedImage(model, Raster.createWritableRaster(samples, data, null), false, null);
++            }
++            default -> {
++                int[] indices = layout == Layout.PERMUTED16 ? new int[]{2, 0, 1} : new int[]{0, 1, 2};
++                var data = new DataBufferUShort(new short[3][width * height], width * height);
++                image = new BufferedImage(model, Raster.createBandedRaster(data, width, height, width,
++                        indices, new int[3], null), false, null);
++            }
++        }
++        fill(image);
++        return new Fixture(image, parent);
++    }
++
++    private static void fill(BufferedImage image) {
++        int maximum = image.getSampleModel().getSampleSize(0) == 8 ? 255 : 65535;
++        int[] pixel = new int[3];
++        for (int y = 0; y < image.getHeight(); y++) {
++            for (int x = 0; x < image.getWidth(); x++) {
++                for (int band = 0; band < 3; band++) {
++                    int value = (x * 1451 + y * 2539 + band * 7919 + x * y * 17) & maximum;
++                    if ((x + y + band) % 31 == 0) value = 0;
++                    if ((x + 3 * y + band) % 37 == 0) value = maximum;
++                    pixel[band] = value;
++                }
++                image.getRaster().setPixel(x, y, pixel);
++            }
++        }
++    }
++
++    private static void assertPixels(BufferedImage expected, BufferedImage actual, String label) {
++        assertEquals(expected.getWidth(), actual.getWidth(), label);
++        assertEquals(expected.getHeight(), actual.getHeight(), label);
++        assertEquals(expected.getColorModel(), actual.getColorModel(), label);
++        int[] expectedRow = new int[expected.getWidth() * 3];
++        int[] actualRow = new int[expectedRow.length];
++        for (int y = 0; y < expected.getHeight(); y++) {
++            expected.getRaster().getPixels(0, y, expected.getWidth(), 1, expectedRow);
++            actual.getRaster().getPixels(0, y, actual.getWidth(), 1, actualRow);
++            assertArrayEquals(expectedRow, actualRow, label + ", row " + y);
++        }
++    }
++}
+diff --git a/docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java b/docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java
+new file mode 100644
+index 0000000..0f09b21
+--- /dev/null
++++ b/docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java
+@@ -0,0 +1,31 @@
++package com.photographer.focusstack.cr3.processing;
++
++import org.junit.jupiter.api.Test;
++
++import java.lang.reflect.InvocationTargetException;
++import java.util.Arrays;
++import java.util.Comparator;
++
++/** Runs the production processing regressions against a frozen packaged JAR. */
++public final class OpticalToneChecks {
++    public static void main(String[] args) throws Exception {
++        int checks = 0;
++        for (Class<?> type : new Class<?>[]{OpticalToneFusionTest.class, CameraToneMemoryEstimateTest.class,
++                OpticalCorrectionRegressionTest.class, CameraToneCurveTest.class,
++                Srgb16EncoderTest.class, Rgb16MemoryEstimateTest.class}) {
++            Object instance = type.getDeclaredConstructor().newInstance();
++            var methods = type.getDeclaredMethods();
++            Arrays.sort(methods, Comparator.comparing(java.lang.reflect.Method::getName));
++            for (var method : methods) {
++                if (!method.isAnnotationPresent(Test.class)) continue;
++                try {
++                    method.invoke(instance);
++                } catch (InvocationTargetException failure) {
++                    throw new AssertionError(type.getSimpleName() + "." + method.getName(), failure.getCause());
++                }
++                checks++;
++            }
++        }
++        System.out.println("PASS processing checks=" + checks + ", java=" + System.getProperty("java.runtime.version"));
++    }
++}

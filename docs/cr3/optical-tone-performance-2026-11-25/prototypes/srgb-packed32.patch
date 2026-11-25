@@ -1,0 +1,121 @@
+--- a/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/Srgb16Encoder.java
++++ b/canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/Srgb16Encoder.java
+@@ -3,14 +3,19 @@
+ /** Final sRGB quantization without a power evaluation for every channel. */
+ final class Srgb16Encoder {
+     // Fifteen leading mantissa bits in each exponent range from 2^-9 through 1.
+-    // The remaining input bits still participate in the exact boundary comparison.
+-    private static final int SEED_COUNT = 9 * 32768;
++    // Ambiguity from rounded thresholds always uses the original forward expression.
++    private static final int ENTRY_COUNT = 9 * 32768;
+     private static final int BUCKET_SHIFT = 37;
+     private static final long BASE_BITS = 0x3f60000000000000L; // 2^-9.
++    private static final long ONE_BITS = 0x3ff0000000000000L;
+     private static final long BUCKET_BITS = 1L << BUCKET_SHIFT;
++    private static final int SCALE_SHIFT = 26;
++    private static final long HALF = 1L << (SCALE_SHIFT - 1);
+     private static final int MAX_CODE = 65535;
+-    // A constant expression lets memory planning reserve first-use tables without initializing them.
+-    static final long TABLE_BYTES = (long) SEED_COUNT * Short.BYTES + (MAX_CODE + 2L) * Long.BYTES;
++    private static final long RETAINED_TABLE_BYTES = (long) ENTRY_COUNT * Integer.BYTES;
++    private static final long BOOTSTRAP_TABLE_BYTES = (MAX_CODE + 2L) * Long.BYTES;
++    // Scratch-only conservative first-use array peak; final lifetime accounting is not integrated.
++    static final long TABLE_BYTES = RETAINED_TABLE_BYTES + BOOTSTRAP_TABLE_BYTES;
+     // For p = x^(1.0/2.4), pow's one-ulp error and the three rounded operations
+     // bound each forward error by 2.51 * 2^-52 * 1.055 * p * MAX_CODE.
+     // Two allowed evaluations can move a boundary by less than 27 input ulps,
+@@ -18,6 +23,8 @@
+     // Use 32 and the original
+     // expression there, including any interpreter/JIT implementation variation.
+     private static final int BOUNDARY_GUARD_ULPS = 32;
++    // Rounded thresholds add at most HALF raw-bit steps to that original allowance.
++    private static final long QUANTIZED_GUARD_ULPS = HALF + BOUNDARY_GUARD_ULPS;
+ 
+     private Srgb16Encoder() {}
+ 
+@@ -32,16 +39,17 @@
+             return (short) referenceCode(linear);
+         }
+ 
+-        long bits = Double.doubleToRawLongBits(linear);
+-        int bucket = (int) ((bits - BASE_BITS) >>> BUCKET_SHIFT);
+-        int code = Tables.SEEDS[bucket] & 0xffff;
++        long relative = Double.doubleToRawLongBits(linear) - BASE_BITS;
++        int bucket = (int) (relative >>> BUCKET_SHIFT);
++        int entry = Tables.ENTRIES[bucket];
++        int code = entry & 0xffff;
+         if (code == 0) {
+             return (short) referenceCode(linear);
+         }
+-        long distance = Tables.BOUNDARIES[code + 1] - bits;
+-        // Both raw encodings are nonnegative, so their difference cannot overflow
+-        // or equal Long.MIN_VALUE. The absolute-value guard is therefore exact.
+-        if (Math.abs(distance) <= BOUNDARY_GUARD_ULPS) return (short) referenceCode(linear);
++        long distance = ((long) (entry >>> 16) << SCALE_SHIFT) - (relative & (BUCKET_BITS - 1));
++        // The represented delta is below 2^42, and the bucket fraction is below 2^37.
++        // Their difference cannot overflow or equal Long.MIN_VALUE.
++        if (Math.abs(distance) <= QUANTIZED_GUARD_ULPS) return (short) referenceCode(linear);
+         return (short) (code + (int) (distance >>> 63));
+     }
+ 
+@@ -49,21 +57,17 @@
+         return (int) Math.round(MAX_CODE * SrgbConverter.linearToSrgb(linear));
+     }
+ 
+-    /** Built only for sRGB output; linear development allocates neither table. */
++    /** Built only for sRGB output; the boundary array is local to initialization. */
+     private static final class Tables {
+-        private static final long[] BOUNDARIES = new long[MAX_CODE + 2];
+-        private static final short[] SEEDS = new short[SEED_COUNT];
++        private static final int[] ENTRIES = new int[ENTRY_COUNT];
+ 
+         static {
+-            for (int code = 1; code <= MAX_CODE; code++) {
+-                BOUNDARIES[code] = boundary(code);
+-            }
+-            BOUNDARIES[MAX_CODE + 1] = Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
++            long[] boundaries = buildBoundaries();
+             int code = 0;
+-            for (int bucket = 0; bucket < SEED_COUNT; bucket++) {
++            for (int bucket = 0; bucket < ENTRY_COUNT; bucket++) {
+                 long first = BASE_BITS + ((long) bucket << BUCKET_SHIFT);
+                 long end = first + BUCKET_BITS; // Exclusive: its predecessor belongs to this bucket.
+-                while (code < MAX_CODE && BOUNDARIES[code + 1] <= first) code++;
++                while (code < MAX_CODE && boundaries[code + 1] <= first) code++;
+                 // Certify the entire bucket against the original exact transitions.
+                 // Its first input is more than 32 representable steps above code's
+                 // transition. Because end is exclusive, its last input is at least
+@@ -71,11 +75,30 @@
+                 // including the permitted variation between pow implementations.
+                 // Zero marks an uncertified bucket; nonlinear inputs have positive codes.
+                 // The max-code case uses the positive-infinity upper sentinel.
+-                if (code > 0 && first > BOUNDARIES[code] + BOUNDARY_GUARD_ULPS
+-                        && end <= BOUNDARIES[Math.min(code + 2, MAX_CODE + 1)] - BOUNDARY_GUARD_ULPS) {
+-                    SEEDS[bucket] = (short) code;
++                if (code > 0 && first > boundaries[code] + BOUNDARY_GUARD_ULPS
++                        && end <= boundaries[Math.min(code + 2, MAX_CODE + 1)] - BOUNDARY_GUARD_ULPS) {
++                    long nextBoundary = code == MAX_CODE ? ONE_BITS : boundaries[code + 1];
++                    ENTRIES[bucket] = packEntry(code, nextBoundary - first);
+                 }
+             }
++        }
++
++        private static int packEntry(int code, long delta) {
++            if (delta < 0) return 0;
++            // Eligible boundaries and bucket starts are in [2^-9,1], so this addition cannot overflow.
++            long ticks = (delta + HALF) >>> SCALE_SHIFT;
++            // Keep the full long until fit is known. A failed fit leaves the original-expression fallback.
++            if (ticks >= 0 && ticks <= 0xffffL) return ((int) ticks << 16) | code;
++            return 0;
++        }
++
++        private static long[] buildBoundaries() {
++            long[] boundaries = new long[MAX_CODE + 2];
++            for (int code = 1; code <= MAX_CODE; code++) {
++                boundaries[code] = boundary(code);
++            }
++            boundaries[MAX_CODE + 1] = Double.doubleToRawLongBits(Double.POSITIVE_INFINITY);
++            return boundaries;
+         }
+ 
+         private static long boundary(int code) {

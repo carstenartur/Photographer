@@ -91,6 +91,30 @@ These classes implement the internal CR3 rendering pipeline. The facade resolves
 
 On supported RAW and C-RAW files, `ImageIO.read(File)` returns a full-resolution sRGB image with three unsigned 16-bit bands. This is the ImageIO default since 0.1.9. The core factory `Cr3DecodeOptions.rawProcessed()` selects RGB8. For explicit RGB16 use `rawProcessed().bitDepth(Cr3DecodeOptions.BitDepth.SIXTEEN)`. RGB16 normalization, interpolation and color conversion retain fractional values through the final clamp and rounding to `0..65535`. Disabling sRGB conversion selects linear RGB. [ImageIO sample access and options](imageio.md) · [0.1.9 release notes](../releases/0.1.9.md)
 
+### Optical correction and camera tone
+
+Processed-RAW factories enable supported lens correction and camera tone by
+default. Each stage remains independently selectable through
+`applyLensCorrection(false)` and `applyCameraTone(false)`. Linear RGB skips the
+display tone curve. Profile matching and the evaluated body/Picture Style set
+still determine whether a stage applies.
+
+Optical correction and camera tone remain sequential operations. Region and
+subsampled reads correct the full optical field, select the requested samples,
+and then tone only that result. A combined final-channel transfer was evaluated
+but rejected after complete-import regressions; it is not an active runtime path.
+[Optical processing](../../canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java)
+
+The heap planner reserves the shared tone tables (1,835,008 array-payload bytes)
+alongside processing workspace and later copies. This existing table storage
+was previously omitted from the shared reserve. The estimate does not initialize
+it, and conservatively reserves first use even when optical scratch can be
+reclaimed before tone or the tables were already initialized. Only the encoder
+is deducted from optical workspace because that workspace already includes it.
+Tone-disabled, linear and Bayer reads receive no tone-table reserve. Worker
+limits remain automatic and CPU-derived, subject to the existing memory policy.
+[Complete-import evidence and reproduction](optical-tone-performance-2026-11-25/README.md)
+
 ### Caller-supplied RGB16 storage
 
 For EXIF orientations 5–8, source columns become destination rows. Normal-memory RGB16 development visits up to 32 neighboring source columns over 128 rows at a time. The next scanline revisits the same destination cache lines. Each tile includes a one-column interpolation halo, and the shared normalization code uses the original sensor coordinates for black levels and white balance. [Transposed RGB16 development](../../canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/TransposedRgb16Rows.java)

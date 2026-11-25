@@ -1,0 +1,387 @@
+{
+  "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+  "baseline_jar_sha256": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+  "scope": "JFR execution samples from four full-default-import processes, including warmups. Frames containing Cr3ImportProbe.hash excluded. Inlined top-frame attribution is not isolated instruction timing. Profile durations are not used for comparative throughput claims. JFR binaries are not committed.",
+  "runs": [
+    {
+      "runtime": "jdk25",
+      "camera": "g5",
+      "command": [
+        "taskset",
+        "-c",
+        "4-7",
+        "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+        "-Xmx768m",
+        "-XX:+UseSerialGC",
+        "-XX:ActiveProcessorCount=4",
+        "-XX:StartFlightRecording=settings=profile,filename=/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk25-g5.jfr,dumponexit=true",
+        "-cp",
+        "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+        "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "--input",
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+        "--mode",
+        "default",
+        "--workers",
+        "0",
+        "--warmup",
+        "5",
+        "--iterations",
+        "12",
+        "--checksum"
+      ],
+      "recording": "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk25-g5.jfr",
+      "recording_sha256": "2e8f1e0f074d1a5eca03202f1e0030e90a6041e5866b62cdc351f8373861d445",
+      "sample_count_excluding_hash": 3644,
+      "hash_samples_excluded": 327,
+      "top_frames": [
+        [
+          "com.photographer.focusstack.cr3.processing.Srgb16Encoder.encode",
+          2473
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.readRow",
+          285
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.developRows",
+          276
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          155
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.correctRow",
+          145
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxEntropyState.readRunLength",
+          66
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          57
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxTrackInput$Window.index",
+          37
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.write",
+          32
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.BitReader.readRice",
+          22
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.transform16",
+          21
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.decodeSensor",
+          19
+        ]
+      ],
+      "encoder_callers": [
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          2268
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.quantize",
+          206
+        ]
+      ]
+    },
+    {
+      "runtime": "jdk25",
+      "camera": "eos",
+      "command": [
+        "taskset",
+        "-c",
+        "4-7",
+        "/workspace/scratch/743c18c2db2f/math-reach.4xbJwv/jdk25/bin/java",
+        "-Xmx768m",
+        "-XX:+UseSerialGC",
+        "-XX:ActiveProcessorCount=4",
+        "-XX:StartFlightRecording=settings=profile,filename=/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk25-eos.jfr,dumponexit=true",
+        "-cp",
+        "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+        "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "--input",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+        "--mode",
+        "default",
+        "--workers",
+        "0",
+        "--warmup",
+        "5",
+        "--iterations",
+        "12",
+        "--checksum"
+      ],
+      "recording": "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk25-eos.jfr",
+      "recording_sha256": "f718858531e0f1dcd57c89ace25565d679d033d12952a33614bbecb9b8632c0a",
+      "sample_count_excluding_hash": 5725,
+      "hash_samples_excluded": 534,
+      "top_frames": [
+        [
+          "com.photographer.focusstack.cr3.processing.Srgb16Encoder.encode",
+          4016
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.developRows",
+          481
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.readRow",
+          376
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          370
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.BitReader.readBit",
+          127
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.radiance",
+          73
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.correctRow",
+          60
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.BlackLevel.levelAt",
+          57
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.write",
+          49
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          31
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.transform16",
+          18
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.decodeSensor",
+          15
+        ]
+      ],
+      "encoder_callers": [
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          3612
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.quantize",
+          353
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          51
+        ]
+      ]
+    },
+    {
+      "runtime": "jdk21",
+      "camera": "g5",
+      "command": [
+        "taskset",
+        "-c",
+        "4-7",
+        "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+        "-Xmx768m",
+        "-XX:+UseSerialGC",
+        "-XX:ActiveProcessorCount=4",
+        "-XX:StartFlightRecording=settings=profile,filename=/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk21-g5.jfr,dumponexit=true",
+        "-cp",
+        "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+        "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "--input",
+        "canon-cr3-imageio/src/test/resources/samples/sample.cr3",
+        "--mode",
+        "default",
+        "--workers",
+        "0",
+        "--warmup",
+        "5",
+        "--iterations",
+        "12",
+        "--checksum"
+      ],
+      "recording": "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk21-g5.jfr",
+      "recording_sha256": "3c7fdf59ebaf7c6e6f91e47f0ba500df71d04eb31fb980ecf978e1d512242221",
+      "sample_count_excluding_hash": 3290,
+      "hash_samples_excluded": 330,
+      "top_frames": [
+        [
+          "com.photographer.focusstack.cr3.processing.Srgb16Encoder.encode",
+          2349
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.developRows",
+          280
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.readRow",
+          208
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          132
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxEntropyState.readRunLength",
+          74
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.BlackLevel.levelAt",
+          47
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          30
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.write",
+          29
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.correctRow",
+          25
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.transform16",
+          22
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxTrackInput$Window.index",
+          21
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.ObBlackLevelEstimator.accumulate",
+          16
+        ]
+      ],
+      "encoder_callers": [
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          2146
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.quantize",
+          203
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          1
+        ]
+      ]
+    },
+    {
+      "runtime": "jdk21",
+      "camera": "eos",
+      "command": [
+        "taskset",
+        "-c",
+        "4-7",
+        "/usr/lib/jvm/java-21-openjdk-amd64/bin/java",
+        "-Xmx768m",
+        "-XX:+UseSerialGC",
+        "-XX:ActiveProcessorCount=4",
+        "-XX:StartFlightRecording=settings=profile,filename=/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk21-eos.jfr,dumponexit=true",
+        "-cp",
+        "/workspace/scratch/80a209e8f5df/cr3-throughput/classes:/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/baseline/benchmarks.jar",
+        "com.photographer.focusstack.cr3.benchmark.Cr3ImportProbe",
+        "--input",
+        "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3",
+        "--mode",
+        "default",
+        "--workers",
+        "0",
+        "--warmup",
+        "5",
+        "--iterations",
+        "12",
+        "--checksum"
+      ],
+      "recording": "/workspace/scratch/80a209e8f5df/cr3-pipeline-throughput/profile/jdk21-eos.jfr",
+      "recording_sha256": "f2feadf9b3e0f9588f6b175fdf9be7e5bc4d0008cad646349ae2187290a76fbd",
+      "sample_count_excluding_hash": 6168,
+      "hash_samples_excluded": 513,
+      "top_frames": [
+        [
+          "com.photographer.focusstack.cr3.processing.Srgb16Encoder.encode",
+          4400
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.developRows",
+          619
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          377
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.readRow",
+          335
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.BitReader.readBit",
+          154
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.radiance",
+          71
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.BlackLevel.levelAt",
+          58
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.write",
+          38
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          33
+        ],
+        [
+          "com.photographer.focusstack.cr3.decode.Cr3Decoder.copyBayerRow",
+          20
+        ],
+        [
+          "com.photographer.focusstack.cr3.raw.codec.CrxNativeLosslessPlane.decodeSensor",
+          15
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.transform16",
+          14
+        ]
+      ],
+      "encoder_callers": [
+        [
+          "com.photographer.focusstack.cr3.processing.OpticalCorrection$Frame.renderTile",
+          3993
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.Rgb16Developer.quantize",
+          338
+        ],
+        [
+          "com.photographer.focusstack.cr3.processing.CameraToneCurve.applyGain",
+          69
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "baseline_ref": "9944288ebc222c4f3a788a9d71a0b7b0280381ba",
+  "jars_sha256": {
+    "baseline": "90e5ef4bb6286103845f08f3fd548f3fae88059a14a9dd91270ff6f1bb29aba8",
+    "candidate": "d61b7edcbd1b3f64f5e1051cb31d113717a4c37c4adc3ef474860a35ccdf887a"
+  },
+  "source_sha256": {
+    "canon-cr3-benchmark/src/main/java/com/photographer/focusstack/cr3/benchmark/Cr3ImportProbe.java": "4fb701c4ae258ada7f6a15c7caa8292848fb54935397f19f7e6191a03619da27",
+    "canon-cr3-core/src/main/java/com/photographer/focusstack/cr3/decode/Cr3Decoder.java": "42c1083c008957117cf24fbb25a1d374ef02bedfe1f35c2350fadde8eb9b1241",
+    "canon-cr3-core/src/test/java/com/photographer/focusstack/cr3/decode/Cr3MemoryPolicyTest.java": "0e367af1eb64589c9b472ec5b4f578bec25f9286c751b9efeb29bc322f3a2474",
+    "canon-cr3-imageio/src/test/java/com/photographer/focusstack/cr3/imageio/CanonCr3MemoryModeTest.java": "b59126b728b348decfee8629e497a36d1e2a2a9169bcb33194e232cdfb18c36e",
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/CameraToneCurve.java": "354133a90f0a42ae04c3ae74f7c0b6b63d1a1d81008e7aa6154c34aa3eb0c8b5",
+    "canon-cr3-processing/src/main/java/com/photographer/focusstack/cr3/processing/OpticalCorrection.java": "7d37b38bf59ac48e64e10989a4a6101730e96b99afd4b107034a87fa6f4ac0a5",
+    "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/CameraToneMemoryEstimateTest.java": "3d782973223f139c2b9bb450b38a8790477a3486f0bc98447989e40bef6cce7a",
+    "canon-cr3-processing/src/test/java/com/photographer/focusstack/cr3/processing/OpticalToneFusionTest.java": "09ecd1871c269c179c1c0ead2b6e06f0950a8a36aee19c1df39774a76df492c3",
+    "docs/cr3/optical-tone-performance-2026-11-25/OpticalToneChecks.java": "fdd10426e66438ad35d1d5a802c1ad4e9c529a76092a71c1a3f2cf232b0865f3"
+  },
+  "inputs_sha256": {
+    "canon-cr3-imageio/src/test/resources/samples/sample.cr3": "4d9f1d00d62d0c06a2448d6ea6d3f5820476c2d1a993eaa73a2352719f199a95",
+    "canon-cr3-imageio/src/test/resources/samples/eosr-iso-low.cr3": "b919df484f0c3765f707974dc5d33a1c28143180981200cdf695133fb0e721b3",
+    "canon-cr3-imageio/src/test/resources/samples/sample-wide.cr3": "da35045099960ca2743da38effb984e296da6cb5bca07fa340990a90f0faa1ff"
+  },
+  "jvm_versions": {
+    "java21": "openjdk version \"21.0.13.1\" 2026-11-17\nOpenJDK Runtime Environment (build 21.0.13.1+2-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.13.1+2-1-deb13u1-Debian, mixed mode, sharing)",
+    "java25": "openjdk version \"25.0.5\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-25.0.5+8 (build 25.0.5+8-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.5+8 (build 25.0.5+8-LTS, mixed mode, sharing)"
+  },
+  "jvm_flags": [
+    "-Xmx768m",
+    "-XX:+UseSerialGC",
+    "-XX:ActiveProcessorCount=4"
+  ],
+  "configurations": [
+    "jdk21",
+    "jdk25"
+  ],
+  "vector_option": "--add-modules=jdk.incubator.vector",
+  "cpu_affinity": "4-7",
+  "available_affinity": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+  "available_processors": 4,
+  "requested_workers": 0,
+  "forks": 3,
+  "warmup": 5,
+  "iterations": 7,
+  "mode": "default",
+  "timing_scope": "Fresh ImageIO.read(File) per invocation; validation and complete hashing outside timer.",
+  "cache_scope": "Fresh JVM per arm/fork; filesystem caches are not flushed. Zero warmup is a first-import measurement, not cold storage.",
+  "aggregation": "Median of per-fork medians; raw records and each fork median retained.",
+  "rss_scope": "Process lifetime high-water mark including warmup; not live workspace or a cold-start measure."
+}

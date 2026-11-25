@@ -1,0 +1,15 @@
+--- a/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/BitReader.java
++++ b/canon-cr3-codec/src/main/java/com/photographer/focusstack/cr3/raw/codec/BitReader.java
+@@ -122,9 +122,10 @@
+         int quotient = Long.numberOfLeadingZeros(buffer);
+         int width = quotient + 1 + k;
+         if (quotient < escapeQuotient && width <= available) {
+-            int remainder = (int) (buffer >>> (64 - width)) & ((1 << k) - 1);
++            // The extracted suffix contains the unary terminator at bit k.
++            int value = ((quotient - 1) << k) + (int) (buffer >>> (64 - width));
+             consume(width);
+-            return (quotient << k) | remainder;
++            return value;
+         }
+         quotient = readUnary(escapeQuotient);
+         return quotient == escapeQuotient ? readBits(literalBits) : (quotient << k) | readBits(k);

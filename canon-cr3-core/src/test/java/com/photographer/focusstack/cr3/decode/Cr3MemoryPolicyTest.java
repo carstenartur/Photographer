@@ -3,6 +3,7 @@ package com.photographer.focusstack.cr3.decode;
 import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.Estimate;
 import com.photographer.focusstack.cr3.decode.Cr3MemoryPolicy.ImageBytes;
 import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
+import com.photographer.focusstack.cr3.processing.CameraToneCurve;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -65,6 +66,29 @@ class Cr3MemoryPolicyTest {
     }
 
     @Test
+    void reservesToneTablesAlongsideOpticalWorkAndLaterCopies() throws Exception {
+        // Three double tables and one int table remain shared across imports
+        // and later copies; conservatively retain them alongside optical scratch.
+        long toneTables = 65536L * (3 * Double.BYTES + Integer.BYTES);
+        long encoderTables = BayerDemosaicer.estimateSrgb16TableBytes();
+        for (var depth : Cr3DecodeOptions.BitDepth.values()) {
+            var neutral = Cr3DecodeOptions.rawProcessed(depth)
+                    .applyLensCorrection(false).applyCameraTone(false);
+            var toned = neutral.copy().applyCameraTone(true);
+            long extraEncoder = depth == Cr3DecodeOptions.BitDepth.EIGHT ? encoderTables : 0;
+            assertEquals(toneTables + extraEncoder, reportedPeak(toned) - reportedPeak(neutral),
+                    "Tone first use must reserve every shared array at " + depth);
+            long retainedPixels = 4L * (depth == Cr3DecodeOptions.BitDepth.EIGHT ? 4 : 6);
+            for (long laterCopy : new long[]{0, 5 * MIB}) {
+                var planned = Cr3Decoder.opticalMemoryOptions(toned,
+                        3 * MIB + encoderTables, laterCopy, 2);
+                assertEquals(retainedPixels + Math.max(3 * MIB, laterCopy) + encoderTables + toneTables,
+                        reportedPeak(planned), "Only the encoder is already in the optical estimate");
+            }
+        }
+    }
+
+    @Test
     void reservesSharedEncoderStorageForSrgb8ToneWithoutChargingNeutralOrRawReads() throws Exception {
         var neutral = Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.EIGHT)
                 .applyLensCorrection(false).applyCameraTone(false);
@@ -74,9 +98,9 @@ class Cr3MemoryPolicyTest {
         assertEquals(reportedPeak(neutral.copy().applySrgbConversion(false), 2, 2),
                 reportedPeak(neutral.copy().applySrgbConversion(true), 2, 2),
                 "Neutral RGB8 subsampling does not implicitly develop RGB16");
-        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
+        assertEquals(BayerDemosaicer.estimateSrgb16TableBytes() + CameraToneCurve.estimateTableBytes(),
                 reportedPeak(neutral.copy().applyCameraTone(true)) - srgb,
-                "Supported RGB8 camera tone can first initialize the shared encoder");
+                "RGB8 camera tone can first initialize both shared transfer and tone tables");
         assertEquals(BayerDemosaicer.estimateSrgb16TableBytes(),
                 reportedPeak(neutral.copy().applyLensCorrection(true)) - srgb,
                 "RGB8 lens correction can first initialize the shared encoder");
