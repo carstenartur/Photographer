@@ -56,6 +56,7 @@ public final class TiffIfdParser {
     static final int TAG_DATE_TIME_ORIGINAL = 0x9003;
     static final int TAG_SHUTTER_SPEED_VALUE = 0x9201;
     static final int TAG_APERTURE_VALUE = 0x9202;
+    static final int TAG_SUBJECT_DISTANCE = 0x9206;
     static final int TAG_FOCAL_LENGTH = 0x920A;
     static final int TAG_FOCAL_LENGTH_35MM = 0xA405;
     static final int TAG_LENS_MODEL = 0xA434;

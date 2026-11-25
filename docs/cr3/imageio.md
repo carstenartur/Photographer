@@ -7,6 +7,7 @@ RAW development uses the as-shot white balance when the capture contains support
 | Output | ImageIO call for image index `0` | Result |
 |---|---|---|
 | 16-bit sRGB (default since 0.1.9) | `ImageIO.read(file)` or `reader.read(0)` | Demosaiced color at active-area resolution with EXIF orientation applied. |
+| Profiled 16-bit sRGB (development branch) | Set `param.setDecodeOptions(Cr3DecodeOptions.cameraRendered())`, then call `reader.read(0, param)`. | Applies available lens and tone profiles to the developed sensor image. [Coverage and measurements](camera-rendering.md) |
 | 8-bit sRGB | Set `param.getDecodeOptions().bitDepth(Cr3DecodeOptions.BitDepth.EIGHT)`, then call `reader.read(0, param)`. | The same crop and orientation at eight bits per channel. |
 | The camera preview | `reader.read(0, param)` with `param.setPreviewOnly(true)` | Decoded embedded JPEG pixels at the camera preview's dimensions. |
 | A thumbnail | `reader.getNumThumbnails(0)`, then `reader.readThumbnail(0, 0)` if present | The separately embedded JPEG thumbnail. A CR3 can have none. |
@@ -160,6 +161,10 @@ public class ReadCr3 {
                         }
                     }
                     case "rgb" -> describe(reader.read(0));
+                    case "camera" -> {
+                        param.setDecodeOptions(Cr3DecodeOptions.cameraRendered());
+                        describe(reader.read(0, param));
+                    }
                     case "rgb8" -> {
                         param.getDecodeOptions().bitDepth(Cr3DecodeOptions.BitDepth.EIGHT);
                         describe(reader.read(0, param));
@@ -225,7 +230,7 @@ mvn compile org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-depende
 java -cp "target/classes:target/dependency/*" ReadCr3 "/path/to/photo.cr3" rgb
 ```
 
-On Windows, separate the classpath entries with a semicolon, as in `"target/classes;target/dependency/*"`. Replace `rgb` with `rgb8`, `rgb16`, `preview`, `thumbnail`, `linear`, `sensor`, `patch` or `metadata`. The patch example samples a 64 × 64 rectangle starting at sensor position (160, 64). Use a separate reader and stream for each concurrent import.
+On Windows, separate the classpath entries with a semicolon, as in `"target/classes;target/dependency/*"`. Replace `rgb` with `camera`, `rgb8`, `rgb16`, `preview`, `thumbnail`, `linear`, `sensor`, `patch` or `metadata`. The patch example samples a 64 × 64 rectangle starting at sensor position (160, 64). Use a separate reader and stream for each concurrent import.
 
 ## Read parameters
 
@@ -237,6 +242,8 @@ Get a fresh `CanonCr3ImageReadParam` from `reader.getDefaultReadParam()` and pas
 | `Cr3DecodeOptions.defaults().outputMode(Cr3DecodeOptions.OutputMode.THUMBNAIL)` | Selects the embedded thumbnail through `read(0, param)`. This also allows standard region and subsampling parameters on the thumbnail. |
 | `cropToActiveArea(boolean)`, `applyBlackLevel(boolean)` | Both default to `true` in `rawProcessed()` and `rawLinear()`. Disable both in linear mode to scale the full sensor mosaic to 16 bits. Native sensor mode always preserves full-sensor coordinates and unadjusted codes. |
 | `applyWhiteBalance(boolean)`, `applyColorMatrix(boolean)`, `applySrgbConversion(boolean)` | These three RGB processing stages are enabled by default in `rawProcessed()`. They can be disabled independently. JPEG and Bayer reads bypass these stages. |
+| `applyLensCorrection(boolean)`, `applyCameraTone(boolean)` | Select optical correction and photographic tone independently. Both are enabled by `cameraRendered()`, which requests 16-bit sRGB. Tone applies to display-encoded output. Lens geometry and shading can also be requested for linear RGB. [Profile selection and sampling](camera-rendering.md) |
+| `lensShadingStrength(double)` | Controls the applied share of the profile’s gain from 0 to 1 when lens correction is enabled. The default is 1. The same framing, distortion and color-fringe correction apply at every strength. |
 | `bitDepth(...)` | The ImageIO default is 16 bits per channel since 0.1.9. Select `BitDepth.EIGHT` for RGB8. Starting with 0.1.8, `BitDepth.SIXTEEN` retains precision through demosaicing and color processing, then quantizes to 0–65535 per channel. The default is sRGB. Add `applySrgbConversion(false)` for linear RGB. For either encoding, use `image.getRaster().getSample(x, y, band)` to read a full channel value. `getRGB` produces an 8-bit-per-channel display value. |
 | `maxWorkers(int)` | Per-import upper limit for RAW stages. The default `0` uses the processors available to the JVM, `1` requests sequential processing, and a positive value caps parallelism within the shared worker pool. Negative values throw `IllegalArgumentException`. |
 

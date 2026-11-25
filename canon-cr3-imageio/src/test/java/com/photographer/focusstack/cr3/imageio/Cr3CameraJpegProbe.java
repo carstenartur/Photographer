@@ -4,6 +4,7 @@ import com.photographer.focusstack.cr3.Cr3Exception;
 import com.photographer.focusstack.cr3.container.Cr3Container;
 import com.photographer.focusstack.cr3.container.Cr3Parser;
 import com.photographer.focusstack.cr3.container.Cr3Track;
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
 import com.photographer.focusstack.cr3.processing.ExifOrientationTransformer;
 
 import javax.imageio.ImageIO;
@@ -43,12 +44,27 @@ public final class Cr3CameraJpegProbe {
     private Cr3CameraJpegProbe() {}
 
     public static void main(String[] args) throws IOException {
-        if (args.length == 0) throw new IllegalArgumentException("Usage: Cr3CameraJpegProbe FILE.cr3 [FILE.cr3 ...]");
+        int firstFile = 0;
+        Cr3DecodeOptions options = null;
+        if (args.length >= 2 && args[0].equals("--render")) {
+            options = switch (args[1]) {
+                case "default" -> null;
+                case "lens" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN).applyLensCorrection(true);
+                case "tone" -> Cr3DecodeOptions.rawProcessed(Cr3DecodeOptions.BitDepth.SIXTEEN).applyCameraTone(true);
+                case "camera" -> Cr3DecodeOptions.cameraRendered();
+                default -> throw new IllegalArgumentException("Unknown rendering: " + args[1]);
+            };
+            firstFile = 2;
+        }
+        if (firstFile == args.length || args[firstFile].startsWith("--")) {
+            throw new IllegalArgumentException("Usage: Cr3CameraJpegProbe [--render default|lens|tone|camera] FILE.cr3 ...");
+        }
         System.out.println(HEADER);
         boolean failed = false;
-        for (String arg : args) {
+        for (int i = firstFile; i < args.length; i++) {
+            String arg = args[i];
             try {
-                System.out.println(measure(new File(arg)).tsv(arg));
+                System.out.println(measure(new File(arg), options).tsv(arg));
             } catch (IOException | Cr3Exception | IllegalArgumentException e) {
                 System.err.println(arg + ": " + e.getMessage());
                 System.out.println(new Result("error", null, 0, 0, null).tsv(arg));
@@ -78,6 +94,10 @@ public final class Cr3CameraJpegProbe {
     }
 
     static Result measure(File file) throws IOException, Cr3Exception {
+        return measure(file, null);
+    }
+
+    private static Result measure(File file, Cr3DecodeOptions options) throws IOException, Cr3Exception {
         // Finish the full-size JPEG and retain just its Lab tiles before developing the RAW.
         Camera camera;
         try (var input = new FileImageInputStream(file)) {
@@ -86,7 +106,7 @@ public final class Cr3CameraJpegProbe {
         if (camera == null) return new Result("no_camera_jpeg", null, 0, 0, null);
         if (!camera.comparable) return new Result("unsupported_profile", camera, 0, 0, null);
         if (camera.orientation < 1 || camera.orientation > 8) return new Result("orientation", camera, 0, 0, null);
-        var raw = ImageQualityHelper.readDefaultCr3(file);
+        var raw = ImageQualityHelper.readCr3(file, options);
         ImageQualityHelper.requireRgb16(raw);
         int w = raw.getWidth();
         int h = raw.getHeight();

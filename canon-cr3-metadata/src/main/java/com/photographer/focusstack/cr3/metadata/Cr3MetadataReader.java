@@ -183,6 +183,15 @@ public final class Cr3MetadataReader {
                 }
             }
         }
+        if (tags.get(TiffIfdParser.TAG_LENS_MODEL) instanceof TiffIfdParser.TagValue.StringValue lens) {
+            metadata.setLensModel(lens.value().strip());
+        }
+        if (tags.get(TiffIfdParser.TAG_SUBJECT_DISTANCE) instanceof TiffIfdParser.TagValue.RationalValue distance
+                && distance.unsigned()) {
+            // EXIF defines infinity by the numerator alone. A zero distance means unknown.
+            metadata.setFocusDistanceMetres(distance.numeratorValue() == 0xffffffffL
+                    ? Double.POSITIVE_INFINITY : distance.toDouble());
+        }
     }
 
     private static void parseCmt4(ImageInputStream input, IsoBox cmt4,
@@ -304,6 +313,27 @@ public final class Cr3MetadataReader {
                 input, cmt3.dataOffset(), cmt3.dataSize());
 
         metadata.setMakerNoteData(makerNote);
+        var tags = makerNote.rawTags();
+        if (metadata.lensModel().isEmpty() && tags.get(0x0095) instanceof TiffIfdParser.TagValue.StringValue lens) {
+            metadata.setLensModel(lens.value().strip());
+        }
+        // Canon FileInfo indices 20 and 21 are the upper and lower bounds in centimetres.
+        // Two infinity bounds identify infinity focus. A half-open interval has no midpoint.
+        if (metadata.focusDistanceMetres() == 0
+                && tags.get(0x0093) instanceof TiffIfdParser.TagValue.IntArrayValue fileInfo
+                && fileInfo.values().length > 21) {
+            int upper = fileInfo.values()[20];
+            int lower = fileInfo.values()[21];
+            if (upper == 0xffff && lower == 0xffff) {
+                metadata.setFocusDistanceMetres(Double.POSITIVE_INFINITY);
+            } else if (lower > 0 && lower <= upper && upper < 0xffff) {
+                metadata.setFocusDistanceMetres((upper + lower) / 200.0);
+            }
+        }
+        if (tags.get(0x00a0) instanceof TiffIfdParser.TagValue.IntArrayValue processing
+                && processing.values().length > 10) {
+            metadata.setPictureStyle(processing.values()[10]);
+        }
 
         if (makerNote.hasWhiteBalance()) {
             metadata.setWhiteBalanceMultipliers(makerNote.whiteBalanceMultipliers());

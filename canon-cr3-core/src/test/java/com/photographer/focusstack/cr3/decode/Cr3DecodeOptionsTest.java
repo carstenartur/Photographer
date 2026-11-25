@@ -41,6 +41,37 @@ class Cr3DecodeOptionsTest {
     void rawProcessedOptions() {
         Cr3DecodeOptions opts = Cr3DecodeOptions.rawProcessed();
         assertThat(opts.outputMode()).isEqualTo(Cr3DecodeOptions.OutputMode.RAW_PROCESSED);
+        assertThat(opts.applyLensCorrection()).isFalse();
+        assertThat(opts.applyCameraTone()).isFalse();
+    }
+
+    @Test
+    void cameraRenderingOffersIndependentProfileSettingsAndCopiesBoth() {
+        var camera = Cr3DecodeOptions.cameraRendered();
+        var lensOnly = camera.copy().applyCameraTone(false);
+        var toneOnly = camera.copy().applyLensCorrection(false);
+        assertThat(camera.outputMode()).isEqualTo(Cr3DecodeOptions.OutputMode.RAW_PROCESSED);
+        assertThat(camera.bitDepth()).isEqualTo(Cr3DecodeOptions.BitDepth.SIXTEEN);
+        assertThat(camera.applyCameraTone()).isTrue();
+        assertThat(camera.applyLensCorrection()).isTrue();
+        assertThat(lensOnly.applyCameraTone()).isFalse();
+        assertThat(lensOnly.applyLensCorrection()).isTrue();
+        assertThat(toneOnly.applyCameraTone()).isTrue();
+        assertThat(toneOnly.applyLensCorrection()).isFalse();
+    }
+
+    @Test
+    void shadingAmountDoesNotSelectTheLensAndRejectsInvalidValues() {
+        var neutral = Cr3DecodeOptions.rawProcessed();
+        assertThat(neutral.lensShadingStrength()).isEqualTo(1);
+        var copy = neutral.lensShadingStrength(0.4).copy();
+        assertThat(copy.lensShadingStrength()).isEqualTo(0.4);
+        assertThat(copy.applyLensCorrection()).isFalse();
+        copy.lensShadingStrength(0);
+        assertThat(neutral.lensShadingStrength()).isEqualTo(0.4);
+        for (double invalid : new double[]{-0.1, 1.1, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+            assertThatIllegalArgumentException().isThrownBy(() -> copy.lensShadingStrength(invalid));
+        }
     }
 
     @Test

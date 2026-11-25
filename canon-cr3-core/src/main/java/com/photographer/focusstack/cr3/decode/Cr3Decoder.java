@@ -14,9 +14,12 @@ import com.photographer.focusstack.cr3.processing.BayerDemosaicer;
 import com.photographer.focusstack.cr3.processing.BlackLevel;
 import com.photographer.focusstack.cr3.processing.BlackLevelProcessor;
 import com.photographer.focusstack.cr3.processing.CameraColorMatrixRegistry;
+import com.photographer.focusstack.cr3.processing.CameraToneCurve;
 import com.photographer.focusstack.cr3.processing.ColorMatrixProcessor;
 import com.photographer.focusstack.cr3.processing.DualIlluminantColorMatrix;
 import com.photographer.focusstack.cr3.processing.ExifOrientationTransformer;
+import com.photographer.focusstack.cr3.processing.LensProfiles;
+import com.photographer.focusstack.cr3.processing.OpticalCorrection;
 import com.photographer.focusstack.cr3.processing.ObBlackLevelEstimator;
 import com.photographer.focusstack.cr3.processing.SrgbConverter;
 import com.photographer.focusstack.cr3.processing.WhiteBalanceProcessor;
@@ -388,6 +391,70 @@ public final class Cr3Decoder implements AutoCloseable {
         if (outputRegion != null && (outputRegion.isEmpty() || !bounds.contains(outputRegion))) {
             throw new IllegalArgumentException("RGB region must be within the developed image");
         }
+        OpticalCorrection lens = options.applyLensCorrection() && options.cropToActiveArea() && metadata != null
+                ? LensProfiles.find(metadata.cameraModel(), metadata.lensModel(), metadata.focalLengthMm(),
+                        metadata.fNumber(), metadata.focusDistanceMetres(), fullArea.width, fullArea.height)
+                        .orElse(null)
+                : null;
+        BufferedImage rgb;
+        if (lens == null) {
+            rgb = developRegion(options, outputRegion, destination, xStep, yStep, track, fullArea, bounds);
+        } else {
+            // Each corrected site may use different sensor neighborhoods for red, green and blue.
+            // Keep the complete optical field until the remap, even for a small ImageIO window.
+            Rectangle region = outputRegion == null ? bounds : outputRegion;
+            boolean select = !bounds.equals(region) || xStep != 1 || yStep != 1;
+            int sampleBytes = options.bitDepth() == Cr3DecodeOptions.BitDepth.SIXTEEN ? 2 : 1;
+            long planeBytes = (long) fullArea.width * fullArea.height * sampleBytes;
+            long selectionBytes = select ? (long) Math.ceilDiv(region.width, xStep)
+                    * Math.ceilDiv(region.height, yStep) * (sampleBytes == 2 ? 6 : 4) : 0;
+            // Remapping and extracting the requested raster are successive allocations.
+            long workspace = Math.max(planeBytes, selectionBytes);
+            var planned = options.copy().postDecodeMemoryBytes(Math.max(options.postDecodeMemoryBytes(), workspace));
+            rgb = developRegion(planned, null, select ? null : destination, 1, 1, track, fullArea, bounds);
+            rgb = lens.applyToOwned(rgb, options.applySrgbConversion(), options.maxWorkers(),
+                    options.lensShadingStrength());
+            if (select) {
+                rgb = selectRgbSamples(rgb, region, xStep, yStep);
+            }
+        }
+        if (options.applyCameraTone() && options.applySrgbConversion() && metadata != null) {
+            CameraToneCurve.apply(rgb, metadata.cameraModel(), metadata.pictureStyle(), options.maxWorkers());
+        }
+        return rgb;
+    }
+
+    /** Projects the full oriented optical field onto the caller's sampling grid without retaining it. */
+    private static BufferedImage selectRgbSamples(BufferedImage full, Rectangle region, int xStep, int yStep) {
+        int width = Math.ceilDiv(region.width, xStep);
+        int height = Math.ceilDiv(region.height, yStep);
+        var source = full.getRaster();
+        var out = source.createCompatibleWritableRaster(width, height);
+        if (xStep == 1) {
+            Object row = null;
+            for (int i = 0; i < height; i++) {
+                row = source.getDataElements(region.x, region.y + i * yStep, width, 1, row);
+                out.setDataElements(0, i, width, 1, row);
+            }
+        } else {
+            int[] row = new int[region.width];
+            for (int i = 0; i < height; i++) {
+                for (int band = 0; band < source.getNumBands(); band++) {
+                    source.getSamples(region.x, region.y + i * yStep, region.width, 1, band, row);
+                    for (int j = 1; j < width; j++) {
+                        row[j] = row[j * xStep];
+                    }
+                    out.setSamples(0, i, width, 1, band, row);
+                }
+            }
+        }
+        return new BufferedImage(full.getColorModel(), out, false, null);
+    }
+
+    private BufferedImage developRegion(Cr3DecodeOptions options, Rectangle outputRegion, BufferedImage destination,
+            int xStep, int yStep, RawTrack track, Rectangle fullArea, Rectangle bounds)
+            throws Cr3Exception, IOException {
+        int orientation = orientation();
         boolean sampled = xStep != 1 || yStep != 1;
         if (sampled) {
             Rectangle grid = outputRegion == null ? bounds : outputRegion;

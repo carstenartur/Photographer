@@ -1,5 +1,7 @@
 package com.photographer.focusstack.cr3.imageio;
 
+import com.photographer.focusstack.cr3.decode.Cr3DecodeOptions;
+
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.io.File;
@@ -48,6 +50,10 @@ final class ImageQualityHelper {
 
     /** Verify the selected provider and exercise the same default import as an ImageIO caller. */
     static BufferedImage readDefaultCr3(File file) throws IOException {
+        return readCr3(file, null);
+    }
+
+    static BufferedImage readCr3(File file, Cr3DecodeOptions options) throws IOException {
         try (var input = ImageIO.createImageInputStream(file)) {
             if (input == null) {
                 throw new IOException("Cannot open " + file);
@@ -60,6 +66,13 @@ final class ImageQualityHelper {
             try {
                 if (!(first instanceof CanonCr3ImageReader)) {
                     throw new IOException("Expected Photographer's CR3 reader for " + file + ", found " + first.getClass());
+                }
+                if (options != null) {
+                    input.seek(0);
+                    first.setInput(input);
+                    var param = new CanonCr3ImageReadParam();
+                    param.setDecodeOptions(options);
+                    return first.read(0, param);
                 }
             } finally {
                 first.dispose();

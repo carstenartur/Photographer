@@ -18,6 +18,20 @@
     <name>CR3 Processing</name>
     <description>RAW pedestal, crop, demosaic, white balance and color processing</description>
     <url>https://github.com/carstenartur/Photographer</url>
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/license/mit</url>
+            <distribution>repo</distribution>
+            <comments>Photographer processing code</comments>
+        </license>
+        <license>
+            <name>Creative Commons Attribution-ShareAlike 3.0 Unported</name>
+            <url>https://creativecommons.org/licenses/by-sa/3.0/</url>
+            <distribution>repo</distribution>
+            <comments>Lensfun profile data under META-INF/lensfun</comments>
+        </license>
+    </licenses>
 
     <scm>
         <connection>scm:git:https://github.com/carstenartur/Photographer.git</connection>

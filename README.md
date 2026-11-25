@@ -81,6 +81,19 @@ Since 0.1.9, `ImageIO.read(file)` develops a full-resolution sRGB image with thr
 
 [Run the minimal Maven example](docs/cr3/imageio.md#run-the-minimal-example) · [ImageIO setup and parameters](docs/cr3/imageio.md) · [Write lossless CR3](docs/cr3/imageio.md#write-a-lossless-cr3-using-a-camera-profile) · [Export a Bayer DNG](docs/cr3/imageio.md#write-and-read-a-bayer-dng) · [Maven release status](docs/cr3-maven-central.md)
 
+### Camera-like RGB16 development
+
+The development branch offers an opt-in `Cr3DecodeOptions.cameraRendered()` preset for the **PowerShot G5 X Mark II** and **EOS R**. It applies the available lens and tone profiles to the RAW pixels. The table compares their appearance with the embedded camera JPEG across 48 image regions. Smaller median ΔE00 indicates a closer match on that exposure.
+
+| Original | Default RGB16 | Camera preset |
+| --- | ---: | ---: |
+| G5 X Mark II, dim interior | 10.04 | 4.96 |
+| EOS R, RF 85 mm F2 Macro, plant | 21.26 | 6.44 |
+| EOS R, RF 24–105 mm F4 L at ISO 12800 | 2.41 | 2.86 |
+| EOS R, RF 50 mm F1.2 L, portrait (tone only) | 15.42 | 6.69 |
+
+The high-ISO example reaches 1.99 with lens shading set to zero and the other corrections active. [Supported lenses, settings, import cost and results for all eleven originals](docs/cr3/camera-rendering.md)
+
 ### RGB16 import performance
 
 Each timed import opened one original and returned a fresh, full-resolution RGB16 image. The table gives median times on four AMD EPYC logical CPUs with a warm filesystem cache. Photographer used `ImageIO.read(File)` on Java 21. LibRaw used bilinear demosaicing. Each process made three warmup reads before timing.
@@ -188,4 +201,4 @@ Use GitHub's **Cite this repository** function or the metadata in [`CITATION.cff
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Photographer’s code is available under the [MIT License](LICENSE). The three lens calibration tables distributed with `cr3-processing` use CC BY-SA 3.0. [Lensfun data, attribution and license](canon-cr3-processing/src/main/resources/META-INF/lensfun/NOTICE.txt)

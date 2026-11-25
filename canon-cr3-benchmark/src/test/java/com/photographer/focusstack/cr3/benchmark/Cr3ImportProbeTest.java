@@ -29,6 +29,7 @@ class Cr3ImportProbeTest {
         assertTrue(result.output().contains("\"requested_memory_mode\":\"AUTO\""), result.output());
         assertTrue(result.output().contains("\"orientation_override\":0"), result.output());
         assertTrue(result.output().contains("\"channels\":3,\"bits\":16"), result.output());
+        assertTrue(result.output().matches("(?s).*\"total_thread_allocated_bytes\":[1-9][0-9]*,.*"), result.output());
     }
 
     @ParameterizedTest
@@ -45,7 +46,7 @@ class Cr3ImportProbeTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"rgb8,3,8", "rgb16,3,16", "rgb16linear,3,16", "sensor,1,16", "sensor-path,1,16"})
+    @CsvSource({"rgb8,3,8", "rgb16,3,16", "rgb16camera,3,16", "rgb16linear,3,16", "sensor,1,16", "sensor-path,1,16"})
     void forcedMemoryPolicyKeepsTheRequestedPrecision(String mode, int channels, int bits) throws Exception {
         var result = assertDoesNotThrow(() -> run("--input", fixture().toString(), "--mode", mode,
                 "--memory-mode", "LOW_MEMORY"));
