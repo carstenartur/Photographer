@@ -57,7 +57,46 @@ Geometric alignment was checked separately on 512-pixel-wide images using the sa
 
 ## Import cost
 
+### Optimization measured on 25 November 2026
+
+The current implementation reuses shaded source values within bounded tiles. The
+comparison below runs the **same profiled RGB16 development** before and after
+that optimization; the change of default does not account for the improvement.
+The G5 image is the dim interior, `sample.cr3`, and the EOS image is
+`eosr-iso-low.cr3`. These are warm complete-file imports on Java 21.0.13.1 with
+four workers, four processors exposed to the JVM, Serial GC and a 768 MiB heap.
+Each arm ran in two fresh JVMs, with three warmups and five measured imports per
+fork. Each value is the median of the two fork medians.
+
+| Capture | Original profiled import | Optimized import | Elapsed-time reduction | CPU time, original → optimized | Allocated per import, original → optimized |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| G5 X II interior, 5496 × 3668 | 744.1 ms | 671.4 ms | 9.8% | 2670 → 2315 ms | 155.53 → 155.75 MiB |
+| EOS R, 6744 × 4500 | 1207.6 ms | 1023.1 ms | 15.3% | 4220 → 3525 ms | 233.56 → 233.78 MiB |
+
+Complete image fingerprints are unchanged on both Java 21 and Java 25. The
+additional allocation is about 0.22 MiB per four-worker import. The tile holds
+at most 1,024 mapped output sites and 4,096 shaded source values; its array
+payload is 56 KiB per worker, with 64 KiB reserved in heap planning. Larger
+source footprints use the original scalar sampler. One temporary output
+channel is still reused across all three bands. The planner also accounts for
+lookup tables and their first initialization.
+
+On Java 25 the same complete-import comparison reduced elapsed time by 19.1%
+and 16.6%, respectively. Isolated Java 25 optical-stage measurements fell from
+554.8 to 345.8 ms on the G5 and from 776.2 to 594.2 ms on the EOS R. Those stage
+figures exclude RAW decoding and tone processing. The shared host showed
+variation between forks: for example, G5 Java 21 baseline medians were 781.5
+and 706.8 ms, versus 661.6 and 681.1 ms after optimization. These measurements
+describe these inputs and settings, not a universal speedup.
+
+[Raw measurements, source hashes, fork results and reproduction](camera-rendering-performance-2026-11-25/README.md)
+
+### Historical cost of enabling the profiles
+
 The following baseline was recorded before the default change and performance work, at the original PR #457 implementation. Its former `default` mode is now the explicit neutral rendering. These are full-resolution file imports on four logical CPUs with OpenJDK 21.0.13, Serial GC and a 768 MiB heap. For elapsed time, two fresh JVMs per configuration each ran three warmups and four measured imports. Values are medians of the two fork medians on a shared host. Peak resident memory was measured separately on a single cold import. The neutral import and the camera preset both return three 16-bit channels.
+
+This earlier run uses a different JVM/host session and G5 capture; do not derive
+an optimization speedup by comparing its absolute times with the table above.
 
 | Original | Elapsed time, neutral → profiled | CPU time, neutral → profiled | Allocated per import, neutral → profiled | Cold peak RSS, neutral → profiled |
 | --- | ---: | ---: | ---: | ---: |

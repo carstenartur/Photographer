@@ -4,6 +4,8 @@ package com.photographer.focusstack.cr3.processing;
 final class Srgb16Encoder {
     private static final int INTERVALS = 1 << 14;
     private static final int MAX_CODE = 65535;
+    // A constant expression lets memory planning reserve first-use tables without initializing them.
+    static final long TABLE_BYTES = (INTERVALS + 1L) * Double.BYTES + (MAX_CODE + 2L) * Long.BYTES;
     // For p = x^(1.0/2.4), pow's one-ulp error and the three rounded operations
     // bound each forward error by 2.51 * 2^-52 * 1.055 * p * MAX_CODE.
     // Two allowed evaluations can move a boundary by less than 27 input ulps,

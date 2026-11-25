@@ -47,7 +47,7 @@ JAR on the runtime classpath. The production CR3 modules themselves target Java
 | `sensor` | ImageIO, uncropped native unsigned-short Bayer image |
 | `sensor-path` | Direct `Cr3Decoder` file input, uncropped native Bayer image |
 
-To reproduce the [camera-rendering timings](../../docs/cr3/camera-rendering.md), run the
+To reproduce the historical [neutral-versus-profile camera-rendering timings](../../docs/cr3/camera-rendering.md#historical-cost-of-enabling-the-profiles), run the
 command above with `--warmup 3 --iterations 4 --gc-between` on `sample-wide.cr3`
 and `eosr-iso-low.cr3`. For each capture, run `--mode rgb16neutral` and
 `--mode default` in fresh processes, twice per mode, using the same four
@@ -56,6 +56,12 @@ processing optimizations against the original opt-in implementation, use
 `--mode rgb16camera` for both revisions so the workloads are identical. For each mode and capture, calculate the median `total_ms` and
 `total_thread_allocated_bytes` in each process, then take the median of those
 two values for each metric. Divide the allocation figure by 1,048,576 to obtain MiB.
+
+The [25 November optimization comparison](../../docs/cr3/camera-rendering-performance-2026-11-25/README.md)
+uses the same profiled output in both arms: three warmups and five measured
+imports in each of two alternating fresh forks, without explicit GC between
+imports. Its runner records both Java 21 and Java 25 and compiles one Java 21
+probe against the baseline public API for use with both library revisions.
 
 `--workers N` applies to the explicit modes. `default` requires zero (automatic),
 because it deliberately uses the ordinary ImageIO call. Use the JVM processor

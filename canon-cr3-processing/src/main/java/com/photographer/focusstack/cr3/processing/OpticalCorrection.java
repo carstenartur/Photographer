@@ -27,6 +27,33 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
     }
 
     /**
+     * Conservatively estimates extra heap for one complete optical remap. This includes
+     * the scratch output channel, radial lookup tables and axes, first-use sRGB
+     * tables, a generic raster's write row and fixed-size working tiles for the actual
+     * worker count. The caller's existing RGB storage is excluded.
+     *
+     * @param width complete developed image width
+     * @param height complete developed image height
+     * @param bits unsigned sample precision, either 8 or 16
+     * @param maxWorkers worker limit, or zero to use the available processors
+     * @return conservative additional bytes for decoder memory planning
+     */
+    public static long estimatedWorkspaceBytes(int width, int height, int bits, int maxWorkers) {
+        if (width < 1 || height < 1 || (bits != 8 && bits != 16)) {
+            throw new IllegalArgumentException("Expected positive RGB dimensions and 8- or 16-bit samples");
+        }
+        int workers = Cr3Workers.count(maxWorkers, Pixels.maxStripes(width, height));
+        if (width < 2 || height < 2) return 0;
+        long plane = (long) Math.multiplyExact(width, height) * (bits / Byte.SIZE);
+        long tables = Double.BYTES * (2L * (Frame.INTERVALS + 2) + width + height + 65536 + 256)
+                + Srgb16Encoder.TABLE_BYTES;
+        long writeRow = (long) Integer.BYTES * width;
+        // Tile padding covers its array/object headers and the worker references. The
+        // remaining allowance covers the fixed lookup/axis/output array headers.
+        return plane + tables + writeRow + workers * Tile.RESERVED_BYTES + 4096;
+    }
+
+    /**
      * Correct a complete, exclusively owned active-area development at its original dimensions.
      * Output pixels sample the largest centered valid field up to the input scale that
      * preserves the source sampling density on axis. Rotation
@@ -34,8 +61,8 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
      * subsampling requests should be applied to the result.
      *
      * <p>Each bilinear source tap is shaded in linear light before interpolation. Each band
-     * is resampled once and committed before starting the next, so scratch space is one
-     * channel plus a few small lookup tables, independent of the worker count.</p>
+     * is resampled once and committed before starting the next. Scratch space is one
+     * channel, radial lookup tables and a fixed-size working tile per worker.</p>
      *
      * @param image developed RGB image with three unsigned 8- or 16-bit samples
      * @param srgb whether the samples use the sRGB transfer function
@@ -82,6 +109,8 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
         byte[] output8 = bits == 8 ? new byte[count] : null;
         double[] decode = srgb ? (bits == 16 ? InverseSrgb.USHORT : InverseSrgb.BYTE) : null;
         var packed = Pixels.packed(image);
+        Tile[] tiles = new Tile[workers];
+        for (int worker = 0; worker < workers; worker++) tiles[worker] = new Tile();
         for (int band = 0; band < 3; band++) {
             final int channel = band;
             double colorScale = band == 0 ? redScale : band == 2 ? blueScale : 1;
@@ -96,10 +125,9 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
                 source = (x, y) -> raster.getSample(x, y, channel);
             }
             Cr3Workers.run(workers, worker -> {
+                int first = Pixels.stripeStart(worker, height, workers);
                 int end = Pixels.stripeStart(worker + 1, height, workers);
-                for (int y = Pixels.stripeStart(worker, height, workers); y < end; y++) {
-                    frame.renderRow(y, colorScale, source, decode, output16, output8);
-                }
+                frame.renderStripe(first, end, colorScale, source, decode, output16, output8, tiles[worker]);
             });
             if (banks != null) {
                 System.arraycopy(output16, 0, banks[band], 0, count);
@@ -124,6 +152,15 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
     @FunctionalInterface
     private interface Source {
         int at(int x, int y);
+    }
+
+    private static final class Tile {
+        static final int EDGE = 32;
+        // Actual array payload is 56 bytes per output site; reserve 64 for planning.
+        static final long RESERVED_BYTES = 64L * EDGE * EDGE;
+        final int[] left = new int[EDGE * EDGE], top = new int[EDGE * EDGE];
+        final double[] fx = new double[EDGE * EDGE], fy = new double[EDGE * EDGE];
+        final double[] radiance = new double[4 * EDGE * EDGE];
     }
 
     private static final class InverseSrgb {
@@ -240,9 +277,79 @@ public record OpticalCorrection(double a, double b, double c, double redScale, d
                     || Math.hypot(Math.ceil(cx + x) - cx, Math.ceil(cy + y) - cy) <= validSourceRadius);
         }
 
-        void renderRow(int y, double colorScale, Source source, double[] decode, short[] high, byte[] low) {
+        void renderStripe(int first, int end, double colorScale, Source source, double[] decode,
+                          short[] high, byte[] low, Tile tile) {
+            for (int y = first; y < end; y += Tile.EDGE) {
+                int bottom = Math.min(y + Tile.EDGE, end);
+                for (int x = 0; x < width; x += Tile.EDGE) {
+                    renderTile(x, y, Math.min(x + Tile.EDGE, width), bottom,
+                            colorScale, source, decode, high, low, tile);
+                }
+            }
+        }
+
+        private void renderTile(int firstX, int firstY, int endX, int endY, double colorScale,
+                                Source source, double[] decode, short[] high, byte[] low, Tile tile) {
+            int minX = width, maxX = 0, minY = height, maxY = 0;
+            int i = 0;
+            for (int y = firstY; y < endY; y++) {
+                for (int x = firstX; x < endX; x++, i++) {
+                    double scale = colorScale * lookup(geometry, xSquare[x] + ySquare[y]);
+                    double sx = Math.clamp(cx + (x - cx) * scale, 0, width - 1);
+                    double sy = Math.clamp(cy + (y - cy) * scale, 0, height - 1);
+                    int left = Math.min((int) sx, width - 2), top = Math.min((int) sy, height - 2);
+                    tile.left[i] = left;
+                    tile.top[i] = top;
+                    tile.fx[i] = sx - left;
+                    tile.fy[i] = sy - top;
+                    minX = Math.min(minX, left);
+                    maxX = Math.max(maxX, left);
+                    minY = Math.min(minY, top);
+                    maxY = Math.max(maxY, top);
+                }
+            }
+            int sourceWidth = maxX - minX + 2, sourceHeight = maxY - minY + 2;
+            if ((long) sourceWidth * sourceHeight > tile.radiance.length) {
+                for (int y = firstY; y < endY; y++) {
+                    renderRow(y, firstX, endX, colorScale, source, decode, high, low);
+                }
+                return;
+            }
+            // Shade each source site once in double precision, before any interpolation.
+            // Bounds come from every actual tap, so no radial monotonicity is assumed here.
+            for (int y = minY, offset = 0; y < minY + sourceHeight; y++) {
+                for (int x = minX; x < minX + sourceWidth; x++, offset++) {
+                    tile.radiance[offset] = radiance(source, decode, x, y);
+                }
+            }
             int max = high == null ? 255 : 65535;
-            for (int x = 0; x < width; x++) {
+            i = 0;
+            for (int y = firstY; y < endY; y++) {
+                for (int x = firstX; x < endX; x++, i++) {
+                    int sourceOffset = (tile.top[i] - minY) * sourceWidth + tile.left[i] - minX;
+                    double fx = tile.fx[i], fy = tile.fy[i];
+                    double tl = tile.radiance[sourceOffset], tr = tile.radiance[sourceOffset + 1];
+                    double bl = tile.radiance[sourceOffset + sourceWidth];
+                    double br = tile.radiance[sourceOffset + sourceWidth + 1];
+                    double upper = tl + fx * (tr - tl);
+                    double value = upper + fy * (bl + fx * (br - bl) - upper);
+                    int code;
+                    if (decode == null) {
+                        code = (int) Math.round(Math.clamp(value, 0, max));
+                    } else {
+                        int encoded = Srgb16Encoder.encode(value / max) & 0xffff;
+                        code = high == null ? (encoded + 128) / 257 : encoded;
+                    }
+                    if (high == null) low[y * width + x] = (byte) code;
+                    else high[y * width + x] = (short) code;
+                }
+            }
+        }
+
+        private void renderRow(int y, int firstX, int endX, double colorScale, Source source,
+                               double[] decode, short[] high, byte[] low) {
+            int max = high == null ? 255 : 65535;
+            for (int x = firstX; x < endX; x++) {
                 double scale = colorScale * lookup(geometry, xSquare[x] + ySquare[y]);
                 double sx = Math.clamp(cx + (x - cx) * scale, 0, width - 1);
                 double sy = Math.clamp(cy + (y - cy) * scale, 0, height - 1);

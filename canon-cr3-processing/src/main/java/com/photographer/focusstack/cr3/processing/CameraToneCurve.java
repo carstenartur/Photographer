@@ -108,7 +108,7 @@ public final class CameraToneCurve {
         return .1 * x + .9 * odds / (1 + odds);
     }
 
-    /** Created only on the opt-in path. Coverage queries and neutral imports allocate none of these tables. */
+    /** Initialized only for supported display tone; coverage queries and explicit neutral imports allocate none. */
     private static final class Tables {
         static final double[] LINEAR = new double[MAX + 1];
         static final double[] GAIN = new double[MAX + 1];
