@@ -78,6 +78,19 @@ abstract class PairedHttpAcceptance {
             var pairing = Map.of("pairingCode", code, "fresnelInstanceId", "test-fresnel",
                     "fresnelDisplayName", "Test lab", "fresnelApplicationVersion", "1.0",
                     "fresnelProtocolVersion", 1);
+            var crossOriginPairing = HttpRequest.newBuilder(URI.create(origin + ROOT + "/pair"))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Content-Type", "application/json")
+                    .header("Idempotency-Key", "browser-pair-test")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(JSON.writeValueAsBytes(pairing)));
+            var legacyBrowser = http.send(crossOriginPairing.copy().header("Origin", "https://other.example").build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals("REQUEST_FORBIDDEN", json(legacyBrowser, 403).required("code").asText());
+            assertTrue(legacyBrowser.headers().allValues("Set-Cookie").stream()
+                    .noneMatch(cookie -> cookie.startsWith("JSESSIONID=")));
+            var browser = http.send(crossOriginPairing.header("Sec-Fetch-Site", "cross-site").build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(403, browser.statusCode());
             JsonNode exchanged = json(send(http, "POST", ROOT + "/pair", null, pairing), 201);
             String id = exchanged.required("pairingId").asText();
             String token = exchanged.required("bearerToken").asText();

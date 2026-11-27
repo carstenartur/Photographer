@@ -5,6 +5,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -13,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -24,6 +26,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 @Service
 @ConditionalOnProperty(name = "focusstack.fresnel.enabled", havingValue = "true")
@@ -51,7 +55,7 @@ public class FresnelPairings {
     }
 
     FresnelPairings(Path root, Clock clock) {
-        this.directory = root.resolve("pairings");
+        this.directory = root.resolve("pairings").toAbsolutePath().normalize();
         this.clock = clock;
         try { Files.createDirectories(directory); }
         catch (IOException e) { throw new UncheckedIOException(e); }
@@ -163,7 +167,8 @@ public class FresnelPairings {
     public synchronized List<Summary> list() {
         try (var files = Files.list(directory)) {
             return files.map(path -> path.getFileName().toString()).filter(name -> name.endsWith(".json"))
-                    .map(name -> load(name.substring(0, name.length() - 5))).map(p -> new Summary(p.id(), p.name(),
+                    .map(name -> load(name.substring(0, name.length() - 5))).filter(Objects::nonNull)
+                    .map(p -> new Summary(p.id(), p.name(),
                             p.version(), p.instanceId(), p.scopes(), p.createdAt(), p.lastSeenAt(), state(p)))
                     .sorted(java.util.Comparator.comparing(Summary::createdAt).reversed()).toList();
         } catch (IOException e) { throw new UncheckedIOException(e); }
@@ -184,9 +189,13 @@ public class FresnelPairings {
 
     private Stored load(String id) {
         if (!matches(UUID_TEXT, id)) return null;
-        Path file = directory.resolve(id + ".json");
-        try { return json.readValue(Files.readAllBytes(file), Stored.class); }
-        catch (java.nio.file.NoSuchFileException e) { return null; }
+        Path file = directory.resolve(id + ".json").normalize();
+        if (!file.startsWith(directory) || !Files.isRegularFile(file, NOFOLLOW_LINKS)) return null;
+        try (var input = Files.newInputStream(file, NOFOLLOW_LINKS)) {
+            Stored stored = json.readValue(input, Stored.class);
+            return stored != null && id.equals(stored.id()) ? stored : null;
+        }
+        catch (NoSuchFileException e) { return null; }
         catch (IOException e) { throw new UncheckedIOException(e); }
     }
 

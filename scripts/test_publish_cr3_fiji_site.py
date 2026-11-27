@@ -44,6 +44,12 @@ def archive(root, version, timestamp, example=None):
 class WorkflowRecoveryTest(unittest.TestCase):
     workflow = (builder.ROOT / '.github/workflows/cr3-fiji-distribution.yml').read_text()
 
+    def test_bundle_cannot_write_to_actions_caches(self):
+        bundle = self.workflow.split('\n  bundle:\n', 1)[1]
+        bundle = re.split(r'\n  [\w-]+:\n', bundle, maxsplit=1)[0]
+        self.assertIsNotNone(re.search(r'^    cache-mode: (read|none)$', bundle, re.MULTILINE),
+                             'The Fiji bundle must not have Actions cache write access')
+
     def test_selects_latest_nonexpired_retry_artifact_across_pages(self):
         command = re.search(r'^ *artifact=\$\((.*)\)$', self.workflow, re.MULTILINE).group(1)
         pages = [{'artifacts': [{'name': 'cr3-fiji-distribution-1', 'id': 11, 'expired': False}]},

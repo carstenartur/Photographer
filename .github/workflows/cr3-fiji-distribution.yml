@@ -78,6 +78,8 @@ jobs:
 
   bundle:
     needs: source
+    # Manually dispatched tag builds can use the main cache scope. Allow restores only.
+    cache-mode: read
     permissions:
       contents: read
       actions: read

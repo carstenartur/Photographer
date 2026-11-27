@@ -1,6 +1,8 @@
 package com.photographer.focusstack.fresnel;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
@@ -57,6 +59,21 @@ class FresnelPairingsTest {
             assertEquals(400, assertThrows(FresnelProblem.class, () -> pairings.issue(bad, FresnelPairings.SCOPES)).status());
         }
         assertEquals("https://example.org:8443", pairings.issue("https://example.org:8443", FresnelPairings.SCOPES).baseUrl());
+    }
+
+    @Test @DisabledOnOs(OS.WINDOWS)
+    void symlinkedPairingIsIgnoredByAuthorizationAndListing() throws Exception {
+        var pairings = store();
+        var grant = pairings.issue("https://photographer.example", List.of("fresnel:descriptor:read"));
+        var pairing = pairings.exchange(new FresnelPairings.PairRequest(grant.pairingCode(), "client", "Lab", "1.0", 1),
+                "192.0.2.1");
+        var file = directory.resolve("pairings").resolve(pairing.pairingId() + ".json");
+        var moved = Files.move(file, directory.resolve("detached-pairing.json"));
+        Files.createSymbolicLink(file, moved);
+
+        assertEquals("AUTHENTICATION_FAILED", assertThrows(FresnelProblem.class,
+                () -> pairings.authorize("Bearer " + pairing.bearerToken(), null)).code());
+        assertTrue(pairings.list().isEmpty());
     }
 
     @Test void failedTokensAreThrottledPerPeer() {
