@@ -96,6 +96,7 @@
         <hibernate-search.version>8.4.1.Final</hibernate-search.version>
         <hibernate.version>7.4.0.Final</hibernate.version>
         <testcontainers.version>1.21.4</testcontainers.version>
+        <commons-compress.version>1.28.0</commons-compress.version>
         <springdoc.version>3.2.0</springdoc.version>
         <imagej.version>1.54j</imagej.version>
         <picocli.version>4.7.7</picocli.version>
@@ -156,6 +157,13 @@
                 <groupId>org.testcontainers</groupId>
                 <artifactId>postgresql</artifactId>
                 <version>${testcontainers.version}</version>
+            </dependency>
+            <!-- Testcontainers pulls Commons Compress transitively.
+                 Use a version patched for CVE-2024-26308 and CVE-2024-25710. -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.springdoc</groupId>
